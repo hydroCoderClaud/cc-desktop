@@ -179,7 +179,17 @@ async function openAddModal() {
   document.getElementById('profileServiceProvider').value = 'official';
   document.getElementById('profileBaseUrl').value = 'https://api.anthropic.com';
   document.getElementById('modelTierSonnet').checked = true;
-  document.getElementById('profileRequestTimeout').value = 120;
+
+  // Load timeout from global config
+  try {
+    const globalTimeout = await window.electronAPI.getTimeout();
+    const timeoutSeconds = globalTimeout && globalTimeout.request ? globalTimeout.request / 1000 : 120;
+    document.getElementById('profileRequestTimeout').value = timeoutSeconds;
+  } catch (error) {
+    console.error('Failed to load global timeout:', error);
+    document.getElementById('profileRequestTimeout').value = 120;
+  }
+
   document.getElementById('profileDisableTraffic').checked = true;
   selectedIcon = '🟣';
 

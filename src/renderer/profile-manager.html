@@ -633,6 +633,21 @@
       cursor: pointer;
     }
 
+    .tooltip-icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      background: #999;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      font-size: 12px;
+      line-height: 16px;
+      cursor: help;
+      margin-left: 4px;
+      font-weight: normal;
+    }
+
     .icon-picker {
       display: grid;
       grid-template-columns: repeat(8, 1fr);
@@ -778,8 +793,8 @@
           </div>
 
           <div class="form-group">
-            <label>认证方式 <span class="required">*</span></label>
-            <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+            <label>认证方式 <span class="required">*</span> <span class="tooltip-icon" title="API Key: 官方 API | Auth Token: 代理/自建网关">?</span></label>
+            <div style="display: flex; gap: 15px;">
               <label class="radio-label">
                 <input type="radio" name="authType" value="api_key" id="authTypeKey" checked />
                 <span>API Key</span>
@@ -789,26 +804,21 @@
                 <span>Auth Token</span>
               </label>
             </div>
-            <div class="description">
-              API Key: 官方 API | Auth Token: 代理/自建网关
-            </div>
           </div>
         </div>
 
         <div class="form-group">
-          <label>认证令牌 <span class="required">*</span></label>
+          <label>认证令牌 <span class="required">*</span> <span class="tooltip-icon" title="从服务商获取的 API 令牌">?</span></label>
           <div class="input-with-icon">
             <input type="password" id="profileAuthToken" name="authToken" placeholder="sk-ant-api03-..." required />
             <button type="button" class="toggle-password" id="toggleProfileAuthToken" title="显示/隐藏">👁️</button>
           </div>
-          <div class="description">从服务商获取的 API 令牌</div>
         </div>
 
         <div class="form-row-modal">
           <div class="form-group">
-            <label>API 基础 URL</label>
+            <label>API 基础 URL <span class="tooltip-icon" title="默认为官方地址">?</span></label>
             <input type="text" id="profileBaseUrl" name="baseUrl" placeholder="https://api.anthropic.com" />
-            <div class="description">默认为官方地址</div>
           </div>
 
           <div class="form-group">
@@ -857,22 +867,17 @@
           </div>
         </div>
 
-        <!-- 高级配置（所有服务显示） -->
-        <div class="form-group">
-          <label>高级配置</label>
-          <div class="form-row-modal" style="margin-top: 8px;">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 13px;">请求超时（秒）</label>
-              <input type="number" id="profileRequestTimeout" name="requestTimeout" value="120" min="10" max="3600" />
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <div class="checkbox-group">
-                <input type="checkbox" id="profileDisableTraffic" name="disableNonessentialTraffic" checked />
-                <label for="profileDisableTraffic" style="font-size: 13px;">禁用非必要流量</label>
-              </div>
+        <div class="form-row-modal">
+          <div class="form-group">
+            <label>请求超时（秒）</label>
+            <input type="number" id="profileRequestTimeout" name="requestTimeout" value="120" min="10" max="3600" />
+          </div>
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="profileDisableTraffic" name="disableNonessentialTraffic" checked />
+              <label for="profileDisableTraffic">禁用非必要流量</label>
             </div>
           </div>
-          <div class="description">请求超时时间和 Claude Code CLI 相关配置</div>
         </div>
 
         <div class="form-group">
@@ -897,9 +902,8 @@
         </div>
 
         <div class="form-group">
-          <label>配置描述</label>
+          <label>配置描述 <span class="tooltip-icon" title="可选，用于标识此配置的用途">?</span></label>
           <input type="text" id="profileDescription" name="description" placeholder="例如：公司项目专用配置" />
-          <div class="description">可选，用于标识此配置的用途</div>
         </div>
 
         <div class="button-group" style="display: flex; justify-content: flex-end; gap: 10px;">
