@@ -110,7 +110,7 @@ function renderProfiles() {
           <div class="detail-row">
             <div class="detail-item-inline">
               <span class="detail-label">类别：</span>
-              <span class="detail-value">${getCategoryName(profile.category)}</span>
+              <span class="detail-value">${getCategoryName(profile.category || profile.serviceProvider)}</span>
             </div>
             ${profile.description ? `
             <div class="detail-item-inline">
@@ -129,7 +129,7 @@ function renderProfiles() {
             </div>
             <div class="detail-item-inline">
               <span class="detail-label">模型：</span>
-              <span class="detail-value">${escapeHtml(profile.model)}</span>
+              <span class="detail-value">${getModelDisplay(profile)}</span>
             </div>
             <div class="detail-item-inline">
               <span class="detail-label">代理：</span>
@@ -467,9 +467,44 @@ function getCategoryName(category) {
   const categoryMap = {
     'official': '官方 API',
     'proxy': '中转服务',
-    'third_party': '第三方服务'
+    'third_party': '第三方服务',
+    // 兼容旧的 serviceProvider 值
+    'zhipu': '智谱AI',
+    'minimax': 'MiniMax',
+    'qwen': '阿里千问',
+    'other': '其他第三方'
   };
   return categoryMap[category] || '未知';
+}
+
+/**
+ * 获取模型显示名称
+ */
+function getModelDisplay(profile) {
+  // 如果有 model 字段，直接返回
+  if (profile.model) {
+    return escapeHtml(profile.model);
+  }
+
+  // 兼容旧配置：使用 selectedModelTier 和 modelMapping
+  if (profile.selectedModelTier) {
+    const tier = profile.selectedModelTier; // opus, sonnet, haiku
+
+    // 如果有自定义模型映射，使用映射的模型
+    if (profile.modelMapping && profile.modelMapping[tier]) {
+      return escapeHtml(profile.modelMapping[tier]);
+    }
+
+    // 否则显示模型等级
+    const tierMap = {
+      'opus': '🚀 Opus',
+      'sonnet': '⚡ Sonnet',
+      'haiku': '💨 Haiku'
+    };
+    return tierMap[tier] || escapeHtml(tier);
+  }
+
+  return '未配置';
 }
 
 /**
