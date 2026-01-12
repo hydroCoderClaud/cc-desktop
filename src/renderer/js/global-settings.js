@@ -159,12 +159,11 @@ async function resetToDefaults() {
 function showMessage(message, type) {
   const messageEl = document.getElementById('statusMessage');
   messageEl.textContent = message;
-  messageEl.className = `status-message ${type}`;
-  messageEl.style.display = 'block';
+  messageEl.className = `status-message ${type} show`;
 
   // Auto-hide after 3 seconds
   setTimeout(() => {
-    messageEl.style.display = 'none';
+    messageEl.classList.remove('show');
   }, 3000);
 }
 
