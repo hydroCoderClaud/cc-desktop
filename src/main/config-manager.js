@@ -496,6 +496,11 @@ class ConfigManager {
 
     return config;
   }
+
+  /**
+   * 迁移旧的单 API 配置到 apiProfiles
+   * @param {Object} config - 配置对象
+   * @returns {Object} - 迁移后的配置
    */
   migrateToProfiles(config) {
     // 如果已经有 apiProfiles 且不为空，不需要迁移
