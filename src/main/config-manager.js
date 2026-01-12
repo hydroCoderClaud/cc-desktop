@@ -319,7 +319,7 @@ class ConfigManager {
         serviceProvider: defaultProfile.serviceProvider || 'official',
         selectedModelTier: defaultProfile.selectedModelTier || 'sonnet',
         modelMapping: defaultProfile.modelMapping || null,
-        requestTimeout: defaultProfile.requestTimeout || TIMEOUTS.API_REQUEST,
+        requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
         disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
         useProxy: defaultProfile.useProxy,
         httpsProxy: defaultProfile.httpsProxy,
@@ -460,7 +460,9 @@ class ConfigManager {
         profile.modelMapping = null;
       }
       if (profile.requestTimeout === undefined) {
-        profile.requestTimeout = TIMEOUTS.API_REQUEST;
+        // Use global timeout as default
+        const globalTimeout = this.getTimeout();
+        profile.requestTimeout = globalTimeout.request;
       }
       if (profile.disableNonessentialTraffic === undefined) {
         profile.disableNonessentialTraffic = true;
@@ -589,6 +591,9 @@ class ConfigManager {
       this.config.apiProfiles = [];
     }
 
+    // Get global timeout as default value
+    const globalTimeout = this.getTimeout();
+
     const newProfile = {
       id: uuidv4(),
       name: profileData.name || 'New Profile',
@@ -605,6 +610,9 @@ class ConfigManager {
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       icon: profileData.icon || '🔵',
+      // Use global timeout as default
+      requestTimeout: profileData.requestTimeout || globalTimeout.request,
+      disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
       // 每个 Profile 独立的模型列表
       customModels: profileData.customModels || [
         { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
@@ -869,11 +877,17 @@ class ConfigManager {
         resolve(result);
       };
       
-      // Global timeout protection: 15 seconds
+      // Use global timeout configuration for connection test
+      const globalTimeout = this.getTimeout();
+      const testTimeoutMs = globalTimeout.test || TIMEOUTS.API_TEST;
+      const testTimeoutSec = testTimeoutMs / 1000;
+      
+      console.log(`[API Test] Using test timeout: ${testTimeoutSec}s`);
+      
       globalTimer = setTimeout(() => {
-        console.error('[API Test] Global timeout (15s)');
-        safeResolve({ success: false, message: '连接超时（15秒无响应）' });
-      }, 15000);
+        console.error(`[API Test] Global timeout (${testTimeoutSec}s)`);
+        safeResolve({ success: false, message: `连接超时（${testTimeoutSec}秒无响应）` });
+      }, testTimeoutMs);
       
       try {
         // 1. 构造完整 URL
