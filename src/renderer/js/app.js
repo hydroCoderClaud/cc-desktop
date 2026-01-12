@@ -397,8 +397,8 @@ function openAPISettings() {
     return;
   }
 
-  window.electronAPI.openSettings();
-  console.log('[App] Opening API settings window');
+  window.electronAPI.openProfileManager();
+  console.log('[App] Opening profile manager window');
 }
 
 /**
