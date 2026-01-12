@@ -794,7 +794,7 @@
 
           <div class="form-group">
             <label>认证方式 <span class="required">*</span> <span class="tooltip-icon" title="API Key: 官方 API | Auth Token: 代理/自建网关">?</span></label>
-            <div style="display: flex; gap: 15px;">
+            <div style="display: flex; gap: 15px; align-items: center; min-height: 44px;">
               <label class="radio-label">
                 <input type="radio" name="authType" value="api_key" id="authTypeKey" checked />
                 <span>API Key</span>
@@ -822,8 +822,8 @@
           </div>
 
           <div class="form-group">
-            <label>默认模型</label>
-            <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+            <label>默认模型 <span class="tooltip-icon" title="选择会话启动时默认使用的模型等级">?</span></label>
+            <div style="display: flex; gap: 15px; align-items: center; min-height: 44px;">
               <label class="radio-label">
                 <input type="radio" name="selectedModelTier" value="opus" id="modelTierOpus" />
                 <span>🚀 Opus</span>
@@ -837,7 +837,6 @@
                 <span>💨 Haiku</span>
               </label>
             </div>
-            <div class="description">选择会话启动时默认使用的模型等级</div>
           </div>
         </div>
 
