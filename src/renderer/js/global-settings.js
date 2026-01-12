@@ -142,9 +142,6 @@ async function resetToDefaults() {
 
     showMessage('已恢复默认设置', 'success');
 
-    // Reload settings to show actual saved values
-    await loadSettings();
-
   } catch (error) {
     console.error('[Global Settings] Error resetting to defaults:', error);
     showMessage('恢复默认失败: ' + error.message, 'error');
