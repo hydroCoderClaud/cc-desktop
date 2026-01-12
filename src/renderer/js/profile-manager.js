@@ -58,6 +58,7 @@ async function loadCurrentProfile() {
 async function loadProfiles() {
   try {
     profiles = await window.electronAPI.listAPIProfiles();
+    console.log('[Profile Manager] Loaded profiles:', profiles.length);
     renderProfiles();
   } catch (error) {
     console.error('[Profile Manager] Failed to load profiles:', error);
@@ -80,6 +81,7 @@ function escapeHtml(text) {
  */
 function renderProfiles() {
   const listEl = document.getElementById('profilesList');
+  console.log('[Profile Manager] Rendering profiles, count:', profiles ? profiles.length : 0);
 
   if (!profiles || profiles.length === 0) {
     listEl.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">暂无配置，请添加新配置</p>';
@@ -368,8 +370,10 @@ async function saveProfile(event) {
     // 不关闭模态框，保持打开状态供继续编辑
 
     // 重新加载列表以显示最新状态
+    console.log('[Profile Manager] Reloading profiles after save...');
     await loadProfiles();
     await loadCurrentProfile();
+    console.log('[Profile Manager] Profiles reloaded, count:', profiles.length);
   } catch (error) {
     console.error('[Profile Manager] Failed to save profile:', error);
     showModalAlert('✗ 保存配置失败', 'error');
