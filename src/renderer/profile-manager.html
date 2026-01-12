@@ -601,22 +601,24 @@
 
     .model-add-form {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 0;
       padding-top: 12px;
       border-top: 1px solid #ddd;
     }
 
     .model-add-form input {
-      flex: 1;
-      padding: 6px 10px;
+      width: 100%;
+      padding: 8px 12px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 12px;
+      font-family: 'Consolas', monospace;
     }
 
     .model-add-form button {
-      padding: 6px 16px;
-      font-size: 12px;
+      padding: 8px 16px;
+      font-size: 13px;
     }
 
     .checkbox-group {
@@ -819,28 +821,35 @@
             <!-- 模型管理面板 -->
             <div class="model-manager" id="modelManager" style="display: none;">
               <div class="model-manager-header">
-                <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
                   <span style="font-weight: 500;">管理模型列表</span>
-                  <div id="batchActionsGroup" style="display: none; align-items: center; gap: 8px;">
-                    <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666;">
-                      <input type="checkbox" id="selectAllModels" onchange="toggleSelectAllModels()" style="cursor: pointer;">
-                      <span>全选</span>
-                    </label>
-                    <button type="button" class="btn btn-danger" style="font-size: 12px; padding: 4px 12px;" onclick="batchDeleteModels()" id="batchDeleteBtn">删除选中</button>
+                  <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 4px 12px;" onclick="fetchOfficialModels()">获取模型列表</button>
+                    <button type="button" class="btn-link-small" onclick="toggleModelManager()">收起</button>
                   </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                  <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 4px 12px;" onclick="fetchOfficialModels()">获取模型列表</button>
-                  <button type="button" class="btn-link-small" onclick="toggleModelManager()">收起</button>
+              </div>
+
+              <!-- 批量操作行 -->
+              <div id="batchActionsGroup" style="display: none; padding: 8px 0; border-bottom: 1px solid #ddd; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #333;">
+                    <input type="checkbox" id="selectAllModels" onchange="toggleSelectAllModels()" style="cursor: pointer; width: 18px; height: 18px;">
+                    <span>全选</span>
+                  </label>
+                  <button type="button" class="btn btn-danger" style="font-size: 12px; padding: 6px 16px;" onclick="batchDeleteModels()" id="batchDeleteBtn">删除选中</button>
                 </div>
               </div>
+
               <div class="model-list" id="modelList">
                 <!-- 动态加载模型列表 -->
               </div>
+
+              <!-- 添加模型表单 -->
               <div class="model-add-form">
-                <input type="text" id="newModelName" placeholder="模型名称，如: claude-opus-4-5-20251101" />
-                <input type="text" id="newModelLabel" placeholder="显示标签，如: Opus 4.5 - 最强大" />
-                <button type="button" class="btn btn-secondary" onclick="addNewModel()">添加</button>
+                <input type="text" id="newModelName" placeholder="模型名称，如: claude-opus-4-5-20251101" style="margin-bottom: 8px;" />
+                <input type="text" id="newModelLabel" placeholder="显示标签，如: Opus 4.5 - 最强大" style="margin-bottom: 8px;" />
+                <button type="button" class="btn btn-secondary" onclick="addNewModel()" style="width: 100%;">添加模型</button>
               </div>
             </div>
           </div>

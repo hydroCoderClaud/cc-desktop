@@ -581,9 +581,9 @@ async function loadCustomModels() {
             </div>
           </div>
         `).join('');
-        // 显示批量操作按钮
+        // 显示批量操作行
         if (batchActionsGroup) {
-          batchActionsGroup.style.display = 'flex';
+          batchActionsGroup.style.display = 'block';
         }
         // 重置全选状态
         const selectAllCheckbox = document.getElementById('selectAllModels');
