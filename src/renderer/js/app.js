@@ -401,6 +401,19 @@ function openAPISettings() {
   console.log('[App] Opening API settings window');
 }
 
+/**
+ * 打开全局设置窗口
+ */
+function openGlobalSettings() {
+  if (!window.electronAPI) {
+    showToast('Electron API not available', 'error');
+    return;
+  }
+
+  window.electronAPI.openGlobalSettings();
+  console.log('[App] Opening global settings window');
+}
+
 // ========================================
 // 事件绑定
 // ========================================
