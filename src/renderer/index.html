@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Desktop</title>
+
+  <!-- Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+    font-src 'self' data: https://fonts.gstatic.com;
+    img-src 'self' data: https:;
+    connect-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com;
+  ">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- xterm.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+
+  <style>
+    :root {
+      --bg-warm: #f5f5f0;
+      --sidebar-bg: #ffffff;
+      --primary-orange: #ff6b35;
+      --text-primary: #2d2d2d;
+      --text-secondary: #8c8c8c;
+      --border-color: #e5e5e0;
+      --card-bg: #ffffff;
+      --warning-bg: #fef9e7;
+      --warning-border: #f4d03f;
+    }
+
+    /* Dark Theme */
+    .dark-theme {
+      --bg-warm: #1a1a1a;
+      --sidebar-bg: #242424;
+      --primary-orange: #ff6b35;
+      --text-primary: #e8e8e8;
+      --text-secondary: #9a9a9a;
+      --border-color: #333333;
+      --card-bg: #2a2a2a;
+      --warning-bg: #3a3a1a;
+      --warning-border: #f4d03f;
+    }
+
+    body {
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .sidebar, .main-header, .selector, .action-btn {
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      background: var(--bg-warm);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo {
+      font-family: 'Crimson Pro', serif;
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .new-session-btn {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      margin: 12px 0;
+      padding: 10px 16px;
+      background: var(--primary-orange);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .new-session-btn:hover {
+      background: #ff5722;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+    }
+
+    .sessions-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .sessions-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px;
+    }
+
+    .session-item {
+      padding: 12px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .session-item:hover {
+      background: var(--bg-warm);
+    }
+
+    .session-item.active {
+      background: var(--bg-warm);
+      border-left: 3px solid var(--primary-orange);
+      padding-left: 9px;
+    }
+
+    .session-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .session-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .session-path {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      border-top: 1px solid var(--border-color);
+      padding: 12px;
+    }
+
+    .api-config-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .api-config-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .api-config-btn .icon {
+      font-size: 16px;
+    }
+
+    .api-config-btn .text {
+      flex: 1;
+      text-align: left;
+    }
+
+    .api-config-btn .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+      display: none;
+    }
+
+    .api-config-btn .status-indicator.active {
+      display: block;
+    }
+
+    .api-config-btn .status-indicator.error {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 4px;
+    }
+
+    .user-section {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-info {
+      flex: 1;
+    }
+
+    .user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .user-plan {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .theme-toggle-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--bg-warm);
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 18px;
+    }
+
+    .theme-toggle-btn:hover {
+      transform: scale(1.05);
+      border-color: var(--text-secondary);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .main-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--sidebar-bg);
+    }
+
+    .session-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .project-path {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+    }
+
+    .main-area {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Terminal Container */
+    .terminal-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 16px;
+      display: none;
+    }
+
+    .terminal-container.visible {
+      display: block;
+    }
+
+    #terminal {
+      height: 100%;
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 16px;
+      transition: background-color 0.3s ease;
+    }
+
+    .dark-theme #terminal {
+      background: #0d0d0d;
+    }
+
+    /* Empty State */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 680px;
+      width: calc(100% - 48px);
+      text-align: center;
+    }
+
+    .empty-state.hidden {
+      display: none;
+    }
+
+    .pixel-mascot {
+      font-size: 80px;
+      margin-bottom: 32px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .selectors-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      justify-content: center;
+    }
+
+    .selector {
+      min-width: 200px;
+      padding: 12px 16px;
+      background: white;
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selector:hover {
+      border-color: var(--text-secondary);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    .connect-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 24px;
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      background: white;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .action-btn:hover {
+      border-color: var(--text-primary);
+      background: var(--bg-warm);
+    }
+
+    .connect-btn {
+      background: var(--primary-orange);
+      color: white;
+      border-color: var(--primary-orange);
+      padding: 12px 32px;
+      font-weight: 600;
+    }
+
+    .connect-btn:hover {
+      background: #ff5722;
+      border-color: #ff5722;
+      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+    }
+
+    .disconnect-btn {
+      background: #e74c3c;
+      color: white;
+      border-color: #e74c3c;
+    }
+
+    .disconnect-btn:hover {
+      background: #c0392b;
+      border-color: #c0392b;
+    }
+
+    .warning-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 10px;
+      margin-top: 32px;
+    }
+
+    .warning-icon {
+      color: #f39c12;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .warning-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #856404;
+    }
+
+    .dark-theme .warning-text {
+      color: #f4d03f;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: white;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-color: #27ae60;
+      color: #27ae60;
+    }
+
+    .toast.error {
+      border-color: #e74c3c;
+      color: #e74c3c;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #d0d0c8;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #b0b0a8;
+    }
+
+    .dark-theme ::-webkit-scrollbar-thumb {
+      background: #444444;
+    }
+
+    .dark-theme ::-webkit-scrollbar-thumb:hover {
+      background: #555555;
+    }
+
+    /* Dark theme: white background components need dark text */
+    .dark-theme .selector {
+      color: #2d2d2d;
+    }
+
+    .dark-theme .action-btn {
+      color: #2d2d2d;
+    }
+
+    .dark-theme .action-btn:hover {
+      background: #f5f5f0;
+    }
+
+    .dark-theme .toast {
+      color: #2d2d2d;
+    }
+
+    .dark-theme .toast.success {
+      color: #27ae60;
+    }
+
+    .dark-theme .toast.error {
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">Claude Code</div>
+
+        <button class="new-session-btn" id="newProjectBtn">
+          <span style="font-size: 18px;">+</span>
+          New session
+        </button>
+      </div>
+
+      <div class="sessions-header">
+        <span>Projects</span>
+      </div>
+
+      <div class="sessions-list" id="projectList">
+        <!-- Projects will be loaded here -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="api-config-btn" id="apiConfigBtn" title="API 配置">
+          <span class="icon">🔑</span>
+          <span class="text">API 配置</span>
+          <span class="status-indicator" id="apiStatusIndicator"></span>
+        </button>
+
+        <div class="footer-actions">
+          <div class="user-section">
+            <div class="user-info">
+              <div class="user-name">本地模式</div>
+              <div class="user-plan">Desktop User</div>
+            </div>
+          </div>
+          <button class="theme-toggle-btn" id="themeToggleBtn" title="切换主题">
+            <span id="themeIcon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="main-header">
+        <div>
+          <div class="session-name" id="currentSessionName">Welcome</div>
+        </div>
+        <div class="project-path" id="currentProjectPath">请选择项目</div>
+      </div>
+
+      <div class="main-area">
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+          <div class="pixel-mascot">🤖</div>
+
+          <div class="selectors-row">
+            <div class="selector" id="projectSelector">
+              <span>📁</span>
+              <span id="selectedProjectName">Select project</span>
+            </div>
+            <div class="selector" id="configSelector">
+              <span>⚙️</span>
+              <span>Default config</span>
+            </div>
+          </div>
+
+          <div class="connect-actions">
+            <button class="action-btn connect-btn" id="connectBtn">
+              <span>▶️</span>
+              <span>Connect</span>
+            </button>
+          </div>
+
+          <div class="warning-box">
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-text">
+              Claude Code Desktop will access files in the selected project folder.
+              Make sure you trust the project directory.
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal Container -->
+        <div class="terminal-container" id="terminalContainer">
+          <div id="terminal"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+
+  <\!-- Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>

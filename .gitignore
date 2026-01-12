@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+*.exe
+*.dmg
+*.AppImage
+
+# Electron
+out/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# User data (这些会在用户的 AppData 目录中)
+# 不应该提交到仓库
+config.json
+data/
+
+# Temporary files
+*.tmp
+*.temp
