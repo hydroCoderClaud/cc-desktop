@@ -18,18 +18,45 @@ const PROXY_DEFAULTS = {
 
 // Timeout Settings
 const TIMEOUTS = {
-  API_TEST_GLOBAL: 15000,      // 15 seconds for connection test
-  API_TEST_REQUEST: 10000,     // 10 seconds for individual request
-  MODEL_FETCH_GLOBAL: 10000,   // 10 seconds for model fetching
-  MODEL_FETCH_REQUEST: 8000    // 8 seconds for individual request
+  API_TEST: 30000,           // 30 seconds for connection test
+  API_REQUEST: 120000        // 120 seconds (2 minutes) for actual requests
 };
 
-// Default Models (for initialization)
-const DEFAULT_MODELS = [
-  { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-  { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-  { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-];
+// Service Providers
+const SERVICE_PROVIDERS = {
+  official: { label: '官方', needsMapping: false },
+  proxy: { label: '中转', needsMapping: false },
+  zhipu: { label: '智谱AI', needsMapping: true },
+  minimax: { label: 'MiniMax', needsMapping: true },
+  qwen: { label: '阿里千问', needsMapping: true },
+  other: { label: '其他第三方', needsMapping: true }
+};
+
+// Model Tiers
+const MODEL_TIERS = {
+  opus: {
+    label: 'Claude Opus',
+    description: '最强大的模型，适合复杂任务',
+    icon: '🚀'
+  },
+  sonnet: {
+    label: 'Claude Sonnet',
+    description: '平衡性能与速度',
+    icon: '⚡'
+  },
+  haiku: {
+    label: 'Claude Haiku',
+    description: '快速响应',
+    icon: '💨'
+  }
+};
+
+// Default Global Models (for official/proxy services)
+const DEFAULT_GLOBAL_MODELS = {
+  opus: 'claude-opus-4-5-20251101',
+  sonnet: 'claude-sonnet-4-5-20250929',
+  haiku: 'claude-haiku-4-0-20250107'
+};
 
 // Profile Icons
 const PROFILE_ICONS = [
@@ -42,6 +69,8 @@ module.exports = {
   API_DEFAULTS,
   PROXY_DEFAULTS,
   TIMEOUTS,
-  DEFAULT_MODELS,
+  SERVICE_PROVIDERS,
+  MODEL_TIERS,
+  DEFAULT_GLOBAL_MODELS,
   PROFILE_ICONS
 };
