@@ -866,13 +866,13 @@
           </div>
         </div>
 
-        <div class="form-row-modal">
+        <div class="form-row-modal" style="align-items: flex-end;">
           <div class="form-group">
             <label>请求超时（秒）</label>
-            <input type="number" id="profileRequestTimeout" name="requestTimeout" value="120" min="10" max="3600" />
+            <input type="number" id="profileRequestTimeout" name="requestTimeout" value="120" min="10" max="3600" style="width: 150px;" />
           </div>
-          <div class="form-group">
-            <div class="checkbox-group">
+          <div class="form-group" style="margin-bottom: 0;">
+            <div class="checkbox-group" style="min-height: 44px; align-items: center;">
               <input type="checkbox" id="profileDisableTraffic" name="disableNonessentialTraffic" checked />
               <label for="profileDisableTraffic">禁用非必要流量</label>
             </div>
