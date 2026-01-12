@@ -22,13 +22,9 @@ class ConfigManager {
       // 多 API 配置支持
       apiProfiles: [],
       defaultProfileId: null,  // 默认 Profile（启动时推荐使用）
-      
-      // 自定义模型列表（用于官方/中转服务）
-      customModels: [
-        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-      ],
+
+      // 自定义模型列表（已废弃，每个 Profile 独立管理）
+      customModels: [],
       
       settings: {
         theme: 'light',
@@ -363,16 +359,12 @@ class ConfigManager {
     }
 
     let modified = false;
-    const defaultModels = [
-      { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-      { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-      { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-    ];
 
     config.apiProfiles.forEach(profile => {
-      if (!profile.customModels || profile.customModels.length === 0) {
-        console.log('[ConfigManager] Adding customModels to profile:', profile.id);
-        profile.customModels = [...defaultModels];
+      // 只在字段不存在时初始化为空数组，不自动填充默认模型
+      if (!profile.customModels) {
+        console.log('[ConfigManager] Initializing empty customModels for profile:', profile.id);
+        profile.customModels = [];
         modified = true;
       }
     });
@@ -488,12 +480,8 @@ class ConfigManager {
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       icon: profileData.icon || '🔵',
-      // 每个 Profile 独立的模型列表
-      customModels: profileData.customModels || [
-        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-      ]
+      // 每个 Profile 独立的模型列表，初始化为空，用户手动维护
+      customModels: profileData.customModels || []
     };
 
     // 如果是第一个 Profile，自动设为默认
@@ -643,17 +631,13 @@ class ConfigManager {
       console.error('[ConfigManager] getCustomModels: profile not found:', profileId);
       return [];
     }
-    
-    // 如果 profile 没有模型列表，初始化默认模型
-    if (!profile.customModels || profile.customModels.length === 0) {
-      profile.customModels = [
-        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-      ];
-      this.save();
+
+    // 如果 profile 没有 customModels 字段（undefined），初始化为空数组
+    // 但不自动填充默认模型，保持为空，让用户手动维护
+    if (!profile.customModels) {
+      profile.customModels = [];
     }
-    
+
     return profile.customModels;
   }
 
