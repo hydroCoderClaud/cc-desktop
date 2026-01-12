@@ -28,7 +28,7 @@
       margin: 0 auto;
       background: white;
       border-radius: 12px;
-      padding: 30px;
+      padding: 25px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -48,7 +48,7 @@
     }
 
     .section {
-      margin-bottom: 35px;
+      margin-bottom: 25px;
     }
 
     .section-title {
@@ -63,7 +63,7 @@
     .section-desc {
       font-size: 13px;
       color: #666;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
       line-height: 1.5;
     }
 
@@ -82,7 +82,7 @@
     .form-group input[type="text"],
     .form-group input[type="number"] {
       width: 100%;
-      padding: 10px 12px;
+      padding: 12px 14px;
       border: 1px solid #d1d1d1;
       border-radius: 6px;
       font-size: 14px;
@@ -127,6 +127,16 @@
 
     .model-input-row input {
       flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #d1d1d1;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .model-input-row input:focus {
+      outline: none;
+      border-color: #d4a574;
     }
 
     .timeout-inputs {
@@ -139,8 +149,8 @@
       display: flex;
       gap: 12px;
       justify-content: flex-end;
-      margin-top: 30px;
-      padding-top: 20px;
+      margin-top: 20px;
+      padding-top: 15px;
       border-top: 1px solid #e8e8e8;
     }
 
@@ -211,12 +221,6 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div>
-        <h1>⚙️ 全局设置</h1>
-      </div>
-    </div>
-
     <div id="statusMessage" class="status-message"></div>
 
     <!-- Global Models Section -->

@@ -108,6 +108,9 @@ async function saveSettings() {
 
     showMessage('设置已保存', 'success');
 
+    // Reload settings to show actual saved values
+    await loadSettings();
+
   } catch (error) {
     console.error('[Global Settings] Error saving settings:', error);
     showMessage('保存失败: ' + error.message, 'error');
@@ -140,6 +143,9 @@ async function resetToDefaults() {
     });
 
     showMessage('已恢复默认设置', 'success');
+
+    // Reload settings to show actual saved values
+    await loadSettings();
 
   } catch (error) {
     console.error('[Global Settings] Error resetting to defaults:', error);
