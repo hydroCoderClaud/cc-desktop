@@ -504,20 +504,25 @@
     }
 
     .toggle-password {
-      position: absolute;
-      right: 8px;
       background: transparent;
-      border: none;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 18px;
+      font-size: 16px;
       padding: 4px 8px;
-      opacity: 0.6;
-      transition: opacity 0.2s;
+      opacity: 0.7;
+      transition: all 0.2s;
       line-height: 1;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .toggle-password:hover {
       opacity: 1;
+      background: #f5f5f5;
+      border-color: #d4a574;
     }
 
     .radio-label {
@@ -809,11 +814,11 @@
         </div>
 
         <div class="form-group">
-          <label>认证令牌 <span class="required">*</span> <span class="tooltip-icon" title="从服务商获取的 API 令牌">?</span></label>
-          <div class="input-with-icon">
-            <input type="password" id="profileAuthToken" name="authToken" placeholder="sk-ant-api03-..." required />
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">认证令牌 <span class="required">*</span> <span class="tooltip-icon" title="从服务商获取的 API 令牌">?</span></label>
             <button type="button" class="toggle-password" id="toggleProfileAuthToken" title="显示/隐藏">👁️</button>
           </div>
+          <input type="password" id="profileAuthToken" name="authToken" placeholder="sk-ant-api03-..." required />
         </div>
 
         <div class="form-row-modal">
