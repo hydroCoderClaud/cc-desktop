@@ -558,12 +558,19 @@ async function loadCustomModels() {
     
     // 更新模型管理面板的列表
     const modelList = document.getElementById('modelList');
+    const batchActionsGroup = document.getElementById('batchActionsGroup');
+
     if (modelList) {
       if (models.length === 0) {
         modelList.innerHTML = '<div style="text-align: center; color: #999; padding: 12px;">暂无自定义模型</div>';
+        // 隐藏批量操作按钮
+        if (batchActionsGroup) {
+          batchActionsGroup.style.display = 'none';
+        }
       } else {
         modelList.innerHTML = models.map(model => `
           <div class="model-item">
+            <input type="checkbox" class="model-checkbox" data-model-id="${model.id}" onchange="updateBatchDeleteButton()" style="width: 18px; height: 18px; cursor: pointer; margin-right: 12px;">
             <div class="model-item-info">
               <div class="model-item-name">${model.name}</div>
               <div class="model-item-label">${model.label}</div>
@@ -574,6 +581,15 @@ async function loadCustomModels() {
             </div>
           </div>
         `).join('');
+        // 显示批量操作按钮
+        if (batchActionsGroup) {
+          batchActionsGroup.style.display = 'flex';
+        }
+        // 重置全选状态
+        const selectAllCheckbox = document.getElementById('selectAllModels');
+        if (selectAllCheckbox) {
+          selectAllCheckbox.checked = false;
+        }
       }
     }
   } catch (error) {
@@ -777,6 +793,107 @@ async function deleteModel(modelId) {
   } catch (error) {
     console.error('[Profile Manager] Failed to delete model:', error);
     showAlert('删除失败', 'error');
+  }
+}
+
+/**
+ * 全选/取消全选模型
+ */
+function toggleSelectAllModels() {
+  const selectAllCheckbox = document.getElementById('selectAllModels');
+  const modelCheckboxes = document.querySelectorAll('.model-checkbox');
+
+  modelCheckboxes.forEach(checkbox => {
+    checkbox.checked = selectAllCheckbox.checked;
+  });
+
+  updateBatchDeleteButton();
+}
+
+/**
+ * 更新批量删除按钮状态
+ */
+function updateBatchDeleteButton() {
+  const selectedCheckboxes = document.querySelectorAll('.model-checkbox:checked');
+  const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+  const selectAllCheckbox = document.getElementById('selectAllModels');
+  const allCheckboxes = document.querySelectorAll('.model-checkbox');
+
+  if (batchDeleteBtn) {
+    if (selectedCheckboxes.length > 0) {
+      batchDeleteBtn.disabled = false;
+      batchDeleteBtn.textContent = `删除选中 (${selectedCheckboxes.length})`;
+    } else {
+      batchDeleteBtn.disabled = true;
+      batchDeleteBtn.textContent = '删除选中';
+    }
+  }
+
+  // 更新全选复选框状态
+  if (selectAllCheckbox && allCheckboxes.length > 0) {
+    selectAllCheckbox.checked = selectedCheckboxes.length === allCheckboxes.length;
+    selectAllCheckbox.indeterminate = selectedCheckboxes.length > 0 && selectedCheckboxes.length < allCheckboxes.length;
+  }
+}
+
+/**
+ * 批量删除选中的模型
+ */
+async function batchDeleteModels() {
+  const selectedCheckboxes = document.querySelectorAll('.model-checkbox:checked');
+
+  if (selectedCheckboxes.length === 0) {
+    showModalAlert('请先选择要删除的模型', 'warning');
+    return;
+  }
+
+  if (!confirm(`确定要删除选中的 ${selectedCheckboxes.length} 个模型吗？`)) {
+    return;
+  }
+
+  if (!editingProfileId) {
+    showModalAlert('无法删除模型：未选择配置', 'error');
+    return;
+  }
+
+  try {
+    const modelIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.dataset.modelId);
+    let successCount = 0;
+    let failCount = 0;
+
+    // 逐个删除
+    for (const modelId of modelIds) {
+      try {
+        const success = await window.electronAPI.deleteCustomModel({
+          profileId: editingProfileId,
+          modelId
+        });
+
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error('[Profile Manager] Failed to delete model:', modelId, error);
+        failCount++;
+      }
+    }
+
+    // 重新加载模型列表
+    await loadCustomModels();
+
+    // 显示结果
+    if (failCount === 0) {
+      showModalAlert(`✅ 成功删除 ${successCount} 个模型`, 'success');
+    } else if (successCount === 0) {
+      showModalAlert(`❌ 删除失败`, 'error');
+    } else {
+      showModalAlert(`⚠️ 删除完成：成功 ${successCount} 个，失败 ${failCount} 个`, 'warning');
+    }
+  } catch (error) {
+    console.error('[Profile Manager] Failed to batch delete models:', error);
+    showModalAlert('批量删除失败', 'error');
   }
 }
 
