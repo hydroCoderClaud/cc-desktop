@@ -43,3 +43,9 @@ data/
 # Temporary files
 *.tmp
 *.temp
+tmpclaude-*-cwd
+nul
+
+# Claude Code CLI artifacts
+.claude/
+.serena/
