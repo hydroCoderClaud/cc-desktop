@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
+const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
 
 class ConfigManager {
   constructor() {
@@ -82,13 +83,16 @@ class ConfigManager {
         const mergedConfig = this.deepMerge(this.defaultConfig, config);
         
         // 迁移旧的单 API 配置到 apiProfiles
-        const migratedConfig = this.migrateToProfiles(mergedConfig);
-
+        let migratedConfig = this.migrateToProfiles(mergedConfig);
+        
+        // 迁移 Profile 结构（category/model → serviceProvider/selectedModelTier）
+        migratedConfig = this.migrateProfileStructure(migratedConfig);
+        
         // 如果发生了迁移，保存新配置
         if (migratedConfig !== mergedConfig) {
           this.save(migratedConfig);
         }
-
+        
         return migratedConfig;
       }
 
@@ -396,6 +400,98 @@ class ConfigManager {
 
   /**
    * 迁移旧的单 API 配置到 apiProfiles 数组
+
+  /**
+   * 迁移 Profile 结构（从旧的 category/model/customModels 到新的 serviceProvider/selectedModelTier/modelMapping）
+   * @param {Object} config - 配置对象
+   * @returns {Object} - 迁移后的配置
+   */
+  migrateProfileStructure(config) {
+    if (!config.apiProfiles || config.apiProfiles.length === 0) {
+      return config;
+    }
+
+    let migrated = false;
+
+    config.apiProfiles = config.apiProfiles.map(profile => {
+      // 检查是否需要迁移（是否存在旧字段）
+      const needsMigration = profile.category !== undefined || 
+                            profile.model !== undefined || 
+                            profile.customModels !== undefined;
+
+      if (!needsMigration) {
+        return profile;
+      }
+
+      console.log(`[ConfigManager] Migrating profile structure for: ${profile.name}`);
+      migrated = true;
+
+      // 1. 迁移 category → serviceProvider
+      if (profile.category !== undefined && profile.serviceProvider === undefined) {
+        profile.serviceProvider = profile.category;
+        delete profile.category;
+      }
+
+      // 2. 迁移 model → selectedModelTier
+      if (profile.model !== undefined && profile.selectedModelTier === undefined) {
+        // 根据模型名称判断等级
+        const modelName = profile.model.toLowerCase();
+        if (modelName.includes('opus')) {
+          profile.selectedModelTier = 'opus';
+        } else if (modelName.includes('haiku')) {
+          profile.selectedModelTier = 'haiku';
+        } else {
+          profile.selectedModelTier = 'sonnet';  // 默认 Sonnet
+        }
+        delete profile.model;
+      }
+
+      // 3. 删除 customModels
+      if (profile.customModels !== undefined) {
+        delete profile.customModels;
+      }
+
+      // 4. 确保新字段存在
+      if (profile.modelMapping === undefined) {
+        profile.modelMapping = null;
+      }
+      if (profile.requestTimeout === undefined) {
+        profile.requestTimeout = TIMEOUTS.API_REQUEST;
+      }
+      if (profile.disableNonessentialTraffic === undefined) {
+        profile.disableNonessentialTraffic = true;
+      }
+
+      return profile;
+    });
+
+    // 5. 删除全局 customModels 配置（如果存在）
+    if (config.customModels !== undefined) {
+      console.log('[ConfigManager] Removing global customModels field');
+      delete config.customModels;
+      migrated = true;
+    }
+
+    // 6. 确保全局配置存在
+    if (config.globalModels === undefined) {
+      config.globalModels = { ...DEFAULT_GLOBAL_MODELS };
+      migrated = true;
+    }
+
+    if (config.timeout === undefined) {
+      config.timeout = {
+        test: TIMEOUTS.API_TEST,
+        request: TIMEOUTS.API_REQUEST
+      };
+      migrated = true;
+    }
+
+    if (migrated) {
+      console.log('[ConfigManager] Profile structure migration completed');
+    }
+
+    return config;
+  }
    */
   migrateToProfiles(config) {
     // 如果已经有 apiProfiles 且不为空，不需要迁移
@@ -429,22 +525,20 @@ class ConfigManager {
       name: '默认配置',
       authToken: authToken,
       authType: 'api_key',
-      category: 'official',
+      serviceProvider: 'official',
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
-      model: oldApi.model || 'claude-sonnet-4-5-20250929',
+      selectedModelTier: 'sonnet',  // Default to Sonnet
+      modelMapping: null,  // Not needed for official service
+      requestTimeout: TIMEOUTS.API_REQUEST,
+      disableNonessentialTraffic: true,
       useProxy: oldApi.useProxy || false,
       httpsProxy: oldApi.httpsProxy || '',
       httpProxy: oldApi.httpProxy || '',
       isDefault: true,
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
-      icon: '🟣',
-      customModels: [
-        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-      ]
+      icon: '🟣'
     };
 
     // 更新配置
@@ -491,22 +585,23 @@ class ConfigManager {
       name: profileData.name || 'New Profile',
       authToken: profileData.authToken || '',
       authType: profileData.authType || 'api_key',
-      serviceProvider: profileData.serviceProvider || 'official',
+      category: profileData.category || 'official',
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
-      selectedModelTier: profileData.selectedModelTier || 'sonnet',
-      modelMapping: profileData.modelMapping || null,
-      requestTimeout: profileData.requestTimeout || TIMEOUTS.API_REQUEST,
-      disableNonessentialTraffic: profileData.disableNonessentialTraffic !== undefined
-        ? profileData.disableNonessentialTraffic
-        : true,
+      model: profileData.model || 'claude-sonnet-4-5-20250929',
       useProxy: profileData.useProxy || false,
       httpsProxy: profileData.httpsProxy || '',
       httpProxy: profileData.httpProxy || '',
       isDefault: false,
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
-      icon: profileData.icon || '🔵'
+      icon: profileData.icon || '🔵',
+      // 每个 Profile 独立的模型列表
+      customModels: profileData.customModels || [
+        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+      ]
     };
 
     // 如果是第一个 Profile，自动设为默认
@@ -642,7 +737,79 @@ class ConfigManager {
     return this.configPath;
   }
 
+  /**
+   * 为指定 Profile 添加自定义模型
+   */
+  addCustomModel(profileId, model) {
+    if (!profileId) {
+      console.error('[ConfigManager] addCustomModel: profileId is required');
+      return false;
+    }
+    
+    const profile = this.getAPIProfile(profileId);
+    if (!profile) {
+      console.error('[ConfigManager] addCustomModel: profile not found:', profileId);
+      return false;
+    }
+    
+    if (!profile.customModels) {
+      profile.customModels = [];
+    }
+    profile.customModels.push(model);
+    return this.save();
+  }
 
+  /**
+   * 为指定 Profile 删除自定义模型
+   */
+  deleteCustomModel(profileId, modelId) {
+    if (!profileId) {
+      console.error('[ConfigManager] deleteCustomModel: profileId is required');
+      return false;
+    }
+    
+    const profile = this.getAPIProfile(profileId);
+    if (!profile) {
+      console.error('[ConfigManager] deleteCustomModel: profile not found:', profileId);
+      return false;
+    }
+    
+    if (!profile.customModels) {
+      return false;
+    }
+    const index = profile.customModels.findIndex(m => m.id === modelId);
+    if (index !== -1) {
+      profile.customModels.splice(index, 1);
+      return this.save();
+    }
+    return false;
+  }
+
+  /**
+   * 为指定 Profile 更新自定义模型
+   */
+  updateCustomModel(profileId, modelId, updates) {
+    if (!profileId) {
+      console.error('[ConfigManager] updateCustomModel: profileId is required');
+      return false;
+    }
+    
+    const profile = this.getAPIProfile(profileId);
+    if (!profile) {
+      console.error('[ConfigManager] updateCustomModel: profile not found:', profileId);
+      return false;
+    }
+    
+    if (!profile.customModels) {
+      return false;
+    }
+    const model = profile.customModels.find(m => m.id === modelId);
+    if (model) {
+      Object.assign(model, updates);
+      return this.save();
+    }
+    return false;
+  }
 
   /**
    * 测试 API 连接

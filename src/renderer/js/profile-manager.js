@@ -176,19 +176,23 @@ async function openAddModal() {
 
   // 重置表单
   document.getElementById('profileForm').reset();
-  document.getElementById('profileCategory').value = 'official';
+  document.getElementById('profileServiceProvider').value = 'official';
   document.getElementById('profileBaseUrl').value = 'https://api.anthropic.com';
-  document.getElementById('profileModel').value = 'claude-sonnet-4-5-20250929';
+  document.getElementById('modelTierSonnet').checked = true;
+  document.getElementById('profileRequestTimeout').value = 120;
+  document.getElementById('profileDisableTraffic').checked = true;
   selectedIcon = '🟣';
+
+  // 清空模型映射
+  document.getElementById('mappingOpus').value = '';
+  document.getElementById('mappingSonnet').value = '';
+  document.getElementById('mappingHaiku').value = '';
 
   // 默认选中 API Key（官方标准）
   document.getElementById('authTypeKey').checked = true;
 
-  // 更新模型输入提示
-  updateProfileModelInputHint('official');
-
-  // 新建配置时，显示默认模型列表（不实际加载）
-  loadDefaultModels();
+  // 隐藏模型映射区域（官方不需要）
+  onServiceProviderChange();
 
   // 重置图标选择
   document.querySelectorAll('.icon-option').forEach(el => {
@@ -219,7 +223,7 @@ async function editProfile(profileId) {
 
     // 填充表单
     document.getElementById('profileName').value = profile.name;
-    document.getElementById('profileCategory').value = profile.category || 'official';
+    document.getElementById('profileServiceProvider').value = profile.serviceProvider || 'official';
     document.getElementById('profileAuthToken').value = profile.authToken;
 
     // 设置认证方式
@@ -231,7 +235,22 @@ async function editProfile(profileId) {
     }
 
     document.getElementById('profileBaseUrl').value = profile.baseUrl;
-    document.getElementById('profileModel').value = profile.model;
+
+    // 设置默认模型等级
+    const selectedTier = profile.selectedModelTier || 'sonnet';
+    document.getElementById('modelTier' + selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)).checked = true;
+
+    // 填充模型映射（如果是第三方服务）
+    if (profile.modelMapping) {
+      document.getElementById('mappingOpus').value = profile.modelMapping.opus || '';
+      document.getElementById('mappingSonnet').value = profile.modelMapping.sonnet || '';
+      document.getElementById('mappingHaiku').value = profile.modelMapping.haiku || '';
+    }
+
+    // 高级配置
+    document.getElementById('profileRequestTimeout').value = (profile.requestTimeout || 120000) / 1000;
+    document.getElementById('profileDisableTraffic').checked = profile.disableNonessentialTraffic !== false;
+
     document.getElementById('profileUseProxy').checked = profile.useProxy;
     document.getElementById('profileHttpsProxy').value = profile.httpsProxy || '';
     document.getElementById('profileHttpProxy').value = profile.httpProxy || '';
@@ -251,14 +270,8 @@ async function editProfile(profileId) {
       document.getElementById('proxyFields').classList.add('visible');
     }
 
-    // 更新模型输入提示
-    updateProfileModelInputHint(profile.category || 'official');
-
-    // 加载自定义模型列表
-    await loadCustomModels();
-
-    // 确保模型值被正确设置（在 loadCustomModels 之后重新设置，避免时序问题）
-    document.getElementById('profileModel').value = profile.model;
+    // 显示/隐藏模型映射区域
+    onServiceProviderChange();
 
     // 显示模态框
     document.getElementById('editModal').classList.add('visible');
@@ -474,33 +487,21 @@ function formatDate(isoString) {
 /**
  * 更新模型输入提示
  */
-function updateProfileModelInputHint(category) {
-  const modelDescription = document.getElementById('profileModelDescription');
-  const modelHint = document.getElementById('profileModelHint');
-  const manageModelsBtn = document.getElementById('manageModelsBtn');
+/**
+ * 服务商变更时的处理
+ */
+function onServiceProviderChange() {
+  const serviceProvider = document.getElementById('profileServiceProvider').value;
+  const modelMappingSection = document.getElementById('modelMappingSection');
 
-  // 根据服务类别显示不同的提示
-  if (category === 'official' || category === 'proxy') {
-    modelDescription.textContent = '选择要使用的模型版本（可通过"获取模型列表"自动获取）';
-    if (modelHint) {
-      modelHint.style.display = 'none';
-    }
-  } else if (category === 'third_party') {
-    modelDescription.textContent = '选择要使用的模型版本';
-    if (modelHint) {
-      modelHint.style.display = 'block';
-    }
+  // 根据服务商类型显示/隐藏模型映射配置
+  if (serviceProvider === 'official' || serviceProvider === 'proxy') {
+    modelMappingSection.style.display = 'none';
   } else {
-    modelDescription.textContent = '选择要使用的模型版本';
-    if (modelHint) {
-      modelHint.style.display = 'none';
-    }
-  }
-
-  if (manageModelsBtn) {
-    manageModelsBtn.style.display = 'inline-block';
+    modelMappingSection.style.display = 'block';
   }
 }
+
 
 /**
  * 切换密码可见性
@@ -523,540 +524,6 @@ function togglePasswordVisibility(inputId) {
 /**
  * 加载默认模型列表（用于新建配置）
  */
-function loadDefaultModels() {
-  const defaultModels = [
-    { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-    { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-    { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-  ];
-  
-  // 更新 select 下拉框
-  const select = document.getElementById('profileModel');
-  if (select) {
-    select.innerHTML = '<option value="">请选择模型</option>' + 
-      defaultModels.map(model => 
-        `<option value="${model.name}">${model.label}</option>`
-      ).join('');
-  }
-  
-  // 隐藏模型管理面板（新建时不显示）
-  const modelManager = document.querySelector('.model-manager');
-  if (modelManager) {
-    modelManager.style.display = 'none';
-  }
-}
-
-/**
- * 加载自定义模型列表
- */
-async function loadCustomModels() {
-  try {
-    if (!editingProfileId) {
-      console.error('[Profile Manager] No profile is being edited');
-      return;
-    }
-    const models = await window.electronAPI.getCustomModels(editingProfileId);
-    console.log('[Profile Manager] Loaded custom models:', models);
-    
-    // 不自动展开面板，保持收起状态
-    // 用户需要点击 "编辑模型列表" 按钮来展开
-    
-    // 更新 select 下拉框
-    const select = document.getElementById('profileModel');
-    if (select) {
-      // 保存当前选中的值
-      const currentValue = select.value;
-
-      // 重新填充选项
-      select.innerHTML = '<option value="">请选择模型</option>' +
-        models.map(model =>
-          `<option value="${model.name}">${model.label}</option>`
-        ).join('');
-
-      // 恢复之前的选择（如果存在且在新列表中）
-      if (currentValue && models.some(m => m.name === currentValue)) {
-        select.value = currentValue;
-        console.log('[Profile Manager] Restored model selection:', currentValue);
-      } else if (currentValue) {
-        console.warn('[Profile Manager] Previous model not found in list:', currentValue);
-      }
-
-      console.log('[Profile Manager] Updated select with', models.length, 'models, current value:', select.value);
-    }
-    
-    // 更新模型管理面板的列表
-    const modelList = document.getElementById('modelList');
-    const batchActionsGroup = document.getElementById('batchActionsGroup');
-
-    if (modelList) {
-      if (models.length === 0) {
-        modelList.innerHTML = '<div style="text-align: center; color: #999; padding: 12px;">暂无自定义模型</div>';
-        // 隐藏批量操作按钮
-        if (batchActionsGroup) {
-          batchActionsGroup.style.display = 'none';
-        }
-      } else {
-        modelList.innerHTML = models.map(model => `
-          <div class="model-item">
-            <input type="checkbox" class="model-checkbox" data-model-id="${model.id}" onchange="updateBatchDeleteButton()" style="width: 18px; height: 18px; cursor: pointer; margin-right: 12px;">
-            <div class="model-item-info">
-              <div class="model-item-name">${model.name}</div>
-              <div class="model-item-label">${model.label}</div>
-            </div>
-            <div class="model-item-actions">
-              <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 4px 12px;" onclick="editModel('${model.id}')">编辑</button>
-              <button type="button" class="btn btn-danger" style="font-size: 11px; padding: 4px 12px;" onclick="deleteModel('${model.id}')">删除</button>
-            </div>
-          </div>
-        `).join('');
-        // 显示批量操作行
-        if (batchActionsGroup) {
-          batchActionsGroup.style.display = 'block';
-        }
-        // 重置全选状态
-        const selectAllCheckbox = document.getElementById('selectAllModels');
-        if (selectAllCheckbox) {
-          selectAllCheckbox.checked = false;
-        }
-      }
-    }
-  } catch (error) {
-    console.error('[Profile Manager] Failed to load custom models:', error);
-    showAlert('加载模型列表失败', 'error');
-  }
-}
-
-/**
- * 切换模型管理面板显示
- */
-function toggleModelManager() {
-  const panel = document.getElementById('modelManager');
-  if (panel) {
-    const isVisible = panel.style.display !== 'none';
-    panel.style.display = isVisible ? 'none' : 'block';
-    
-    // 更新按钮文字
-    const btn = document.getElementById('manageModelsBtn');
-    if (btn) {
-      btn.textContent = isVisible ? '编辑模型列表' : '收起';
-    }
-    
-    // 收起时取消编辑模式
-    if (isVisible) {
-      cancelEditModel();
-    }
-  }
-}
-
-/**
- * 取消编辑模型模式
- */
-function cancelEditModel() {
-  const nameInput = document.getElementById('newModelName');
-  const labelInput = document.getElementById('newModelLabel');
-  const addButton = document.querySelector('.model-add-form button');
-  
-  if (nameInput) nameInput.value = '';
-  if (labelInput) labelInput.value = '';
-  if (addButton) addButton.textContent = '添加';
-  editingModelId = null;
-}
-
-/**
- * 测试 API 连接
- */
-async function testAPIConnection() {
-  try {
-    // 获取表单当前值
-    const formData = getCurrentFormData();
-    
-    showModalAlert('正在测试连接...', 'info');
-    
-    const result = await window.electronAPI.testConnection(formData);
-    
-    if (result.success) {
-      showModalAlert('✅ ' + result.message, 'success');
-    } else {
-      showModalAlert('❌ ' + result.message, 'error');
-    }
-  } catch (error) {
-    console.error('[Profile Manager] Failed to test connection:', error);
-    showModalAlert('测试连接失败: ' + error.message, 'error');
-  }
-}
-
-/**
- * 获取模型列表
- */
-async function fetchOfficialModels() {
-  try {
-    if (!editingProfileId) {
-      showModalAlert('❌ 无法获取模型：未选择配置', 'error');
-      return;
-    }
-
-    // 获取表单当前值
-    const formData = getCurrentFormData();
-
-    showModalAlert('🔄 正在获取模型列表，请稍候...', 'info');
-
-    const result = await window.electronAPI.fetchOfficialModels(formData);
-
-    if (result.success) {
-      let models = result.models;
-
-      // 检查是否只获取最新版本
-      const fetchLatestOnly = document.getElementById('fetchLatestOnly')?.checked;
-      if (fetchLatestOnly) {
-        models = filterLatestClaudeModels(models);
-        console.log('[Profile Manager] Filtered to latest Claude models:', models);
-      }
-
-      // 更新模型列表
-      await window.electronAPI.updateCustomModels({ profileId: editingProfileId, models });
-
-      // 重新加载
-      await loadCustomModels();
-
-      if (fetchLatestOnly) {
-        showModalAlert(`✅ 成功获取 ${models.length} 个最新版本模型`, 'success');
-      } else {
-        showModalAlert(`✅ 成功获取 ${models.length} 个模型`, 'success');
-      }
-    } else {
-      // 检查是否是超时错误
-      const isTimeout = result.message && (
-        result.message.includes('超时') ||
-        result.message.includes('timeout')
-      );
-
-      if (isTimeout) {
-        showModalAlert(`⏱️ ${result.message}`, 'error', 5000);
-      } else {
-        showModalAlert(`❌ ${result.message}`, 'error');
-      }
-    }
-  } catch (error) {
-    console.error('[Profile Manager] Failed to fetch models:', error);
-    showModalAlert(`❌ 获取模型失败: ${error.message}`, 'error');
-  }
-}
-
-/**
- * 过滤最新版本的Claude模型
- * @param {Array} models - 所有模型列表
- * @returns {Array} - 过滤后的模型列表
- */
-function filterLatestClaudeModels(models) {
-  // 只保留包含 "claude" 的模型
-  const claudeModels = models.filter(m => m.name.toLowerCase().includes('claude'));
-
-  // 按系列分组 (opus, sonnet, haiku)
-  const seriesMap = {
-    opus: [],
-    sonnet: [],
-    haiku: []
-  };
-
-  claudeModels.forEach(model => {
-    const nameLower = model.name.toLowerCase();
-    if (nameLower.includes('opus')) {
-      seriesMap.opus.push(model);
-    } else if (nameLower.includes('sonnet')) {
-      seriesMap.sonnet.push(model);
-    } else if (nameLower.includes('haiku')) {
-      seriesMap.haiku.push(model);
-    }
-  });
-
-  // 对每个系列，提取版本号并保留最新的
-  const latestModels = [];
-
-  Object.keys(seriesMap).forEach(series => {
-    const modelsInSeries = seriesMap[series];
-    if (modelsInSeries.length === 0) return;
-
-    // 提取版本号并排序
-    const modelsWithVersion = modelsInSeries.map(model => {
-      // 提取版本号，例如从 "claude-opus-4-5-20251101" 中提取 "4-5-20251101"
-      const match = model.name.match(/claude-\w+-(\d+)-(\d+)-(\d+)/);
-      if (match) {
-        const majorVersion = parseInt(match[1]);
-        const minorVersion = parseInt(match[2]);
-        const dateVersion = parseInt(match[3]);
-        return {
-          model,
-          majorVersion,
-          minorVersion,
-          dateVersion
-        };
-      }
-      return null;
-    }).filter(item => item !== null);
-
-    if (modelsWithVersion.length === 0) return;
-
-    // 排序：先按主版本号，再按次版本号，最后按日期
-    modelsWithVersion.sort((a, b) => {
-      if (a.majorVersion !== b.majorVersion) {
-        return b.majorVersion - a.majorVersion;
-      }
-      if (a.minorVersion !== b.minorVersion) {
-        return b.minorVersion - a.minorVersion;
-      }
-      return b.dateVersion - a.dateVersion;
-    });
-
-    // 保留最新的
-    latestModels.push(modelsWithVersion[0].model);
-  });
-
-  return latestModels;
-}
-
-/**
- * 获取表单当前数据
- */
-function getCurrentFormData() {
-  return {
-    authToken: document.getElementById('profileAuthToken').value || '',
-    authType: document.querySelector('input[name="authType"]:checked')?.value || 'api_key',
-    baseUrl: document.getElementById('profileBaseUrl').value || 'https://api.anthropic.com',
-    model: document.getElementById('profileModel').value || 'claude-sonnet-4-5-20250929',
-    useProxy: document.getElementById('profileUseProxy').checked,
-    httpsProxy: document.getElementById('profileHttpsProxy').value || '',
-    httpProxy: document.getElementById('profileHttpProxy').value || ''
-  };
-}
-
-/**
- * 添加新模型
- */
-async function addNewModel() {
-  const nameInput = document.getElementById('newModelName');
-  const labelInput = document.getElementById('newModelLabel');
-  const addButton = document.querySelector('.model-add-form button');
-  
-  const name = nameInput.value.trim();
-  const label = labelInput.value.trim();
-  
-  if (!name || !label) {
-    showAlert('请填写模型名称和显示标签', 'warning');
-    return;
-  }
-  
-  try {
-    if (!editingProfileId) {
-      showAlert('无法添加模型：未选择配置', 'error');
-      return;
-    }
-    
-    if (editingModelId) {
-      // 更新模式
-      const success = await window.electronAPI.updateCustomModel({
-        profileId: editingProfileId,
-        modelId: editingModelId,
-        updates: { name, label }
-      });
-
-      if (!success) {
-        showModalAlert('❌ 更新模型失败', 'error');
-        return;
-      }
-      showModalAlert('✅ 模型已更新', 'success');
-    } else {
-      // 添加模式
-      const newModel = {
-        id: `custom-${Date.now()}`,
-        name: name,
-        label: label
-      };
-
-      await window.electronAPI.addCustomModel({ profileId: editingProfileId, model: newModel });
-      showModalAlert('✅ 模型已添加', 'success');
-    }
-    
-    // 清空输入框和状态
-    nameInput.value = '';
-    labelInput.value = '';
-    editingModelId = null;
-    addButton.textContent = '添加';
-    
-    // 重新加载模型列表
-    await loadCustomModels();
-  } catch (error) {
-    console.error('[Profile Manager] Failed to save model:', error);
-    showAlert('保存模型失败', 'error');
-  }
-}
-
-/**
- * 删除模型
- */
-async function deleteModel(modelId) {
-  if (!confirm('确定要删除此模型吗？')) {
-    return;
-  }
-  
-  if (!editingProfileId) {
-    showAlert('无法删除模型：未选择配置', 'error');
-    return;
-  }
-  
-  try {
-    const success = await window.electronAPI.deleteCustomModel({ profileId: editingProfileId, modelId });
-    
-    if (success) {
-      await loadCustomModels();
-      showAlert('模型已删除', 'success');
-    } else {
-      showAlert('删除失败', 'error');
-    }
-  } catch (error) {
-    console.error('[Profile Manager] Failed to delete model:', error);
-    showAlert('删除失败', 'error');
-  }
-}
-
-/**
- * 全选/取消全选模型
- */
-function toggleSelectAllModels() {
-  const selectAllCheckbox = document.getElementById('selectAllModels');
-  const modelCheckboxes = document.querySelectorAll('.model-checkbox');
-
-  modelCheckboxes.forEach(checkbox => {
-    checkbox.checked = selectAllCheckbox.checked;
-  });
-
-  updateBatchDeleteButton();
-}
-
-/**
- * 更新批量删除按钮状态
- */
-function updateBatchDeleteButton() {
-  const selectedCheckboxes = document.querySelectorAll('.model-checkbox:checked');
-  const batchDeleteBtn = document.getElementById('batchDeleteBtn');
-  const selectAllCheckbox = document.getElementById('selectAllModels');
-  const allCheckboxes = document.querySelectorAll('.model-checkbox');
-
-  if (batchDeleteBtn) {
-    if (selectedCheckboxes.length > 0) {
-      batchDeleteBtn.disabled = false;
-      batchDeleteBtn.textContent = `删除选中 (${selectedCheckboxes.length})`;
-    } else {
-      batchDeleteBtn.disabled = true;
-      batchDeleteBtn.textContent = '删除选中';
-    }
-  }
-
-  // 更新全选复选框状态
-  if (selectAllCheckbox && allCheckboxes.length > 0) {
-    selectAllCheckbox.checked = selectedCheckboxes.length === allCheckboxes.length;
-    selectAllCheckbox.indeterminate = selectedCheckboxes.length > 0 && selectedCheckboxes.length < allCheckboxes.length;
-  }
-}
-
-/**
- * 批量删除选中的模型
- */
-async function batchDeleteModels() {
-  const selectedCheckboxes = document.querySelectorAll('.model-checkbox:checked');
-
-  if (selectedCheckboxes.length === 0) {
-    showModalAlert('请先选择要删除的模型', 'warning');
-    return;
-  }
-
-  if (!confirm(`确定要删除选中的 ${selectedCheckboxes.length} 个模型吗？`)) {
-    return;
-  }
-
-  if (!editingProfileId) {
-    showModalAlert('无法删除模型：未选择配置', 'error');
-    return;
-  }
-
-  try {
-    const modelIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.dataset.modelId);
-    let successCount = 0;
-    let failCount = 0;
-
-    // 逐个删除
-    for (const modelId of modelIds) {
-      try {
-        const success = await window.electronAPI.deleteCustomModel({
-          profileId: editingProfileId,
-          modelId
-        });
-
-        if (success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (error) {
-        console.error('[Profile Manager] Failed to delete model:', modelId, error);
-        failCount++;
-      }
-    }
-
-    // 重新加载模型列表
-    await loadCustomModels();
-
-    // 显示结果
-    if (failCount === 0) {
-      showModalAlert(`✅ 成功删除 ${successCount} 个模型`, 'success');
-    } else if (successCount === 0) {
-      showModalAlert(`❌ 删除失败`, 'error');
-    } else {
-      showModalAlert(`⚠️ 删除完成：成功 ${successCount} 个，失败 ${failCount} 个`, 'warning');
-    }
-  } catch (error) {
-    console.error('[Profile Manager] Failed to batch delete models:', error);
-    showModalAlert('批量删除失败', 'error');
-  }
-}
-
-/**
- * 编辑模型
- */
-async function editModel(modelId) {
-  try {
-    if (!editingProfileId) {
-      showAlert('无法编辑模型：未选择配置', 'error');
-      return;
-    }
-    const models = await window.electronAPI.getCustomModels(editingProfileId);
-    const model = models.find(m => m.id === modelId);
-    
-    if (!model) {
-      showAlert('模型不存在', 'error');
-      return;
-    }
-    
-    // 填充输入框
-    const nameInput = document.getElementById('newModelName');
-    const labelInput = document.getElementById('newModelLabel');
-    const addButton = document.querySelector('.model-add-form button');
-    
-    nameInput.value = model.name;
-    labelInput.value = model.label;
-    
-    // 设置编辑模式
-    editingModelId = modelId;
-    addButton.textContent = '更新';
-    
-    // 聚焦到输入框
-    nameInput.focus();
-    nameInput.select();
-  } catch (error) {
-    console.error('[Profile Manager] Failed to load model for editing:', error);
-    showAlert('加载模型失败', 'error');
-  }
-}
-
 /**
  * 绑定事件
  */
@@ -1090,20 +557,6 @@ function bindEvents() {
   document.getElementById('toggleProfileAuthToken').addEventListener('click', () => {
     togglePasswordVisibility('profileAuthToken');
   });
-
-  // 服务类别变化时更新模型输入提示
-  document.getElementById('profileCategory').addEventListener('change', (e) => {
-    updateProfileModelInputHint(e.target.value);
-  });
-
-  // 编辑模型列表按钮
-  const manageModelsBtn = document.getElementById('manageModelsBtn');
-  if (manageModelsBtn) {
-    manageModelsBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      toggleModelManager();
-    });
-  }
 
   // 模态框背景点击关闭
   document.getElementById('editModal').addEventListener('click', (e) => {

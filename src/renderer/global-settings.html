@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+  ">
+  <title>全局设置 - Claude Code Desktop</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+      background: #f5f5f0;
+      padding: 20px;
+      color: #2c2825;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      color: #2c2825;
+    }
+
+    .section {
+      margin-bottom: 35px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c2825;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .section-desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #2c2825;
+      margin-bottom: 8px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d1d1;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #d4a574;
+    }
+
+    .form-group .hint {
+      font-size: 12px;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    .model-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .model-input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .model-input-row .icon {
+      font-size: 20px;
+      width: 30px;
+      text-align: center;
+    }
+
+    .model-input-row .label {
+      width: 100px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #2c2825;
+    }
+
+    .model-input-row input {
+      flex: 1;
+    }
+
+    .timeout-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e8e8e8;
+    }
+
+    button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #d4a574;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #c49563;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #2c2825;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status-message.success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #a5d6a7;
+    }
+
+    .status-message.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef9a9a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>⚙️ 全局设置</h1>
+      </div>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Global Models Section -->
+    <div class="section">
+      <div class="section-title">全局模型配置</div>
+      <div class="section-desc">
+        配置官方和中转服务使用的默认模型。第三方服务需要在各自的 Profile 中配置模型映射。
+      </div>
+
+      <div class="model-inputs">
+        <div class="model-input-row">
+          <span class="icon">🚀</span>
+          <span class="label">Opus 模型</span>
+          <input type="text" id="globalOpus" placeholder="claude-opus-4-5-20251101" />
+        </div>
+
+        <div class="model-input-row">
+          <span class="icon">⚡</span>
+          <span class="label">Sonnet 模型</span>
+          <input type="text" id="globalSonnet" placeholder="claude-sonnet-4-5-20250929" />
+        </div>
+
+        <div class="model-input-row">
+          <span class="icon">💨</span>
+          <span class="label">Haiku 模型</span>
+          <input type="text" id="globalHaiku" placeholder="claude-haiku-4-0-20250107" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeout Settings Section -->
+    <div class="section">
+      <div class="section-title">超时设置</div>
+      <div class="section-desc">
+        配置 API 连接测试和请求的超时时间（单位：秒）。
+      </div>
+
+      <div class="timeout-inputs">
+        <div class="form-group">
+          <label for="testTimeout">连接测试超时</label>
+          <input type="number" id="testTimeout" min="5" max="120" step="1" value="30" />
+          <div class="hint">用于测试 API 连接是否可用</div>
+        </div>
+
+        <div class="form-group">
+          <label for="requestTimeout">请求超时</label>
+          <input type="number" id="requestTimeout" min="10" max="600" step="1" value="120" />
+          <div class="hint">用于实际 API 请求</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="button-group">
+      <button type="button" class="btn-secondary" onclick="resetToDefaults()">恢复默认</button>
+      <button type="button" class="btn-primary" onclick="saveSettings()">保存设置</button>
+    </div>
+  </div>
+
+  <script src="js/global-settings.js"></script>
+</body>
+</html>

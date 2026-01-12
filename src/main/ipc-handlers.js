@@ -94,42 +94,32 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   // Profile 选择将在会话启动时进行（待实现）
 
   // ========================================
-  // 自定义模型管理
+  // 全局设置管理
   // ========================================
 
-  // 获取指定 Profile 的自定义模型列表
-  ipcMain.handle('api:getCustomModels', async (event, profileId) => {
-    return configManager.getCustomModels(profileId);
+  // 获取全局模型配置
+  ipcMain.handle('config:getGlobalModels', async () => {
+    return configManager.getGlobalModels();
   });
 
-  // 更新指定 Profile 的自定义模型列表
-  ipcMain.handle('api:updateCustomModels', async (event, { profileId, models }) => {
-    return configManager.updateCustomModels(profileId, models);
+  // 更新全局模型配置
+  ipcMain.handle('config:updateGlobalModels', async (event, globalModels) => {
+    return configManager.updateGlobalModels(globalModels);
   });
 
-  // 为指定 Profile 添加自定义模型
-  ipcMain.handle('api:addCustomModel', async (event, { profileId, model }) => {
-    return configManager.addCustomModel(profileId, model);
+  // 获取超时配置
+  ipcMain.handle('config:getTimeout', async () => {
+    return configManager.getTimeout();
   });
 
-  // 为指定 Profile 删除自定义模型
-  ipcMain.handle('api:deleteCustomModel', async (event, { profileId, modelId }) => {
-    return configManager.deleteCustomModel(profileId, modelId);
-  });
-
-  // 为指定 Profile 更新自定义模型
-  ipcMain.handle('api:updateCustomModel', async (event, { profileId, modelId, updates }) => {
-    return configManager.updateCustomModel(profileId, modelId, updates);
+  // 更新超时配置
+  ipcMain.handle('config:updateTimeout', async (event, timeout) => {
+    return configManager.updateTimeout(timeout);
   });
 
   // 测试 API 连接
   ipcMain.handle('api:testConnection', async (event, apiConfig) => {
     return configManager.testAPIConnection(apiConfig);
-  });
-
-  // 获取模型列表
-  ipcMain.handle('api:fetchOfficialModels', async (event, apiConfig) => {
-    return configManager.fetchOfficialModels(apiConfig);
   });
 
   // ========================================
@@ -194,6 +184,32 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     // if (process.env.NODE_ENV === 'development') {
     //   profileWindow.webContents.openDevTools();
     // }
+
+    return { success: true };
+  });
+
+  // 打开全局设置窗口
+  ipcMain.handle('window:openGlobalSettings', async () => {
+    const { BrowserWindow } = require('electron');
+    const path = require('path');
+
+    // 创建全局设置窗口
+    const globalSettingsWindow = new BrowserWindow({
+      width: 950,
+      height: 650,
+      title: '全局设置 - Claude Code Desktop',
+      parent: mainWindow,
+      modal: false,
+      backgroundColor: '#f5f5f0',
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+
+    globalSettingsWindow.loadFile(path.join(__dirname, '../renderer/global-settings.html'));
 
     return { success: true };
   });
