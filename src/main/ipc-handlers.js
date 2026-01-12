@@ -164,8 +164,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
 
     // 创建全局设置窗口
     const globalSettingsWindow = new BrowserWindow({
-      width: 950,
-      height: 650,
+      width: 750,
+      height: 550,
       title: '全局设置 - Claude Code Desktop',
       parent: mainWindow,
       modal: false,
