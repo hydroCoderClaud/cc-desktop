@@ -316,7 +316,11 @@ class ConfigManager {
         authToken: defaultProfile.authToken,
         authType: defaultProfile.authType || 'api_key',  // 默认 api_key（官方标准）
         baseUrl: defaultProfile.baseUrl,
-        model: defaultProfile.model,
+        serviceProvider: defaultProfile.serviceProvider || 'official',
+        selectedModelTier: defaultProfile.selectedModelTier || 'sonnet',
+        modelMapping: defaultProfile.modelMapping || null,
+        requestTimeout: defaultProfile.requestTimeout || TIMEOUTS.API_REQUEST,
+        disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
         useProxy: defaultProfile.useProxy,
         httpsProxy: defaultProfile.httpsProxy,
         httpProxy: defaultProfile.httpProxy

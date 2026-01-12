@@ -38,16 +38,50 @@ class ClaudeAPIManager {
     const apiConfig = validation.config;
     console.log(`[Claude API] Starting in: ${projectPath}`);
     console.log(`[Claude API] Base URL: ${apiConfig.baseUrl}`);
-    console.log(`[Claude API] Model: ${apiConfig.model}`);
+    console.log(`[Claude API] Service Provider: ${apiConfig.serviceProvider}`);
+    console.log(`[Claude API] Selected Tier: ${apiConfig.selectedModelTier}`);
     console.log(`[Claude API] Proxy enabled: ${apiConfig.useProxy}`);
 
     try {
+      // 确定实际使用的模型名称
+      let actualModel;
+      const serviceProvider = apiConfig.serviceProvider || 'official';
+      const selectedTier = apiConfig.selectedModelTier || 'sonnet';
+
+      if (serviceProvider === 'official' || serviceProvider === 'proxy') {
+        // 官方/中转服务：使用全局模型配置
+        const globalModels = this.configManager.getGlobalModels();
+        actualModel = globalModels[selectedTier];
+        console.log(`[Claude API] Using global model: ${actualModel}`);
+      } else {
+        // 第三方服务：使用 tier 名称（opus/sonnet/haiku）
+        // 如果有 modelMapping，将通过环境变量设置
+        actualModel = selectedTier;
+        console.log(`[Claude API] Using tier name: ${actualModel}`);
+      }
+
       // 构建环境变量
       const env = {
         ...process.env,
         // 自定义 API 端点
         ANTHROPIC_BASE_URL: apiConfig.baseUrl
       };
+
+      // 第三方服务：设置模型映射环境变量（如果配置了 modelMapping）
+      if (serviceProvider !== 'official' && serviceProvider !== 'proxy' && apiConfig.modelMapping) {
+        if (apiConfig.modelMapping.opus) {
+          env.ANTHROPIC_DEFAULT_OPUS_MODEL = apiConfig.modelMapping.opus;
+          console.log(`[Claude API] Opus mapping: ${apiConfig.modelMapping.opus}`);
+        }
+        if (apiConfig.modelMapping.sonnet) {
+          env.ANTHROPIC_DEFAULT_SONNET_MODEL = apiConfig.modelMapping.sonnet;
+          console.log(`[Claude API] Sonnet mapping: ${apiConfig.modelMapping.sonnet}`);
+        }
+        if (apiConfig.modelMapping.haiku) {
+          env.ANTHROPIC_DEFAULT_HAIKU_MODEL = apiConfig.modelMapping.haiku;
+          console.log(`[Claude API] Haiku mapping: ${apiConfig.modelMapping.haiku}`);
+        }
+      }
 
       // 根据 authType 设置对应的环境变量（二选一，避免冲突）
       const authType = apiConfig.authType || 'api_key';
@@ -83,7 +117,7 @@ class ClaudeAPIManager {
         '--input-format=stream-json',       // JSON 流式输入
         '--include-partial-messages',       // 包含部分消息
         '--replay-user-messages',           // 回显用户消息
-        '--model', apiConfig.model          // 指定模型
+        '--model', actualModel              // 指定模型
       ], {
         cwd: projectPath,
         env: env,
