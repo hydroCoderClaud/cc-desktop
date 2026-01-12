@@ -97,8 +97,8 @@ async function saveSettings() {
       return;
     }
 
-    if (timeout.request < 10000 || timeout.request > 600000) {
-      showMessage('请求超时必须在 10-600 秒之间', 'error');
+    if (timeout.request < 10000 || timeout.request > 3600000) {
+      showMessage('请求超时必须在 10-3600 秒之间（最长 1 小时）', 'error');
       return;
     }
 
