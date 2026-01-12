@@ -3,8 +3,6 @@
  * Handles global model configuration and timeout settings
  */
 
-const { ipcRenderer } = require('electron');
-
 // Default values
 const DEFAULTS = {
   globalModels: {
@@ -32,7 +30,7 @@ async function init() {
 async function loadSettings() {
   try {
     // Get global models
-    const globalModels = await ipcRenderer.invoke('config:getGlobalModels');
+    const globalModels = await window.electronAPI.getGlobalModels();
     console.log('[Global Settings] Loaded global models:', globalModels);
 
     // Populate model inputs - show actual config values or empty
@@ -45,7 +43,7 @@ async function loadSettings() {
       (globalModels && globalModels.haiku) || '';
 
     // Get timeout settings
-    const timeout = await ipcRenderer.invoke('config:getTimeout');
+    const timeout = await window.electronAPI.getTimeout();
     console.log('[Global Settings] Loaded timeout:', timeout);
 
     // Populate timeout inputs (convert ms to seconds)
@@ -103,8 +101,8 @@ async function saveSettings() {
     console.log('[Global Settings] Saving timeout:', timeout);
 
     // Save to backend
-    await ipcRenderer.invoke('config:updateGlobalModels', globalModels);
-    await ipcRenderer.invoke('config:updateTimeout', timeout);
+    await window.electronAPI.updateGlobalModels(globalModels);
+    await window.electronAPI.updateTimeout(timeout);
 
     showMessage('设置已保存', 'success');
 
@@ -136,8 +134,8 @@ async function resetToDefaults() {
     document.getElementById('requestTimeout').value = DEFAULTS.timeout.request;
 
     // Save to backend
-    await ipcRenderer.invoke('config:updateGlobalModels', DEFAULTS.globalModels);
-    await ipcRenderer.invoke('config:updateTimeout', {
+    await window.electronAPI.updateGlobalModels(DEFAULTS.globalModels);
+    await window.electronAPI.updateTimeout({
       test: DEFAULTS.timeout.test * 1000,
       request: DEFAULTS.timeout.request * 1000
     });

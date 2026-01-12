@@ -52,11 +52,11 @@
     }
 
     .section-title {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       color: #2c2825;
-      margin-bottom: 15px;
-      padding-bottom: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
       border-bottom: 1px solid #e8e8e8;
     }
 
@@ -109,17 +109,18 @@
     .model-input-row {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .model-input-row .icon {
-      font-size: 20px;
-      width: 30px;
+      font-size: 18px;
+      width: 24px;
       text-align: center;
+      flex-shrink: 0;
     }
 
     .model-input-row .label {
-      width: 100px;
+      min-width: 90px;
       font-size: 14px;
       font-weight: 500;
       color: #2c2825;
@@ -127,7 +128,7 @@
 
     .model-input-row input {
       flex: 1;
-      padding: 12px 14px;
+      padding: 10px 12px;
       border: 1px solid #d1d1d1;
       border-radius: 6px;
       font-size: 14px;
@@ -203,14 +204,17 @@
     }
 
     .use-default-btn {
-      padding: 6px 12px;
+      padding: 10px 14px;
       background: #f0f0f0;
       border: 1px solid #d1d1d1;
-      border-radius: 4px;
-      font-size: 12px;
+      border-radius: 6px;
+      font-size: 13px;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.2s;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
     }
 
     .use-default-btn:hover {
@@ -235,8 +239,8 @@
           <span class="icon">🚀</span>
           <span class="label">Opus 模型</span>
           <input type="text" id="globalOpus" placeholder="留空使用推荐值" />
-          <button type="button" class="use-default-btn" onclick="useDefault('globalOpus', 'claude-opus-4-5-20251101')" title="使用推荐值">
-            使用推荐: claude-opus-4-5-20251101
+          <button type="button" class="use-default-btn" onclick="useDefault('globalOpus', 'claude-opus-4-5-20251101')" title="claude-opus-4-5-20251101">
+            使用推荐
           </button>
         </div>
 
@@ -244,8 +248,8 @@
           <span class="icon">⚡</span>
           <span class="label">Sonnet 模型</span>
           <input type="text" id="globalSonnet" placeholder="留空使用推荐值" />
-          <button type="button" class="use-default-btn" onclick="useDefault('globalSonnet', 'claude-sonnet-4-5-20250929')" title="使用推荐值">
-            使用推荐: claude-sonnet-4-5-20250929
+          <button type="button" class="use-default-btn" onclick="useDefault('globalSonnet', 'claude-sonnet-4-5-20250929')" title="claude-sonnet-4-5-20250929">
+            使用推荐
           </button>
         </div>
 
@@ -253,8 +257,8 @@
           <span class="icon">💨</span>
           <span class="label">Haiku 模型</span>
           <input type="text" id="globalHaiku" placeholder="留空使用推荐值" />
-          <button type="button" class="use-default-btn" onclick="useDefault('globalHaiku', 'claude-haiku-4-5-20251001')" title="使用推荐值">
-            使用推荐: claude-haiku-4-5-20251001
+          <button type="button" class="use-default-btn" onclick="useDefault('globalHaiku', 'claude-haiku-4-5-20251001')" title="claude-haiku-4-5-20251001">
+            使用推荐
           </button>
         </div>
       </div>

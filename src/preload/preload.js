@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (config) => ipcRenderer.invoke('config:save', config),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
   getConfigPath: () => ipcRenderer.invoke('config:getPath'),
+  
+  // Global Models and Timeout
+  getGlobalModels: () => ipcRenderer.invoke('config:getGlobalModels'),
+  updateGlobalModels: (globalModels) => ipcRenderer.invoke('config:updateGlobalModels', globalModels),
+  getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
+  updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),
 
   // ========================================
   // API 配置相关
