@@ -766,11 +766,14 @@
 
         <div class="form-row-modal">
           <div class="form-group">
-            <label>服务类别 <span class="required">*</span></label>
-            <select id="profileCategory" name="category" required>
-              <option value="official">官方 API</option>
-              <option value="proxy">中转服务</option>
-              <option value="third_party">第三方服务</option>
+            <label>服务商 <span class="required">*</span></label>
+            <select id="profileServiceProvider" name="serviceProvider" required onchange="onServiceProviderChange()">
+              <option value="official">官方</option>
+              <option value="proxy">中转</option>
+              <option value="zhipu">智谱AI</option>
+              <option value="minimax">MiniMax</option>
+              <option value="qwen">阿里千问</option>
+              <option value="other">其他第三方</option>
             </select>
           </div>
 
@@ -809,57 +812,67 @@
           </div>
 
           <div class="form-group">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <label style="margin-bottom: 0;">模型选择</label>
-              <button type="button" class="btn-link-small" id="manageModelsBtn" style="display: none;">编辑模型列表</button>
+            <label>默认模型</label>
+            <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+              <label class="radio-label">
+                <input type="radio" name="selectedModelTier" value="opus" id="modelTierOpus" />
+                <span>🚀 Opus</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="selectedModelTier" value="sonnet" id="modelTierSonnet" checked />
+                <span>⚡ Sonnet</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="selectedModelTier" value="haiku" id="modelTierHaiku" />
+                <span>💨 Haiku</span>
+              </label>
             </div>
-            <select id="profileModel" name="model">
-              <option value="">请选择模型</option>
-            </select>
-            <div class="description" id="profileModelDescription">选择要使用的模型版本</div>
-            <div class="description" id="profileModelHint" style="display: none; color: #ff9800; margin-top: 6px;">
-              ⚠️ 第三方服务通常不支持自动获取模型列表，请参考服务商文档手动添加模型名称（如：MiniMax-M2.1）
+            <div class="description">选择会话启动时默认使用的模型等级</div>
+          </div>
+        </div>
+
+        <!-- 模型映射配置（仅第三方服务显示） -->
+        <div id="modelMappingSection" style="display: none;">
+          <div class="form-group">
+            <label>模型映射配置</label>
+            <div class="description" style="margin-bottom: 12px;">配置各等级模型对应的实际模型名称</div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 80px; font-size: 13px;">🚀 Opus:</span>
+                <input type="text" id="mappingOpus" placeholder="如: glm-4.7" style="flex: 1;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 80px; font-size: 13px;">⚡ Sonnet:</span>
+                <input type="text" id="mappingSonnet" placeholder="如: glm-4.7" style="flex: 1;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 80px; font-size: 13px;">💨 Haiku:</span>
+                <input type="text" id="mappingHaiku" placeholder="如: glm-4.5-air" style="flex: 1;" />
+              </div>
             </div>
-            
-            <!-- 模型管理面板 -->
-            <div class="model-manager" id="modelManager" style="display: none;">
-              <div class="model-manager-header">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-weight: 500; font-size: 13px;">管理模型列表</span>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666;">
-                      <input type="checkbox" id="fetchLatestOnly" style="cursor: pointer;">
-                      <span>仅获取最新版本</span>
-                    </label>
-                    <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 4px 12px;" onclick="fetchOfficialModels()">获取模型列表</button>
-                    <button type="button" class="btn-link-small" onclick="toggleModelManager()">收起</button>
-                  </div>
-                </div>
-              </div>
+            <div class="description" style="margin-top: 8px; color: #ff9800;">
+              ⚠️ 第三方服务需要填写实际的模型名称，请参考服务商文档
+            </div>
+          </div>
+        </div>
 
-              <!-- 批量操作行 -->
-              <div id="batchActionsGroup" style="display: none; padding: 8px 0; border-bottom: 1px solid #ddd; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #333;">
-                    <input type="checkbox" id="selectAllModels" onchange="toggleSelectAllModels()" style="cursor: pointer; width: 18px; height: 18px;">
-                    <span>全选</span>
-                  </label>
-                  <button type="button" class="btn btn-danger" style="font-size: 12px; padding: 6px 16px;" onclick="batchDeleteModels()" id="batchDeleteBtn">删除选中</button>
-                </div>
-              </div>
-
-              <div class="model-list" id="modelList">
-                <!-- 动态加载模型列表 -->
-              </div>
-
-              <!-- 添加模型表单 -->
-              <div class="model-add-form">
-                <input type="text" id="newModelName" placeholder="模型名称，如: claude-opus-4-5-20251101" style="margin-bottom: 8px;" />
-                <input type="text" id="newModelLabel" placeholder="显示标签，如: Opus 4.5 - 最强大" style="margin-bottom: 8px;" />
-                <button type="button" class="btn btn-secondary" onclick="addNewModel()" style="width: 100%;">添加模型</button>
+        <!-- 高级配置（所有服务显示） -->
+        <div class="form-group">
+          <label>高级配置</label>
+          <div class="form-row-modal" style="margin-top: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 13px;">请求超时（秒）</label>
+              <input type="number" id="profileRequestTimeout" name="requestTimeout" value="120" min="10" max="600" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <div class="checkbox-group">
+                <input type="checkbox" id="profileDisableTraffic" name="disableNonessentialTraffic" checked />
+                <label for="profileDisableTraffic" style="font-size: 13px;">禁用非必要流量</label>
               </div>
             </div>
           </div>
+          <div class="description">请求超时时间和 Claude Code CLI 相关配置</div>
         </div>
 
         <div class="form-group">

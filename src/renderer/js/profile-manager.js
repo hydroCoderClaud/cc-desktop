@@ -283,14 +283,32 @@ async function saveProfile(event) {
   event.preventDefault();
 
   const formData = new FormData(event.target);
+
+  // 获取模型映射（仅第三方服务）
+  const serviceProvider = formData.get('serviceProvider') || 'official';
+  let modelMapping = null;
+
+  if (serviceProvider !== 'official' && serviceProvider !== 'proxy') {
+    const opus = document.getElementById('mappingOpus').value.trim();
+    const sonnet = document.getElementById('mappingSonnet').value.trim();
+    const haiku = document.getElementById('mappingHaiku').value.trim();
+
+    if (opus || sonnet || haiku) {
+      modelMapping = { opus, sonnet, haiku };
+    }
+  }
+
   const profileData = {
     name: formData.get('name'),
-    category: formData.get('category') || 'official',
+    serviceProvider: serviceProvider,
     authToken: formData.get('authToken'),
     authType: formData.get('authType') || 'api_key',
     description: formData.get('description') || '',
     baseUrl: formData.get('baseUrl') || 'https://api.anthropic.com',
-    model: formData.get('model') || 'claude-sonnet-4-5-20250929',
+    selectedModelTier: formData.get('selectedModelTier') || 'sonnet',
+    modelMapping: modelMapping,
+    requestTimeout: parseInt(formData.get('requestTimeout')) * 1000 || 120000,
+    disableNonessentialTraffic: formData.get('disableNonessentialTraffic') === 'on',
     useProxy: formData.get('useProxy') === 'on',
     httpsProxy: formData.get('httpsProxy') || '',
     httpProxy: formData.get('httpProxy') || '',
