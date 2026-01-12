@@ -7,6 +7,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const APIClient = require('./api/api-client');
 
 class ConfigManager {
   constructor() {
@@ -21,9 +22,13 @@ class ConfigManager {
       // 多 API 配置支持
       apiProfiles: [],
       defaultProfileId: null,  // 默认 Profile（启动时推荐使用）
-
-      // 自定义模型列表（已废弃，每个 Profile 独立管理）
-      customModels: [],
+      
+      // 自定义模型列表（用于官方/中转服务）
+      customModels: [
+        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+      ],
       
       settings: {
         theme: 'light',
@@ -350,7 +355,7 @@ class ConfigManager {
   }
 
   /**
-   * 确保所有 Profile 都有 customModels 字段（初始化为空数组）
+   * 确保所有 Profile 都有 customModels 字段
    */
   ensureCustomModels(config) {
     if (!config.apiProfiles || config.apiProfiles.length === 0) {
@@ -358,12 +363,16 @@ class ConfigManager {
     }
 
     let modified = false;
+    const defaultModels = [
+      { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+      { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+      { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+    ];
 
     config.apiProfiles.forEach(profile => {
-      // 只在字段不存在时初始化为空数组，不自动填充默认模型
-      if (!profile.customModels) {
-        console.log('[ConfigManager] Initializing empty customModels for profile:', profile.id);
-        profile.customModels = [];
+      if (!profile.customModels || profile.customModels.length === 0) {
+        console.log('[ConfigManager] Adding customModels to profile:', profile.id);
+        profile.customModels = [...defaultModels];
         modified = true;
       }
     });
@@ -417,7 +426,11 @@ class ConfigManager {
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       icon: '🟣',
-      customModels: []  // 初始化为空，用户手动维护
+      customModels: [
+        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+      ]
     };
 
     // 更新配置
@@ -475,8 +488,12 @@ class ConfigManager {
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       icon: profileData.icon || '🔵',
-      // 每个 Profile 独立的模型列表，初始化为空，用户手动维护
-      customModels: profileData.customModels || []
+      // 每个 Profile 独立的模型列表
+      customModels: profileData.customModels || [
+        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+      ]
     };
 
     // 如果是第一个 Profile，自动设为默认
@@ -620,19 +637,23 @@ class ConfigManager {
       console.error('[ConfigManager] getCustomModels: profileId is required');
       return [];
     }
-
+    
     const profile = this.getAPIProfile(profileId);
     if (!profile) {
       console.error('[ConfigManager] getCustomModels: profile not found:', profileId);
       return [];
     }
-
-    // 如果 profile 没有 customModels 字段（undefined），初始化为空数组
-    if (!profile.customModels) {
-      profile.customModels = [];
+    
+    // 如果 profile 没有模型列表，初始化默认模型
+    if (!profile.customModels || profile.customModels.length === 0) {
+      profile.customModels = [
+        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
+        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
+        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
+      ];
+      this.save();
     }
-
-    // 允许用户保持空列表，不自动添加默认模型
+    
     return profile.customModels;
   }
 
@@ -741,357 +762,95 @@ class ConfigManager {
       useProxy: apiConfig.useProxy,
       httpsProxy: apiConfig.httpsProxy
     }, null, 2));
-    
-    const https = require('https');
-    const { URL } = require('url');
 
-    return new Promise((resolve) => {
-      let isResolved = false;
-      let globalTimer = null;
-      let request = null;
-      
-      // 统一的 resolve 函数，确保只调用一次
-      const safeResolve = (result) => {
-        if (isResolved) {
-          console.warn('[API Test] Multiple resolve attempts detected, ignored');
-          return;
-        }
-        isResolved = true;
-        
-        // 清理定时器
-        if (globalTimer) {
-          clearTimeout(globalTimer);
-          globalTimer = null;
-        }
-        
-        // 销毁请求
-        if (request) {
-          try {
-            request.destroy();
-          } catch (e) {
-            // 忽略销毁错误
-          }
-        }
-        
-        console.log('[API Test] Test completed, result:', result.success ? 'SUCCESS' : 'FAILED');
-        console.log('[API Test] ========== Connection test ended ==========\n');
-        resolve(result);
-      };
-      
-      // Global timeout protection: 15 seconds
-      globalTimer = setTimeout(() => {
-        console.error('[API Test] Global timeout (15s)');
-        safeResolve({ success: false, message: '连接超时（15秒无响应）' });
-      }, 15000);
-      
-      try {
-        // 1. 构造完整 URL
-        let baseUrl = apiConfig.baseUrl || 'https://api.anthropic.com';
-        baseUrl = baseUrl.trim();
-        if (!baseUrl.endsWith('/')) {
-          baseUrl += '/';
-        }
-        const fullUrl = baseUrl + 'v1/messages';
-        
-        console.log('[API Test] Full URL:', fullUrl);
-        
-        const url = new URL(fullUrl);
-        
-        console.log('[API Test] - hostname:', url.hostname);
-        console.log('[API Test] - port:', url.port || 443);
-        console.log('[API Test] - pathname:', url.pathname);
-        
-        // 2. Build auth header
-        const authHeader = apiConfig.authType === 'auth_token' 
-          ? { 'Authorization': `Bearer ${apiConfig.authToken}` }
-          : { 'x-api-key': apiConfig.authToken };
-        
-        console.log('[API Test] Auth type:', apiConfig.authType);
+    // Construct test payload
+    const testPayload = {
+      model: apiConfig.model || 'claude-sonnet-4-5-20250929',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'test' }]
+    };
 
-        // 3. 构造请求体
-        const postData = JSON.stringify({
-          model: apiConfig.model || 'claude-sonnet-4-5-20250929',
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'test' }]
-        });
-
-        // 4. 构造请求选项
-        const options = {
-          hostname: url.hostname,
-          port: url.port || 443,
-          path: url.pathname + url.search,
-          method: 'POST',
-          headers: {
-            ...authHeader,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-            'anthropic-version': '2023-06-01'
-          },
-          timeout: 10000
-        };
-
-        // 5. Configure proxy (may fail)
-        if (apiConfig.useProxy && apiConfig.httpsProxy) {
-          try {
-            console.log('[API Test] Using proxy:', apiConfig.httpsProxy);
-            const HttpsProxyAgent = require('https-proxy-agent');
-            options.agent = new HttpsProxyAgent(apiConfig.httpsProxy);
-          } catch (proxyError) {
-            console.error('[API Test] Proxy config error:', proxyError);
-            safeResolve({ 
-              success: false, 
-              message: `代理配置错误: ${proxyError.message}` 
-            });
-            return;
-          }
-        }
-
-        // 6. 创建请求
-        console.log('[API Test] Creating HTTPS request...');
-        request = https.request(options, (res) => {
-          console.log('[API Test] Received response, status code:', res.statusCode);
-          
-          let responseData = '';
-          
-          res.on('data', (chunk) => { 
-            responseData += chunk; 
-          });
-          
-          res.on('end', () => {
-            console.log('[API Test] Response received completely');
-
-            if (res.statusCode === 200) {
-              safeResolve({
-                success: true,
-                message: 'API 连接成功'
-              });
-            } else {
-              console.error('[API Test] HTTP error:', res.statusCode);
-              console.error('[API Test] Response content:', responseData);
-              safeResolve({ 
-                success: false, 
-                message: `连接失败 (${res.statusCode})\n请求地址: ${fullUrl}\n响应: ${responseData}` 
-              });
-            }
-          });
-        });
-
-        // 7. 错误处理
-        request.on('error', (error) => {
-          console.error('[API Test] Request error:', error.message);
-          safeResolve({
-            success: false,
-            message: `连接错误: ${error.message}`
-          });
-        });
-
-        request.on('timeout', () => {
-          console.error('[API Test] Request timeout (10s)');
-          safeResolve({
-            success: false,
-            message: '连接超时（10秒）'
-          });
-        });
-
-        // 8. 发送请求
-        console.log('[API Test] Sending request data...');
-        request.write(postData);
-        request.end();
-        console.log('[API Test] Request sent, waiting for response...');
-        
-      } catch (error) {
-        console.error('[API Test] Exception:', error);
-        safeResolve({
-          success: false,
-          message: `配置错误: ${error.message}`
-        });
-      }
+    // Use APIClient for the request
+    const result = await APIClient.makeRequest(apiConfig, 'v1/messages', {
+      method: 'POST',
+      body: testPayload
     });
+
+    console.log('[API Test] Test completed, result:', result.success ? 'SUCCESS' : 'FAILED');
+    console.log('[API Test] ========== Connection test ended ==========\n');
+
+    // If successful, change message to be more user-friendly
+    if (result.success) {
+      return {
+        success: true,
+        message: 'API 连接成功'
+      };
+    }
+
+    return result;
   }
+
 
   /**
    * 获取模型列表
    */
   async fetchOfficialModels(apiConfig) {
-    const https = require('https');
-    const { URL } = require('url');
+    console.log('[Fetch Models] Fetching model list from API...');
 
-    return new Promise((resolve) => {
-      let isResolved = false;
-      let globalTimer = null;
-      let request = null;
-
-      const safeResolve = (result) => {
-        if (isResolved) return;
-        isResolved = true;
-
-        if (globalTimer) {
-          clearTimeout(globalTimer);
-          globalTimer = null;
-        }
-
-        if (request) {
-          try {
-            request.destroy();
-          } catch (e) {
-            // Ignore destroy errors
-          }
-        }
-
-        resolve(result);
-      };
-
-      // Global timeout: 10 seconds
-      globalTimer = setTimeout(() => {
-        console.error('[Fetch Models] Global timeout (10s)');
-        safeResolve({ success: false, message: '获取模型列表超时（10秒）' });
-      }, 10000);
-
-      try {
-        // Construct full URL for /v1/models endpoint
-        let baseUrl = apiConfig.baseUrl || 'https://api.anthropic.com';
-        baseUrl = baseUrl.trim();
-        if (!baseUrl.endsWith('/')) {
-          baseUrl += '/';
-        }
-        const fullUrl = baseUrl + 'v1/models';
-
-        console.log('[Fetch Models] Fetching from URL:', fullUrl);
-
-        const url = new URL(fullUrl);
-
-        // Build auth header
-        const authHeader = apiConfig.authType === 'auth_token'
-          ? { 'Authorization': `Bearer ${apiConfig.authToken}` }
-          : { 'x-api-key': apiConfig.authToken };
-
-        // Request options
-        const options = {
-          hostname: url.hostname,
-          port: url.port || 443,
-          path: url.pathname + url.search,
-          method: 'GET',
-          headers: {
-            ...authHeader,
-            'anthropic-version': '2023-06-01'
-          },
-          timeout: 8000
-        };
-
-        // Configure proxy if needed
-        if (apiConfig.useProxy && apiConfig.httpsProxy) {
-          try {
-            console.log('[Fetch Models] Using proxy:', apiConfig.httpsProxy);
-            const HttpsProxyAgent = require('https-proxy-agent');
-            options.agent = new HttpsProxyAgent(apiConfig.httpsProxy);
-          } catch (proxyError) {
-            console.error('[Fetch Models] Proxy config error:', proxyError);
-            safeResolve({
-              success: false,
-              message: `代理配置错误: ${proxyError.message}`
-            });
-            return;
-          }
-        }
-
-        // Create request
-        console.log('[Fetch Models] Creating HTTPS request...');
-        request = https.request(options, (res) => {
-          console.log('[Fetch Models] Received response, status code:', res.statusCode);
-
-          let responseData = '';
-
-          res.on('data', (chunk) => {
-            responseData += chunk;
-          });
-
-          res.on('end', () => {
-            console.log('[Fetch Models] Response received completely');
-
-            if (res.statusCode === 200) {
-              try {
-                const data = JSON.parse(responseData);
-                console.log('[Fetch Models] Parsed response:', data);
-
-                // Parse model list
-                if (data.data && Array.isArray(data.data)) {
-                  const models = data.data.map(model => {
-                    // Generate label based on model name
-                    let label = model.display_name || model.id;
-
-                    // Add friendly labels for known models
-                    if (model.id.includes('opus')) {
-                      label = label + ' - 最强大';
-                    } else if (model.id.includes('sonnet')) {
-                      label = label + ' - 平衡（推荐）';
-                    } else if (model.id.includes('haiku')) {
-                      label = label + ' - 最快';
-                    }
-
-                    return {
-                      id: model.id.replace(/[^a-zA-Z0-9-_.]/g, '_'), // Safe ID
-                      name: model.id,
-                      label: label
-                    };
-                  });
-
-                  console.log('[Fetch Models] Parsed', models.length, 'models');
-                  safeResolve({ success: true, models });
-                } else {
-                  console.error('[Fetch Models] Invalid response format');
-                  safeResolve({
-                    success: false,
-                    message: '模型列表格式错误'
-                  });
-                }
-              } catch (parseError) {
-                console.error('[Fetch Models] JSON parse error:', parseError);
-                safeResolve({
-                  success: false,
-                  message: `解析响应失败: ${parseError.message}`
-                });
-              }
-            } else {
-              console.error('[Fetch Models] HTTP error:', res.statusCode);
-              console.error('[Fetch Models] Response content:', responseData);
-              safeResolve({
-                success: false,
-                message: `获取失败 (${res.statusCode})\n${responseData}`
-              });
-            }
-          });
-        });
-
-        // Error handling
-        request.on('error', (error) => {
-          console.error('[Fetch Models] Request error:', error.message);
-          safeResolve({
-            success: false,
-            message: `连接错误: ${error.message}`
-          });
-        });
-
-        request.on('timeout', () => {
-          console.error('[Fetch Models] Request timeout (8s)');
-          safeResolve({
-            success: false,
-            message: '连接超时（8秒）'
-          });
-        });
-
-        // Send request
-        console.log('[Fetch Models] Sending request...');
-        request.end();
-        console.log('[Fetch Models] Request sent, waiting for response...');
-
-      } catch (error) {
-        console.error('[Fetch Models] Exception:', error);
-        safeResolve({
-          success: false,
-          message: `配置错误: ${error.message}`
-        });
-      }
+    // Use APIClient to make GET request to /v1/models endpoint
+    const result = await APIClient.makeRequest(apiConfig, 'v1/models', {
+      method: 'GET',
+      globalTimeout: 10000,
+      requestTimeout: 8000
     });
+
+    // If request failed, return error
+    if (!result.success) {
+      return result;
+    }
+
+    // Parse model list from response
+    try {
+      const data = result.data;
+      console.log('[Fetch Models] Parsed response:', data);
+
+      if (data.data && Array.isArray(data.data)) {
+        const models = data.data.map(model => {
+          // Generate label based on model name
+          let label = model.display_name || model.id;
+
+          // Add friendly labels for known models
+          if (model.id.includes('opus')) {
+            label = label + ' - 最强大';
+          } else if (model.id.includes('sonnet')) {
+            label = label + ' - 平衡（推荐）';
+          } else if (model.id.includes('haiku')) {
+            label = label + ' - 最快';
+          }
+
+          return {
+            id: model.id.replace(/[^a-zA-Z0-9-_.]/g, '_'), // Safe ID
+            name: model.id,
+            label: label
+          };
+        });
+
+        console.log('[Fetch Models] Parsed', models.length, 'models');
+        return { success: true, models };
+      } else {
+        console.error('[Fetch Models] Invalid response format');
+        return {
+          success: false,
+          message: '模型列表格式错误'
+        };
+      }
+    } catch (parseError) {
+      console.error('[Fetch Models] Parse error:', parseError);
+      return {
+        success: false,
+        message: `解析响应失败: ${parseError.message}`
+      };
+    }
   }
 }
 

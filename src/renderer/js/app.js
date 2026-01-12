@@ -14,7 +14,8 @@ const state = {
   currentProject: null,
   projects: [],
   connected: false,
-  config: null
+  config: null,
+  cleanupFunctions: [] // Store event listener cleanup functions
 };
 
 // ========================================
@@ -77,23 +78,26 @@ function initTerminal() {
 
   // 监听终端数据
   if (window.electronAPI) {
-    window.electronAPI.onTerminalData(data => {
+    const cleanupData = window.electronAPI.onTerminalData(data => {
       if (state.terminal) {
         state.terminal.write(data);
       }
     });
+    state.cleanupFunctions.push(cleanupData);
 
-    window.electronAPI.onTerminalExit(({ exitCode }) => {
+    const cleanupExit = window.electronAPI.onTerminalExit(({ exitCode }) => {
       console.log('[App] Terminal exited with code:', exitCode);
       showToast('Terminal process exited', 'info');
       handleDisconnect();
     });
+    state.cleanupFunctions.push(cleanupExit);
 
-    window.electronAPI.onTerminalError(error => {
+    const cleanupError = window.electronAPI.onTerminalError(error => {
       console.error('[App] Terminal error:', error);
       showToast('Terminal error: ' + error, 'error');
       handleDisconnect();
     });
+    state.cleanupFunctions.push(cleanupError);
   }
 
   console.log('[App] Terminal initialized');
@@ -199,6 +203,14 @@ async function connectToProject(project) {
 function handleDisconnect() {
   state.connected = false;
   state.currentProject = null;
+
+  // Cleanup event listeners
+  state.cleanupFunctions.forEach(cleanup => {
+    if (typeof cleanup === 'function') {
+      cleanup();
+    }
+  });
+  state.cleanupFunctions = [];
 
   document.getElementById('emptyState').classList.remove('hidden');
   document.getElementById('terminalContainer').classList.remove('visible');

@@ -66,6 +66,16 @@ async function loadProfiles() {
 }
 
 /**
+ * HTML转义函数，防止XSS攻击
+ */
+function escapeHtml(text) {
+  if (text == null) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
  * 渲染 Profiles 列表
  */
 function renderProfiles() {
@@ -84,15 +94,15 @@ function renderProfiles() {
       <div class="${cardClass}">
         <div class="profile-header">
           <div class="profile-title">
-            <span class="profile-icon">${profile.icon || '🟣'}</span>
-            <span class="profile-name">${profile.name}</span>
+            <span class="profile-icon">${escapeHtml(profile.icon || '🟣')}</span>
+            <span class="profile-name">${escapeHtml(profile.name)}</span>
           </div>
           <div class="profile-header-right">
             ${isDefault ? '<span class="badge badge-default">默认</span>' : ''}
             <div class="profile-actions-inline">
-              ${!isDefault ? `<button class="btn-inline btn-secondary" onclick="setDefault('${profile.id}')">默认</button>` : ''}
-              <button class="btn-inline btn-secondary" onclick="editProfile('${profile.id}')">编辑</button>
-              <button class="btn-inline btn-danger" onclick="deleteProfile('${profile.id}')">删除</button>
+              ${!isDefault ? `<button class="btn-inline btn-secondary" onclick="setDefault('${escapeHtml(profile.id)}')">默认</button>` : ''}
+              <button class="btn-inline btn-secondary" onclick="editProfile('${escapeHtml(profile.id)}')">编辑</button>
+              <button class="btn-inline btn-danger" onclick="deleteProfile('${escapeHtml(profile.id)}')">删除</button>
             </div>
           </div>
         </div>
@@ -105,7 +115,7 @@ function renderProfiles() {
             ${profile.description ? `
             <div class="detail-item-inline">
               <span class="detail-label">描述：</span>
-              <span class="detail-value">${profile.description}</span>
+              <span class="detail-value">${escapeHtml(profile.description)}</span>
             </div>` : '<div class="detail-item-inline"></div>'}
             <div class="detail-item-inline">
               <span class="detail-label">最后使用：</span>
@@ -115,11 +125,11 @@ function renderProfiles() {
           <div class="detail-row">
             <div class="detail-item-inline">
               <span class="detail-label">API地址：</span>
-              <span class="detail-value">${profile.baseUrl}</span>
+              <span class="detail-value">${escapeHtml(profile.baseUrl)}</span>
             </div>
             <div class="detail-item-inline">
               <span class="detail-label">模型：</span>
-              <span class="detail-value">${profile.model}</span>
+              <span class="detail-value">${escapeHtml(profile.model)}</span>
             </div>
             <div class="detail-item-inline">
               <span class="detail-label">代理：</span>
@@ -710,6 +720,12 @@ async function addNewModel() {
         modelId: editingModelId,
         updates: { name, label }
       });
+
+      if (!success) {
+        showModalAlert('❌ 更新模型失败', 'error');
+        return;
+      }
+      showModalAlert('✅ 模型已更新', 'success');
     } else {
       // 添加模式
       const newModel = {
@@ -717,9 +733,9 @@ async function addNewModel() {
         name: name,
         label: label
       };
-      
+
       await window.electronAPI.addCustomModel({ profileId: editingProfileId, model: newModel });
-      showAlert('模型已添加', 'success');
+      showModalAlert('✅ 模型已添加', 'success');
     }
     
     // 清空输入框和状态
