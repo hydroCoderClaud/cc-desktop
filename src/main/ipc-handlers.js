@@ -126,37 +126,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   // 窗口管理
   // ========================================
 
-  // 打开设置窗口
-  ipcMain.handle('window:openSettings', async () => {
-    const { BrowserWindow } = require('electron');
-    const path = require('path');
-
-    // 创建设置窗口
-    const settingsWindow = new BrowserWindow({
-      width: 900,
-      height: 700,
-      title: 'API 配置 - Claude Code Desktop',
-      parent: mainWindow,
-      modal: false,
-      backgroundColor: '#f5f5f0',
-      autoHideMenuBar: true,  // 隐藏菜单栏
-      webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false
-      }
-    });
-
-    settingsWindow.loadFile(path.join(__dirname, '../renderer/settings.html'));
-
-    // 开发模式打开开发者工具（默认关闭，使用 F12 手动打开）
-    // if (process.env.NODE_ENV === 'development') {
-    //   settingsWindow.webContents.openDevTools();
-    // }
-
-    return { success: true };
-  });
-
   // 打开 Profile 管理窗口
   ipcMain.handle('window:openProfileManager', async () => {
     const { BrowserWindow } = require('electron');
