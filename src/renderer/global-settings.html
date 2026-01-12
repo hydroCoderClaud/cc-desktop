@@ -77,7 +77,7 @@
     }
 
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 0;
     }
 
     .form-group label {
@@ -85,7 +85,7 @@
       font-size: 14px;
       font-weight: 500;
       color: #2c2825;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .form-group input[type="text"],
@@ -106,7 +106,7 @@
     .form-group .hint {
       font-size: 12px;
       color: #888;
-      margin-top: 6px;
+      font-weight: 400;
     }
 
     .model-inputs {
@@ -295,15 +295,13 @@
 
       <div class="timeout-inputs">
         <div class="form-group">
-          <label for="testTimeout">连接测试超时</label>
+          <label for="testTimeout">连接测试超时 <span class="hint">（用于测试 API 连接是否可用）</span></label>
           <input type="number" id="testTimeout" min="5" max="120" step="1" value="30" />
-          <div class="hint">用于测试 API 连接是否可用</div>
         </div>
 
         <div class="form-group">
-          <label for="requestTimeout">请求超时</label>
+          <label for="requestTimeout">请求超时 <span class="hint">（用于实际 API 请求，支持第三方服务最长 1 小时）</span></label>
           <input type="number" id="requestTimeout" min="10" max="3600" step="1" value="120" />
-          <div class="hint">用于实际 API 请求（支持第三方服务最长 1 小时）</div>
         </div>
       </div>
     </div>
