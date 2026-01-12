@@ -647,6 +647,11 @@ class ConfigManager {
     Object.assign(profile, safeUpdates);
     profile.lastUsed = new Date().toISOString();
 
+    // 清理不应该存在的迁移前字段
+    delete profile.model;
+    delete profile.category;
+    delete profile.customModels;
+
     return this.save();
   }
 
