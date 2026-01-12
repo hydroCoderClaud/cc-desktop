@@ -14,8 +14,7 @@ const state = {
   currentProject: null,
   projects: [],
   connected: false,
-  config: null,
-  cleanupFunctions: [] // Store event listener cleanup functions
+  config: null
 };
 
 // ========================================
@@ -78,26 +77,23 @@ function initTerminal() {
 
   // 监听终端数据
   if (window.electronAPI) {
-    const cleanupData = window.electronAPI.onTerminalData(data => {
+    window.electronAPI.onTerminalData(data => {
       if (state.terminal) {
         state.terminal.write(data);
       }
     });
-    state.cleanupFunctions.push(cleanupData);
 
-    const cleanupExit = window.electronAPI.onTerminalExit(({ exitCode }) => {
+    window.electronAPI.onTerminalExit(({ exitCode }) => {
       console.log('[App] Terminal exited with code:', exitCode);
       showToast('Terminal process exited', 'info');
       handleDisconnect();
     });
-    state.cleanupFunctions.push(cleanupExit);
 
-    const cleanupError = window.electronAPI.onTerminalError(error => {
+    window.electronAPI.onTerminalError(error => {
       console.error('[App] Terminal error:', error);
       showToast('Terminal error: ' + error, 'error');
       handleDisconnect();
     });
-    state.cleanupFunctions.push(cleanupError);
   }
 
   console.log('[App] Terminal initialized');
@@ -203,14 +199,6 @@ async function connectToProject(project) {
 function handleDisconnect() {
   state.connected = false;
   state.currentProject = null;
-
-  // Cleanup event listeners
-  state.cleanupFunctions.forEach(cleanup => {
-    if (typeof cleanup === 'function') {
-      cleanup();
-    }
-  });
-  state.cleanupFunctions = [];
 
   document.getElementById('emptyState').classList.remove('hidden');
   document.getElementById('terminalContainer').classList.remove('visible');
@@ -385,29 +373,18 @@ async function checkAPIConfig() {
   if (!window.electronAPI) return;
 
   try {
-    // 获取当前 Profile
-    const currentProfile = await window.electronAPI.getCurrentProfile();
+    const validation = await window.electronAPI.validateAPIConfig();
     const indicator = document.getElementById('apiStatusIndicator');
-    const textEl = document.querySelector('.api-config-btn .text');
-    const iconEl = document.querySelector('.api-config-btn .icon');
 
-    if (currentProfile) {
-      // 显示当前 Profile 名称和图标
-      if (textEl) textEl.textContent = currentProfile.name;
-      if (iconEl) iconEl.textContent = currentProfile.icon || '🔑';
-
+    if (validation.valid) {
       indicator.classList.add('active');
       indicator.classList.remove('error');
-      indicator.title = '已配置';
-      console.log('[App] Current profile:', currentProfile.name);
+      indicator.title = 'API 已配置';
+      console.log('[App] API config is valid');
     } else {
-      // 未配置
-      if (textEl) textEl.textContent = 'API 配置';
-      if (iconEl) iconEl.textContent = '🔑';
-
       indicator.classList.add('active', 'error');
       indicator.title = '需要配置 API';
-      console.log('[App] No API profile configured');
+      console.log('[App] API config is invalid:', validation.errors);
     }
   } catch (error) {
     console.error('[App] Failed to check API config:', error);
@@ -420,20 +397,8 @@ function openAPISettings() {
     return;
   }
 
-  // 打开 Profile 管理器
-  window.electronAPI.openProfileManager();
-  console.log('[App] Opening profile manager');
-}
-
-// 打开旧的设置界面（保留以备兼容）
-function openLegacySettings() {
-  if (!window.electronAPI) {
-    showToast('Electron API not available', 'error');
-    return;
-  }
-
   window.electronAPI.openSettings();
-  console.log('[App] Opening legacy settings window');
+  console.log('[App] Opening API settings window');
 }
 
 // ========================================
@@ -468,6 +433,12 @@ function bindEvents() {
   const apiConfigBtn = document.getElementById('apiConfigBtn');
   if (apiConfigBtn) {
     apiConfigBtn.addEventListener('click', openAPISettings);
+  }
+
+  // 全局设置按钮
+  const globalSettingsBtn = document.getElementById('globalSettingsBtn');
+  if (globalSettingsBtn) {
+    globalSettingsBtn.addEventListener('click', openGlobalSettings);
   }
 
   console.log('[App] Events bound');

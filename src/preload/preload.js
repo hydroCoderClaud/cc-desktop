@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   openSettings: () => ipcRenderer.invoke('window:openSettings'),
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
+  openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
 
   // ========================================
   // Terminal 相关
