@@ -35,14 +35,14 @@ async function loadSettings() {
     const globalModels = await ipcRenderer.invoke('config:getGlobalModels');
     console.log('[Global Settings] Loaded global models:', globalModels);
 
-    // Populate model inputs with values (not just placeholders)
-    // Use default values if backend returns empty
+    // Populate model inputs - show actual config values or empty
+    // Don't auto-fill defaults to distinguish config values from fallbacks
     document.getElementById('globalOpus').value = 
-      (globalModels && globalModels.opus) || DEFAULTS.globalModels.opus;
+      (globalModels && globalModels.opus) || '';
     document.getElementById('globalSonnet').value = 
-      (globalModels && globalModels.sonnet) || DEFAULTS.globalModels.sonnet;
+      (globalModels && globalModels.sonnet) || '';
     document.getElementById('globalHaiku').value = 
-      (globalModels && globalModels.haiku) || DEFAULTS.globalModels.haiku;
+      (globalModels && globalModels.haiku) || '';
 
     // Get timeout settings
     const timeout = await ipcRenderer.invoke('config:getTimeout');
@@ -58,10 +58,10 @@ async function loadSettings() {
     console.error('[Global Settings] Error loading settings:', error);
     showMessage('加载设置失败: ' + error.message, 'error');
     
-    // On error, still populate with defaults so user doesn't see empty fields
-    document.getElementById('globalOpus').value = DEFAULTS.globalModels.opus;
-    document.getElementById('globalSonnet').value = DEFAULTS.globalModels.sonnet;
-    document.getElementById('globalHaiku').value = DEFAULTS.globalModels.haiku;
+    // On error, leave fields empty to distinguish from valid config
+    document.getElementById('globalOpus').value = '';
+    document.getElementById('globalSonnet').value = '';
+    document.getElementById('globalHaiku').value = '';
     document.getElementById('testTimeout').value = DEFAULTS.timeout.test;
     document.getElementById('requestTimeout').value = DEFAULTS.timeout.request;
   }
@@ -72,18 +72,15 @@ async function loadSettings() {
  */
 async function saveSettings() {
   try {
-    // Collect model values
+    // Collect model values - use defaults for empty fields
     const globalModels = {
-      opus: document.getElementById('globalOpus').value.trim(),
-      sonnet: document.getElementById('globalSonnet').value.trim(),
-      haiku: document.getElementById('globalHaiku').value.trim()
+      opus: document.getElementById('globalOpus').value.trim() || DEFAULTS.globalModels.opus,
+      sonnet: document.getElementById('globalSonnet').value.trim() || DEFAULTS.globalModels.sonnet,
+      haiku: document.getElementById('globalHaiku').value.trim() || DEFAULTS.globalModels.haiku
     };
 
-    // Validate model names
-    if (!globalModels.opus || !globalModels.sonnet || !globalModels.haiku) {
-      showMessage('请填写所有模型名称', 'error');
-      return;
-    }
+    // Model names should always be valid (either user input or defaults)
+    // No validation needed since we use defaults for empty fields
 
     // Collect timeout values (convert seconds to ms)
     const timeout = {
@@ -165,6 +162,15 @@ function showMessage(message, type) {
   setTimeout(() => {
     messageEl.style.display = 'none';
   }, 3000);
+}
+
+/**
+ * Use default value for a specific input
+ * @param {string} inputId - The ID of the input element
+ * @param {string} defaultValue - The default value to use
+ */
+function useDefault(inputId, defaultValue) {
+  document.getElementById(inputId).value = defaultValue;
 }
 
 // Initialize when DOM is ready

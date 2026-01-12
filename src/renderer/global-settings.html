@@ -191,6 +191,22 @@
       color: #c62828;
       border: 1px solid #ef9a9a;
     }
+
+    .use-default-btn {
+      padding: 6px 12px;
+      background: #f0f0f0;
+      border: 1px solid #d1d1d1;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .use-default-btn:hover {
+      background: #e0e0e0;
+      border-color: #d4a574;
+    }
   </style>
 </head>
 <body>
@@ -214,19 +230,28 @@
         <div class="model-input-row">
           <span class="icon">🚀</span>
           <span class="label">Opus 模型</span>
-          <input type="text" id="globalOpus" value="claude-opus-4-5-20251101" placeholder="claude-opus-4-5-20251101" />
+          <input type="text" id="globalOpus" placeholder="留空使用推荐值" />
+          <button type="button" class="use-default-btn" onclick="useDefault('globalOpus', 'claude-opus-4-5-20251101')" title="使用推荐值">
+            使用推荐: claude-opus-4-5-20251101
+          </button>
         </div>
 
         <div class="model-input-row">
           <span class="icon">⚡</span>
           <span class="label">Sonnet 模型</span>
-          <input type="text" id="globalSonnet" value="claude-sonnet-4-5-20250929" placeholder="claude-sonnet-4-5-20250929" />
+          <input type="text" id="globalSonnet" placeholder="留空使用推荐值" />
+          <button type="button" class="use-default-btn" onclick="useDefault('globalSonnet', 'claude-sonnet-4-5-20250929')" title="使用推荐值">
+            使用推荐: claude-sonnet-4-5-20250929
+          </button>
         </div>
 
         <div class="model-input-row">
           <span class="icon">💨</span>
           <span class="label">Haiku 模型</span>
-          <input type="text" id="globalHaiku" value="claude-haiku-4-5-20251001" placeholder="claude-haiku-4-5-20251001" />
+          <input type="text" id="globalHaiku" placeholder="留空使用推荐值" />
+          <button type="button" class="use-default-btn" onclick="useDefault('globalHaiku', 'claude-haiku-4-5-20251001')" title="使用推荐值">
+            使用推荐: claude-haiku-4-5-20251001
+          </button>
         </div>
       </div>
     </div>
