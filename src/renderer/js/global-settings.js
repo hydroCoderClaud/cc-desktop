@@ -10,7 +10,7 @@ const DEFAULTS = {
   globalModels: {
     opus: 'claude-opus-4-5-20251101',
     sonnet: 'claude-sonnet-4-5-20250929',
-    haiku: 'claude-haiku-4-0-20250107'
+    haiku: 'claude-haiku-4-5-20251001'
   },
   timeout: {
     test: 30,      // seconds
