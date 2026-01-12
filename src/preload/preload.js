@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Global Models and Timeout
   getGlobalModels: () => ipcRenderer.invoke('config:getGlobalModels'),
   updateGlobalModels: (globalModels) => ipcRenderer.invoke('config:updateGlobalModels', globalModels),
+  getServiceProviders: () => ipcRenderer.invoke('config:getServiceProviders'),
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
   updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),
 

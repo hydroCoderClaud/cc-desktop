@@ -8,6 +8,7 @@ let profiles = [];
 let currentProfile = null;
 let editingProfileId = null;
 let editingModelId = null;
+let serviceProviders = null; // 服务商枚举定义（从后端获取）
 
 // 可用图标（只保留第一排8个）
 const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '⚫'];
@@ -18,6 +19,12 @@ let selectedIcon = '🟣';
  */
 async function init() {
   console.log('[Profile Manager] Initializing...');
+
+  // 加载服务商枚举定义
+  await loadServiceProviders();
+
+  // 初始化服务商下拉框
+  initServiceProviderSelect();
 
   // 加载当前 Profile
   await loadCurrentProfile();
@@ -30,6 +37,46 @@ async function init() {
 
   // 绑定事件
   bindEvents();
+}
+
+/**
+ * 加载服务商枚举定义
+ */
+async function loadServiceProviders() {
+  try {
+    serviceProviders = await window.electronAPI.getServiceProviders();
+    console.log('[Profile Manager] Loaded service providers:', serviceProviders);
+  } catch (error) {
+    console.error('[Profile Manager] Failed to load service providers:', error);
+    // 使用默认值作为备用
+    serviceProviders = {
+      official: { label: '官方 API', needsMapping: false },
+      proxy: { label: '中转服务', needsMapping: false },
+      zhipu: { label: '智谱AI', needsMapping: true },
+      minimax: { label: 'MiniMax', needsMapping: true },
+      qwen: { label: '阿里千问', needsMapping: true },
+      other: { label: '其他第三方', needsMapping: true }
+    };
+  }
+}
+
+/**
+ * 初始化服务商下拉框
+ */
+function initServiceProviderSelect() {
+  const selectEl = document.getElementById('profileServiceProvider');
+  if (!selectEl || !serviceProviders) return;
+
+  // 清空现有选项
+  selectEl.innerHTML = '';
+
+  // 动态生成选项
+  Object.entries(serviceProviders).forEach(([value, config]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = config.label;
+    selectEl.appendChild(option);
+  });
 }
 
 /**
@@ -468,17 +515,17 @@ function showModalAlert(message, type = 'success') {
  * 获取类别名称
  */
 function getCategoryName(category) {
-  const categoryMap = {
-    'official': '官方 API',
-    'proxy': '中转服务',
-    'third_party': '第三方服务',
-    // 兼容旧的 serviceProvider 值
-    'zhipu': '智谱AI',
-    'minimax': 'MiniMax',
-    'qwen': '阿里千问',
-    'other': '其他第三方'
-  };
-  return categoryMap[category] || '未知';
+  // 使用统一的服务商定义
+  if (serviceProviders && serviceProviders[category]) {
+    return serviceProviders[category].label;
+  }
+
+  // 兼容 third_party（可能是旧配置）
+  if (category === 'third_party') {
+    return '第三方服务';
+  }
+
+  return '未知';
 }
 
 /**

@@ -107,6 +107,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     return configManager.updateGlobalModels(globalModels);
   });
 
+  // 获取服务商枚举定义
+  ipcMain.handle('config:getServiceProviders', async () => {
+    return configManager.getServiceProviders();
+  });
+
   // 获取超时配置
   ipcMain.handle('config:getTimeout', async () => {
     return configManager.getTimeout();

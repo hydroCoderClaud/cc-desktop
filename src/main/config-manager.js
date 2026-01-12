@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
-const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
+const { DEFAULT_GLOBAL_MODELS, TIMEOUTS, SERVICE_PROVIDERS } = require('./utils/constants');
 
 class ConfigManager {
   constructor() {
@@ -131,6 +131,13 @@ class ConfigManager {
    */
   getGlobalModels() {
     return this.config.globalModels || { ...DEFAULT_GLOBAL_MODELS };
+  }
+
+  /**
+   * 获取服务商枚举定义
+   */
+  getServiceProviders() {
+    return SERVICE_PROVIDERS;
   }
 
   /**

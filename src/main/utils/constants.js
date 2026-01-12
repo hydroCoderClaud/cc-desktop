@@ -24,8 +24,8 @@ const TIMEOUTS = {
 
 // Service Providers
 const SERVICE_PROVIDERS = {
-  official: { label: '官方', needsMapping: false },
-  proxy: { label: '中转', needsMapping: false },
+  official: { label: '官方 API', needsMapping: false },
+  proxy: { label: '中转服务', needsMapping: false },
   zhipu: { label: '智谱AI', needsMapping: true },
   minimax: { label: 'MiniMax', needsMapping: true },
   qwen: { label: '阿里千问', needsMapping: true },
