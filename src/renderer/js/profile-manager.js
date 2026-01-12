@@ -458,15 +458,25 @@ function formatDate(isoString) {
  */
 function updateProfileModelInputHint(category) {
   const modelDescription = document.getElementById('profileModelDescription');
+  const modelHint = document.getElementById('profileModelHint');
   const manageModelsBtn = document.getElementById('manageModelsBtn');
 
-  // 所有类别都显示模型管理按钮，由用户决定如何使用
+  // 根据服务类别显示不同的提示
   if (category === 'official' || category === 'proxy') {
     modelDescription.textContent = '选择要使用的模型版本（可通过"获取模型列表"自动获取）';
+    if (modelHint) {
+      modelHint.style.display = 'none';
+    }
   } else if (category === 'third_party') {
-    modelDescription.textContent = '选择要使用的模型版本（可尝试获取，或手动添加）';
+    modelDescription.textContent = '选择要使用的模型版本';
+    if (modelHint) {
+      modelHint.style.display = 'block';
+    }
   } else {
     modelDescription.textContent = '选择要使用的模型版本';
+    if (modelHint) {
+      modelHint.style.display = 'none';
+    }
   }
 
   if (manageModelsBtn) {
