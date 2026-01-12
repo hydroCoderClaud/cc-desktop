@@ -119,10 +119,6 @@ async function saveSettings() {
  * Reset all settings to defaults
  */
 async function resetToDefaults() {
-  if (!confirm('确定要恢复默认设置吗？')) {
-    return;
-  }
-
   try {
     // Reset global models
     document.getElementById('globalOpus').value = DEFAULTS.globalModels.opus;
