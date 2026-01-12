@@ -58,7 +58,7 @@ class APIClient {
         console.error('[API Client] Global timeout');
         safeResolve({
           success: false,
-          message: `连接超时（${globalTimeout / 1000}秒无响应）`
+          message: `连接超时（${globalTimeout / 1000}秒无响应），请检查网络后重试`
         });
       }, globalTimeout);
 
@@ -162,7 +162,7 @@ class APIClient {
           console.error('[API Client] Request timeout');
           safeResolve({
             success: false,
-            message: `连接超时（${requestTimeout / 1000}秒）`
+            message: `请求超时（${requestTimeout / 1000}秒），请检查网络后重试`
           });
         });
 

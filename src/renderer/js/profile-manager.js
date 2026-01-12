@@ -670,25 +670,35 @@ async function fetchOfficialModels() {
     // 获取表单当前值
     const formData = getCurrentFormData();
 
-    showModalAlert('正在获取模型列表...', 'info');
-    
+    showModalAlert('🔄 正在获取模型列表，请稍候...', 'info');
+
     const result = await window.electronAPI.fetchOfficialModels(formData);
-    
+
     if (result.success) {
       // 更新模型列表
       const models = result.models;
       await window.electronAPI.updateCustomModels({ profileId: editingProfileId, models });
-      
+
       // 重新加载
       await loadCustomModels();
-      
+
       showModalAlert(`✅ 成功获取 ${models.length} 个模型`, 'success');
     } else {
-      showModalAlert('❌ ' + result.message, 'error');
+      // 检查是否是超时错误
+      const isTimeout = result.message && (
+        result.message.includes('超时') ||
+        result.message.includes('timeout')
+      );
+
+      if (isTimeout) {
+        showModalAlert(`⏱️ ${result.message}`, 'error', 5000);
+      } else {
+        showModalAlert(`❌ ${result.message}`, 'error');
+      }
     }
   } catch (error) {
     console.error('[Profile Manager] Failed to fetch models:', error);
-    showModalAlert('获取模型失败: ' + error.message, 'error');
+    showModalAlert(`❌ 获取模型失败: ${error.message}`, 'error');
   }
 }
 
