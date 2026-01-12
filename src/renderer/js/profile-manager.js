@@ -675,14 +675,26 @@ async function fetchOfficialModels() {
     const result = await window.electronAPI.fetchOfficialModels(formData);
 
     if (result.success) {
+      let models = result.models;
+
+      // 检查是否只获取最新版本
+      const fetchLatestOnly = document.getElementById('fetchLatestOnly')?.checked;
+      if (fetchLatestOnly) {
+        models = filterLatestClaudeModels(models);
+        console.log('[Profile Manager] Filtered to latest Claude models:', models);
+      }
+
       // 更新模型列表
-      const models = result.models;
       await window.electronAPI.updateCustomModels({ profileId: editingProfileId, models });
 
       // 重新加载
       await loadCustomModels();
 
-      showModalAlert(`✅ 成功获取 ${models.length} 个模型`, 'success');
+      if (fetchLatestOnly) {
+        showModalAlert(`✅ 成功获取 ${models.length} 个最新版本模型`, 'success');
+      } else {
+        showModalAlert(`✅ 成功获取 ${models.length} 个模型`, 'success');
+      }
     } else {
       // 检查是否是超时错误
       const isTimeout = result.message && (
@@ -700,6 +712,78 @@ async function fetchOfficialModels() {
     console.error('[Profile Manager] Failed to fetch models:', error);
     showModalAlert(`❌ 获取模型失败: ${error.message}`, 'error');
   }
+}
+
+/**
+ * 过滤最新版本的Claude模型
+ * @param {Array} models - 所有模型列表
+ * @returns {Array} - 过滤后的模型列表
+ */
+function filterLatestClaudeModels(models) {
+  // 只保留包含 "claude" 的模型
+  const claudeModels = models.filter(m => m.name.toLowerCase().includes('claude'));
+
+  // 按系列分组 (opus, sonnet, haiku)
+  const seriesMap = {
+    opus: [],
+    sonnet: [],
+    haiku: []
+  };
+
+  claudeModels.forEach(model => {
+    const nameLower = model.name.toLowerCase();
+    if (nameLower.includes('opus')) {
+      seriesMap.opus.push(model);
+    } else if (nameLower.includes('sonnet')) {
+      seriesMap.sonnet.push(model);
+    } else if (nameLower.includes('haiku')) {
+      seriesMap.haiku.push(model);
+    }
+  });
+
+  // 对每个系列，提取版本号并保留最新的
+  const latestModels = [];
+
+  Object.keys(seriesMap).forEach(series => {
+    const modelsInSeries = seriesMap[series];
+    if (modelsInSeries.length === 0) return;
+
+    // 提取版本号并排序
+    const modelsWithVersion = modelsInSeries.map(model => {
+      // 提取版本号，例如从 "claude-opus-4-5-20251101" 中提取 "4-5-20251101"
+      const match = model.name.match(/claude-\w+-(\d+)-(\d+)-(\d+)/);
+      if (match) {
+        const majorVersion = parseInt(match[1]);
+        const minorVersion = parseInt(match[2]);
+        const dateVersion = parseInt(match[3]);
+        return {
+          model,
+          majorVersion,
+          minorVersion,
+          dateVersion
+        };
+      }
+      return null;
+    }).filter(item => item !== null);
+
+    if (modelsWithVersion.length === 0) return;
+
+    // 排序：先按主版本号，再按次版本号，最后按日期
+    modelsWithVersion.sort((a, b) => {
+      if (a.majorVersion !== b.majorVersion) {
+        return b.majorVersion - a.majorVersion;
+      }
+      if (a.minorVersion !== b.minorVersion) {
+        return b.minorVersion - a.minorVersion;
+      }
+      return b.dateVersion - a.dateVersion;
+    });
+
+    // 保留最新的
+    latestModels.push(modelsWithVersion[0].model);
+  });
+
+  return latestModels;
 }
 
 /**

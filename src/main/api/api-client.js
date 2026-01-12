@@ -141,9 +141,44 @@ class APIClient {
             } else {
               console.error('[API Client] HTTP error:', res.statusCode);
               console.error('[API Client] Response content:', responseData);
+
+              // 根据状态码返回清晰的错误消息
+              let errorMessage;
+              switch (res.statusCode) {
+                case 401:
+                  errorMessage = '认证失败 (401): API密钥无效或已过期，请检查认证令牌';
+                  break;
+                case 403:
+                  errorMessage = '权限被拒绝 (403): 无权访问该API，请检查账户权限';
+                  break;
+                case 404:
+                  errorMessage = '端点不存在 (404): API地址可能配置错误，请检查Base URL';
+                  break;
+                case 429:
+                  errorMessage = '请求过于频繁 (429): API调用速率超限，请稍后重试';
+                  break;
+                case 500:
+                  errorMessage = '服务器错误 (500): API服务器内部错误，请稍后重试';
+                  break;
+                case 502:
+                  errorMessage = '网关错误 (502): 代理或网关配置可能有误';
+                  break;
+                case 503:
+                  errorMessage = '服务不可用 (503): API服务暂时不可用，请稍后重试';
+                  break;
+                default:
+                  // 尝试解析响应中的错误信息
+                  try {
+                    const errorData = JSON.parse(responseData);
+                    errorMessage = `请求失败 (${res.statusCode}): ${errorData.error?.message || errorData.message || responseData}`;
+                  } catch (e) {
+                    errorMessage = `请求失败 (${res.statusCode}): ${responseData}`;
+                  }
+              }
+
               safeResolve({
                 success: false,
-                message: `请求失败 (${res.statusCode})\n响应: ${responseData}`
+                message: errorMessage
               });
             }
           });

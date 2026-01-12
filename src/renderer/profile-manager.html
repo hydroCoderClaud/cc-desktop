@@ -822,8 +822,12 @@
             <div class="model-manager" id="modelManager" style="display: none;">
               <div class="model-manager-header">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-weight: 500;">管理模型列表</span>
-                  <div style="display: flex; gap: 8px;">
+                  <span style="font-weight: 500; font-size: 13px;">管理模型列表</span>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #666;">
+                      <input type="checkbox" id="fetchLatestOnly" style="cursor: pointer;">
+                      <span>仅获取最新版本</span>
+                    </label>
                     <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 4px 12px;" onclick="fetchOfficialModels()">获取模型列表</button>
                     <button type="button" class="btn-link-small" onclick="toggleModelManager()">收起</button>
                   </div>
