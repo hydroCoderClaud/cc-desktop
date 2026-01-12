@@ -35,22 +35,35 @@ async function loadSettings() {
     const globalModels = await ipcRenderer.invoke('config:getGlobalModels');
     console.log('[Global Settings] Loaded global models:', globalModels);
 
-    // Populate model inputs
-    document.getElementById('globalOpus').value = globalModels.opus || DEFAULTS.globalModels.opus;
-    document.getElementById('globalSonnet').value = globalModels.sonnet || DEFAULTS.globalModels.sonnet;
-    document.getElementById('globalHaiku').value = globalModels.haiku || DEFAULTS.globalModels.haiku;
+    // Populate model inputs with values (not just placeholders)
+    // Use default values if backend returns empty
+    document.getElementById('globalOpus').value = 
+      (globalModels && globalModels.opus) || DEFAULTS.globalModels.opus;
+    document.getElementById('globalSonnet').value = 
+      (globalModels && globalModels.sonnet) || DEFAULTS.globalModels.sonnet;
+    document.getElementById('globalHaiku').value = 
+      (globalModels && globalModels.haiku) || DEFAULTS.globalModels.haiku;
 
     // Get timeout settings
     const timeout = await ipcRenderer.invoke('config:getTimeout');
     console.log('[Global Settings] Loaded timeout:', timeout);
 
     // Populate timeout inputs (convert ms to seconds)
-    document.getElementById('testTimeout').value = (timeout.test || DEFAULTS.timeout.test * 1000) / 1000;
-    document.getElementById('requestTimeout').value = (timeout.request || DEFAULTS.timeout.request * 1000) / 1000;
+    document.getElementById('testTimeout').value = 
+      timeout && timeout.test ? timeout.test / 1000 : DEFAULTS.timeout.test;
+    document.getElementById('requestTimeout').value = 
+      timeout && timeout.request ? timeout.request / 1000 : DEFAULTS.timeout.request;
 
   } catch (error) {
     console.error('[Global Settings] Error loading settings:', error);
     showMessage('加载设置失败: ' + error.message, 'error');
+    
+    // On error, still populate with defaults so user doesn't see empty fields
+    document.getElementById('globalOpus').value = DEFAULTS.globalModels.opus;
+    document.getElementById('globalSonnet').value = DEFAULTS.globalModels.sonnet;
+    document.getElementById('globalHaiku').value = DEFAULTS.globalModels.haiku;
+    document.getElementById('testTimeout').value = DEFAULTS.timeout.test;
+    document.getElementById('requestTimeout').value = DEFAULTS.timeout.request;
   }
 }
 
