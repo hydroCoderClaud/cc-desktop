@@ -306,8 +306,15 @@ async function saveProfile(event) {
     const sonnet = document.getElementById('mappingSonnet').value.trim();
     const haiku = document.getElementById('mappingHaiku').value.trim();
 
-    if (opus || sonnet || haiku) {
-      modelMapping = { opus, sonnet, haiku };
+    // 只包含非空字段（允许部分为空，使用第三方内置映射）
+    const mapping = {};
+    if (opus) mapping.opus = opus;
+    if (sonnet) mapping.sonnet = sonnet;
+    if (haiku) mapping.haiku = haiku;
+
+    // 只有当至少有一个字段有值时才设置 modelMapping
+    if (Object.keys(mapping).length > 0) {
+      modelMapping = mapping;
     }
   }
 
