@@ -405,15 +405,18 @@ See detailed plans in `docs/CHANGELOG.md` (末尾"未来版本计划"章节):
 
 ### 📍 Quick Reference for Next Session
 
-**When you return, check these in order:**
+**⚡ Fast Start - Check these in order:**
 
-1. **CLAUDE.md** (this file) - Read "Recent Development History" section for latest changes
-2. **docs/CHANGELOG.md** - Check version updates and detailed feature list
-3. **git log --oneline -10** - Review recent commits
-4. **This section** - Review "Next Steps" for pending tasks
+1. **📋 TODO.md** - Quick overview of pending tasks and priorities (START HERE!)
+2. **📖 CLAUDE.md** (this file) - Read "Recent Development History" section for latest changes
+3. **📝 docs/CHANGELOG.md** - Check version updates and detailed feature list
+4. **💻 git log --oneline -10** - Review recent commits
 
 **Key Files to Know:**
-- `CLAUDE.md` - Complete development history and architecture (for AI)
-- `docs/CHANGELOG.md` - Version history and future plans (for humans)
-- `README.md` - Project overview and quick start
-- `package.json` - Current version number
+- 📋 `TODO.md` - **Quick task list and next steps** (CHECK THIS FIRST!)
+- 📖 `CLAUDE.md` - Complete development history and architecture (for AI)
+- 📝 `docs/CHANGELOG.md` - Version history and future plans (for humans)
+- 📄 `README.md` - Project overview and quick start
+- 📦 `package.json` - Current version number
+
+**💡 TIP**: If you just want to know "what to do next", go straight to `TODO.md`!
