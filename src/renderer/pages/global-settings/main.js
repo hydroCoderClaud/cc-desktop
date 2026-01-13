@@ -3,44 +3,32 @@ import {
   create,
   NConfigProvider,
   NMessageProvider,
-  NDialogProvider,
   NButton,
   NCard,
   NSpace,
-  NTag,
-  NSpin,
-  NModal,
   NForm,
   NFormItem,
   NInput,
-  NSelect,
-  NSwitch,
-  NEmpty,
+  NInputNumber,
   NDivider,
   NGrid,
   NGridItem
 } from 'naive-ui'
 import App from './App.vue'
 
-console.log('[ProviderManager] Initializing Vue app...')
+console.log('[GlobalSettings] Initializing Vue app...')
 
 const naive = create({
   components: [
     NConfigProvider,
     NMessageProvider,
-    NDialogProvider,
     NButton,
     NCard,
     NSpace,
-    NTag,
-    NSpin,
-    NModal,
     NForm,
     NFormItem,
     NInput,
-    NSelect,
-    NSwitch,
-    NEmpty,
+    NInputNumber,
     NDivider,
     NGrid,
     NGridItem
@@ -50,9 +38,8 @@ const naive = create({
 try {
   const app = createApp(App)
   app.config.errorHandler = (err, vm, info) => {
-    console.error('[ProviderManager] Vue Error:', err)
-    console.error('[ProviderManager] Info:', info)
-    // Display error on page
+    console.error('[GlobalSettings] Vue Error:', err)
+    console.error('[GlobalSettings] Info:', info)
     document.getElementById('app').innerHTML = `
       <div style="padding: 20px; color: red;">
         <h2>Vue Error</h2>
@@ -62,9 +49,9 @@ try {
   }
   app.use(naive)
   app.mount('#app')
-  console.log('[ProviderManager] Vue app mounted successfully')
+  console.log('[GlobalSettings] Vue app mounted successfully')
 } catch (err) {
-  console.error('[ProviderManager] Failed to initialize:', err)
+  console.error('[GlobalSettings] Failed to initialize:', err)
   document.getElementById('app').innerHTML = `
     <div style="padding: 20px; color: red;">
       <h2>Initialization Error</h2>

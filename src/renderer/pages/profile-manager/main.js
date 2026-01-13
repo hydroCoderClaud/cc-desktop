@@ -29,6 +29,8 @@ import {
 } from 'naive-ui'
 import App from './App.vue'
 
+console.log('[ProfileManager] Initializing Vue app...')
+
 // Create naive-ui instance with only needed components
 const naive = create({
   components: [
@@ -60,6 +62,27 @@ const naive = create({
   ]
 })
 
-const app = createApp(App)
-app.use(naive)
-app.mount('#app')
+try {
+  const app = createApp(App)
+  app.config.errorHandler = (err, vm, info) => {
+    console.error('[ProfileManager] Vue Error:', err)
+    console.error('[ProfileManager] Info:', info)
+    document.getElementById('app').innerHTML = `
+      <div style="padding: 20px; color: red;">
+        <h2>Vue Error</h2>
+        <pre>${err.message}\n${err.stack}</pre>
+      </div>
+    `
+  }
+  app.use(naive)
+  app.mount('#app')
+  console.log('[ProfileManager] Vue app mounted successfully')
+} catch (err) {
+  console.error('[ProfileManager] Failed to initialize:', err)
+  document.getElementById('app').innerHTML = `
+    <div style="padding: 20px; color: red;">
+      <h2>Initialization Error</h2>
+      <pre>${err.message}\n${err.stack}</pre>
+    </div>
+  `
+}

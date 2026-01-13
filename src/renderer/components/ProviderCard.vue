@@ -5,13 +5,13 @@
         <h3>{{ provider.name }}</h3>
         <n-space :size="8">
           <n-tag v-if="provider.isBuiltIn" type="info" size="small">
-            内置
+            {{ t('common.builtIn') }}
           </n-tag>
           <n-tag v-else type="success" size="small">
-            自定义
+            {{ t('common.custom') }}
           </n-tag>
           <n-tag v-if="provider.needsMapping" type="warning" size="small">
-            需要映射
+            {{ t('providerManager.needsMapping') }}
           </n-tag>
         </n-space>
       </div>
@@ -25,11 +25,11 @@
       <div class="info-row">
         <span class="label">Base URL:</span>
         <span class="value url-value" :title="provider.baseUrl">
-          {{ provider.baseUrl || '默认' }}
+          {{ provider.baseUrl || t('common.default') }}
         </span>
       </div>
       <div class="info-row" v-if="provider.defaultModelMapping">
-        <span class="label">默认映射:</span>
+        <span class="label">{{ t('providerManager.defaultModelMapping') }}:</span>
         <span class="value code">{{ provider.defaultModelMapping }}</span>
       </div>
     </div>
@@ -41,7 +41,7 @@
           :disabled="provider.isBuiltIn"
           @click="$emit('edit', provider)"
         >
-          编辑
+          {{ t('common.edit') }}
         </n-button>
         <n-button
           size="small"
@@ -49,7 +49,7 @@
           :disabled="provider.isBuiltIn"
           @click="$emit('delete', provider.id)"
         >
-          删除
+          {{ t('common.delete') }}
         </n-button>
       </n-space>
     </template>
@@ -57,6 +57,10 @@
 </template>
 
 <script setup>
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
+
 defineProps({
   provider: {
     type: Object,
@@ -70,6 +74,7 @@ defineEmits(['edit', 'delete'])
 <style scoped>
 .provider-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
 }
 
 .provider-card:hover {
@@ -77,7 +82,7 @@ defineEmits(['edit', 'delete'])
 }
 
 .provider-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .provider-title {
@@ -90,7 +95,6 @@ defineEmits(['edit', 'delete'])
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #2d2d2d;
 }
 
 .provider-info {
@@ -113,14 +117,13 @@ defineEmits(['edit', 'delete'])
 }
 
 .value {
-  color: #2d2d2d;
   text-align: right;
 }
 
 .value.code {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
-  background: #f5f5f0;
+  background: var(--bg-color-tertiary, #f5f5f0);
   padding: 2px 8px;
   border-radius: 4px;
 }

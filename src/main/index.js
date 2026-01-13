@@ -15,19 +15,36 @@ let configManager = null;
 let terminalManager = null;
 
 /**
+ * 获取主题背景色
+ */
+function getThemeBackgroundColor() {
+  if (configManager) {
+    const config = configManager.getConfig();
+    const isDark = config?.settings?.theme === 'dark';
+    return isDark ? '#1a1a1a' : '#f5f5f0';
+  }
+  return '#f5f5f0';
+}
+
+/**
  * 创建主窗口
  */
 function createWindow() {
+  const preloadPath = path.join(__dirname, '../preload/preload.js');
+  console.log('[Main] Creating main window');
+  console.log('[Main] Preload path:', preloadPath);
+  console.log('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 600,
     title: 'Claude Code Desktop',
-    backgroundColor: '#f5f5f0',
+    backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏
     webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       enableRemoteModule: false,
@@ -35,7 +52,17 @@ function createWindow() {
   });
 
   // 加载渲染进程 HTML
-  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  // 开发模式：从 Vite 服务器加载 Vue 页面
+  // 生产模式：从构建后的文件加载
+  if (process.env.VITE_DEV_SERVER_URL) {
+    const url = `${process.env.VITE_DEV_SERVER_URL}/pages/main/`;
+    console.log('[Main] Loading URL:', url);
+    mainWindow.loadURL(url);
+  } else {
+    const filePath = path.join(__dirname, '../renderer/pages-dist/pages/main/index.html');
+    console.log('[Main] Loading file:', filePath);
+    mainWindow.loadFile(filePath);
+  }
 
   // 开发模式下打开开发者工具（默认关闭，使用 F12 手动打开）
   // if (process.env.NODE_ENV === 'development') {

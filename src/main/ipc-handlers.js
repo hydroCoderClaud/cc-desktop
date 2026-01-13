@@ -28,6 +28,22 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   console.log('[IPC] Setting up handlers...');
 
   // ========================================
+  // 同步主题获取（用于 preload 避免闪白）
+  // ========================================
+  ipcMain.on('theme:getSync', (event) => {
+    const config = configManager.getConfig();
+    event.returnValue = config?.settings?.theme || 'light';
+  });
+
+  // ========================================
+  // 同步语言获取（用于 preload）
+  // ========================================
+  ipcMain.on('locale:getSync', (event) => {
+    const config = configManager.getConfig();
+    event.returnValue = config?.settings?.locale || 'zh-CN';
+  });
+
+  // ========================================
   // Config 相关
   // ========================================
 
@@ -185,93 +201,81 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   // 窗口管理
   // ========================================
 
-  // 打开 Profile 管理窗口
-  ipcMain.handle('window:openProfileManager', async () => {
-    const { BrowserWindow } = require('electron');
-    const path = require('path');
+  // 获取当前主题的背景色
+  const getThemeBackgroundColor = () => {
+    const config = configManager.getConfig();
+    const isDark = config?.settings?.theme === 'dark';
+    return isDark ? '#1a1a1a' : '#f5f5f0';
+  };
 
-    // 创建 Profile 管理窗口
-    const profileWindow = new BrowserWindow({
-      width: 1000,
-      height: 700,
-      title: 'API 配置管理 - Claude Code Desktop',
+  // 创建子窗口的通用配置
+  const createSubWindow = (options) => {
+    const { BrowserWindow } = require('electron');
+    const pathModule = require('path');
+
+    const preloadPath = pathModule.join(__dirname, '../preload/preload.js');
+    console.log('[IPC] Creating sub window:', options.page);
+    console.log('[IPC] Preload path:', preloadPath);
+    console.log('[IPC] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
+
+    const window = new BrowserWindow({
+      width: options.width || 800,
+      height: options.height || 600,
+      title: options.title,
       parent: mainWindow,
       modal: false,
-      backgroundColor: '#f5f5f0',
+      backgroundColor: getThemeBackgroundColor(),
       autoHideMenuBar: true,
       webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.js'),
+        preload: preloadPath,
         contextIsolation: true,
         nodeIntegration: false
       }
     });
 
-    // 开发模式：从 Vite 服务器加载 Vue 页面
-    // 生产模式：从原始 HTML 文件加载（Vue 页面暂未构建到生产）
     if (process.env.VITE_DEV_SERVER_URL) {
-      profileWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/pages/profile-manager/`);
+      const url = `${process.env.VITE_DEV_SERVER_URL}/pages/${options.page}/`;
+      console.log('[IPC] Loading URL:', url);
+      window.loadURL(url);
     } else {
-      // 暂时仍使用原始 HTML 文件
-      profileWindow.loadFile(path.join(__dirname, '../renderer/profile-manager.html'));
+      const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
+      console.log('[IPC] Loading file:', filePath);
+      window.loadFile(filePath);
     }
 
+    return window;
+  };
+
+  // 打开 Profile 管理窗口
+  ipcMain.handle('window:openProfileManager', async () => {
+    createSubWindow({
+      width: 1000,
+      height: 700,
+      title: 'API 配置管理 - Claude Code Desktop',
+      page: 'profile-manager'
+    });
     return { success: true };
   });
 
   // 打开全局设置窗口
   ipcMain.handle('window:openGlobalSettings', async () => {
-    const { BrowserWindow } = require('electron');
-    const path = require('path');
-
-    // 创建全局设置窗口
-    const globalSettingsWindow = new BrowserWindow({
+    createSubWindow({
       width: 750,
       height: 500,
       title: '全局设置 - Claude Code Desktop',
-      parent: mainWindow,
-      modal: false,
-      backgroundColor: '#f5f5f0',
-      autoHideMenuBar: true,
-      webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false
-      }
+      page: 'global-settings'
     });
-
-    globalSettingsWindow.loadFile(path.join(__dirname, '../renderer/global-settings.html'));
-
     return { success: true };
   });
 
   // 打开服务商管理窗口
   ipcMain.handle('window:openProviderManager', async () => {
-    const { BrowserWindow } = require('electron');
-    const path = require('path');
-
-    // 创建服务商管理窗口
-    const providerManagerWindow = new BrowserWindow({
+    createSubWindow({
       width: 1000,
       height: 650,
       title: '服务商管理 - Claude Code Desktop',
-      parent: mainWindow,
-      modal: false,
-      backgroundColor: '#f5f5f0',
-      autoHideMenuBar: true,
-      webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false
-      }
+      page: 'provider-manager'
     });
-
-    // 开发模式：从 Vite 服务器加载 Vue 页面
-    if (process.env.VITE_DEV_SERVER_URL) {
-      providerManagerWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/pages/provider-manager/`);
-    } else {
-      providerManagerWindow.loadFile(path.join(__dirname, '../renderer/provider-manager.html'));
-    }
-
     return { success: true };
   });
 

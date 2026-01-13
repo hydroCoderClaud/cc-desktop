@@ -4,6 +4,18 @@
  */
 import { ref } from 'vue'
 
+// Mock data for browser testing (when electronAPI is not available)
+const mockData = {
+  listProviders: () => [
+    { id: 'official', name: '官方 API', isBuiltIn: true, needsMapping: false, baseUrl: 'https://api.anthropic.com' },
+    { id: 'proxy', name: '中转服务', isBuiltIn: true, needsMapping: true, baseUrl: null }
+  ],
+  listAPIProfiles: () => [
+    { id: '1', name: '默认配置', icon: '🟣', isDefault: true, serviceProvider: 'official' }
+  ],
+  getCustomModels: () => []
+}
+
 /**
  * 创建 IPC 调用封装
  */
@@ -22,8 +34,14 @@ export function useIPC() {
     error.value = null
 
     try {
+      // Check if electronAPI is available (running in Electron)
       if (!window.electronAPI) {
-        throw new Error('electronAPI not available')
+        console.warn(`[useIPC] electronAPI not available, using mock for: ${method}`)
+        // Use mock data for browser testing
+        if (mockData[method]) {
+          return mockData[method](...args)
+        }
+        throw new Error(`electronAPI not available (mock not found for: ${method})`)
       }
 
       if (typeof window.electronAPI[method] !== 'function') {

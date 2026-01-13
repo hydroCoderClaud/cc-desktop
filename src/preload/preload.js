@@ -5,6 +5,27 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 同步获取初始主题并立即应用到 DOM，避免闪白
+try {
+  const initialTheme = ipcRenderer.sendSync('theme:getSync');
+  if (initialTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.style.backgroundColor = '#1a1a1a';
+    document.documentElement.style.colorScheme = 'dark';
+  }
+} catch (err) {
+  console.warn('[Preload] Failed to get initial theme:', err.message);
+}
+
+// 同步获取初始语言
+try {
+  const initialLocale = ipcRenderer.sendSync('locale:getSync');
+  document.documentElement.setAttribute('data-locale', initialLocale || 'zh-CN');
+  document.documentElement.setAttribute('lang', initialLocale === 'en-US' ? 'en' : 'zh-CN');
+} catch (err) {
+  console.warn('[Preload] Failed to get initial locale:', err.message);
+}
+
 // 暴露 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
@@ -113,4 +134,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 });
 
-console.log('[Preload] ElectronAPI exposed to renderer');
+console.log('[Preload] ElectronAPI exposed to renderer successfully');

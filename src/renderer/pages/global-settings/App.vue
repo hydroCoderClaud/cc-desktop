@@ -1,9 +1,7 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
-      <n-dialog-provider>
-        <CustomModelsContent />
-      </n-dialog-provider>
+      <GlobalSettingsContent />
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -11,7 +9,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useTheme } from '@composables/useTheme'
-import CustomModelsContent from './components/CustomModelsContent.vue'
+import GlobalSettingsContent from './components/GlobalSettingsContent.vue'
 
 const { naiveTheme, themeOverrides, initTheme } = useTheme()
 

@@ -15,22 +15,25 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src/renderer'),
       '@components': path.resolve(__dirname, 'src/renderer/components'),
       '@composables': path.resolve(__dirname, 'src/renderer/composables'),
-      '@theme': path.resolve(__dirname, 'src/renderer/theme')
+      '@theme': path.resolve(__dirname, 'src/renderer/theme'),
+      '@locales': path.resolve(__dirname, 'src/renderer/locales')
     }
   },
   build: {
-    outDir: path.resolve(__dirname, 'dist/renderer'),
+    outDir: path.resolve(__dirname, 'src/renderer/pages-dist'),
     emptyOutDir: true,
     rollupOptions: {
       input: {
+        main: path.resolve(__dirname, 'src/renderer/pages/main/index.html'),
         profileManager: path.resolve(__dirname, 'src/renderer/pages/profile-manager/index.html'),
         providerManager: path.resolve(__dirname, 'src/renderer/pages/provider-manager/index.html'),
-        customModels: path.resolve(__dirname, 'src/renderer/pages/custom-models/index.html')
+        customModels: path.resolve(__dirname, 'src/renderer/pages/custom-models/index.html'),
+        globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html')
       }
     }
   },
   server: {
-    port: 5174,  // 使用 5174 避免与其他服务冲突
-    strictPort: false
+    port: 5173,
+    strictPort: true
   }
 })

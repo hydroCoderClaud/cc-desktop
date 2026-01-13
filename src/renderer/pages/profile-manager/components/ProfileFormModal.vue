@@ -3,14 +3,14 @@
     :show="show"
     @update:show="$emit('update:show', $event)"
     preset="card"
-    :title="isEdit ? '编辑 API 配置' : '添加 API 配置'"
+    :title="isEdit ? t('profileManager.editProfile') : t('profileManager.addProfile')"
     style="width: 800px; max-width: 95vw;"
     :mask-closable="false"
   >
     <template #header-extra>
       <n-space>
-        <n-button type="primary" @click="handleSave">保存</n-button>
-        <n-button @click="handleTest">测试连接</n-button>
+        <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
+        <n-button @click="handleTest">{{ t('common.testConnection') }}</n-button>
       </n-space>
     </template>
 
@@ -23,12 +23,12 @@
       <!-- Row 1: Name & Icon -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item label="配置名称" path="name">
-            <n-input v-model:value="formData.name" placeholder="例如：Anthropic 官方" />
+          <n-form-item :label="t('profileManager.profileName')" path="name">
+            <n-input v-model:value="formData.name" placeholder="e.g., Anthropic Official" />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item label="图标">
+          <n-form-item :label="t('profileManager.profileIcon')">
             <div class="icon-picker">
               <div
                 v-for="icon in availableIcons"
@@ -47,7 +47,7 @@
       <!-- Row 2: Service Provider & Auth Type -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item label="服务商" path="serviceProvider">
+          <n-form-item :label="t('profileManager.serviceProvider')" path="serviceProvider">
             <n-select
               v-model:value="formData.serviceProvider"
               :options="providerOptions"
@@ -56,7 +56,7 @@
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item label="认证方式">
+          <n-form-item label=" ">
             <n-radio-group v-model:value="formData.authType">
               <n-space>
                 <n-radio value="api_key">API Key</n-radio>
@@ -68,11 +68,11 @@
       </n-grid>
 
       <!-- Row 3: Auth Token -->
-      <n-form-item label="认证令牌" path="authToken">
+      <n-form-item :label="t('profileManager.apiKey')" path="authToken">
         <n-input
           v-model:value="formData.authToken"
           :type="showPassword ? 'text' : 'password'"
-          placeholder="sk-ant-api03-..."
+          :placeholder="t('profileManager.apiKeyPlaceholder')"
         >
           <template #suffix>
             <n-button text @click="showPassword = !showPassword">
@@ -85,12 +85,12 @@
       <!-- Row 4: Base URL & Model Tier -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item label="API 基础 URL">
-            <n-input v-model:value="formData.baseUrl" placeholder="https://api.anthropic.com" />
+          <n-form-item :label="t('profileManager.baseUrl')">
+            <n-input v-model:value="formData.baseUrl" :placeholder="t('profileManager.baseUrlPlaceholder')" />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item label="默认模型">
+          <n-form-item label=" ">
             <n-radio-group v-model:value="formData.selectedModelTier">
               <n-space>
                 <n-radio value="opus">🚀 Opus</n-radio>
@@ -104,25 +104,22 @@
 
       <!-- Model Mapping Section (for third-party services) -->
       <div v-if="needsModelMapping" class="model-mapping-section">
-        <n-divider>模型映射配置</n-divider>
-        <p class="mapping-hint">
-          配置各等级模型对应的实际模型名称<br/>
-          💡 留空时使用第三方服务内置映射（自动更新）
-        </p>
+        <n-divider>{{ t('profileManager.modelMapping') }}</n-divider>
+        <p class="mapping-hint">{{ t('profileManager.modelMappingHint') }}</p>
         <n-grid :cols="3" :x-gap="16">
           <n-grid-item>
-            <n-form-item label="🚀 Opus">
-              <n-input v-model:value="formData.modelMapping.opus" placeholder="如: claude-3-opus" />
+            <n-form-item :label="'🚀 ' + t('profileManager.opusModel')">
+              <n-input v-model:value="formData.modelMapping.opus" placeholder="e.g., claude-3-opus" />
             </n-form-item>
           </n-grid-item>
           <n-grid-item>
-            <n-form-item label="⚡ Sonnet">
-              <n-input v-model:value="formData.modelMapping.sonnet" placeholder="如: claude-3-sonnet" />
+            <n-form-item :label="'⚡ ' + t('profileManager.sonnetModel')">
+              <n-input v-model:value="formData.modelMapping.sonnet" placeholder="e.g., claude-3-sonnet" />
             </n-form-item>
           </n-grid-item>
           <n-grid-item>
-            <n-form-item label="💨 Haiku">
-              <n-input v-model:value="formData.modelMapping.haiku" placeholder="如: claude-3-haiku" />
+            <n-form-item :label="'💨 ' + t('profileManager.haikuModel')">
+              <n-input v-model:value="formData.modelMapping.haiku" placeholder="e.g., claude-3-haiku" />
             </n-form-item>
           </n-grid-item>
         </n-grid>
@@ -131,7 +128,7 @@
       <!-- Row 5: Timeout & Disable Traffic -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item label="请求超时（秒）">
+          <n-form-item :label="t('globalSettings.requestTimeout')">
             <n-input-number
               v-model:value="formData.requestTimeout"
               :min="10"
@@ -144,7 +141,7 @@
           <n-form-item label=" ">
             <n-space align="center" style="height: 40px;">
               <n-switch v-model:value="formData.disableNonessentialTraffic" />
-              <span>禁用非必要流量</span>
+              <span>{{ t('common.disabled') }} traffic</span>
             </n-space>
           </n-form-item>
         </n-grid-item>
@@ -154,19 +151,19 @@
       <n-form-item label=" ">
         <n-space align="center">
           <n-switch v-model:value="formData.useProxy" />
-          <span>启用代理</span>
+          <span>{{ t('common.enabled') }} Proxy</span>
         </n-space>
       </n-form-item>
 
       <div v-if="formData.useProxy" class="proxy-fields">
         <n-grid :cols="2" :x-gap="24">
           <n-grid-item>
-            <n-form-item label="HTTPS 代理">
+            <n-form-item label="HTTPS Proxy">
               <n-input v-model:value="formData.httpsProxy" placeholder="http://127.0.0.1:7890" />
             </n-form-item>
           </n-grid-item>
           <n-grid-item>
-            <n-form-item label="HTTP 代理">
+            <n-form-item label="HTTP Proxy">
               <n-input v-model:value="formData.httpProxy" placeholder="http://127.0.0.1:7890" />
             </n-form-item>
           </n-grid-item>
@@ -174,8 +171,8 @@
       </div>
 
       <!-- Description -->
-      <n-form-item label="配置描述">
-        <n-input v-model:value="formData.description" placeholder="例如：公司项目专用配置" />
+      <n-form-item :label="t('common.description')">
+        <n-input v-model:value="formData.description" placeholder="" />
       </n-form-item>
     </n-form>
   </n-modal>
@@ -183,6 +180,9 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps({
   show: Boolean,
@@ -217,18 +217,18 @@ const defaultFormData = () => ({
 
 const formData = ref(defaultFormData())
 
-const rules = {
-  name: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
-  serviceProvider: [{ required: true, message: '请选择服务商', trigger: 'change' }],
-  authToken: [{ required: true, message: '请输入认证令牌', trigger: 'blur' }]
-}
+const rules = computed(() => ({
+  name: [{ required: true, message: t('common.required'), trigger: 'blur' }],
+  serviceProvider: [{ required: true, message: t('common.required'), trigger: 'change' }],
+  authToken: [{ required: true, message: t('common.required'), trigger: 'blur' }]
+}))
 
 const providerOptions = computed(() => {
   if (!props.providers || props.providers.length === 0) {
     return [
-      { label: '官方 API', value: 'official' },
-      { label: '中转服务', value: 'proxy' },
-      { label: '其他第三方', value: 'other' }
+      { label: 'Official API', value: 'official' },
+      { label: 'Proxy Service', value: 'proxy' },
+      { label: 'Other', value: 'other' }
     ]
   }
   return props.providers.map(p => ({
@@ -273,14 +273,11 @@ watch(() => formData.value.useProxy, (useProxy) => {
 })
 
 const onServiceProviderChange = (value) => {
-  // Find provider details
   const provider = props.providers?.find(p => p.id === value)
   if (provider) {
-    // Auto-fill base URL if provider has one
     if (provider.baseUrl) {
       formData.value.baseUrl = provider.baseUrl
     }
-    // Auto-fill model mapping if provider has default mapping
     if (provider.defaultModelMapping) {
       formData.value.modelMapping = {
         opus: provider.defaultModelMapping.opus || '',
@@ -295,14 +292,27 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate()
 
-    // Prepare data for saving
     const data = {
-      ...formData.value,
+      name: formData.value.name,
+      icon: formData.value.icon,
+      serviceProvider: formData.value.serviceProvider,
+      authType: formData.value.authType,
+      authToken: formData.value.authToken,
+      baseUrl: formData.value.baseUrl,
+      selectedModelTier: formData.value.selectedModelTier,
       requestTimeout: formData.value.requestTimeout * 1000,
-      modelMapping: needsModelMapping.value ? formData.value.modelMapping : null
+      disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
+      useProxy: formData.value.useProxy,
+      httpsProxy: formData.value.httpsProxy,
+      httpProxy: formData.value.httpProxy,
+      description: formData.value.description,
+      modelMapping: needsModelMapping.value ? {
+        opus: formData.value.modelMapping.opus || '',
+        sonnet: formData.value.modelMapping.sonnet || '',
+        haiku: formData.value.modelMapping.haiku || ''
+      } : null
     }
 
-    // Clean up empty model mapping
     if (data.modelMapping) {
       const hasMapping = Object.values(data.modelMapping).some(v => v)
       if (!hasMapping) {
@@ -317,14 +327,17 @@ const handleSave = async () => {
 }
 
 const handleTest = () => {
-  // Prepare config for testing
   const config = {
     baseUrl: formData.value.baseUrl,
     authToken: formData.value.authToken,
     authType: formData.value.authType,
     serviceProvider: formData.value.serviceProvider,
     selectedModelTier: formData.value.selectedModelTier,
-    modelMapping: formData.value.modelMapping,
+    modelMapping: formData.value.modelMapping ? {
+      opus: formData.value.modelMapping.opus || '',
+      sonnet: formData.value.modelMapping.sonnet || '',
+      haiku: formData.value.modelMapping.haiku || ''
+    } : null,
     useProxy: formData.value.useProxy,
     httpsProxy: formData.value.httpsProxy,
     httpProxy: formData.value.httpProxy
@@ -343,7 +356,7 @@ const handleTest = () => {
 .icon-option {
   width: 36px;
   height: 36px;
-  border: 2px solid #e5e5e0;
+  border: 2px solid var(--border-color, #e5e5e0);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -364,7 +377,7 @@ const handleTest = () => {
 }
 
 .model-mapping-section {
-  background: #f8f9fa;
+  background: var(--bg-color-tertiary, #f8f9fa);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -378,7 +391,7 @@ const handleTest = () => {
 }
 
 .proxy-fields {
-  background: #f8f9fa;
+  background: var(--bg-color-tertiary, #f8f9fa);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
