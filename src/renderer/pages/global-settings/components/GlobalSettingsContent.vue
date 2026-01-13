@@ -113,7 +113,7 @@ import { useLocale } from '@composables/useLocale'
 
 const message = useMessage()
 const { invoke } = useIPC()
-const { isDark, setTheme, cssVars } = useTheme()
+const { isDark, setTheme, cssVars, initTheme } = useTheme()
 const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
 
 // Default values
@@ -150,6 +150,7 @@ const localeOptions = computed(() =>
 )
 
 onMounted(async () => {
+  await initTheme()
   await initLocale()
   await loadSettings()
 })
