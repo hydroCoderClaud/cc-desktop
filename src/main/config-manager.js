@@ -10,6 +10,9 @@ const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
 const { DEFAULT_GLOBAL_MODELS, TIMEOUTS, SERVICE_PROVIDERS } = require('./utils/constants');
 
+// Constants
+const OFFICIAL_PROVIDERS = ['official', 'proxy'];
+
 class ConfigManager {
   constructor() {
     // 配置文件路径
@@ -249,13 +252,14 @@ class ConfigManager {
 
     const provider = this.config.serviceProviderDefinitions[index];
 
-    // 不允许修改内置服务商
-    if (provider.isBuiltIn) {
-      throw new Error('不能修改内置服务商定义');
-    }
-
     // 不允许修改 ID 和 isBuiltIn 标记
     const { id: newId, isBuiltIn, ...safeUpdates } = updates;
+
+    // 特殊处理：official 和 proxy 的模型映射永久为 null
+    if (OFFICIAL_PROVIDERS.includes(id)) {
+      safeUpdates.needsMapping = false;
+      safeUpdates.defaultModelMapping = null;
+    }
 
     // 更新定义
     Object.assign(this.config.serviceProviderDefinitions[index], safeUpdates);
@@ -1100,64 +1104,64 @@ class ConfigManager {
           }
         }
 
-        // 6. 创建请求
-        console.log('[API Test] 创建 HTTPS 请求...');
+        // 6. Create request
+        console.log('[API Test] Creating HTTPS request...');
         request = https.request(options, (res) => {
-          console.log('[API Test] 收到响应，状态码:', res.statusCode);
-          
+          console.log('[API Test] Received response, status code:', res.statusCode);
+
           let responseData = '';
-          
-          res.on('data', (chunk) => { 
-            responseData += chunk; 
+
+          res.on('data', (chunk) => {
+            responseData += chunk;
           });
-          
+
           res.on('end', () => {
-            console.log('[API Test] 响应接收完成');
-            
+            console.log('[API Test] Response received');
+
             if (res.statusCode === 200) {
-              safeResolve({ 
-                success: true, 
-                message: 'API 连接成功' 
+              safeResolve({
+                success: true,
+                message: 'API connection successful'
               });
             } else {
-              console.error('[API Test] HTTP 错误:', res.statusCode);
-              console.error('[API Test] 响应内容:', responseData);
-              safeResolve({ 
-                success: false, 
-                message: `连接失败 (${res.statusCode})\n请求地址: ${fullUrl}\n响应: ${responseData}` 
+              console.error('[API Test] HTTP error:', res.statusCode);
+              console.error('[API Test] Response body:', responseData);
+              safeResolve({
+                success: false,
+                message: `Connection failed (${res.statusCode})\nURL: ${fullUrl}\nResponse: ${responseData}`
               });
             }
           });
         });
 
-        // 7. 错误处理
+        // 7. Error handling
         request.on('error', (error) => {
-          console.error('[API Test] 请求错误:', error.message);
-          safeResolve({ 
-            success: false, 
-            message: `连接错误: ${error.message}` 
+          console.error('[API Test] Request error:', error.message);
+          safeResolve({
+            success: false,
+            message: `Connection error: ${error.message}`
           });
         });
 
         request.on('timeout', () => {
-          console.error('[API Test] 请求超时（10秒）');
-          safeResolve({ 
-            success: false, 
-            message: '连接超时（10秒）' 
+          console.error('[API Test] Request timeout (10s)');
+          safeResolve({
+            success: false,
+            message: 'Connection timeout (10s)'
           });
         });
 
-        // 8. 发送请求
-        console.log('[API Test] 发送请求数据...');
+        // 8. Send request
+        console.log('[API Test] Sending request data...');
         request.write(postData);
         request.end();
-        console.log('[API Test] 请求已发送，等待响应...');
-        
+        console.log('[API Test] Request sent, waiting for response...');
+
       } catch (error) {
-        console.error('[API Test] 异常:', error);
-        safeResolve({ 
-          success: false, 
-          message: `配置错误: ${error.message}` 
+        console.error('[API Test] Exception:', error);
+        safeResolve({
+          success: false,
+          message: `Configuration error: ${error.message}`
         });
       }
     });

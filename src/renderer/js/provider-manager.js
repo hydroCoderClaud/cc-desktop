@@ -4,8 +4,64 @@
 
 console.log('[Provider Manager] Script loaded');
 
+// Global state
 let providers = [];
 let editingProviderId = null;
+
+/**
+ * Set model mapping input fields
+ * @param {Object|null} mapping - Model mapping object {opus, sonnet, haiku}
+ */
+function setModelMappingFields(mapping) {
+  MODEL_TIERS.forEach(tier => {
+    const fieldId = `mapping${capitalize(tier)}`;
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.value = mapping?.[tier] || '';
+    }
+  });
+}
+
+/**
+ * Get model mapping from input fields
+ * @returns {Object|null} Model mapping object or null if all empty
+ */
+function getModelMappingFields() {
+  const mapping = {};
+  MODEL_TIERS.forEach(tier => {
+    const fieldId = `mapping${capitalize(tier)}`;
+    const field = document.getElementById(fieldId);
+    const value = field?.value.trim();
+    if (value) {
+      mapping[tier] = value;
+    }
+  });
+  return Object.keys(mapping).length > 0 ? mapping : null;
+}
+
+/**
+ * Set disabled state for multiple fields
+ * @param {string[]} fieldIds - Array of field IDs
+ * @param {boolean} disabled - Disabled state
+ */
+function setFieldsDisabled(fieldIds, disabled) {
+  fieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = disabled;
+    }
+  });
+}
+
+/**
+ * Set disabled state for model mapping fields
+ * @param {boolean} disabled - Disabled state
+ */
+function setModelMappingFieldsDisabled(disabled) {
+  const fields = MODEL_TIERS.map(tier => `mapping${capitalize(tier)}`);
+  fields.push('providerNeedsMapping');
+  setFieldsDisabled(fields, disabled);
+}
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -135,14 +191,15 @@ async function openEditModal(providerId) {
     document.getElementById('providerNeedsMapping').checked = provider.needsMapping;
 
     // 填充模型映射
-    if (provider.defaultModelMapping) {
-      document.getElementById('mappingOpus').value = provider.defaultModelMapping.opus || '';
-      document.getElementById('mappingSonnet').value = provider.defaultModelMapping.sonnet || '';
-      document.getElementById('mappingHaiku').value = provider.defaultModelMapping.haiku || '';
+    setModelMappingFields(provider.defaultModelMapping);
+
+    // 特殊处理：official 和 proxy 不需要模型映射，且不可修改
+    if (isOfficialProvider(providerId)) {
+      document.getElementById('providerNeedsMapping').checked = false;
+      setModelMappingFieldsDisabled(true);
     } else {
-      document.getElementById('mappingOpus').value = '';
-      document.getElementById('mappingSonnet').value = '';
-      document.getElementById('mappingHaiku').value = '';
+      // 其他服务商（包括内置的 zhipu、minimax 等）都可以编辑
+      setModelMappingFieldsDisabled(false);
     }
 
     toggleModelMappingSection();
@@ -231,17 +288,13 @@ async function handleSubmit(event) {
   console.log('[Provider Manager] Provider data:', providerData);
   console.log('[Provider Manager] Window.electronAPI exists:', !!window.electronAPI);
 
-  // 如果需要模型映射，收集映射数据
-  if (providerData.needsMapping) {
-    const opusEl = document.getElementById('mappingOpus');
-    const sonnetEl = document.getElementById('mappingSonnet');
-    const haikuEl = document.getElementById('mappingHaiku');
-
-    providerData.defaultModelMapping = {
-      opus: opusEl ? opusEl.value.trim() : '',
-      sonnet: sonnetEl ? sonnetEl.value.trim() : '',
-      haiku: haikuEl ? haikuEl.value.trim() : ''
-    };
+  // 特殊处理：official 和 proxy 永远不需要模型映射
+  if (isOfficialProvider(providerData.id)) {
+    providerData.needsMapping = false;
+    providerData.defaultModelMapping = null;
+  } else if (providerData.needsMapping) {
+    // 如果需要模型映射，收集映射数据
+    providerData.defaultModelMapping = getModelMappingFields();
   } else {
     providerData.defaultModelMapping = null;
   }
@@ -293,13 +346,4 @@ async function deleteProvider(providerId) {
     console.error('[Provider Manager] Failed to delete provider:', error);
     alert('删除失败：' + error.message);
   }
-}
-
-/**
- * HTML 转义
- */
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }

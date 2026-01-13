@@ -15,6 +15,49 @@ const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '
 let selectedIcon = '🟣';
 
 /**
+ * Collect all form data from profile form
+ * @returns {Object} Profile configuration object
+ */
+function collectFormData() {
+  const formData = new FormData(document.getElementById('profileForm'));
+
+  const serviceProvider = formData.get('serviceProvider') || 'official';
+  const selectedTier = formData.get('selectedModelTier') || 'sonnet';
+
+  // Collect model mapping for third-party services
+  let modelMapping = null;
+  if (!isOfficialProvider(serviceProvider)) {
+    const mapping = {};
+    MODEL_TIERS.forEach(tier => {
+      const value = document.getElementById(`mapping${capitalize(tier)}`).value.trim();
+      if (value) {
+        mapping[tier] = value;
+      }
+    });
+    if (Object.keys(mapping).length > 0) {
+      modelMapping = mapping;
+    }
+  }
+
+  return {
+    name: formData.get('name'),
+    serviceProvider,
+    authToken: formData.get('authToken'),
+    authType: formData.get('authType') || 'api_key',
+    baseUrl: formData.get('baseUrl') || 'https://api.anthropic.com',
+    selectedModelTier: selectedTier,
+    modelMapping,
+    requestTimeout: parseInt(formData.get('requestTimeout')) * 1000 || 120000,
+    disableNonessentialTraffic: formData.get('disableNonessentialTraffic') === 'on',
+    useProxy: formData.get('useProxy') === 'on',
+    httpsProxy: formData.get('httpsProxy') || '',
+    httpProxy: formData.get('httpProxy') || '',
+    description: formData.get('description') || '',
+    icon: selectedIcon
+  };
+}
+
+/**
  * 初始化
  */
 async function init() {
@@ -111,16 +154,6 @@ async function loadProfiles() {
     console.error('[Profile Manager] Failed to load profiles:', error);
     showAlert('加载配置列表失败', 'error');
   }
-}
-
-/**
- * HTML转义函数，防止XSS攻击
- */
-function escapeHtml(text) {
-  if (text == null) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 /**
@@ -250,6 +283,9 @@ async function openAddModal() {
   // 默认选中 API Key（官方标准）
   document.getElementById('authTypeKey').checked = true;
 
+  // 确保代理字段隐藏（因为默认不启用代理）
+  document.getElementById('proxyFields').classList.remove('visible');
+
   // 隐藏模型映射区域（官方不需要），不自动填充 URL（已手动设置默认值）
   onServiceProviderChange(false);
 
@@ -331,8 +367,11 @@ async function editProfile(profileId) {
     });
 
     // 显示/隐藏代理字段
+    const proxyFieldsEl = document.getElementById('proxyFields');
     if (profile.useProxy) {
-      document.getElementById('proxyFields').classList.add('visible');
+      proxyFieldsEl.classList.add('visible');
+    } else {
+      proxyFieldsEl.classList.remove('visible');
     }
 
     // 显示/隐藏模型映射区域（编辑时不自动填充 URL）
@@ -360,51 +399,8 @@ function closeEditModal() {
 async function saveProfile(event) {
   event.preventDefault();
 
-  const formData = new FormData(event.target);
-
-  // 获取模型映射（仅第三方服务）
-  const serviceProviderFromForm = formData.get('serviceProvider');
-  const serviceProviderFromElement = document.getElementById('profileServiceProvider').value;
-
-  console.log('[Profile Manager] ServiceProvider from FormData:', serviceProviderFromForm);
-  console.log('[Profile Manager] ServiceProvider from Element:', serviceProviderFromElement);
-
-  const serviceProvider = serviceProviderFromForm || 'official';
-  let modelMapping = null;
-
-  if (serviceProvider !== 'official' && serviceProvider !== 'proxy') {
-    const opus = document.getElementById('mappingOpus').value.trim();
-    const sonnet = document.getElementById('mappingSonnet').value.trim();
-    const haiku = document.getElementById('mappingHaiku').value.trim();
-
-    // 只包含非空字段（允许部分为空，使用第三方内置映射）
-    const mapping = {};
-    if (opus) mapping.opus = opus;
-    if (sonnet) mapping.sonnet = sonnet;
-    if (haiku) mapping.haiku = haiku;
-
-    // 只有当至少有一个字段有值时才设置 modelMapping
-    if (Object.keys(mapping).length > 0) {
-      modelMapping = mapping;
-    }
-  }
-
-  const profileData = {
-    name: formData.get('name'),
-    serviceProvider: serviceProvider,
-    authToken: formData.get('authToken'),
-    authType: formData.get('authType') || 'api_key',
-    description: formData.get('description') || '',
-    baseUrl: formData.get('baseUrl') || 'https://api.anthropic.com',
-    selectedModelTier: formData.get('selectedModelTier') || 'sonnet',
-    modelMapping: modelMapping,
-    requestTimeout: parseInt(formData.get('requestTimeout')) * 1000 || 120000,
-    disableNonessentialTraffic: formData.get('disableNonessentialTraffic') === 'on',
-    useProxy: formData.get('useProxy') === 'on',
-    httpsProxy: formData.get('httpsProxy') || '',
-    httpProxy: formData.get('httpProxy') || '',
-    icon: selectedIcon
-  };
+  // Collect form data using centralized function
+  const profileData = collectFormData();
 
   try {
     if (editingProfileId) {
@@ -487,40 +483,77 @@ async function deleteProfile(profileId) {
 }
 
 /**
- * 显示提示
+ * Test API connection with current form data
  */
-function showAlert(message, type = 'success') {
-  const alertEl = document.getElementById('alert');
-  alertEl.className = `alert alert-${type} visible`;
-  alertEl.textContent = message;
+async function testAPIConnection() {
+  console.log('[Profile Manager] Testing API connection...');
 
-  setTimeout(() => {
-    alertEl.classList.remove('visible');
-  }, 3000);
-}
+  // Collect form data using centralized function
+  const formData = collectFormData();
 
-/**
- * 在模态框内显示提示
- */
-function showModalAlert(message, type = 'success') {
-  const alertEl = document.getElementById('modalAlert');
-  if (!alertEl) {
-    // 如果模态框内没有 alert 元素，回退到主 alert
-    showAlert(message, type);
+  // Validate required fields
+  if (!formData.authToken) {
+    showModalAlert('✗ 请先填写 API Key', 'error');
     return;
   }
-  
-  alertEl.className = `alert alert-${type} visible`;
-  alertEl.textContent = message;
-  alertEl.style.display = 'block';
 
-  // 3秒后自动隐藏
-  setTimeout(() => {
-    alertEl.classList.remove('visible');
-    setTimeout(() => {
-      alertEl.style.display = 'none';
-    }, 300);
-  }, 3000);
+  if (!formData.baseUrl) {
+    showModalAlert('✗ 请先填写 API 地址', 'error');
+    return;
+  }
+
+  // Determine model based on service provider
+  let model = null;
+  if (isOfficialProvider(formData.serviceProvider)) {
+    // Use global default models
+    model = DEFAULT_MODELS[formData.selectedModelTier];
+  } else {
+    // Use custom model mapping
+    if (formData.modelMapping && formData.modelMapping[formData.selectedModelTier]) {
+      model = formData.modelMapping[formData.selectedModelTier];
+    }
+
+    if (!model) {
+      showModalAlert(`✗ 请先设置 ${formData.selectedModelTier.toUpperCase()} 模型映射`, 'error');
+      return;
+    }
+  }
+
+  // Prepare API config for testing
+  const apiConfig = {
+    baseUrl: formData.baseUrl,
+    authToken: formData.authToken,
+    authType: formData.authType,
+    model,
+    serviceProvider: formData.serviceProvider,
+    selectedModelTier: formData.selectedModelTier,
+    useProxy: formData.useProxy,
+    httpsProxy: formData.useProxy ? formData.httpsProxy : '',
+    httpProxy: formData.useProxy ? formData.httpProxy : ''
+  };
+
+  console.log('[Profile Manager] API Config for test:', {
+    baseUrl: apiConfig.baseUrl,
+    model: apiConfig.model,
+    authType: apiConfig.authType,
+    useProxy: apiConfig.useProxy
+  });
+
+  // Show testing message
+  showModalAlert('⏳ 正在测试连接...', 'info');
+
+  try {
+    const result = await window.electronAPI.testConnection(apiConfig);
+
+    if (result.success) {
+      showModalAlert('✓ 连接测试成功！API 配置正常', 'success');
+    } else {
+      showModalAlert(`✗ 连接测试失败：${result.message}`, 'error');
+    }
+  } catch (error) {
+    console.error('[Profile Manager] Connection test error:', error);
+    showModalAlert(`✗ 连接测试失败：${error.message}`, 'error');
+  }
 }
 
 /**
@@ -571,35 +604,6 @@ function getModelDisplay(profile) {
 }
 
 /**
- * 格式化日期
- */
-function formatDate(isoString) {
-  if (!isoString) return '未知';
-
-  const date = new Date(isoString);
-  const now = new Date();
-  const diff = now - date;
-
-  // 少于 1 分钟
-  if (diff < 60000) {
-    return '刚刚';
-  }
-
-  // 少于 1 小时
-  if (diff < 3600000) {
-    return `${Math.floor(diff / 60000)} 分钟前`;
-  }
-
-  // 少于 1 天
-  if (diff < 86400000) {
-    return `${Math.floor(diff / 3600000)} 小时前`;
-  }
-
-  // 超过 1 天
-  return date.toLocaleDateString('zh-CN');
-}
-
-/**
  * 更新模型输入提示
  */
 /**
@@ -639,25 +643,6 @@ function onServiceProviderChange(autoFillUrl = true) {
       if (mappingSonnet) mappingSonnet.value = provider.defaultModelMapping.sonnet || '';
       if (mappingHaiku) mappingHaiku.value = provider.defaultModelMapping.haiku || '';
     }
-  }
-}
-
-
-/**
- * 切换密码可见性
- */
-function togglePasswordVisibility(inputId) {
-  const input = document.getElementById(inputId);
-  const button = document.getElementById('toggle' + inputId.charAt(0).toUpperCase() + inputId.slice(1));
-  
-  if (input.type === 'password') {
-    input.type = 'text';
-    button.textContent = '🙈';
-    button.title = '隐藏';
-  } else {
-    input.type = 'password';
-    button.textContent = '👁️';
-    button.title = '显示/隐藏';
   }
 }
 

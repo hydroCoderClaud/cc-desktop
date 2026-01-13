@@ -5,6 +5,25 @@
 
 const { ipcMain, dialog } = require('electron');
 
+/**
+ * Create IPC handler with unified logging and error handling
+ * @param {string} channelName - IPC channel name
+ * @param {Function} handler - Handler function
+ */
+function createIPCHandler(channelName, handler) {
+  ipcMain.handle(channelName, async (event, ...args) => {
+    console.log(`[IPC] ${channelName} called with:`, ...args);
+    try {
+      const result = await handler(...args);
+      console.log(`[IPC] ${channelName} success`);
+      return result;
+    } catch (error) {
+      console.error(`[IPC] ${channelName} error:`, error);
+      throw error;
+    }
+  });
+}
+
 function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   console.log('[IPC] Setting up handlers...');
 
@@ -313,44 +332,23 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   // 服务商定义管理
   // ========================================
 
-  // 获取所有服务商定义
-  ipcMain.handle('provider:list', async () => {
+  createIPCHandler('provider:list', () => {
     return configManager.getServiceProviderDefinitions();
   });
 
-  // 获取单个服务商定义
-  ipcMain.handle('provider:get', async (event, id) => {
+  createIPCHandler('provider:get', (id) => {
     return configManager.getServiceProviderDefinition(id);
   });
 
-  // 添加服务商定义
-  ipcMain.handle('provider:add', async (event, definition) => {
-    console.log('[IPC] provider:add called with:', definition);
-    try {
-      const result = configManager.addServiceProviderDefinition(definition);
-      console.log('[IPC] provider:add result:', result);
-      return result;
-    } catch (error) {
-      console.error('[IPC] provider:add error:', error);
-      throw error;
-    }
+  createIPCHandler('provider:add', (definition) => {
+    return configManager.addServiceProviderDefinition(definition);
   });
 
-  // 更新服务商定义
-  ipcMain.handle('provider:update', async (event, { id, updates }) => {
-    console.log('[IPC] provider:update called with id:', id, 'updates:', updates);
-    try {
-      const result = configManager.updateServiceProviderDefinition(id, updates);
-      console.log('[IPC] provider:update result:', result);
-      return result;
-    } catch (error) {
-      console.error('[IPC] provider:update error:', error);
-      throw error;
-    }
+  createIPCHandler('provider:update', ({ id, updates }) => {
+    return configManager.updateServiceProviderDefinition(id, updates);
   });
 
-  // 删除服务商定义
-  ipcMain.handle('provider:delete', async (event, id) => {
+  createIPCHandler('provider:delete', (id) => {
     return configManager.deleteServiceProviderDefinition(id);
   });
 

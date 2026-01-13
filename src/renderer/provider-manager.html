@@ -428,6 +428,10 @@
     console.log('[Provider Manager HTML] HTML loaded');
     console.log('[Provider Manager HTML] Location:', window.location.href);
   </script>
+  <!-- Shared scripts must be loaded first -->
+  <script src="js/shared-constants.js"></script>
+  <script src="js/shared-utils.js"></script>
+  <script src="js/utils/ui-utils.js"></script>
   <script src="js/provider-manager.js"></script>
   <script>
     console.log('[Provider Manager HTML] After loading provider-manager.js');
