@@ -178,7 +178,7 @@
             </n-dropdown>
           </div>
           <n-space v-if="selectedSession" align="center">
-            <span class="select-hint">{{ t('sessionManager.selectHint') }}</span>
+            <span class="select-hint">{{ t('sessionManager.selectHint') }}，Ctrl+C {{ t('sessionManager.copyShortcut') }}</span>
             <n-tooltip>
               <template #trigger>
                 <n-button size="small" quaternary @click="toggleMessageSort">

@@ -187,6 +187,7 @@ export default {
     exportSuccess: 'Export successful',
     exportFailed: 'Export failed',
     selectHint: 'Click to select, Ctrl+click to multi-select',
+    copyShortcut: 'copy',
     // Sync related
     sync: 'Sync',
     syncNow: 'Sync Now',

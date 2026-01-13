@@ -187,6 +187,7 @@ export default {
     exportSuccess: '导出成功',
     exportFailed: '导出失败',
     selectHint: '单击选中，Ctrl+点击多选',
+    copyShortcut: '复制',
     // 同步相关
     sync: '同步',
     syncNow: '立即同步',
