@@ -17,6 +17,7 @@
             <n-select
               v-model:value="formData.theme"
               :options="themeOptions"
+              style="width: 100%"
             />
           </n-form-item>
         </n-grid-item>
@@ -26,6 +27,7 @@
             <n-select
               v-model:value="formData.locale"
               :options="localeOptions"
+              style="width: 100%"
             />
           </n-form-item>
         </n-grid-item>

@@ -10,6 +10,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NSelect,
   NDivider,
   NGrid,
   NGridItem
@@ -29,6 +30,7 @@ const naive = create({
     NFormItem,
     NInput,
     NInputNumber,
+    NSelect,
     NDivider,
     NGrid,
     NGridItem
