@@ -8,7 +8,6 @@
         <n-select
           v-model:value="searchScope"
           :options="searchScopeOptions"
-          size="small"
           style="width: 120px"
         />
         <!-- Search Input -->
@@ -25,15 +24,15 @@
           </template>
         </n-input>
         <!-- Search Button -->
-        <n-button size="small" type="primary" :loading="searching" @click="handleSearch">
+        <n-button type="primary" :loading="searching" @click="handleSearch">
           {{ t('common.search') }}
         </n-button>
         <!-- Search Results Navigation -->
-        <n-space v-if="searchResults.length > 0" align="center" :size="4">
-          <n-button size="tiny" quaternary :disabled="searchIndex <= 0" @click="prevResult">◀</n-button>
+        <n-space v-if="searchResults.length > 0" align="center" :size="4" class="search-nav">
+          <n-button size="small" quaternary :disabled="searchIndex <= 0" @click="prevResult">◀</n-button>
           <n-input-number
             v-model:value="searchIndexDisplay"
-            size="tiny"
+            size="small"
             :min="1"
             :max="searchResults.length"
             :show-button="false"
@@ -41,8 +40,8 @@
             @update:value="goToResult"
           />
           <span class="search-nav-total">/ {{ searchResults.length }}</span>
-          <n-button size="tiny" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult">▶</n-button>
-          <n-button size="tiny" quaternary @click="clearSearchResults">✕</n-button>
+          <n-button size="small" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult">▶</n-button>
+          <n-button size="small" quaternary @click="clearSearchResults">✕</n-button>
         </n-space>
         <!-- Sync Button -->
         <n-button :loading="syncing" @click="handleSync">

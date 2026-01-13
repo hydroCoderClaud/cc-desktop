@@ -1,6 +1,6 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
-    <n-message-provider>
+    <n-message-provider placement="top-right" :container-style="{ top: '60px' }">
       <n-dialog-provider>
         <div class="app-container" :style="cssVars">
           <SessionManagerContent />
