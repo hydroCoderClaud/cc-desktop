@@ -288,3 +288,66 @@ New field added to `config.json`:
 - Users can manage custom service providers
 - Custom model management is complete
 - No breaking changes to existing configurations
+
+### 2026-01-13: Code Refactoring - Shared Modules (v1.0.2)
+
+**Objective:**
+Eliminate code duplication across profile-manager and provider-manager modules by extracting shared constants and utility functions.
+
+**Refactoring Work:**
+
+1. **Created Shared Modules** (commit f72694f)
+   - `src/renderer/js/shared-constants.js` - Centralized constants (MODEL_TIERS, OFFICIAL_PROVIDERS, DEFAULT_MODELS)
+   - `src/renderer/js/shared-utils.js` - Common utility functions (capitalize, isOfficialProvider)
+
+2. **Code Deduplication**
+   - Removed ~70 lines of duplicate code from profile-manager.js:
+     - Removed duplicate constants (MODEL_TIERS, OFFICIAL_PROVIDERS, DEFAULT_MODELS)
+     - Removed duplicate utility functions (capitalize, isOfficialProvider)
+     - Removed duplicate UI functions (escapeHtml, showAlert, showModalAlert, formatDate, togglePasswordVisibility) - now using ui-utils.js
+   - Removed ~25 lines of duplicate code from provider-manager.js:
+     - Removed duplicate constants and utility functions
+     - Now references shared modules and ui-utils.js
+
+3. **Additional Optimizations**
+   - Unified IPC error handling with `createIPCHandler()` wrapper
+   - Centralized form data collection with `collectFormData()` function
+   - Improved model mapping field operations with reusable functions
+
+4. **HTML Updates**
+   - profile-manager.html: Added script references for shared-constants.js, shared-utils.js, ui-utils.js
+   - provider-manager.html: Added script references for shared-constants.js, shared-utils.js, ui-utils.js
+   - Ensured correct loading order (constants → utils → ui-utils → main module)
+
+**Code Quality Improvements:**
+- Net reduction: ~70 lines of code (approximately 7.5% decrease)
+- Maintainability: Constants and utilities now maintained in single location
+- Consistency: Shared logic ensures uniform behavior across modules
+- Reusability: New modules can easily import shared constants and utilities
+
+**File Structure After Refactoring:**
+```
+src/renderer/js/
+├── shared-constants.js       # NEW: Shared constants for all modules
+├── shared-utils.js            # NEW: Shared utility functions
+├── utils/
+│   ├── constants.js           # UI-specific constants
+│   └── ui-utils.js            # UI helper functions (existing, now reused)
+├── profile-manager.js         # Refactored: uses shared modules
+├── provider-manager.js        # Refactored: uses shared modules
+├── global-settings.js         # Independent module
+└── app.js                     # Main app module
+```
+
+**Testing:**
+- All service provider management features tested and working
+- All API profile management features tested and working
+- Connection testing functional
+- Form interactions verified
+- No console errors or runtime issues
+
+**Impact:**
+- Improved code maintainability and consistency
+- Easier to add new features that use shared constants
+- Reduced risk of bugs from inconsistent implementations
+- Foundation for future refactoring efforts

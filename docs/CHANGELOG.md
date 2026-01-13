@@ -1,5 +1,63 @@
 # 更新日志
 
+## v1.0.2 - 2026-01-13
+
+### 🔧 代码重构
+
+**共享模块提取**
+- 创建 `shared-constants.js` - 统一管理 MODEL_TIERS, OFFICIAL_PROVIDERS, DEFAULT_MODELS 常量
+- 创建 `shared-utils.js` - 提取 capitalize(), isOfficialProvider() 等工具函数
+- 消除 profile-manager.js 和 provider-manager.js 之间的重复代码（~95 行）
+- 复用 ui-utils.js 中的 UI 辅助函数（escapeHtml, showAlert, formatDate 等）
+
+**代码优化**
+- 统一 IPC 错误处理：引入 `createIPCHandler()` 包装函数
+- 集中表单数据收集：创建 `collectFormData()` 函数
+- 改进模型映射字段操作：使用可复用的 setter/getter 函数
+- 优化脚本加载顺序：确保依赖关系正确（constants → utils → ui-utils → main）
+
+### 📊 代码质量提升
+
+**减少重复**
+- profile-manager.js: 移除 ~70 行重复代码
+- provider-manager.js: 移除 ~25 行重复代码
+- 净减少：约 70 行代码（7.5% 代码量）
+
+**可维护性改进**
+- 常量和工具函数现在只需在一处维护
+- 共享逻辑确保模块间行为一致性
+- 新模块可轻松导入共享常量和工具函数
+- 为未来重构工作奠定基础
+
+### 🧪 测试验证
+
+- ✅ 服务商管理所有功能正常
+- ✅ API 配置管理所有功能正常
+- ✅ 连接测试功能正常
+- ✅ 表单交互验证通过
+- ✅ 无控制台错误或运行时问题
+
+### 📁 文件结构更新
+
+```
+src/renderer/js/
+├── shared-constants.js       # 新增：跨模块共享常量
+├── shared-utils.js            # 新增：跨模块工具函数
+├── utils/
+│   ├── constants.js           # UI 特定常量
+│   └── ui-utils.js            # UI 辅助函数（已存在，现在被复用）
+├── profile-manager.js         # 重构：使用共享模块
+├── provider-manager.js        # 重构：使用共享模块
+├── global-settings.js         # 独立模块
+└── app.js                     # 主应用模块
+```
+
+### 📊 提交记录
+
+- `f72694f` - 重构代码去重：提取共享模块优化代码结构
+
+---
+
 ## v1.0.1 - 2026-01-13
 
 ### 🐛 Bug 修复
