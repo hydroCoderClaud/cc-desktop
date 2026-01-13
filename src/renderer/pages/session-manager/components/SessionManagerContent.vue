@@ -76,6 +76,7 @@
             <div
               v-for="project in projects"
               :key="project.id"
+              :data-project-id="project.id"
               class="project-item"
               :class="{ active: selectedProject?.id === project.id }"
               @click="selectProject(project)"
@@ -108,6 +109,7 @@
             <div
               v-for="session in sessions"
               :key="session.id"
+              :data-session-id="session.id"
               class="session-item"
               :class="{ active: selectedSession?.id === session.id }"
               @click="selectSession(session)"
@@ -530,35 +532,56 @@ const navigateToResult = async (index) => {
   const result = searchResults.value[index]
   searchIndex.value = index
 
-  // Find the project
-  const project = projects.value.find(p => p.id === result.session_id ?
-    sessions.value.find(s => s.id === result.session_id)?.project_id === p.id : false
-  ) || projects.value.find(p => {
-    // Match by project path
-    return p.path === result.project_path
-  })
+  // Find the project by path
+  const project = projects.value.find(p => p.path === result.project_path)
 
-  // If project changed, load it first
-  if (project && (!selectedProject.value || selectedProject.value.id !== project.id)) {
-    await selectProject(project)
+  if (!project) {
+    console.warn('Project not found for result:', result)
+    return
   }
 
-  // Find and select the session
+  // If project changed, load it first
+  if (!selectedProject.value || selectedProject.value.id !== project.id) {
+    await selectProject(project)
+    // Scroll to project in sidebar
+    setTimeout(() => {
+      const projectEl = document.querySelector(`[data-project-id="${project.id}"]`)
+      if (projectEl) {
+        projectEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 50)
+  }
+
+  // Find the session by id
   const session = sessions.value.find(s => s.id === result.session_id)
-  if (session && (!selectedSession.value || selectedSession.value.id !== session.id)) {
+
+  if (!session) {
+    console.warn('Session not found for result:', result)
+    return
+  }
+
+  // If session changed, load it
+  if (!selectedSession.value || selectedSession.value.id !== session.id) {
     await selectSession(session)
+    // Scroll to session in session list
+    setTimeout(() => {
+      const sessionEl = document.querySelector(`[data-session-id="${session.id}"]`)
+      if (sessionEl) {
+        sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 50)
   }
 
   // Highlight the message
   highlightedMessageId.value = result.id
 
-  // Scroll to the message after a short delay
+  // Scroll to the message after sessions/messages loaded
   setTimeout(() => {
     const el = document.querySelector(`[data-message-id="${result.id}"]`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, 100)
+  }, 150)
 }
 
 // Previous result
