@@ -604,12 +604,11 @@ class SessionDatabase {
    */
   getSessionTaggedMessages(sessionId) {
     return this.db.prepare(`
-      SELECT m.id, GROUP_CONCAT(t.id) as tag_ids, GROUP_CONCAT(t.name) as tag_names, GROUP_CONCAT(t.color) as tag_colors
-      FROM messages m
-      JOIN message_tags mt ON m.id = mt.message_id
+      SELECT mt.message_id, t.id as tag_id, t.name as tag_name, t.color as tag_color
+      FROM message_tags mt
       JOIN tags t ON mt.tag_id = t.id
+      JOIN messages m ON mt.message_id = m.id
       WHERE m.session_id = ?
-      GROUP BY m.id
     `).all(sessionId)
   }
 
