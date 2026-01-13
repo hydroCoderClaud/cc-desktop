@@ -217,6 +217,7 @@ export default {
     showAll: '显示全部',
     taggedMessages: '条带标签消息',
     noTaggedMessages: '当前无带标签消息',
+    noTaggedSessions: '无匹配标签的会话',
     // 统计相关
     stats: '统计',
     totalProjects: '项目总数',

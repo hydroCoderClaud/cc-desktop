@@ -287,16 +287,26 @@ class SessionDatabase {
    * Get sessions for a project
    */
   getProjectSessions(projectId) {
-    return this.db.prepare(`
+    const sessions = this.db.prepare(`
       SELECT s.*,
-             (SELECT COUNT(*) FROM favorites f WHERE f.session_id = s.id) as is_favorite,
-             (SELECT GROUP_CONCAT(t.name) FROM session_tags st
-              JOIN tags t ON st.tag_id = t.id
-              WHERE st.session_id = s.id) as tag_names
+             (SELECT COUNT(*) FROM favorites f WHERE f.session_id = s.id) as is_favorite
       FROM sessions s
       WHERE s.project_id = ?
       ORDER BY s.last_message_at DESC NULLS LAST
     `).all(projectId)
+
+    // Load tags for each session (with full info)
+    const getTagsStmt = this.db.prepare(`
+      SELECT t.id, t.name, t.color FROM tags t
+      JOIN session_tags st ON t.id = st.tag_id
+      WHERE st.session_id = ?
+    `)
+
+    for (const session of sessions) {
+      session.tags = getTagsStmt.all(session.id)
+    }
+
+    return sessions
   }
 
   /**

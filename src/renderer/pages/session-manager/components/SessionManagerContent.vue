@@ -96,12 +96,18 @@
           <div class="panel-header-left">
             <span>{{ t('sessionManager.sessionList') }}</span>
             <n-tag v-if="selectedProject" size="small" type="info">
-              {{ sessions.length }}
+              {{ filteredSessions.length }}
             </n-tag>
+            <!-- Session tag filter -->
+            <n-dropdown v-if="allTags.length > 0" :options="sessionFilterOptions" @select="handleSessionTagFilter">
+              <n-button size="tiny" quaternary :type="sessionTagFilter ? 'primary' : 'default'">
+                🏷️ {{ sessionTagFilter ? sessionTagFilter.name : t('sessionManager.filterByTag') }}
+              </n-button>
+            </n-dropdown>
           </div>
           <n-space v-if="selectedSession" :size="4">
             <n-dropdown :options="sessionTagOptions" @select="handleAddSessionTag">
-              <n-button size="tiny" quaternary>🏷️</n-button>
+              <n-button size="tiny" quaternary :title="t('sessionManager.addTag')">+🏷️</n-button>
             </n-dropdown>
           </n-space>
         </div>
@@ -110,11 +116,11 @@
             <div v-if="!selectedProject" class="empty-state">
               <n-empty :description="t('sessionManager.selectProject')" />
             </div>
-            <div v-else-if="sessions.length === 0 && !loadingSessions" class="empty-state">
-              <n-empty :description="t('sessionManager.noSessions')" />
+            <div v-else-if="filteredSessions.length === 0 && !loadingSessions" class="empty-state">
+              <n-empty :description="sessionTagFilter ? t('sessionManager.noTaggedSessions') : t('sessionManager.noSessions')" />
             </div>
             <div
-              v-for="session in sessions"
+              v-for="session in filteredSessions"
               :key="session.id"
               :data-session-id="session.id"
               class="session-item"
@@ -141,14 +147,17 @@
                 <span>{{ session.message_count || 0 }} {{ t('sessionManager.messages') }}</span>
                 <span v-if="session.model" class="model-tag">{{ session.model }}</span>
               </div>
-              <div v-if="session.tag_names" class="session-tags">
+              <div v-if="session.tags && session.tags.length > 0" class="session-tags">
                 <n-tag
-                  v-for="tagName in session.tag_names.split(',')"
-                  :key="tagName"
+                  v-for="tag in session.tags"
+                  :key="tag.id"
                   size="tiny"
-                  type="info"
+                  :color="{ color: tag.color, textColor: '#fff' }"
+                  closable
+                  @close="handleRemoveSessionTag(session.id, tag.id)"
+                  @click.stop
                 >
-                  {{ tagName }}
+                  {{ tag.name }}
                 </n-tag>
               </div>
             </div>
@@ -313,7 +322,10 @@ const tagColors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2
 
 // Message tags
 const messageTagsMap = ref({}) // { messageId: [tags] }
-const activeTagFilter = ref(null) // Currently selected tag for filtering
+const activeTagFilter = ref(null) // Currently selected tag for message filtering
+
+// Session tag filter
+const sessionTagFilter = ref(null) // Currently selected tag for session filtering
 
 // Export options
 const exportOptions = computed(() => [
@@ -356,7 +368,7 @@ const messageTagOptions = computed(() => {
   return options
 })
 
-// Tag filter dropdown options (for conversation header)
+// Tag filter dropdown options (for conversation header - message level)
 const tagFilterOptions = computed(() => {
   const options = [
     { label: t('sessionManager.showAll'), key: 'all' },
@@ -370,6 +382,32 @@ const tagFilterOptions = computed(() => {
     })
   })
   return options
+})
+
+// Session filter dropdown options (for session list header)
+const sessionFilterOptions = computed(() => {
+  const options = [
+    { label: t('sessionManager.showAll'), key: 'all' },
+    { type: 'divider', key: 'd0' }
+  ]
+  allTags.value.forEach(tag => {
+    options.push({
+      label: `${tag.name} (${tag.session_count || 0})`,
+      key: tag.id,
+      props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+    })
+  })
+  return options
+})
+
+// Filtered sessions by tag
+const filteredSessions = computed(() => {
+  if (!sessionTagFilter.value) {
+    return sessions.value
+  }
+  return sessions.value.filter(session =>
+    session.tags && session.tags.some(tag => tag.id === sessionTagFilter.value.id)
+  )
 })
 
 // Display messages (filter out empty content, with sort)
@@ -455,7 +493,8 @@ const selectProject = async (project) => {
   selectedSession.value = null
   messages.value = []
   messageTagsMap.value = {} // Clear message tags
-  activeTagFilter.value = null // Clear tag filter
+  activeTagFilter.value = null // Clear message tag filter
+  sessionTagFilter.value = null // Clear session tag filter
   await loadSessions(project.id)
 }
 
@@ -607,6 +646,30 @@ const handleRemoveMessageTag = async (messageId, tagId) => {
     message.success(t('messages.deleteSuccess'))
   } catch (err) {
     console.error('Failed to remove message tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Handle session tag filter (filter sessions by tag)
+const handleSessionTagFilter = (key) => {
+  if (key === 'all') {
+    sessionTagFilter.value = null
+    return
+  }
+  const tag = allTags.value.find(t => t.id === key)
+  sessionTagFilter.value = tag || null
+}
+
+// Handle remove session tag
+const handleRemoveSessionTag = async (sessionId, tagId) => {
+  try {
+    await invoke('removeTagFromSession', { sessionId, tagId })
+    // Refresh session list to update tags
+    await loadSessions(selectedProject.value.id)
+    await loadTags() // Refresh tag counts
+    message.success(t('messages.deleteSuccess'))
+  } catch (err) {
+    console.error('Failed to remove session tag:', err)
     message.error(t('messages.operationFailed'))
   }
 }

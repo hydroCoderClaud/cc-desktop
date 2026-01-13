@@ -217,6 +217,7 @@ export default {
     showAll: 'Show All',
     taggedMessages: 'tagged messages',
     noTaggedMessages: 'No tagged messages',
+    noTaggedSessions: 'No sessions with this tag',
     // Stats related
     stats: 'Statistics',
     totalProjects: 'Total Projects',
