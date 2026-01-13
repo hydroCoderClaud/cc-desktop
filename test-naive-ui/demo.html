@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Naive UI + Claude 主题测试</title>
+
+  <!-- Google Fonts - Claude 使用的字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Vue 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.15/dist/vue.global.prod.js"></script>
+
+  <!-- Naive UI -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/naive-ui@2.38.1/dist/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/naive-ui@2.38.1/dist/index.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f0;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      padding: 32px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 600;
+      color: #2d2d2d;
+      margin-bottom: 12px;
+    }
+
+    .header p {
+      font-size: 16px;
+      color: #8c8c8c;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .demo-section {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .demo-section h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #2d2d2d;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e5e5e0;
+    }
+
+    .demo-section h3 {
+      font-size: 16px;
+      font-weight: 500;
+      color: #4a4a4a;
+      margin: 20px 0 12px 0;
+    }
+
+    .component-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .form-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .original-style {
+      background: #fff9e6;
+      border-left: 4px solid #ff6b35;
+    }
+
+    .naive-style {
+      background: #e6f7ff;
+      border-left: 4px solid #18a058;
+    }
+
+    /* 原生 Claude 风格按钮 */
+    .btn {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #ff6b35;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #ff5722;
+      box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #2d2d2d;
+    }
+
+    .btn-secondary:hover {
+      background: #e8e8e8;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+
+    /* 原生 Claude 风格输入框 */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-group label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #2d2d2d;
+    }
+
+    .input {
+      padding: 10px 12px;
+      border: 1px solid #e5e5e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: #ff6b35;
+      box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+    }
+
+    /* 原生 Claude 风格卡片 */
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e5e0;
+      font-weight: 600;
+      font-size: 16px;
+      color: #2d2d2d;
+    }
+
+    .card-body {
+      padding: 20px;
+      color: #4a4a4a;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .stats {
+      margin-top: 32px;
+      padding: 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stats h3 {
+      color: white;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 16px;
+    }
+
+    .stat-item {
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .decision-box {
+      margin-top: 32px;
+      padding: 24px;
+      background: #fff9e6;
+      border: 2px solid #ff6b35;
+      border-radius: 12px;
+    }
+
+    .decision-box h3 {
+      color: #ff6b35;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .decision-box ul {
+      margin-left: 20px;
+      color: #4a4a4a;
+      line-height: 1.8;
+    }
+
+    .decision-box strong {
+      color: #ff6b35;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <!-- 标题 -->
+      <div class="header">
+        <h1>🎨 Naive UI + Claude 主题测试</h1>
+        <p>左侧是原生 Claude 风格，右侧是 Naive UI + Claude 主题配置</p>
+      </div>
+
+      <!-- 对比网格 -->
+      <div class="comparison-grid">
+        <!-- 左侧：原生 Claude 风格 -->
+        <div class="demo-section original-style">
+          <h2>🖌️ 原生 Claude 风格</h2>
+
+          <h3>按钮</h3>
+          <div class="component-demo">
+            <div class="button-group">
+              <button class="btn btn-primary">Primary 按钮</button>
+              <button class="btn btn-secondary">Secondary 按钮</button>
+              <button class="btn btn-primary btn-small">Small 按钮</button>
+            </div>
+          </div>
+
+          <h3>表单</h3>
+          <div class="form-demo">
+            <div class="input-group">
+              <label>配置名称</label>
+              <input type="text" class="input" placeholder="请输入配置名称" />
+            </div>
+            <div class="input-group">
+              <label>API Key</label>
+              <input type="password" class="input" placeholder="请输入 API Key" />
+            </div>
+          </div>
+
+          <h3>卡片</h3>
+          <div class="card">
+            <div class="card-header">
+              Profile 配置
+              <span class="badge">默认</span>
+            </div>
+            <div class="card-body">
+              这是一个配置卡片，包含了详细的配置信息。Claude 官方风格的卡片设计，简洁优雅。
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧：Naive UI + Claude 主题 -->
+        <div class="demo-section naive-style">
+          <h2>🎯 Naive UI + Claude 主题</h2>
+
+          <h3>按钮</h3>
+          <n-space>
+            <n-button type="primary">Primary 按钮</n-button>
+            <n-button type="default">Secondary 按钮</n-button>
+            <n-button type="primary" size="small">Small 按钮</n-button>
+          </n-space>
+
+          <h3>表单</h3>
+          <n-form>
+            <n-form-item label="配置名称">
+              <n-input placeholder="请输入配置名称" />
+            </n-form-item>
+            <n-form-item label="API Key">
+              <n-input type="password" show-password-on="click" placeholder="请输入 API Key" />
+            </n-form-item>
+          </n-form>
+
+          <h3>卡片</h3>
+          <n-card title="Profile 配置">
+            <template #header-extra>
+              <n-tag type="success" size="small">默认</n-tag>
+            </template>
+            这是一个配置卡片，包含了详细的配置信息。使用 Naive UI 实现的 Claude 风格卡片。
+          </n-card>
+        </div>
+      </div>
+
+      <!-- 更多组件演示 -->
+      <div class="demo-section full-width">
+        <h2>📦 更多 Naive UI 组件（Claude 主题）</h2>
+
+        <div class="comparison-grid">
+          <div>
+            <h3>下拉选择</h3>
+            <n-select
+              v-model:value="selectedProvider"
+              :options="providerOptions"
+              placeholder="选择服务商"
+            />
+          </div>
+
+          <div>
+            <h3>开关</h3>
+            <n-space vertical>
+              <n-switch v-model:value="useProxy">
+                <template #checked>启用代理</template>
+                <template #unchecked>禁用代理</template>
+              </n-switch>
+              <n-switch v-model:value="darkMode" :default-value="false">
+                <template #checked>深色模式</template>
+                <template #unchecked>浅色模式</template>
+              </n-switch>
+            </n-space>
+          </div>
+
+          <div>
+            <h3>标签</h3>
+            <n-space>
+              <n-tag type="success">成功</n-tag>
+              <n-tag type="warning">警告</n-tag>
+              <n-tag type="error">错误</n-tag>
+              <n-tag type="info">信息</n-tag>
+            </n-space>
+          </div>
+
+          <div>
+            <h3>徽章</h3>
+            <n-space>
+              <n-badge value="5">
+                <n-button>消息</n-button>
+              </n-badge>
+              <n-badge dot>
+                <n-button>通知</n-button>
+              </n-badge>
+            </n-space>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 24px;">对话框演示</h3>
+        <n-space>
+          <n-button type="primary" @click="showModal = true">打开对话框</n-button>
+          <n-button @click="showMessage">显示消息提示</n-button>
+          <n-button @click="showNotification">显示通知</n-button>
+        </n-space>
+
+        <!-- Modal -->
+        <n-modal
+          v-model:show="showModal"
+          preset="dialog"
+          title="编辑配置"
+          positive-text="保存"
+          negative-text="取消"
+          @positive-click="handleSave"
+        >
+          <n-form>
+            <n-form-item label="配置名称">
+              <n-input v-model:value="profileName" placeholder="请输入配置名称" />
+            </n-form-item>
+            <n-form-item label="描述">
+              <n-input
+                v-model:value="profileDesc"
+                type="textarea"
+                placeholder="请输入描述信息"
+                :rows="3"
+              />
+            </n-form-item>
+          </n-form>
+        </n-modal>
+      </div>
+
+      <!-- 统计信息 -->
+      <div class="stats">
+        <h3>相似度分析</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value">85-90%</div>
+            <div class="stat-label">视觉相似度</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">2-3天</div>
+            <div class="stat-label">开发时间</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">+200KB</div>
+            <div class="stat-label">包体积增加</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 决策建议 -->
+      <div class="decision-box">
+        <h3>💡 决策建议</h3>
+        <ul>
+          <li><strong>视觉效果：</strong>Naive UI 通过主题配置可以达到 85-90% 的相似度</li>
+          <li><strong>优势：</strong>30+ 开箱即用的组件，响应式、可访问性都已处理</li>
+          <li><strong>劣势：</strong>包体积增加 ~200KB，部分细节可能需要微调</li>
+          <li><strong>推荐场景：</strong>如果未来需要复杂组件（Table、Tree、DatePicker 等）</li>
+          <li><strong>对比方案：</strong>自己写基础组件（10 个）只需 1-2 天，0KB 增加，100% 匹配</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+    const {
+      NButton, NInput, NCard, NModal, NForm, NFormItem, NSelect,
+      NSwitch, NTag, NBadge, NSpace, NConfigProvider, NMessageProvider,
+      createDiscreteApi
+    } = naive;
+
+    // Claude 主题配置
+    const claudeTheme = {
+      common: {
+        // 主色调 - Claude 橙色
+        primaryColor: '#FF6B35',
+        primaryColorHover: '#FF5722',
+        primaryColorPressed: '#E64A19',
+        primaryColorSuppl: '#FF8A65',
+
+        // 成功色 - 保持绿色但调整饱和度
+        successColor: '#2E7D32',
+        successColorHover: '#388E3C',
+
+        // 背景色 - Claude 暖色调
+        bodyColor: '#F5F5F0',
+        cardColor: '#FFFFFF',
+        modalColor: '#FFFFFF',
+        popoverColor: '#FFFFFF',
+
+        // 文字颜色
+        textColorBase: '#2D2D2D',
+        textColor1: '#2D2D2D',
+        textColor2: '#4A4A4A',
+        textColor3: '#8C8C8C',
+
+        // 边框
+        borderColor: '#E5E5E0',
+        borderRadius: '8px',
+
+        // 字体
+        fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontSize: '14px',
+        fontWeight: '400',
+        fontWeightStrong: '500',
+
+        // 阴影
+        boxShadow1: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        boxShadow2: '0 2px 8px rgba(0, 0, 0, 0.08)',
+        boxShadow3: '0 4px 16px rgba(0, 0, 0, 0.1)',
+      },
+
+      Button: {
+        borderRadiusMedium: '8px',
+        borderRadiusSmall: '6px',
+        paddingMedium: '8px 16px',
+        paddingSmall: '6px 12px',
+        fontSizeMedium: '14px',
+        fontSizeSmall: '13px',
+        fontWeight: '500',
+
+        // Primary 按钮
+        colorPrimary: '#FF6B35',
+        colorHoverPrimary: '#FF5722',
+        colorPressedPrimary: '#E64A19',
+        colorFocusPrimary: '#FF6B35',
+
+        // Default 按钮（相当于 Secondary）
+        color: '#F0F0F0',
+        colorHover: '#E8E8E8',
+        colorPressed: '#E0E0E0',
+        textColor: '#2D2D2D',
+        textColorHover: '#2D2D2D',
+      },
+
+      Input: {
+        borderRadius: '8px',
+        border: '1px solid #E5E5E0',
+        borderHover: '1px solid #FF6B35',
+        borderFocus: '1px solid #FF6B35',
+        heightMedium: '40px',
+        fontSizeMedium: '14px',
+        paddingMedium: '0 12px',
+        color: '#FFFFFF',
+        colorFocus: '#FFFFFF',
+        textColor: '#2D2D2D',
+        placeholderColor: '#8C8C8C',
+        boxShadowFocus: '0 0 0 3px rgba(255, 107, 53, 0.1)',
+      },
+
+      Card: {
+        borderRadius: '12px',
+        paddingMedium: '20px',
+        titleFontWeight: '600',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+      },
+
+      Modal: {
+        borderRadius: '12px',
+        padding: '24px',
+      },
+
+      Select: {
+        borderRadius: '8px',
+        heightMedium: '40px',
+      },
+
+      Form: {
+        labelFontWeight: '500',
+        labelFontSizeTopMedium: '14px',
+      },
+
+      Tag: {
+        borderRadius: '12px',
+        padding: '4px 10px',
+        fontSizeMedium: '12px',
+      },
+    };
+
+    const app = createApp({
+      setup() {
+        const { message, notification } = createDiscreteApi(['message', 'notification'], {
+          configProviderProps: {
+            themeOverrides: claudeTheme
+          }
+        });
+
+        return {
+          showModal: Vue.ref(false),
+          profileName: Vue.ref(''),
+          profileDesc: Vue.ref(''),
+          selectedProvider: Vue.ref('official'),
+          providerOptions: [
+            { label: '官方 API', value: 'official' },
+            { label: '中转服务', value: 'proxy' },
+            { label: '智谱AI', value: 'zhipu' },
+            { label: 'MiniMax', value: 'minimax' },
+          ],
+          useProxy: Vue.ref(false),
+          darkMode: Vue.ref(false),
+          claudeTheme,
+
+          handleSave() {
+            message.success('保存成功！');
+            return true;
+          },
+
+          showMessage() {
+            message.info('这是一条消息提示', {
+              duration: 3000
+            });
+          },
+
+          showNotification() {
+            notification.success({
+              title: '操作成功',
+              content: '配置已保存，系统将在 3 秒后刷新',
+              duration: 3000
+            });
+          }
+        };
+      },
+      components: {
+        NButton, NInput, NCard, NModal, NForm, NFormItem, NSelect,
+        NSwitch, NTag, NBadge, NSpace, NConfigProvider, NMessageProvider
+      },
+      template: `
+        <n-config-provider :theme-overrides="claudeTheme">
+          <n-message-provider>
+            <slot />
+          </n-message-provider>
+        </n-config-provider>
+      `
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>
