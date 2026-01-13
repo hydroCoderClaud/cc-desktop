@@ -560,9 +560,13 @@ const selectSession = async (session) => {
   await loadMessages(session.id)
 }
 
-// Select message
+// Select message (toggle)
 const selectMessage = (msg) => {
-  selectedMessage.value = msg
+  if (selectedMessage.value?.id === msg.id) {
+    selectedMessage.value = null // Deselect if clicking same message
+  } else {
+    selectedMessage.value = msg
+  }
 }
 
 // Load messages for session
