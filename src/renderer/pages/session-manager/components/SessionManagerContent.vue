@@ -181,11 +181,15 @@
             <span class="select-hint">{{ t('sessionManager.selectHint') }}，Ctrl+C {{ t('sessionManager.copyShortcut') }}</span>
             <n-tooltip>
               <template #trigger>
-                <n-button size="small" quaternary @click="toggleMessageSort">
-                  {{ messageSort === 'asc' ? '⬆️' : '⬇️' }}
-                </n-button>
+                <n-button size="small" quaternary @click="scrollToOldest">⬆️</n-button>
               </template>
-              {{ messageSort === 'asc' ? t('sessionManager.sortOldToNew') : t('sessionManager.sortNewToOld') }}
+              {{ t('sessionManager.goToOldest') }}
+            </n-tooltip>
+            <n-tooltip>
+              <template #trigger>
+                <n-button size="small" quaternary @click="scrollToNewest">⬇️</n-button>
+              </template>
+              {{ t('sessionManager.goToNewest') }}
             </n-tooltip>
             <n-dropdown :options="copyOptions" @select="handleCopy">
               <n-button size="small">
@@ -303,7 +307,6 @@ const loadingSessions = ref(false)
 const loadingMessages = ref(false)
 const syncing = ref(false)
 const syncStats = ref(null)
-const messageSort = ref('asc') // 'asc' = 旧到新, 'desc' = 新到旧
 
 // Search
 const searchScope = ref('all') // 'all', 'project', 'session'
@@ -507,16 +510,23 @@ const displayMessages = computed(() => {
     })
   }
 
-  // Sort by timestamp
-  if (messageSort.value === 'desc') {
-    return [...filtered].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-  }
-  return filtered // default asc (already sorted from DB)
+  return filtered // Always asc (from old to new)
 })
 
 // Toggle message sort order
-const toggleMessageSort = () => {
-  messageSort.value = messageSort.value === 'asc' ? 'desc' : 'asc'
+// Scroll to oldest/newest message
+const scrollToOldest = () => {
+  if (displayMessages.value.length > 0) {
+    const firstMsg = displayMessages.value[0]
+    scrollToElement(`[data-message-id="${firstMsg.id}"]`, 0)
+  }
+}
+
+const scrollToNewest = () => {
+  if (displayMessages.value.length > 0) {
+    const lastMsg = displayMessages.value[displayMessages.value.length - 1]
+    scrollToElement(`[data-message-id="${lastMsg.id}"]`, 0)
+  }
 }
 
 // Initialize

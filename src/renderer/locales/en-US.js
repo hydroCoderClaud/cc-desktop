@@ -222,9 +222,9 @@ export default {
     deleteTagConfirm: 'Are you sure you want to delete this tag?',
     tagDeleteSuccess: 'Tag deleted',
     tagCreateSuccess: 'Tag created',
-    // Sort related
-    sortOldToNew: 'Old to New',
-    sortNewToOld: 'New to Old',
+    // Navigation related
+    goToOldest: 'Go to oldest',
+    goToNewest: 'Go to newest',
     // Tag filtering
     filterByTag: 'Filter by Tag',
     showAll: 'Show All',

@@ -222,9 +222,9 @@ export default {
     deleteTagConfirm: '确定要删除此标签吗？',
     tagDeleteSuccess: '标签已删除',
     tagCreateSuccess: '标签已创建',
-    // 排序相关
-    sortOldToNew: '从旧到新',
-    sortNewToOld: '从新到旧',
+    // 定位相关
+    goToOldest: '定位到最旧',
+    goToNewest: '定位到最新',
     // 标签筛选
     filterByTag: '按标签筛选',
     showAll: '显示全部',
