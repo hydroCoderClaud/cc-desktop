@@ -1,89 +1,72 @@
 # TODO - 待办事项
 
 > 📅 最后更新：2026-01-13
-> 📦 当前版本：v1.0.2
-> ✅ 状态：稳定可用
+> 📦 当前版本：v1.1.0-alpha
+> ✅ 状态：Vue 3 + Naive UI 迁移进行中
 
 ---
 
-## 🔥 近期待办（优先级高）
+## 🎨 Vue 3 + Naive UI 迁移 **[进行中]**
 
-### UI 架构改进 🎨 **[新增]**
-- [ ] **Phase 0: 短期优化**（v1.0.x - v1.1.0）⏳ 1-2 天
-  - [ ] 提取 CSS 到独立文件（726 行内联 CSS → 模块化）
-  - [ ] 创建 DOM 助手函数库（减少重复代码）
-  - [ ] 统一样式变量和组件规范
-  - 📄 详见：`docs/UI-REFACTORING-PLAN.md`
+### ✅ 已完成
+- [x] **阶段 0: 准备工作**
+  - [x] 创建备份分支 `backup/before-naive-ui-migration`
+  - [x] 安装 Vue 3, Naive UI, Vite 依赖
+  - [x] 配置 Vite 构建系统 (`vite.config.js`)
+  - [x] 创建 Claude 主题配置 (`claude-theme.js`)
+
+- [x] **阶段 1: 基础设施**
+  - [x] 创建 IPC 通信封装 (`useIPC.js`)
+  - [x] 创建 Profile 管理组合式函数 (`useProfiles.js`)
+  - [x] 创建 Provider 管理组合式函数 (`useProviders.js`)
+  - [x] 创建 Custom Models 管理组合式函数 (`useCustomModels.js`)
+  - [x] 创建共享组件 (ProfileCard, ProviderCard, ModelForm, DeleteConfirmModal)
+
+- [x] **阶段 2-4: 页面迁移**
+  - [x] Profile Manager Vue 版本
+  - [x] Provider Manager Vue 版本
+  - [x] Custom Models Vue 版本
+
+### 🔄 待完成
+- [ ] **阶段 5: 集成测试**
+  - [ ] 在 Vite 开发模式下测试所有 Vue 页面
+  - [ ] 验证 IPC 通信正常
+  - [ ] 验证表单验证和错误处理
+  - [ ] 验证主题样式一致性
+
+- [ ] **阶段 6: 生产构建**
+  - [ ] 配置 Vite 生产构建
+  - [ ] 更新 electron-builder 配置
+  - [ ] 删除旧的 HTML/JS 文件
+  - [ ] 最终测试和文档更新
+
+### 📝 开发说明
+```bash
+# 原始 Electron 开发模式（使用旧 HTML）
+npm run dev
+
+# 启动 Vite 开发服务器（Vue 页面）
+npm run dev:vite
+
+# 使用 Vue 页面的 Electron 开发模式
+# 需要先运行 npm run dev:vite
+npm run dev:vue
+```
+
+### 📄 相关文档
+- `docs/NAIVE-UI-MIGRATION-PLAN.md` - 完整迁移计划
+
+---
+
+## 🔥 近期待办（迁移完成后）
 
 ### 代码质量改进
-- [ ] 考虑提取 global-settings.js 的模型常量到 shared-constants.js（可选）
 - [ ] 为 ConfigManager 核心方法添加单元测试
-- [ ] 改进错误提示信息的用户友好性（中英文翻译）
+- [ ] 改进错误提示信息的用户友好性
 
 ### 小优化
-- [ ] 为异步操作添加加载指示器
-- [ ] 改进表单验证反馈机制
-- [ ] 优化 profile/provider 列表的重新渲染性能
-
----
-
-## 📋 中期计划（v1.1.0）
-
-### UI 增强
-- [ ] 设置对话框 GUI
-- [ ] 项目右键菜单（重命名/固定/移除）
-- [ ] 终端字体和字号设置
-- [ ] 项目图标自定义
-
----
-
-## 🎨 UI 架构重构计划（v1.2.0）⭐ 重要
-
-### 为什么要重构？
-当前纯原生方案问题：
-- ❌ 4,000+ 行代码，726 行内联 CSS
-- ❌ 组件无法复用，大量重复代码
-- ❌ 状态管理混乱，全局变量满天飞
-- ❌ 手动 DOM 操作繁琐易错
-- ❌ 开发效率低，维护成本高
-
-### 重构方案：Vue 3 + Vite
-📄 完整计划：`docs/UI-REFACTORING-PLAN.md`
-
-#### Phase 1: 基础设施准备 ⏳ 2-3 天
-- [ ] 引入 Vite 构建工具
-- [ ] 配置 Vue 3 + TypeScript
-- [ ] 设置 Sass 预处理器
-- [ ] 配置热重载（HMR）
-
-#### Phase 2: 提取共享组件 ⏳ 3-5 天
-- [ ] Button 组件（primary/secondary/danger）
-- [ ] Modal 对话框组件
-- [ ] FormInput 表单组件
-- [ ] Alert 提示组件
-- [ ] ProfileCard、ProviderItem 等业务组件
-
-#### Phase 3: 页面迁移 ⏳ 7-10 天
-- [ ] global-settings（简单，练手）⏳ 1 天
-- [ ] provider-manager（中等）⏳ 1-2 天
-- [ ] profile-manager（复杂）⏳ 2-3 天
-- [ ] index.html 主应用 ⏳ 2-3 天
-
-#### Phase 4: 优化精简 ⏳ 持续
-- [ ] 性能优化（懒加载、虚拟滚动）
-- [ ] 代码质量（ESLint、类型检查）
-- [ ] 用户体验（加载状态、动画）
-
-### 预期收益
-- ✅ 开发效率提升 **50-70%**
-- ✅ Bug 减少 **40-60%**
-- ✅ 代码可维护性显著提升
-- ✅ 为插件系统奠定基础
-
-### 投资回报
-- 💰 初期投入：13-20 天
-- 📈 盈亏平衡点：3-4 个新页面后
-- 🎯 长期收益：每个新页面节省 1.75 天
+- [ ] 优化加载指示器
+- [ ] 改进表单验证反馈
 
 ---
 
@@ -109,8 +92,8 @@
 |------|------|------|
 | 📋 **TODO.md** | 快速查看待办事项 | `./TODO.md` (本文件) |
 | 📖 **CLAUDE.md** | 完整开发历史和架构 | `./CLAUDE.md` |
+| 🎨 **迁移计划** | Vue + Naive UI 迁移详情 | `./docs/NAIVE-UI-MIGRATION-PLAN.md` |
 | 📝 **CHANGELOG.md** | 版本更新详细记录 | `./docs/CHANGELOG.md` |
-| 📄 **README.md** | 项目概览和快速入门 | `./README.md` |
 
 ---
 
@@ -120,20 +103,17 @@
 - [x] 自定义模型管理 IPC 处理器
 - [x] 修复服务商列表重复显示
 - [x] 创建共享模块（shared-constants.js, shared-utils.js）
-- [x] 代码去重优化（净减少 ~70 行）
-- [x] 统一 IPC 错误处理
-- [x] 集中表单数据收集
-- [x] 所有功能测试通过
-- [x] 文档更新同步
+- [x] 代码去重优化
 
 ---
 
 ## 🎯 下次进来快速上手
 
-1. **查看此文件** (`TODO.md`) - 了解待办事项
-2. **查看 CLAUDE.md 末尾** - 了解最新进度和详细历史
-3. **运行 `git log -5`** - 查看最近提交
-4. **运行 `npm run dev`** - 启动开发环境测试
+1. **查看此文件** (`TODO.md`) - 了解迁移进度
+2. **测试 Vue 页面**:
+   - 终端 1: `npm run dev:vite`
+   - 终端 2: `npm run dev:vue`
+3. **查看 CLAUDE.md 末尾** - 了解最新进度
 
 ---
 
