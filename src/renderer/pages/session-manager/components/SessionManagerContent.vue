@@ -205,7 +205,8 @@
                 :key="msg.id"
                 :data-message-id="msg.id"
                 class="message-item"
-                :class="[msg.role, { highlighted: highlightedMessageId === msg.id }]"
+                :class="[msg.role, { highlighted: highlightedMessageId === msg.id, active: selectedMessage?.id === msg.id }]"
+                @click="selectMessage(msg)"
               >
                 <div class="message-header">
                   <span class="role-label">
@@ -286,6 +287,7 @@ const sessions = ref([])
 const messages = ref([])
 const selectedProject = ref(null)
 const selectedSession = ref(null)
+const selectedMessage = ref(null)
 const loadingProjects = ref(false)
 const loadingSessions = ref(false)
 const loadingMessages = ref(false)
@@ -530,6 +532,7 @@ const handleSync = async () => {
 const selectProject = async (project) => {
   selectedProject.value = project
   selectedSession.value = null
+  selectedMessage.value = null
   messages.value = []
   messageTagsMap.value = {} // Clear message tags
   activeTagFilter.value = null // Clear message tag filter
@@ -553,7 +556,13 @@ const loadSessions = async (projectId) => {
 // Select session
 const selectSession = async (session) => {
   selectedSession.value = session
+  selectedMessage.value = null // Clear selected message when switching session
   await loadMessages(session.id)
+}
+
+// Select message
+const selectMessage = (msg) => {
+  selectedMessage.value = msg
 }
 
 // Load messages for session
@@ -1308,6 +1317,15 @@ const handleLinkClick = (event) => {
   outline: 2px solid var(--primary-color, #1890ff);
   outline-offset: 2px;
   animation: highlight-pulse 1s ease-in-out;
+}
+
+.message-item.active {
+  outline: 2px solid var(--primary-color, #1890ff);
+  outline-offset: 2px;
+}
+
+.message-item {
+  cursor: pointer;
 }
 
 @keyframes highlight-pulse {
