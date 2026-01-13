@@ -128,6 +128,41 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   });
 
   // ========================================
+  // 自定义模型管理
+  // ========================================
+
+  // 获取指定 Profile 的自定义模型列表
+  ipcMain.handle('api:getCustomModels', async (event, profileId) => {
+    const profile = configManager.getAPIProfile(profileId);
+    return profile?.customModels || [];
+  });
+
+  // 批量更新自定义模型列表
+  ipcMain.handle('api:updateCustomModels', async (event, { profileId, models }) => {
+    const profile = configManager.getAPIProfile(profileId);
+    if (!profile) {
+      throw new Error('Profile 不存在');
+    }
+    profile.customModels = models;
+    return configManager.save();
+  });
+
+  // 添加自定义模型
+  ipcMain.handle('api:addCustomModel', async (event, { profileId, model }) => {
+    return configManager.addCustomModel(profileId, model);
+  });
+
+  // 删除自定义模型
+  ipcMain.handle('api:deleteCustomModel', async (event, { profileId, modelId }) => {
+    return configManager.deleteCustomModel(profileId, modelId);
+  });
+
+  // 更新自定义模型
+  ipcMain.handle('api:updateCustomModel', async (event, { profileId, modelId, updates }) => {
+    return configManager.updateCustomModel(profileId, modelId, updates);
+  });
+
+  // ========================================
   // 窗口管理
   // ========================================
 
