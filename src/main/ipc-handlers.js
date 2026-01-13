@@ -198,7 +198,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
       parent: mainWindow,
       modal: false,
       backgroundColor: '#f5f5f0',
-      autoHideMenuBar: true,  // 隐藏菜单栏
+      autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, '../preload/preload.js'),
         contextIsolation: true,
@@ -206,12 +206,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
       }
     });
 
-    profileWindow.loadFile(path.join(__dirname, '../renderer/profile-manager.html'));
-
-    // 开发模式打开开发者工具（默认关闭，使用 F12 手动打开）
-    // if (process.env.NODE_ENV === 'development') {
-    //   profileWindow.webContents.openDevTools();
-    // }
+    // 开发模式：从 Vite 服务器加载 Vue 页面
+    // 生产模式：从原始 HTML 文件加载（Vue 页面暂未构建到生产）
+    if (process.env.VITE_DEV_SERVER_URL) {
+      profileWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/pages/profile-manager/`);
+    } else {
+      // 暂时仍使用原始 HTML 文件
+      profileWindow.loadFile(path.join(__dirname, '../renderer/profile-manager.html'));
+    }
 
     return { success: true };
   });
@@ -263,20 +265,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
       }
     });
 
-    providerManagerWindow.loadFile(path.join(__dirname, '../renderer/provider-manager.html'));
-
-    // 开发时可手动打开开发者工具（按 F12）
-    // providerManagerWindow.webContents.openDevTools();
-
-    // 监听加载完成
-    providerManagerWindow.webContents.on('did-finish-load', () => {
-      console.log('[IPC] Provider manager window loaded');
-    });
-
-    // 监听加载失败
-    providerManagerWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      console.error('[IPC] Provider manager window failed to load:', errorCode, errorDescription);
-    });
+    // 开发模式：从 Vite 服务器加载 Vue 页面
+    if (process.env.VITE_DEV_SERVER_URL) {
+      providerManagerWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/pages/provider-manager/`);
+    } else {
+      providerManagerWindow.loadFile(path.join(__dirname, '../renderer/provider-manager.html'));
+    }
 
     return { success: true };
   });

@@ -7,20 +7,30 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development electron .",
+    "dev:vite": "vite",
+    "dev:vue": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:linux": "electron-builder --linux",
+    "build:vue": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
+    "naive-ui": "^2.43.2",
     "node-pty": "^1.0.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "vue": "^3.5.26"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
     "cross-env": "^10.1.0",
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "vite": "^5.4.21",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.6"
   },
   "build": {
     "appId": "com.hydrocoder.claude-code-desktop",
