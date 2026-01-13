@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
-const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
+const { DEFAULT_GLOBAL_MODELS, TIMEOUTS, SERVICE_PROVIDERS } = require('./utils/constants');
 
 class ConfigManager {
   constructor() {
@@ -19,10 +19,13 @@ class ConfigManager {
     // 默认配置
     this.defaultConfig = {
       recentProjects: [],
-      
+
       // 多 API 配置支持
       apiProfiles: [],
       defaultProfileId: null,  // 默认 Profile（启动时推荐使用）
+
+      // 服务商定义（自定义服务商，内置的在 constants.js 中）
+      serviceProviderDefinitions: [],
 
       // 全局模型配置（用于官方/中转服务）
       globalModels: { ...DEFAULT_GLOBAL_MODELS },
@@ -161,6 +164,139 @@ class ConfigManager {
     });
 
     return providers;
+  }
+
+  /**
+   * 获取所有服务商定义（从配置文件加载，如果为空则初始化默认值）
+   */
+  getServiceProviderDefinitions() {
+    // 如果配置文件中已有服务商定义，直接返回
+    if (this.config.serviceProviderDefinitions && this.config.serviceProviderDefinitions.length > 0) {
+      return this.config.serviceProviderDefinitions;
+    }
+
+    // 如果配置为空，从 constants.js 初始化默认的内置服务商
+    const defaultProviders = Object.keys(SERVICE_PROVIDERS).map(id => ({
+      id,
+      name: SERVICE_PROVIDERS[id].label,
+      needsMapping: SERVICE_PROVIDERS[id].needsMapping,
+      baseUrl: id === 'official' ? 'https://api.anthropic.com' : '',
+      defaultModelMapping: null,
+      isBuiltIn: true  // 使用 isBuiltIn 而不是 builtin，与前端保持一致
+    }));
+
+    // 保存到配置文件
+    this.config.serviceProviderDefinitions = defaultProviders;
+    this.save();
+
+    return defaultProviders;
+  }
+
+  /**
+   * 获取单个服务商定义
+   */
+  getServiceProviderDefinition(id) {
+    // 从配置文件中查找服务商定义
+    const provider = this.config.serviceProviderDefinitions?.find(p => p.id === id);
+    return provider || null;
+  }
+
+  /**
+   * 添加自定义服务商定义
+   */
+  addServiceProviderDefinition(definition) {
+    if (!this.config.serviceProviderDefinitions) {
+      this.config.serviceProviderDefinitions = [];
+    }
+
+    // 检查 ID 是否已存在
+    const existingIndex = this.config.serviceProviderDefinitions.findIndex(
+      p => p.id === definition.id
+    );
+    if (existingIndex !== -1) {
+      throw new Error(`服务商 ID "${definition.id}" 已存在`);
+    }
+
+    // 创建新的服务商定义
+    const newProvider = {
+      id: definition.id,
+      name: definition.name,
+      needsMapping: definition.needsMapping !== false,  // 默认需要映射
+      baseUrl: definition.baseUrl || '',
+      defaultModelMapping: definition.defaultModelMapping || null,
+      isBuiltIn: false,  // 自定义服务商
+      createdAt: new Date().toISOString()
+    };
+
+    this.config.serviceProviderDefinitions.push(newProvider);
+    this.save();
+
+    return newProvider;
+  }
+
+  /**
+   * 更新自定义服务商定义
+   */
+  updateServiceProviderDefinition(id, updates) {
+    if (!this.config.serviceProviderDefinitions) {
+      return false;
+    }
+
+    const index = this.config.serviceProviderDefinitions.findIndex(p => p.id === id);
+    if (index === -1) {
+      return false;
+    }
+
+    const provider = this.config.serviceProviderDefinitions[index];
+
+    // 不允许修改内置服务商
+    if (provider.isBuiltIn) {
+      throw new Error('不能修改内置服务商定义');
+    }
+
+    // 不允许修改 ID 和 isBuiltIn 标记
+    const { id: newId, isBuiltIn, ...safeUpdates } = updates;
+
+    // 更新定义
+    Object.assign(this.config.serviceProviderDefinitions[index], safeUpdates);
+
+    return this.save();
+  }
+
+  /**
+   * 删除自定义服务商定义
+   */
+  deleteServiceProviderDefinition(id) {
+    if (!this.config.serviceProviderDefinitions) {
+      return false;
+    }
+
+    const index = this.config.serviceProviderDefinitions.findIndex(p => p.id === id);
+    if (index === -1) {
+      return false;
+    }
+
+    const provider = this.config.serviceProviderDefinitions[index];
+
+    // 不允许删除内置服务商
+    if (provider.isBuiltIn) {
+      throw new Error('不能删除内置服务商定义');
+    }
+
+    // 检查是否有 Profile 正在使用此服务商
+    const profilesUsingProvider = this.config.apiProfiles?.filter(
+      profile => profile.serviceProvider === id
+    );
+
+    if (profilesUsingProvider && profilesUsingProvider.length > 0) {
+      const profileNames = profilesUsingProvider.map(p => p.name).join(', ');
+      throw new Error(`无法删除：以下 Profile 正在使用此服务商: ${profileNames}`);
+    }
+
+    // 删除服务商定义
+    this.config.serviceProviderDefinitions.splice(index, 1);
+
+    return this.save();
   }
 
   /**
