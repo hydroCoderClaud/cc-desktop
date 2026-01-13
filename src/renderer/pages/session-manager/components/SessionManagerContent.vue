@@ -179,18 +179,20 @@
           </div>
           <n-space v-if="selectedSession" align="center">
             <span class="select-hint">{{ t('sessionManager.selectHint') }}，Ctrl+C {{ t('sessionManager.copyShortcut') }}</span>
-            <n-tooltip>
-              <template #trigger>
-                <n-button size="small" quaternary @click="scrollToOldest">⬆️</n-button>
-              </template>
-              {{ t('sessionManager.goToOldest') }}
-            </n-tooltip>
-            <n-tooltip>
-              <template #trigger>
-                <n-button size="small" quaternary @click="scrollToNewest">⬇️</n-button>
-              </template>
-              {{ t('sessionManager.goToNewest') }}
-            </n-tooltip>
+            <span class="nav-buttons">
+              <n-tooltip>
+                <template #trigger>
+                  <n-button size="small" quaternary @click="scrollToOldest">⬆️</n-button>
+                </template>
+                {{ t('sessionManager.goToOldest') }}
+              </n-tooltip>
+              <n-tooltip>
+                <template #trigger>
+                  <n-button size="small" quaternary @click="scrollToNewest">⬇️</n-button>
+                </template>
+                {{ t('sessionManager.goToNewest') }}
+              </n-tooltip>
+            </span>
             <n-dropdown :options="copyOptions" @select="handleCopy">
               <n-button size="small">
                 {{ t('sessionManager.copy') }}
@@ -1444,6 +1446,11 @@ const handleLinkClick = (event) => {
   font-size: 11px;
   color: #888;
   margin-right: 8px;
+}
+
+.nav-buttons {
+  display: inline-flex;
+  gap: 0;
 }
 
 @keyframes highlight-pulse {
