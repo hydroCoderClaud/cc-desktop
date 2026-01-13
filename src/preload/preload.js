@@ -70,6 +70,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
+  openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
+
+  // ========================================
+  // 服务商定义管理
+  // ========================================
+  listProviders: () => ipcRenderer.invoke('provider:list'),
+  getProvider: (id) => ipcRenderer.invoke('provider:get', id),
+  addProvider: (definition) => ipcRenderer.invoke('provider:add', definition),
+  updateProvider: ({ id, updates }) => ipcRenderer.invoke('provider:update', { id, updates }),
+  deleteProvider: (id) => ipcRenderer.invoke('provider:delete', id),
 
   // ========================================
   // Terminal 相关

@@ -188,6 +188,45 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     return { success: true };
   });
 
+  // 打开服务商管理窗口
+  ipcMain.handle('window:openProviderManager', async () => {
+    const { BrowserWindow } = require('electron');
+    const path = require('path');
+
+    // 创建服务商管理窗口
+    const providerManagerWindow = new BrowserWindow({
+      width: 1000,
+      height: 650,
+      title: '服务商管理 - Claude Code Desktop',
+      parent: mainWindow,
+      modal: false,
+      backgroundColor: '#f5f5f0',
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+
+    providerManagerWindow.loadFile(path.join(__dirname, '../renderer/provider-manager.html'));
+
+    // 开发时可手动打开开发者工具（按 F12）
+    // providerManagerWindow.webContents.openDevTools();
+
+    // 监听加载完成
+    providerManagerWindow.webContents.on('did-finish-load', () => {
+      console.log('[IPC] Provider manager window loaded');
+    });
+
+    // 监听加载失败
+    providerManagerWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('[IPC] Provider manager window failed to load:', errorCode, errorDescription);
+    });
+
+    return { success: true };
+  });
+
   // ========================================
   // Project 相关
   // ========================================
@@ -233,6 +272,51 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     }
 
     return result.filePaths[0];
+  });
+
+  // ========================================
+  // 服务商定义管理
+  // ========================================
+
+  // 获取所有服务商定义
+  ipcMain.handle('provider:list', async () => {
+    return configManager.getServiceProviderDefinitions();
+  });
+
+  // 获取单个服务商定义
+  ipcMain.handle('provider:get', async (event, id) => {
+    return configManager.getServiceProviderDefinition(id);
+  });
+
+  // 添加服务商定义
+  ipcMain.handle('provider:add', async (event, definition) => {
+    console.log('[IPC] provider:add called with:', definition);
+    try {
+      const result = configManager.addServiceProviderDefinition(definition);
+      console.log('[IPC] provider:add result:', result);
+      return result;
+    } catch (error) {
+      console.error('[IPC] provider:add error:', error);
+      throw error;
+    }
+  });
+
+  // 更新服务商定义
+  ipcMain.handle('provider:update', async (event, { id, updates }) => {
+    console.log('[IPC] provider:update called with id:', id, 'updates:', updates);
+    try {
+      const result = configManager.updateServiceProviderDefinition(id, updates);
+      console.log('[IPC] provider:update result:', result);
+      return result;
+    } catch (error) {
+      console.error('[IPC] provider:update error:', error);
+      throw error;
+    }
+  });
+
+  // 删除服务商定义
+  ipcMain.handle('provider:delete', async (event, id) => {
+    return configManager.deleteServiceProviderDefinition(id);
   });
 
   // ========================================

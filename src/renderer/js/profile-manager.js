@@ -158,7 +158,7 @@ function renderProfiles() {
         <div class="profile-details-compact">
           <div class="detail-row">
             <div class="detail-item-inline">
-              <span class="detail-label">类别：</span>
+              <span class="detail-label">服务商：</span>
               <span class="detail-value">${getCategoryName(profile.category || profile.serviceProvider)}</span>
             </div>
             ${profile.description ? `
@@ -250,8 +250,8 @@ async function openAddModal() {
   // 默认选中 API Key（官方标准）
   document.getElementById('authTypeKey').checked = true;
 
-  // 隐藏模型映射区域（官方不需要）
-  onServiceProviderChange();
+  // 隐藏模型映射区域（官方不需要），不自动填充 URL（已手动设置默认值）
+  onServiceProviderChange(false);
 
   // 重置图标选择
   document.querySelectorAll('.icon-option').forEach(el => {
@@ -297,7 +297,13 @@ async function editProfile(profileId) {
 
     // 设置默认模型等级
     const selectedTier = profile.selectedModelTier || 'sonnet';
-    document.getElementById('modelTier' + selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)).checked = true;
+    const tierElementId = 'modelTier' + selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1);
+    const tierElement = document.getElementById(tierElementId);
+    if (tierElement) {
+      tierElement.checked = true;
+    } else {
+      console.warn('[Profile Manager] Model tier element not found:', tierElementId);
+    }
 
     // 填充模型映射（如果是第三方服务）
     if (profile.modelMapping) {
@@ -329,14 +335,14 @@ async function editProfile(profileId) {
       document.getElementById('proxyFields').classList.add('visible');
     }
 
-    // 显示/隐藏模型映射区域
-    onServiceProviderChange();
+    // 显示/隐藏模型映射区域（编辑时不自动填充 URL）
+    onServiceProviderChange(false);
 
     // 显示模态框
     document.getElementById('editModal').classList.add('visible');
   } catch (error) {
     console.error('[Profile Manager] Failed to load profile:', error);
-    showAlert('加载配置失败', 'error');
+    showAlert('加载配置失败: ' + error.message, 'error');
   }
 }
 
@@ -357,7 +363,13 @@ async function saveProfile(event) {
   const formData = new FormData(event.target);
 
   // 获取模型映射（仅第三方服务）
-  const serviceProvider = formData.get('serviceProvider') || 'official';
+  const serviceProviderFromForm = formData.get('serviceProvider');
+  const serviceProviderFromElement = document.getElementById('profileServiceProvider').value;
+
+  console.log('[Profile Manager] ServiceProvider from FormData:', serviceProviderFromForm);
+  console.log('[Profile Manager] ServiceProvider from Element:', serviceProviderFromElement);
+
+  const serviceProvider = serviceProviderFromForm || 'official';
   let modelMapping = null;
 
   if (serviceProvider !== 'official' && serviceProvider !== 'proxy') {
@@ -593,15 +605,40 @@ function formatDate(isoString) {
 /**
  * 服务商变更时的处理
  */
-function onServiceProviderChange() {
+function onServiceProviderChange(autoFillUrl = true) {
   const serviceProvider = document.getElementById('profileServiceProvider').value;
   const modelMappingSection = document.getElementById('modelMappingSection');
+  const apiUrlInput = document.getElementById('profileBaseUrl');
 
   // 根据服务商类型显示/隐藏模型映射配置
-  if (serviceProvider === 'official' || serviceProvider === 'proxy') {
-    modelMappingSection.style.display = 'none';
-  } else {
-    modelMappingSection.style.display = 'block';
+  if (modelMappingSection) {
+    if (serviceProvider === 'official' || serviceProvider === 'proxy') {
+      modelMappingSection.style.display = 'none';
+    } else {
+      modelMappingSection.style.display = 'block';
+    }
+  }
+
+  // 自动填充 API 地址和模型映射（除了 proxy 和 third_party）
+  // autoFillUrl 参数控制是否自动填充（编辑时不自动填充，手动选择时才填充）
+  if (autoFillUrl && serviceProviders && serviceProvider !== 'proxy' && serviceProvider !== 'third_party') {
+    const provider = serviceProviders[serviceProvider];
+    
+    // 填充 API 地址
+    if (provider && provider.baseUrl && apiUrlInput) {
+      apiUrlInput.value = provider.baseUrl;
+    }
+    
+    // 填充默认模型映射
+    if (provider && provider.defaultModelMapping) {
+      const mappingOpus = document.getElementById('mappingOpus');
+      const mappingSonnet = document.getElementById('mappingSonnet');
+      const mappingHaiku = document.getElementById('mappingHaiku');
+      
+      if (mappingOpus) mappingOpus.value = provider.defaultModelMapping.opus || '';
+      if (mappingSonnet) mappingSonnet.value = provider.defaultModelMapping.sonnet || '';
+      if (mappingHaiku) mappingHaiku.value = provider.defaultModelMapping.haiku || '';
+    }
   }
 }
 

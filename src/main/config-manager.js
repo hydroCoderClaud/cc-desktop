@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
-const { DEFAULT_GLOBAL_MODELS, TIMEOUTS, SERVICE_PROVIDERS } = require('./utils/constants');
+const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
 
 class ConfigManager {
   constructor() {
@@ -131,13 +131,6 @@ class ConfigManager {
    */
   getGlobalModels() {
     return this.config.globalModels || { ...DEFAULT_GLOBAL_MODELS };
-  }
-
-  /**
-   * 获取服务商枚举定义
-   */
-  getServiceProviders() {
-    return SERVICE_PROVIDERS;
   }
 
   /**
@@ -606,26 +599,20 @@ class ConfigManager {
       name: profileData.name || 'New Profile',
       authToken: profileData.authToken || '',
       authType: profileData.authType || 'api_key',
-      category: profileData.category || 'official',
+      serviceProvider: profileData.serviceProvider || 'official',  // 使用新字段名
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
-      model: profileData.model || 'claude-sonnet-4-5-20250929',
+      selectedModelTier: profileData.selectedModelTier || 'sonnet',  // 使用新字段名
+      modelMapping: profileData.modelMapping || null,  // 使用新字段名
+      requestTimeout: profileData.requestTimeout || globalTimeout.request,
+      disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
       useProxy: profileData.useProxy || false,
       httpsProxy: profileData.httpsProxy || '',
       httpProxy: profileData.httpProxy || '',
       isDefault: false,
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
-      icon: profileData.icon || '🔵',
-      // Use global timeout as default
-      requestTimeout: profileData.requestTimeout || globalTimeout.request,
-      disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
-      // 每个 Profile 独立的模型列表
-      customModels: profileData.customModels || [
-        { id: 'opus-4.5', name: 'claude-opus-4-5-20251101', label: 'Opus 4.5 - 最强大' },
-        { id: 'sonnet-4.5', name: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5 - 平衡（推荐）' },
-        { id: 'haiku-4', name: 'claude-haiku-4-0-20250107', label: 'Haiku 4 - 最快' }
-      ]
+      icon: profileData.icon || '🔵'
     };
 
     // 如果是第一个 Profile，自动设为默认
@@ -653,11 +640,6 @@ class ConfigManager {
     const { isDefault, ...safeUpdates } = updates;
     Object.assign(profile, safeUpdates);
     profile.lastUsed = new Date().toISOString();
-
-    // 清理不应该存在的迁移前字段
-    delete profile.model;
-    delete profile.category;
-    delete profile.customModels;
 
     return this.save();
   }

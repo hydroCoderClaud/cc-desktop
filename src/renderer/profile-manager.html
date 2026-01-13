@@ -842,7 +842,10 @@
         <div id="modelMappingSection" style="display: none;">
           <div class="form-group">
             <label>模型映射配置</label>
-            <div class="description" style="margin-bottom: 12px;">配置各等级模型对应的实际模型名称</div>
+            <div class="description" style="margin-bottom: 12px;">
+              配置各等级模型对应的实际模型名称<br/>
+              💡 留空时使用第三方服务内置映射（自动更新）；填写时务必使用模型服务商官网提供的正确模型名称
+            </div>
 
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -857,9 +860,6 @@
                 <span style="width: 80px; font-size: 13px;">💨 Haiku:</span>
                 <input type="text" id="mappingHaiku" placeholder="如: glm-4.5-air" style="flex: 1;" />
               </div>
-            </div>
-            <div class="description" style="margin-top: 8px; color: #666;">
-              💡 留空时使用第三方服务内置映射（自动更新）；填写时使用自定义模型名称
             </div>
           </div>
         </div>

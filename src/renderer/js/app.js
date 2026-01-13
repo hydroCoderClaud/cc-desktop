@@ -414,6 +414,19 @@ function openGlobalSettings() {
   console.log('[App] Opening global settings window');
 }
 
+/**
+ * 打开服务商管理窗口
+ */
+function openProviderManager() {
+  if (!window.electronAPI) {
+    showToast('Electron API not available', 'error');
+    return;
+  }
+
+  window.electronAPI.openProviderManager();
+  console.log('[App] Opening provider manager window');
+}
+
 // ========================================
 // 事件绑定
 // ========================================
@@ -452,6 +465,12 @@ function bindEvents() {
   const globalSettingsBtn = document.getElementById('globalSettingsBtn');
   if (globalSettingsBtn) {
     globalSettingsBtn.addEventListener('click', openGlobalSettings);
+  }
+
+  // 服务商管理按钮
+  const providerManagerBtn = document.getElementById('providerManagerBtn');
+  if (providerManagerBtn) {
+    providerManagerBtn.addEventListener('click', openProviderManager);
   }
 
   console.log('[App] Events bound');
