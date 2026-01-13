@@ -3,18 +3,48 @@
     <!-- Header -->
     <div class="header">
       <h1>{{ t('sessionManager.title') }}</h1>
-      <n-space>
+      <n-space align="center">
+        <!-- Search Scope -->
+        <n-select
+          v-model:value="searchScope"
+          :options="searchScopeOptions"
+          size="small"
+          style="width: 120px"
+        />
+        <!-- Search Input -->
         <n-input
           v-model:value="searchQuery"
           :placeholder="t('sessionManager.searchPlaceholder')"
           clearable
-          style="width: 250px"
+          style="width: 200px"
           @keyup.enter="handleSearch"
+          @clear="clearSearchResults"
         >
           <template #prefix>
             <span>🔍</span>
           </template>
         </n-input>
+        <!-- Search Button -->
+        <n-button size="small" type="primary" :loading="searching" @click="handleSearch">
+          {{ t('common.search') }}
+        </n-button>
+        <!-- Search Results Navigation -->
+        <n-space v-if="searchResults.length > 0" align="center" :size="4">
+          <n-button size="tiny" quaternary :disabled="searchIndex <= 0" @click="prevResult">◀</n-button>
+          <n-input-number
+            v-model:value="searchIndexDisplay"
+            size="tiny"
+            :min="1"
+            :max="searchResults.length"
+            :show-button="false"
+            style="width: 50px"
+            @update:value="goToResult"
+          />
+          <span class="search-nav-total">/ {{ searchResults.length }}</span>
+          <n-button size="tiny" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult">▶</n-button>
+          <n-button size="tiny" quaternary @click="clearSearchResults">✕</n-button>
+        </n-space>
+        <!-- Sync Button -->
         <n-button :loading="syncing" @click="handleSync">
           <span style="margin-right: 4px">🔄</span>
           {{ t('sessionManager.sync') }}
@@ -149,20 +179,21 @@
             </div>
             <div v-else class="messages-container" @click="handleLinkClick">
               <div
-                v-for="message in displayMessages"
-                :key="message.id"
+                v-for="msg in displayMessages"
+                :key="msg.id"
+                :data-message-id="msg.id"
                 class="message-item"
-                :class="message.role"
+                :class="[msg.role, { highlighted: highlightedMessageId === msg.id }]"
               >
                 <div class="message-header">
                   <span class="role-label">
-                    {{ message.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant') }}
+                    {{ msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant') }}
                   </span>
-                  <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+                  <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                 </div>
-                <div class="message-content" v-html="formatContent(message.content)"></div>
-                <div v-if="message.tokens_in || message.tokens_out" class="message-usage">
-                  {{ message.tokens_in || 0 }} in / {{ message.tokens_out || 0 }} out
+                <div class="message-content" v-html="formatContent(msg.content)"></div>
+                <div v-if="msg.tokens_in || msg.tokens_out" class="message-usage">
+                  {{ msg.tokens_in || 0 }} in / {{ msg.tokens_out || 0 }} out
                 </div>
               </div>
             </div>
@@ -220,6 +251,26 @@ const loadingMessages = ref(false)
 const syncing = ref(false)
 const syncStats = ref(null)
 const messageSort = ref('asc') // 'asc' = 旧到新, 'desc' = 新到旧
+
+// Search
+const searchScope = ref('all') // 'all', 'project', 'session'
+const searching = ref(false)
+const searchResults = ref([])
+const searchIndex = ref(0)
+const highlightedMessageId = ref(null)
+
+// Search index for display (1-based)
+const searchIndexDisplay = computed({
+  get: () => searchIndex.value + 1,
+  set: (val) => { searchIndex.value = Math.max(0, Math.min(val - 1, searchResults.value.length - 1)) }
+})
+
+// Search scope options
+const searchScopeOptions = computed(() => [
+  { label: t('sessionManager.scopeAll'), value: 'all' },
+  { label: t('sessionManager.scopeProject'), value: 'project', disabled: !selectedProject.value },
+  { label: t('sessionManager.scopeSession'), value: 'session', disabled: !selectedSession.value }
+])
 
 // Tags
 const allTags = ref([])
@@ -429,19 +480,106 @@ const deleteTag = async (tagId) => {
 const handleSearch = async () => {
   if (!searchQuery.value.trim()) return
 
-  message.info(t('sessionManager.searching'))
+  searching.value = true
   try {
+    // Determine search scope
+    let projectId = null
+    let sessionId = null
+
+    if (searchScope.value === 'project' && selectedProject.value) {
+      projectId = selectedProject.value.id
+    } else if (searchScope.value === 'session' && selectedSession.value) {
+      sessionId = selectedSession.value.id
+    }
+
     const results = await invoke('searchSessions', {
       query: searchQuery.value,
-      projectId: selectedProject.value?.id,
-      limit: 100
+      projectId,
+      sessionId,
+      limit: 200
     })
-    console.log('Search results:', results)
-    message.success(`${t('sessionManager.found')} ${results.length} ${t('sessionManager.results')}`)
-    // TODO: Display search results in a better way
+
+    searchResults.value = results
+    searchIndex.value = 0
+
+    if (results.length > 0) {
+      message.success(`${t('sessionManager.found')} ${results.length} ${t('sessionManager.results')}`)
+      // Auto navigate to first result
+      await navigateToResult(0)
+    } else {
+      message.info(t('sessionManager.noResults'))
+    }
   } catch (err) {
     console.error('Search failed:', err)
     message.error(t('messages.operationFailed'))
+  } finally {
+    searching.value = false
+  }
+}
+
+// Clear search results
+const clearSearchResults = () => {
+  searchResults.value = []
+  searchIndex.value = 0
+  highlightedMessageId.value = null
+}
+
+// Navigate to specific search result
+const navigateToResult = async (index) => {
+  if (index < 0 || index >= searchResults.value.length) return
+
+  const result = searchResults.value[index]
+  searchIndex.value = index
+
+  // Find the project
+  const project = projects.value.find(p => p.id === result.session_id ?
+    sessions.value.find(s => s.id === result.session_id)?.project_id === p.id : false
+  ) || projects.value.find(p => {
+    // Match by project path
+    return p.path === result.project_path
+  })
+
+  // If project changed, load it first
+  if (project && (!selectedProject.value || selectedProject.value.id !== project.id)) {
+    await selectProject(project)
+  }
+
+  // Find and select the session
+  const session = sessions.value.find(s => s.id === result.session_id)
+  if (session && (!selectedSession.value || selectedSession.value.id !== session.id)) {
+    await selectSession(session)
+  }
+
+  // Highlight the message
+  highlightedMessageId.value = result.id
+
+  // Scroll to the message after a short delay
+  setTimeout(() => {
+    const el = document.querySelector(`[data-message-id="${result.id}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, 100)
+}
+
+// Previous result
+const prevResult = () => {
+  if (searchIndex.value > 0) {
+    navigateToResult(searchIndex.value - 1)
+  }
+}
+
+// Next result
+const nextResult = () => {
+  if (searchIndex.value < searchResults.value.length - 1) {
+    navigateToResult(searchIndex.value + 1)
+  }
+}
+
+// Go to result by index (from input)
+const goToResult = (val) => {
+  if (val >= 1 && val <= searchResults.value.length) {
+    navigateToResult(val - 1)
   }
 }
 
@@ -771,6 +909,24 @@ const handleLinkClick = (event) => {
   font-size: 11px;
   color: #888;
   text-align: right;
+}
+
+/* Highlighted message (search result) */
+.message-item.highlighted {
+  outline: 2px solid var(--primary-color, #1890ff);
+  outline-offset: 2px;
+  animation: highlight-pulse 1s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { outline-color: var(--primary-color, #1890ff); }
+  50% { outline-color: #52c41a; }
+}
+
+/* Search navigation */
+.search-nav-total {
+  font-size: 12px;
+  color: #888;
 }
 
 /* Empty state */

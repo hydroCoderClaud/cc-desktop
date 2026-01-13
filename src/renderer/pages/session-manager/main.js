@@ -8,6 +8,7 @@ import {
   NCard,
   NSpace,
   NInput,
+  NInputNumber,
   NEmpty,
   NIcon,
   NDivider,
@@ -25,7 +26,8 @@ import {
   NDropdown,
   NInputGroup,
   NModal,
-  NColorPicker
+  NColorPicker,
+  NSelect
 } from 'naive-ui'
 import App from './App.vue'
 
@@ -41,6 +43,7 @@ const naive = create({
     NCard,
     NSpace,
     NInput,
+    NInputNumber,
     NEmpty,
     NIcon,
     NDivider,
@@ -58,7 +61,8 @@ const naive = create({
     NDropdown,
     NInputGroup,
     NModal,
-    NColorPicker
+    NColorPicker,
+    NSelect
   ]
 })
 
