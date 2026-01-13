@@ -18,6 +18,20 @@ const getInitialTheme = () => {
 const isDark = ref(getInitialTheme())
 const isInitialized = ref(false)
 
+// 同步 DOM 主题属性
+const syncDOMTheme = (dark) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+    document.body.style.backgroundColor = dark ? '#1a1a1a' : '#f5f5f0'
+  }
+}
+
+// 监听主题变化，自动同步 DOM
+watch(isDark, (dark) => {
+  syncDOMTheme(dark)
+}, { immediate: false })
+
 /**
  * 主题管理 Hook
  */
