@@ -145,6 +145,25 @@ class ConfigManager {
   }
 
   /**
+   * 获取服务商枚举定义（用于下拉框）
+   */
+  getServiceProviders() {
+    const definitions = this.getServiceProviderDefinitions();
+    const providers = {};
+
+    definitions.forEach(def => {
+      providers[def.id] = {
+        label: def.name,
+        needsMapping: def.needsMapping,
+        baseUrl: def.baseUrl,
+        defaultModelMapping: def.defaultModelMapping
+      };
+    });
+
+    return providers;
+  }
+
+  /**
    * 获取超时配置
    */
   getTimeout() {
