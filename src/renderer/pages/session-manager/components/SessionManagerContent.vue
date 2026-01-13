@@ -228,7 +228,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
@@ -525,6 +525,25 @@ const clearSearchResults = () => {
   highlightedMessageId.value = null
 }
 
+// Helper: scroll element into view within n-scrollbar
+const scrollToElement = (selector, delay = 0) => {
+  setTimeout(() => {
+    const el = document.querySelector(selector)
+    if (el) {
+      // Find the scrollbar container (n-scrollbar uses .n-scrollbar-container)
+      const scrollContainer = el.closest('.n-scrollbar-container')
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect()
+        const elRect = el.getBoundingClientRect()
+        const scrollTop = scrollContainer.scrollTop + (elRect.top - containerRect.top) - (containerRect.height / 2) + (elRect.height / 2)
+        scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' })
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+  }, delay)
+}
+
 // Navigate to specific search result
 const navigateToResult = async (index) => {
   if (index < 0 || index >= searchResults.value.length) return
@@ -541,16 +560,14 @@ const navigateToResult = async (index) => {
   }
 
   // If project changed, load it first
-  if (!selectedProject.value || selectedProject.value.id !== project.id) {
+  const projectChanged = !selectedProject.value || selectedProject.value.id !== project.id
+  if (projectChanged) {
     await selectProject(project)
-    // Scroll to project in sidebar
-    setTimeout(() => {
-      const projectEl = document.querySelector(`[data-project-id="${project.id}"]`)
-      if (projectEl) {
-        projectEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }, 50)
   }
+
+  // Wait for DOM update, then scroll to project
+  await nextTick()
+  scrollToElement(`[data-project-id="${project.id}"]`, 50)
 
   // Find the session by id
   const session = sessions.value.find(s => s.id === result.session_id)
@@ -561,27 +578,21 @@ const navigateToResult = async (index) => {
   }
 
   // If session changed, load it
-  if (!selectedSession.value || selectedSession.value.id !== session.id) {
+  const sessionChanged = !selectedSession.value || selectedSession.value.id !== session.id
+  if (sessionChanged) {
     await selectSession(session)
-    // Scroll to session in session list
-    setTimeout(() => {
-      const sessionEl = document.querySelector(`[data-session-id="${session.id}"]`)
-      if (sessionEl) {
-        sessionEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }, 50)
   }
+
+  // Wait for DOM update, then scroll to session
+  await nextTick()
+  scrollToElement(`[data-session-id="${session.id}"]`, 100)
 
   // Highlight the message
   highlightedMessageId.value = result.id
 
-  // Scroll to the message after sessions/messages loaded
-  setTimeout(() => {
-    const el = document.querySelector(`[data-message-id="${result.id}"]`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, 150)
+  // Scroll to the message after messages loaded
+  await nextTick()
+  scrollToElement(`[data-message-id="${result.id}"]`, 200)
 }
 
 // Previous result
