@@ -27,6 +27,7 @@ onMounted(() => {
   min-height: 100vh;
   background-color: var(--bg-color);
   color: var(--text-color);
+  transition: background-color 0.2s, color 0.2s;
   
 }
 </style>
