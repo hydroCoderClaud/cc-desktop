@@ -640,6 +640,9 @@ const selectSession = async (session) => {
   selectedSession.value = session
   selectedMessages.value = [] // Clear selected messages when switching session
   await loadMessages(session.id)
+  // Auto scroll to newest message
+  await nextTick()
+  scrollToNewest()
 }
 
 // Select message (supports Ctrl+click for multi-select)
