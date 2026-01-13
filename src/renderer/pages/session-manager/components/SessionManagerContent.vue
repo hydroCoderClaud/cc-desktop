@@ -123,6 +123,14 @@
         <div class="panel-header">
           <span>{{ t('sessionManager.conversation') }}</span>
           <n-space v-if="selectedSession">
+            <n-tooltip>
+              <template #trigger>
+                <n-button size="small" quaternary @click="toggleMessageSort">
+                  {{ messageSort === 'asc' ? '⬆️' : '⬇️' }}
+                </n-button>
+              </template>
+              {{ messageSort === 'asc' ? t('sessionManager.sortOldToNew') : t('sessionManager.sortNewToOld') }}
+            </n-tooltip>
             <n-dropdown :options="tagOptions" @select="handleAddTag">
               <n-button size="small">🏷️ {{ t('sessionManager.addTag') }}</n-button>
             </n-dropdown>
@@ -211,6 +219,7 @@ const loadingSessions = ref(false)
 const loadingMessages = ref(false)
 const syncing = ref(false)
 const syncStats = ref(null)
+const messageSort = ref('asc') // 'asc' = 旧到新, 'desc' = 新到旧
 
 // Tags
 const allTags = ref([])
@@ -236,15 +245,26 @@ const tagOptions = computed(() => {
   return options
 })
 
-// Display messages (filter out empty content)
+// Display messages (filter out empty content, with sort)
 const displayMessages = computed(() => {
-  return messages.value.filter(m => {
+  const filtered = messages.value.filter(m => {
     const content = String(m.content || '').trim()
     if (!content) return false
     if (content.match(/^\[object \w+\]$/)) return false
     return true
   })
+
+  // Sort by timestamp
+  if (messageSort.value === 'desc') {
+    return [...filtered].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  }
+  return filtered // default asc (already sorted from DB)
 })
+
+// Toggle message sort order
+const toggleMessageSort = () => {
+  messageSort.value = messageSort.value === 'asc' ? 'desc' : 'asc'
+}
 
 // Initialize
 onMounted(async () => {

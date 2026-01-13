@@ -205,6 +205,9 @@ export default {
     deleteTagConfirm: '确定要删除此标签吗？',
     tagDeleteSuccess: '标签已删除',
     tagCreateSuccess: '标签已创建',
+    // 排序相关
+    sortOldToNew: '从旧到新',
+    sortNewToOld: '从新到旧',
     // 统计相关
     stats: '统计',
     totalProjects: '项目总数',
