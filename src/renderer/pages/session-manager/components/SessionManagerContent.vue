@@ -562,6 +562,9 @@ const selectSession = async (session) => {
 
 // Select message (toggle)
 const selectMessage = (msg) => {
+  // Clear search/filter highlight when clicking
+  highlightedMessageId.value = null
+
   if (selectedMessage.value?.id === msg.id) {
     selectedMessage.value = null // Deselect if clicking same message
   } else {
