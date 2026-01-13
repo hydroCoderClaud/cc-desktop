@@ -197,7 +197,7 @@
               <n-empty :description="t('sessionManager.selectSession')" />
             </div>
             <div v-else-if="displayMessages.length === 0 && !loadingMessages" class="empty-state">
-              <n-empty :description="t('sessionManager.noMessages')" />
+              <n-empty :description="activeTagFilter ? t('sessionManager.noTaggedMessages') : t('sessionManager.noMessages')" />
             </div>
             <div v-else class="messages-container" @click="handleLinkClick">
               <div
@@ -453,12 +453,20 @@ const filteredSessions = computed(() => {
 
 // Display messages (filter out empty content, with sort)
 const displayMessages = computed(() => {
-  const filtered = messages.value.filter(m => {
+  let filtered = messages.value.filter(m => {
     const content = String(m.content || '').trim()
     if (!content) return false
     if (content.match(/^\[object \w+\]$/)) return false
     return true
   })
+
+  // Filter by tag if active
+  if (activeTagFilter.value) {
+    filtered = filtered.filter(m => {
+      const tags = messageTagsMap.value[m.id]
+      return tags && tags.some(t => t.id === activeTagFilter.value.id)
+    })
+  }
 
   // Sort by timestamp
   if (messageSort.value === 'desc') {
@@ -730,61 +738,15 @@ const handleRemoveSessionTag = async (sessionId, tagId) => {
 }
 
 // Handle tag filter (filter messages by tag or navigate to tagged messages)
-const handleTagFilter = async (key) => {
+// Handle message tag filter (filter messages by tag)
+const handleTagFilter = (key) => {
   if (key === 'all') {
     activeTagFilter.value = null
     return
   }
 
   const tag = allTags.value.find(t => t.id === key)
-  if (!tag) return
-
-  activeTagFilter.value = tag
-
-  // Get messages with this tag in current session (if any)
-  if (selectedSession.value) {
-    try {
-      const taggedMessages = await invoke('getSessionTaggedMessages', selectedSession.value.id)
-      const messagesWithTag = taggedMessages.filter(m => m.tag_id === key)
-
-      if (messagesWithTag.length > 0) {
-        // Scroll to first tagged message in current session
-        const firstTaggedMsg = messagesWithTag[0]
-        await nextTick()
-        scrollToElement(`[data-message-id="${firstTaggedMsg.message_id}"]`, 100)
-        highlightedMessageId.value = firstTaggedMsg.message_id
-        message.info(`${t('sessionManager.found')} ${messagesWithTag.length} ${t('sessionManager.taggedMessages')}`)
-      } else {
-        message.info(t('sessionManager.noTaggedMessages'))
-      }
-    } catch (err) {
-      console.error('Failed to filter by tag:', err)
-    }
-  } else {
-    // No session selected - show tag's messages across all sessions
-    try {
-      const taggedMessages = await invoke('getMessagesByTag', key)
-      if (taggedMessages.length > 0) {
-        message.info(`${tag.name}: ${taggedMessages.length} ${t('sessionManager.taggedMessages')}`)
-        // Navigate to first message
-        const firstMsg = taggedMessages[0]
-        if (firstMsg.session_id) {
-          // Load the session containing this message
-          const targetSession = sessions.value.find(s => s.id === firstMsg.session_id)
-          if (targetSession) {
-            await selectSession(targetSession)
-            await nextTick()
-            scrollToElement(`[data-message-id="${firstMsg.id}"]`, 200)
-            highlightedMessageId.value = firstMsg.id
-          }
-        }
-      } else {
-        message.info(t('sessionManager.noTaggedMessages'))
-      }
-    } catch (err) {
-      console.error('Failed to get messages by tag:', err)
-    }
-  }
+  activeTagFilter.value = tag || null
 }
 
 // Load message tags for current session
