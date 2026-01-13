@@ -1486,20 +1486,22 @@ const handleLinkClick = (event) => {
 }
 
 .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   max-height: 300px;
   overflow-y: auto;
+  padding: 4px 0;
 }
 
 .tag-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 4px;
 }
 
 .tag-count {
-  font-size: 12px;
+  font-size: 11px;
   color: #888;
   margin-left: auto;
 }
