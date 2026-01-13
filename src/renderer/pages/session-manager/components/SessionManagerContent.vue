@@ -98,8 +98,8 @@
             <n-tag v-if="selectedProject" size="small" type="info">
               {{ filteredSessions.length }}
             </n-tag>
-            <!-- Session tag filter -->
-            <n-dropdown v-if="allTags.length > 0" :options="sessionFilterOptions" @select="handleSessionTagFilter">
+            <!-- Session tag filter (only show if there are tags in current project) -->
+            <n-dropdown v-if="sessionFilterOptions.length > 1" :options="sessionFilterOptions" @select="handleSessionTagFilter">
               <n-button size="tiny" quaternary :type="sessionTagFilter ? 'primary' : 'default'">
                 🏷️ {{ sessionTagFilter ? sessionTagFilter.name : t('sessionManager.filterByTag') }}
               </n-button>
@@ -170,8 +170,8 @@
         <div class="panel-header">
           <div class="panel-header-left">
             <span>{{ t('sessionManager.conversation') }}</span>
-            <!-- Tag filter dropdown -->
-            <n-dropdown v-if="allTags.length > 0" :options="tagFilterOptions" @select="handleTagFilter">
+            <!-- Tag filter dropdown (only show if there are tags in current session) -->
+            <n-dropdown v-if="tagFilterOptions.length > 1" :options="tagFilterOptions" @select="handleTagFilter">
               <n-button size="tiny" quaternary :type="activeTagFilter ? 'primary' : 'default'">
                 🏷️ {{ activeTagFilter ? activeTagFilter.name : t('sessionManager.filterByTag') }}
               </n-button>
@@ -369,34 +369,73 @@ const messageTagOptions = computed(() => {
 })
 
 // Tag filter dropdown options (for conversation header - message level)
+// Only show tags that exist in current session's messages
 const tagFilterOptions = computed(() => {
   const options = [
-    { label: t('sessionManager.showAll'), key: 'all' },
-    { type: 'divider', key: 'd0' }
+    { label: t('sessionManager.showAll'), key: 'all' }
   ]
-  allTags.value.forEach(tag => {
-    options.push({
-      label: `${tag.name} (${tag.message_count || 0})`,
-      key: tag.id,
-      props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+
+  // Collect tags used in current session's messages
+  const tagCountMap = {} // { tagId: { tag, count } }
+  for (const msgId of Object.keys(messageTagsMap.value)) {
+    const tags = messageTagsMap.value[msgId]
+    for (const tag of tags) {
+      if (!tagCountMap[tag.id]) {
+        tagCountMap[tag.id] = { tag, count: 0 }
+      }
+      tagCountMap[tag.id].count++
+    }
+  }
+
+  // Only add divider and tags if there are any
+  const tagEntries = Object.values(tagCountMap)
+  if (tagEntries.length > 0) {
+    options.push({ type: 'divider', key: 'd0' })
+    tagEntries.forEach(({ tag, count }) => {
+      options.push({
+        label: `${tag.name} (${count})`,
+        key: tag.id,
+        props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+      })
     })
-  })
+  }
+
   return options
 })
 
 // Session filter dropdown options (for session list header)
+// Only show tags that exist in current project's sessions
 const sessionFilterOptions = computed(() => {
   const options = [
-    { label: t('sessionManager.showAll'), key: 'all' },
-    { type: 'divider', key: 'd0' }
+    { label: t('sessionManager.showAll'), key: 'all' }
   ]
-  allTags.value.forEach(tag => {
-    options.push({
-      label: `${tag.name} (${tag.session_count || 0})`,
-      key: tag.id,
-      props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+
+  // Collect tags used in current project's sessions
+  const tagCountMap = {} // { tagId: { tag, count } }
+  for (const session of sessions.value) {
+    if (session.tags) {
+      for (const tag of session.tags) {
+        if (!tagCountMap[tag.id]) {
+          tagCountMap[tag.id] = { tag, count: 0 }
+        }
+        tagCountMap[tag.id].count++
+      }
+    }
+  }
+
+  // Only add divider and tags if there are any
+  const tagEntries = Object.values(tagCountMap)
+  if (tagEntries.length > 0) {
+    options.push({ type: 'divider', key: 'd0' })
+    tagEntries.forEach(({ tag, count }) => {
+      options.push({
+        label: `${tag.name} (${count})`,
+        key: tag.id,
+        props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+      })
     })
-  })
+  }
+
   return options
 })
 
