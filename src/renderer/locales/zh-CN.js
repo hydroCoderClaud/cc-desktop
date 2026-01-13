@@ -178,6 +178,7 @@ export default {
     copySelectedMd: '复制选中 (Markdown)',
     copySelectedJson: '复制选中 (JSON)',
     copySuccess: '已复制到剪贴板',
+    noContent: '没有内容可复制',
     export: '导出',
     exportAllMd: '导出全部 (Markdown)',
     exportAllJson: '导出全部 (JSON)',

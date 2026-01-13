@@ -1010,7 +1010,10 @@ const handleCopy = async (key) => {
 
     if (content) {
       await navigator.clipboard.writeText(content)
-      message.success(t('sessionManager.copySuccess'))
+      const count = scope === 'selected' ? selectedMessages.value.length : displayMessages.value.length
+      message.success(`${t('sessionManager.copySuccess')} (${count})`)
+    } else {
+      message.warning(t('sessionManager.noContent'))
     }
   } catch (err) {
     console.error('Copy failed:', err)
@@ -1030,8 +1033,14 @@ const handleExport = async (key) => {
       const ext = format === 'markdown' ? 'md' : 'json'
       const filename = `session-${selectedSession.value.id}-${scope}.${ext}`
 
-      await invoke('saveFile', { filename, content, ext })
-      message.success(t('sessionManager.exportSuccess'))
+      const result = await invoke('saveFile', { filename, content, ext })
+      if (result && result.success) {
+        message.success(t('sessionManager.exportSuccess'))
+      } else if (result && result.canceled) {
+        // User canceled, do nothing
+      } else {
+        message.error(t('messages.operationFailed'))
+      }
     }
   } catch (err) {
     console.error('Export failed:', err)

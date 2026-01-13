@@ -178,6 +178,7 @@ export default {
     copySelectedMd: 'Copy Selected (Markdown)',
     copySelectedJson: 'Copy Selected (JSON)',
     copySuccess: 'Copied to clipboard',
+    noContent: 'No content to copy',
     export: 'Export',
     exportAllMd: 'Export All (Markdown)',
     exportAllJson: 'Export All (JSON)',
