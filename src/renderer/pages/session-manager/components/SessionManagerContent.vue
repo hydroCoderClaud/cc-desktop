@@ -279,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
@@ -520,6 +520,18 @@ const toggleMessageSort = () => {
 }
 
 // Initialize
+// Keyboard shortcut handler (Ctrl+C to copy selected messages)
+const handleKeyDown = async (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedMessages.value.length > 0) {
+    e.preventDefault()
+    const content = await generateExportContent('selected', 'markdown')
+    if (content) {
+      await navigator.clipboard.writeText(content)
+      message.success(`${t('sessionManager.copySuccess')} (${selectedMessages.value.length})`)
+    }
+  }
+}
+
 onMounted(async () => {
   await initTheme()
   await initLocale()
@@ -527,6 +539,13 @@ onMounted(async () => {
   // Auto sync on open
   await handleSync()
   await loadTags()
+
+  // Add keyboard listener
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
 })
 
 // Load projects from database
