@@ -219,3 +219,72 @@ See `docs/CUSTOM-UI-GUIDE.md` for implementation details and `docs/ARCHITECTURE-
 5. **Advanced Features**: Edit history, branch conversations, file attachments
 
 The codebase includes `src/main/claude-api-manager.js` demonstrating API mode integration. You can implement either mode or support both with a toggle.
+
+---
+
+## Recent Development History
+
+### 2026-01-13: Service Provider & Custom Model Management (v1.0.1)
+
+**Problem Identified:**
+After the service provider architecture refactoring (commit ba5a676), the Provider Manager UI depended on backend methods that were not yet implemented, causing critical errors when users tried to access the page.
+
+**Issues Fixed:**
+
+1. **Service Provider Management Backend** (commit a052286)
+   - Implemented missing `getServiceProviderDefinitions()` method
+   - Implemented `getServiceProviderDefinition(id)` for single provider lookup
+   - Implemented `addServiceProviderDefinition()` for custom provider creation
+   - Implemented `updateServiceProviderDefinition()` for editing providers
+   - Implemented `deleteServiceProviderDefinition()` with usage validation
+   - Fixed duplicate provider listings (built-in providers were loaded twice)
+   - Unified field naming: `isBuiltIn` instead of `builtin` across the codebase
+   - Added protection: built-in providers cannot be edited or deleted
+   - Added validation: prevents deletion of providers currently in use by profiles
+
+2. **Custom Model Management IPC Handlers** (commit ababd13)
+   - Implemented `api:getCustomModels` IPC handler
+   - Implemented `api:updateCustomModels` IPC handler
+   - Implemented `api:addCustomModel` IPC handler
+   - Implemented `api:deleteCustomModel` IPC handler
+   - Implemented `api:updateCustomModel` IPC handler
+   - Connected all handlers to existing ConfigManager methods
+   - Added proper error handling for missing profiles
+
+**Configuration Changes:**
+
+New field added to `config.json`:
+```javascript
+{
+  // Service provider definitions (built-in + custom)
+  serviceProviderDefinitions: [
+    {
+      id: 'official',
+      name: '官方 API',
+      needsMapping: false,
+      baseUrl: 'https://api.anthropic.com',
+      defaultModelMapping: null,
+      isBuiltIn: true
+    }
+    // ... custom providers
+  ]
+}
+```
+
+**Code Locations:**
+- Service provider methods: `src/main/config-manager.js` (lines 169-300)
+- Custom model IPC handlers: `src/main/ipc-handlers.js` (lines 130-163)
+- Service provider constants: `src/main/utils/constants.js` (lines 26-33)
+
+**Testing:**
+- Provider Manager UI now loads without errors
+- Service providers display correctly without duplicates
+- Built-in providers show as protected (delete button disabled)
+- Custom providers can be added, edited, and deleted
+- All custom model management features are functional
+
+**Impact:**
+- Provider Manager is now fully functional
+- Users can manage custom service providers
+- Custom model management is complete
+- No breaking changes to existing configurations

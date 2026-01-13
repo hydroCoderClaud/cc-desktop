@@ -1,5 +1,64 @@
 # 更新日志
 
+## v1.0.1 - 2026-01-13
+
+### 🐛 Bug 修复
+
+**服务商管理功能完善**
+- 修复 Provider Manager 页面报错："getServiceProviderDefinitions is not a function"
+- 修复服务商列表重复显示的问题（内置服务商被重复加载）
+- 统一字段命名，使用 `isBuiltIn` 替代 `builtin`，与前端保持一致
+
+**自定义模型管理功能补全**
+- 实现所有缺失的自定义模型管理 IPC 处理器
+- 添加 `api:getCustomModels` - 获取 Profile 的自定义模型列表
+- 添加 `api:updateCustomModels` - 批量更新自定义模型
+- 添加 `api:addCustomModel` - 添加单个自定义模型
+- 添加 `api:deleteCustomModel` - 删除自定义模型
+- 添加 `api:updateCustomModel` - 更新自定义模型
+
+### ✨ 功能增强
+
+**服务商管理后端实现**
+- 实现 `getServiceProviderDefinitions()` - 从配置文件加载服务商定义
+- 实现 `getServiceProviderDefinition(id)` - 获取单个服务商定义
+- 实现 `addServiceProviderDefinition()` - 添加自定义服务商
+- 实现 `updateServiceProviderDefinition()` - 更新服务商定义
+- 实现 `deleteServiceProviderDefinition()` - 删除自定义服务商
+- 内置服务商受保护（不可编辑/删除）
+- 删除服务商前自动检查是否有 Profile 正在使用
+
+### 📝 配置结构更新
+
+添加新的配置字段：
+```json
+{
+  "serviceProviderDefinitions": [
+    {
+      "id": "official",
+      "name": "官方 API",
+      "needsMapping": false,
+      "baseUrl": "https://api.anthropic.com",
+      "defaultModelMapping": null,
+      "isBuiltIn": true
+    }
+  ]
+}
+```
+
+### 🔧 技术改进
+
+- 优化服务商定义的加载逻辑，避免重复加载内置服务商
+- 完善错误处理，Profile 不存在时抛出明确异常
+- 改进数据持久化，服务商定义统一存储在配置文件中
+
+### 📊 提交记录
+
+- `a052286` - 实现服务商管理的完整后端支持
+- `ababd13` - 实现自定义模型管理的 IPC 处理器
+
+---
+
 ## v1.0.0 - 2026-01-12
 
 ### 🎉 首次发布 - 完全重写
