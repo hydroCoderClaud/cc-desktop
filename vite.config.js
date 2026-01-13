@@ -30,7 +30,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
-    strictPort: true
+    port: 5174,  // 使用 5174 避免与其他服务冲突
+    strictPort: false
   }
 })

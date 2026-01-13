@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development electron .",
     "dev:vite": "vite",
-    "dev:vue": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "dev:vue": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5174 electron .",
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
