@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialog 相关
   // ========================================
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  saveFile: ({ filename, content, ext }) => ipcRenderer.invoke('dialog:saveFile', { filename, content, ext }),
 
   // ========================================
   // Shell 相关

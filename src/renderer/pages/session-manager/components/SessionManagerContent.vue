@@ -177,7 +177,8 @@
               </n-button>
             </n-dropdown>
           </div>
-          <n-space v-if="selectedSession">
+          <n-space v-if="selectedSession" align="center">
+            <span class="select-hint">{{ t('sessionManager.selectHint') }}</span>
             <n-tooltip>
               <template #trigger>
                 <n-button size="small" quaternary @click="toggleMessageSort">
@@ -186,17 +187,18 @@
               </template>
               {{ messageSort === 'asc' ? t('sessionManager.sortOldToNew') : t('sessionManager.sortNewToOld') }}
             </n-tooltip>
-            <n-tooltip>
-              <template #trigger>
-                <n-dropdown :options="exportOptions" @select="handleExport">
-                  <n-button size="small">
-                    {{ t('sessionManager.export') }}
-                    <span v-if="selectedMessages.length > 0" class="selected-count">({{ selectedMessages.length }})</span>
-                  </n-button>
-                </n-dropdown>
-              </template>
-              {{ t('sessionManager.multiSelectHint') }}
-            </n-tooltip>
+            <n-dropdown :options="copyOptions" @select="handleCopy">
+              <n-button size="small">
+                {{ t('sessionManager.copy') }}
+                <span v-if="selectedMessages.length > 0" class="selected-count">({{ selectedMessages.length }})</span>
+              </n-button>
+            </n-dropdown>
+            <n-dropdown :options="exportOptions" @select="handleExport">
+              <n-button size="small">
+                {{ t('sessionManager.export') }}
+                <span v-if="selectedMessages.length > 0" class="selected-count">({{ selectedMessages.length }})</span>
+              </n-button>
+            </n-dropdown>
           </n-space>
         </div>
         <n-scrollbar style="max-height: calc(100vh - 220px)">
@@ -350,6 +352,23 @@ const exportOptions = computed(() => {
     const count = selectedMessages.value.length
     options.push({ label: `${t('sessionManager.exportSelectedMd')} (${count})`, key: 'selected-markdown' })
     options.push({ label: `${t('sessionManager.exportSelectedJson')} (${count})`, key: 'selected-json' })
+  }
+
+  return options
+})
+
+// Copy options (same structure as export)
+const copyOptions = computed(() => {
+  const options = [
+    { label: t('sessionManager.copyAllMd'), key: 'all-markdown' },
+    { label: t('sessionManager.copyAllJson'), key: 'all-json' }
+  ]
+
+  if (selectedMessages.value.length > 0) {
+    options.push({ type: 'divider', key: 'd1' })
+    const count = selectedMessages.value.length
+    options.push({ label: `${t('sessionManager.copySelectedMd')} (${count})`, key: 'selected-markdown' })
+    options.push({ label: `${t('sessionManager.copySelectedJson')} (${count})`, key: 'selected-json' })
   }
 
   return options
@@ -955,37 +974,63 @@ const goToResult = (val) => {
 }
 
 // Export
+// Helper: generate export content
+const generateExportContent = async (scope, format) => {
+  let content = ''
+
+  if (scope === 'all') {
+    content = await invoke('exportSession', {
+      sessionId: selectedSession.value.id,
+      format
+    })
+  } else if (scope === 'selected' && selectedMessages.value.length > 0) {
+    const sortedMsgs = [...selectedMessages.value].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+
+    if (format === 'markdown') {
+      content = sortedMsgs.map(msg => {
+        const role = msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant')
+        const time = formatTime(msg.timestamp)
+        return `## ${role} (${time})\n\n${msg.content}\n`
+      }).join('\n---\n\n')
+    } else {
+      content = JSON.stringify(sortedMsgs, null, 2)
+    }
+  }
+
+  return content
+}
+
+// Copy to clipboard
+const handleCopy = async (key) => {
+  if (!selectedSession.value) return
+
+  try {
+    const [scope, format] = key.split('-')
+    const content = await generateExportContent(scope, format)
+
+    if (content) {
+      await navigator.clipboard.writeText(content)
+      message.success(t('sessionManager.copySuccess'))
+    }
+  } catch (err) {
+    console.error('Copy failed:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Export to file
 const handleExport = async (key) => {
   if (!selectedSession.value) return
 
   try {
-    const [scope, format] = key.split('-') // e.g., 'all-markdown' -> ['all', 'markdown']
-    let content = ''
-
-    if (scope === 'all') {
-      // Export all messages via IPC
-      content = await invoke('exportSession', {
-        sessionId: selectedSession.value.id,
-        format
-      })
-    } else if (scope === 'selected' && selectedMessages.value.length > 0) {
-      // Export selected messages locally
-      // Sort by timestamp to maintain order
-      const sortedMsgs = [...selectedMessages.value].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-
-      if (format === 'markdown') {
-        content = sortedMsgs.map(msg => {
-          const role = msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant')
-          const time = formatTime(msg.timestamp)
-          return `## ${role} (${time})\n\n${msg.content}\n`
-        }).join('\n---\n\n')
-      } else {
-        content = JSON.stringify(sortedMsgs, null, 2)
-      }
-    }
+    const [scope, format] = key.split('-')
+    const content = await generateExportContent(scope, format)
 
     if (content) {
-      await navigator.clipboard.writeText(content)
+      const ext = format === 'markdown' ? 'md' : 'json'
+      const filename = `session-${selectedSession.value.id}-${scope}.${ext}`
+
+      await invoke('saveFile', { filename, content, ext })
       message.success(t('sessionManager.exportSuccess'))
     }
   } catch (err) {
@@ -1355,6 +1400,12 @@ const handleLinkClick = (event) => {
   margin-left: 4px;
   font-size: 12px;
   color: var(--primary-color, #1890ff);
+}
+
+.select-hint {
+  font-size: 11px;
+  color: #888;
+  margin-right: 8px;
 }
 
 @keyframes highlight-pulse {

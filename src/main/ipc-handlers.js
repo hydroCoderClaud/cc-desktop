@@ -350,6 +350,27 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     return result.filePaths[0];
   });
 
+  // 保存文件对话框
+  ipcMain.handle('dialog:saveFile', async (event, { filename, content, ext }) => {
+    const filters = ext === 'md'
+      ? [{ name: 'Markdown', extensions: ['md'] }]
+      : [{ name: 'JSON', extensions: ['json'] }];
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Session',
+      defaultPath: filename,
+      filters
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    const fs = require('fs');
+    fs.writeFileSync(result.filePath, content, 'utf-8');
+    return { success: true, filePath: result.filePath };
+  });
+
   // 打开外部链接（在系统默认浏览器中）
   ipcMain.handle('shell:openExternal', async (event, url) => {
     // 安全检查：只允许 http/https 链接
