@@ -236,7 +236,8 @@ export default {
     totalProjects: 'Total Projects',
     totalSessions: 'Total Sessions',
     totalMessages: 'Total Messages',
-    tokensUsed: 'Tokens Used'
+    tokensUsed: 'Tokens Used',
+    totalMessages: 'Total messages'
   },
 
   // Custom Models

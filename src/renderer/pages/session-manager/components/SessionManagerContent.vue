@@ -55,6 +55,7 @@
     <div v-if="syncStats" class="sync-status">
       <span>{{ t('sessionManager.lastSync') }}: {{ formatDate(syncStats.timestamp) }}</span>
       <span>{{ syncStats.messagesAdded }} {{ t('sessionManager.newMessages') }}</span>
+      <span>{{ t('sessionManager.totalMessages') }}: {{ syncStats.totalMessages }}</span>
     </div>
 
     <!-- Main Content -->
@@ -588,10 +589,13 @@ const handleSync = async () => {
   try {
     const result = await invoke('syncSessions')
     if (result.status === 'success') {
+      // Get total stats after sync
+      const stats = await invoke('getSessionStats')
       syncStats.value = {
         timestamp: Date.now(),
         messagesAdded: result.messagesAdded,
-        sessionsAdded: result.sessionsAdded
+        sessionsAdded: result.sessionsAdded,
+        totalMessages: stats?.messages || 0
       }
       message.success(`${t('sessionManager.syncSuccess')}: ${result.messagesAdded} ${t('sessionManager.newMessages')}`)
     } else if (result.status === 'error') {

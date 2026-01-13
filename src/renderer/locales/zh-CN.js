@@ -236,7 +236,8 @@ export default {
     totalProjects: '项目总数',
     totalSessions: '会话总数',
     totalMessages: '消息总数',
-    tokensUsed: '已用 Token'
+    tokensUsed: '已用 Token',
+    totalMessages: '总消息数'
   },
 
   // 自定义模型
