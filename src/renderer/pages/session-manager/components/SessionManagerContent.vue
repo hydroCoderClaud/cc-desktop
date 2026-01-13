@@ -805,6 +805,10 @@ const loadMessageTags = async () => {
 const handleSearch = async () => {
   if (!searchQuery.value.trim()) return
 
+  // Clear tag filters before searching
+  sessionTagFilter.value = null
+  activeTagFilter.value = null
+
   searching.value = true
   try {
     // Determine search scope
