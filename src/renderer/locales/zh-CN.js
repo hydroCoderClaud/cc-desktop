@@ -212,6 +212,11 @@ export default {
     // 排序相关
     sortOldToNew: '从旧到新',
     sortNewToOld: '从新到旧',
+    // 标签筛选
+    filterByTag: '按标签筛选',
+    showAll: '显示全部',
+    taggedMessages: '条带标签消息',
+    noTaggedMessages: '当前无带标签消息',
     // 统计相关
     stats: '统计',
     totalProjects: '项目总数',

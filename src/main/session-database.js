@@ -120,6 +120,18 @@ class SessionDatabase {
       )
     `)
 
+    // Message-Tags relation table (many-to-many)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS message_tags (
+        message_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        PRIMARY KEY (message_id, tag_id),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      )
+    `)
+
     // Favorites table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS favorites (
@@ -467,15 +479,15 @@ class SessionDatabase {
   }
 
   /**
-   * Get all tags
+   * Get all tags with usage counts
    */
   getAllTags() {
     return this.db.prepare(`
-      SELECT t.*, COUNT(st.session_id) as usage_count
+      SELECT t.*,
+             (SELECT COUNT(*) FROM session_tags st WHERE st.tag_id = t.id) as session_count,
+             (SELECT COUNT(*) FROM message_tags mt WHERE mt.tag_id = t.id) as message_count
       FROM tags t
-      LEFT JOIN session_tags st ON t.id = st.tag_id
-      GROUP BY t.id
-      ORDER BY usage_count DESC
+      ORDER BY (session_count + message_count) DESC
     `).all()
   }
 
@@ -520,13 +532,75 @@ class SessionDatabase {
    */
   getSessionsByTag(tagId) {
     return this.db.prepare(`
-      SELECT s.*, p.name as project_name
+      SELECT s.*, p.name as project_name, p.path as project_path
       FROM sessions s
       JOIN session_tags st ON s.id = st.session_id
       JOIN projects p ON s.project_id = p.id
       WHERE st.tag_id = ?
       ORDER BY s.last_message_at DESC
     `).all(tagId)
+  }
+
+  // ========================================
+  // Message Tag Operations
+  // ========================================
+
+  /**
+   * Add tag to message
+   */
+  addTagToMessage(messageId, tagId) {
+    this.db.prepare(
+      'INSERT OR IGNORE INTO message_tags (message_id, tag_id) VALUES (?, ?)'
+    ).run(messageId, tagId)
+  }
+
+  /**
+   * Remove tag from message
+   */
+  removeTagFromMessage(messageId, tagId) {
+    this.db.prepare(
+      'DELETE FROM message_tags WHERE message_id = ? AND tag_id = ?'
+    ).run(messageId, tagId)
+  }
+
+  /**
+   * Get tags for a message
+   */
+  getMessageTags(messageId) {
+    return this.db.prepare(`
+      SELECT t.* FROM tags t
+      JOIN message_tags mt ON t.id = mt.tag_id
+      WHERE mt.message_id = ?
+    `).all(messageId)
+  }
+
+  /**
+   * Get messages by tag
+   */
+  getMessagesByTag(tagId) {
+    return this.db.prepare(`
+      SELECT m.*, s.session_uuid, s.id as session_id, p.name as project_name, p.path as project_path
+      FROM messages m
+      JOIN message_tags mt ON m.id = mt.message_id
+      JOIN sessions s ON m.session_id = s.id
+      JOIN projects p ON s.project_id = p.id
+      WHERE mt.tag_id = ?
+      ORDER BY m.timestamp DESC
+    `).all(tagId)
+  }
+
+  /**
+   * Get all tagged messages for a session
+   */
+  getSessionTaggedMessages(sessionId) {
+    return this.db.prepare(`
+      SELECT m.id, GROUP_CONCAT(t.id) as tag_ids, GROUP_CONCAT(t.name) as tag_names, GROUP_CONCAT(t.color) as tag_colors
+      FROM messages m
+      JOIN message_tags mt ON m.id = mt.message_id
+      JOIN tags t ON mt.tag_id = t.id
+      WHERE m.session_id = ?
+      GROUP BY m.id
+    `).all(sessionId)
   }
 
   // ========================================

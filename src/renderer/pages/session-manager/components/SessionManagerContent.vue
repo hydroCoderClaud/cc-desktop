@@ -93,10 +93,17 @@
       <!-- Center: Session List -->
       <div class="session-list-panel">
         <div class="panel-header">
-          <span>{{ t('sessionManager.sessionList') }}</span>
-          <n-tag v-if="selectedProject" size="small" type="info">
-            {{ sessions.length }} {{ t('sessionManager.sessions') }}
-          </n-tag>
+          <div class="panel-header-left">
+            <span>{{ t('sessionManager.sessionList') }}</span>
+            <n-tag v-if="selectedProject" size="small" type="info">
+              {{ sessions.length }}
+            </n-tag>
+          </div>
+          <n-space v-if="selectedSession" :size="4">
+            <n-dropdown :options="sessionTagOptions" @select="handleAddSessionTag">
+              <n-button size="tiny" quaternary>🏷️</n-button>
+            </n-dropdown>
+          </n-space>
         </div>
         <n-scrollbar style="max-height: calc(100vh - 220px)">
           <n-spin :show="loadingSessions">
@@ -152,7 +159,15 @@
       <!-- Right: Message Viewer -->
       <div class="message-viewer-panel">
         <div class="panel-header">
-          <span>{{ t('sessionManager.conversation') }}</span>
+          <div class="panel-header-left">
+            <span>{{ t('sessionManager.conversation') }}</span>
+            <!-- Tag filter dropdown -->
+            <n-dropdown v-if="allTags.length > 0" :options="tagFilterOptions" @select="handleTagFilter">
+              <n-button size="tiny" quaternary :type="activeTagFilter ? 'primary' : 'default'">
+                🏷️ {{ activeTagFilter ? activeTagFilter.name : t('sessionManager.filterByTag') }}
+              </n-button>
+            </n-dropdown>
+          </div>
           <n-space v-if="selectedSession">
             <n-tooltip>
               <template #trigger>
@@ -162,9 +177,6 @@
               </template>
               {{ messageSort === 'asc' ? t('sessionManager.sortOldToNew') : t('sessionManager.sortNewToOld') }}
             </n-tooltip>
-            <n-dropdown :options="tagOptions" @select="handleAddTag">
-              <n-button size="small">🏷️ {{ t('sessionManager.addTag') }}</n-button>
-            </n-dropdown>
             <n-dropdown :options="exportOptions" @select="handleExport">
               <n-button size="small">{{ t('sessionManager.export') }}</n-button>
             </n-dropdown>
@@ -190,7 +202,26 @@
                   <span class="role-label">
                     {{ msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant') }}
                   </span>
-                  <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+                  <div class="message-header-right">
+                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+                    <n-dropdown :options="messageTagOptions" @select="(tagId) => handleAddMessageTag(msg.id, tagId)">
+                      <span class="tag-action" @click.stop>🏷️</span>
+                    </n-dropdown>
+                  </div>
+                </div>
+                <!-- Message tags -->
+                <div v-if="messageTagsMap[msg.id]" class="message-tags">
+                  <n-tag
+                    v-for="tag in messageTagsMap[msg.id]"
+                    :key="tag.id"
+                    size="tiny"
+                    :color="{ color: tag.color, textColor: '#fff' }"
+                    closable
+                    @close="handleRemoveMessageTag(msg.id, tag.id)"
+                    @click.stop="handleTagFilter(tag.id)"
+                  >
+                    {{ tag.name }}
+                  </n-tag>
                 </div>
                 <div class="message-content" v-html="formatContent(msg.content)"></div>
                 <div v-if="msg.tokens_in || msg.tokens_out" class="message-usage">
@@ -280,13 +311,17 @@ const newTagName = ref('')
 const newTagColor = ref('#1890ff')
 const tagColors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96']
 
+// Message tags
+const messageTagsMap = ref({}) // { messageId: [tags] }
+const activeTagFilter = ref(null) // Currently selected tag for filtering
+
 // Export options
 const exportOptions = computed(() => [
   { label: 'Markdown', key: 'markdown' },
   { label: 'JSON', key: 'json' }
 ])
 
-// Tag options for dropdown
+// Tag options for dropdown (legacy - kept for compatibility)
 const tagOptions = computed(() => {
   const options = allTags.value.map(tag => ({
     label: tag.name,
@@ -294,6 +329,46 @@ const tagOptions = computed(() => {
   }))
   options.push({ type: 'divider', key: 'd1' })
   options.push({ label: '⚙️ ' + t('sessionManager.manageTags'), key: 'manage' })
+  return options
+})
+
+// Session tag dropdown options (for session list header)
+const sessionTagOptions = computed(() => {
+  const options = allTags.value.map(tag => ({
+    label: tag.name,
+    key: tag.id,
+    props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+  }))
+  options.push({ type: 'divider', key: 'd1' })
+  options.push({ label: '⚙️ ' + t('sessionManager.manageTags'), key: 'manage' })
+  return options
+})
+
+// Message tag dropdown options (for message items)
+const messageTagOptions = computed(() => {
+  const options = allTags.value.map(tag => ({
+    label: tag.name,
+    key: tag.id,
+    props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+  }))
+  options.push({ type: 'divider', key: 'd1' })
+  options.push({ label: '⚙️ ' + t('sessionManager.manageTags'), key: 'manage' })
+  return options
+})
+
+// Tag filter dropdown options (for conversation header)
+const tagFilterOptions = computed(() => {
+  const options = [
+    { label: t('sessionManager.showAll'), key: 'all' },
+    { type: 'divider', key: 'd0' }
+  ]
+  allTags.value.forEach(tag => {
+    options.push({
+      label: `${tag.name} (${tag.message_count || 0})`,
+      key: tag.id,
+      props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
+    })
+  })
   return options
 })
 
@@ -379,6 +454,8 @@ const selectProject = async (project) => {
   selectedProject.value = project
   selectedSession.value = null
   messages.value = []
+  messageTagsMap.value = {} // Clear message tags
+  activeTagFilter.value = null // Clear tag filter
   await loadSessions(project.id)
 }
 
@@ -406,6 +483,8 @@ const loadMessages = async (sessionId) => {
   loadingMessages.value = true
   try {
     messages.value = await invoke('getSessionMessages', { sessionId, limit: 1000 })
+    // Also load message tags
+    await loadMessageTags()
   } catch (err) {
     console.error('Failed to load messages:', err)
     message.error(t('messages.loadFailed'))
@@ -474,6 +553,149 @@ const deleteTag = async (tagId) => {
   } catch (err) {
     console.error('Failed to delete tag:', err)
     message.error(t('messages.operationFailed'))
+  }
+}
+
+// Handle add session tag (from session list header dropdown)
+const handleAddSessionTag = async (key) => {
+  if (key === 'manage') {
+    showTagModal.value = true
+    return
+  }
+
+  if (!selectedSession.value) {
+    message.warning(t('sessionManager.selectSession'))
+    return
+  }
+
+  try {
+    await invoke('addTagToSession', { sessionId: selectedSession.value.id, tagId: key })
+    // Refresh session list to show new tag
+    await loadSessions(selectedProject.value.id)
+    await loadTags() // Refresh tag counts
+    message.success(t('messages.operationSuccess'))
+  } catch (err) {
+    console.error('Failed to add session tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Handle add message tag
+const handleAddMessageTag = async (messageId, tagId) => {
+  if (tagId === 'manage') {
+    showTagModal.value = true
+    return
+  }
+
+  try {
+    await invoke('addTagToMessage', { messageId, tagId })
+    await loadMessageTags() // Refresh message tags
+    await loadTags() // Refresh tag counts
+    message.success(t('messages.operationSuccess'))
+  } catch (err) {
+    console.error('Failed to add message tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Handle remove message tag
+const handleRemoveMessageTag = async (messageId, tagId) => {
+  try {
+    await invoke('removeTagFromMessage', { messageId, tagId })
+    await loadMessageTags() // Refresh message tags
+    await loadTags() // Refresh tag counts
+    message.success(t('messages.deleteSuccess'))
+  } catch (err) {
+    console.error('Failed to remove message tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Handle tag filter (filter messages by tag or navigate to tagged messages)
+const handleTagFilter = async (key) => {
+  if (key === 'all') {
+    activeTagFilter.value = null
+    return
+  }
+
+  const tag = allTags.value.find(t => t.id === key)
+  if (!tag) return
+
+  activeTagFilter.value = tag
+
+  // Get messages with this tag in current session (if any)
+  if (selectedSession.value) {
+    try {
+      const taggedMessages = await invoke('getSessionTaggedMessages', selectedSession.value.id)
+      const messagesWithTag = taggedMessages.filter(m => m.tag_id === key)
+
+      if (messagesWithTag.length > 0) {
+        // Scroll to first tagged message in current session
+        const firstTaggedMsg = messagesWithTag[0]
+        await nextTick()
+        scrollToElement(`[data-message-id="${firstTaggedMsg.message_id}"]`, 100)
+        highlightedMessageId.value = firstTaggedMsg.message_id
+        message.info(`${t('sessionManager.found')} ${messagesWithTag.length} ${t('sessionManager.taggedMessages')}`)
+      } else {
+        message.info(t('sessionManager.noTaggedMessages'))
+      }
+    } catch (err) {
+      console.error('Failed to filter by tag:', err)
+    }
+  } else {
+    // No session selected - show tag's messages across all sessions
+    try {
+      const taggedMessages = await invoke('getMessagesByTag', key)
+      if (taggedMessages.length > 0) {
+        message.info(`${tag.name}: ${taggedMessages.length} ${t('sessionManager.taggedMessages')}`)
+        // Navigate to first message
+        const firstMsg = taggedMessages[0]
+        if (firstMsg.session_id) {
+          // Load the session containing this message
+          const targetSession = sessions.value.find(s => s.id === firstMsg.session_id)
+          if (targetSession) {
+            await selectSession(targetSession)
+            await nextTick()
+            scrollToElement(`[data-message-id="${firstMsg.id}"]`, 200)
+            highlightedMessageId.value = firstMsg.id
+          }
+        }
+      } else {
+        message.info(t('sessionManager.noTaggedMessages'))
+      }
+    } catch (err) {
+      console.error('Failed to get messages by tag:', err)
+    }
+  }
+}
+
+// Load message tags for current session
+const loadMessageTags = async () => {
+  if (!selectedSession.value) {
+    messageTagsMap.value = {}
+    return
+  }
+
+  try {
+    const taggedMessages = await invoke('getSessionTaggedMessages', selectedSession.value.id)
+
+    // Group tags by message ID
+    const tagsMap = {}
+    for (const item of taggedMessages) {
+      if (!tagsMap[item.message_id]) {
+        tagsMap[item.message_id] = []
+      }
+      tagsMap[item.message_id].push({
+        id: item.tag_id,
+        name: item.tag_name,
+        color: item.tag_color
+      })
+    }
+
+    messageTagsMap.value = tagsMap
+  } catch (err) {
+    console.error('Failed to load message tags:', err)
+    messageTagsMap.value = {}
   }
 }
 
@@ -795,6 +1017,12 @@ const handleLinkClick = (event) => {
   font-size: 14px;
 }
 
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .session-item {
   padding: 12px;
   border-radius: 6px;
@@ -918,6 +1146,31 @@ const handleLinkClick = (event) => {
 
 .message-time {
   color: #888;
+}
+
+.message-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-action {
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.tag-action:hover {
+  opacity: 1;
+}
+
+.message-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .message-content {

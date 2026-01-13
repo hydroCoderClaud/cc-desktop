@@ -520,6 +520,37 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   });
 
   // ========================================
+  // 消息标签管理
+  // ========================================
+
+  // 添加标签到消息
+  createIPCHandler('tag:addToMessage', ({ messageId, tagId }) => {
+    sessionDatabase.addTagToMessage(messageId, tagId);
+    return { success: true };
+  });
+
+  // 从消息移除标签
+  createIPCHandler('tag:removeFromMessage', ({ messageId, tagId }) => {
+    sessionDatabase.removeTagFromMessage(messageId, tagId);
+    return { success: true };
+  });
+
+  // 获取消息的标签
+  createIPCHandler('tag:getMessageTags', (messageId) => {
+    return sessionDatabase.getMessageTags(messageId);
+  });
+
+  // 获取标签下的消息
+  createIPCHandler('tag:getMessages', (tagId) => {
+    return sessionDatabase.getMessagesByTag(tagId);
+  });
+
+  // 获取会话中所有带标签的消息
+  createIPCHandler('tag:getSessionTaggedMessages', (sessionId) => {
+    return sessionDatabase.getSessionTaggedMessages(sessionId);
+  });
+
+  // ========================================
   // 收藏管理
   // ========================================
 

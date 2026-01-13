@@ -130,7 +130,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSessionStats: () => ipcRenderer.invoke('session:getStats'),
 
   // ========================================
-  // 标签管理
+  // 标签管理（会话级别）
   // ========================================
   createTag: ({ name, color }) => ipcRenderer.invoke('tag:create', { name, color }),
   getAllTags: () => ipcRenderer.invoke('tag:getAll'),
@@ -139,6 +139,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeTagFromSession: ({ sessionId, tagId }) => ipcRenderer.invoke('tag:removeFromSession', { sessionId, tagId }),
   getSessionTags: (sessionId) => ipcRenderer.invoke('tag:getSessionTags', sessionId),
   getSessionsByTag: (tagId) => ipcRenderer.invoke('tag:getSessions', tagId),
+
+  // ========================================
+  // 标签管理（消息级别）
+  // ========================================
+  addTagToMessage: ({ messageId, tagId }) => ipcRenderer.invoke('tag:addToMessage', { messageId, tagId }),
+  removeTagFromMessage: ({ messageId, tagId }) => ipcRenderer.invoke('tag:removeFromMessage', { messageId, tagId }),
+  getMessageTags: (messageId) => ipcRenderer.invoke('tag:getMessageTags', messageId),
+  getMessagesByTag: (tagId) => ipcRenderer.invoke('tag:getMessages', tagId),
+  getSessionTaggedMessages: (sessionId) => ipcRenderer.invoke('tag:getSessionTaggedMessages', sessionId),
 
   // ========================================
   // 收藏管理

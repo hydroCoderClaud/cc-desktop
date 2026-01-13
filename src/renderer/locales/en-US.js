@@ -212,6 +212,11 @@ export default {
     // Sort related
     sortOldToNew: 'Old to New',
     sortNewToOld: 'New to Old',
+    // Tag filtering
+    filterByTag: 'Filter by Tag',
+    showAll: 'Show All',
+    taggedMessages: 'tagged messages',
+    noTaggedMessages: 'No tagged messages',
     // Stats related
     stats: 'Statistics',
     totalProjects: 'Total Projects',
