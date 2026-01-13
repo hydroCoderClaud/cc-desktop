@@ -1227,7 +1227,7 @@ const handleLinkClick = (event) => {
 }
 
 .messages-container {
-  padding: 8px 0;
+  padding: 8px 6px;
 }
 
 .message-item {
