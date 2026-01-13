@@ -186,9 +186,17 @@
               </template>
               {{ messageSort === 'asc' ? t('sessionManager.sortOldToNew') : t('sessionManager.sortNewToOld') }}
             </n-tooltip>
-            <n-dropdown :options="exportOptions" @select="handleExport">
-              <n-button size="small">{{ t('sessionManager.export') }}</n-button>
-            </n-dropdown>
+            <n-tooltip>
+              <template #trigger>
+                <n-dropdown :options="exportOptions" @select="handleExport">
+                  <n-button size="small">
+                    {{ t('sessionManager.export') }}
+                    <span v-if="selectedMessages.length > 0" class="selected-count">({{ selectedMessages.length }})</span>
+                  </n-button>
+                </n-dropdown>
+              </template>
+              {{ t('sessionManager.multiSelectHint') }}
+            </n-tooltip>
           </n-space>
         </div>
         <n-scrollbar style="max-height: calc(100vh - 220px)">
@@ -205,8 +213,8 @@
                 :key="msg.id"
                 :data-message-id="msg.id"
                 class="message-item"
-                :class="[msg.role, { highlighted: highlightedMessageId === msg.id, active: selectedMessage?.id === msg.id }]"
-                @click="selectMessage(msg)"
+                :class="[msg.role, { highlighted: highlightedMessageId === msg.id, active: selectedMessages.some(m => m.id === msg.id) }]"
+                @click="selectMessage(msg, $event)"
               >
                 <div class="message-header">
                   <span class="role-label">
@@ -287,7 +295,7 @@ const sessions = ref([])
 const messages = ref([])
 const selectedProject = ref(null)
 const selectedSession = ref(null)
-const selectedMessage = ref(null)
+const selectedMessages = ref([]) // Support multi-select
 const loadingProjects = ref(false)
 const loadingSessions = ref(false)
 const loadingMessages = ref(false)
@@ -336,11 +344,12 @@ const exportOptions = computed(() => {
     { label: t('sessionManager.exportAllJson'), key: 'all-json' }
   ]
 
-  // Add "export selected" options if a message is selected
-  if (selectedMessage.value) {
+  // Add "export selected" options if messages are selected
+  if (selectedMessages.value.length > 0) {
     options.push({ type: 'divider', key: 'd1' })
-    options.push({ label: t('sessionManager.exportSelectedMd'), key: 'selected-markdown' })
-    options.push({ label: t('sessionManager.exportSelectedJson'), key: 'selected-json' })
+    const count = selectedMessages.value.length
+    options.push({ label: `${t('sessionManager.exportSelectedMd')} (${count})`, key: 'selected-markdown' })
+    options.push({ label: `${t('sessionManager.exportSelectedJson')} (${count})`, key: 'selected-json' })
   }
 
   return options
@@ -551,7 +560,7 @@ const handleSync = async () => {
 const selectProject = async (project) => {
   selectedProject.value = project
   selectedSession.value = null
-  selectedMessage.value = null
+  selectedMessages.value = []
   messages.value = []
   messageTagsMap.value = {} // Clear message tags
   activeTagFilter.value = null // Clear message tag filter
@@ -575,19 +584,31 @@ const loadSessions = async (projectId) => {
 // Select session
 const selectSession = async (session) => {
   selectedSession.value = session
-  selectedMessage.value = null // Clear selected message when switching session
+  selectedMessages.value = [] // Clear selected messages when switching session
   await loadMessages(session.id)
 }
 
-// Select message (toggle)
-const selectMessage = (msg) => {
+// Select message (supports Ctrl+click for multi-select)
+const selectMessage = (msg, event) => {
   // Clear search/filter highlight when clicking
   highlightedMessageId.value = null
 
-  if (selectedMessage.value?.id === msg.id) {
-    selectedMessage.value = null // Deselect if clicking same message
+  const isSelected = selectedMessages.value.some(m => m.id === msg.id)
+
+  if (event.ctrlKey || event.metaKey) {
+    // Ctrl+click: toggle this message
+    if (isSelected) {
+      selectedMessages.value = selectedMessages.value.filter(m => m.id !== msg.id)
+    } else {
+      selectedMessages.value = [...selectedMessages.value, msg]
+    }
   } else {
-    selectedMessage.value = msg
+    // Normal click: single select or deselect
+    if (isSelected && selectedMessages.value.length === 1) {
+      selectedMessages.value = [] // Deselect if clicking same message
+    } else {
+      selectedMessages.value = [msg]
+    }
   }
 }
 
@@ -947,15 +968,19 @@ const handleExport = async (key) => {
         sessionId: selectedSession.value.id,
         format
       })
-    } else if (scope === 'selected' && selectedMessage.value) {
-      // Export selected message locally
-      const msg = selectedMessage.value
+    } else if (scope === 'selected' && selectedMessages.value.length > 0) {
+      // Export selected messages locally
+      // Sort by timestamp to maintain order
+      const sortedMsgs = [...selectedMessages.value].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+
       if (format === 'markdown') {
-        const role = msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant')
-        const time = formatTime(msg.timestamp)
-        content = `## ${role} (${time})\n\n${msg.content}\n`
+        content = sortedMsgs.map(msg => {
+          const role = msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant')
+          const time = formatTime(msg.timestamp)
+          return `## ${role} (${time})\n\n${msg.content}\n`
+        }).join('\n---\n\n')
       } else {
-        content = JSON.stringify(msg, null, 2)
+        content = JSON.stringify(sortedMsgs, null, 2)
       }
     }
 
@@ -1324,6 +1349,12 @@ const handleLinkClick = (event) => {
 
 .message-item {
   cursor: pointer;
+}
+
+.selected-count {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--primary-color, #1890ff);
 }
 
 @keyframes highlight-pulse {

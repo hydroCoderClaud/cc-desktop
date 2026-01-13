@@ -179,6 +179,7 @@ export default {
     exportSelectedJson: '导出选中 (JSON)',
     exportSuccess: '已复制到剪贴板',
     exportFailed: '导出失败',
+    multiSelectHint: 'Ctrl+点击可多选消息',
     // 同步相关
     sync: '同步',
     syncNow: '立即同步',

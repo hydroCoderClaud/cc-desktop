@@ -179,6 +179,7 @@ export default {
     exportSelectedJson: 'Export Selected (JSON)',
     exportSuccess: 'Copied to clipboard',
     exportFailed: 'Export failed',
+    multiSelectHint: 'Ctrl+click to multi-select',
     // Sync related
     sync: 'Sync',
     syncNow: 'Sync Now',
