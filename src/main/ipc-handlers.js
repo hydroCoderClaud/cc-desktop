@@ -3,7 +3,7 @@
  * 处理渲染进程和主进程之间的通信
  */
 
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, shell } = require('electron');
 
 /**
  * Create IPC handler with unified logging and error handling
@@ -292,6 +292,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     return { success: true };
   });
 
+  // 打开会话历史窗口
+  ipcMain.handle('window:openSessionManager', async () => {
+    createSubWindow({
+      width: 1200,
+      height: 700,
+      title: '会话历史 - Claude Code Desktop',
+      page: 'session-manager'
+    });
+    return { success: true };
+  });
+
   // ========================================
   // Project 相关
   // ========================================
@@ -339,6 +350,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
     return result.filePaths[0];
   });
 
+  // 打开外部链接（在系统默认浏览器中）
+  ipcMain.handle('shell:openExternal', async (event, url) => {
+    // 安全检查：只允许 http/https 链接
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+      await shell.openExternal(url);
+      return { success: true };
+    }
+    return { success: false, error: 'Invalid URL' };
+  });
+
   // ========================================
   // 服务商定义管理
   // ========================================
@@ -361,6 +382,173 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
 
   createIPCHandler('provider:delete', (id) => {
     return configManager.deleteServiceProviderDefinition(id);
+  });
+
+  // ========================================
+  // 会话历史管理（数据库版）
+  // ========================================
+
+  const { SessionDatabase } = require('./session-database');
+  const { SessionSyncService } = require('./session-sync-service');
+
+  // 初始化数据库和同步服务
+  const sessionDatabase = new SessionDatabase();
+  sessionDatabase.init();
+
+  const sessionSyncService = new SessionSyncService(sessionDatabase);
+
+  // 同步会话数据
+  createIPCHandler('session:sync', async () => {
+    return await sessionSyncService.sync();
+  });
+
+  // 获取同步状态
+  createIPCHandler('session:getSyncStatus', () => {
+    return {
+      syncing: sessionSyncService.isSyncing(),
+      lastSync: sessionSyncService.getLastSyncStats()
+    };
+  });
+
+  // 获取所有项目（从数据库）
+  createIPCHandler('session:getProjects', () => {
+    return sessionDatabase.getAllProjects();
+  });
+
+  // 获取项目的会话列表（从数据库）
+  createIPCHandler('session:getProjectSessions', (projectId) => {
+    const sessions = sessionDatabase.getProjectSessions(projectId);
+    // 获取每个会话的第一条消息用于显示
+    return sessions.map(session => {
+      const firstMsg = sessionDatabase.getSessionFirstMessage(session.id);
+      return {
+        ...session,
+        firstUserMessage: firstMsg?.content?.substring(0, 100) || null
+      };
+    });
+  });
+
+  // 获取会话的消息列表（从数据库）
+  createIPCHandler('session:getMessages', ({ sessionId, limit, offset }) => {
+    return sessionDatabase.getSessionMessages(sessionId, { limit, offset });
+  });
+
+  // 搜索会话（使用 FTS5）
+  createIPCHandler('session:search', ({ query, projectId, sessionId, limit }) => {
+    return sessionDatabase.searchMessages(query, { projectId, sessionId, limit });
+  });
+
+  // 导出会话
+  createIPCHandler('session:export', ({ sessionId, format }) => {
+    const session = sessionDatabase.db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+    if (!session) return null;
+
+    const messages = sessionDatabase.getSessionMessages(sessionId, { limit: 10000 });
+    const project = sessionDatabase.db.prepare('SELECT * FROM projects WHERE id = ?').get(session.project_id);
+
+    if (format === 'json') {
+      return JSON.stringify({ session, project, messages }, null, 2);
+    }
+
+    // Default: markdown
+    let markdown = `# Session: ${session.session_uuid}\n\n`;
+    markdown += `Project: ${project?.name || 'Unknown'}\n`;
+    markdown += `Path: ${project?.path || 'Unknown'}\n\n---\n\n`;
+
+    for (const msg of messages) {
+      const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+      if (msg.role === 'user') {
+        markdown += `## User (${time})\n\n${msg.content}\n\n`;
+      } else {
+        markdown += `## Assistant (${time})\n\n`;
+        markdown += `${msg.content}\n\n`;
+        if (msg.tokens_in || msg.tokens_out) {
+          markdown += `*Tokens: ${msg.tokens_in || 0} in / ${msg.tokens_out || 0} out*\n\n`;
+        }
+      }
+      markdown += '---\n\n';
+    }
+
+    return markdown;
+  });
+
+  // 获取数据库统计
+  createIPCHandler('session:getStats', () => {
+    return sessionDatabase.getStats();
+  });
+
+  // ========================================
+  // 标签管理
+  // ========================================
+
+  // 创建标签
+  createIPCHandler('tag:create', ({ name, color }) => {
+    return sessionDatabase.createTag(name, color);
+  });
+
+  // 获取所有标签
+  createIPCHandler('tag:getAll', () => {
+    return sessionDatabase.getAllTags();
+  });
+
+  // 删除标签
+  createIPCHandler('tag:delete', (tagId) => {
+    sessionDatabase.deleteTag(tagId);
+    return { success: true };
+  });
+
+  // 添加标签到会话
+  createIPCHandler('tag:addToSession', ({ sessionId, tagId }) => {
+    sessionDatabase.addTagToSession(sessionId, tagId);
+    return { success: true };
+  });
+
+  // 从会话移除标签
+  createIPCHandler('tag:removeFromSession', ({ sessionId, tagId }) => {
+    sessionDatabase.removeTagFromSession(sessionId, tagId);
+    return { success: true };
+  });
+
+  // 获取会话的标签
+  createIPCHandler('tag:getSessionTags', (sessionId) => {
+    return sessionDatabase.getSessionTags(sessionId);
+  });
+
+  // 获取标签下的会话
+  createIPCHandler('tag:getSessions', (tagId) => {
+    return sessionDatabase.getSessionsByTag(tagId);
+  });
+
+  // ========================================
+  // 收藏管理
+  // ========================================
+
+  // 添加收藏
+  createIPCHandler('favorite:add', ({ sessionId, note }) => {
+    sessionDatabase.addFavorite(sessionId, note);
+    return { success: true };
+  });
+
+  // 移除收藏
+  createIPCHandler('favorite:remove', (sessionId) => {
+    sessionDatabase.removeFavorite(sessionId);
+    return { success: true };
+  });
+
+  // 检查是否收藏
+  createIPCHandler('favorite:check', (sessionId) => {
+    return sessionDatabase.isFavorite(sessionId);
+  });
+
+  // 获取所有收藏
+  createIPCHandler('favorite:getAll', () => {
+    return sessionDatabase.getAllFavorites();
+  });
+
+  // 更新收藏备注
+  createIPCHandler('favorite:updateNote', ({ sessionId, note }) => {
+    sessionDatabase.updateFavoriteNote(sessionId, note);
+    return { success: true };
   });
 
   // ========================================

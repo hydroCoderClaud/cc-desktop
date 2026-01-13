@@ -70,7 +70,8 @@ export default {
   settingsMenu: {
     apiConfig: 'API 配置管理',
     providerManager: '服务商管理',
-    globalSettings: '全局设置'
+    globalSettings: '全局设置',
+    sessionHistory: '会话历史'
   },
 
   // API 配置管理
@@ -145,6 +146,71 @@ export default {
     defaultModels: '默认模型',
     defaultModelsHint: '各层级默认使用的模型',
     saveSuccess: '设置已保存'
+  },
+
+  // 会话历史管理
+  sessionManager: {
+    title: '会话历史',
+    projects: '项目',
+    sessions: '会话',
+    messages: '消息',
+    conversation: '对话内容',
+    sessionList: '会话列表',
+    noProjects: '未发现会话数据',
+    noSessions: '该项目暂无会话',
+    noMessages: '该会话暂无消息',
+    selectProject: '请选择项目查看会话',
+    selectSession: '请选择会话查看对话',
+    newConversation: '新会话',
+    user: '用户',
+    assistant: '助手',
+    searchPlaceholder: '搜索会话内容...',
+    searching: '搜索中...',
+    found: '找到',
+    results: '条结果',
+    export: '导出',
+    exportSuccess: '已复制到剪贴板',
+    exportFailed: '导出失败',
+    // 同步相关
+    sync: '同步',
+    syncNow: '立即同步',
+    syncing: '同步中...',
+    syncSuccess: '同步完成',
+    syncFailed: '同步失败',
+    newMessages: '条新消息',
+    lastSync: '上次同步',
+    neverSynced: '从未同步',
+    // 收藏相关
+    favorite: '收藏',
+    unfavorite: '取消收藏',
+    favorites: '收藏夹',
+    addNote: '添加备注',
+    note: '备注',
+    notePlaceholder: '输入收藏备注...',
+    noFavorites: '暂无收藏',
+    noFavoritesHint: '点击会话旁的星标添加收藏',
+    // 标签相关
+    tags: '标签',
+    addTag: '添加标签',
+    removeTag: '移除标签',
+    manageTags: '管理标签',
+    createTag: '创建标签',
+    editTag: '编辑标签',
+    deleteTag: '删除标签',
+    tagName: '标签名称',
+    tagNamePlaceholder: '输入标签名称',
+    tagColor: '标签颜色',
+    noTags: '暂无标签',
+    noTagsHint: '点击"创建标签"添加',
+    deleteTagConfirm: '确定要删除此标签吗？',
+    tagDeleteSuccess: '标签已删除',
+    tagCreateSuccess: '标签已创建',
+    // 统计相关
+    stats: '统计',
+    totalProjects: '项目总数',
+    totalSessions: '会话总数',
+    totalMessages: '消息总数',
+    tokensUsed: '已用 Token'
   },
 
   // 自定义模型

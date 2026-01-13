@@ -70,7 +70,8 @@ export default {
   settingsMenu: {
     apiConfig: 'API Configuration',
     providerManager: 'Provider Manager',
-    globalSettings: 'Global Settings'
+    globalSettings: 'Global Settings',
+    sessionHistory: 'Session History'
   },
 
   // API Profile Manager
@@ -145,6 +146,71 @@ export default {
     defaultModels: 'Default Models',
     defaultModelsHint: 'Default models for each tier',
     saveSuccess: 'Settings saved'
+  },
+
+  // Session History Manager
+  sessionManager: {
+    title: 'Session History',
+    projects: 'Projects',
+    sessions: 'sessions',
+    messages: 'messages',
+    conversation: 'Conversation',
+    sessionList: 'Session List',
+    noProjects: 'No session data found',
+    noSessions: 'No sessions for this project',
+    noMessages: 'No messages in this session',
+    selectProject: 'Select a project to view sessions',
+    selectSession: 'Select a session to view conversation',
+    newConversation: 'New Conversation',
+    user: 'User',
+    assistant: 'Assistant',
+    searchPlaceholder: 'Search session content...',
+    searching: 'Searching...',
+    found: 'Found',
+    results: 'results',
+    export: 'Export',
+    exportSuccess: 'Copied to clipboard',
+    exportFailed: 'Export failed',
+    // Sync related
+    sync: 'Sync',
+    syncNow: 'Sync Now',
+    syncing: 'Syncing...',
+    syncSuccess: 'Sync completed',
+    syncFailed: 'Sync failed',
+    newMessages: 'new messages',
+    lastSync: 'Last sync',
+    neverSynced: 'Never synced',
+    // Favorites related
+    favorite: 'Favorite',
+    unfavorite: 'Unfavorite',
+    favorites: 'Favorites',
+    addNote: 'Add note',
+    note: 'Note',
+    notePlaceholder: 'Enter favorite note...',
+    noFavorites: 'No favorites',
+    noFavoritesHint: 'Click the star next to a session to add',
+    // Tags related
+    tags: 'Tags',
+    addTag: 'Add Tag',
+    removeTag: 'Remove Tag',
+    manageTags: 'Manage Tags',
+    createTag: 'Create Tag',
+    editTag: 'Edit Tag',
+    deleteTag: 'Delete Tag',
+    tagName: 'Tag Name',
+    tagNamePlaceholder: 'Enter tag name',
+    tagColor: 'Tag Color',
+    noTags: 'No tags',
+    noTagsHint: 'Click "Create Tag" to add',
+    deleteTagConfirm: 'Are you sure you want to delete this tag?',
+    tagDeleteSuccess: 'Tag deleted',
+    tagCreateSuccess: 'Tag created',
+    // Stats related
+    stats: 'Statistics',
+    totalProjects: 'Total Projects',
+    totalSessions: 'Total Sessions',
+    totalMessages: 'Total Messages',
+    tokensUsed: 'Tokens Used'
   },
 
   // Custom Models

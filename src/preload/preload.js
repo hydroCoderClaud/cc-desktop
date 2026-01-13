@@ -87,11 +87,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
 
   // ========================================
+  // Shell 相关
+  // ========================================
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
+  // ========================================
   // Window 相关
   // ========================================
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
+  openSessionManager: () => ipcRenderer.invoke('window:openSessionManager'),
 
   // ========================================
   // 服务商定义管理
@@ -101,6 +107,47 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addProvider: (definition) => ipcRenderer.invoke('provider:add', definition),
   updateProvider: ({ id, updates }) => ipcRenderer.invoke('provider:update', { id, updates }),
   deleteProvider: (id) => ipcRenderer.invoke('provider:delete', id),
+
+  // ========================================
+  // 会话历史管理（数据库版）
+  // ========================================
+  // 同步
+  syncSessions: () => ipcRenderer.invoke('session:sync'),
+  getSyncStatus: () => ipcRenderer.invoke('session:getSyncStatus'),
+
+  // 项目和会话
+  getSessionProjects: () => ipcRenderer.invoke('session:getProjects'),
+  getProjectSessions: (projectId) => ipcRenderer.invoke('session:getProjectSessions', projectId),
+  getSessionMessages: ({ sessionId, limit, offset }) => ipcRenderer.invoke('session:getMessages', { sessionId, limit, offset }),
+
+  // 搜索
+  searchSessions: ({ query, projectId, sessionId, limit }) => ipcRenderer.invoke('session:search', { query, projectId, sessionId, limit }),
+
+  // 导出
+  exportSession: ({ sessionId, format }) => ipcRenderer.invoke('session:export', { sessionId, format }),
+
+  // 统计
+  getSessionStats: () => ipcRenderer.invoke('session:getStats'),
+
+  // ========================================
+  // 标签管理
+  // ========================================
+  createTag: ({ name, color }) => ipcRenderer.invoke('tag:create', { name, color }),
+  getAllTags: () => ipcRenderer.invoke('tag:getAll'),
+  deleteTag: (tagId) => ipcRenderer.invoke('tag:delete', tagId),
+  addTagToSession: ({ sessionId, tagId }) => ipcRenderer.invoke('tag:addToSession', { sessionId, tagId }),
+  removeTagFromSession: ({ sessionId, tagId }) => ipcRenderer.invoke('tag:removeFromSession', { sessionId, tagId }),
+  getSessionTags: (sessionId) => ipcRenderer.invoke('tag:getSessionTags', sessionId),
+  getSessionsByTag: (tagId) => ipcRenderer.invoke('tag:getSessions', tagId),
+
+  // ========================================
+  // 收藏管理
+  // ========================================
+  addFavorite: ({ sessionId, note }) => ipcRenderer.invoke('favorite:add', { sessionId, note }),
+  removeFavorite: (sessionId) => ipcRenderer.invoke('favorite:remove', sessionId),
+  checkFavorite: (sessionId) => ipcRenderer.invoke('favorite:check', sessionId),
+  getAllFavorites: () => ipcRenderer.invoke('favorite:getAll'),
+  updateFavoriteNote: ({ sessionId, note }) => ipcRenderer.invoke('favorite:updateNote', { sessionId, note }),
 
   // ========================================
   // Terminal 相关

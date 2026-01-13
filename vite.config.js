@@ -28,7 +28,8 @@ export default defineConfig({
         profileManager: path.resolve(__dirname, 'src/renderer/pages/profile-manager/index.html'),
         providerManager: path.resolve(__dirname, 'src/renderer/pages/provider-manager/index.html'),
         customModels: path.resolve(__dirname, 'src/renderer/pages/custom-models/index.html'),
-        globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html')
+        globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html'),
+        sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html')
       }
     }
   },

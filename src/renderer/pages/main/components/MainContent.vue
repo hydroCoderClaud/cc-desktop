@@ -131,7 +131,9 @@ let fitAddon = null
 const settingsOptions = computed(() => [
   { label: '🔑 ' + t('settingsMenu.apiConfig'), key: 'api-config' },
   { label: '🏪 ' + t('settingsMenu.providerManager'), key: 'provider-manager' },
-  { label: '⚙️ ' + t('settingsMenu.globalSettings'), key: 'global-settings' }
+  { label: '⚙️ ' + t('settingsMenu.globalSettings'), key: 'global-settings' },
+  { type: 'divider', key: 'd1' },
+  { label: '📜 ' + t('settingsMenu.sessionHistory'), key: 'session-history' }
 ])
 
 // Initialize
@@ -317,6 +319,9 @@ const handleSettingsSelect = (key) => {
       break
     case 'global-settings':
       window.electronAPI.openGlobalSettings()
+      break
+    case 'session-history':
+      window.electronAPI.openSessionManager()
       break
   }
 }
