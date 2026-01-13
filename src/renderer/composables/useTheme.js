@@ -71,19 +71,39 @@ export function useTheme() {
   }
 
   /**
-   * 保存主题到配置
+   * 保存主题到配置并广播
    */
   const saveTheme = async () => {
     try {
       if (window.electronAPI) {
-        await window.electronAPI.updateSettings({
-          theme: isDark.value ? 'dark' : 'light'
-        })
+        const theme = isDark.value ? 'dark' : 'light'
+        await window.electronAPI.updateSettings({ theme })
+        // 广播到所有窗口
+        window.electronAPI.broadcastSettings({ theme })
       }
     } catch (err) {
       console.error('[useTheme] Failed to save theme:', err)
     }
   }
+
+  /**
+   * 监听其他窗口的主题变更
+   */
+  const listenForChanges = () => {
+    if (window.electronAPI?.onSettingsChanged) {
+      window.electronAPI.onSettingsChanged((settings) => {
+        if (settings.theme !== undefined) {
+          const newDark = settings.theme === 'dark'
+          if (isDark.value !== newDark) {
+            isDark.value = newDark
+          }
+        }
+      })
+    }
+  }
+
+  // 自动开始监听
+  listenForChanges()
 
   /**
    * Naive UI 主题对象

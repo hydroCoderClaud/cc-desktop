@@ -42,25 +42,48 @@ export function useLocale() {
   }
 
   /**
-   * 设置语言
+   * 设置语言并广播
    */
-  const setLocale = async (locale) => {
-    if (!locales[locale]) {
-      console.warn(`[useLocale] Unknown locale: ${locale}`)
+  const setLocale = async (newLocale) => {
+    if (!locales[newLocale]) {
+      console.warn(`[useLocale] Unknown locale: ${newLocale}`)
       return
     }
 
-    currentLocale.value = locale
-    document.documentElement.setAttribute('data-locale', locale)
+    currentLocale.value = newLocale
+    document.documentElement.setAttribute('data-locale', newLocale)
+    document.documentElement.setAttribute('lang', newLocale === 'en-US' ? 'en' : 'zh-CN')
 
     try {
       if (window.electronAPI) {
-        await window.electronAPI.updateSettings({ locale })
+        await window.electronAPI.updateSettings({ locale: newLocale })
+        // 广播到所有窗口
+        window.electronAPI.broadcastSettings({ locale: newLocale })
       }
     } catch (err) {
       console.error('[useLocale] Failed to save locale:', err)
     }
   }
+
+  /**
+   * 监听其他窗口的语言变更
+   */
+  const listenForChanges = () => {
+    if (window.electronAPI?.onSettingsChanged) {
+      window.electronAPI.onSettingsChanged((settings) => {
+        if (settings.locale !== undefined && locales[settings.locale]) {
+          if (currentLocale.value !== settings.locale) {
+            currentLocale.value = settings.locale
+            document.documentElement.setAttribute('data-locale', settings.locale)
+            document.documentElement.setAttribute('lang', settings.locale === 'en-US' ? 'en' : 'zh-CN')
+          }
+        }
+      })
+    }
+  }
+
+  // 自动开始监听
+  listenForChanges()
 
   /**
    * 获取当前语言包

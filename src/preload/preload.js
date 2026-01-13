@@ -131,6 +131,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, error) => callback(error);
     ipcRenderer.on('terminal:error', listener);
     return () => ipcRenderer.removeListener('terminal:error', listener);
+  },
+
+  // ========================================
+  // 设置广播（跨窗口同步）
+  // ========================================
+  broadcastSettings: (settings) => ipcRenderer.send('settings:broadcast', settings),
+
+  onSettingsChanged: (callback) => {
+    const listener = (event, settings) => callback(settings);
+    ipcRenderer.on('settings:changed', listener);
+    return () => ipcRenderer.removeListener('settings:changed', listener);
   }
 });
 

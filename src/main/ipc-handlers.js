@@ -44,6 +44,19 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   });
 
   // ========================================
+  // 设置变更广播（跨窗口同步）
+  // ========================================
+  ipcMain.on('settings:broadcast', (event, settings) => {
+    const { BrowserWindow } = require('electron');
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('settings:changed', settings);
+      }
+    });
+  });
+
+  // ========================================
   // Config 相关
   // ========================================
 
