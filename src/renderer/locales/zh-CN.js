@@ -173,6 +173,10 @@ export default {
     scopeProject: '当前项目',
     scopeSession: '当前会话',
     export: '导出',
+    exportAllMd: '导出全部 (Markdown)',
+    exportAllJson: '导出全部 (JSON)',
+    exportSelectedMd: '导出选中 (Markdown)',
+    exportSelectedJson: '导出选中 (JSON)',
     exportSuccess: '已复制到剪贴板',
     exportFailed: '导出失败',
     // 同步相关

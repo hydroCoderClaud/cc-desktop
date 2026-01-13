@@ -173,6 +173,10 @@ export default {
     scopeProject: 'Current Project',
     scopeSession: 'Current Session',
     export: 'Export',
+    exportAllMd: 'Export All (Markdown)',
+    exportAllJson: 'Export All (JSON)',
+    exportSelectedMd: 'Export Selected (Markdown)',
+    exportSelectedJson: 'Export Selected (JSON)',
     exportSuccess: 'Copied to clipboard',
     exportFailed: 'Export failed',
     // Sync related

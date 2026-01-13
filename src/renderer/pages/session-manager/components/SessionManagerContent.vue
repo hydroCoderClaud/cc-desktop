@@ -330,10 +330,21 @@ const activeTagFilter = ref(null) // Currently selected tag for message filterin
 const sessionTagFilter = ref(null) // Currently selected tag for session filtering
 
 // Export options
-const exportOptions = computed(() => [
-  { label: 'Markdown', key: 'markdown' },
-  { label: 'JSON', key: 'json' }
-])
+const exportOptions = computed(() => {
+  const options = [
+    { label: t('sessionManager.exportAllMd'), key: 'all-markdown' },
+    { label: t('sessionManager.exportAllJson'), key: 'all-json' }
+  ]
+
+  // Add "export selected" options if a message is selected
+  if (selectedMessage.value) {
+    options.push({ type: 'divider', key: 'd1' })
+    options.push({ label: t('sessionManager.exportSelectedMd'), key: 'selected-markdown' })
+    options.push({ label: t('sessionManager.exportSelectedJson'), key: 'selected-json' })
+  }
+
+  return options
+})
 
 // Tag options for dropdown (legacy - kept for compatibility)
 const tagOptions = computed(() => {
@@ -923,17 +934,35 @@ const goToResult = (val) => {
 }
 
 // Export
-const handleExport = async (format) => {
+const handleExport = async (key) => {
   if (!selectedSession.value) return
 
   try {
-    const content = await invoke('exportSession', {
-      sessionId: selectedSession.value.id,
-      format
-    })
+    const [scope, format] = key.split('-') // e.g., 'all-markdown' -> ['all', 'markdown']
+    let content = ''
 
-    await navigator.clipboard.writeText(content)
-    message.success(t('sessionManager.exportSuccess'))
+    if (scope === 'all') {
+      // Export all messages via IPC
+      content = await invoke('exportSession', {
+        sessionId: selectedSession.value.id,
+        format
+      })
+    } else if (scope === 'selected' && selectedMessage.value) {
+      // Export selected message locally
+      const msg = selectedMessage.value
+      if (format === 'markdown') {
+        const role = msg.role === 'user' ? t('sessionManager.user') : t('sessionManager.assistant')
+        const time = formatTime(msg.timestamp)
+        content = `## ${role} (${time})\n\n${msg.content}\n`
+      } else {
+        content = JSON.stringify(msg, null, 2)
+      }
+    }
+
+    if (content) {
+      await navigator.clipboard.writeText(content)
+      message.success(t('sessionManager.exportSuccess'))
+    }
   } catch (err) {
     console.error('Export failed:', err)
     message.error(t('messages.operationFailed'))
