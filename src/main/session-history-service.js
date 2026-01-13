@@ -10,43 +10,13 @@ const path = require('path')
 const os = require('os')
 const readline = require('readline')
 const { createReadStream, existsSync } = require('fs')
+const { encodePath, decodePath } = require('./utils/path-utils')
 
 class SessionHistoryService {
   constructor() {
     this.claudeDir = path.join(os.homedir(), '.claude')
     this.projectsDir = path.join(this.claudeDir, 'projects')
     this.historyFile = path.join(this.claudeDir, 'history.jsonl')
-  }
-
-  /**
-   * Encode a project path to Claude's directory format
-   * C:\workspace\develop\xxx -> C--workspace-develop-xxx
-   * Note: : becomes - and \ becomes -, so C:\ becomes C--
-   */
-  encodePath(projectPath) {
-    return projectPath
-      .replace(/:/g, '-')
-      .replace(/\\/g, '-')
-      .replace(/\//g, '-')
-  }
-
-  /**
-   * Decode Claude's encoded path back to original
-   * C--workspace-develop-xxx -> C:\workspace\develop\xxx (on Windows)
-   */
-  decodePath(encodedPath) {
-    // Split by single dash and filter out empty parts (from double dashes)
-    const parts = encodedPath.split('-').filter(p => p !== '')
-
-    if (process.platform === 'win32') {
-      // First part is drive letter (e.g., C)
-      const drive = parts[0] + ':'
-      const rest = parts.slice(1).join('\\')
-      return drive + '\\' + rest
-    } else {
-      // Unix paths start with /
-      return '/' + parts.join('/')
-    }
   }
 
   /**
@@ -72,7 +42,7 @@ class SessionHistoryService {
 
           projects.push({
             encodedPath: entry.name,
-            path: this.decodePath(entry.name),
+            path: decodePath(entry.name),
             lastModified: stats.mtime,
             sessionCount: sessionFiles.length
           })
@@ -93,7 +63,7 @@ class SessionHistoryService {
    */
   async getProjectSessions(projectPath) {
     try {
-      const encodedPath = this.encodePath(projectPath)
+      const encodedPath = encodePath(projectPath)
       const projectDir = path.join(this.projectsDir, encodedPath)
 
       if (!existsSync(projectDir)) {
@@ -222,7 +192,7 @@ class SessionHistoryService {
    */
   async getSessionMessages(projectPath, sessionId) {
     try {
-      const encodedPath = this.encodePath(projectPath)
+      const encodedPath = encodePath(projectPath)
       const filePath = path.join(this.projectsDir, encodedPath, `${sessionId}.jsonl`)
 
       if (!existsSync(filePath)) {
@@ -319,7 +289,7 @@ class SessionHistoryService {
 
     try {
       const projects = projectPath
-        ? [{ encodedPath: this.encodePath(projectPath), path: projectPath }]
+        ? [{ encodedPath: encodePath(projectPath), path: projectPath }]
         : await this.getProjects()
 
       for (const project of projects) {

@@ -9,6 +9,7 @@ const { existsSync, createReadStream, statSync } = require('fs')
 const path = require('path')
 const os = require('os')
 const readline = require('readline')
+const { encodePath, decodePath, getProjectName } = require('./utils/path-utils')
 
 class SessionSyncService {
   constructor(sessionDatabase) {
@@ -17,39 +18,6 @@ class SessionSyncService {
     this.projectsDir = path.join(this.claudeDir, 'projects')
     this.syncing = false
     this.lastSyncStats = null
-  }
-
-  /**
-   * Encode a project path to Claude's directory format
-   */
-  encodePath(projectPath) {
-    return projectPath
-      .replace(/:/g, '-')
-      .replace(/\\/g, '-')
-      .replace(/\//g, '-')
-  }
-
-  /**
-   * Decode Claude's encoded path back to original
-   */
-  decodePath(encodedPath) {
-    const parts = encodedPath.split('-').filter(p => p !== '')
-
-    if (process.platform === 'win32') {
-      const drive = parts[0] + ':'
-      const rest = parts.slice(1).join('\\')
-      return drive + '\\' + rest
-    } else {
-      return '/' + parts.join('/')
-    }
-  }
-
-  /**
-   * Get project name from path
-   */
-  getProjectName(projectPath) {
-    const parts = projectPath.split(/[\\/]/)
-    return parts[parts.length - 1] || projectPath
   }
 
   /**
@@ -92,8 +60,8 @@ class SessionSyncService {
 
         try {
           const encodedPath = entry.name
-          const projectPath = this.decodePath(encodedPath)
-          const projectName = this.getProjectName(projectPath)
+          const projectPath = decodePath(encodedPath)
+          const projectName = getProjectName(projectPath)
 
           // Get or create project in database
           const project = this.db.getOrCreateProject(projectPath, encodedPath, projectName)
