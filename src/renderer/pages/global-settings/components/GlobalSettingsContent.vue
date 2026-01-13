@@ -1,5 +1,5 @@
 <template>
-  <div class="global-settings">
+  <div class="global-settings" :style="cssVars">
     <!-- Header -->
     <div class="header">
       <h1>{{ t('globalSettings.title') }}</h1>
@@ -113,7 +113,7 @@ import { useLocale } from '@composables/useLocale'
 
 const message = useMessage()
 const { invoke } = useIPC()
-const { isDark, setTheme } = useTheme()
+const { isDark, setTheme, cssVars } = useTheme()
 const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
 
 // Default values

@@ -2,7 +2,9 @@
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-dialog-provider>
-        <ProviderManagerContent />
+        <div class="app-container" :style="cssVars">
+          <ProviderManagerContent />
+        </div>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -13,9 +15,18 @@ import { onMounted } from 'vue'
 import { useTheme } from '@composables/useTheme'
 import ProviderManagerContent from './components/ProviderManagerContent.vue'
 
-const { naiveTheme, themeOverrides, initTheme } = useTheme()
+const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
 
 onMounted(() => {
   initTheme()
 })
 </script>
+
+<style>
+.app-container {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.2s, color 0.2s;
+}
+</style>
