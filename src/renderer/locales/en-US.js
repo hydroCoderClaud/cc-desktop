@@ -201,6 +201,7 @@ export default {
     favorite: 'Favorite',
     unfavorite: 'Unfavorite',
     favorites: 'Favorites',
+    showFavorites: 'Show favorites only',
     addNote: 'Add note',
     note: 'Note',
     notePlaceholder: 'Enter favorite note...',

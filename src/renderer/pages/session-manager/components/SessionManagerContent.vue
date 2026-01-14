@@ -78,6 +78,7 @@
         :session-tag-filter="sessionTagFilter"
         :all-tags="allTags"
         :loading-sessions="loadingSessions"
+        :show-favorites-only="showFavoritesOnly"
         @select="handleSelectSession"
         @filter="setSessionTagFilter"
         @add-tag="addSessionTag"
@@ -85,6 +86,7 @@
         @toggle-favorite="toggleFavorite"
         @manage-tags="showTagModal = true"
         @quick-add-tag="handleQuickAddSessionTag"
+        @toggle-favorites-filter="showFavoritesOnly = !showFavoritesOnly"
       />
 
       <!-- Right: Message Viewer -->
@@ -162,6 +164,7 @@ const showTagModal = ref(false)
 const messageTagsMap = ref({})
 const activeTagFilter = ref(null)
 const sessionTagFilter = ref(null)
+const showFavoritesOnly = ref(false)
 
 // Search
 const searchQuery = ref('')
@@ -186,12 +189,21 @@ const searchScopeOptions = computed(() => [
 ])
 
 const filteredSessions = computed(() => {
-  if (!sessionTagFilter.value) {
-    return sessions.value
+  let result = sessions.value
+
+  // Filter by favorites
+  if (showFavoritesOnly.value) {
+    result = result.filter(session => session.is_favorite)
   }
-  return sessions.value.filter(session =>
-    session.tags && session.tags.some(tag => tag.id === sessionTagFilter.value.id)
-  )
+
+  // Filter by tag
+  if (sessionTagFilter.value) {
+    result = result.filter(session =>
+      session.tags && session.tags.some(tag => tag.id === sessionTagFilter.value.id)
+    )
+  }
+
+  return result
 })
 
 const displayMessages = computed(() => {

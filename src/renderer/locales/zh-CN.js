@@ -201,6 +201,7 @@ export default {
     favorite: '收藏',
     unfavorite: '取消收藏',
     favorites: '收藏夹',
+    showFavorites: '只看收藏',
     addNote: '添加备注',
     note: '备注',
     notePlaceholder: '输入收藏备注...',

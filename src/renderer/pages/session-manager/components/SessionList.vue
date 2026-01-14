@@ -6,6 +6,13 @@
         <n-tag v-if="selectedProject" size="small" type="info">
           {{ filteredSessions.length }}
         </n-tag>
+        <!-- Favorite filter -->
+        <span
+          class="filter-icon"
+          :class="{ active: showFavoritesOnly }"
+          :title="showFavoritesOnly ? t('sessionManager.showAll') : t('sessionManager.showFavorites')"
+          @click="$emit('toggle-favorites-filter')"
+        >⭐</span>
         <!-- Session tag filter (click) -->
         <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper" v-click-outside="() => showTagFilter = false">
           <span class="filter-icon" :class="{ active: sessionTagFilter }" @click="showTagFilter = !showTagFilter">🏷️</span>
@@ -159,10 +166,14 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  loadingSessions: Boolean
+  loadingSessions: Boolean,
+  showFavoritesOnly: {
+    type: Boolean,
+    default: false
+  }
 })
 
-const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags', 'quick-add-tag'])
+const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags', 'quick-add-tag', 'toggle-favorites-filter'])
 
 // Handle tag filter selection
 const handleFilterSelect = (key) => {
