@@ -82,9 +82,27 @@
               </span>
               <div class="message-header-right">
                 <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-                <n-dropdown :options="messageTagOptions" @select="(tagId) => handleAddMessageTag(msg.id, tagId)">
-                  <span class="tag-action" @click.stop>🏷️</span>
-                </n-dropdown>
+                <div class="tag-action-wrapper" v-click-outside="() => openMessageTagId = null">
+                  <span class="tag-action" @click.stop="openMessageTagId = openMessageTagId === msg.id ? null : msg.id">🏷️</span>
+                  <div v-show="openMessageTagId === msg.id" class="tag-filter-dropdown message-tag-dropdown">
+                    <div class="tag-filter-list">
+                      <n-tag
+                        v-for="tag in allTags"
+                        :key="tag.id"
+                        size="small"
+                        :color="{ color: 'transparent', textColor: 'inherit', borderColor: tag.color }"
+                        class="tag-filter-item"
+                        @click.stop="handleAddMessageTagSelect(msg.id, tag.id)"
+                      >
+                        {{ tag.name }}
+                      </n-tag>
+                    </div>
+                    <div class="tag-filter-divider"></div>
+                    <div class="tag-filter-action" @click.stop="handleAddMessageTagSelect(msg.id, 'manage')">
+                      ⚙️ {{ t('sessionManager.manageTags') }}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <!-- Message tags -->
@@ -121,6 +139,7 @@ const { t } = useLocale()
 const message = useMessage()
 const scrollbarRef = ref(null)
 const showTagFilter = ref(false)
+const openMessageTagId = ref(null)
 
 // Click outside directive
 const vClickOutside = {
@@ -180,17 +199,15 @@ const handleFilterSelect = (key) => {
   emit('filter', key)
 }
 
-// Message tag dropdown options
-const messageTagOptions = computed(() => {
-  const options = props.allTags.map(tag => ({
-    label: tag.name,
-    key: tag.id,
-    props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
-  }))
-  options.push({ type: 'divider', key: 'd1' })
-  options.push({ label: '⚙️ ' + t('sessionManager.manageTags'), key: 'manage' })
-  return options
-})
+// Handle add message tag selection
+const handleAddMessageTagSelect = (messageId, tagId) => {
+  openMessageTagId.value = null
+  if (tagId === 'manage') {
+    emit('manage-tags')
+  } else {
+    emit('add-message-tag', messageId, tagId)
+  }
+}
 
 // Export options
 const exportOptions = computed(() => {
@@ -225,14 +242,6 @@ const copyOptions = computed(() => {
 
   return options
 })
-
-const handleAddMessageTag = (messageId, tagId) => {
-  if (tagId === 'manage') {
-    emit('manage-tags')
-  } else {
-    emit('add-message-tag', messageId, tagId)
-  }
-}
 
 const handleCopy = (key) => {
   emit('copy', key)
@@ -428,6 +437,34 @@ defineExpose({
 
 .tag-action:hover {
   opacity: 1;
+}
+
+.tag-action-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.message-tag-dropdown {
+  right: 0;
+  left: auto;
+}
+
+.tag-filter-divider {
+  height: 1px;
+  background: var(--border-color, #e0e0e0);
+  margin: 8px 0;
+}
+
+.tag-filter-action {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.tag-filter-action:hover {
+  background: var(--hover-color, #f5f5f5);
 }
 
 .message-tags {

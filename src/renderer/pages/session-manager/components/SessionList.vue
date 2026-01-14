@@ -32,11 +32,28 @@
           </div>
         </div>
       </div>
-      <n-space v-if="selectedSession" :size="4">
-        <n-dropdown :options="addTagOptions" @select="handleAddTag">
-          <n-button size="tiny" quaternary :title="t('sessionManager.addTag')">+🏷️</n-button>
-        </n-dropdown>
-      </n-space>
+      <!-- Add tag to session -->
+      <div v-if="selectedSession" class="tag-filter-wrapper" v-click-outside="() => showAddTag = false">
+        <span class="filter-icon" @click="showAddTag = !showAddTag" :title="t('sessionManager.addTag')">+🏷️</span>
+        <div v-show="showAddTag" class="tag-filter-dropdown" style="right: 0; left: auto;">
+          <div class="tag-filter-list">
+            <n-tag
+              v-for="tag in allTags"
+              :key="tag.id"
+              size="small"
+              :color="{ color: 'transparent', textColor: 'inherit', borderColor: tag.color }"
+              class="tag-filter-item"
+              @click="handleAddTagSelect(tag.id)"
+            >
+              {{ tag.name }}
+            </n-tag>
+          </div>
+          <div class="tag-filter-divider"></div>
+          <div class="tag-filter-action" @click="handleAddTagSelect('manage')">
+            ⚙️ {{ t('sessionManager.manageTags') }}
+          </div>
+        </div>
+      </div>
     </div>
     <n-scrollbar style="max-height: calc(100vh - 220px)">
       <n-spin :show="loadingSessions">
@@ -99,6 +116,7 @@ import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
 const showTagFilter = ref(false)
+const showAddTag = ref(false)
 
 // Click outside directive
 const vClickOutside = {
@@ -142,19 +160,9 @@ const handleFilterSelect = (key) => {
   emit('filter', key)
 }
 
-// Add tag dropdown options
-const addTagOptions = computed(() => {
-  const options = props.allTags.map(tag => ({
-    label: tag.name,
-    key: tag.id,
-    props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
-  }))
-  options.push({ type: 'divider', key: 'd1' })
-  options.push({ label: '⚙️ ' + t('sessionManager.manageTags'), key: 'manage' })
-  return options
-})
-
-const handleAddTag = (key) => {
+// Handle add tag selection
+const handleAddTagSelect = (key) => {
+  showAddTag.value = false
   if (key === 'manage') {
     emit('manage-tags')
   } else {
@@ -351,6 +359,24 @@ const formatDate = (timestamp) => {
 
 .tag-filter-item:hover {
   transform: scale(1.05);
+}
+
+.tag-filter-divider {
+  height: 1px;
+  background: var(--border-color, #e0e0e0);
+  margin: 8px 0;
+}
+
+.tag-filter-action {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.tag-filter-action:hover {
+  background: var(--hover-color, #f5f5f5);
 }
 
 :root[data-theme="dark"] .session-list-panel {
