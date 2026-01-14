@@ -7,15 +7,39 @@
           {{ filteredSessions.length }}
         </n-tag>
         <!-- Session tag filter -->
-        <n-dropdown
-          v-if="sessionFilterOptions.length > 1"
-          :options="sessionFilterOptions"
-          @select="$emit('filter', $event)"
+        <n-popover
+          v-if="sessionFilterTagList.length > 0"
+          trigger="click"
+          placement="bottom-start"
+          :show-arrow="false"
         >
-          <n-button size="tiny" quaternary :type="sessionTagFilter ? 'primary' : 'default'">
-            {{ sessionTagFilter ? sessionTagFilter.name : t('sessionManager.filterByTag') }}
-          </n-button>
-        </n-dropdown>
+          <template #trigger>
+            <n-button size="tiny" quaternary :type="sessionTagFilter ? 'primary' : 'default'">
+              {{ sessionTagFilter ? sessionTagFilter.name : t('sessionManager.filterByTag') }}
+            </n-button>
+          </template>
+          <div class="tag-filter-popover">
+            <div
+              class="tag-filter-all"
+              :class="{ active: !sessionTagFilter }"
+              @click="$emit('filter', 'all')"
+            >
+              {{ t('sessionManager.showAll') }}
+            </div>
+            <div class="tag-filter-list">
+              <n-tag
+                v-for="{ tag, count } in sessionFilterTagList"
+                :key="tag.id"
+                size="small"
+                :color="{ color: sessionTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: sessionTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
+                class="tag-filter-item"
+                @click="$emit('filter', tag.id)"
+              >
+                {{ tag.name }} ({{ count }})
+              </n-tag>
+            </div>
+          </div>
+        </n-popover>
       </div>
       <n-space v-if="selectedSession" :size="4">
         <n-dropdown :options="addTagOptions" @select="handleAddTag">
@@ -104,26 +128,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags'])
-
-// Session filter dropdown options
-const sessionFilterOptions = computed(() => {
-  const options = [
-    { label: t('sessionManager.showAll'), key: 'all' }
-  ]
-
-  if (props.sessionFilterTagList.length > 0) {
-    options.push({ type: 'divider', key: 'd0' })
-    props.sessionFilterTagList.forEach(({ tag, count }) => {
-      options.push({
-        label: `${tag.name} (${count})`,
-        key: tag.id,
-        props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
-      })
-    })
-  }
-
-  return options
-})
 
 // Add tag dropdown options
 const addTagOptions = computed(() => {
@@ -268,6 +272,43 @@ const formatDate = (timestamp) => {
   text-align: center;
 }
 
+.tag-filter-popover {
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.tag-filter-all {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.tag-filter-all:hover {
+  background: var(--hover-color, #f5f5f5);
+}
+
+.tag-filter-all.active {
+  background: var(--primary-color-light, #e6f4ff);
+  color: var(--primary-color, #1890ff);
+}
+
+.tag-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-filter-item {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-filter-item:hover {
+  transform: scale(1.05);
+}
+
 :root[data-theme="dark"] .session-list-panel {
   background: #252525;
   border-color: #333;
@@ -283,5 +324,13 @@ const formatDate = (timestamp) => {
 
 :root[data-theme="dark"] .model-tag {
   background: #444;
+}
+
+:root[data-theme="dark"] .tag-filter-all:hover {
+  background: #333;
+}
+
+:root[data-theme="dark"] .tag-filter-all.active {
+  background: #2a3f4f;
 }
 </style>

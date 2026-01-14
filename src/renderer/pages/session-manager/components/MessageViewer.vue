@@ -4,15 +4,39 @@
       <div class="panel-header-left">
         <span>{{ t('sessionManager.conversation') }}</span>
         <!-- Tag filter dropdown -->
-        <n-dropdown
-          v-if="tagFilterOptions.length > 1"
-          :options="tagFilterOptions"
-          @select="$emit('filter', $event)"
+        <n-popover
+          v-if="messageFilterTagList.length > 0"
+          trigger="click"
+          placement="bottom-start"
+          :show-arrow="false"
         >
-          <n-button size="tiny" quaternary :type="activeTagFilter ? 'primary' : 'default'">
-            {{ activeTagFilter ? activeTagFilter.name : t('sessionManager.filterByTag') }}
-          </n-button>
-        </n-dropdown>
+          <template #trigger>
+            <n-button size="tiny" quaternary :type="activeTagFilter ? 'primary' : 'default'">
+              {{ activeTagFilter ? activeTagFilter.name : t('sessionManager.filterByTag') }}
+            </n-button>
+          </template>
+          <div class="tag-filter-popover">
+            <div
+              class="tag-filter-all"
+              :class="{ active: !activeTagFilter }"
+              @click="$emit('filter', 'all')"
+            >
+              {{ t('sessionManager.showAll') }}
+            </div>
+            <div class="tag-filter-list">
+              <n-tag
+                v-for="{ tag, count } in messageFilterTagList"
+                :key="tag.id"
+                size="small"
+                :color="{ color: activeTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: activeTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
+                class="tag-filter-item"
+                @click="$emit('filter', tag.id)"
+              >
+                {{ tag.name }} ({{ count }})
+              </n-tag>
+            </div>
+          </div>
+        </n-popover>
       </div>
       <n-space v-if="selectedSession" align="center">
         <span class="select-hint">{{ t('sessionManager.selectHint') }}，Ctrl+C {{ t('sessionManager.copyShortcut') }}</span>
@@ -142,26 +166,6 @@ const emit = defineEmits([
   'copy',
   'export'
 ])
-
-// Tag filter dropdown options
-const tagFilterOptions = computed(() => {
-  const options = [
-    { label: t('sessionManager.showAll'), key: 'all' }
-  ]
-
-  if (props.messageFilterTagList.length > 0) {
-    options.push({ type: 'divider', key: 'd0' })
-    props.messageFilterTagList.forEach(({ tag, count }) => {
-      options.push({
-        label: `${tag.name} (${count})`,
-        key: tag.id,
-        props: { style: `border-left: 3px solid ${tag.color}; padding-left: 8px;` }
-      })
-    })
-  }
-
-  return options
-})
 
 // Message tag dropdown options
 const messageTagOptions = computed(() => {
@@ -447,6 +451,43 @@ defineExpose({
   text-align: center;
 }
 
+.tag-filter-popover {
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.tag-filter-all {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.tag-filter-all:hover {
+  background: var(--hover-color, #f5f5f5);
+}
+
+.tag-filter-all.active {
+  background: var(--primary-color-light, #e6f4ff);
+  color: var(--primary-color, #1890ff);
+}
+
+.tag-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-filter-item {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-filter-item:hover {
+  transform: scale(1.05);
+}
+
 @keyframes highlight-pulse {
   0%, 100% { outline-color: var(--primary-color, #1890ff); }
   50% { outline-color: #52c41a; }
@@ -471,5 +512,13 @@ defineExpose({
 
 :root[data-theme="dark"] .message-content :deep(.external-link:hover) {
   color: #91caff;
+}
+
+:root[data-theme="dark"] .tag-filter-all:hover {
+  background: #333;
+}
+
+:root[data-theme="dark"] .tag-filter-all.active {
+  background: #2a3f4f;
 }
 </style>
