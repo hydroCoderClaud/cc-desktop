@@ -6,14 +6,14 @@
         <n-tag v-if="selectedProject" size="small" type="info">
           {{ filteredSessions.length }}
         </n-tag>
-        <!-- Session tag filter (CSS hover) -->
-        <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper">
-          <span class="filter-icon" :class="{ active: sessionTagFilter }">🏷️</span>
-          <div class="tag-filter-dropdown">
+        <!-- Session tag filter (click) -->
+        <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper" v-click-outside="() => showTagFilter = false">
+          <span class="filter-icon" :class="{ active: sessionTagFilter }" @click="showTagFilter = !showTagFilter">🏷️</span>
+          <div v-show="showTagFilter" class="tag-filter-dropdown">
             <div
               class="tag-filter-all"
               :class="{ active: !sessionTagFilter }"
-              @click="$emit('filter', 'all')"
+              @click="handleFilterSelect('all')"
             >
               {{ t('sessionManager.showAll') }}
             </div>
@@ -24,7 +24,7 @@
                 size="small"
                 :color="{ color: sessionTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: sessionTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
                 class="tag-filter-item"
-                @click="$emit('filter', tag.id)"
+                @click="handleFilterSelect(tag.id)"
               >
                 {{ tag.name }} ({{ count }})
               </n-tag>
@@ -94,10 +94,26 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
+const showTagFilter = ref(false)
+
+// Click outside directive
+const vClickOutside = {
+  mounted(el, binding) {
+    el._clickOutside = (e) => {
+      if (!el.contains(e.target)) {
+        binding.value(e)
+      }
+    }
+    document.addEventListener('click', el._clickOutside)
+  },
+  unmounted(el) {
+    document.removeEventListener('click', el._clickOutside)
+  }
+}
 
 const props = defineProps({
   selectedProject: Object,
@@ -119,6 +135,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags'])
+
+// Handle tag filter selection
+const handleFilterSelect = (key) => {
+  showTagFilter.value = false
+  emit('filter', key)
+}
 
 // Add tag dropdown options
 const addTagOptions = computed(() => {
@@ -198,7 +220,6 @@ const formatDate = (timestamp) => {
 }
 
 .tag-filter-dropdown {
-  display: none;
   position: absolute;
   top: 100%;
   left: 0;
@@ -210,10 +231,6 @@ const formatDate = (timestamp) => {
   border-radius: 6px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
   margin-top: 4px;
-}
-
-.tag-filter-wrapper:hover .tag-filter-dropdown {
-  display: block;
 }
 
 .session-item {
