@@ -186,8 +186,8 @@ export default {
     exportSelectedJson: '导出选中 (JSON)',
     exportSuccess: '导出成功',
     exportFailed: '导出失败',
-    selectHint: '单击选中，Ctrl+点击多选',
-    copyShortcut: '复制',
+    selectHint: '点击选中消息，Ctrl+C 复制（优先复制划选文字）',
+    copyShortcut: '',
     // 同步相关
     sync: '同步',
     syncNow: '立即同步',

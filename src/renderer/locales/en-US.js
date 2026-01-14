@@ -186,8 +186,8 @@ export default {
     exportSelectedJson: 'Export Selected (JSON)',
     exportSuccess: 'Export successful',
     exportFailed: 'Export failed',
-    selectHint: 'Click to select, Ctrl+click to multi-select',
-    copyShortcut: 'copy',
+    selectHint: 'Click to select message, Ctrl+C to copy (text selection takes priority)',
+    copyShortcut: '',
     // Sync related
     sync: 'Sync',
     syncNow: 'Sync Now',

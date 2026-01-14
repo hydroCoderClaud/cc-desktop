@@ -30,7 +30,7 @@
         </div>
       </div>
       <n-space v-if="selectedSession" align="center">
-        <span class="select-hint">{{ t('sessionManager.selectHint') }}，Ctrl+C {{ t('sessionManager.copyShortcut') }}</span>
+        <span class="select-hint">{{ t('sessionManager.selectHint') }}</span>
         <span class="nav-buttons">
           <n-tooltip>
             <template #trigger>
