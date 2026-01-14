@@ -6,21 +6,17 @@
         <!-- Tag filter dropdown -->
         <n-popover
           v-if="messageFilterTagList.length > 0"
-          v-model:show="showTagFilter"
-          trigger="click"
+          trigger="hover"
           placement="bottom-start"
-          :show-arrow="false"
         >
           <template #trigger>
-            <n-button size="tiny" quaternary :type="activeTagFilter ? 'primary' : 'default'">
-              {{ activeTagFilter ? activeTagFilter.name : t('sessionManager.filterByTag') }}
-            </n-button>
+            <span class="filter-icon" :class="{ active: activeTagFilter }">🏷️</span>
           </template>
           <div class="tag-filter-popover">
             <div
               class="tag-filter-all"
               :class="{ active: !activeTagFilter }"
-              @click="handleFilterSelect('all')"
+              @click="$emit('filter', 'all')"
             >
               {{ t('sessionManager.showAll') }}
             </div>
@@ -31,7 +27,7 @@
                 size="small"
                 :color="{ color: activeTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: activeTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
                 class="tag-filter-item"
-                @click="handleFilterSelect(tag.id)"
+                @click="$emit('filter', tag.id)"
               >
                 {{ tag.name }} ({{ count }})
               </n-tag>
@@ -130,7 +126,6 @@ import { useLocale } from '@composables/useLocale'
 const { t } = useLocale()
 const message = useMessage()
 const scrollbarRef = ref(null)
-const showTagFilter = ref(false)
 
 const props = defineProps({
   selectedSession: Object,
@@ -168,12 +163,6 @@ const emit = defineEmits([
   'copy',
   'export'
 ])
-
-// Handle tag filter selection
-const handleFilterSelect = (key) => {
-  showTagFilter.value = false
-  emit('filter', key)
-}
 
 // Message tag dropdown options
 const messageTagOptions = computed(() => {
@@ -337,6 +326,18 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.filter-icon {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.filter-icon:hover,
+.filter-icon.active {
+  opacity: 1;
 }
 
 .messages-container {

@@ -9,21 +9,17 @@
         <!-- Session tag filter -->
         <n-popover
           v-if="sessionFilterTagList.length > 0"
-          v-model:show="showTagFilter"
-          trigger="click"
+          trigger="hover"
           placement="bottom-start"
-          :show-arrow="false"
         >
           <template #trigger>
-            <n-button size="tiny" quaternary :type="sessionTagFilter ? 'primary' : 'default'">
-              {{ sessionTagFilter ? sessionTagFilter.name : t('sessionManager.filterByTag') }}
-            </n-button>
+            <span class="filter-icon" :class="{ active: sessionTagFilter }">🏷️</span>
           </template>
           <div class="tag-filter-popover">
             <div
               class="tag-filter-all"
               :class="{ active: !sessionTagFilter }"
-              @click="handleFilterSelect('all')"
+              @click="$emit('filter', 'all')"
             >
               {{ t('sessionManager.showAll') }}
             </div>
@@ -34,7 +30,7 @@
                 size="small"
                 :color="{ color: sessionTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: sessionTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
                 class="tag-filter-item"
-                @click="handleFilterSelect(tag.id)"
+                @click="$emit('filter', tag.id)"
               >
                 {{ tag.name }} ({{ count }})
               </n-tag>
@@ -104,11 +100,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
-const showTagFilter = ref(false)
 
 const props = defineProps({
   selectedProject: Object,
@@ -130,12 +125,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags'])
-
-// Handle tag filter selection
-const handleFilterSelect = (key) => {
-  showTagFilter.value = false
-  emit('filter', key)
-}
 
 // Add tag dropdown options
 const addTagOptions = computed(() => {
@@ -195,6 +184,18 @@ const formatDate = (timestamp) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.filter-icon {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.filter-icon:hover,
+.filter-icon.active {
+  opacity: 1;
 }
 
 .session-item {
