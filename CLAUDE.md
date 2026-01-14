@@ -113,15 +113,29 @@ src/
 │   ├── index.js              # App lifecycle, window creation
 │   ├── config-manager.js     # Config file I/O and project list
 │   ├── terminal-manager.js   # PTY spawn/kill/write/resize
-│   └── ipc-handlers.js       # IPC channel definitions
+│   ├── ipc-handlers.js       # IPC channel definitions
+│   ├── session-manager.js    # SQLite database operations for session history
+│   ├── session-handlers.js   # Session-related IPC handlers
+│   └── utils/
+│       ├── constants.js      # Shared constants
+│       └── path-utils.js     # Path resolution utilities
 │
 ├── preload/
 │   └── preload.js            # contextBridge API (security)
 │
 └── renderer/                 # Renderer process (Browser)
     ├── index.html            # UI with xterm.js from CDN
-    └── js/
-        └── app.js            # Main app logic, xterm integration
+    ├── js/
+    │   └── app.js            # Main app logic, xterm integration
+    └── pages/
+        └── session-manager/  # Session history Vue page
+            ├── SessionManager.vue
+            └── components/
+                ├── SessionManagerContent.vue
+                ├── ProjectList.vue
+                ├── SessionList.vue
+                ├── MessageViewer.vue
+                └── TagManager.vue
 ```
 
 ## Security Model
@@ -223,6 +237,107 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 ---
 
 ## Recent Development History
+
+### 2026-01-14: Session History Management (v1.1.0-alpha)
+
+**Feature Overview:**
+Complete session history management system allowing users to browse, search, tag, and export their Claude Code conversation history synced from `~/.claude` directory.
+
+**Core Features Implemented:**
+
+1. **SQLite Database Storage**
+   - Using `better-sqlite3` for synchronous, performant database operations
+   - Tables: `projects`, `sessions`, `messages`, `tags`, `session_tags`, `message_tags`
+   - FTS5 full-text search for message content
+   - Automatic schema migrations with version tracking
+   - ON DELETE CASCADE for tag cleanup
+
+2. **Data Synchronization**
+   - Sync from `~/.claude/projects/` directory structure
+   - Parses JSONL conversation files
+   - Incremental sync (tracks last sync time)
+   - Displays sync status with new message count
+
+3. **Two-Level Tag System**
+   - Session tags: Tag entire conversations
+   - Message tags: Tag individual messages
+   - Flow layout tag UI (click to show dropdown)
+   - Quick add tag feature (inline input + plus button)
+   - Tag management modal with color picker
+   - Tag filtering for both sessions and messages
+
+4. **Favorites System**
+   - Star sessions as favorites
+   - Filter to show favorites only (⭐ button)
+   - Favorite notes support
+
+5. **Export & Copy Features**
+   - Export to Markdown or JSON
+   - Export all or selected messages
+   - Ctrl+C copy (prioritizes text selection over message selection)
+   - Copy all/selected in Markdown or JSON format
+
+6. **Navigation Features**
+   - Go to oldest/newest message buttons
+   - Auto-scroll to latest message on load
+   - Keyboard shortcut hints
+
+**Code Refactoring:**
+
+1. **Path Utils Extraction** (commit a5d139c)
+   - Created `src/main/utils/path-utils.js`
+   - Centralized path resolution functions
+   - Reused in session-handlers.js and config-manager.js
+
+2. **Vue Component Split** (commit 9df7ffc)
+   - Split `SessionManagerContent.vue` (1553 → 780 lines)
+   - Extracted: `ProjectList.vue`, `SessionList.vue`, `MessageViewer.vue`, `TagManager.vue`
+   - Improved maintainability and reusability
+
+3. **IPC Handlers Extraction** (commit ed4b194)
+   - Created `src/main/session-handlers.js`
+   - Separated session-related IPC handlers from main ipc-handlers.js
+   - Cleaner code organization
+
+**UI Improvements:**
+
+- Tag filter changed from vertical list to flow layout (commit 1427cd3)
+- Tag filter trigger changed from hover to click (commit 3b0df42)
+- Add tag dropdown also uses flow layout (commit 6b229ee)
+- Quick add tag input in dropdowns (commit 3cc06b7)
+- Tag manager modal beautification - unified heights (commit 54861af)
+- Favorites filter button in session list (commit fb8ee7f)
+- Ctrl+C prioritizes text selection (commit 06fd14b)
+
+**File Structure:**
+```
+src/
+├── main/
+│   ├── session-manager.js      # SQLite database operations
+│   ├── session-handlers.js     # Session-related IPC handlers
+│   └── utils/
+│       └── path-utils.js       # Path resolution utilities
+│
+└── renderer/
+    └── pages/
+        └── session-manager/
+            ├── SessionManager.vue           # Page wrapper
+            └── components/
+                ├── SessionManagerContent.vue # Main container
+                ├── ProjectList.vue           # Project list panel
+                ├── SessionList.vue           # Session list panel
+                ├── MessageViewer.vue         # Message display panel
+                └── TagManager.vue            # Tag management modal
+```
+
+**Key Technical Decisions:**
+
+- **Click vs Hover for dropdowns**: Hover caused UX issues (dropdown hiding when moving mouse), switched to click trigger with `v-click-outside` directive
+- **Text selection priority**: `window.getSelection()` check before intercepting Ctrl+C
+- **Tag deletion cascade**: SQLite foreign keys with ON DELETE CASCADE automatically clean up tag associations
+- **Flow layout for tags**: CSS flex-wrap for better space utilization
+
+---
 
 ### 2026-01-13: Service Provider & Custom Model Management (v1.0.1)
 
@@ -356,9 +471,9 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.0.2 (2026-01-13)
+### ✅ Current Version: v1.1.0-alpha (2026-01-14)
 
-**Status**: 🟢 Stable and fully functional
+**Status**: 🟢 Session history feature complete
 
 **What's Working:**
 - ✅ Service provider management (add/edit/delete custom providers)
@@ -366,30 +481,34 @@ src/renderer/js/
 - ✅ Custom model management per profile
 - ✅ Connection testing with proxy support
 - ✅ Global settings (models, timeout)
-- ✅ Code refactored with shared modules
-- ✅ All features tested and validated
+- ✅ **Session history management (NEW)**
+  - SQLite storage with FTS5 full-text search
+  - Sync from ~/.claude directory
+  - Two-level tag system (session + message tags)
+  - Favorites with filtering
+  - Export/copy (Markdown/JSON)
+- ✅ Code refactored (path-utils, Vue components, IPC handlers)
 
 ### 🎯 Next Steps (Immediate)
 
-**Priority 1 - Code Quality**
-- [ ] Consider extracting global-settings.js model constants to shared-constants.js (optional)
+**Priority 1 - Vue 3 + Naive UI Migration** (In Progress)
+- [ ] Test all Vue pages in Vite dev mode
+- [ ] Verify IPC communication
+- [ ] Configure Vite production build
+- [ ] Update electron-builder config
+- [ ] Remove old HTML/JS files
+
+**Priority 2 - Code Quality**
 - [ ] Add unit tests for core ConfigManager methods
 - [ ] Improve error messages with user-friendly translations
 
-**Priority 2 - Small Enhancements**
-- [ ] Add loading indicators for async operations
-- [ ] Implement form validation feedback improvements
-- [ ] Optimize re-rendering in profile/provider lists
+**Priority 3 - Small Enhancements**
+- [ ] Optimize loading indicators
+- [ ] Improve form validation feedback
 
 ### 🚀 Future Roadmap
 
-See detailed plans in `docs/CHANGELOG.md` (末尾"未来版本计划"章节):
-
-**v1.1.0** - UI Enhancements
-- Settings dialog GUI
-- Right-click context menu for projects
-- Terminal font/size settings
-- Custom project icons
+See detailed plans in `docs/CHANGELOG.md`:
 
 **v1.2.0** - Advanced Features
 - Multiple terminal tabs

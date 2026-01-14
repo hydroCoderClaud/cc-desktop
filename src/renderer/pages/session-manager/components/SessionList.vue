@@ -12,7 +12,7 @@
           :class="{ active: showFavoritesOnly }"
           :title="showFavoritesOnly ? t('sessionManager.showAll') : t('sessionManager.showFavorites')"
           @click="$emit('toggle-favorites-filter')"
-        >⭐</span>
+        >{{ showFavoritesOnly ? '⭐' : '☆' }}</span>
         <!-- Session tag filter (click) -->
         <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper" v-click-outside="() => showTagFilter = false">
           <span class="filter-icon" :class="{ active: sessionTagFilter }" @click="showTagFilter = !showTagFilter">🏷️</span>
@@ -127,28 +127,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { vClickOutside } from '@composables/useClickOutside'
+import { formatDate } from '@composables/useFormatters'
 
 const { t } = useLocale()
 const showTagFilter = ref(false)
 const showAddTag = ref(false)
 const quickTagName = ref('')
-
-// Click outside directive
-const vClickOutside = {
-  mounted(el, binding) {
-    el._clickOutside = (e) => {
-      if (!el.contains(e.target)) {
-        binding.value(e)
-      }
-    }
-    document.addEventListener('click', el._clickOutside)
-  },
-  unmounted(el) {
-    document.removeEventListener('click', el._clickOutside)
-  }
-}
 
 const props = defineProps({
   selectedProject: Object,
@@ -198,21 +185,11 @@ const handleQuickAddTag = () => {
   emit('quick-add-tag', { sessionId: props.selectedSession.id, name })
   quickTagName.value = ''
 }
-
-const formatDate = (timestamp) => {
-  if (!timestamp) return ''
-  const d = new Date(timestamp)
-  return d.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 </script>
 
 <style scoped>
+@import '../styles/tag-dropdown.css';
+
 .session-list-panel {
   width: 320px;
   flex-shrink: 0;
@@ -237,37 +214,6 @@ const formatDate = (timestamp) => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.tag-filter-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.filter-icon {
-  cursor: pointer;
-  font-size: 14px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
-}
-
-.filter-icon:hover,
-.filter-icon.active {
-  opacity: 1;
-}
-
-.tag-filter-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 1000;
-  min-width: 160px;
-  max-width: 280px;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
-  margin-top: 4px;
 }
 
 .session-item {
@@ -353,98 +299,6 @@ const formatDate = (timestamp) => {
   text-align: center;
 }
 
-.tag-filter-popover {
-  min-width: 160px;
-  max-width: 280px;
-}
-
-.tag-filter-all {
-  padding: 6px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.tag-filter-all:hover {
-  background: var(--hover-color, #f5f5f5);
-}
-
-.tag-filter-all.active {
-  background: var(--primary-color-light, #e6f4ff);
-  color: var(--primary-color, #1890ff);
-}
-
-.tag-filter-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-filter-item {
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.tag-filter-item:hover {
-  transform: scale(1.05);
-}
-
-.tag-filter-divider {
-  height: 1px;
-  background: var(--border-color, #e0e0e0);
-  margin: 8px 0;
-}
-
-.tag-filter-action {
-  padding: 6px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #666;
-}
-
-.tag-filter-action:hover {
-  background: var(--hover-color, #f5f5f5);
-}
-
-.quick-add-row {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.quick-add-input {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 4px;
-  font-size: 12px;
-  outline: none;
-}
-
-.quick-add-input:focus {
-  border-color: var(--primary-color, #1890ff);
-}
-
-.quick-add-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary-color, #1890ff);
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.quick-add-btn:hover {
-  opacity: 0.8;
-}
-
 :root[data-theme="dark"] .session-list-panel {
   background: #252525;
   border-color: #333;
@@ -460,28 +314,5 @@ const formatDate = (timestamp) => {
 
 :root[data-theme="dark"] .model-tag {
   background: #444;
-}
-
-:root[data-theme="dark"] .tag-filter-dropdown {
-  background: #333;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
-}
-
-:root[data-theme="dark"] .tag-filter-all:hover {
-  background: #444;
-}
-
-:root[data-theme="dark"] .tag-filter-all.active {
-  background: #2a3f4f;
-}
-
-:root[data-theme="dark"] .quick-add-input {
-  background: #444;
-  border-color: #555;
-  color: #fff;
-}
-
-:root[data-theme="dark"] .quick-add-input:focus {
-  border-color: var(--primary-color, #1890ff);
 }
 </style>

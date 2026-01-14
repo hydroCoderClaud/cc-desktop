@@ -1,0 +1,150 @@
+/**
+ * Shared Tag Dropdown Styles
+ * Used by SessionList.vue and MessageViewer.vue
+ */
+
+.tag-filter-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.filter-icon {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.filter-icon:hover,
+.filter-icon.active {
+  opacity: 1;
+}
+
+.tag-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 160px;
+  max-width: 280px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+}
+
+.tag-filter-all {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.tag-filter-all:hover {
+  background: var(--hover-color, #f5f5f5);
+}
+
+.tag-filter-all.active {
+  background: var(--primary-color-light, #e6f4ff);
+  color: var(--primary-color, #1890ff);
+}
+
+.tag-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-filter-item {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-filter-item:hover {
+  transform: scale(1.05);
+}
+
+.tag-filter-divider {
+  height: 1px;
+  background: var(--border-color, #e0e0e0);
+  margin: 8px 0;
+}
+
+.tag-filter-action {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.tag-filter-action:hover {
+  background: var(--hover-color, #f5f5f5);
+}
+
+.quick-add-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
+}
+
+.quick-add-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color, #1890ff);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.quick-add-btn:hover {
+  opacity: 0.8;
+}
+
+/* Dark mode */
+:root[data-theme="dark"] .tag-filter-dropdown {
+  background: #333;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .tag-filter-all:hover {
+  background: #444;
+}
+
+:root[data-theme="dark"] .tag-filter-all.active {
+  background: #2a3f4f;
+}
+
+:root[data-theme="dark"] .tag-filter-action:hover {
+  background: #444;
+}
+
+:root[data-theme="dark"] .quick-add-input {
+  background: #444;
+  border-color: #555;
+  color: #fff;
+}
+
+:root[data-theme="dark"] .quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
+}

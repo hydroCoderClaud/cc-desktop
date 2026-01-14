@@ -140,9 +140,11 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import { vClickOutside } from '@composables/useClickOutside'
+import { formatTime, scrollToElement } from '@composables/useFormatters'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -150,21 +152,6 @@ const scrollbarRef = ref(null)
 const showTagFilter = ref(false)
 const openMessageTagId = ref(null)
 const quickTagName = ref('')
-
-// Click outside directive
-const vClickOutside = {
-  mounted(el, binding) {
-    el._clickOutside = (e) => {
-      if (!el.contains(e.target)) {
-        binding.value(e)
-      }
-    }
-    document.addEventListener('click', el._clickOutside)
-  },
-  unmounted(el) {
-    document.removeEventListener('click', el._clickOutside)
-  }
-}
 
 const props = defineProps({
   selectedSession: Object,
@@ -270,23 +257,6 @@ const handleExport = (key) => {
   emit('export', key)
 }
 
-const scrollToElement = (selector, delay = 0) => {
-  setTimeout(() => {
-    const el = document.querySelector(selector)
-    if (el) {
-      const scrollContainer = el.closest('.n-scrollbar-container')
-      if (scrollContainer) {
-        const containerRect = scrollContainer.getBoundingClientRect()
-        const elRect = el.getBoundingClientRect()
-        const scrollTop = scrollContainer.scrollTop + (elRect.top - containerRect.top) - (containerRect.height / 2) + (elRect.height / 2)
-        scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' })
-      } else {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }
-  }, delay)
-}
-
 const scrollToOldest = () => {
   if (props.displayMessages.length > 0) {
     const firstMsg = props.displayMessages[0]
@@ -299,16 +269,6 @@ const scrollToNewest = () => {
     const lastMsg = props.displayMessages[props.displayMessages.length - 1]
     scrollToElement(`[data-message-id="${lastMsg.id}"]`, 0)
   }
-}
-
-const formatTime = (timestamp) => {
-  if (!timestamp) return ''
-  const d = new Date(timestamp)
-  return d.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 }
 
 const formatContent = (content) => {
@@ -346,6 +306,8 @@ defineExpose({
 </script>
 
 <style scoped>
+@import '../styles/tag-dropdown.css';
+
 .message-viewer-panel {
   flex: 1;
   background: var(--bg-color-secondary, #fff);
@@ -370,37 +332,6 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.tag-filter-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.filter-icon {
-  cursor: pointer;
-  font-size: 14px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
-}
-
-.filter-icon:hover,
-.filter-icon.active {
-  opacity: 1;
-}
-
-.tag-filter-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 1000;
-  min-width: 160px;
-  max-width: 280px;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
-  margin-top: 4px;
 }
 
 .messages-container {
@@ -468,61 +399,6 @@ defineExpose({
   left: auto;
 }
 
-.tag-filter-divider {
-  height: 1px;
-  background: var(--border-color, #e0e0e0);
-  margin: 8px 0;
-}
-
-.tag-filter-action {
-  padding: 6px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #666;
-}
-
-.tag-filter-action:hover {
-  background: var(--hover-color, #f5f5f5);
-}
-
-.quick-add-row {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.quick-add-input {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 4px;
-  font-size: 12px;
-  outline: none;
-}
-
-.quick-add-input:focus {
-  border-color: var(--primary-color, #1890ff);
-}
-
-.quick-add-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary-color, #1890ff);
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.quick-add-btn:hover {
-  opacity: 0.8;
-}
-
 .message-tags {
   display: flex;
   gap: 4px;
@@ -588,43 +464,6 @@ defineExpose({
   text-align: center;
 }
 
-.tag-filter-popover {
-  min-width: 160px;
-  max-width: 280px;
-}
-
-.tag-filter-all {
-  padding: 6px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.tag-filter-all:hover {
-  background: var(--hover-color, #f5f5f5);
-}
-
-.tag-filter-all.active {
-  background: var(--primary-color-light, #e6f4ff);
-  color: var(--primary-color, #1890ff);
-}
-
-.tag-filter-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-filter-item {
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.tag-filter-item:hover {
-  transform: scale(1.05);
-}
-
 @keyframes highlight-pulse {
   0%, 100% { outline-color: var(--primary-color, #1890ff); }
   50% { outline-color: #52c41a; }
@@ -649,28 +488,5 @@ defineExpose({
 
 :root[data-theme="dark"] .message-content :deep(.external-link:hover) {
   color: #91caff;
-}
-
-:root[data-theme="dark"] .tag-filter-dropdown {
-  background: #333;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
-}
-
-:root[data-theme="dark"] .tag-filter-all:hover {
-  background: #444;
-}
-
-:root[data-theme="dark"] .tag-filter-all.active {
-  background: #2a3f4f;
-}
-
-:root[data-theme="dark"] .quick-add-input {
-  background: #444;
-  border-color: #555;
-  color: #fff;
-}
-
-:root[data-theme="dark"] .quick-add-input:focus {
-  border-color: var(--primary-color, #1890ff);
 }
 </style>
