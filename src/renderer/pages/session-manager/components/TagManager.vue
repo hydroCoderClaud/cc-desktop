@@ -8,7 +8,7 @@
           style="flex: 1"
           @keyup.enter="handleCreate"
         />
-        <n-color-picker v-model:value="newTagColor" :swatches="tagColors" style="width: 80px" />
+        <n-color-picker v-model:value="newTagColor" :swatches="tagColors" :show-alpha="false" style="width: 50px" />
         <n-button type="primary" @click="handleCreate">{{ t('common.add') }}</n-button>
       </div>
       <div class="tag-list">
@@ -70,6 +70,32 @@ const handleDelete = (tagId) => {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+  align-items: stretch;
+}
+
+.tag-input-row :deep(.n-input) {
+  height: 34px;
+}
+
+.tag-input-row :deep(.n-color-picker) {
+  height: 34px;
+}
+
+.tag-input-row :deep(.n-color-picker-trigger) {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.tag-input-row :deep(.n-color-picker-trigger__fill) {
+  border-radius: 3px;
+}
+
+.tag-input-row :deep(.n-color-picker-trigger__value) {
+  display: none;
+}
+
+.tag-input-row :deep(.n-button) {
+  height: 34px;
 }
 
 .tag-list {
