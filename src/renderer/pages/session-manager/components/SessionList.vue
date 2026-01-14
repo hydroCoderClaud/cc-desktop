@@ -6,16 +6,10 @@
         <n-tag v-if="selectedProject" size="small" type="info">
           {{ filteredSessions.length }}
         </n-tag>
-        <!-- Session tag filter -->
-        <n-popover
-          v-if="sessionFilterTagList.length > 0"
-          trigger="hover"
-          placement="bottom-start"
-        >
-          <template #trigger>
-            <span class="filter-icon" :class="{ active: sessionTagFilter }">🏷️</span>
-          </template>
-          <div class="tag-filter-popover">
+        <!-- Session tag filter (CSS hover) -->
+        <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper">
+          <span class="filter-icon" :class="{ active: sessionTagFilter }">🏷️</span>
+          <div class="tag-filter-dropdown">
             <div
               class="tag-filter-all"
               :class="{ active: !sessionTagFilter }"
@@ -36,7 +30,7 @@
               </n-tag>
             </div>
           </div>
-        </n-popover>
+        </div>
       </div>
       <n-space v-if="selectedSession" :size="4">
         <n-dropdown :options="addTagOptions" @select="handleAddTag">
@@ -186,6 +180,11 @@ const formatDate = (timestamp) => {
   gap: 8px;
 }
 
+.tag-filter-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 .filter-icon {
   cursor: pointer;
   font-size: 14px;
@@ -196,6 +195,25 @@ const formatDate = (timestamp) => {
 .filter-icon:hover,
 .filter-icon.active {
   opacity: 1;
+}
+
+.tag-filter-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 160px;
+  max-width: 280px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+}
+
+.tag-filter-wrapper:hover .tag-filter-dropdown {
+  display: block;
 }
 
 .session-item {
@@ -335,8 +353,13 @@ const formatDate = (timestamp) => {
   background: #444;
 }
 
-:root[data-theme="dark"] .tag-filter-all:hover {
+:root[data-theme="dark"] .tag-filter-dropdown {
   background: #333;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .tag-filter-all:hover {
+  background: #444;
 }
 
 :root[data-theme="dark"] .tag-filter-all.active {
