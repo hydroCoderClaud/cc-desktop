@@ -49,6 +49,15 @@
             </n-tag>
           </div>
           <div class="tag-filter-divider"></div>
+          <div class="quick-add-row">
+            <input
+              v-model="quickTagName"
+              class="quick-add-input"
+              :placeholder="t('sessionManager.quickAddTag')"
+              @keyup.enter="handleQuickAddTag"
+            />
+            <span class="quick-add-btn" @click="handleQuickAddTag">+</span>
+          </div>
           <div class="tag-filter-action" @click="handleAddTagSelect('manage')">
             ⚙️ {{ t('sessionManager.manageTags') }}
           </div>
@@ -117,6 +126,7 @@ import { useLocale } from '@composables/useLocale'
 const { t } = useLocale()
 const showTagFilter = ref(false)
 const showAddTag = ref(false)
+const quickTagName = ref('')
 
 // Click outside directive
 const vClickOutside = {
@@ -152,7 +162,7 @@ const props = defineProps({
   loadingSessions: Boolean
 })
 
-const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags'])
+const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags', 'quick-add-tag'])
 
 // Handle tag filter selection
 const handleFilterSelect = (key) => {
@@ -168,6 +178,14 @@ const handleAddTagSelect = (key) => {
   } else {
     emit('add-tag', props.selectedSession.id, key)
   }
+}
+
+// Handle quick add tag
+const handleQuickAddTag = () => {
+  const name = quickTagName.value.trim()
+  if (!name) return
+  emit('quick-add-tag', { sessionId: props.selectedSession.id, name })
+  quickTagName.value = ''
 }
 
 const formatDate = (timestamp) => {
@@ -379,6 +397,43 @@ const formatDate = (timestamp) => {
   background: var(--hover-color, #f5f5f5);
 }
 
+.quick-add-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
+}
+
+.quick-add-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color, #1890ff);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.quick-add-btn:hover {
+  opacity: 0.8;
+}
+
 :root[data-theme="dark"] .session-list-panel {
   background: #252525;
   border-color: #333;
@@ -407,5 +462,15 @@ const formatDate = (timestamp) => {
 
 :root[data-theme="dark"] .tag-filter-all.active {
   background: #2a3f4f;
+}
+
+:root[data-theme="dark"] .quick-add-input {
+  background: #444;
+  border-color: #555;
+  color: #fff;
+}
+
+:root[data-theme="dark"] .quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
 }
 </style>

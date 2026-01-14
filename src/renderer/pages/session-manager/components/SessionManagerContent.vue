@@ -84,6 +84,7 @@
         @remove-tag="removeSessionTag"
         @toggle-favorite="toggleFavorite"
         @manage-tags="showTagModal = true"
+        @quick-add-tag="handleQuickAddSessionTag"
       />
 
       <!-- Right: Message Viewer -->
@@ -103,6 +104,7 @@
         @add-message-tag="addMessageTag"
         @remove-message-tag="removeMessageTag"
         @manage-tags="showTagModal = true"
+        @quick-add-tag="handleQuickAddMessageTag"
         @copy="handleCopy"
         @export="handleExport"
       />
@@ -463,6 +465,40 @@ const removeSessionTag = async (sessionId, tagId) => {
     message.success(t('messages.deleteSuccess'))
   } catch (err) {
     console.error('Failed to remove session tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Quick add tag to session (create + add)
+const handleQuickAddSessionTag = async ({ sessionId, name }) => {
+  try {
+    // 创建标签（使用默认颜色）
+    const tag = await invoke('createTag', { name, color: '#1890ff' })
+    // 添加到会话
+    await invoke('addTagToSession', { sessionId, tagId: tag.id })
+    if (selectedProject.value) {
+      await loadSessions(selectedProject.value.id)
+    }
+    await loadTags()
+    message.success(t('sessionManager.tagCreateSuccess'))
+  } catch (err) {
+    console.error('Failed to quick add session tag:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
+// Quick add tag to message (create + add)
+const handleQuickAddMessageTag = async ({ messageId, name }) => {
+  try {
+    // 创建标签（使用默认颜色）
+    const tag = await invoke('createTag', { name, color: '#1890ff' })
+    // 添加到消息
+    await invoke('addTagToMessage', { messageId, tagId: tag.id })
+    await loadMessageTags()
+    await loadTags()
+    message.success(t('sessionManager.tagCreateSuccess'))
+  } catch (err) {
+    console.error('Failed to quick add message tag:', err)
     message.error(t('messages.operationFailed'))
   }
 }

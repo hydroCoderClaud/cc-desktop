@@ -222,6 +222,7 @@ export default {
     deleteTagConfirm: '确定要删除此标签吗？',
     tagDeleteSuccess: '标签已删除',
     tagCreateSuccess: '标签已创建',
+    quickAddTag: '新标签名称',
     // 定位相关
     goToOldest: '定位到最旧',
     goToNewest: '定位到最新',

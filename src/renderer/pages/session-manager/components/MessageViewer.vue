@@ -98,6 +98,15 @@
                       </n-tag>
                     </div>
                     <div class="tag-filter-divider"></div>
+                    <div class="quick-add-row" @click.stop>
+                      <input
+                        v-model="quickTagName"
+                        class="quick-add-input"
+                        :placeholder="t('sessionManager.quickAddTag')"
+                        @keyup.enter="handleQuickAddTag(msg.id)"
+                      />
+                      <span class="quick-add-btn" @click="handleQuickAddTag(msg.id)">+</span>
+                    </div>
                     <div class="tag-filter-action" @click.stop="handleAddMessageTagSelect(msg.id, 'manage')">
                       ⚙️ {{ t('sessionManager.manageTags') }}
                     </div>
@@ -140,6 +149,7 @@ const message = useMessage()
 const scrollbarRef = ref(null)
 const showTagFilter = ref(false)
 const openMessageTagId = ref(null)
+const quickTagName = ref('')
 
 // Click outside directive
 const vClickOutside = {
@@ -189,6 +199,7 @@ const emit = defineEmits([
   'add-message-tag',
   'remove-message-tag',
   'manage-tags',
+  'quick-add-tag',
   'copy',
   'export'
 ])
@@ -207,6 +218,14 @@ const handleAddMessageTagSelect = (messageId, tagId) => {
   } else {
     emit('add-message-tag', messageId, tagId)
   }
+}
+
+// Handle quick add tag
+const handleQuickAddTag = (messageId) => {
+  const name = quickTagName.value.trim()
+  if (!name) return
+  emit('quick-add-tag', { messageId, name })
+  quickTagName.value = ''
 }
 
 // Export options
@@ -467,6 +486,43 @@ defineExpose({
   background: var(--hover-color, #f5f5f5);
 }
 
+.quick-add-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
+}
+
+.quick-add-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color, #1890ff);
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.quick-add-btn:hover {
+  opacity: 0.8;
+}
+
 .message-tags {
   display: flex;
   gap: 4px;
@@ -606,5 +662,15 @@ defineExpose({
 
 :root[data-theme="dark"] .tag-filter-all.active {
   background: #2a3f4f;
+}
+
+:root[data-theme="dark"] .quick-add-input {
+  background: #444;
+  border-color: #555;
+  color: #fff;
+}
+
+:root[data-theme="dark"] .quick-add-input:focus {
+  border-color: var(--primary-color, #1890ff);
 }
 </style>

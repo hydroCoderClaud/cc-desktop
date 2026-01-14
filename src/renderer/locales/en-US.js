@@ -222,6 +222,7 @@ export default {
     deleteTagConfirm: 'Are you sure you want to delete this tag?',
     tagDeleteSuccess: 'Tag deleted',
     tagCreateSuccess: 'Tag created',
+    quickAddTag: 'New tag name',
     // Navigation related
     goToOldest: 'Go to oldest',
     goToNewest: 'Go to newest',
