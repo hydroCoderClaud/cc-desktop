@@ -9,6 +9,7 @@
         <!-- Session tag filter -->
         <n-popover
           v-if="sessionFilterTagList.length > 0"
+          v-model:show="showTagFilter"
           trigger="click"
           placement="bottom-start"
           :show-arrow="false"
@@ -22,7 +23,7 @@
             <div
               class="tag-filter-all"
               :class="{ active: !sessionTagFilter }"
-              @click="$emit('filter', 'all')"
+              @click="handleFilterSelect('all')"
             >
               {{ t('sessionManager.showAll') }}
             </div>
@@ -33,7 +34,7 @@
                 size="small"
                 :color="{ color: sessionTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: sessionTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
                 class="tag-filter-item"
-                @click="$emit('filter', tag.id)"
+                @click="handleFilterSelect(tag.id)"
               >
                 {{ tag.name }} ({{ count }})
               </n-tag>
@@ -103,10 +104,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
+const showTagFilter = ref(false)
 
 const props = defineProps({
   selectedProject: Object,
@@ -128,6 +130,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select', 'filter', 'add-tag', 'remove-tag', 'toggle-favorite', 'manage-tags'])
+
+// Handle tag filter selection
+const handleFilterSelect = (key) => {
+  showTagFilter.value = false
+  emit('filter', key)
+}
 
 // Add tag dropdown options
 const addTagOptions = computed(() => {

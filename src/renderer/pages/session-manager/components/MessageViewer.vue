@@ -6,6 +6,7 @@
         <!-- Tag filter dropdown -->
         <n-popover
           v-if="messageFilterTagList.length > 0"
+          v-model:show="showTagFilter"
           trigger="click"
           placement="bottom-start"
           :show-arrow="false"
@@ -19,7 +20,7 @@
             <div
               class="tag-filter-all"
               :class="{ active: !activeTagFilter }"
-              @click="$emit('filter', 'all')"
+              @click="handleFilterSelect('all')"
             >
               {{ t('sessionManager.showAll') }}
             </div>
@@ -30,7 +31,7 @@
                 size="small"
                 :color="{ color: activeTagFilter?.id === tag.id ? tag.color : 'transparent', textColor: activeTagFilter?.id === tag.id ? '#fff' : 'inherit', borderColor: tag.color }"
                 class="tag-filter-item"
-                @click="$emit('filter', tag.id)"
+                @click="handleFilterSelect(tag.id)"
               >
                 {{ tag.name }} ({{ count }})
               </n-tag>
@@ -129,6 +130,7 @@ import { useLocale } from '@composables/useLocale'
 const { t } = useLocale()
 const message = useMessage()
 const scrollbarRef = ref(null)
+const showTagFilter = ref(false)
 
 const props = defineProps({
   selectedSession: Object,
@@ -166,6 +168,12 @@ const emit = defineEmits([
   'copy',
   'export'
 ])
+
+// Handle tag filter selection
+const handleFilterSelect = (key) => {
+  showTagFilter.value = false
+  emit('filter', key)
+}
 
 // Message tag dropdown options
 const messageTagOptions = computed(() => {
