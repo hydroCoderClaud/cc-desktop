@@ -244,6 +244,12 @@ const messageFilterTagList = computed(() => {
 // ========================================
 const handleKeyDown = async (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedMessages.value.length > 0) {
+    // 如果有文本选择，让浏览器处理默认复制
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim().length > 0) {
+      return // 不拦截，使用默认复制行为
+    }
+    // 没有文本选择，复制选中的消息
     e.preventDefault()
     const content = await generateExportContent('selected', 'markdown')
     if (content) {
