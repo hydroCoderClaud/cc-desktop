@@ -3,12 +3,20 @@ import {
   create,
   NConfigProvider,
   NMessageProvider,
+  NDialogProvider,
   NButton,
   NSpace,
   NDropdown,
   NIcon,
   NTooltip,
-  NDivider
+  NDivider,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
+  NColorPicker,
+  NCheckbox,
+  NSelect
 } from 'naive-ui'
 import App from './App.vue'
 
@@ -18,12 +26,20 @@ const naive = create({
   components: [
     NConfigProvider,
     NMessageProvider,
+    NDialogProvider,
     NButton,
     NSpace,
     NDropdown,
     NIcon,
     NTooltip,
-    NDivider
+    NDivider,
+    NModal,
+    NForm,
+    NFormItem,
+    NInput,
+    NColorPicker,
+    NCheckbox,
+    NSelect
   ]
 })
 

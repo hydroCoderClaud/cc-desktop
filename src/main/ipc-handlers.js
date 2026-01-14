@@ -4,7 +4,10 @@
  */
 
 const { ipcMain, dialog, shell } = require('electron');
+const { SessionDatabase } = require('./session-database');
 const { setupSessionHandlers } = require('./ipc-handlers/session-handlers');
+const { setupProjectHandlers } = require('./ipc-handlers/project-handlers');
+const { setupActiveSessionHandlers } = require('./ipc-handlers/active-session-handlers');
 
 /**
  * Create IPC handler with unified logging and error handling
@@ -25,8 +28,12 @@ function createIPCHandler(channelName, handler) {
   });
 }
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager) {
   console.log('[IPC] Setting up handlers...');
+
+  // 初始化共享数据库
+  const sessionDatabase = new SessionDatabase();
+  sessionDatabase.init();
 
   // ========================================
   // 同步主题获取（用于 preload 避免闪白）
@@ -409,7 +416,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   // ========================================
   // 会话历史管理（数据库版）- 提取到独立模块
   // ========================================
-  setupSessionHandlers(ipcMain);
+  setupSessionHandlers(ipcMain, sessionDatabase);
+
+  // ========================================
+  // 工程管理（数据库版）
+  // ========================================
+  setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
 
   // ========================================
   // Terminal 相关
@@ -440,6 +452,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager) {
   ipcMain.handle('terminal:status', async () => {
     return terminalManager.getStatus();
   });
+
+  // ========================================
+  // 活动会话管理（多终端支持）
+  // ========================================
+  if (activeSessionManager) {
+    setupActiveSessionHandlers(ipcMain, activeSessionManager);
+  }
 
   console.log('[IPC] Handlers ready');
 }

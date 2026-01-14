@@ -7,12 +7,14 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const ConfigManager = require('./config-manager');
 const TerminalManager = require('./terminal-manager');
+const { ActiveSessionManager } = require('./active-session-manager');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
 let mainWindow = null;
 let configManager = null;
 let terminalManager = null;
+let activeSessionManager = null;
 
 /**
  * 获取主题背景色
@@ -75,6 +77,10 @@ function createWindow() {
     if (terminalManager) {
       terminalManager.kill();
     }
+    // 清理所有活动会话
+    if (activeSessionManager) {
+      activeSessionManager.closeAll();
+    }
     mainWindow = null;
   });
 
@@ -102,11 +108,14 @@ app.whenReady().then(() => {
   // 创建主窗口
   createWindow();
 
-  // 初始化终端管理器（需要窗口实例）
+  // 初始化终端管理器（需要窗口实例）- 保留兼容旧代码
   terminalManager = new TerminalManager(mainWindow, configManager);
 
+  // 初始化活动会话管理器（新的多会话管理）
+  activeSessionManager = new ActiveSessionManager(mainWindow, configManager);
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager);
 
   // macOS 特定行为
   app.on('activate', () => {
@@ -135,6 +144,11 @@ app.on('will-quit', () => {
   // 清理终端进程
   if (terminalManager) {
     terminalManager.kill();
+  }
+
+  // 清理所有活动会话
+  if (activeSessionManager) {
+    activeSessionManager.closeAll();
   }
 });
 

@@ -8,7 +8,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // 同步获取初始主题并立即应用到 DOM，避免闪白
 try {
   const initialTheme = ipcRenderer.sendSync('theme:getSync');
-  if (initialTheme === 'dark') {
+  if (initialTheme === 'dark' && document.documentElement) {
     document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.style.backgroundColor = '#1a1a1a';
     document.documentElement.style.colorScheme = 'dark';
@@ -20,8 +20,10 @@ try {
 // 同步获取初始语言
 try {
   const initialLocale = ipcRenderer.sendSync('locale:getSync');
-  document.documentElement.setAttribute('data-locale', initialLocale || 'zh-CN');
-  document.documentElement.setAttribute('lang', initialLocale === 'en-US' ? 'en' : 'zh-CN');
+  if (document.documentElement) {
+    document.documentElement.setAttribute('data-locale', initialLocale || 'zh-CN');
+    document.documentElement.setAttribute('lang', initialLocale === 'en-US' ? 'en' : 'zh-CN');
+  }
 } catch (err) {
   console.warn('[Preload] Failed to get initial locale:', err.message);
 }
@@ -73,7 +75,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchOfficialModels: (apiConfig) => ipcRenderer.invoke('api:fetchOfficialModels', apiConfig),
 
   // ========================================
-  // Project 相关
+  // 工程管理（数据库版）
+  // ========================================
+  // 列表
+  getProjects: (includeHidden = false) => ipcRenderer.invoke('project:getAll', includeHidden),
+  getHiddenProjects: () => ipcRenderer.invoke('project:getHidden'),
+  getProjectById: (projectId) => ipcRenderer.invoke('project:getById', projectId),
+
+  // 创建
+  createProject: (projectData) => ipcRenderer.invoke('project:create', projectData),
+  openProject: () => ipcRenderer.invoke('project:open'),
+
+  // 修改
+  updateProject: ({ projectId, updates }) => ipcRenderer.invoke('project:update', { projectId, updates }),
+  duplicateProject: (projectId) => ipcRenderer.invoke('project:duplicate', { projectId }),
+
+  // 删除/隐藏
+  hideProject: (projectId) => ipcRenderer.invoke('project:hide', projectId),
+  unhideProject: (projectId) => ipcRenderer.invoke('project:unhide', projectId),
+  deleteProject: ({ projectId, deleteSessions }) => ipcRenderer.invoke('project:delete', { projectId, deleteSessions }),
+
+  // 状态
+  toggleProjectPinned: (projectId) => ipcRenderer.invoke('project:togglePinned', projectId),
+  touchProject: (projectId) => ipcRenderer.invoke('project:touch', projectId),
+
+  // 工具
+  openFolder: (folderPath) => ipcRenderer.invoke('project:openFolder', folderPath),
+  checkPath: (folderPath) => ipcRenderer.invoke('project:checkPath', folderPath),
+
+  // 会话（占位）
+  newProjectSession: (projectId) => ipcRenderer.invoke('project:newSession', projectId),
+  openProjectSession: ({ projectId, sessionId }) => ipcRenderer.invoke('project:openSession', { projectId, sessionId }),
+
+  // ========================================
+  // 旧版 Project 相关（保留兼容）
   // ========================================
   listProjects: () => ipcRenderer.invoke('projects:list'),
   addProject: ({ name, path }) => ipcRenderer.invoke('project:add', { name, path }),
@@ -160,13 +195,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateFavoriteNote: ({ sessionId, note }) => ipcRenderer.invoke('favorite:updateNote', { sessionId, note }),
 
   // ========================================
-  // Terminal 相关
+  // Terminal 相关（旧版单终端，保留兼容）
   // ========================================
   startTerminal: (projectPath) => ipcRenderer.invoke('terminal:start', projectPath),
   writeTerminal: (data) => ipcRenderer.send('terminal:write', data),
   resizeTerminal: ({ cols, rows }) => ipcRenderer.send('terminal:resize', { cols, rows }),
   killTerminal: () => ipcRenderer.invoke('terminal:kill'),
   getTerminalStatus: () => ipcRenderer.invoke('terminal:status'),
+
+  // ========================================
+  // 活动会话管理（新版多终端支持）
+  // ========================================
+  // 会话生命周期
+  createActiveSession: (options) => ipcRenderer.invoke('activeSession:create', options),
+  closeActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:close', sessionId),
+  disconnectActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:disconnect', sessionId),
+  listActiveSessions: (includeHidden = true) => ipcRenderer.invoke('activeSession:list', includeHidden),
+  getActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:get', sessionId),
+  getActiveSessionsByProject: (projectId) => ipcRenderer.invoke('activeSession:getByProject', projectId),
+
+  // 终端交互
+  writeActiveSession: ({ sessionId, data }) => ipcRenderer.send('activeSession:write', { sessionId, data }),
+  resizeActiveSession: ({ sessionId, cols, rows }) => ipcRenderer.send('activeSession:resize', { sessionId, cols, rows }),
+
+  // 会话状态
+  focusActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:focus', sessionId),
+  getFocusedActiveSession: () => ipcRenderer.invoke('activeSession:getFocused'),
+  setActiveSessionVisible: ({ sessionId, visible }) => ipcRenderer.invoke('activeSession:setVisible', { sessionId, visible }),
+  getRunningSessionCount: () => ipcRenderer.invoke('activeSession:getRunningCount'),
 
   // ========================================
   // 事件监听
@@ -188,6 +244,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, error) => callback(error);
     ipcRenderer.on('terminal:error', listener);
     return () => ipcRenderer.removeListener('terminal:error', listener);
+  },
+
+  // 活动会话事件
+  onSessionData: (callback) => {
+    const listener = (event, { sessionId, data }) => callback({ sessionId, data });
+    ipcRenderer.on('session:data', listener);
+    return () => ipcRenderer.removeListener('session:data', listener);
+  },
+
+  onSessionStarted: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('session:started', listener);
+    return () => ipcRenderer.removeListener('session:started', listener);
+  },
+
+  onSessionExit: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('session:exit', listener);
+    return () => ipcRenderer.removeListener('session:exit', listener);
+  },
+
+  onSessionError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('session:error', listener);
+    return () => ipcRenderer.removeListener('session:error', listener);
   },
 
   // ========================================

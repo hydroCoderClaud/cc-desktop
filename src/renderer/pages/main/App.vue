@@ -1,9 +1,11 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
-      <div class="app-container" :style="cssVars">
-        <MainContent />
-      </div>
+      <n-dialog-provider>
+        <div class="app-container" :style="cssVars">
+          <MainContent />
+        </div>
+      </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>

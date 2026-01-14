@@ -51,10 +51,10 @@ export default {
   // 主页面
   main: {
     title: 'Claude Code Desktop',
-    newSession: '新建会话',
+    addProject: '添加工程',
     projects: '项目',
     noProjects: '暂无项目',
-    noProjectsHint: '点击 "+ 新建会话" 添加',
+    noProjectsHint: '点击 "+ 添加工程" 开始',
     selectProject: '选择项目',
     welcome: '欢迎',
     pleaseSelectProject: '请选择项目',
@@ -270,6 +270,37 @@ export default {
     noModelsHint: '点击"添加模型"创建'
   },
 
+  // 工程管理
+  project: {
+    createTitle: '新建项目',
+    editTitle: '编辑项目',
+    name: '名称',
+    namePlaceholder: '输入项目名称',
+    nameHint: '名称可随意修改，仅用于显示',
+    path: '路径',
+    pathHint: '路径是项目的唯一标识，不可修改',
+    pathNotExist: '项目目录不存在',
+    description: '描述',
+    descriptionPlaceholder: '输入项目描述（可选）',
+    icon: '图标',
+    color: '颜色',
+    borderColor: '边框颜色',
+    resetColor: '恢复默认',
+    apiProfile: 'API 配置',
+    apiProfilePlaceholder: '选择 API 配置（可选）',
+    apiProfileHint: '不选择则使用全局默认配置',
+    pin: '置顶',
+    unpin: '取消置顶',
+    edit: '编辑',
+    openFolder: '打开所在目录',
+    hide: '从面板移除',
+    delete: '删除',
+    openExisting: '打开已有项目',
+    deleteConfirm: '确认删除项目',
+    deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
+    deleteWithSessions: '同时删除关联的会话记录'
+  },
+
   // 消息提示
   messages: {
     saveSuccess: '保存成功',
@@ -283,6 +314,13 @@ export default {
     operationFailed: '操作失败',
     pleaseSelectProject: '请先选择项目',
     projectAdded: '项目已添加',
+    projectOpened: '项目已打开',
+    projectRestored: '项目已恢复',
+    projectUpdated: '项目已更新',
+    projectDeleted: '项目已删除',
+    projectHidden: '项目已从面板移除',
+    projectPinned: '项目已置顶',
+    projectUnpinned: '项目已取消置顶',
     terminalExited: '终端进程已退出',
     terminalError: '终端错误'
   }

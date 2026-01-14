@@ -43,7 +43,37 @@ class SessionDatabase {
     // Create tables
     this.createTables()
 
+    // Run migrations for existing databases
+    this.runMigrations()
+
     console.log('[SessionDB] Database initialized successfully')
+  }
+
+  /**
+   * Run database migrations for schema updates
+   */
+  runMigrations() {
+    // Get existing columns in projects table
+    const columns = this.db.prepare("PRAGMA table_info(projects)").all()
+    const columnNames = columns.map(c => c.name)
+
+    // Add new columns if they don't exist
+    const newColumns = [
+      { name: 'description', type: "TEXT DEFAULT ''" },
+      { name: 'icon', type: "TEXT DEFAULT '📁'" },
+      { name: 'color', type: "TEXT DEFAULT '#1890ff'" },
+      { name: 'api_profile_id', type: 'TEXT' },
+      { name: 'is_pinned', type: 'INTEGER DEFAULT 0' },
+      { name: 'is_hidden', type: 'INTEGER DEFAULT 0' },
+      { name: 'last_opened_at', type: 'INTEGER' }
+    ]
+
+    for (const col of newColumns) {
+      if (!columnNames.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: projects.${col.name}`)
+        this.db.exec(`ALTER TABLE projects ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
   }
 
   /**
@@ -57,8 +87,15 @@ class SessionDatabase {
         path TEXT UNIQUE NOT NULL,
         encoded_path TEXT NOT NULL,
         name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT '📁',
+        color TEXT DEFAULT '#1890ff',
+        api_profile_id TEXT,
+        is_pinned INTEGER DEFAULT 0,
+        is_hidden INTEGER DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        last_opened_at INTEGER
       )
     `)
 
@@ -224,27 +261,187 @@ class SessionDatabase {
   }
 
   /**
-   * Get all projects
+   * Get all projects (excluding hidden by default)
    */
-  getAllProjects() {
-    return this.db.prepare(`
+  getAllProjects(includeHidden = false) {
+    let sql = `
       SELECT p.*,
              COUNT(DISTINCT s.id) as session_count,
              MAX(s.last_message_at) as last_activity
       FROM projects p
       LEFT JOIN sessions s ON p.id = s.project_id
+    `
+    if (!includeHidden) {
+      sql += ' WHERE p.is_hidden = 0'
+    }
+    sql += `
       GROUP BY p.id
-      ORDER BY last_activity DESC NULLS LAST
+      ORDER BY p.is_pinned DESC, p.last_opened_at DESC NULLS LAST
+    `
+    return this.db.prepare(sql).all()
+  }
+
+  /**
+   * Get hidden projects
+   */
+  getHiddenProjects() {
+    return this.db.prepare(`
+      SELECT p.*,
+             COUNT(DISTINCT s.id) as session_count
+      FROM projects p
+      LEFT JOIN sessions s ON p.id = s.project_id
+      WHERE p.is_hidden = 1
+      GROUP BY p.id
+      ORDER BY p.name ASC
     `).all()
   }
 
   /**
-   * Update project's updated_at timestamp
+   * Get project by ID
+   */
+  getProjectById(projectId) {
+    return this.db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId)
+  }
+
+  /**
+   * Get project by path
+   */
+  getProjectByPath(projectPath) {
+    return this.db.prepare('SELECT * FROM projects WHERE path = ?').get(projectPath)
+  }
+
+  /**
+   * Create a new project
+   */
+  createProject(projectData) {
+    const {
+      path: projectPath,
+      name,
+      description = '',
+      icon = '📁',
+      color = '#1890ff',
+      api_profile_id = null
+    } = projectData
+
+    // Generate encoded path (base64 of path)
+    const encodedPath = Buffer.from(projectPath).toString('base64').replace(/[/+=]/g, '_')
+
+    const now = Date.now()
+    const result = this.db.prepare(`
+      INSERT INTO projects (path, encoded_path, name, description, icon, color, api_profile_id, created_at, updated_at, last_opened_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(projectPath, encodedPath, name, description, icon, color, api_profile_id, now, now, now)
+
+    return {
+      id: result.lastInsertRowid,
+      path: projectPath,
+      encoded_path: encodedPath,
+      name,
+      description,
+      icon,
+      color,
+      api_profile_id,
+      is_pinned: 0,
+      is_hidden: 0,
+      created_at: now,
+      updated_at: now,
+      last_opened_at: now
+    }
+  }
+
+  /**
+   * Update project
+   */
+  updateProject(projectId, updates) {
+    const allowedFields = ['name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at']
+    const fields = []
+    const values = []
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key)) {
+        fields.push(`${key} = ?`)
+        values.push(value)
+      }
+    }
+
+    if (fields.length === 0) return null
+
+    fields.push('updated_at = ?')
+    values.push(Date.now())
+    values.push(projectId)
+
+    this.db.prepare(
+      `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`
+    ).run(...values)
+
+    return this.getProjectById(projectId)
+  }
+
+  /**
+   * Delete project (and optionally its sessions)
+   */
+  deleteProject(projectId, deleteSessions = false) {
+    if (deleteSessions) {
+      // CASCADE will handle sessions and messages
+      this.db.prepare('DELETE FROM projects WHERE id = ?').run(projectId)
+    } else {
+      // Just remove the project, keep sessions orphaned (they won't show anyway)
+      this.db.prepare('DELETE FROM projects WHERE id = ?').run(projectId)
+    }
+    return { success: true }
+  }
+
+  /**
+   * Toggle project pinned status
+   */
+  toggleProjectPinned(projectId) {
+    const project = this.getProjectById(projectId)
+    if (!project) return null
+
+    const newStatus = project.is_pinned ? 0 : 1
+    this.updateProject(projectId, { is_pinned: newStatus })
+    return { ...project, is_pinned: newStatus }
+  }
+
+  /**
+   * Hide project (remove from panel)
+   */
+  hideProject(projectId) {
+    return this.updateProject(projectId, { is_hidden: 1 })
+  }
+
+  /**
+   * Unhide project (restore to panel)
+   */
+  unhideProject(projectId) {
+    return this.updateProject(projectId, { is_hidden: 0 })
+  }
+
+  /**
+   * Update project's last_opened_at timestamp
    */
   touchProject(projectId) {
+    const now = Date.now()
     this.db.prepare(
-      'UPDATE projects SET updated_at = ? WHERE id = ?'
-    ).run(Date.now(), projectId)
+      'UPDATE projects SET last_opened_at = ?, updated_at = ? WHERE id = ?'
+    ).run(now, now, projectId)
+  }
+
+  /**
+   * Duplicate project config
+   */
+  duplicateProject(projectId, newPath, newName) {
+    const source = this.getProjectById(projectId)
+    if (!source) return null
+
+    return this.createProject({
+      path: newPath,
+      name: newName || `${source.name} (副本)`,
+      description: source.description,
+      icon: source.icon,
+      color: source.color,
+      api_profile_id: source.api_profile_id
+    })
   }
 
   // ========================================

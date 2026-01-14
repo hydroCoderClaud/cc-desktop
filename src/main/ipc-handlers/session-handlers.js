@@ -29,14 +29,11 @@ function createIPCHandler(ipcMain, channelName, handler) {
 /**
  * 设置会话相关的 IPC 处理器
  * @param {Object} ipcMain - Electron ipcMain module
- * @returns {Object} - { sessionDatabase, sessionSyncService }
+ * @param {SessionDatabase} sessionDatabase - Shared database instance
+ * @returns {Object} - { sessionSyncService }
  */
-function setupSessionHandlers(ipcMain) {
+function setupSessionHandlers(ipcMain, sessionDatabase) {
   console.log('[IPC] Setting up session handlers...');
-
-  // 初始化数据库和同步服务
-  const sessionDatabase = new SessionDatabase();
-  sessionDatabase.init();
 
   const sessionSyncService = new SessionSyncService(sessionDatabase);
 
@@ -231,7 +228,7 @@ function setupSessionHandlers(ipcMain) {
 
   console.log('[IPC] Session handlers ready');
 
-  return { sessionDatabase, sessionSyncService };
+  return { sessionSyncService };
 }
 
 module.exports = { setupSessionHandlers };

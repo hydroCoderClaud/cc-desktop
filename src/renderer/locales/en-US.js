@@ -51,10 +51,10 @@ export default {
   // Main Page
   main: {
     title: 'Claude Code Desktop',
-    newSession: 'New session',
+    addProject: 'Add Project',
     projects: 'Projects',
     noProjects: 'No projects yet',
-    noProjectsHint: 'Click "+ New session" to add',
+    noProjectsHint: 'Click "+ Add Project" to start',
     selectProject: 'Select project',
     welcome: 'Welcome',
     pleaseSelectProject: 'Please select a project',
@@ -270,6 +270,37 @@ export default {
     noModelsHint: 'Click "Add Model" to create one'
   },
 
+  // Project Management
+  project: {
+    createTitle: 'Create Project',
+    editTitle: 'Edit Project',
+    name: 'Name',
+    namePlaceholder: 'Enter project name',
+    nameHint: 'Name can be changed freely, for display only',
+    path: 'Path',
+    pathHint: 'Path is the unique identifier, cannot be modified',
+    pathNotExist: 'Project directory does not exist',
+    description: 'Description',
+    descriptionPlaceholder: 'Enter project description (optional)',
+    icon: 'Icon',
+    color: 'Color',
+    borderColor: 'Border Color',
+    resetColor: 'Reset',
+    apiProfile: 'API Config',
+    apiProfilePlaceholder: 'Select API config (optional)',
+    apiProfileHint: 'Uses global default if not selected',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    edit: 'Edit',
+    openFolder: 'Open in Explorer',
+    hide: 'Remove from panel',
+    delete: 'Delete',
+    openExisting: 'Open existing project',
+    deleteConfirm: 'Confirm Delete Project',
+    deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
+    deleteWithSessions: 'Also delete associated session records'
+  },
+
   // Messages
   messages: {
     saveSuccess: 'Saved successfully',
@@ -283,6 +314,13 @@ export default {
     operationFailed: 'Operation failed',
     pleaseSelectProject: 'Please select a project first',
     projectAdded: 'Project added',
+    projectOpened: 'Project opened',
+    projectRestored: 'Project restored',
+    projectUpdated: 'Project updated',
+    projectDeleted: 'Project deleted',
+    projectHidden: 'Project removed from panel',
+    projectPinned: 'Project pinned',
+    projectUnpinned: 'Project unpinned',
     terminalExited: 'Terminal process exited',
     terminalError: 'Terminal error'
   }
