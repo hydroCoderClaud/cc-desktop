@@ -28,16 +28,18 @@ function buildClaudeEnvVars(profile) {
 
   if (!profile) return envVars
 
-  // 认证令牌（根据 authType 决定环境变量名）
+  // 认证令牌（根据 authType 决定环境变量名，并清除另一个避免冲突）
   if (profile.authToken && profile.authToken.trim()) {
     const authType = profile.authType || 'api_key'
     if (authType === 'api_key') {
       envVars.ANTHROPIC_API_KEY = profile.authToken.trim()
+      envVars.ANTHROPIC_AUTH_TOKEN = ''  // 清除，避免与系统环境冲突
     } else if (authType === 'auth_token') {
       envVars.ANTHROPIC_AUTH_TOKEN = profile.authToken.trim()
+      envVars.ANTHROPIC_API_KEY = ''  // 清除，避免与系统环境冲突
     } else {
-      // 默认使用 ANTHROPIC_API_KEY
       envVars.ANTHROPIC_API_KEY = profile.authToken.trim()
+      envVars.ANTHROPIC_AUTH_TOKEN = ''
     }
   }
 
