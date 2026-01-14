@@ -129,6 +129,13 @@ class ActiveSessionManager {
     const claudeEnvVars = buildClaudeEnvVars(profile)
     const envVars = { ...process.env, TERM: 'xterm-256color', ...claudeEnvVars }
 
+    // 删除空字符串的环境变量（避免认证冲突）
+    for (const key of Object.keys(envVars)) {
+      if (envVars[key] === '') {
+        delete envVars[key]
+      }
+    }
+
     // 打印设置的环境变量（不打印敏感值）
     if (Object.keys(claudeEnvVars).length > 0) {
       console.log(`[ActiveSession] Set env vars: ${Object.keys(claudeEnvVars).join(', ')}`)
@@ -182,10 +189,11 @@ class ActiveSessionManager {
         this.writeLine(sessionId, `# Working Directory: ${session.projectPath}`)
         this.writeLine(sessionId, '')
 
-        // 打印环境变量设置情况
+        // 打印环境变量设置情况（只显示非空变量）
         this.writeLine(sessionId, '# Environment Variables:')
-        if (Object.keys(claudeEnvVars).length > 0) {
-          for (const [key, value] of Object.entries(claudeEnvVars)) {
+        const activeVars = Object.entries(claudeEnvVars).filter(([, v]) => v && v.trim())
+        if (activeVars.length > 0) {
+          for (const [key, value] of activeVars) {
             // 敏感信息只显示前4位
             if (key.includes('KEY') || key.includes('TOKEN')) {
               const masked = value.substring(0, 4) + '****'
