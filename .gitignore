@@ -4,6 +4,7 @@ package-lock.json
 
 # Build output
 dist/
+dist-electron/
 build/
 src/renderer/pages-dist/
 *.exe

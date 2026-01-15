@@ -1,13 +1,56 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-// 简化的 Vite 配置
-// 只用于构建 Vue 页面，不涉及 Electron 主进程
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const isElectron = process.env.ELECTRON !== 'false'
+
 export default defineConfig({
   plugins: [
-    vue()
-  ],
+    vue(),
+    // 仅在开发模式且需要 Electron 时启用
+    isElectron && electron([
+      {
+        // 主进程入口 (使用绝对路径)
+        entry: path.resolve(__dirname, 'src/main/index.js'),
+        onstart(options) {
+          // 启动 Electron
+          options.startup()
+        },
+        vite: {
+          build: {
+            sourcemap: true,
+            outDir: path.resolve(__dirname, 'dist-electron/main'),
+            rollupOptions: {
+              external: ['electron', 'better-sqlite3', 'node-pty']
+            }
+          }
+        }
+      },
+      {
+        // Preload 脚本 (使用绝对路径)
+        entry: path.resolve(__dirname, 'src/preload/preload.js'),
+        onstart(options) {
+          // preload 更新时重载渲染进程
+          options.reload()
+        },
+        vite: {
+          build: {
+            sourcemap: true,
+            outDir: path.resolve(__dirname, 'dist-electron/preload'),
+            rollupOptions: {
+              external: ['electron']
+            }
+          }
+        }
+      }
+    ]),
+    // 渲染进程中使用 Node.js API 的支持
+    isElectron && renderer()
+  ].filter(Boolean),
   root: path.resolve(__dirname, 'src/renderer'),
   base: './',
   resolve: {

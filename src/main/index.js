@@ -56,8 +56,12 @@ function createWindow() {
   // 加载渲染进程 HTML
   // 开发模式：从 Vite 服务器加载 Vue 页面
   // 生产模式：从构建后的文件加载
-  if (process.env.VITE_DEV_SERVER_URL) {
-    const url = `${process.env.VITE_DEV_SERVER_URL}/pages/main/`;
+  const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+  if (VITE_DEV_SERVER_URL) {
+    // vite-plugin-electron 设置的 URL 已经包含完整路径
+    const url = VITE_DEV_SERVER_URL.endsWith('/')
+      ? `${VITE_DEV_SERVER_URL}pages/main/`
+      : `${VITE_DEV_SERVER_URL}/pages/main/`;
     console.log('[Main] Loading URL:', url);
     mainWindow.loadURL(url);
   } else {
