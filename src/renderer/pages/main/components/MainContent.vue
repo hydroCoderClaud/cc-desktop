@@ -132,12 +132,28 @@
           </div>
         </n-form-item>
         <n-form-item :label="t('project.apiProfile')">
-          <n-select
-            v-model:value="projectForm.api_profile_id"
-            :options="apiProfileOptions"
-            :placeholder="t('project.apiProfilePlaceholder')"
-            clearable
-          />
+          <div class="api-profile-row">
+            <n-select
+              v-model:value="projectForm.api_profile_id"
+              :options="apiProfileOptions"
+              :placeholder="t('project.apiProfilePlaceholder')"
+              clearable
+              style="flex: 1;"
+            />
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <n-button
+                  size="small"
+                  quaternary
+                  :disabled="!projectForm.api_profile_id"
+                  @click="openApiProfileManager"
+                >
+                  ⚙️
+                </n-button>
+              </template>
+              {{ t('project.editApiProfile') }}
+            </n-tooltip>
+          </div>
           <template #feedback>
             <span class="form-hint">{{ t('project.apiProfileHint') }}</span>
           </template>
@@ -167,7 +183,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage, NModal, NForm, NFormItem, NInput, NButton, NColorPicker, NCheckbox, NSelect } from 'naive-ui'
+import { useMessage, NModal, NForm, NFormItem, NInput, NButton, NColorPicker, NCheckbox, NSelect, NTooltip } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -683,6 +699,13 @@ const handleTerminalReady = ({ sessionId }) => {
 const handleToggleTheme = async () => {
   await toggleTheme()
 }
+
+// Open API Profile Manager
+const openApiProfileManager = async () => {
+  if (window.electronAPI) {
+    await window.electronAPI.openProfileManager()
+  }
+}
 </script>
 
 <style scoped>
@@ -987,5 +1010,13 @@ const handleToggleTheme = async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* API Profile Row */
+.api-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 </style>

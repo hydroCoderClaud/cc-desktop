@@ -40,9 +40,9 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
     return result
   })
 
-  // 关闭会话（终止进程）
-  createIPCHandler(ipcMain, 'activeSession:close', (sessionId) => {
-    activeSessionManager.close(sessionId, true)
+  // 关闭会话（安全退出：先发送两次 Ctrl+C，再终止进程）
+  createIPCHandler(ipcMain, 'activeSession:close', async (sessionId) => {
+    await activeSessionManager.close(sessionId, true)  // graceful=true
     return { success: true }
   })
 

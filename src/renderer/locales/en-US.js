@@ -289,6 +289,7 @@ export default {
     apiProfile: 'API Config',
     apiProfilePlaceholder: 'Select API config (optional)',
     apiProfileHint: 'Uses global default if not selected',
+    editApiProfile: 'Edit Config',
     pin: 'Pin',
     unpin: 'Unpin',
     edit: 'Edit',

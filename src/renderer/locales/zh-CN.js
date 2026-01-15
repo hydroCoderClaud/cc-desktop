@@ -289,6 +289,7 @@ export default {
     apiProfile: 'API 配置',
     apiProfilePlaceholder: '选择 API 配置（可选）',
     apiProfileHint: '不选择则使用全局默认配置',
+    editApiProfile: '编辑配置',
     pin: '置顶',
     unpin: '取消置顶',
     edit: '编辑',

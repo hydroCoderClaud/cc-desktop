@@ -292,18 +292,51 @@ class ActiveSessionManager {
   /**
    * 关闭会话
    * @param {string} sessionId - 会话 ID
-   * @param {boolean} force - 是否强制关闭（杀死进程）
+   * @param {boolean} graceful - 是否优雅关闭（先发送 Ctrl+C）
+   * @returns {Promise<void>}
    */
-  close(sessionId, force = true) {
+  async close(sessionId, graceful = true) {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
-    if (session.pty && force) {
-      try {
-        console.log(`[ActiveSession] Killing session ${sessionId}...`)
-        session.pty.kill()
-      } catch (error) {
-        console.error(`[ActiveSession] Kill failed for session ${sessionId}:`, error)
+    if (session.pty) {
+      if (graceful) {
+        // 优雅关闭：先发送 Ctrl+C，再强制关闭
+        try {
+          console.log(`[ActiveSession] Gracefully closing session ${sessionId}...`)
+
+          // 发送第一次 Ctrl+C
+          session.pty.write('\x03')
+          console.log(`[ActiveSession] Sent first Ctrl+C`)
+
+          // 等待 500ms
+          await this._delay(500)
+
+          // 检查是否已退出
+          if (session.status === SessionStatus.EXITED) {
+            console.log(`[ActiveSession] Session ${sessionId} exited after first Ctrl+C`)
+          } else {
+            // 发送第二次 Ctrl+C
+            session.pty.write('\x03')
+            console.log(`[ActiveSession] Sent second Ctrl+C`)
+
+            // 再等待 1000ms
+            await this._delay(1000)
+
+            // 如果还没退出，强制 kill
+            if (session.status !== SessionStatus.EXITED && session.pty) {
+              console.log(`[ActiveSession] Force killing session ${sessionId}...`)
+              session.pty.kill()
+            }
+          }
+        } catch (error) {
+          console.error(`[ActiveSession] Graceful close failed for session ${sessionId}:`, error)
+          // 出错时尝试强制 kill
+          this._forceKill(session)
+        }
+      } else {
+        // 直接强制关闭
+        this._forceKill(session)
       }
     }
 
@@ -314,6 +347,30 @@ class ActiveSessionManager {
     if (this.focusedSessionId === sessionId) {
       this.focusedSessionId = null
     }
+  }
+
+  /**
+   * 强制杀死会话进程
+   * @param {ActiveSession} session - 会话对象
+   */
+  _forceKill(session) {
+    try {
+      if (session.pty) {
+        console.log(`[ActiveSession] Force killing session ${session.id}...`)
+        session.pty.kill()
+      }
+    } catch (error) {
+      console.error(`[ActiveSession] Force kill failed:`, error)
+    }
+  }
+
+  /**
+   * 延迟函数
+   * @param {number} ms - 毫秒数
+   * @returns {Promise<void>}
+   */
+  _delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
@@ -394,11 +451,21 @@ class ActiveSessionManager {
 
   /**
    * 关闭所有会话
+   * @param {boolean} graceful - 是否优雅关闭（用于用户主动关闭），应用退出时用 false
    */
-  closeAll() {
-    console.log(`[ActiveSession] Closing all sessions...`)
-    for (const sessionId of this.sessions.keys()) {
-      this.close(sessionId, true)
+  async closeAll(graceful = false) {
+    console.log(`[ActiveSession] Closing all sessions (graceful=${graceful})...`)
+    const sessionIds = [...this.sessions.keys()]
+    if (graceful) {
+      // 优雅关闭：依次等待每个会话关闭
+      for (const sessionId of sessionIds) {
+        await this.close(sessionId, true)
+      }
+    } else {
+      // 强制关闭：立即杀死所有进程
+      for (const sessionId of sessionIds) {
+        this.close(sessionId, false)  // 不等待
+      }
     }
   }
 
