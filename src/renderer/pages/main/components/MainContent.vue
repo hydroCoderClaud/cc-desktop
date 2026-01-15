@@ -332,10 +332,16 @@ onMounted(async () => {
   await initLocale()
   await loadProjects()
 
-  // 自动选中第一个项目（如果有的话），需要通过 selectProject 来触发路径检查
+  console.log('[MainContent] onMounted - projects:', projects.value.length, 'currentProject:', currentProject.value)
+
+  // 自动选中第一个项目（如果有的话）
+  // loadProjects 返回的数据已经包含 pathValid 字段，直接设置即可
   if (projects.value.length > 0 && !currentProject.value) {
-    await selectProject(projects.value[0])
+    console.log('[MainContent] Auto-selecting first project:', projects.value[0])
+    currentProject.value = projects.value[0]
   }
+
+  console.log('[MainContent] Final currentProject:', currentProject.value, 'pathValid:', currentProject.value?.pathValid)
 
   setupSessionListeners()
 })
