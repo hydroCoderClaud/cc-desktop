@@ -13,6 +13,7 @@
  * |-----------------------------|-----------------------------------------|
  * | authToken + authType        | ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN |
  * | baseUrl                     | ANTHROPIC_BASE_URL                      |
+ * | selectedModelTier           | ANTHROPIC_MODEL (启动默认模型)           |
  * | requestTimeout              | API_TIMEOUT_MS                          |
  * | disableNonessentialTraffic  | CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC|
  * | modelMapping.opus           | ANTHROPIC_DEFAULT_OPUS_MODEL            |
@@ -46,6 +47,14 @@ function buildClaudeEnvVars(profile) {
   // API 基础 URL
   if (profile.baseUrl && profile.baseUrl.trim()) {
     envVars.ANTHROPIC_BASE_URL = profile.baseUrl.trim()
+  }
+
+  // 默认启动模型（根据选择的 tier 确定模型名）
+  if (profile.selectedModelTier) {
+    const tier = profile.selectedModelTier
+    // 优先使用 modelMapping 中配置的模型名，否则使用 tier 别名
+    const modelName = profile.modelMapping?.[tier]?.trim() || tier
+    envVars.ANTHROPIC_MODEL = modelName
   }
 
   // 超时设置
