@@ -238,6 +238,93 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 
 ## Recent Development History
 
+### 2026-01-15: Active Session Management & Code Refactoring
+
+**Feature Overview:**
+Enhanced active session management with improved UI/UX and significant code deduplication.
+
+**New Features:**
+
+1. **Session Title Support**
+   - Custom session titles when creating new sessions
+   - Title displayed in Tab bar and session list
+   - Inline input on welcome page for quick session creation
+
+2. **Session Limit Configuration**
+   - `maxActiveSessions` setting in Global Settings
+   - Prevents creating more sessions than configured limit
+   - Default: 5 concurrent sessions
+
+3. **Welcome Page as Fixed Tab**
+   - Welcome page is now a permanent tab (🏠)
+   - Can switch back to welcome page after creating sessions
+   - Inline session creation form (no modal popup needed)
+
+4. **Session List Reordering**
+   - Up/down arrow buttons to reorder sessions
+   - Visual distinction for sessions from other projects
+   - Show all running sessions across projects
+
+5. **Terminal Startup Optimization**
+   - PowerShell `-NoLogo -NoProfile` for cleaner startup
+   - `cls; claude` to hide command prompt line
+   - Removed verbose environment variable display
+
+**Code Refactoring:**
+
+1. **New Composables Created:**
+   ```
+   src/renderer/composables/
+   ├── useSessionUtils.js    # Session status icons, tab helpers
+   └── useFormatters.js      # Added formatTimeShort()
+   ```
+
+2. **useSessionUtils.js Functions:**
+   - `SessionStatus` - Enum for session states
+   - `getSessionStatusIcon(status)` - Get emoji icon for status
+   - `createTabFromSession(session, project)` - Create tab object
+   - `findTabBySessionId(tabs, sessionId)` - Find tab by session ID
+   - `removeTabAndGetNextActive(tabs, tabId, currentActiveId)` - Remove tab and return next active
+   - `swapArrayItems(arr, i, j)` - Swap array elements
+
+3. **Code Deduplication Results:**
+   - Removed ~80 lines of duplicate Tab creation code
+   - Unified status icon mapping (was different in TabBar vs ActiveSessionList)
+   - Centralized time formatting
+   - Simplified event handlers using helper functions
+
+4. **MainContent.vue Improvements:**
+   - `addSessionTab()` - Unified session tab creation
+   - `ensureSessionTab()` - Create or focus existing tab
+   - Used `createTabFromSession`, `findTabBySessionId`, `removeTabAndGetNextActive`
+
+5. **SessionPanel/index.vue Improvements:**
+   - Used `swapArrayItems` for move up/down operations
+
+6. **ActiveSessionList.vue & TabBar.vue:**
+   - Import shared `getSessionStatusIcon` instead of duplicate functions
+   - Import `formatTimeShort` for time display
+
+**Files Changed:**
+- `src/main/active-session-manager.js` - Session title, PowerShell args
+- `src/main/config-manager.js` - maxActiveSessions setting
+- `src/main/ipc-handlers.js` - New IPC handlers
+- `src/renderer/composables/useSessionUtils.js` (NEW)
+- `src/renderer/composables/useFormatters.js` - Added formatTimeShort
+- `src/renderer/pages/main/components/MainContent.vue`
+- `src/renderer/pages/main/components/TabBar.vue`
+- `src/renderer/pages/main/components/SessionPanel/index.vue`
+- `src/renderer/pages/main/components/SessionPanel/ActiveSessionList.vue`
+- `src/renderer/locales/en-US.js`, `zh-CN.js`
+- `src/renderer/pages/global-settings/components/GlobalSettingsContent.vue`
+
+**Commits:**
+- `b11d44c` feat: 会话管理增强 - 标题、数量限制及跨项目显示
+- `07c469e` fix: 优化终端启动体验
+- `a8433d6` feat: 改进欢迎页面和会话列表交互
+
+---
+
 ### 2026-01-14: Session History Management (v1.1.0-alpha)
 
 **Feature Overview:**
@@ -471,23 +558,29 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.1.0-alpha (2026-01-14)
+### ✅ Current Version: v1.1.0-alpha (2026-01-15)
 
-**Status**: 🟢 Session history feature complete
+**Status**: 🟢 Active session management enhanced
 
 **What's Working:**
 - ✅ Service provider management (add/edit/delete custom providers)
 - ✅ API profile configuration (multi-profile support)
 - ✅ Custom model management per profile
 - ✅ Connection testing with proxy support
-- ✅ Global settings (models, timeout)
-- ✅ **Session history management (NEW)**
+- ✅ Global settings (models, timeout, maxActiveSessions)
+- ✅ Session history management
   - SQLite storage with FTS5 full-text search
   - Sync from ~/.claude directory
   - Two-level tag system (session + message tags)
   - Favorites with filtering
   - Export/copy (Markdown/JSON)
-- ✅ Code refactored (path-utils, Vue components, IPC handlers)
+- ✅ **Active session management (ENHANCED)**
+  - Session titles support
+  - Welcome page as fixed tab
+  - Session list reordering (up/down arrows)
+  - Cross-project session display
+  - Max sessions limit configuration
+- ✅ Code refactored (useSessionUtils, useFormatters, path-utils)
 
 ### 🎯 Next Steps (Immediate)
 

@@ -62,6 +62,9 @@
 </template>
 
 <script setup>
+import { getSessionStatusIcon } from '@composables/useSessionUtils'
+import { formatTimeShort } from '@composables/useFormatters'
+
 defineProps({
   sessions: {
     type: Array,
@@ -79,29 +82,9 @@ defineProps({
 
 defineEmits(['select', 'close', 'move-up', 'move-down'])
 
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'running':
-      return '▶️'
-    case 'starting':
-      return '⏳'
-    case 'exited':
-      return '⏹️'
-    case 'error':
-      return '❌'
-    default:
-      return '❓'
-  }
-}
-
-// 格式化时间为 HH:mm
-const formatTime = (dateStr) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const hours = date.getHours().toString().padStart(2, '0')
-  const minutes = date.getMinutes().toString().padStart(2, '0')
-  return `${hours}:${minutes}`
-}
+// 使用公共函数
+const getStatusIcon = getSessionStatusIcon
+const formatTime = formatTimeShort
 </script>
 
 <style scoped>

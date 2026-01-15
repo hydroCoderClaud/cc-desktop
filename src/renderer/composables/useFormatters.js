@@ -18,7 +18,7 @@ export function formatDate(timestamp) {
 }
 
 /**
- * Format timestamp to time string
+ * Format timestamp to time string (HH:mm:ss)
  */
 export function formatTime(timestamp) {
   if (!timestamp) return ''
@@ -28,6 +28,17 @@ export function formatTime(timestamp) {
     minute: '2-digit',
     second: '2-digit'
   })
+}
+
+/**
+ * Format timestamp to short time string (HH:mm)
+ */
+export function formatTimeShort(timestamp) {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  const hours = d.getHours().toString().padStart(2, '0')
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 /**

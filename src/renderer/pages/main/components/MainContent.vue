@@ -231,6 +231,7 @@ import { useMessage, NModal, NForm, NFormItem, NInput, NButton, NColorPicker, NC
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
+import { createTabFromSession, findTabBySessionId, removeTabAndGetNextActive } from '@composables/useSessionUtils'
 import Sidebar from './Sidebar.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
@@ -592,6 +593,19 @@ const confirmDeleteProject = async () => {
   }
 }
 
+// Tab helpers
+const addSessionTab = async (session, project) => {
+  const newTab = createTabFromSession(session, project)
+  tabs.value.push(newTab)
+  activeTabId.value = newTab.id
+
+  // 同步右侧面板
+  if (sessionPanelRef.value) {
+    await sessionPanelRef.value.loadActiveSessions()
+    sessionPanelRef.value.focusedSessionId = session.id
+  }
+}
+
 // Tab management
 const handleSelectTab = (tab) => {
   activeTabId.value = tab.id
@@ -634,22 +648,8 @@ const handleCloseTab = async (tab) => {
     console.error('Failed to disconnect session:', err)
   }
 
-  // 移除 tab
-  const index = tabs.value.findIndex(t => t.id === tab.id)
-  if (index !== -1) {
-    tabs.value.splice(index, 1)
-  }
-
-  // 如果关闭的是当前 tab，切换到其他 tab
-  if (activeTabId.value === tab.id) {
-    if (tabs.value.length > 0) {
-      // 切换到前一个或后一个 tab
-      const newIndex = Math.min(index, tabs.value.length - 1)
-      activeTabId.value = tabs.value[newIndex].id
-    } else {
-      activeTabId.value = 'welcome'
-    }
-  }
+  // 移除 tab 并切换到合适的 tab
+  activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
 }
 
 // Open new session dialog
@@ -693,27 +693,7 @@ const confirmNewSession = async () => {
 
     if (result.success) {
       showNewSessionModal.value = false
-
-      // 创建新 tab
-      const newTab = {
-        id: `tab-${result.session.id}`,
-        sessionId: result.session.id,
-        projectId: currentProject.value.id,
-        projectName: currentProject.value.name,
-        projectPath: currentProject.value.path,
-        title: result.session.title,
-        status: result.session.status
-      }
-
-      tabs.value.push(newTab)
-      activeTabId.value = newTab.id
-
-      // 同步右侧面板：刷新列表并选中新会话
-      if (sessionPanelRef.value) {
-        await sessionPanelRef.value.loadActiveSessions()
-        sessionPanelRef.value.focusedSessionId = result.session.id
-      }
-
+      await addSessionTab(result.session, currentProject.value)
       message.success(t('messages.connectionSuccess'))
     } else {
       message.error(result.error || t('messages.connectionFailed'))
@@ -754,27 +734,7 @@ const handleWelcomeNewSession = async () => {
 
     if (result.success) {
       welcomeSessionTitle.value = ''
-
-      // 创建新 tab
-      const newTab = {
-        id: `tab-${result.session.id}`,
-        sessionId: result.session.id,
-        projectId: currentProject.value.id,
-        projectName: currentProject.value.name,
-        projectPath: currentProject.value.path,
-        title: result.session.title,
-        status: result.session.status
-      }
-
-      tabs.value.push(newTab)
-      activeTabId.value = newTab.id
-
-      // 同步右侧面板
-      if (sessionPanelRef.value) {
-        await sessionPanelRef.value.loadActiveSessions()
-        sessionPanelRef.value.focusedSessionId = result.session.id
-      }
-
+      await addSessionTab(result.session, currentProject.value)
       message.success(t('messages.connectionSuccess'))
     } else {
       message.error(result.error || t('messages.connectionFailed'))
@@ -787,29 +747,30 @@ const handleWelcomeNewSession = async () => {
   }
 }
 
-// Session panel events
-const handleSessionCreated = (session) => {
-  // 检查是否已有该会话的 tab
-  const existingTab = tabs.value.find(t => t.sessionId === session.id)
+// Session panel events - 确保会话有对应的 Tab（如果没有则创建）
+const ensureSessionTab = (session) => {
+  const existingTab = findTabBySessionId(tabs.value, session.id)
   if (existingTab) {
-    // 已存在，切换到该 tab
     activeTabId.value = existingTab.id
     return
   }
 
-  // 创建新 tab
+  // 创建新 tab（使用 session 自带的 project 信息）
   const newTab = {
     id: `tab-${session.id}`,
     sessionId: session.id,
     projectId: session.projectId,
     projectName: session.projectName,
     projectPath: session.projectPath,
-    title: session.title,
+    title: session.title || '',
     status: session.status
   }
-
   tabs.value.push(newTab)
   activeTabId.value = newTab.id
+}
+
+const handleSessionCreated = (session) => {
+  ensureSessionTab(session)
 }
 
 const handleSessionSelected = (session) => {
@@ -820,45 +781,13 @@ const handleSessionSelected = (session) => {
       currentProject.value = targetProject
     }
   }
-
-  // 检查是否已有该会话的 tab
-  const existingTab = tabs.value.find(t => t.sessionId === session.id)
-  if (existingTab) {
-    // 已存在，切换到该 tab
-    activeTabId.value = existingTab.id
-  } else {
-    // 不存在，创建新 tab
-    const newTab = {
-      id: `tab-${session.id}`,
-      sessionId: session.id,
-      projectId: session.projectId,
-      projectName: session.projectName,
-      projectPath: session.projectPath,
-      title: session.title,
-      status: session.status
-    }
-
-    tabs.value.push(newTab)
-    activeTabId.value = newTab.id
-  }
+  ensureSessionTab(session)
 }
 
 const handleSessionClosed = (session) => {
-  // 找到并移除对应的 tab
-  const index = tabs.value.findIndex(t => t.sessionId === session.id)
-  if (index !== -1) {
-    const tab = tabs.value[index]
-    tabs.value.splice(index, 1)
-
-    // 如果关闭的是当前 tab，切换到其他 tab
-    if (activeTabId.value === tab.id) {
-      if (tabs.value.length > 0) {
-        const newIndex = Math.min(index, tabs.value.length - 1)
-        activeTabId.value = tabs.value[newIndex].id
-      } else {
-        activeTabId.value = null
-      }
-    }
+  const tab = findTabBySessionId(tabs.value, session.id)
+  if (tab) {
+    activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
   }
 }
 

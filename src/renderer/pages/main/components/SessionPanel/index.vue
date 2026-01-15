@@ -61,6 +61,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
+import { swapArrayItems } from '@composables/useSessionUtils'
 import SessionToolbar from './SessionToolbar.vue'
 import ActiveSessionList from './ActiveSessionList.vue'
 import HistorySessionList from './HistorySessionList.vue'
@@ -206,20 +207,12 @@ const handleOpenHistorySession = (session) => {
 
 // Move session up in list
 const handleMoveUp = (index) => {
-  if (index > 0) {
-    const temp = activeSessions.value[index]
-    activeSessions.value[index] = activeSessions.value[index - 1]
-    activeSessions.value[index - 1] = temp
-  }
+  swapArrayItems(activeSessions.value, index, index - 1)
 }
 
 // Move session down in list
 const handleMoveDown = (index) => {
-  if (index < activeSessions.value.length - 1) {
-    const temp = activeSessions.value[index]
-    activeSessions.value[index] = activeSessions.value[index + 1]
-    activeSessions.value[index + 1] = temp
-  }
+  swapArrayItems(activeSessions.value, index, index + 1)
 }
 
 // Watch project change

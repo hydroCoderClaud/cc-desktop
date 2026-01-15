@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { getSessionStatusIcon } from '@composables/useSessionUtils'
 
 // Props
 const props = defineProps({
@@ -84,21 +84,8 @@ const closeTab = (tab) => {
   emit('close-tab', tab)
 }
 
-// 获取状态图标
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'running':
-      return '▶️'
-    case 'starting':
-      return '⏳'
-    case 'exited':
-      return '⏹️'
-    case 'error':
-      return '❌'
-    default:
-      return '💬'
-  }
-}
+// 使用公共函数
+const getStatusIcon = getSessionStatusIcon
 </script>
 
 <style scoped>
