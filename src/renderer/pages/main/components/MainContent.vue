@@ -331,6 +331,12 @@ const setTerminalRef = (tabId, el) => {
 onMounted(async () => {
   await initLocale()
   await loadProjects()
+
+  // 自动选中第一个项目（如果有的话），需要通过 selectProject 来触发路径检查
+  if (projects.value.length > 0 && !currentProject.value) {
+    await selectProject(projects.value[0])
+  }
+
   setupSessionListeners()
 })
 

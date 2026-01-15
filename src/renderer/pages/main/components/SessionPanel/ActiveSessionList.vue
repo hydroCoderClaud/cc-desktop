@@ -21,9 +21,6 @@
             {{ getStatusIcon(session.status) }}
           </span>
           <span class="name">{{ session.title || session.projectName || 'Session' }}</span>
-          <span v-if="currentProjectId && session.projectId !== currentProjectId" class="other-badge">
-            其他
-          </span>
         </div>
         <div class="session-meta">
           <span v-if="session.title" class="project-name-hint">{{ session.projectName }} · </span>
@@ -269,18 +266,5 @@ const formatTime = formatTimeShort
 
 .session-item.other-project:hover {
   opacity: 1;
-}
-
-.other-badge {
-  font-size: 10px;
-  padding: 1px 5px;
-  background: #8c8c8c;
-  color: white;
-  border-radius: 4px;
-  margin-left: 4px;
-}
-
-:deep(.dark-theme) .other-badge {
-  background: #666666;
 }
 </style>
