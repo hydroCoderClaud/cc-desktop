@@ -63,7 +63,8 @@ class ConfigManager {
         },
 
         maxRecentProjects: 10,
-        maxActiveSessions: 5  // 最大同时运行的会话数
+        maxActiveSessions: 5,  // 最大同时运行的会话数
+        maxHistorySessions: 10  // 左侧面板历史会话最大显示条数
       }
     };
 
@@ -344,6 +345,24 @@ class ConfigManager {
   }
 
   /**
+   * 获取历史会话最大显示条数
+   */
+  getMaxHistorySessions() {
+    return this.config.settings?.maxHistorySessions || 10;
+  }
+
+  /**
+   * 更新历史会话最大显示条数
+   */
+  updateMaxHistorySessions(maxHistorySessions) {
+    if (!this.config.settings) {
+      this.config.settings = {};
+    }
+    this.config.settings.maxHistorySessions = maxHistorySessions;
+    return this.save();
+  }
+
+  /**
    * 更新配置
    */
   updateConfig(updates) {
@@ -450,6 +469,22 @@ class ConfigManager {
    */
   getRecentProjects() {
     return this.config.recentProjects;
+  }
+
+  /**
+   * 更新项目的最近使用时间（选中项目时调用）
+   */
+  touchProject(projectId) {
+    const project = this.config.recentProjects.find(p => p.id === projectId);
+    if (project) {
+      project.lastOpened = new Date().toISOString();
+      // 重新排序
+      this.config.recentProjects.sort((a, b) => {
+        return new Date(b.lastOpened) - new Date(a.lastOpened);
+      });
+      return this.save();
+    }
+    return false;
   }
 
   /**

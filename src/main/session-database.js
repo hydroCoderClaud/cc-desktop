@@ -481,6 +481,21 @@ class SessionDatabase {
   }
 
   /**
+   * Delete session and its messages
+   */
+  deleteSession(sessionId) {
+    // Delete messages first
+    this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(sessionId)
+    // Delete session tags
+    this.db.prepare('DELETE FROM session_tags WHERE session_id = ?').run(sessionId)
+    // Delete favorites
+    this.db.prepare('DELETE FROM favorites WHERE session_id = ?').run(sessionId)
+    // Delete session
+    this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId)
+    return { success: true }
+  }
+
+  /**
    * Get sessions for a project
    */
   getProjectSessions(projectId) {

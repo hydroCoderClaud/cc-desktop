@@ -37,7 +37,7 @@
 
     <!-- 新建 Tab 按钮 -->
     <button
-      v-if="currentProject"
+      v-if="showNewButton && currentProject"
       class="new-tab-btn"
       @click="$emit('new-tab')"
       title="新建会话"
@@ -64,6 +64,10 @@ const props = defineProps({
   currentProject: {
     type: Object,
     default: null
+  },
+  showNewButton: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -229,11 +233,12 @@ const getStatusIcon = getSessionStatusIcon
 .new-tab-btn {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px dashed #cccccc;
-  font-size: 16px;
-  color: #999999;
+  border-radius: 8px;
+  background: #ff6b35;
+  border: none;
+  font-size: 18px;
+  font-weight: 500;
+  color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -243,9 +248,6 @@ const getStatusIcon = getSessionStatusIcon
 }
 
 .new-tab-btn:hover {
-  background: #ff6b35;
-  border-style: solid;
-  border-color: #ff6b35;
-  color: white;
+  background: #e55a2b;
 }
 </style>

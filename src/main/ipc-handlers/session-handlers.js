@@ -54,6 +54,11 @@ function setupSessionHandlers(ipcMain, sessionDatabase) {
     };
   });
 
+  // 清除无效会话（warmup 和 消息少于 2 条的会话）
+  createIPCHandler(ipcMain, 'session:clearInvalid', async () => {
+    return await sessionSyncService.clearInvalidSessions();
+  });
+
   // 获取所有项目（从数据库）
   createIPCHandler(ipcMain, 'session:getProjects', () => {
     return sessionDatabase.getAllProjects();

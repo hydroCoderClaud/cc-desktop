@@ -26,6 +26,7 @@
         :sessions="historySessions"
         :project-id="project?.id"
         @select="handleOpenHistorySession"
+        @delete="handleDeleteHistorySession"
       />
     </div>
 
@@ -106,7 +107,7 @@ const loadActiveSessions = async () => {
   }
 }
 
-// Load history sessions
+// Load history sessions (从文件实时读取，而非数据库)
 const loadHistorySessions = async () => {
   if (!props.project) {
     historySessions.value = []
@@ -114,8 +115,19 @@ const loadHistorySessions = async () => {
   }
 
   try {
-    const sessions = await invoke('getProjectSessions', props.project.id)
-    historySessions.value = sessions || []
+    // 使用文件版本的 API，直接从 ~/.claude 读取，更实时
+    const sessions = await invoke('getFileBasedSessions', props.project.path)
+    // 映射字段名以兼容现有组件（文件版返回 id，数据库版返回 session_uuid）
+    // 过滤掉消息数为 0 的空会话（无法恢复）
+    historySessions.value = (sessions || [])
+      .filter(s => s.messageCount > 0)
+      .map(s => ({
+        ...s,
+        session_uuid: s.id,  // 文件版的 id 就是 session_uuid
+        name: s.firstUserMessage,  // 使用第一条用户消息作为会话名称
+        message_count: s.messageCount,
+        created_at: s.startTime
+      }))
   } catch (err) {
     console.error('Failed to load history sessions:', err)
     historySessions.value = []
@@ -200,9 +212,53 @@ const handleCloseSession = async (session) => {
   }
 }
 
-// Open history session (暂未实现，占位)
-const handleOpenHistorySession = (session) => {
-  message.info('历史会话查看功能开发中...')
+// Open history session - 恢复历史会话
+const handleOpenHistorySession = async (session) => {
+  if (!props.project) {
+    message.warning(t('messages.pleaseSelectProject'))
+    return
+  }
+
+  if (!props.project.pathValid) {
+    message.error(t('project.pathNotExist'))
+    return
+  }
+
+  // 检查会话数量限制
+  try {
+    const runningCount = await invoke('getRunningSessionCount')
+    const maxSessions = await invoke('getMaxActiveSessions')
+    if (runningCount >= maxSessions) {
+      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
+      return
+    }
+  } catch (err) {
+    console.error('Failed to check session limit:', err)
+  }
+
+  try {
+    // 使用 session_uuid 恢复会话
+    const result = await invoke('createActiveSession', {
+      projectId: props.project.id,
+      projectPath: props.project.path,
+      projectName: props.project.name,
+      title: session.name || `恢复: ${session.session_uuid?.slice(0, 8)}`,
+      apiProfileId: props.project.api_profile_id,
+      resumeSessionId: session.session_uuid  // Claude Code 会话 UUID
+    })
+
+    if (result.success) {
+      await loadActiveSessions()
+      focusedSessionId.value = result.session.id
+      emit('session-created', result.session)
+      message.success(t('session.resumeSuccess') || '会话已恢复')
+    } else {
+      message.error(result.error || t('messages.connectionFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to resume session:', err)
+    message.error(t('messages.connectionFailed'))
+  }
 }
 
 // Move session up in list
@@ -213,6 +269,30 @@ const handleMoveUp = (index) => {
 // Move session down in list
 const handleMoveDown = (index) => {
   swapArrayItems(activeSessions.value, index, index + 1)
+}
+
+// Delete history session (硬删除 ~/.claude 下的会话文件)
+const handleDeleteHistorySession = async (session) => {
+  // 确认删除
+  const confirmDelete = window.confirm(`确定要删除会话 "${session.name || session.session_uuid?.slice(0, 8)}" 吗？\n\n此操作将永久删除会话文件，无法恢复。`)
+  if (!confirmDelete) return
+
+  try {
+    const result = await invoke('deleteSessionFile', {
+      projectPath: props.project.path,
+      sessionId: session.session_uuid
+    })
+
+    if (result.success) {
+      message.success('会话已删除')
+      await loadHistorySessions()  // 刷新列表
+    } else {
+      message.error(result.error || '删除失败')
+    }
+  } catch (err) {
+    console.error('Failed to delete session:', err)
+    message.error('删除失败')
+  }
 }
 
 // Watch project change

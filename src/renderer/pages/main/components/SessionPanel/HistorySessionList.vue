@@ -25,7 +25,13 @@
           {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} 条消息
         </div>
       </div>
-      <span class="arrow">›</span>
+      <button
+        class="delete-btn"
+        @click.stop="$emit('delete', session)"
+        title="删除会话"
+      >
+        ×
+      </button>
     </div>
   </div>
 </template>
@@ -42,12 +48,12 @@ defineProps({
   }
 })
 
-defineEmits(['select'])
+defineEmits(['select', 'delete'])
 
 const formatSessionName = (session) => {
   if (session.name) return session.name
-  // 使用 session_id 的前8位作为默认名称
-  return `会话 ${session.session_id?.slice(0, 8) || session.id}`
+  // 使用 session_uuid 的前8位作为默认名称
+  return `会话 ${session.session_uuid?.slice(0, 8) || session.id}`
 }
 
 const formatDate = (dateStr) => {
@@ -165,9 +171,25 @@ const formatDate = (dateStr) => {
   margin-top: 2px;
 }
 
-.arrow {
-  font-size: 18px;
+.delete-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
   color: #cccccc;
-  margin-left: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  margin-left: 4px;
+}
+
+.delete-btn:hover {
+  background: #ff4d4f;
+  color: white;
 }
 </style>

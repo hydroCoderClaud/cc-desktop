@@ -116,6 +116,18 @@
             <template #feedback>{{ t('globalSettings.maxActiveSessionsHint') }}</template>
           </n-form-item>
         </n-grid-item>
+
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.maxHistorySessions')">
+            <n-input-number
+              v-model:value="formData.maxHistorySessions"
+              :min="1"
+              :max="50"
+              placeholder="10"
+            />
+            <template #feedback>{{ t('globalSettings.maxHistorySessionsHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
       </n-grid>
     </n-card>
   </div>
@@ -140,7 +152,8 @@ const DEFAULTS = {
   haiku: 'claude-haiku-4-5-20251001',
   testTimeout: 30,
   requestTimeout: 120,
-  maxActiveSessions: 5
+  maxActiveSessions: 5,
+  maxHistorySessions: 10
 }
 
 const formData = ref({
@@ -151,7 +164,8 @@ const formData = ref({
   haiku: '',
   testTimeout: 30,
   requestTimeout: 120,
-  maxActiveSessions: 5
+  maxActiveSessions: 5,
+  maxHistorySessions: 10
 })
 
 // Theme options
@@ -208,6 +222,10 @@ const loadSettings = async () => {
     // Get max active sessions
     const maxActiveSessions = await invoke('getMaxActiveSessions')
     formData.value.maxActiveSessions = maxActiveSessions || DEFAULTS.maxActiveSessions
+
+    // Get max history sessions
+    const maxHistorySessions = await invoke('getMaxHistorySessions')
+    formData.value.maxHistorySessions = maxHistorySessions || DEFAULTS.maxHistorySessions
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -234,6 +252,9 @@ const handleSave = async () => {
     // Save max active sessions
     await invoke('updateMaxActiveSessions', formData.value.maxActiveSessions)
 
+    // Save max history sessions
+    await invoke('updateMaxHistorySessions', formData.value.maxHistorySessions)
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -251,6 +272,7 @@ const handleReset = async () => {
     formData.value.testTimeout = DEFAULTS.testTimeout
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
+    formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
 
     // Save to backend
     await invoke('updateGlobalModels', {
@@ -263,6 +285,7 @@ const handleReset = async () => {
       request: DEFAULTS.requestTimeout * 1000
     })
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
+    await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

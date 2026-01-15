@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMaxActiveSessions: () => ipcRenderer.invoke('config:getMaxActiveSessions'),
   updateMaxActiveSessions: (max) => ipcRenderer.invoke('config:updateMaxActiveSessions', max),
 
+  // Max History Sessions (左侧面板历史会话显示条数)
+  getMaxHistorySessions: () => ipcRenderer.invoke('config:getMaxHistorySessions'),
+  updateMaxHistorySessions: (max) => ipcRenderer.invoke('config:updateMaxHistorySessions', max),
+
   // ========================================
   // API 配置相关
   // ========================================
@@ -137,7 +141,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
-  openSessionManager: () => ipcRenderer.invoke('window:openSessionManager'),
+  openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
 
   // ========================================
   // 服务商定义管理
@@ -154,11 +158,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 同步
   syncSessions: () => ipcRenderer.invoke('session:sync'),
   getSyncStatus: () => ipcRenderer.invoke('session:getSyncStatus'),
+  clearInvalidSessions: () => ipcRenderer.invoke('session:clearInvalid'),
 
   // 项目和会话
   getSessionProjects: () => ipcRenderer.invoke('session:getProjects'),
   getProjectSessions: (projectId) => ipcRenderer.invoke('session:getProjectSessions', projectId),
   getSessionMessages: ({ sessionId, limit, offset }) => ipcRenderer.invoke('session:getMessages', { sessionId, limit, offset }),
+
+  // 实时会话读取（文件版，用于主页面）
+  getFileBasedSessions: (projectPath) => ipcRenderer.invoke('session:getFileBasedSessions', projectPath),
+
+  // 删除历史会话文件（硬删除）
+  deleteSessionFile: ({ projectPath, sessionId }) => ipcRenderer.invoke('session:deleteFile', { projectPath, sessionId }),
 
   // 搜索
   searchSessions: ({ query, projectId, sessionId, limit }) => ipcRenderer.invoke('session:search', { query, projectId, sessionId, limit }),
@@ -227,6 +238,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFocusedActiveSession: () => ipcRenderer.invoke('activeSession:getFocused'),
   setActiveSessionVisible: ({ sessionId, visible }) => ipcRenderer.invoke('activeSession:setVisible', { sessionId, visible }),
   getRunningSessionCount: () => ipcRenderer.invoke('activeSession:getRunningCount'),
+  renameActiveSession: ({ sessionId, newTitle }) => ipcRenderer.invoke('activeSession:rename', { sessionId, newTitle }),
 
   // ========================================
   // 事件监听
@@ -273,6 +285,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('session:error', listener);
     return () => ipcRenderer.removeListener('session:error', listener);
+  },
+
+  onSessionUpdated: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('session:updated', listener);
+    return () => ipcRenderer.removeListener('session:updated', listener);
   },
 
   // ========================================

@@ -34,6 +34,7 @@ export default {
     default: '默认',
     custom: '自定义',
     builtIn: '内置',
+    yesterday: '昨天',
     name: '名称',
     description: '描述',
     status: '状态',
@@ -63,7 +64,8 @@ export default {
     warningText: 'Claude Code Desktop 将访问所选项目文件夹中的文件。请确保您信任该项目目录。',
     settingsMenu: '设置',
     toggleDark: '切换深色',
-    toggleLight: '切换浅色'
+    toggleLight: '切换浅色',
+    projectSettings: '项目设置'
   },
 
   // 设置菜单
@@ -148,6 +150,8 @@ export default {
     sessionSettings: '会话设置',
     maxActiveSessions: '最大会话数',
     maxActiveSessionsHint: '同时运行的会话数量上限',
+    maxHistorySessions: '历史会话显示数',
+    maxHistorySessionsHint: '左侧面板历史会话最大显示条数',
     saveSuccess: '设置已保存'
   },
 
@@ -156,7 +160,23 @@ export default {
     newSession: '新建会话',
     sessionTitle: '会话标题',
     sessionTitlePlaceholder: '输入会话标题（可选）',
-    maxSessionsReached: '会话达到最大数量（{max}），请终止现有某会话后再新建'
+    maxSessionsReached: '会话达到最大数量（{max}），请终止现有某会话后再新建',
+    resumeSuccess: '历史会话已恢复',
+    running: '运行中',
+    history: '历史会话',
+    messages: '条消息',
+    session: '会话',
+    resume: '恢复',
+    rename: '重命名会话',
+    close: '关闭会话',
+    delete: '删除会话',
+    deleted: '会话已删除',
+    noSessions: '暂无会话',
+    deleteConfirm: '确定要删除会话 "{name}" 吗？',
+    deleteWarning: '此操作将永久删除会话文件，无法恢复。',
+    newSessionHint: '在左侧面板点击"新建会话"开始',
+    cannotDeleteRunning: '该会话正在运行中，请先关闭会话再删除',
+    viewMore: '查看更多'
   },
 
   // 会话历史管理
@@ -250,7 +270,12 @@ export default {
     totalSessions: '会话总数',
     totalMessages: '消息总数',
     tokensUsed: '已用 Token',
-    totalMessages: '总消息数'
+    totalMessages: '总消息数',
+    // 清除无效会话
+    clearInvalid: '清除无效会话',
+    clearInvalidConfirm: '将删除 warmup 预热会话和消息少于 2 条的会话，此操作不可恢复，确定继续吗？',
+    clearInvalidSuccess: '清除完成',
+    filesDeleted: '个文件已删除'
   },
 
   // 自定义模型

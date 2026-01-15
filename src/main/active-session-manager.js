@@ -34,6 +34,7 @@ class ActiveSession {
     this.projectName = options.projectName || ''
     this.title = options.title || ''  // 用户自定义会话标题
     this.apiProfileId = options.apiProfileId || null  // 关联的 API Profile
+    this.resumeSessionId = options.resumeSessionId || null  // Claude Code 会话 UUID（用于恢复）
     this.status = SessionStatus.STARTING
     this.pty = null
     this.pid = null
@@ -56,7 +57,8 @@ class ActiveSession {
       pid: this.pid,
       createdAt: this.createdAt.toISOString(),
       exitCode: this.exitCode,
-      visible: this.visible
+      visible: this.visible,
+      resumeSessionId: this.resumeSessionId  // 用于关联历史会话
     }
   }
 }
@@ -76,6 +78,7 @@ class ActiveSessionManager {
   /**
    * 创建新会话
    * @param {Object} options - 会话配置
+   * @param {string} options.resumeSessionId - Claude Code 会话 UUID（用于恢复历史会话）
    * @returns {ActiveSession} 创建的会话
    */
   create(options) {
@@ -84,11 +87,12 @@ class ActiveSessionManager {
       projectPath: options.projectPath,
       projectName: options.projectName,
       title: options.title,  // 用户自定义标题
-      apiProfileId: options.apiProfileId
+      apiProfileId: options.apiProfileId,
+      resumeSessionId: options.resumeSessionId  // 恢复会话时传入
     })
 
     this.sessions.set(session.id, session)
-    console.log(`[ActiveSession] Created session ${session.id} for project: ${options.projectPath}`)
+    console.log(`[ActiveSession] Created session ${session.id} for project: ${options.projectPath}${options.resumeSessionId ? ` (resume: ${options.resumeSessionId})` : ''}`)
 
     return session
   }
@@ -199,7 +203,11 @@ class ActiveSessionManager {
 
       // 等待终端就绪后清屏并启动 Claude CLI
       setTimeout(() => {
-        this.write(sessionId, 'cls; claude\r')
+        // 根据是否有 resumeSessionId 决定启动命令
+        const claudeCmd = session.resumeSessionId
+          ? `claude --resume ${session.resumeSessionId}`
+          : 'claude'
+        this.write(sessionId, `cls; ${claudeCmd}\r`)
       }, 100)
 
       // 通知创建成功
@@ -450,6 +458,30 @@ class ActiveSessionManager {
    */
   getFocusedSessionId() {
     return this.focusedSessionId
+  }
+
+  /**
+   * 重命名会话
+   * @param {string} sessionId - 会话 ID
+   * @param {string} newTitle - 新标题
+   * @returns {Object} 更新后的会话信息
+   */
+  renameSession(sessionId, newTitle) {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+
+    session.title = newTitle
+    console.log(`[ActiveSession] Renamed session ${sessionId} to: ${newTitle}`)
+
+    // 通知渲染进程会话已更新
+    this.mainWindow.webContents.send('session:updated', {
+      sessionId: session.id,
+      session: session.toJSON()
+    })
+
+    return session.toJSON()
   }
 }
 

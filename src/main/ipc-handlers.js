@@ -5,6 +5,7 @@
 
 const { ipcMain, dialog, shell } = require('electron');
 const { SessionDatabase } = require('./session-database');
+const { SessionHistoryService } = require('./session-history-service');
 const { setupSessionHandlers } = require('./ipc-handlers/session-handlers');
 const { setupProjectHandlers } = require('./ipc-handlers/project-handlers');
 const { setupActiveSessionHandlers } = require('./ipc-handlers/active-session-handlers');
@@ -34,6 +35,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
+
+  // 初始化文件读取服务（实时读取 ~/.claude 目录）
+  const sessionHistoryService = new SessionHistoryService();
 
   // ========================================
   // 同步主题获取（用于 preload 避免闪白）
@@ -188,6 +192,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return configManager.updateMaxActiveSessions(maxActiveSessions);
   });
 
+  // 获取历史会话最大显示条数
+  ipcMain.handle('config:getMaxHistorySessions', async () => {
+    return configManager.getMaxHistorySessions();
+  });
+
+  // 更新历史会话最大显示条数
+  ipcMain.handle('config:updateMaxHistorySessions', async (event, maxHistorySessions) => {
+    return configManager.updateMaxHistorySessions(maxHistorySessions);
+  });
+
   // 测试 API 连接
   ipcMain.handle('api:testConnection', async (event, apiConfig) => {
     return configManager.testAPIConnection(apiConfig);
@@ -264,14 +278,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       }
     });
 
+    const query = options.query || ''
     if (process.env.VITE_DEV_SERVER_URL) {
-      const url = `${process.env.VITE_DEV_SERVER_URL}/pages/${options.page}/`;
+      const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');  // 移除末尾斜杠
+      const url = `${baseUrl}/pages/${options.page}/${query}`;
       console.log('[IPC] Loading URL:', url);
       window.loadURL(url);
+      // 子窗口不自动打开 DevTools，需要时按 F12 手动打开
     } else {
       const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
       console.log('[IPC] Loading file:', filePath);
-      window.loadFile(filePath);
+      window.loadFile(filePath, { query: query.replace('?', '') });
     }
 
     return window;
@@ -311,12 +328,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // 打开会话历史窗口
-  ipcMain.handle('window:openSessionManager', async () => {
+  ipcMain.handle('window:openSessionManager', async (event, options = {}) => {
+    const query = options.projectPath ? `?projectPath=${encodeURIComponent(options.projectPath)}` : ''
     createSubWindow({
       width: 1200,
       height: 700,
       title: '会话历史 - Claude Code Desktop',
-      page: 'session-manager'
+      page: 'session-manager',
+      query
     });
     return { success: true };
   });
@@ -427,6 +446,41 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 会话历史管理（数据库版）- 提取到独立模块
   // ========================================
   setupSessionHandlers(ipcMain, sessionDatabase);
+
+  // ========================================
+  // 实时会话读取（文件版）- 用于主页面历史会话列表
+  // ========================================
+
+  // 获取项目的历史会话（直接从 ~/.claude 文件读取，实时）
+  createIPCHandler('session:getFileBasedSessions', async (projectPath) => {
+    return sessionHistoryService.getProjectSessions(projectPath);
+  });
+
+  // 删除历史会话文件（硬删除 ~/.claude 下的文件）
+  createIPCHandler('session:deleteFile', async ({ projectPath, sessionId }) => {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { encodePath } = require('./utils/path-utils');
+
+    const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const encodedPath = encodePath(projectPath);
+    const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionId}.jsonl`);
+
+    console.log('[IPC] Deleting session file:', sessionFile);
+
+    if (!fs.existsSync(sessionFile)) {
+      return { success: false, error: '会话文件不存在' };
+    }
+
+    try {
+      fs.unlinkSync(sessionFile);
+      return { success: true };
+    } catch (err) {
+      console.error('[IPC] Failed to delete session file:', err);
+      return { success: false, error: err.message };
+    }
+  });
 
   // ========================================
   // 工程管理（数据库版）

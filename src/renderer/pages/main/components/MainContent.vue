@@ -1,16 +1,18 @@
 <template>
-  <div class="app-container" :class="{ 'dark-theme': isDark }" :style="cssVars" @click="handleGlobalClick">
-    <!-- Sidebar (Project List) -->
-    <Sidebar
-      ref="sidebarRef"
+  <div class="app-container" :class="{ 'dark-theme': isDark }" :style="cssVars">
+    <!-- Left Panel (Project Selector + Sessions) -->
+    <LeftPanel
+      ref="leftPanelRef"
       :projects="projects"
       :current-project="currentProject"
       :is-dark="isDark"
-      @add-project="handleAddProject"
       @open-project="handleOpenProject"
       @select-project="selectProject"
       @toggle-theme="handleToggleTheme"
       @context-action="handleContextAction"
+      @session-created="handleSessionCreated"
+      @session-selected="handleSessionSelected"
+      @session-closed="handleSessionClosed"
     />
 
     <!-- Main Content Area -->
@@ -26,9 +28,9 @@
         :tabs="tabs"
         :active-tab-id="activeTabId"
         :current-project="currentProject"
+        :show-new-button="false"
         @select-tab="handleSelectTab"
         @close-tab="handleCloseTab"
-        @new-tab="handleNewSession"
       />
 
       <!-- Main Area -->
@@ -37,37 +39,11 @@
         <div v-show="activeTabId === 'welcome'" class="empty-state">
           <div class="pixel-mascot">🤖</div>
 
-          <div class="selectors-row">
-            <div class="selector" @click="handleAddProject">
-              <span>📁</span>
-              <span>{{ currentProject?.name || t('main.selectProject') }}</span>
-            </div>
-          </div>
-
-          <div class="new-session-form" v-if="currentProject && currentProject.pathValid">
-            <n-input
-              v-model:value="welcomeSessionTitle"
-              :placeholder="t('session.sessionTitlePlaceholder')"
-              class="session-title-input"
-              @keyup.enter="handleWelcomeNewSession"
-            >
-              <template #suffix>
-                <n-button
-                  type="primary"
-                  size="small"
-                  :disabled="isCreatingSession"
-                  @click="handleWelcomeNewSession"
-                >
-                  {{ t('session.newSession') }}
-                </n-button>
-              </template>
-            </n-input>
-          </div>
-          <div class="connect-actions" v-else>
-            <button class="connect-btn" disabled>
-              <span>▶️</span>
-              <span>{{ t('main.selectProject') }}</span>
-            </button>
+          <div class="welcome-message">
+            <h2>{{ t('main.welcome') }}</h2>
+            <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
+            <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
+            <p v-else>{{ t('session.newSessionHint') || '在左侧面板点击"新建会话"开始' }}</p>
           </div>
 
           <div class="warning-box">
@@ -92,15 +68,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Session Panel (Right Side) -->
-    <SessionPanel
-      ref="sessionPanelRef"
-      :project="currentProject"
-      @session-created="handleSessionCreated"
-      @session-selected="handleSessionSelected"
-      @session-closed="handleSessionClosed"
-    />
 
     <!-- Project Edit Modal -->
     <n-modal v-model:show="showProjectModal" preset="card" :title="editingProject ? t('project.editTitle') : t('project.createTitle')" style="width: 500px;">
@@ -198,30 +165,6 @@
       </template>
     </n-modal>
 
-    <!-- New Session Modal -->
-    <n-modal
-      v-model:show="showNewSessionModal"
-      preset="card"
-      :title="t('session.newSession')"
-      style="width: 360px;"
-      :mask-closable="false"
-    >
-      <n-form>
-        <n-form-item :label="t('session.sessionTitle')">
-          <n-input
-            v-model:value="newSessionTitle"
-            :placeholder="t('session.sessionTitlePlaceholder')"
-            @keyup.enter="confirmNewSession"
-          />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="modal-footer">
-          <n-button @click="showNewSessionModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="confirmNewSession">{{ t('common.confirm') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
   </div>
 </template>
 
@@ -232,10 +175,9 @@ import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { createTabFromSession, findTabBySessionId, removeTabAndGetNextActive } from '@composables/useSessionUtils'
-import Sidebar from './Sidebar.vue'
+import LeftPanel from './LeftPanel.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
-import SessionPanel from './SessionPanel/index.vue'
 
 const message = useMessage()
 const { invoke } = useIPC()
@@ -243,8 +185,7 @@ const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 
 // Refs
-const sidebarRef = ref(null)
-const sessionPanelRef = ref(null)
+const leftPanelRef = ref(null)
 const terminalRefs = ref({})
 
 // State
@@ -272,13 +213,6 @@ const showDeleteModal = ref(false)
 const deleteProject = ref(null)
 const deleteWithSessions = ref(false)
 
-// New session modal
-const showNewSessionModal = ref(false)
-const newSessionTitle = ref('')
-
-// Welcome page new session
-const welcomeSessionTitle = ref('')
-const isCreatingSession = ref(false)
 
 // Emoji picker
 const showEmojiPicker = ref(false)
@@ -339,13 +273,30 @@ onMounted(async () => {
   }
 
   setupSessionListeners()
+
+  // 注册键盘快捷键
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 // Cleanup listeners
 let cleanupFns = []
 
+// Keyboard shortcuts handler
+const handleKeyDown = (event) => {
+  // Ctrl+N: New session
+  if (event.ctrlKey && event.key.toLowerCase() === 'n') {
+    event.preventDefault()
+    if (leftPanelRef.value && currentProject.value?.pathValid) {
+      // 触发左侧面板的新建会话
+      leftPanelRef.value.handleNewSession?.()
+    }
+    return
+  }
+}
+
 onUnmounted(() => {
   cleanupFns.forEach(fn => fn && fn())
+  window.removeEventListener('keydown', handleKeyDown)
 })
 
 // Setup session event listeners
@@ -384,6 +335,16 @@ const setupSessionListeners = () => {
       message.error(t('messages.terminalError') + ': ' + error)
     })
   )
+
+  // 监听会话更新（如重命名）
+  cleanupFns.push(
+    window.electronAPI.onSessionUpdated(({ sessionId, session }) => {
+      const tab = tabs.value.find(t => t.sessionId === sessionId)
+      if (tab && session) {
+        tab.title = session.title || ''
+      }
+    })
+  )
 }
 
 // Load projects
@@ -398,6 +359,10 @@ const loadProjects = async () => {
 
 // Project management
 const selectProject = async (project) => {
+  if (!project) {
+    currentProject.value = null
+    return
+  }
   // 实时检查路径是否存在
   try {
     const result = await invoke('checkPath', project.path)
@@ -416,36 +381,11 @@ const selectProject = async (project) => {
     console.error('Failed to check path:', err)
   }
   currentProject.value = project
+
+  // 刷新项目列表以更新排序（touchProject 已在 LeftPanel 调用）
+  await loadProjects()
 }
 
-// Handle global click (close context menu)
-const handleGlobalClick = () => {
-  if (sidebarRef.value) {
-    sidebarRef.value.closeContextMenu()
-  }
-}
-
-// Create new project
-const handleAddProject = async () => {
-  try {
-    const result = await invoke('createProject', {})
-    if (result.canceled) return
-
-    await loadProjects()
-    // 从 projects.value 中找到新添加的项目（带有 pathValid 字段）
-    const newProject = projects.value.find(p => p.id === result.id)
-    currentProject.value = newProject || result
-
-    if (result.restored) {
-      message.success(t('messages.projectRestored') + ': ' + result.name)
-    } else {
-      message.success(t('messages.projectAdded') + ': ' + result.name)
-    }
-  } catch (err) {
-    console.error('Failed to add project:', err)
-    message.error(err.message || t('messages.operationFailed'))
-  }
-}
 
 // Open existing project
 const handleOpenProject = async () => {
@@ -610,10 +550,10 @@ const addSessionTab = async (session, project) => {
   tabs.value.push(newTab)
   activeTabId.value = newTab.id
 
-  // 同步右侧面板
-  if (sessionPanelRef.value) {
-    await sessionPanelRef.value.loadActiveSessions()
-    sessionPanelRef.value.focusedSessionId = session.id
+  // 同步左侧面板
+  if (leftPanelRef.value) {
+    await leftPanelRef.value.loadActiveSessions()
+    leftPanelRef.value.focusedSessionId = session.id
   }
 }
 
@@ -634,9 +574,9 @@ const handleSelectTab = (tab) => {
     }
   }
 
-  // 同步右侧面板的选中状态
-  if (sessionPanelRef.value?.focusedSessionId !== undefined) {
-    sessionPanelRef.value.focusedSessionId = tab.sessionId
+  // 同步左侧面板的选中状态
+  if (leftPanelRef.value?.focusedSessionId !== undefined) {
+    leftPanelRef.value.focusedSessionId = tab.sessionId
   }
 
   // 通知后端聚焦该会话
@@ -661,101 +601,6 @@ const handleCloseTab = async (tab) => {
 
   // 移除 tab 并切换到合适的 tab
   activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
-}
-
-// Open new session dialog
-const handleNewSession = async () => {
-  if (!currentProject.value) {
-    message.warning(t('messages.pleaseSelectProject'))
-    return
-  }
-
-  if (!currentProject.value.pathValid) {
-    message.error(t('project.pathNotExist'))
-    return
-  }
-
-  // Check session count limit
-  try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
-    if (runningCount >= maxSessions) {
-      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
-      return
-    }
-  } catch (err) {
-    console.error('Failed to check session limit:', err)
-  }
-
-  newSessionTitle.value = ''
-  showNewSessionModal.value = true
-}
-
-// Confirm and create new session
-const confirmNewSession = async () => {
-  try {
-    const result = await invoke('createActiveSession', {
-      projectId: currentProject.value.id,
-      projectPath: currentProject.value.path,
-      projectName: currentProject.value.name,
-      title: newSessionTitle.value.trim(),
-      apiProfileId: currentProject.value.api_profile_id
-    })
-
-    if (result.success) {
-      showNewSessionModal.value = false
-      await addSessionTab(result.session, currentProject.value)
-      message.success(t('messages.connectionSuccess'))
-    } else {
-      message.error(result.error || t('messages.connectionFailed'))
-    }
-  } catch (err) {
-    console.error('Failed to create session:', err)
-    message.error(t('messages.connectionFailed'))
-  }
-}
-
-// Welcome page direct create session
-const handleWelcomeNewSession = async () => {
-  if (!currentProject.value || !currentProject.value.pathValid) {
-    return
-  }
-
-  // Check session count limit
-  try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
-    if (runningCount >= maxSessions) {
-      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
-      return
-    }
-  } catch (err) {
-    console.error('Failed to check session limit:', err)
-  }
-
-  isCreatingSession.value = true
-  try {
-    const result = await invoke('createActiveSession', {
-      projectId: currentProject.value.id,
-      projectPath: currentProject.value.path,
-      projectName: currentProject.value.name,
-      title: welcomeSessionTitle.value.trim(),
-      apiProfileId: currentProject.value.api_profile_id
-    })
-
-    if (result.success) {
-      welcomeSessionTitle.value = ''
-      await addSessionTab(result.session, currentProject.value)
-      message.success(t('messages.connectionSuccess'))
-    } else {
-      message.error(result.error || t('messages.connectionFailed'))
-    }
-  } catch (err) {
-    console.error('Failed to create session:', err)
-    message.error(t('messages.connectionFailed'))
-  } finally {
-    isCreatingSession.value = false
-  }
 }
 
 // Session panel events - 确保会话有对应的 Tab（如果没有则创建）
@@ -894,80 +739,25 @@ const openApiProfileManager = async () => {
   50% { transform: translateY(-10px); }
 }
 
-.selectors-row {
-  display: flex;
-  gap: 16px;
+.welcome-message {
   margin-bottom: 32px;
-  justify-content: center;
+  text-align: center;
 }
 
-.selector {
-  min-width: 200px;
-  padding: 12px 16px;
-  background: white;
-  border: 1.5px solid #e5e5e0;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.welcome-message h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
   color: #2d2d2d;
 }
 
-.selector:hover {
-  border-color: #ff6b35;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+.dark-theme .welcome-message h2 {
+  color: #e8e8e8;
 }
 
-.new-session-form {
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-.new-session-form .session-title-input {
-  border-radius: 8px;
-}
-
-.new-session-form :deep(.n-input) {
-  --n-border-radius: 8px !important;
-}
-
-.new-session-form :deep(.n-input__suffix) {
-  padding-right: 4px;
-}
-
-.connect-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.connect-btn {
-  padding: 12px 32px;
-  background: #ff6b35;
-  color: white;
-  border: none;
-  border-radius: 8px;
+.welcome-message p {
   font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.connect-btn:hover:not(:disabled) {
-  background: #ff5722;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
-}
-
-.connect-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  color: #8c8c8c;
 }
 
 .warning-box {

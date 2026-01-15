@@ -48,6 +48,16 @@
           <span style="margin-right: 4px">🔄</span>
           {{ t('sessionManager.sync') }}
         </n-button>
+        <!-- Clear Invalid Sessions Button -->
+        <n-popconfirm @positive-click="handleClearInvalid">
+          <template #trigger>
+            <n-button :loading="clearing" type="warning">
+              <span style="margin-right: 4px">🧹</span>
+              {{ t('sessionManager.clearInvalid') }}
+            </n-button>
+          </template>
+          {{ t('sessionManager.clearInvalidConfirm') }}
+        </n-popconfirm>
       </n-space>
     </div>
 
@@ -124,7 +134,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, NPopconfirm } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -157,6 +167,7 @@ const loadingProjects = ref(false)
 const loadingSessions = ref(false)
 const loadingMessages = ref(false)
 const syncing = ref(false)
+const clearing = ref(false)
 const syncStats = ref(null)
 
 // Tags
@@ -280,6 +291,16 @@ onMounted(async () => {
   await handleSync()
   await loadTags()
   window.addEventListener('keydown', handleKeyDown)
+
+  // 检查 URL 参数，自动选中指定项目
+  const urlParams = new URLSearchParams(window.location.search)
+  const projectPath = urlParams.get('projectPath')
+  if (projectPath) {
+    const targetProject = projects.value.find(p => p.path === projectPath)
+    if (targetProject) {
+      await selectProject(targetProject)
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -385,6 +406,26 @@ const handleSync = async () => {
     message.error(t('messages.operationFailed'))
   } finally {
     syncing.value = false
+  }
+}
+
+const handleClearInvalid = async () => {
+  clearing.value = true
+  try {
+    const result = await invoke('clearInvalidSessions')
+    if (result.status === 'success') {
+      const totalDeleted = result.filesDeleted + result.dbSessionsDeleted
+      message.success(`${t('sessionManager.clearInvalidSuccess')}: ${result.filesDeleted} ${t('sessionManager.filesDeleted')}`)
+      // 清除后重新同步
+      await handleSync()
+    } else if (result.status === 'error') {
+      message.error(result.message)
+    }
+  } catch (err) {
+    console.error('Clear invalid sessions failed:', err)
+    message.error(t('messages.operationFailed'))
+  } finally {
+    clearing.value = false
   }
 }
 

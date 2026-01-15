@@ -366,6 +366,143 @@ class SessionSyncService {
   isSyncing() {
     return this.syncing
   }
+
+  /**
+   * Clear invalid sessions (warmup sessions and sessions with < 2 messages)
+   * Deletes from both local files and database
+   * @returns {Object} Statistics about deleted sessions
+   */
+  async clearInvalidSessions() {
+    const stats = {
+      filesDeleted: 0,
+      dbSessionsDeleted: 0,
+      errors: []
+    }
+
+    try {
+      console.log('[Sync] Starting to clear invalid sessions...')
+
+      // 1. Get all sessions from database that are invalid
+      const invalidSessions = this.db.db.prepare(`
+        SELECT s.id, s.session_uuid, s.message_count, p.encoded_path
+        FROM sessions s
+        JOIN projects p ON s.project_id = p.id
+        WHERE s.message_count < 2
+      `).all()
+
+      console.log(`[Sync] Found ${invalidSessions.length} sessions with < 2 messages in database`)
+
+      // 2. Scan all project directories for warmup sessions
+      if (existsSync(this.projectsDir)) {
+        const projectDirs = await fs.readdir(this.projectsDir, { withFileTypes: true })
+
+        for (const entry of projectDirs) {
+          if (!entry.isDirectory()) continue
+
+          const projectDir = path.join(this.projectsDir, entry.name)
+          const files = await fs.readdir(projectDir)
+          const sessionFiles = files.filter(f => f.endsWith('.jsonl'))
+
+          for (const file of sessionFiles) {
+            const filePath = path.join(projectDir, file)
+            const sessionUuid = file.replace('.jsonl', '')
+
+            try {
+              // Check if this session is a warmup or has < 2 messages
+              const isInvalid = await this.checkSessionInvalid(filePath)
+
+              if (isInvalid) {
+                // Delete the file
+                await fs.unlink(filePath)
+                stats.filesDeleted++
+                console.log(`[Sync] Deleted invalid session file: ${file}`)
+
+                // Delete from database if exists
+                const dbSession = this.db.getSessionByUuid(sessionUuid)
+                if (dbSession) {
+                  this.db.deleteSession(dbSession.id)
+                  stats.dbSessionsDeleted++
+                }
+              }
+            } catch (err) {
+              console.error(`[Sync] Error processing session ${sessionUuid}:`, err)
+              stats.errors.push({ sessionUuid, error: err.message })
+            }
+          }
+        }
+      }
+
+      // 3. Clean up database sessions that no longer have files
+      for (const session of invalidSessions) {
+        const filePath = path.join(this.projectsDir, session.encoded_path, `${session.session_uuid}.jsonl`)
+        if (!existsSync(filePath)) {
+          // File doesn't exist, delete from database
+          this.db.deleteSession(session.id)
+          stats.dbSessionsDeleted++
+        }
+      }
+
+      console.log('[Sync] Clear invalid sessions completed:', stats)
+      return { status: 'success', ...stats }
+
+    } catch (err) {
+      console.error('[Sync] Clear invalid sessions failed:', err)
+      return { status: 'error', message: err.message, ...stats }
+    }
+  }
+
+  /**
+   * Check if a session file is invalid (warmup or < 2 messages)
+   * @param {string} filePath - Path to the JSONL file
+   * @returns {Promise<boolean>} True if the session is invalid
+   */
+  async checkSessionInvalid(filePath) {
+    return new Promise((resolve) => {
+      let messageCount = 0
+      let isWarmup = false
+      let firstUserMessage = null
+
+      const stream = createReadStream(filePath, { encoding: 'utf-8' })
+      const rl = readline.createInterface({ input: stream })
+
+      rl.on('line', (line) => {
+        try {
+          const msg = JSON.parse(line)
+
+          if ((msg.type === 'user' || msg.type === 'assistant') && !msg.isMeta) {
+            messageCount++
+
+            // Check first user message for warmup
+            if (msg.type === 'user' && !firstUserMessage) {
+              const content = msg.message?.content
+              if (typeof content === 'string') {
+                firstUserMessage = content.trim().toLowerCase()
+              } else if (Array.isArray(content)) {
+                const textParts = content.filter(c => c.type === 'text' && c.text)
+                firstUserMessage = textParts.map(c => c.text).join(' ').trim().toLowerCase()
+              }
+
+              if (firstUserMessage && firstUserMessage.includes('warmup')) {
+                isWarmup = true
+              }
+            }
+          }
+        } catch {
+          // Skip invalid lines
+        }
+      })
+
+      rl.on('close', () => {
+        // Invalid if warmup OR message count < 2
+        resolve(isWarmup || messageCount < 2)
+      })
+
+      rl.on('error', () => {
+        // On error, consider it invalid
+        resolve(true)
+      })
+    })
+  }
 }
 
 module.exports = { SessionSyncService }

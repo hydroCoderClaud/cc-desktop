@@ -34,6 +34,7 @@ export default {
     default: 'Default',
     custom: 'Custom',
     builtIn: 'Built-in',
+    yesterday: 'Yesterday',
     name: 'Name',
     description: 'Description',
     status: 'Status',
@@ -63,7 +64,8 @@ export default {
     warningText: 'Claude Code Desktop will access files in the selected project folder. Make sure you trust the project directory.',
     settingsMenu: 'Settings',
     toggleDark: 'Switch to dark',
-    toggleLight: 'Switch to light'
+    toggleLight: 'Switch to light',
+    projectSettings: 'Project Settings'
   },
 
   // Settings Menu
@@ -148,6 +150,8 @@ export default {
     sessionSettings: 'Session Settings',
     maxActiveSessions: 'Max Sessions',
     maxActiveSessionsHint: 'Maximum number of concurrent sessions',
+    maxHistorySessions: 'History Sessions',
+    maxHistorySessionsHint: 'Maximum number of history sessions displayed in left panel',
     saveSuccess: 'Settings saved'
   },
 
@@ -156,7 +160,23 @@ export default {
     newSession: 'New Session',
     sessionTitle: 'Session Title',
     sessionTitlePlaceholder: 'Enter session title (optional)',
-    maxSessionsReached: 'Maximum sessions ({max}) reached. Please close an existing session before creating a new one'
+    maxSessionsReached: 'Maximum sessions ({max}) reached. Please close an existing session before creating a new one',
+    resumeSuccess: 'Session resumed',
+    running: 'Running',
+    history: 'History',
+    messages: 'messages',
+    session: 'Session',
+    resume: 'Resume',
+    rename: 'Rename Session',
+    close: 'Close session',
+    delete: 'Delete session',
+    deleted: 'Session deleted',
+    noSessions: 'No sessions',
+    deleteConfirm: 'Are you sure you want to delete session "{name}"?',
+    deleteWarning: 'This will permanently delete the session file and cannot be undone.',
+    newSessionHint: 'Click "New Session" in the left panel to start',
+    cannotDeleteRunning: 'This session is currently running. Please close it first before deleting.',
+    viewMore: 'View More'
   },
 
   // Session History Manager
@@ -250,7 +270,12 @@ export default {
     totalSessions: 'Total Sessions',
     totalMessages: 'Total Messages',
     tokensUsed: 'Tokens Used',
-    totalMessages: 'Total messages'
+    totalMessages: 'Total messages',
+    // Clear invalid sessions
+    clearInvalid: 'Clear Invalid',
+    clearInvalidConfirm: 'This will delete warmup sessions and sessions with less than 2 messages. This action cannot be undone. Continue?',
+    clearInvalidSuccess: 'Cleanup completed',
+    filesDeleted: 'files deleted'
   },
 
   // Custom Models

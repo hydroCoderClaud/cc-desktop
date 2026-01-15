@@ -108,6 +108,11 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
     return activeSessionManager.getRunningCount()
   })
 
+  // 重命名会话
+  createIPCHandler(ipcMain, 'activeSession:rename', ({ sessionId, newTitle }) => {
+    return activeSessionManager.renameSession(sessionId, newTitle)
+  })
+
   console.log('[IPC] Active session handlers ready')
 }
 

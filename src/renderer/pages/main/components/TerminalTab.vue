@@ -68,11 +68,22 @@ const initTerminal = async () => {
   terminal.loadAddon(fitAddon)
 
   if (window.WebLinksAddon) {
-    const webLinksAddon = new window.WebLinksAddon.WebLinksAddon()
+    // 自定义链接处理：使用系统默认浏览器打开
+    const webLinksAddon = new window.WebLinksAddon.WebLinksAddon((event, uri) => {
+      event.preventDefault()
+      if (window.electronAPI) {
+        window.electronAPI.openExternal(uri)
+      }
+    })
     terminal.loadAddon(webLinksAddon)
   }
 
   terminal.open(terminalRef.value)
+
+  // 阻止默认的 paste 事件（避免重复粘贴）
+  terminalRef.value.addEventListener('paste', (e) => {
+    e.preventDefault()
+  })
 
   // Handle user input
   terminal.onData(data => {
@@ -82,6 +93,34 @@ const initTerminal = async () => {
         data
       })
     }
+  })
+
+  // Handle Ctrl+C copy and Ctrl+V paste
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.type !== 'keydown') return true
+
+    // Ctrl+C: Copy if has selection, otherwise send SIGINT
+    if (event.ctrlKey && event.key === 'c') {
+      const selection = terminal.getSelection()
+      if (selection) {
+        event.preventDefault()
+        event.stopPropagation()
+        handleCopy(selection)
+        return false  // Prevent sending SIGINT when copying
+      }
+      // No selection, allow default SIGINT behavior
+      return true
+    }
+
+    // Ctrl+V: Paste from clipboard
+    if (event.ctrlKey && event.key === 'v') {
+      event.preventDefault()
+      event.stopPropagation()
+      handlePaste()
+      return false
+    }
+
+    return true
   })
 
   // Initial fit - 等待 DOM 完全渲染
@@ -146,6 +185,34 @@ const fit = () => {
 const focus = () => {
   if (terminal) {
     terminal.focus()
+  }
+}
+
+// Handle copy to clipboard
+const handleCopy = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    // 复制后清除选区
+    if (terminal) {
+      terminal.clearSelection()
+    }
+  } catch (err) {
+    console.warn('Failed to copy:', err)
+  }
+}
+
+// Handle paste from clipboard
+const handlePaste = async () => {
+  try {
+    const text = await navigator.clipboard.readText()
+    if (text && window.electronAPI) {
+      window.electronAPI.writeActiveSession({
+        sessionId: props.sessionId,
+        data: text
+      })
+    }
+  } catch (err) {
+    console.warn('Failed to paste:', err)
   }
 }
 
