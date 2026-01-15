@@ -1,5 +1,5 @@
 <template>
-  <div class="left-panel">
+  <div class="left-panel" :class="{ 'dark': isDark }">
     <!-- Header -->
     <div class="panel-header">
       <div class="logo">Claude Code</div>
@@ -676,7 +676,7 @@ defineExpose({
   transition: all 0.3s ease;
 }
 
-:deep(.dark-theme) .left-panel {
+.left-panel.dark {
   background: #242424;
   border-color: #333333;
 }
@@ -687,7 +687,7 @@ defineExpose({
   border-bottom: 1px solid #e5e5e0;
 }
 
-:deep(.dark-theme) .panel-header {
+.dark .panel-header {
   border-color: #333333;
 }
 
@@ -704,7 +704,7 @@ defineExpose({
   border-bottom: 1px solid #e5e5e0;
 }
 
-:deep(.dark-theme) .project-section {
+.dark .project-section {
   border-color: #333333;
 }
 
@@ -734,7 +734,7 @@ defineExpose({
   background: #f5f5f0;
 }
 
-:deep(.dark-theme) .open-project-btn:hover {
+.dark .open-project-btn:hover {
   background: #333333;
 }
 
@@ -768,12 +768,12 @@ defineExpose({
   border-color: #ff6b35;
 }
 
-:deep(.dark-theme) .project-settings-btn {
+.dark .project-settings-btn {
   background: #333333;
   border-color: #444444;
 }
 
-:deep(.dark-theme) .project-settings-btn:hover {
+.dark .project-settings-btn:hover {
   background: #404040;
   border-color: #ff6b35;
 }
@@ -785,7 +785,7 @@ defineExpose({
   flex-shrink: 0;
 }
 
-:deep(.dark-theme) .new-session-area {
+.dark .new-session-area {
   border-color: #333333;
 }
 
@@ -877,7 +877,7 @@ defineExpose({
   background: #f5f5f0;
 }
 
-:deep(.dark-theme) .session-item:hover {
+.dark .session-item:hover {
   background: #333333;
 }
 
@@ -886,7 +886,7 @@ defineExpose({
   border: 1px solid #ff6b35;
 }
 
-:deep(.dark-theme) .session-item.active {
+.dark .session-item.active {
   background: #3a2a1a;
 }
 
@@ -975,7 +975,7 @@ defineExpose({
   background: #e8e8e3;
 }
 
-:deep(.dark-theme) .rename-btn:hover {
+.dark .rename-btn:hover {
   background: #404040;
 }
 
@@ -1004,7 +1004,7 @@ defineExpose({
   margin-top: auto;
 }
 
-:deep(.dark-theme) .panel-footer {
+.dark .panel-footer {
   border-color: #333333;
 }
 
@@ -1035,13 +1035,13 @@ defineExpose({
   border-color: #ff6b35;
 }
 
-:deep(.dark-theme) .settings-btn {
+.dark .settings-btn {
   background: #333333;
   border-color: #444444;
   color: #e8e8e8;
 }
 
-:deep(.dark-theme) .settings-btn:hover {
+.dark .settings-btn:hover {
   background: #404040;
   border-color: #ff6b35;
 }
@@ -1065,7 +1065,7 @@ defineExpose({
   border-color: #ff6b35;
 }
 
-:deep(.dark-theme) .theme-toggle-btn {
+.dark .theme-toggle-btn {
   background: #333333;
   border-color: #444444;
 }

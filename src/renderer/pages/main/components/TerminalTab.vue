@@ -355,8 +355,4 @@ defineExpose({
 .terminal :deep(.xterm-cursor-layer) {
   display: none !important;
 }
-
-:deep(.dark-theme) .terminal-wrapper {
-  background: #0d0d0d;
-}
 </style>

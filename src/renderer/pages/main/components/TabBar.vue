@@ -1,5 +1,5 @@
 <template>
-  <div class="tab-bar">
+  <div class="tab-bar" :class="{ 'dark': isDark }">
     <div class="tabs-container">
       <!-- Welcome Tab (固定在最左边) -->
       <div
@@ -68,6 +68,10 @@ const props = defineProps({
   showNewButton: {
     type: Boolean,
     default: true
+  },
+  isDark: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -103,7 +107,7 @@ const getStatusIcon = getSessionStatusIcon
   gap: 4px;
 }
 
-:deep(.dark-theme) .tab-bar {
+.tab-bar.dark {
   background: #2a2a2a;
   border-color: #333333;
 }
@@ -138,16 +142,17 @@ const getStatusIcon = getSessionStatusIcon
   top: 1px;
 }
 
-:deep(.dark-theme) .tab {
+.dark .tab {
   background: #333333;
   border-color: #444444;
+  color: #e8e8e8;
 }
 
 .tab:hover {
   background: #fafafa;
 }
 
-:deep(.dark-theme) .tab:hover {
+.dark .tab:hover {
   background: #3a3a3a;
 }
 
@@ -157,7 +162,7 @@ const getStatusIcon = getSessionStatusIcon
   border-bottom-color: #ffffff;
 }
 
-:deep(.dark-theme) .tab.active {
+.dark .tab.active {
   background: #242424;
   border-bottom-color: #242424;
 }
@@ -169,7 +174,7 @@ const getStatusIcon = getSessionStatusIcon
   background: #f0f0f0;
 }
 
-:deep(.dark-theme) .welcome-tab {
+.dark .welcome-tab {
   background: #2d2d2d;
 }
 
@@ -177,7 +182,7 @@ const getStatusIcon = getSessionStatusIcon
   background: #ffffff;
 }
 
-:deep(.dark-theme) .welcome-tab.active {
+.dark .welcome-tab.active {
   background: #242424;
 }
 

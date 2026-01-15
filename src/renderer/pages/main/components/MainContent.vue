@@ -29,6 +29,7 @@
         :active-tab-id="activeTabId"
         :current-project="currentProject"
         :show-new-button="false"
+        :is-dark="isDark"
         @select-tab="handleSelectTab"
         @close-tab="handleCloseTab"
       />
@@ -687,6 +688,11 @@ const openApiProfileManager = async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #f5f5f0;
+}
+
+.dark-theme .main-content {
+  background: #1a1a1a;
 }
 
 .main-header {
@@ -715,6 +721,11 @@ const openApiProfileManager = async () => {
   flex: 1;
   overflow: hidden;
   position: relative;
+  background: #f5f5f0;
+}
+
+.dark-theme .main-area {
+  background: #1a1a1a;
 }
 
 /* Empty State */
