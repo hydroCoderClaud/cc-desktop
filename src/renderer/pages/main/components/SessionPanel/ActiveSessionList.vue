@@ -6,7 +6,7 @@
     </div>
 
     <div
-      v-for="session in sessions"
+      v-for="(session, index) in sessions"
       :key="session.id"
       class="session-item"
       :class="{
@@ -30,13 +30,33 @@
           {{ formatTime(session.createdAt) }} · PID: {{ session.pid || '-' }}
         </div>
       </div>
-      <button
-        class="close-btn"
-        @click.stop="$emit('close', session)"
-        title="终止会话（关闭进程）"
-      >
-        ×
-      </button>
+      <div class="session-actions">
+        <div class="order-btns">
+          <button
+            class="order-btn"
+            :disabled="index === 0"
+            @click.stop="$emit('move-up', index)"
+            title="上移"
+          >
+            ↑
+          </button>
+          <button
+            class="order-btn"
+            :disabled="index === sessions.length - 1"
+            @click.stop="$emit('move-down', index)"
+            title="下移"
+          >
+            ↓
+          </button>
+        </div>
+        <button
+          class="close-btn"
+          @click.stop="$emit('close', session)"
+          title="终止会话"
+        >
+          ×
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -57,7 +77,7 @@ defineProps({
   }
 })
 
-defineEmits(['select', 'close'])
+defineEmits(['select', 'close', 'move-up', 'move-down'])
 
 const getStatusIcon = (status) => {
   switch (status) {
@@ -183,6 +203,61 @@ const formatTime = (dateStr) => {
   color: #52c41a;
 }
 
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.session-item:hover .session-actions {
+  opacity: 1;
+}
+
+.order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.order-btn {
+  width: 18px;
+  height: 14px;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px solid #d9d9d9;
+  font-size: 10px;
+  color: #8c8c8c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.order-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #ff6b35;
+  color: #ff6b35;
+}
+
+.order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+:deep(.dark-theme) .order-btn {
+  border-color: #444;
+  color: #888;
+}
+
+:deep(.dark-theme) .order-btn:hover:not(:disabled) {
+  background: #3a3a3a;
+}
+
 .close-btn {
   width: 22px;
   height: 22px;
@@ -195,12 +270,7 @@ const formatTime = (dateStr) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
   transition: all 0.2s;
-}
-
-.session-item:hover .close-btn {
-  opacity: 1;
 }
 
 .close-btn:hover {

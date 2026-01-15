@@ -33,8 +33,8 @@
 
       <!-- Main Area -->
       <div class="main-area">
-        <!-- Empty State (no tabs) -->
-        <div v-if="tabs.length === 0" class="empty-state">
+        <!-- Welcome Page -->
+        <div v-show="activeTabId === 'welcome'" class="empty-state">
           <div class="pixel-mascot">🤖</div>
 
           <div class="selectors-row">
@@ -44,10 +44,29 @@
             </div>
           </div>
 
-          <div class="connect-actions">
-            <button class="connect-btn" @click="handleNewSession" :disabled="!currentProject || !currentProject.pathValid">
+          <div class="new-session-form" v-if="currentProject && currentProject.pathValid">
+            <n-input
+              v-model:value="welcomeSessionTitle"
+              :placeholder="t('session.sessionTitlePlaceholder')"
+              class="session-title-input"
+              @keyup.enter="handleWelcomeNewSession"
+            >
+              <template #suffix>
+                <n-button
+                  type="primary"
+                  size="small"
+                  :disabled="isCreatingSession"
+                  @click="handleWelcomeNewSession"
+                >
+                  {{ t('session.newSession') }}
+                </n-button>
+              </template>
+            </n-input>
+          </div>
+          <div class="connect-actions" v-else>
+            <button class="connect-btn" disabled>
               <span>▶️</span>
-              <span>{{ t('sessionManager.newConversation') }}</span>
+              <span>{{ t('main.selectProject') }}</span>
             </button>
           </div>
 
@@ -60,7 +79,7 @@
         </div>
 
         <!-- Terminal Tabs Container -->
-        <div v-show="tabs.length > 0" class="terminal-container">
+        <div v-show="activeTabId !== 'welcome'" class="terminal-container">
           <TerminalTab
             v-for="tab in tabs"
             :key="tab.id"
@@ -233,7 +252,7 @@ const currentProject = ref(null)
 
 // Tabs state
 const tabs = ref([])
-const activeTabId = ref(null)
+const activeTabId = ref('welcome')  // 默认显示欢迎页
 
 // Project edit modal
 const showProjectModal = ref(false)
@@ -255,6 +274,10 @@ const deleteWithSessions = ref(false)
 // New session modal
 const showNewSessionModal = ref(false)
 const newSessionTitle = ref('')
+
+// Welcome page new session
+const welcomeSessionTitle = ref('')
+const isCreatingSession = ref(false)
 
 // Emoji picker
 const showEmojiPicker = ref(false)
@@ -573,6 +596,11 @@ const confirmDeleteProject = async () => {
 const handleSelectTab = (tab) => {
   activeTabId.value = tab.id
 
+  // Welcome tab 不需要后续处理
+  if (tab.id === 'welcome') {
+    return
+  }
+
   // 如果是其他项目的 Tab，切换左侧项目选中
   if (tab.projectId !== currentProject.value?.id) {
     const targetProject = projects.value.find(p => p.id === tab.projectId)
@@ -619,7 +647,7 @@ const handleCloseTab = async (tab) => {
       const newIndex = Math.min(index, tabs.value.length - 1)
       activeTabId.value = tabs.value[newIndex].id
     } else {
-      activeTabId.value = null
+      activeTabId.value = 'welcome'
     }
   }
 }
@@ -693,6 +721,69 @@ const confirmNewSession = async () => {
   } catch (err) {
     console.error('Failed to create session:', err)
     message.error(t('messages.connectionFailed'))
+  }
+}
+
+// Welcome page direct create session
+const handleWelcomeNewSession = async () => {
+  if (!currentProject.value || !currentProject.value.pathValid) {
+    return
+  }
+
+  // Check session count limit
+  try {
+    const runningCount = await invoke('getRunningSessionCount')
+    const maxSessions = await invoke('getMaxActiveSessions')
+    if (runningCount >= maxSessions) {
+      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
+      return
+    }
+  } catch (err) {
+    console.error('Failed to check session limit:', err)
+  }
+
+  isCreatingSession.value = true
+  try {
+    const result = await invoke('createActiveSession', {
+      projectId: currentProject.value.id,
+      projectPath: currentProject.value.path,
+      projectName: currentProject.value.name,
+      title: welcomeSessionTitle.value.trim(),
+      apiProfileId: currentProject.value.api_profile_id
+    })
+
+    if (result.success) {
+      welcomeSessionTitle.value = ''
+
+      // 创建新 tab
+      const newTab = {
+        id: `tab-${result.session.id}`,
+        sessionId: result.session.id,
+        projectId: currentProject.value.id,
+        projectName: currentProject.value.name,
+        projectPath: currentProject.value.path,
+        title: result.session.title,
+        status: result.session.status
+      }
+
+      tabs.value.push(newTab)
+      activeTabId.value = newTab.id
+
+      // 同步右侧面板
+      if (sessionPanelRef.value) {
+        await sessionPanelRef.value.loadActiveSessions()
+        sessionPanelRef.value.focusedSessionId = result.session.id
+      }
+
+      message.success(t('messages.connectionSuccess'))
+    } else {
+      message.error(result.error || t('messages.connectionFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to create session:', err)
+    message.error(t('messages.connectionFailed'))
+  } finally {
+    isCreatingSession.value = false
   }
 }
 
@@ -889,6 +980,23 @@ const openApiProfileManager = async () => {
 .selector:hover {
   border-color: #ff6b35;
   box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.new-session-form {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.new-session-form .session-title-input {
+  border-radius: 8px;
+}
+
+.new-session-form :deep(.n-input) {
+  --n-border-radius: 8px !important;
+}
+
+.new-session-form :deep(.n-input__suffix) {
+  padding-right: 4px;
 }
 
 .connect-actions {

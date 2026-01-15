@@ -1,6 +1,17 @@
 <template>
-  <div class="tab-bar" v-if="tabs.length > 0">
+  <div class="tab-bar">
     <div class="tabs-container">
+      <!-- Welcome Tab (固定在最左边) -->
+      <div
+        class="tab welcome-tab"
+        :class="{ active: activeTabId === 'welcome' }"
+        @click="$emit('select-tab', { id: 'welcome' })"
+      >
+        <span class="tab-icon">🏠</span>
+        <span class="tab-name">欢迎</span>
+      </div>
+
+      <!-- Session Tabs -->
       <div
         v-for="tab in tabs"
         :key="tab.id"
@@ -158,6 +169,25 @@ const getStatusIcon = (status) => {
 :deep(.dark-theme) .tab.active {
   background: #242424;
   border-bottom-color: #242424;
+}
+
+.welcome-tab {
+  min-width: auto;
+  max-width: none;
+  padding: 6px 10px;
+  background: #f0f0f0;
+}
+
+:deep(.dark-theme) .welcome-tab {
+  background: #2d2d2d;
+}
+
+.welcome-tab.active {
+  background: #ffffff;
+}
+
+:deep(.dark-theme) .welcome-tab.active {
+  background: #242424;
 }
 
 .tab-icon {

@@ -17,6 +17,8 @@
         :current-project-id="project?.id"
         @select="handleSelectSession"
         @close="handleCloseSession"
+        @move-up="handleMoveUp"
+        @move-down="handleMoveDown"
       />
 
       <!-- History Sessions -->
@@ -200,6 +202,24 @@ const handleCloseSession = async (session) => {
 // Open history session (暂未实现，占位)
 const handleOpenHistorySession = (session) => {
   message.info('历史会话查看功能开发中...')
+}
+
+// Move session up in list
+const handleMoveUp = (index) => {
+  if (index > 0) {
+    const temp = activeSessions.value[index]
+    activeSessions.value[index] = activeSessions.value[index - 1]
+    activeSessions.value[index - 1] = temp
+  }
+}
+
+// Move session down in list
+const handleMoveDown = (index) => {
+  if (index < activeSessions.value.length - 1) {
+    const temp = activeSessions.value[index]
+    activeSessions.value[index] = activeSessions.value[index + 1]
+    activeSessions.value[index + 1] = temp
+  }
 }
 
 // Watch project change
