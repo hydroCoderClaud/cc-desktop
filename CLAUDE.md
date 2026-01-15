@@ -318,10 +318,35 @@ Enhanced active session management with improved UI/UX and significant code dedu
 - `src/renderer/locales/en-US.js`, `zh-CN.js`
 - `src/renderer/pages/global-settings/components/GlobalSettingsContent.vue`
 
+**Bug Fixes:**
+
+1. **Auto-select First Project on Startup**
+   - App now automatically selects the first project when launched
+   - Welcome page shows session creation form immediately
+   - No need to manually click a project in sidebar
+
+2. **pathValid Field Missing After Add/Open Project**
+   - Backend `createProject`/`openProject` responses didn't include `pathValid`
+   - Fixed by fetching project from `loadProjects()` result which includes `pathValid`
+   - Welcome page now correctly shows session form after adding new project
+
+**Development Environment:**
+
+1. **Hot Reload Configuration (concurrently)**
+   - `npm run dev` - Parallel Vite + Electron with HMR
+   - `npm run dev:vite` - Vite dev server only
+   - `npm run dev:electron` - Electron only (requires Vite running)
+   - Vue component changes trigger instant page refresh
+   - Removed complex vite-plugin-electron setup in favor of simpler concurrently approach
+
 **Commits:**
 - `b11d44c` feat: 会话管理增强 - 标题、数量限制及跨项目显示
 - `07c469e` fix: 优化终端启动体验
 - `a8433d6` feat: 改进欢迎页面和会话列表交互
+- `a57ffa7` refactor: 提取会话管理公共函数，减少代码重复
+- `c2b3a13` fix: 修复应用启动时项目未自动选中的问题
+- `795d837` refactor: 简化热重载配置，使用 concurrently 方案
+- `576cac0` fix: 修复添加/打开工程后欢迎页不显示新建会话表单
 
 ---
 
