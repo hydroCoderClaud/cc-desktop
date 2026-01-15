@@ -109,7 +109,9 @@ class ActiveSessionManager {
       return { success: true, session: session.toJSON() }
     }
 
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash'
+    const isWin = os.platform() === 'win32'
+    const shell = isWin ? 'powershell.exe' : 'bash'
+    const shellArgs = isWin ? ['-NoLogo', '-NoProfile'] : []  // 抑制 PowerShell 启动横幅
 
     // 获取 API Profile 并设置环境变量
     let profile = null
@@ -161,7 +163,7 @@ class ActiveSessionManager {
 
     try {
       // 创建 PTY 进程
-      session.pty = pty.spawn(shell, [], {
+      session.pty = pty.spawn(shell, shellArgs, {
         name: 'xterm-color',
         cols: 80,
         rows: 24,
@@ -195,39 +197,9 @@ class ActiveSessionManager {
         })
       })
 
-      // 发送欢迎消息
+      // 等待终端就绪后清屏并启动 Claude CLI
       setTimeout(() => {
-        this.writeLine(sessionId, '')
-        this.writeLine(sessionId, '# Claude Code Desktop Terminal')
-        this.writeLine(sessionId, `# Project: ${session.projectName || session.projectPath}`)
-        this.writeLine(sessionId, `# Working Directory: ${session.projectPath}`)
-        this.writeLine(sessionId, '')
-
-        // 打印环境变量设置情况（只显示非空变量）
-        this.writeLine(sessionId, '# Environment Variables:')
-        const activeVars = Object.entries(claudeEnvVars).filter(([, v]) => v && v.trim())
-        if (activeVars.length > 0) {
-          for (const [key, value] of activeVars) {
-            // 敏感信息只显示前4位
-            if (key.includes('KEY') || key.includes('TOKEN')) {
-              const masked = value.substring(0, 4) + '****'
-              this.writeLine(sessionId, `#   ${key}=${masked}`)
-            } else {
-              this.writeLine(sessionId, `#   ${key}=${value}`)
-            }
-          }
-        } else {
-          this.writeLine(sessionId, '#   (none)')
-        }
-
-        this.writeLine(sessionId, '')
-        this.writeLine(sessionId, '# Starting Claude Code CLI...')
-        this.writeLine(sessionId, '')
-
-        // 自动启动 Claude Code CLI
-        setTimeout(() => {
-          this.write(sessionId, 'claude\r')
-        }, 200)
+        this.write(sessionId, 'cls; claude\r')
       }, 100)
 
       // 通知创建成功

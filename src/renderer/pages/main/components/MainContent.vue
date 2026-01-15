@@ -680,6 +680,12 @@ const confirmNewSession = async () => {
       tabs.value.push(newTab)
       activeTabId.value = newTab.id
 
+      // 同步右侧面板：刷新列表并选中新会话
+      if (sessionPanelRef.value) {
+        await sessionPanelRef.value.loadActiveSessions()
+        sessionPanelRef.value.focusedSessionId = result.session.id
+      }
+
       message.success(t('messages.connectionSuccess'))
     } else {
       message.error(result.error || t('messages.connectionFailed'))
