@@ -145,7 +145,18 @@ export default {
     requestTimeoutHint: 'In milliseconds',
     defaultModels: 'Default Models',
     defaultModelsHint: 'Default models for each tier',
+    sessionSettings: 'Session Settings',
+    maxActiveSessions: 'Max Sessions',
+    maxActiveSessionsHint: 'Maximum number of concurrent sessions',
     saveSuccess: 'Settings saved'
+  },
+
+  // Session related
+  session: {
+    newSession: 'New Session',
+    sessionTitle: 'Session Title',
+    sessionTitlePlaceholder: 'Enter session title (optional)',
+    maxSessionsReached: 'Maximum sessions ({max}) reached. Please close an existing session before creating a new one'
   },
 
   // Session History Manager

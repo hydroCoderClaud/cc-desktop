@@ -4,16 +4,17 @@
     <SessionToolbar
       :project="project"
       :active-sessions="activeSessions"
-      @new-session="handleNewSession"
+      @new-session="openNewSessionDialog"
     />
 
     <!-- Sessions Content -->
     <div class="sessions-content">
-      <!-- Active Sessions -->
+      <!-- Active Sessions (所有项目) -->
       <ActiveSessionList
         v-if="activeSessions.length > 0"
         :sessions="activeSessions"
         :focused-session-id="focusedSessionId"
+        :current-project-id="project?.id"
         @select="handleSelectSession"
         @close="handleCloseSession"
       />
@@ -25,12 +26,37 @@
         @select="handleOpenHistorySession"
       />
     </div>
+
+    <!-- New Session Dialog -->
+    <n-modal
+      v-model:show="showNewSessionDialog"
+      preset="card"
+      :title="t('session.newSession')"
+      style="width: 360px;"
+      :mask-closable="false"
+    >
+      <n-form>
+        <n-form-item :label="t('session.sessionTitle')">
+          <n-input
+            v-model:value="newSessionTitle"
+            :placeholder="t('session.sessionTitlePlaceholder')"
+            @keyup.enter="confirmNewSession"
+          />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <n-button @click="showNewSessionDialog = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" @click="confirmNewSession">{{ t('common.confirm') }}</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import SessionToolbar from './SessionToolbar.vue'
@@ -61,16 +87,16 @@ const activeSessions = ref([])
 const historySessions = ref([])
 const focusedSessionId = ref(null)
 
-// Load active sessions
+// New session dialog
+const showNewSessionDialog = ref(false)
+const newSessionTitle = ref('')
+
+// Load active sessions (显示所有项目的运行中会话)
 const loadActiveSessions = async () => {
   try {
     const sessions = await invoke('listActiveSessions', true)
-    // 筛选当前项目的会话
-    if (props.project) {
-      activeSessions.value = sessions.filter(s => s.projectId === props.project.id)
-    } else {
-      activeSessions.value = sessions
-    }
+    // 显示所有运行中的会话，保持原始顺序
+    activeSessions.value = sessions
   } catch (err) {
     console.error('Failed to load active sessions:', err)
     activeSessions.value = []
@@ -93,8 +119,8 @@ const loadHistorySessions = async () => {
   }
 }
 
-// Create new session
-const handleNewSession = async () => {
+// Open new session dialog
+const openNewSessionDialog = async () => {
   if (!props.project) {
     message.warning(t('messages.pleaseSelectProject'))
     return
@@ -105,15 +131,35 @@ const handleNewSession = async () => {
     return
   }
 
+  // Check session count limit
+  try {
+    const runningCount = await invoke('getRunningSessionCount')
+    const maxSessions = await invoke('getMaxActiveSessions')
+    if (runningCount >= maxSessions) {
+      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
+      return
+    }
+  } catch (err) {
+    console.error('Failed to check session limit:', err)
+  }
+
+  newSessionTitle.value = ''
+  showNewSessionDialog.value = true
+}
+
+// Confirm and create new session
+const confirmNewSession = async () => {
   try {
     const result = await invoke('createActiveSession', {
       projectId: props.project.id,
       projectPath: props.project.path,
       projectName: props.project.name,
+      title: newSessionTitle.value.trim(),  // 用户输入的标题
       apiProfileId: props.project.api_profile_id
     })
 
     if (result.success) {
+      showNewSessionDialog.value = false
       await loadActiveSessions()
       focusedSessionId.value = result.session.id
       emit('session-created', result.session)
@@ -222,5 +268,11 @@ defineExpose({
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>

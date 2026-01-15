@@ -32,6 +32,7 @@ class ActiveSession {
     this.projectId = options.projectId
     this.projectPath = options.projectPath
     this.projectName = options.projectName || ''
+    this.title = options.title || ''  // 用户自定义会话标题
     this.apiProfileId = options.apiProfileId || null  // 关联的 API Profile
     this.status = SessionStatus.STARTING
     this.pty = null
@@ -50,6 +51,7 @@ class ActiveSession {
       projectId: this.projectId,
       projectPath: this.projectPath,
       projectName: this.projectName,
+      title: this.title,
       status: this.status,
       pid: this.pid,
       createdAt: this.createdAt.toISOString(),
@@ -81,6 +83,7 @@ class ActiveSessionManager {
       projectId: options.projectId,
       projectPath: options.projectPath,
       projectName: options.projectName,
+      title: options.title,  // 用户自定义标题
       apiProfileId: options.apiProfileId
     })
 

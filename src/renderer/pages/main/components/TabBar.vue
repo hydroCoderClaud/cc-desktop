@@ -11,8 +11,8 @@
         <span class="tab-icon" :class="tab.status">
           {{ getStatusIcon(tab.status) }}
         </span>
-        <span class="tab-name" :title="tab.projectPath">
-          {{ tab.projectName || 'Session' }}
+        <span class="tab-name" :title="tab.title || tab.projectPath">
+          {{ tab.title || tab.projectName || 'Session' }}
         </span>
         <button
           class="tab-close"
@@ -44,7 +44,7 @@ const props = defineProps({
   tabs: {
     type: Array,
     default: () => []
-    // Tab 结构: { id, sessionId, projectId, projectName, projectPath, status }
+    // Tab 结构: { id, sessionId, projectId, projectName, projectPath, title, status }
   },
   activeTabId: {
     type: String,

@@ -178,6 +178,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return configManager.updateTimeout(timeout);
   });
 
+  // 获取最大活动会话数
+  ipcMain.handle('config:getMaxActiveSessions', async () => {
+    return configManager.getMaxActiveSessions();
+  });
+
+  // 更新最大活动会话数
+  ipcMain.handle('config:updateMaxActiveSessions', async (event, maxActiveSessions) => {
+    return configManager.updateMaxActiveSessions(maxActiveSessions);
+  });
+
   // 测试 API 连接
   ipcMain.handle('api:testConnection', async (event, apiConfig) => {
     return configManager.testAPIConnection(apiConfig);

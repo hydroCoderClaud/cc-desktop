@@ -45,6 +45,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
   updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),
 
+  // Max Active Sessions
+  getMaxActiveSessions: () => ipcRenderer.invoke('config:getMaxActiveSessions'),
+  updateMaxActiveSessions: (max) => ipcRenderer.invoke('config:updateMaxActiveSessions', max),
+
   // ========================================
   // API 配置相关
   // ========================================

@@ -2,14 +2,17 @@
   <div class="active-sessions">
     <div class="section-header">
       <span class="dot running"></span>
-      <span>运行中</span>
+      <span>运行中 ({{ sessions.length }})</span>
     </div>
 
     <div
       v-for="session in sessions"
       :key="session.id"
       class="session-item"
-      :class="{ active: focusedSessionId === session.id }"
+      :class="{
+        active: focusedSessionId === session.id,
+        'other-project': currentProjectId && session.projectId !== currentProjectId
+      }"
       @click="$emit('select', session)"
     >
       <div class="session-info">
@@ -17,10 +20,14 @@
           <span class="status-icon" :class="session.status">
             {{ getStatusIcon(session.status) }}
           </span>
-          <span class="name">{{ session.projectName || 'Session' }}</span>
+          <span class="name">{{ session.title || session.projectName || 'Session' }}</span>
+          <span v-if="currentProjectId && session.projectId !== currentProjectId" class="other-badge">
+            其他
+          </span>
         </div>
         <div class="session-meta">
-          PID: {{ session.pid || '-' }}
+          <span v-if="session.title" class="project-name-hint">{{ session.projectName }} · </span>
+          {{ formatTime(session.createdAt) }} · PID: {{ session.pid || '-' }}
         </div>
       </div>
       <button
@@ -43,6 +50,10 @@ defineProps({
   focusedSessionId: {
     type: String,
     default: null
+  },
+  currentProjectId: {
+    type: Number,
+    default: null
   }
 })
 
@@ -61,6 +72,15 @@ const getStatusIcon = (status) => {
     default:
       return '❓'
   }
+}
+
+// 格式化时间为 HH:mm
+const formatTime = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 </script>
 
@@ -159,6 +179,10 @@ const getStatusIcon = (status) => {
   margin-top: 2px;
 }
 
+.project-name-hint {
+  color: #52c41a;
+}
+
 .close-btn {
   width: 22px;
   height: 22px;
@@ -182,5 +206,28 @@ const getStatusIcon = (status) => {
 .close-btn:hover {
   background: #ff4d4f;
   color: white;
+}
+
+/* 其他项目的会话样式 */
+.session-item.other-project {
+  opacity: 0.7;
+  border-left: 3px solid #8c8c8c;
+}
+
+.session-item.other-project:hover {
+  opacity: 1;
+}
+
+.other-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: #8c8c8c;
+  color: white;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+:deep(.dark-theme) .other-badge {
+  background: #666666;
 }
 </style>

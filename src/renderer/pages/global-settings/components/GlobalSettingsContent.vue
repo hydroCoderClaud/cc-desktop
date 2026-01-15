@@ -101,6 +101,23 @@
         </n-grid-item>
       </n-grid>
     </n-card>
+
+    <!-- Session Settings Section -->
+    <n-card :title="t('globalSettings.sessionSettings')" class="section-card">
+      <n-grid :cols="2" :x-gap="24">
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.maxActiveSessions')">
+            <n-input-number
+              v-model:value="formData.maxActiveSessions"
+              :min="1"
+              :max="20"
+              placeholder="5"
+            />
+            <template #feedback>{{ t('globalSettings.maxActiveSessionsHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
+      </n-grid>
+    </n-card>
   </div>
 </template>
 
@@ -122,7 +139,8 @@ const DEFAULTS = {
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001',
   testTimeout: 30,
-  requestTimeout: 120
+  requestTimeout: 120,
+  maxActiveSessions: 5
 }
 
 const formData = ref({
@@ -132,7 +150,8 @@ const formData = ref({
   sonnet: '',
   haiku: '',
   testTimeout: 30,
-  requestTimeout: 120
+  requestTimeout: 120,
+  maxActiveSessions: 5
 })
 
 // Theme options
@@ -185,6 +204,10 @@ const loadSettings = async () => {
       formData.value.testTimeout = timeout.test ? timeout.test / 1000 : DEFAULTS.testTimeout
       formData.value.requestTimeout = timeout.request ? timeout.request / 1000 : DEFAULTS.requestTimeout
     }
+
+    // Get max active sessions
+    const maxActiveSessions = await invoke('getMaxActiveSessions')
+    formData.value.maxActiveSessions = maxActiveSessions || DEFAULTS.maxActiveSessions
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -208,6 +231,9 @@ const handleSave = async () => {
     }
     await invoke('updateTimeout', timeout)
 
+    // Save max active sessions
+    await invoke('updateMaxActiveSessions', formData.value.maxActiveSessions)
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -224,6 +250,7 @@ const handleReset = async () => {
     formData.value.haiku = DEFAULTS.haiku
     formData.value.testTimeout = DEFAULTS.testTimeout
     formData.value.requestTimeout = DEFAULTS.requestTimeout
+    formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
 
     // Save to backend
     await invoke('updateGlobalModels', {
@@ -235,6 +262,7 @@ const handleReset = async () => {
       test: DEFAULTS.testTimeout * 1000,
       request: DEFAULTS.requestTimeout * 1000
     })
+    await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

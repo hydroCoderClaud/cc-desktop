@@ -145,7 +145,18 @@ export default {
     requestTimeoutHint: '单位：毫秒',
     defaultModels: '默认模型',
     defaultModelsHint: '各层级默认使用的模型',
+    sessionSettings: '会话设置',
+    maxActiveSessions: '最大会话数',
+    maxActiveSessionsHint: '同时运行的会话数量上限',
     saveSuccess: '设置已保存'
+  },
+
+  // 会话相关
+  session: {
+    newSession: '新建会话',
+    sessionTitle: '会话标题',
+    sessionTitlePlaceholder: '输入会话标题（可选）',
+    maxSessionsReached: '会话达到最大数量（{max}），请终止现有某会话后再新建'
   },
 
   // 会话历史管理

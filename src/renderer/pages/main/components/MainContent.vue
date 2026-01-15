@@ -178,6 +178,31 @@
         <n-button type="error" @click="confirmDeleteProject">{{ t('common.confirm') }}</n-button>
       </template>
     </n-modal>
+
+    <!-- New Session Modal -->
+    <n-modal
+      v-model:show="showNewSessionModal"
+      preset="card"
+      :title="t('session.newSession')"
+      style="width: 360px;"
+      :mask-closable="false"
+    >
+      <n-form>
+        <n-form-item :label="t('session.sessionTitle')">
+          <n-input
+            v-model:value="newSessionTitle"
+            :placeholder="t('session.sessionTitlePlaceholder')"
+            @keyup.enter="confirmNewSession"
+          />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <div class="modal-footer">
+          <n-button @click="showNewSessionModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" @click="confirmNewSession">{{ t('common.confirm') }}</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -226,6 +251,10 @@ const projectForm = ref({
 const showDeleteModal = ref(false)
 const deleteProject = ref(null)
 const deleteWithSessions = ref(false)
+
+// New session modal
+const showNewSessionModal = ref(false)
+const newSessionTitle = ref('')
 
 // Emoji picker
 const showEmojiPicker = ref(false)
@@ -543,6 +572,20 @@ const confirmDeleteProject = async () => {
 // Tab management
 const handleSelectTab = (tab) => {
   activeTabId.value = tab.id
+
+  // 如果是其他项目的 Tab，切换左侧项目选中
+  if (tab.projectId !== currentProject.value?.id) {
+    const targetProject = projects.value.find(p => p.id === tab.projectId)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  }
+
+  // 同步右侧面板的选中状态
+  if (sessionPanelRef.value?.focusedSessionId !== undefined) {
+    sessionPanelRef.value.focusedSessionId = tab.sessionId
+  }
+
   // 通知后端聚焦该会话
   if (window.electronAPI) {
     window.electronAPI.focusActiveSession(tab.sessionId)
@@ -581,7 +624,7 @@ const handleCloseTab = async (tab) => {
   }
 }
 
-// Create new session
+// Open new session dialog
 const handleNewSession = async () => {
   if (!currentProject.value) {
     message.warning(t('messages.pleaseSelectProject'))
@@ -593,15 +636,36 @@ const handleNewSession = async () => {
     return
   }
 
+  // Check session count limit
+  try {
+    const runningCount = await invoke('getRunningSessionCount')
+    const maxSessions = await invoke('getMaxActiveSessions')
+    if (runningCount >= maxSessions) {
+      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
+      return
+    }
+  } catch (err) {
+    console.error('Failed to check session limit:', err)
+  }
+
+  newSessionTitle.value = ''
+  showNewSessionModal.value = true
+}
+
+// Confirm and create new session
+const confirmNewSession = async () => {
   try {
     const result = await invoke('createActiveSession', {
       projectId: currentProject.value.id,
       projectPath: currentProject.value.path,
       projectName: currentProject.value.name,
+      title: newSessionTitle.value.trim(),
       apiProfileId: currentProject.value.api_profile_id
     })
 
     if (result.success) {
+      showNewSessionModal.value = false
+
       // 创建新 tab
       const newTab = {
         id: `tab-${result.session.id}`,
@@ -609,6 +673,7 @@ const handleNewSession = async () => {
         projectId: currentProject.value.id,
         projectName: currentProject.value.name,
         projectPath: currentProject.value.path,
+        title: result.session.title,
         status: result.session.status
       }
 
@@ -642,6 +707,7 @@ const handleSessionCreated = (session) => {
     projectId: session.projectId,
     projectName: session.projectName,
     projectPath: session.projectPath,
+    title: session.title,
     status: session.status
   }
 
@@ -650,6 +716,14 @@ const handleSessionCreated = (session) => {
 }
 
 const handleSessionSelected = (session) => {
+  // 如果是其他项目的会话，切换左侧项目选中
+  if (session.projectId !== currentProject.value?.id) {
+    const targetProject = projects.value.find(p => p.id === session.projectId)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  }
+
   // 检查是否已有该会话的 tab
   const existingTab = tabs.value.find(t => t.sessionId === session.id)
   if (existingTab) {
@@ -663,6 +737,7 @@ const handleSessionSelected = (session) => {
       projectId: session.projectId,
       projectName: session.projectName,
       projectPath: session.projectPath,
+      title: session.title,
       status: session.status
     }
 

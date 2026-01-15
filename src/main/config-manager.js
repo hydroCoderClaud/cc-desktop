@@ -62,7 +62,8 @@ class ConfigManager {
           fontFamily: 'Consolas, monospace'
         },
 
-        maxRecentProjects: 10
+        maxRecentProjects: 10,
+        maxActiveSessions: 5  // 最大同时运行的会话数
       }
     };
 
@@ -321,6 +322,24 @@ class ConfigManager {
       ...this.config.timeout,
       ...timeout
     };
+    return this.save();
+  }
+
+  /**
+   * 获取最大活动会话数
+   */
+  getMaxActiveSessions() {
+    return this.config.settings?.maxActiveSessions || 5;
+  }
+
+  /**
+   * 更新最大活动会话数
+   */
+  updateMaxActiveSessions(maxActiveSessions) {
+    if (!this.config.settings) {
+      this.config.settings = {};
+    }
+    this.config.settings.maxActiveSessions = maxActiveSessions;
     return this.save();
   }
 
