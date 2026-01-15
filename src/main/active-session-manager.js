@@ -125,16 +125,27 @@ class ActiveSessionManager {
       }
     }
 
-    // 设置 Claude Code CLI 环境变量
-    const claudeEnvVars = buildClaudeEnvVars(profile)
-    const envVars = { ...process.env, TERM: 'xterm-256color', ...claudeEnvVars }
+    // 构建子进程环境变量
+    // 1. 复制系统环境，但先清除认证相关变量（避免继承冲突）
+    const baseEnv = { ...process.env }
+    delete baseEnv.ANTHROPIC_API_KEY
+    delete baseEnv.ANTHROPIC_AUTH_TOKEN
 
-    // 删除空字符串的环境变量（避免认证冲突）
+    // 2. 构建我们的环境变量
+    const claudeEnvVars = buildClaudeEnvVars(profile)
+
+    // 3. 合并（我们的设置覆盖基础环境）
+    const envVars = { ...baseEnv, TERM: 'xterm-256color', ...claudeEnvVars }
+
+    // 4. 清理空字符串
     for (const key of Object.keys(envVars)) {
       if (envVars[key] === '') {
         delete envVars[key]
       }
     }
+
+    // 调试日志
+    console.log(`[ActiveSession] Auth vars: API_KEY=${envVars.ANTHROPIC_API_KEY ? 'SET' : 'UNSET'}, AUTH_TOKEN=${envVars.ANTHROPIC_AUTH_TOKEN ? 'SET' : 'UNSET'}`)
 
     // 打印设置的环境变量（不打印敏感值）
     if (Object.keys(claudeEnvVars).length > 0) {
