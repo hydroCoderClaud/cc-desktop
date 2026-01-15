@@ -332,16 +332,11 @@ onMounted(async () => {
   await initLocale()
   await loadProjects()
 
-  console.log('[MainContent] onMounted - projects:', projects.value.length, 'currentProject:', currentProject.value)
-
   // 自动选中第一个项目（如果有的话）
   // loadProjects 返回的数据已经包含 pathValid 字段，直接设置即可
   if (projects.value.length > 0 && !currentProject.value) {
-    console.log('[MainContent] Auto-selecting first project:', projects.value[0])
     currentProject.value = projects.value[0]
   }
-
-  console.log('[MainContent] Final currentProject:', currentProject.value, 'pathValid:', currentProject.value?.pathValid)
 
   setupSessionListeners()
 })
@@ -437,7 +432,9 @@ const handleAddProject = async () => {
     if (result.canceled) return
 
     await loadProjects()
-    currentProject.value = result
+    // 从 projects.value 中找到新添加的项目（带有 pathValid 字段）
+    const newProject = projects.value.find(p => p.id === result.id)
+    currentProject.value = newProject || result
 
     if (result.restored) {
       message.success(t('messages.projectRestored') + ': ' + result.name)
@@ -457,7 +454,9 @@ const handleOpenProject = async () => {
     if (result.canceled) return
 
     await loadProjects()
-    currentProject.value = result
+    // 从 projects.value 中找到项目（带有 pathValid 字段）
+    const project = projects.value.find(p => p.id === result.id)
+    currentProject.value = project || result
 
     if (result.restored) {
       message.success(t('messages.projectRestored') + ': ' + result.name)
