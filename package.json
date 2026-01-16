@@ -1,6 +1,6 @@
 {
   "name": "claude-code-desktop",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Claude Code Desktop - 独立桌面终端启动器",
   "main": "src/main/index.js",
   "author": "HydroCoder",
@@ -37,24 +37,56 @@
   "build": {
     "appId": "com.hydrocoder.claude-code-desktop",
     "productName": "Claude Code Desktop",
+    "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },
     "files": [
       "src/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/.bin"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*",
+      "node_modules/better-sqlite3/**/*"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
     "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.icns"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.developer-tools"
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "assets/icon.png"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Development"
     }
   }
 }
