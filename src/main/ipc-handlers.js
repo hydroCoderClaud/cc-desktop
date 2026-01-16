@@ -6,28 +6,14 @@
 const { ipcMain, dialog, shell } = require('electron');
 const { SessionDatabase } = require('./session-database');
 const { SessionHistoryService } = require('./session-history-service');
+const { setupConfigHandlers } = require('./ipc-handlers/config-handlers');
 const { setupSessionHandlers } = require('./ipc-handlers/session-handlers');
 const { setupProjectHandlers } = require('./ipc-handlers/project-handlers');
 const { setupActiveSessionHandlers } = require('./ipc-handlers/active-session-handlers');
+const { createIPCHandler } = require('./utils/ipc-utils');
 
-/**
- * Create IPC handler with unified logging and error handling
- * @param {string} channelName - IPC channel name
- * @param {Function} handler - Handler function
- */
-function createIPCHandler(channelName, handler) {
-  ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args);
-    try {
-      const result = await handler(...args);
-      console.log(`[IPC] ${channelName} success`);
-      return result;
-    } catch (error) {
-      console.error(`[IPC] ${channelName} error:`, error);
-      throw error;
-    }
-  });
-}
+// Bind ipcMain to createIPCHandler for local use
+const registerHandler = (channelName, handler) => createIPCHandler(ipcMain, channelName, handler);
 
 function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager) {
   console.log('[IPC] Setting up handlers...');
@@ -40,207 +26,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const sessionHistoryService = new SessionHistoryService();
 
   // ========================================
-  // 同步主题获取（用于 preload 避免闪白）
+  // 配置相关处理器（提取到独立模块）
   // ========================================
-  ipcMain.on('theme:getSync', (event) => {
-    const config = configManager.getConfig();
-    event.returnValue = config?.settings?.theme || 'light';
-  });
-
-  // ========================================
-  // 同步语言获取（用于 preload）
-  // ========================================
-  ipcMain.on('locale:getSync', (event) => {
-    const config = configManager.getConfig();
-    event.returnValue = config?.settings?.locale || 'zh-CN';
-  });
-
-  // ========================================
-  // 设置变更广播（跨窗口同步）
-  // ========================================
-  ipcMain.on('settings:broadcast', (event, settings) => {
-    const { BrowserWindow } = require('electron');
-    const allWindows = BrowserWindow.getAllWindows();
-    allWindows.forEach(win => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('settings:changed', settings);
-      }
-    });
-  });
-
-  // ========================================
-  // Config 相关
-  // ========================================
-
-  // 获取配置
-  ipcMain.handle('config:get', async () => {
-    return configManager.getConfig();
-  });
-
-  // 保存配置
-  ipcMain.handle('config:save', async (event, config) => {
-    return configManager.updateConfig(config);
-  });
-
-  // 更新设置
-  ipcMain.handle('settings:update', async (event, settings) => {
-    return configManager.updateSettings(settings);
-  });
-
-  // ========================================
-  // API 配置相关
-  // ========================================
-
-  // 获取 API 配置
-  ipcMain.handle('api:getConfig', async () => {
-    return configManager.getAPIConfig();
-  });
-
-  // 更新 API 配置
-  ipcMain.handle('api:updateConfig', async (event, apiConfig) => {
-    return configManager.updateAPIConfig(apiConfig);
-  });
-
-  // 验证 API 配置
-  ipcMain.handle('api:validate', async () => {
-    return configManager.validateAPIConfig();
-  });
-
-  // 获取配置文件路径
-  ipcMain.handle('config:getPath', async () => {
-    return configManager.getConfigPath();
-  });
-
-  // ========================================
-  // API Profile 管理
-  // ========================================
-
-  // 获取所有 Profiles
-  ipcMain.handle('api:listProfiles', async () => {
-    return configManager.getAPIProfiles();
-  });
-
-  // 获取指定 Profile
-  ipcMain.handle('api:getProfile', async (event, profileId) => {
-    return configManager.getAPIProfile(profileId);
-  });
-
-  // 添加新 Profile
-  ipcMain.handle('api:addProfile', async (event, profileData) => {
-    return configManager.addAPIProfile(profileData);
-  });
-
-  // 更新 Profile
-  ipcMain.handle('api:updateProfile', async (event, { profileId, updates }) => {
-    return configManager.updateAPIProfile(profileId, updates);
-  });
-
-  // 删除 Profile
-  ipcMain.handle('api:deleteProfile', async (event, profileId) => {
-    return configManager.deleteAPIProfile(profileId);
-  });
-
-  // 设置默认 Profile
-  ipcMain.handle('api:setDefault', async (event, profileId) => {
-    return configManager.setDefaultProfile(profileId);
-  });
-
-  // 获取默认 Profile（用于启动时推荐）
-  ipcMain.handle('api:getCurrentProfile', async () => {
-    return configManager.getDefaultProfile();
-  });
-
-  // 注意：不再有全局 "当前 Profile" 概念
-  // Profile 选择将在会话启动时进行（待实现）
-
-  // ========================================
-  // 全局设置管理
-  // ========================================
-
-  // 获取全局模型配置
-  ipcMain.handle('config:getGlobalModels', async () => {
-    return configManager.getGlobalModels();
-  });
-
-  // 更新全局模型配置
-  ipcMain.handle('config:updateGlobalModels', async (event, globalModels) => {
-    return configManager.updateGlobalModels(globalModels);
-  });
-
-  // 获取服务商枚举定义
-  ipcMain.handle('config:getServiceProviders', async () => {
-    return configManager.getServiceProviders();
-  });
-
-  // 获取超时配置
-  ipcMain.handle('config:getTimeout', async () => {
-    return configManager.getTimeout();
-  });
-
-  // 更新超时配置
-  ipcMain.handle('config:updateTimeout', async (event, timeout) => {
-    return configManager.updateTimeout(timeout);
-  });
-
-  // 获取最大活动会话数
-  ipcMain.handle('config:getMaxActiveSessions', async () => {
-    return configManager.getMaxActiveSessions();
-  });
-
-  // 更新最大活动会话数
-  ipcMain.handle('config:updateMaxActiveSessions', async (event, maxActiveSessions) => {
-    return configManager.updateMaxActiveSessions(maxActiveSessions);
-  });
-
-  // 获取历史会话最大显示条数
-  ipcMain.handle('config:getMaxHistorySessions', async () => {
-    return configManager.getMaxHistorySessions();
-  });
-
-  // 更新历史会话最大显示条数
-  ipcMain.handle('config:updateMaxHistorySessions', async (event, maxHistorySessions) => {
-    return configManager.updateMaxHistorySessions(maxHistorySessions);
-  });
-
-  // 测试 API 连接
-  ipcMain.handle('api:testConnection', async (event, apiConfig) => {
-    return configManager.testAPIConnection(apiConfig);
-  });
-
-  // ========================================
-  // 自定义模型管理
-  // ========================================
-
-  // 获取指定 Profile 的自定义模型列表
-  ipcMain.handle('api:getCustomModels', async (event, profileId) => {
-    const profile = configManager.getAPIProfile(profileId);
-    return profile?.customModels || [];
-  });
-
-  // 批量更新自定义模型列表
-  ipcMain.handle('api:updateCustomModels', async (event, { profileId, models }) => {
-    const profile = configManager.getAPIProfile(profileId);
-    if (!profile) {
-      throw new Error('Profile 不存在');
-    }
-    profile.customModels = models;
-    return configManager.save();
-  });
-
-  // 添加自定义模型
-  ipcMain.handle('api:addCustomModel', async (event, { profileId, model }) => {
-    return configManager.addCustomModel(profileId, model);
-  });
-
-  // 删除自定义模型
-  ipcMain.handle('api:deleteCustomModel', async (event, { profileId, modelId }) => {
-    return configManager.deleteCustomModel(profileId, modelId);
-  });
-
-  // 更新自定义模型
-  ipcMain.handle('api:updateCustomModel', async (event, { profileId, modelId, updates }) => {
-    return configManager.updateCustomModel(profileId, modelId, updates);
-  });
+  setupConfigHandlers(ipcMain, configManager);
 
   // ========================================
   // 窗口管理
@@ -259,9 +47,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const pathModule = require('path');
 
     const preloadPath = pathModule.join(__dirname, '../preload/preload.js');
-    console.log('[IPC] Creating sub window:', options.page);
-    console.log('[IPC] Preload path:', preloadPath);
-    console.log('[IPC] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
 
     const window = new BrowserWindow({
       width: options.width || 800,
@@ -280,14 +65,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
     const query = options.query || ''
     if (process.env.VITE_DEV_SERVER_URL) {
-      const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');  // 移除末尾斜杠
+      const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');
       const url = `${baseUrl}/pages/${options.page}/${query}`;
-      console.log('[IPC] Loading URL:', url);
       window.loadURL(url);
-      // 子窗口不自动打开 DevTools，需要时按 F12 手动打开
     } else {
       const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
-      console.log('[IPC] Loading file:', filePath);
       window.loadFile(filePath, { query: query.replace('?', '') });
     }
 
@@ -327,13 +109,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
-  // 打开会话历史窗口
+  // 打开会话查询窗口
   ipcMain.handle('window:openSessionManager', async (event, options = {}) => {
     const query = options.projectPath ? `?projectPath=${encodeURIComponent(options.projectPath)}` : ''
     createSubWindow({
       width: 1200,
       height: 700,
-      title: '会话历史 - Claude Code Desktop',
+      title: '会话查询 - Claude Code Desktop',
       page: 'session-manager',
       query
     });
@@ -341,30 +123,25 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // ========================================
-  // Project 相关
+  // Project 相关（简单的列表操作保留在此）
   // ========================================
 
-  // 获取最近项目列表
   ipcMain.handle('projects:list', async () => {
     return configManager.getRecentProjects();
   });
 
-  // 添加项目
   ipcMain.handle('project:add', async (event, { name, path }) => {
     return configManager.addRecentProject(name, path);
   });
 
-  // 移除项目
   ipcMain.handle('project:remove', async (event, projectId) => {
     return configManager.removeRecentProject(projectId);
   });
 
-  // 重命名项目
   ipcMain.handle('project:rename', async (event, { projectId, newName }) => {
     return configManager.renameProject(projectId, newName);
   });
 
-  // 切换固定状态
   ipcMain.handle('project:togglePin', async (event, projectId) => {
     return configManager.togglePinProject(projectId);
   });
@@ -373,7 +150,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // Dialog 相关
   // ========================================
 
-  // 选择文件夹
   ipcMain.handle('dialog:selectFolder', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
@@ -387,7 +163,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return result.filePaths[0];
   });
 
-  // 保存文件对话框
   ipcMain.handle('dialog:saveFile', async (event, { filename, content, ext }) => {
     const filters = ext === 'md'
       ? [{ name: 'Markdown', extensions: ['md'] }]
@@ -408,9 +183,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true, filePath: result.filePath };
   });
 
-  // 打开外部链接（在系统默认浏览器中）
   ipcMain.handle('shell:openExternal', async (event, url) => {
-    // 安全检查：只允许 http/https 链接
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       await shell.openExternal(url);
       return { success: true };
@@ -419,45 +192,19 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // ========================================
-  // 服务商定义管理
-  // ========================================
-
-  createIPCHandler('provider:list', () => {
-    return configManager.getServiceProviderDefinitions();
-  });
-
-  createIPCHandler('provider:get', (id) => {
-    return configManager.getServiceProviderDefinition(id);
-  });
-
-  createIPCHandler('provider:add', (definition) => {
-    return configManager.addServiceProviderDefinition(definition);
-  });
-
-  createIPCHandler('provider:update', ({ id, updates }) => {
-    return configManager.updateServiceProviderDefinition(id, updates);
-  });
-
-  createIPCHandler('provider:delete', (id) => {
-    return configManager.deleteServiceProviderDefinition(id);
-  });
-
-  // ========================================
-  // 会话历史管理（数据库版）- 提取到独立模块
+  // 会话历史管理（数据库版）
   // ========================================
   setupSessionHandlers(ipcMain, sessionDatabase);
 
   // ========================================
-  // 实时会话读取（文件版）- 用于主页面历史会话列表
+  // 实时会话读取（文件版）
   // ========================================
 
-  // 获取项目的历史会话（直接从 ~/.claude 文件读取，实时）
-  createIPCHandler('session:getFileBasedSessions', async (projectPath) => {
+  registerHandler('session:getFileBasedSessions', async (projectPath) => {
     return sessionHistoryService.getProjectSessions(projectPath);
   });
 
-  // 删除历史会话文件（硬删除 ~/.claude 下的文件）
-  createIPCHandler('session:deleteFile', async ({ projectPath, sessionId }) => {
+  registerHandler('session:deleteFile', async ({ projectPath, sessionId }) => {
     const fs = require('fs');
     const path = require('path');
     const os = require('os');
@@ -466,8 +213,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
     const encodedPath = encodePath(projectPath);
     const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionId}.jsonl`);
-
-    console.log('[IPC] Deleting session file:', sessionFile);
 
     if (!fs.existsSync(sessionFile)) {
       return { success: false, error: '会话文件不存在' };
@@ -491,28 +236,23 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // Terminal 相关
   // ========================================
 
-  // 启动终端
   ipcMain.handle('terminal:start', async (event, projectPath) => {
     return terminalManager.start(projectPath);
   });
 
-  // 写入数据
   ipcMain.on('terminal:write', (event, data) => {
     terminalManager.write(data);
   });
 
-  // 调整大小
   ipcMain.on('terminal:resize', (event, { cols, rows }) => {
     terminalManager.resize(cols, rows);
   });
 
-  // 关闭终端
   ipcMain.handle('terminal:kill', async () => {
     terminalManager.kill();
     return { success: true };
   });
 
-  // 获取状态
   ipcMain.handle('terminal:status', async () => {
     return terminalManager.getStatus();
   });

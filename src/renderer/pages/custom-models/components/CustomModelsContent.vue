@@ -233,7 +233,7 @@ const handleSave = async () => {
 
     showModal.value = false
   } catch (errors) {
-    console.log('Validation failed:', errors)
+    console.warn('Validation failed:', errors)
   }
 }
 </script>

@@ -322,7 +322,7 @@ const handleSave = async () => {
 
     emit('save', data)
   } catch (errors) {
-    console.log('Validation failed:', errors)
+    console.warn('Validation failed:', errors)
   }
 }
 

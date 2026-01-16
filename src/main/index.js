@@ -42,6 +42,7 @@ function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
+    show: false,  // 先隐藏，准备好后再显示
     title: 'Claude Code Desktop',
     backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏
@@ -51,6 +52,12 @@ function createWindow() {
       nodeIntegration: false,
       enableRemoteModule: false,
     },
+  });
+
+  // 窗口准备好后，先最大化再显示（避免过渡闪烁）
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
   });
 
   // 加载渲染进程 HTML

@@ -135,17 +135,20 @@ class SessionSyncService {
         const existingSession = this.db.getSessionByUuid(sessionUuid)
 
         if (existingSession) {
+          // 如果消息数为0，强制重新同步（可能之前同步失败）
+          const needsResync = existingSession.message_count === 0 || existingSession.message_count === null
+
           // Check if file has been modified since last sync
-          if (existingSession.file_mtime && fileMtime <= existingSession.file_mtime) {
-            // No changes, skip
+          if (!needsResync && existingSession.file_mtime && fileMtime <= existingSession.file_mtime) {
+            // No changes and has messages, skip
             continue
           }
 
-          // File changed, need incremental sync
+          // File changed or needs resync, do incremental/full sync
           const messagesAdded = await this.syncSessionMessages(
             existingSession.id,
             filePath,
-            existingSession.last_synced_uuid
+            needsResync ? null : existingSession.last_synced_uuid  // 如果需要重新同步，从头开始
           )
 
           stats.updated++
@@ -351,6 +354,31 @@ class SessionSyncService {
         resolve()
       })
     })
+  }
+
+  /**
+   * Force full sync - clear database and resync everything
+   */
+  async forceFullSync() {
+    if (this.syncing) {
+      return { status: 'busy', message: 'Sync already in progress' }
+    }
+
+    console.log('[Sync] Starting FORCE FULL sync - clearing database...')
+
+    try {
+      // Clear all data from database
+      this.db.db.exec('DELETE FROM messages')
+      this.db.db.exec('DELETE FROM sessions')
+      this.db.db.exec('DELETE FROM projects')
+      console.log('[Sync] Database cleared')
+
+      // Now run normal sync
+      return await this.sync()
+    } catch (err) {
+      console.error('[Sync] Force full sync failed:', err)
+      return { status: 'error', message: err.message }
+    }
   }
 
   /**

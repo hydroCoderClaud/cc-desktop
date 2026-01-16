@@ -238,6 +238,118 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 
 ## Recent Development History
 
+### 2026-01-16: Phase 3 Code Refactoring & CSS Variable Migration
+
+**Overview:**
+Large-scale code refactoring to improve maintainability and establish correct CSS architecture. This includes extracting composables, modularizing ConfigManager with mixins, and migrating all hardcoded colors to CSS variables.
+
+**Phase 1-2: Composables Extraction**
+
+1. **New Composables Created:**
+   ```
+   src/renderer/composables/
+   ├── useProjects.js       # Project management logic (292 lines)
+   ├── useTabManagement.js  # Tab lifecycle management (246 lines)
+   └── useSessionPanel.js   # Session panel state & actions (426 lines)
+   ```
+
+2. **useProjects.js Functions:**
+   - `loadProjects()` - Load and sort projects
+   - `selectProject()` - Select with validation callbacks
+   - `openProject()` - Open folder dialog and create project
+   - `openFolder()` - Open in system explorer
+   - `togglePin()` - Toggle pinned state
+   - `hideProject()` - Hide from list
+   - `openEditModal()` / `closeEditModal()` / `saveProject()` - Edit flow
+
+3. **useTabManagement.js Functions:**
+   - `addSessionTab()` - Create new tab from session
+   - `ensureSessionTab()` - Create or focus existing
+   - `selectTab()` - Select with project switch callback
+   - `closeTab()` - Close and cleanup
+   - `handleSessionCreated/Selected/Closed()` - Event handlers
+   - `updateTabStatus()` / `updateTabTitle()` - State updates
+   - `findTabBySessionId()` - Lookup helper
+
+4. **useSessionPanel.js Functions:**
+   - `loadActiveSessions()` / `loadHistorySessions()` - Data loading
+   - `checkCanCreateSession()` - Limit validation
+   - `createSession()` / `closeSession()` - Lifecycle
+   - `resumeHistorySession()` / `deleteHistorySession()` - History ops
+   - `formatSessionName()` / `formatDate()` - Display helpers
+
+**Phase 3: Backend Modularization**
+
+1. **ConfigManager Mixin Extraction:**
+   ```
+   src/main/config/
+   ├── provider-config.js   # Service provider methods (existing)
+   ├── project-config.js    # Project management methods (existing)
+   └── api-config.js        # API profile methods (NEW - 266 lines)
+   ```
+
+2. **api-config.js Methods:**
+   - `getAPIProfiles()` / `getAPIProfile()` - Read operations
+   - `addAPIProfile()` / `updateAPIProfile()` / `deleteAPIProfile()` - CRUD
+   - `setDefaultProfile()` / `getDefaultProfile()` / `getDefaultProfileId()` - Default management
+   - `addCustomModel()` / `deleteCustomModel()` / `updateCustomModel()` - Model CRUD
+
+3. **IPC Optimization:**
+   - Created merged `getSessionLimits` handler (returns runningCount + maxSessions)
+   - Reduces 2 IPC calls to 1 (50% reduction for session limit checks)
+
+**Phase 4: CSS Variable Migration**
+
+1. **Extended useTheme.js CSS Variables:**
+   ```javascript
+   // New variables added
+   '--border-color-light'  // Secondary border color
+   '--scrollbar-thumb'     // Scrollbar thumb color
+   '--warning-bg'          // Warning box background
+   '--warning-text'        // Warning box text
+   '--hover-bg'            // Hover state background
+   ```
+
+2. **Migrated Components (9 files):**
+   | Component | Before | After | Reduction |
+   |-----------|--------|-------|-----------|
+   | MainContent.vue | 164 lines | 130 lines | -21% |
+   | LeftPanel.vue | 411 lines | 348 lines | -15% |
+   | TabBar.vue | 159 lines | 132 lines | -17% |
+   | SessionPanel/index.vue | 27 lines | 22 lines | -19% |
+   | SessionToolbar.vue | 62 lines | 53 lines | -15% |
+   | ActiveSessionList.vue | 183 lines | 161 lines | -12% |
+   | HistorySessionList.vue | 108 lines | 100 lines | -7% |
+   | ProjectEditModal.vue | 111 lines | 91 lines | -18% |
+
+3. **Changes Made:**
+   - Replaced all `.dark-theme` / `.dark` CSS rules with `var()` references
+   - Removed all `:deep(.dark-theme)` selectors
+   - Removed unused `isDark` prop from TabBar.vue
+   - Removed unused `dark` class bindings from templates
+
+4. **Build Results:**
+   - main.css: 13.17 kB → 11.89 kB (**-10% file size**)
+
+**Deleted Files:**
+- `src/renderer/pages/main/components/Sidebar.vue` (502 lines, unused legacy)
+
+**Code Metrics:**
+- MainContent.vue: 673 → 492 lines (-27%)
+- LeftPanel.vue: 1078 → 864 lines (-20%)
+- config-manager.js: 972 → 724 lines (-25%)
+- Total new composable code: ~964 lines (reusable)
+- Net reduction in component code: ~500+ lines
+
+**Architecture Benefits:**
+1. Single source of truth for theme colors (useTheme.js)
+2. Easy to add new themes (high contrast, custom)
+3. Components focus on structure, not theme logic
+4. Reduced CSS bundle size
+5. Better separation of concerns
+
+---
+
 ### 2026-01-15: Active Session Management & Code Refactoring
 
 **Feature Overview:**
@@ -583,9 +695,9 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.1.0-alpha (2026-01-15)
+### ✅ Current Version: v1.1.0-alpha (2026-01-16)
 
-**Status**: 🟢 Active session management enhanced
+**Status**: 🟢 Phase 3 refactoring complete, CSS variable architecture established
 
 **What's Working:**
 - ✅ Service provider management (add/edit/delete custom providers)
@@ -599,25 +711,28 @@ src/renderer/js/
   - Two-level tag system (session + message tags)
   - Favorites with filtering
   - Export/copy (Markdown/JSON)
-- ✅ **Active session management (ENHANCED)**
+- ✅ Active session management
   - Session titles support
   - Welcome page as fixed tab
-  - Session list reordering (up/down arrows)
+  - Session list reordering
   - Cross-project session display
-  - Max sessions limit configuration
-- ✅ Code refactored (useSessionUtils, useFormatters, path-utils)
+- ✅ **Code Architecture (REFACTORED)**
+  - Composables: useProjects, useTabManagement, useSessionPanel
+  - ConfigManager modularized with mixins (api-config, provider-config, project-config)
+  - CSS variable system for theming (useTheme.js)
+  - IPC call optimization (getSessionLimits)
 
 ### 🎯 Next Steps (Immediate)
 
-**Priority 1 - Vue 3 + Naive UI Migration** (In Progress)
+**Priority 1 - Testing & Validation**
 - [ ] Test all Vue pages in Vite dev mode
-- [ ] Verify IPC communication
-- [ ] Configure Vite production build
-- [ ] Update electron-builder config
-- [ ] Remove old HTML/JS files
+- [ ] Verify theme switching in all components
+- [ ] Test IPC communication end-to-end
+- [ ] Verify session management workflows
 
 **Priority 2 - Code Quality**
 - [ ] Add unit tests for core ConfigManager methods
+- [ ] Add unit tests for composables
 - [ ] Improve error messages with user-friendly translations
 
 **Priority 3 - Small Enhancements**

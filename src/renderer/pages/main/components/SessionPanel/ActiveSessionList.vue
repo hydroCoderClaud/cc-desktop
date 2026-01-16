@@ -95,7 +95,7 @@ const formatTime = formatTimeShort
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   text-transform: uppercase;
   padding: 8px 8px 4px;
 }
@@ -125,29 +125,17 @@ const formatTime = formatTimeShort
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #f9f9f9;
+  background: var(--bg-color-tertiary);
   border: 1px solid transparent;
 }
 
-:deep(.dark-theme) .session-item {
-  background: #2a2a2a;
-}
-
 .session-item:hover {
-  background: #f0f0f0;
-}
-
-:deep(.dark-theme) .session-item:hover {
-  background: #333333;
+  background: var(--hover-bg);
 }
 
 .session-item.active {
-  background: #fff7e6;
-  border-color: #ff6b35;
-}
-
-:deep(.dark-theme) .session-item.active {
-  background: #3a2a1a;
+  background: var(--warning-bg);
+  border-color: var(--primary-color);
 }
 
 .session-info {
@@ -175,7 +163,7 @@ const formatTime = formatTimeShort
 
 .session-meta {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   margin-top: 2px;
 }
 
@@ -206,9 +194,9 @@ const formatTime = formatTimeShort
   height: 14px;
   border-radius: 3px;
   background: transparent;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-color);
   font-size: 10px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -219,23 +207,14 @@ const formatTime = formatTimeShort
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #f0f0f0;
-  border-color: #ff6b35;
-  color: #ff6b35;
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .order-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
-}
-
-:deep(.dark-theme) .order-btn {
-  border-color: #444;
-  color: #888;
-}
-
-:deep(.dark-theme) .order-btn:hover:not(:disabled) {
-  background: #3a3a3a;
 }
 
 .close-btn {
@@ -245,7 +224,7 @@ const formatTime = formatTimeShort
   background: transparent;
   border: none;
   font-size: 16px;
-  color: #999999;
+  color: var(--text-color-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -261,7 +240,7 @@ const formatTime = formatTimeShort
 /* 其他项目的会话样式 */
 .session-item.other-project {
   opacity: 0.7;
-  border-left: 3px solid #8c8c8c;
+  border-left: 3px solid var(--text-color-muted);
 }
 
 .session-item.other-project:hover {

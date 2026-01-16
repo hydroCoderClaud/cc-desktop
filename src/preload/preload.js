@@ -53,6 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMaxHistorySessions: () => ipcRenderer.invoke('config:getMaxHistorySessions'),
   updateMaxHistorySessions: (max) => ipcRenderer.invoke('config:updateMaxHistorySessions', max),
 
+  // Terminal Settings (终端字体大小等)
+  getTerminalSettings: () => ipcRenderer.invoke('config:getTerminalSettings'),
+  updateTerminalSettings: (settings) => ipcRenderer.invoke('config:updateTerminalSettings', settings),
+
   // ========================================
   // API 配置相关
   // ========================================
@@ -157,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 同步
   syncSessions: () => ipcRenderer.invoke('session:sync'),
+  forceFullSync: () => ipcRenderer.invoke('session:forceFullSync'),
   getSyncStatus: () => ipcRenderer.invoke('session:getSyncStatus'),
   clearInvalidSessions: () => ipcRenderer.invoke('session:clearInvalid'),
 
@@ -238,6 +243,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFocusedActiveSession: () => ipcRenderer.invoke('activeSession:getFocused'),
   setActiveSessionVisible: ({ sessionId, visible }) => ipcRenderer.invoke('activeSession:setVisible', { sessionId, visible }),
   getRunningSessionCount: () => ipcRenderer.invoke('activeSession:getRunningCount'),
+  getSessionLimits: () => ipcRenderer.invoke('activeSession:getSessionLimits'),
   renameActiveSession: ({ sessionId, newTitle }) => ipcRenderer.invoke('activeSession:rename', { sessionId, newTitle }),
 
   // ========================================

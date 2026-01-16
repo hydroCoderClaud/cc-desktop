@@ -5,26 +5,7 @@
 
 const { SessionDatabase } = require('../session-database');
 const { SessionSyncService } = require('../session-sync-service');
-
-/**
- * Create IPC handler with unified logging and error handling
- * @param {Object} ipcMain - Electron ipcMain module
- * @param {string} channelName - IPC channel name
- * @param {Function} handler - Handler function
- */
-function createIPCHandler(ipcMain, channelName, handler) {
-  ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args);
-    try {
-      const result = await handler(...args);
-      console.log(`[IPC] ${channelName} success`);
-      return result;
-    } catch (error) {
-      console.error(`[IPC] ${channelName} error:`, error);
-      throw error;
-    }
-  });
-}
+const { createIPCHandler } = require('../utils/ipc-utils');
 
 /**
  * 设置会话相关的 IPC 处理器
@@ -46,6 +27,11 @@ function setupSessionHandlers(ipcMain, sessionDatabase) {
     return await sessionSyncService.sync();
   });
 
+  // 强制全量同步（清空数据库后重新同步）
+  createIPCHandler(ipcMain, 'session:forceFullSync', async () => {
+    return await sessionSyncService.forceFullSync();
+  });
+
   // 获取同步状态
   createIPCHandler(ipcMain, 'session:getSyncStatus', () => {
     return {
@@ -59,9 +45,9 @@ function setupSessionHandlers(ipcMain, sessionDatabase) {
     return await sessionSyncService.clearInvalidSessions();
   });
 
-  // 获取所有项目（从数据库）
+  // 获取所有项目（从数据库，包括同步导入的项目）
   createIPCHandler(ipcMain, 'session:getProjects', () => {
-    return sessionDatabase.getAllProjects();
+    return sessionDatabase.getAllProjects(false, false);  // includeHidden=false, userOnly=false
   });
 
   // 获取项目的会话列表（从数据库）

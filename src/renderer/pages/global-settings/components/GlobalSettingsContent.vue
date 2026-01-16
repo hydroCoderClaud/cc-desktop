@@ -130,6 +130,34 @@
         </n-grid-item>
       </n-grid>
     </n-card>
+
+    <!-- Terminal Settings Section -->
+    <n-card :title="t('globalSettings.terminalSettings')" class="section-card">
+      <n-grid :cols="2" :x-gap="24">
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.terminalFontSize')">
+            <n-input-number
+              v-model:value="formData.terminalFontSize"
+              :min="10"
+              :max="24"
+              placeholder="14"
+            />
+            <template #feedback>{{ t('globalSettings.terminalFontSizeHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
+
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.terminalFontFamily')">
+            <n-select
+              v-model:value="formData.terminalFontFamily"
+              :options="fontFamilyOptions"
+              style="width: 100%"
+            />
+            <template #feedback>{{ t('globalSettings.terminalFontFamilyHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
+      </n-grid>
+    </n-card>
   </div>
 </template>
 
@@ -153,7 +181,9 @@ const DEFAULTS = {
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
-  maxHistorySessions: 10
+  maxHistorySessions: 10,
+  terminalFontSize: 14,
+  terminalFontFamily: '"Ubuntu Mono", monospace'
 }
 
 const formData = ref({
@@ -165,8 +195,28 @@ const formData = ref({
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
-  maxHistorySessions: 10
+  maxHistorySessions: 10,
+  terminalFontSize: 14,
+  terminalFontFamily: '"Ubuntu Mono", monospace'
 })
+
+// Terminal font family options
+const fontFamilyOptions = [
+  // 支持中文的等宽字体
+  { label: '更纱黑体 (Sarasa Mono)', value: '"Sarasa Mono SC", "Sarasa Gothic SC", monospace' },
+  { label: '思源等宽 (Source Han Mono)', value: '"Source Han Mono SC", "Source Han Mono", monospace' },
+  { label: '霞鹜文楷等宽 (LXGW WenKai)', value: '"LXGW WenKai Mono", monospace' },
+  // 英文等宽字体
+  { label: 'Ubuntu Mono', value: '"Ubuntu Mono", monospace' },
+  { label: 'Consolas', value: 'Consolas, monospace' },
+  { label: 'Cascadia Code', value: '"Cascadia Code", monospace' },
+  { label: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
+  { label: 'Fira Code', value: '"Fira Code", monospace' },
+  { label: 'Source Code Pro', value: '"Source Code Pro", monospace' },
+  { label: 'Monaco', value: 'Monaco, monospace' },
+  { label: 'Menlo', value: 'Menlo, monospace' },
+  { label: 'Courier New', value: '"Courier New", monospace' }
+]
 
 // Theme options
 const themeOptions = computed(() => [
@@ -226,6 +276,11 @@ const loadSettings = async () => {
     // Get max history sessions
     const maxHistorySessions = await invoke('getMaxHistorySessions')
     formData.value.maxHistorySessions = maxHistorySessions || DEFAULTS.maxHistorySessions
+
+    // Get terminal settings
+    const terminalSettings = await invoke('getTerminalSettings')
+    formData.value.terminalFontSize = terminalSettings?.fontSize || DEFAULTS.terminalFontSize
+    formData.value.terminalFontFamily = terminalSettings?.fontFamily || DEFAULTS.terminalFontFamily
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -255,6 +310,20 @@ const handleSave = async () => {
     // Save max history sessions
     await invoke('updateMaxHistorySessions', formData.value.maxHistorySessions)
 
+    // Save terminal settings
+    await invoke('updateTerminalSettings', {
+      fontSize: formData.value.terminalFontSize,
+      fontFamily: formData.value.terminalFontFamily
+    })
+
+    // Broadcast terminal settings change to other windows
+    if (window.electronAPI?.broadcastSettings) {
+      window.electronAPI.broadcastSettings({
+        terminalFontSize: formData.value.terminalFontSize,
+        terminalFontFamily: formData.value.terminalFontFamily
+      })
+    }
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -273,6 +342,8 @@ const handleReset = async () => {
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
+    formData.value.terminalFontSize = DEFAULTS.terminalFontSize
+    formData.value.terminalFontFamily = DEFAULTS.terminalFontFamily
 
     // Save to backend
     await invoke('updateGlobalModels', {
@@ -286,6 +357,10 @@ const handleReset = async () => {
     })
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
+    await invoke('updateTerminalSettings', {
+      fontSize: DEFAULTS.terminalFontSize,
+      fontFamily: DEFAULTS.terminalFontFamily
+    })
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

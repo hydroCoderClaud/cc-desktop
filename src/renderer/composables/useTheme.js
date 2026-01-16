@@ -125,29 +125,55 @@ export function useTheme() {
   const cssVars = computed(() => {
     if (isDark.value) {
       return {
+        // 背景色
         '--bg-color': '#1a1a1a',
         '--bg-color-secondary': '#242424',
         '--bg-color-tertiary': '#2d2d2d',
-        '--text-color': '#f5f5f0',
+        // 文字色
+        '--text-color': '#e8e8e8',
         '--text-color-secondary': '#d0d0d0',
         '--text-color-muted': '#8c8c8c',
-        '--border-color': '#404040',
+        // 边框色
+        '--border-color': '#333333',
+        '--border-color-light': '#404040',
+        // 主题色
         '--primary-color': '#FF6B35',
         '--primary-color-hover': '#FF5722',
-        '--shadow-color': 'rgba(0, 0, 0, 0.3)'
+        // 阴影
+        '--shadow-color': 'rgba(0, 0, 0, 0.3)',
+        // 滚动条
+        '--scrollbar-thumb': '#444444',
+        // 警告框
+        '--warning-bg': '#3a3a1a',
+        '--warning-text': '#f4d03f',
+        // 悬停
+        '--hover-bg': '#333333'
       }
     }
     return {
+      // 背景色
       '--bg-color': '#f5f5f0',
       '--bg-color-secondary': '#ffffff',
       '--bg-color-tertiary': '#f8f8f5',
+      // 文字色
       '--text-color': '#2d2d2d',
       '--text-color-secondary': '#4a4a4a',
       '--text-color-muted': '#8c8c8c',
+      // 边框色
       '--border-color': '#e5e5e0',
+      '--border-color-light': '#e0e0e0',
+      // 主题色
       '--primary-color': '#FF6B35',
       '--primary-color-hover': '#FF5722',
-      '--shadow-color': 'rgba(0, 0, 0, 0.08)'
+      // 阴影
+      '--shadow-color': 'rgba(0, 0, 0, 0.08)',
+      // 滚动条
+      '--scrollbar-thumb': '#d0d0c8',
+      // 警告框
+      '--warning-bg': '#fef9e7',
+      '--warning-text': '#856404',
+      // 悬停
+      '--hover-bg': '#f0f0eb'
     }
   })
 

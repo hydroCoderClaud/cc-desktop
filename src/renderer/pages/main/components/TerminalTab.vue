@@ -22,6 +22,14 @@ const props = defineProps({
   isDark: {
     type: Boolean,
     default: false
+  },
+  fontSize: {
+    type: Number,
+    default: 14
+  },
+  fontFamily: {
+    type: String,
+    default: '"Ubuntu Mono", monospace'
   }
 })
 
@@ -58,8 +66,8 @@ const initTerminal = async () => {
 
   terminal = new window.Terminal({
     cursorBlink: true,
-    fontSize: 14,
-    fontFamily: 'Consolas, "Courier New", monospace',
+    fontSize: props.fontSize,
+    fontFamily: props.fontFamily,
     theme: getTerminalTheme(),
     convertEol: true
   })
@@ -84,6 +92,9 @@ const initTerminal = async () => {
   terminalRef.value.addEventListener('paste', (e) => {
     e.preventDefault()
   })
+
+  // 右键菜单：有选中时复制+粘贴，无选中时粘贴
+  terminalRef.value.addEventListener('contextmenu', handleContextMenu)
 
   // Handle user input
   terminal.onData(data => {
@@ -216,6 +227,24 @@ const handlePaste = async () => {
   }
 }
 
+// Handle right-click context menu (Claude Code style)
+// - With selection: copy + paste
+// - Without selection: paste only
+const handleContextMenu = async (event) => {
+  event.preventDefault()
+  if (!terminal) return
+
+  const selection = terminal.getSelection()
+  if (selection) {
+    // 有选中文字：先复制，再粘贴
+    await handleCopy(selection)
+    await handlePaste()
+  } else {
+    // 没有选中文字：直接粘贴
+    await handlePaste()
+  }
+}
+
 // Handle resize
 const handleResize = () => {
   if (props.visible) {
@@ -242,6 +271,22 @@ watch(() => props.visible, async (newVal) => {
 watch(() => props.isDark, () => {
   if (terminal) {
     terminal.options.theme = getTerminalTheme()
+  }
+})
+
+// Watch font size
+watch(() => props.fontSize, (newSize) => {
+  if (terminal) {
+    terminal.options.fontSize = newSize
+    fit()  // 重新适配大小
+  }
+})
+
+// Watch font family
+watch(() => props.fontFamily, (newFamily) => {
+  if (terminal) {
+    terminal.options.fontFamily = newFamily
+    fit()  // 重新适配大小
   }
 })
 
@@ -305,7 +350,6 @@ defineExpose({
   width: 100%;
   height: 100%;
   background: #1a1a1a;
-  border-radius: 8px;
   overflow: hidden !important;
 }
 
@@ -331,7 +375,6 @@ defineExpose({
 
 .terminal :deep(.xterm-viewport) {
   overflow-y: scroll !important;
-  border-radius: 4px;
 }
 
 /* IME textarea 修复 - 使用 fixed 定位固定在终端左下角 */

@@ -1,7 +1,18 @@
 <template>
   <div class="app-container" :class="{ 'dark-theme': isDark }" :style="cssVars">
+    <!-- Left Panel Collapsed Strip -->
+    <div
+      v-if="!showLeftPanel"
+      class="panel-collapsed-strip panel-collapsed-left"
+      @click="showLeftPanel = true"
+      :title="t('panel.showLeft')"
+    >
+      <span class="strip-icon">›</span>
+    </div>
+
     <!-- Left Panel (Project Selector + Sessions) -->
     <LeftPanel
+      v-if="showLeftPanel"
       ref="leftPanelRef"
       :projects="projects"
       :current-project="currentProject"
@@ -10,9 +21,10 @@
       @select-project="selectProject"
       @toggle-theme="handleToggleTheme"
       @context-action="handleContextAction"
-      @session-created="handleSessionCreated"
+      @session-created="onSessionCreated"
       @session-selected="handleSessionSelected"
-      @session-closed="handleSessionClosed"
+      @session-closed="onSessionClosed"
+      @collapse="showLeftPanel = false"
     />
 
     <!-- Main Content Area -->
@@ -29,7 +41,6 @@
         :active-tab-id="activeTabId"
         :current-project="currentProject"
         :show-new-button="false"
-        :is-dark="isDark"
         @select-tab="handleSelectTab"
         @close-tab="handleCloseTab"
       />
@@ -64,194 +75,102 @@
             :session-id="tab.sessionId"
             :visible="activeTabId === tab.id"
             :is-dark="isDark"
+            :font-size="terminalFontSize"
+            :font-family="terminalFontFamily"
             @ready="handleTerminalReady"
           />
         </div>
       </div>
     </div>
 
-    <!-- Project Edit Modal -->
-    <n-modal v-model:show="showProjectModal" preset="card" :title="editingProject ? t('project.editTitle') : t('project.createTitle')" style="width: 500px;">
-      <n-form :model="projectForm" label-placement="left" label-width="80">
-        <n-form-item :label="t('project.name')">
-          <n-input v-model:value="projectForm.name" :placeholder="t('project.namePlaceholder')" />
-          <template #feedback>
-            <span class="form-hint">{{ t('project.nameHint') }}</span>
-          </template>
-        </n-form-item>
-        <n-form-item :label="t('project.path')">
-          <n-input v-model:value="projectForm.path" disabled />
-          <template #feedback>
-            <span class="form-hint">{{ t('project.pathHint') }}</span>
-          </template>
-        </n-form-item>
-        <n-form-item :label="t('project.description')">
-          <n-input v-model:value="projectForm.description" type="textarea" :placeholder="t('project.descriptionPlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('project.icon')">
-          <div class="emoji-picker-container">
-            <div class="selected-emoji" @click="showEmojiPicker = !showEmojiPicker">
-              {{ projectForm.icon || '📁' }}
-            </div>
-            <div v-if="showEmojiPicker" class="emoji-picker" @click.stop>
-              <div
-                v-for="emoji in commonEmojis"
-                :key="emoji"
-                class="emoji-option"
-                :class="{ selected: projectForm.icon === emoji }"
-                @click="selectEmoji(emoji)"
-              >
-                {{ emoji }}
-              </div>
-            </div>
-          </div>
-        </n-form-item>
-        <n-form-item :label="t('project.borderColor')">
-          <div class="color-picker-row">
-            <n-color-picker
-              v-model:value="projectForm.color"
-              :modes="['hex']"
-              :show-alpha="false"
-              :swatches="['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#eb2f96', '#13c2c2', '#2f54eb']"
-              style="width: 120px;"
-            />
-            <n-button size="small" @click="projectForm.color = '#1890ff'">{{ t('project.resetColor') }}</n-button>
-          </div>
-        </n-form-item>
-        <n-form-item :label="t('project.apiProfile')">
-          <div class="api-profile-row">
-            <n-select
-              v-model:value="projectForm.api_profile_id"
-              :options="apiProfileOptions"
-              :placeholder="t('project.apiProfilePlaceholder')"
-              clearable
-              style="flex: 1;"
-            />
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <n-button
-                  size="small"
-                  quaternary
-                  :disabled="!projectForm.api_profile_id"
-                  @click="openApiProfileManager"
-                >
-                  ⚙️
-                </n-button>
-              </template>
-              {{ t('project.editApiProfile') }}
-            </n-tooltip>
-          </div>
-          <template #feedback>
-            <span class="form-hint">{{ t('project.apiProfileHint') }}</span>
-          </template>
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="modal-footer">
-          <n-button @click="showProjectModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="saveProject">{{ t('common.save') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
+    <!-- Right Panel -->
+    <RightPanel
+      v-if="showRightPanel"
+      @collapse="showRightPanel = false"
+    />
 
-    <!-- Delete Confirmation Modal -->
-    <n-modal v-model:show="showDeleteModal" preset="dialog" type="warning" :title="t('project.deleteConfirm')">
-      <div class="delete-confirm-content">
-        <p>{{ t('project.deleteWarning', { name: deleteProject?.name }) }}</p>
-        <n-checkbox v-model:checked="deleteWithSessions">{{ t('project.deleteWithSessions') }}</n-checkbox>
-      </div>
-      <template #action>
-        <n-button @click="showDeleteModal = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="error" @click="confirmDeleteProject">{{ t('common.confirm') }}</n-button>
-      </template>
-    </n-modal>
+    <!-- Right Panel Collapsed Strip -->
+    <div
+      v-if="!showRightPanel"
+      class="panel-collapsed-strip panel-collapsed-right"
+      @click="showRightPanel = true"
+      :title="t('panel.showRight')"
+    >
+      <span class="strip-icon">‹</span>
+    </div>
+
+    <!-- Project Edit Modal -->
+    <ProjectEditModal
+      v-model:show="showProjectModal"
+      :project="editingProject"
+      :api-profiles="apiProfiles"
+      @save="handleProjectSave"
+      @open-profile-manager="openApiProfileManager"
+    />
 
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage, NModal, NForm, NFormItem, NInput, NButton, NColorPicker, NCheckbox, NSelect, NTooltip } from 'naive-ui'
-import { useIPC } from '@composables/useIPC'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
-import { createTabFromSession, findTabBySessionId, removeTabAndGetNextActive } from '@composables/useSessionUtils'
+import { useProjects } from '@composables/useProjects'
+import { useTabManagement } from '@composables/useTabManagement'
+import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
+import RightPanel from './RightPanel.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
+import ProjectEditModal from './ProjectEditModal.vue'
 
 const message = useMessage()
-const { invoke } = useIPC()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
+
+// Use composables
+const {
+  projects,
+  currentProject,
+  showProjectModal,
+  editingProject,
+  apiProfiles,
+  loadProjects,
+  selectProject: doSelectProject,
+  openProject,
+  openFolder,
+  togglePin,
+  hideProject,
+  openEditModal,
+  closeEditModal,
+  saveProject,
+  selectFirstProject
+} = useProjects()
+
+const {
+  tabs,
+  activeTabId,
+  ensureSessionTab,
+  selectTab,
+  closeTab,
+  handleSessionCreated,
+  handleSessionSelected: doHandleSessionSelected,
+  handleSessionClosed,
+  updateTabStatus,
+  updateTabTitle,
+  findTabBySessionId
+} = useTabManagement()
 
 // Refs
 const leftPanelRef = ref(null)
 const terminalRefs = ref({})
+const terminalFontSize = ref(14)
+const terminalFontFamily = ref('"Ubuntu Mono", monospace')
 
-// State
-const projects = ref([])
-const currentProject = ref(null)
-
-// Tabs state
-const tabs = ref([])
-const activeTabId = ref('welcome')  // 默认显示欢迎页
-
-// Project edit modal
-const showProjectModal = ref(false)
-const editingProject = ref(null)
-const projectForm = ref({
-  name: '',
-  path: '',
-  description: '',
-  icon: '📁',
-  color: '#1890ff',
-  api_profile_id: null
-})
-
-// Delete confirmation
-const showDeleteModal = ref(false)
-const deleteProject = ref(null)
-const deleteWithSessions = ref(false)
-
-
-// Emoji picker
-const showEmojiPicker = ref(false)
-const commonEmojis = [
-  '📁', '📂', '📦', '🗂️', '💼',
-  '🚀', '⚡', '🔥', '✨', '💡',
-  '🎯', '🎨', '🎮', '🎵', '🎬',
-  '🌐', '🔧', '⚙️', '🛠️', '🔨',
-  '📱', '💻', '🖥️', '⌨️', '🖱️',
-  '📊', '📈', '📉', '📋', '📝',
-  '🔒', '🔑', '🔐', '🛡️', '⚔️',
-  '🌟', '⭐', '🏆', '🎖️', '🏅',
-  '❤️', '💚', '💙', '💜', '🧡'
-]
-
-const selectEmoji = (emoji) => {
-  projectForm.value.icon = emoji
-  showEmojiPicker.value = false
-}
-
-// API Profiles
-const apiProfiles = ref([])
-
-const apiProfileOptions = computed(() => {
-  return apiProfiles.value.map(profile => ({
-    label: `${profile.icon || '🔑'} ${profile.name}${profile.isDefault ? ' (' + t('common.default') + ')' : ''}`,
-    value: profile.id
-  }))
-})
-
-const loadApiProfiles = async () => {
-  try {
-    apiProfiles.value = await invoke('listAPIProfiles')
-  } catch (err) {
-    console.error('Failed to load API profiles:', err)
-    apiProfiles.value = []
-  }
-}
+// Panel visibility
+const showLeftPanel = ref(true)
+const showRightPanel = ref(false)  // 默认隐藏右侧面板
 
 // Set terminal ref
 const setTerminalRef = (tabId, el) => {
@@ -266,17 +185,18 @@ const setTerminalRef = (tabId, el) => {
 onMounted(async () => {
   await initLocale()
   await loadProjects()
-
-  // 自动选中第一个项目（如果有的话）
-  // loadProjects 返回的数据已经包含 pathValid 字段，直接设置即可
-  if (projects.value.length > 0 && !currentProject.value) {
-    currentProject.value = projects.value[0]
-  }
-
+  selectFirstProject()
   setupSessionListeners()
-
-  // 注册键盘快捷键
   window.addEventListener('keydown', handleKeyDown)
+
+  // Load terminal settings
+  try {
+    const terminalSettings = await window.electronAPI.getTerminalSettings()
+    terminalFontSize.value = terminalSettings?.fontSize || 14
+    terminalFontFamily.value = terminalSettings?.fontFamily || 'Consolas, monospace'
+  } catch (err) {
+    console.error('Failed to load terminal settings:', err)
+  }
 })
 
 // Cleanup listeners
@@ -306,9 +226,10 @@ const setupSessionListeners = () => {
 
   // 监听会话数据
   cleanupFns.push(
-    window.electronAPI.onSessionData(({ sessionId, data }) => {
-      // 找到对应的 tab
-      const tab = tabs.value.find(t => t.sessionId === sessionId)
+    window.electronAPI.onSessionData((eventData) => {
+      if (!isValidSessionEvent(eventData)) return
+      const { sessionId, data } = eventData
+      const tab = findTabBySessionId(sessionId)
       if (tab && terminalRefs.value[tab.id]) {
         terminalRefs.value[tab.id].write(data)
       }
@@ -317,87 +238,63 @@ const setupSessionListeners = () => {
 
   // 监听会话退出
   cleanupFns.push(
-    window.electronAPI.onSessionExit(({ sessionId }) => {
-      // 更新 tab 状态
-      const tab = tabs.value.find(t => t.sessionId === sessionId)
-      if (tab) {
-        tab.status = 'exited'
-      }
+    window.electronAPI.onSessionExit((eventData) => {
+      if (!isValidSessionEvent(eventData)) return
+      const { sessionId } = eventData
+      updateTabStatus(sessionId, 'exited')
     })
   )
 
   // 监听会话错误
   cleanupFns.push(
-    window.electronAPI.onSessionError(({ sessionId, error }) => {
-      const tab = tabs.value.find(t => t.sessionId === sessionId)
-      if (tab) {
-        tab.status = 'error'
-      }
-      message.error(t('messages.terminalError') + ': ' + error)
+    window.electronAPI.onSessionError((eventData) => {
+      if (!isValidSessionEvent(eventData)) return
+      const { sessionId, error } = eventData
+      updateTabStatus(sessionId, 'error')
+      message.error(t('messages.terminalError') + ': ' + (error || 'Unknown error'))
     })
   )
 
   // 监听会话更新（如重命名）
   cleanupFns.push(
-    window.electronAPI.onSessionUpdated(({ sessionId, session }) => {
-      const tab = tabs.value.find(t => t.sessionId === sessionId)
-      if (tab && session) {
-        tab.title = session.title || ''
+    window.electronAPI.onSessionUpdated((eventData) => {
+      if (!isValidSessionEvent(eventData)) return
+      const { sessionId, session } = eventData
+      if (session) {
+        updateTabTitle(sessionId, session.title || '')
       }
     })
   )
-}
 
-// Load projects
-const loadProjects = async () => {
-  try {
-    projects.value = await invoke('getProjects', false)
-  } catch (err) {
-    console.error('Failed to load projects:', err)
-    projects.value = []
+  // 监听设置变化（终端字体大小、字体类型等）
+  if (window.electronAPI.onSettingsChanged) {
+    cleanupFns.push(
+      window.electronAPI.onSettingsChanged((settings) => {
+        if (settings.terminalFontSize !== undefined) {
+          terminalFontSize.value = settings.terminalFontSize
+        }
+        if (settings.terminalFontFamily !== undefined) {
+          terminalFontFamily.value = settings.terminalFontFamily
+        }
+      })
+    )
   }
 }
 
-// Project management
+// ========================================
+// Project management wrapper functions
+// ========================================
+
 const selectProject = async (project) => {
-  if (!project) {
-    currentProject.value = null
-    return
-  }
-  // 实时检查路径是否存在
-  try {
-    const result = await invoke('checkPath', project.path)
-    if (result.valid !== project.pathValid) {
-      if (!result.valid) {
-        message.warning(t('project.pathNotExist'))
-      }
-      await loadProjects()
-      const updated = projects.value.find(p => p.id === project.id)
-      if (updated) {
-        currentProject.value = updated
-        return
-      }
-    }
-  } catch (err) {
-    console.error('Failed to check path:', err)
-  }
-  currentProject.value = project
-
-  // 刷新项目列表以更新排序（touchProject 已在 LeftPanel 调用）
-  await loadProjects()
+  await doSelectProject(project, {
+    onPathInvalid: () => message.warning(t('project.pathNotExist'))
+  })
 }
 
-
-// Open existing project
 const handleOpenProject = async () => {
   try {
-    const result = await invoke('openProject')
+    const result = await openProject()
     if (result.canceled) return
-
-    await loadProjects()
-    // 从 projects.value 中找到项目（带有 pathValid 字段）
-    const project = projects.value.find(p => p.id === result.id)
-    currentProject.value = project || result
 
     if (result.restored) {
       message.success(t('messages.projectRestored') + ': ' + result.name)
@@ -407,250 +304,106 @@ const handleOpenProject = async () => {
       message.success(t('messages.projectAdded') + ': ' + result.name)
     }
   } catch (err) {
-    console.error('Failed to open project:', err)
     message.error(err.message || t('messages.operationFailed'))
   }
 }
 
-// Context menu action handler
 const handleContextAction = async ({ action, project }) => {
-  switch (action) {
-    case 'openFolder':
-      await handleOpenFolder(project)
-      break
-    case 'pin':
-      await handleTogglePin(project)
-      break
-    case 'edit':
-      openEditModal(project)
-      break
-    case 'hide':
-      await handleHideProject(project)
-      break
-    case 'delete':
-      openDeleteModal(project)
-      break
-  }
-}
-
-// Open folder in file explorer
-const handleOpenFolder = async (project) => {
   try {
-    await invoke('openFolder', project.path)
-  } catch (err) {
-    console.error('Failed to open folder:', err)
-    message.error(t('messages.operationFailed'))
-  }
-}
-
-// Toggle pin
-const handleTogglePin = async (project) => {
-  try {
-    await invoke('toggleProjectPinned', project.id)
-    await loadProjects()
-    message.success(project.is_pinned ? t('messages.projectUnpinned') : t('messages.projectPinned'))
-  } catch (err) {
-    console.error('Failed to toggle pin:', err)
-    message.error(t('messages.operationFailed'))
-  }
-}
-
-// Hide project
-const handleHideProject = async (project) => {
-  try {
-    await invoke('hideProject', project.id)
-    await loadProjects()
-
-    if (currentProject.value?.id === project.id) {
-      currentProject.value = null
+    switch (action) {
+      case 'openFolder':
+        await openFolder(project)
+        break
+      case 'pin':
+        const { wasPinned } = await togglePin(project)
+        message.success(wasPinned ? t('messages.projectUnpinned') : t('messages.projectPinned'))
+        break
+      case 'edit':
+        await openEditModal(project)
+        break
+      case 'hide':
+        await hideProject(project)
+        message.success(t('messages.projectHidden'))
+        break
     }
-
-    message.success(t('messages.projectHidden'))
   } catch (err) {
-    console.error('Failed to hide project:', err)
     message.error(t('messages.operationFailed'))
   }
 }
 
-// Edit project modal
-const openEditModal = async (project) => {
-  await loadApiProfiles()
+// ========================================
+// Project edit modal wrapper
+// ========================================
 
-  editingProject.value = project
-  projectForm.value = {
-    name: project.name || '',
-    path: project.path || '',
-    description: project.description || '',
-    icon: project.icon || '📁',
-    color: project.color || '#1890ff',
-    api_profile_id: project.api_profile_id || null
-  }
-  showEmojiPicker.value = false
-  showProjectModal.value = true
-}
-
-const saveProject = async () => {
-  if (!editingProject.value) return
-
+const handleProjectSave = async (updates) => {
   try {
-    await invoke('updateProject', {
-      projectId: editingProject.value.id,
-      updates: {
-        name: projectForm.value.name,
-        description: projectForm.value.description,
-        icon: projectForm.value.icon,
-        color: projectForm.value.color,
-        api_profile_id: projectForm.value.api_profile_id
-      }
-    })
-
-    await loadProjects()
-    showProjectModal.value = false
-    editingProject.value = null
+    await saveProject(updates)
     message.success(t('messages.projectUpdated'))
   } catch (err) {
-    console.error('Failed to update project:', err)
     message.error(t('messages.operationFailed'))
   }
 }
 
-// Delete project
-const openDeleteModal = (project) => {
-  deleteProject.value = project
-  deleteWithSessions.value = false
-  showDeleteModal.value = true
-}
+// ========================================
+// Tab management wrapper functions
+// ========================================
 
-const confirmDeleteProject = async () => {
-  if (!deleteProject.value) return
-
-  try {
-    await invoke('deleteProject', {
-      projectId: deleteProject.value.id,
-      deleteSessions: deleteWithSessions.value
-    })
-
-    await loadProjects()
-
-    if (currentProject.value?.id === deleteProject.value.id) {
-      currentProject.value = null
-    }
-
-    showDeleteModal.value = false
-    deleteProject.value = null
-    message.success(t('messages.projectDeleted'))
-  } catch (err) {
-    console.error('Failed to delete project:', err)
-    message.error(t('messages.operationFailed'))
-  }
-}
-
-// Tab helpers
-const addSessionTab = async (session, project) => {
-  const newTab = createTabFromSession(session, project)
-  tabs.value.push(newTab)
-  activeTabId.value = newTab.id
-
-  // 同步左侧面板
-  if (leftPanelRef.value) {
-    await leftPanelRef.value.loadActiveSessions()
-    leftPanelRef.value.focusedSessionId = session.id
-  }
-}
-
-// Tab management
 const handleSelectTab = (tab) => {
-  activeTabId.value = tab.id
-
-  // Welcome tab 不需要后续处理
-  if (tab.id === 'welcome') {
-    return
-  }
-
-  // 如果是其他项目的 Tab，切换左侧项目选中
-  if (tab.projectId !== currentProject.value?.id) {
-    const targetProject = projects.value.find(p => p.id === tab.projectId)
-    if (targetProject) {
-      currentProject.value = targetProject
-    }
-  }
-
-  // 同步左侧面板的选中状态
-  if (leftPanelRef.value?.focusedSessionId !== undefined) {
-    leftPanelRef.value.focusedSessionId = tab.sessionId
-  }
-
-  // 通知后端聚焦该会话
-  if (window.electronAPI) {
-    window.electronAPI.focusActiveSession(tab.sessionId)
-  }
-  // 调整终端大小
-  nextTick(() => {
-    if (terminalRefs.value[tab.id]) {
-      terminalRefs.value[tab.id].fit()
+  selectTab(tab, {
+    onProjectSwitch: (projectId) => {
+      if (projectId !== currentProject.value?.id) {
+        const targetProject = projects.value.find(p => p.id === projectId)
+        if (targetProject) {
+          currentProject.value = targetProject
+        }
+      }
+      // 同步左侧面板的选中状态
+      if (leftPanelRef.value?.focusedSessionId !== undefined) {
+        leftPanelRef.value.focusedSessionId = tab.sessionId
+      }
+    },
+    onTerminalFocus: (focusedTab) => {
+      nextTick(() => {
+        if (terminalRefs.value[focusedTab.id]) {
+          terminalRefs.value[focusedTab.id].fit()
+        }
+      })
     }
   })
 }
 
 const handleCloseTab = async (tab) => {
-  // 断开连接（会话在后台继续运行）
-  try {
-    await invoke('disconnectActiveSession', tab.sessionId)
-  } catch (err) {
-    console.error('Failed to disconnect session:', err)
-  }
-
-  // 移除 tab 并切换到合适的 tab
-  activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
+  await closeTab(tab)
 }
 
-// Session panel events - 确保会话有对应的 Tab（如果没有则创建）
-const ensureSessionTab = (session) => {
-  const existingTab = findTabBySessionId(tabs.value, session.id)
-  if (existingTab) {
-    activeTabId.value = existingTab.id
-    return
-  }
+// ========================================
+// Session events wrapper functions
+// ========================================
 
-  // 创建新 tab（使用 session 自带的 project 信息）
-  const newTab = {
-    id: `tab-${session.id}`,
-    sessionId: session.id,
-    projectId: session.projectId,
-    projectName: session.projectName,
-    projectPath: session.projectPath,
-    title: session.title || '',
-    status: session.status
-  }
-  tabs.value.push(newTab)
-  activeTabId.value = newTab.id
-}
-
-const handleSessionCreated = (session) => {
-  ensureSessionTab(session)
+const onSessionCreated = (session) => {
+  handleSessionCreated(session)
 }
 
 const handleSessionSelected = (session) => {
-  // 如果是其他项目的会话，切换左侧项目选中
-  if (session.projectId !== currentProject.value?.id) {
-    const targetProject = projects.value.find(p => p.id === session.projectId)
-    if (targetProject) {
-      currentProject.value = targetProject
+  doHandleSessionSelected(session, {
+    onProjectSwitch: (projectId) => {
+      if (projectId !== currentProject.value?.id) {
+        const targetProject = projects.value.find(p => p.id === projectId)
+        if (targetProject) {
+          currentProject.value = targetProject
+        }
+      }
     }
-  }
-  ensureSessionTab(session)
+  })
 }
 
-const handleSessionClosed = (session) => {
-  const tab = findTabBySessionId(tabs.value, session.id)
-  if (tab) {
-    activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
-  }
+const onSessionClosed = (session) => {
+  handleSessionClosed(session)
 }
 
 // Terminal ready event
 const handleTerminalReady = ({ sessionId }) => {
-  console.log('Terminal ready for session:', sessionId)
+  // 终端就绪，无需额外处理
 }
 
 // Theme toggle handler
@@ -671,15 +424,10 @@ const openApiProfileManager = async () => {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: #f5f5f0;
-  color: #2d2d2d;
+  background: var(--bg-color);
+  color: var(--text-color);
   transition: all 0.3s ease;
   overflow: hidden;
-}
-
-.app-container.dark-theme {
-  background: #1a1a1a;
-  color: #e8e8e8;
 }
 
 /* Main Content */
@@ -688,22 +436,13 @@ const openApiProfileManager = async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f5f0;
-}
-
-.dark-theme .main-content {
-  background: #1a1a1a;
+  background: var(--bg-color);
 }
 
 .main-header {
   padding: 16px 24px;
-  border-bottom: 1px solid #e5e5e0;
-  background: #ffffff;
-}
-
-.dark-theme .main-header {
-  background: #242424;
-  border-color: #333333;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color-secondary);
 }
 
 .session-name {
@@ -713,7 +452,7 @@ const openApiProfileManager = async () => {
 
 .project-path {
   font-size: 13px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   font-family: 'SF Mono', 'Monaco', monospace;
 }
 
@@ -721,11 +460,7 @@ const openApiProfileManager = async () => {
   flex: 1;
   overflow: hidden;
   position: relative;
-  background: #f5f5f0;
-}
-
-.dark-theme .main-area {
-  background: #1a1a1a;
+  background: var(--bg-color);
 }
 
 /* Empty State */
@@ -759,16 +494,12 @@ const openApiProfileManager = async () => {
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 12px;
-  color: #2d2d2d;
-}
-
-.dark-theme .welcome-message h2 {
-  color: #e8e8e8;
+  color: var(--text-color);
 }
 
 .welcome-message p {
   font-size: 14px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
 }
 
 .warning-box {
@@ -776,15 +507,11 @@ const openApiProfileManager = async () => {
   align-items: flex-start;
   gap: 12px;
   padding: 16px 20px;
-  background: #fef9e7;
+  background: var(--warning-bg);
   border: 1px solid #f4d03f;
   border-radius: 10px;
   margin-top: 32px;
   text-align: left;
-}
-
-.dark-theme .warning-box {
-  background: #3a3a1a;
 }
 
 .warning-icon {
@@ -796,11 +523,7 @@ const openApiProfileManager = async () => {
 .warning-text {
   font-size: 13px;
   line-height: 1.6;
-  color: #856404;
-}
-
-.dark-theme .warning-text {
-  color: #f4d03f;
+  color: var(--warning-text);
 }
 
 /* Terminal Container */
@@ -823,130 +546,45 @@ const openApiProfileManager = async () => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d0d0c8;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
-.dark-theme ::-webkit-scrollbar-thumb {
-  background: #444444;
-}
-
-/* Modal Footer */
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-/* Delete Confirm */
-.delete-confirm-content {
-  padding: 8px 0;
-}
-
-.delete-confirm-content p {
-  margin-bottom: 12px;
-}
-
-/* Emoji Picker */
-.emoji-picker-container {
-  position: relative;
-}
-
-.selected-emoji {
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
+/* Panel Collapsed Strip */
+.panel-collapsed-strip {
+  width: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e5e5e0;
-  border-radius: 8px;
+  background: var(--bg-color-secondary);
   cursor: pointer;
-  transition: all 0.2s;
-  background: #f5f5f0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
-.selected-emoji:hover {
-  border-color: #ff6b35;
-  background: #fff;
+.panel-collapsed-strip:hover {
+  width: 20px;
+  background: var(--hover-bg);
 }
 
-.dark-theme .selected-emoji {
-  background: #333333;
-  border-color: #444444;
+.panel-collapsed-strip .strip-icon {
+  font-size: 14px;
+  color: var(--text-color-muted);
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
-.dark-theme .selected-emoji:hover {
-  border-color: #ff6b35;
-  background: #404040;
+.panel-collapsed-strip:hover .strip-icon {
+  opacity: 1;
+  color: var(--text-color);
 }
 
-.emoji-picker {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  padding: 8px;
-  background: #ffffff;
-  border: 1px solid #e5e5e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  z-index: 100;
-  width: 220px;
+.panel-collapsed-left {
+  border-right: 1px solid var(--border-color);
 }
 
-.dark-theme .emoji-picker {
-  background: #2a2a2a;
-  border-color: #444444;
-}
-
-.emoji-option {
-  width: 36px;
-  height: 36px;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.emoji-option:hover {
-  background: #f0f0f0;
-  transform: scale(1.1);
-}
-
-.dark-theme .emoji-option:hover {
-  background: #3a3a3a;
-}
-
-.emoji-option.selected {
-  background: #ff6b35;
-  color: white;
-}
-
-/* Form Hint */
-.form-hint {
-  font-size: 12px;
-  color: #8c8c8c;
-}
-
-/* Color Picker Row */
-.color-picker-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* API Profile Row */
-.api-profile-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+.panel-collapsed-right {
+  border-left: 1px solid var(--border-color);
 }
 </style>

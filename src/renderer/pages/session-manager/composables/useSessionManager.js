@@ -226,15 +226,20 @@ export function useSessionManager() {
     syncing.value = true
     try {
       const result = await invoke('syncSessions')
+      console.log('[Sync] Result:', result)  // 诊断日志
       if (result.status === 'success') {
         const stats = await invoke('getSessionStats')
         syncStats.value = {
           timestamp: Date.now(),
+          projectsScanned: result.projectsScanned || 0,
+          projectsAdded: result.projectsAdded || 0,
           messagesAdded: result.messagesAdded,
           sessionsAdded: result.sessionsAdded,
           totalMessages: stats?.messages || 0
         }
-        message.success(`${t('sessionManager.syncSuccess')}: ${result.messagesAdded} ${t('sessionManager.newMessages')}`)
+        // 显示更详细的同步结果
+        const syncInfo = `${t('sessionManager.syncSuccess')}: ${result.projectsScanned} 项目, ${result.sessionsAdded} 会话, ${result.messagesAdded} 消息`
+        message.success(syncInfo)
       } else if (result.status === 'error') {
         message.error(result.message)
       }

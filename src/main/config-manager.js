@@ -8,10 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const APIClient = require('./api/api-client');
-const { DEFAULT_GLOBAL_MODELS, TIMEOUTS, SERVICE_PROVIDERS } = require('./utils/constants');
-
-// Constants
-const OFFICIAL_PROVIDERS = ['official', 'proxy'];
+const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
+const { providerConfigMixin } = require('./config/provider-config');
+const { projectConfigMixin } = require('./config/project-config');
+const { apiConfigMixin } = require('./config/api-config');
 
 class ConfigManager {
   constructor() {
@@ -59,7 +59,7 @@ class ConfigManager {
         // 终端设置
         terminal: {
           fontSize: 14,
-          fontFamily: 'Consolas, monospace'
+          fontFamily: '"Ubuntu Mono", monospace'
         },
 
         maxRecentProjects: 10,
@@ -152,158 +152,7 @@ class ConfigManager {
     return this.save();
   }
 
-  /**
-   * 获取服务商枚举定义（用于下拉框）
-   */
-  getServiceProviders() {
-    const definitions = this.getServiceProviderDefinitions();
-    const providers = {};
-
-    definitions.forEach(def => {
-      providers[def.id] = {
-        label: def.name,
-        needsMapping: def.needsMapping,
-        baseUrl: def.baseUrl,
-        defaultModelMapping: def.defaultModelMapping
-      };
-    });
-
-    return providers;
-  }
-
-  /**
-   * 获取所有服务商定义（从配置文件加载，如果为空则初始化默认值）
-   */
-  getServiceProviderDefinitions() {
-    // 如果配置文件中已有服务商定义，直接返回
-    if (this.config.serviceProviderDefinitions && this.config.serviceProviderDefinitions.length > 0) {
-      return this.config.serviceProviderDefinitions;
-    }
-
-    // 如果配置为空，从 constants.js 初始化默认的内置服务商
-    const defaultProviders = Object.keys(SERVICE_PROVIDERS).map(id => ({
-      id,
-      name: SERVICE_PROVIDERS[id].label,
-      needsMapping: SERVICE_PROVIDERS[id].needsMapping,
-      baseUrl: id === 'official' ? 'https://api.anthropic.com' : '',
-      defaultModelMapping: null,
-      isBuiltIn: true  // 使用 isBuiltIn 而不是 builtin，与前端保持一致
-    }));
-
-    // 保存到配置文件
-    this.config.serviceProviderDefinitions = defaultProviders;
-    this.save();
-
-    return defaultProviders;
-  }
-
-  /**
-   * 获取单个服务商定义
-   */
-  getServiceProviderDefinition(id) {
-    // 从配置文件中查找服务商定义
-    const provider = this.config.serviceProviderDefinitions?.find(p => p.id === id);
-    return provider || null;
-  }
-
-  /**
-   * 添加自定义服务商定义
-   */
-  addServiceProviderDefinition(definition) {
-    if (!this.config.serviceProviderDefinitions) {
-      this.config.serviceProviderDefinitions = [];
-    }
-
-    // 检查 ID 是否已存在
-    const existingIndex = this.config.serviceProviderDefinitions.findIndex(
-      p => p.id === definition.id
-    );
-    if (existingIndex !== -1) {
-      throw new Error(`服务商 ID "${definition.id}" 已存在`);
-    }
-
-    // 创建新的服务商定义
-    const newProvider = {
-      id: definition.id,
-      name: definition.name,
-      needsMapping: definition.needsMapping !== false,  // 默认需要映射
-      baseUrl: definition.baseUrl || '',
-      defaultModelMapping: definition.defaultModelMapping || null,
-      isBuiltIn: false,  // 自定义服务商
-      createdAt: new Date().toISOString()
-    };
-
-    this.config.serviceProviderDefinitions.push(newProvider);
-    this.save();
-
-    return newProvider;
-  }
-
-  /**
-   * 更新自定义服务商定义
-   */
-  updateServiceProviderDefinition(id, updates) {
-    if (!this.config.serviceProviderDefinitions) {
-      return false;
-    }
-
-    const index = this.config.serviceProviderDefinitions.findIndex(p => p.id === id);
-    if (index === -1) {
-      return false;
-    }
-
-    const provider = this.config.serviceProviderDefinitions[index];
-
-    // 不允许修改 ID 和 isBuiltIn 标记
-    const { id: newId, isBuiltIn, ...safeUpdates } = updates;
-
-    // 特殊处理：official 和 proxy 的模型映射永久为 null
-    if (OFFICIAL_PROVIDERS.includes(id)) {
-      safeUpdates.needsMapping = false;
-      safeUpdates.defaultModelMapping = null;
-    }
-
-    // 更新定义
-    Object.assign(this.config.serviceProviderDefinitions[index], safeUpdates);
-
-    return this.save();
-  }
-
-  /**
-   * 删除自定义服务商定义
-   */
-  deleteServiceProviderDefinition(id) {
-    if (!this.config.serviceProviderDefinitions) {
-      return false;
-    }
-
-    const index = this.config.serviceProviderDefinitions.findIndex(p => p.id === id);
-    if (index === -1) {
-      return false;
-    }
-
-    const provider = this.config.serviceProviderDefinitions[index];
-
-    // 不允许删除内置服务商
-    if (provider.isBuiltIn) {
-      throw new Error('不能删除内置服务商定义');
-    }
-
-    // 检查是否有 Profile 正在使用此服务商
-    const profilesUsingProvider = this.config.apiProfiles?.filter(
-      profile => profile.serviceProvider === id
-    );
-
-    if (profilesUsingProvider && profilesUsingProvider.length > 0) {
-      const profileNames = profilesUsingProvider.map(p => p.name).join(', ');
-      throw new Error(`无法删除：以下 Profile 正在使用此服务商: ${profileNames}`);
-    }
-
-    // 删除服务商定义
-    this.config.serviceProviderDefinitions.splice(index, 1);
-
-    return this.save();
-  }
+  // 服务商管理方法由 providerConfigMixin 提供
 
   /**
    * 获取超时配置
@@ -363,6 +212,27 @@ class ConfigManager {
   }
 
   /**
+   * 获取终端设置
+   */
+  getTerminalSettings() {
+    return this.config.settings?.terminal || { fontSize: 14, fontFamily: '"Ubuntu Mono", monospace' };
+  }
+
+  /**
+   * 更新终端设置
+   */
+  updateTerminalSettings(terminalSettings) {
+    if (!this.config.settings) {
+      this.config.settings = {};
+    }
+    this.config.settings.terminal = {
+      ...this.config.settings.terminal,
+      ...terminalSettings
+    };
+    return this.save();
+  }
+
+  /**
    * 更新配置
    */
   updateConfig(updates) {
@@ -384,108 +254,7 @@ class ConfigManager {
     return this.save();
   }
 
-  /**
-   * 添加最近打开的项目
-   */
-  addRecentProject(name, projectPath) {
-    // 检查是否已存在
-    const existingIndex = this.config.recentProjects.findIndex(
-      p => p.path === projectPath
-    );
-
-    let project;
-    if (existingIndex !== -1) {
-      // 已存在，更新时间并移到最前面
-      project = this.config.recentProjects[existingIndex];
-      project.lastOpened = new Date().toISOString();
-      this.config.recentProjects.splice(existingIndex, 1);
-    } else {
-      // 新项目
-      project = {
-        id: uuidv4(),
-        name: name || path.basename(projectPath),
-        path: projectPath,
-        lastOpened: new Date().toISOString(),
-        icon: '📁',
-        pinned: false
-      };
-    }
-
-    // 添加到列表开头
-    this.config.recentProjects.unshift(project);
-
-    // 限制数量
-    const maxProjects = this.config.settings.maxRecentProjects || 10;
-    this.config.recentProjects = this.config.recentProjects.slice(0, maxProjects);
-
-    this.save();
-    return project;
-  }
-
-  /**
-   * 移除项目
-   */
-  removeRecentProject(projectId) {
-    this.config.recentProjects = this.config.recentProjects.filter(
-      p => p.id !== projectId
-    );
-    return this.save();
-  }
-
-  /**
-   * 重命名项目
-   */
-  renameProject(projectId, newName) {
-    const project = this.config.recentProjects.find(p => p.id === projectId);
-    if (project) {
-      project.name = newName;
-      return this.save();
-    }
-    return false;
-  }
-
-  /**
-   * 切换项目固定状态
-   */
-  togglePinProject(projectId) {
-    const project = this.config.recentProjects.find(p => p.id === projectId);
-    if (project) {
-      project.pinned = !project.pinned;
-
-      // 重新排序：固定的在前面
-      this.config.recentProjects.sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return new Date(b.lastOpened) - new Date(a.lastOpened);
-      });
-
-      return this.save();
-    }
-    return false;
-  }
-
-  /**
-   * 获取最近项目列表
-   */
-  getRecentProjects() {
-    return this.config.recentProjects;
-  }
-
-  /**
-   * 更新项目的最近使用时间（选中项目时调用）
-   */
-  touchProject(projectId) {
-    const project = this.config.recentProjects.find(p => p.id === projectId);
-    if (project) {
-      project.lastOpened = new Date().toISOString();
-      // 重新排序
-      this.config.recentProjects.sort((a, b) => {
-        return new Date(b.lastOpened) - new Date(a.lastOpened);
-      });
-      return this.save();
-    }
-    return false;
-  }
+  // 项目管理方法由 projectConfigMixin 提供
 
   /**
    * 深度合并对象（用于嵌套配置）
@@ -512,13 +281,8 @@ class ConfigManager {
   }
 
   /**
-   * 获取 API 配置（处理兼容性）
-   */
-  /**
-   * 获取 API 配置（返回当前 Profile 的配置）
-   */
-  /**
-   * 获取 API 配置（返回当前 Profile 的配置）
+   * 获取 API 配置（返回当前默认 Profile 的配置，处理兼容性）
+   * @returns {Object} API 配置对象
    */
   getAPIConfig() {
     // 尝试从默认 Profile 获取
@@ -780,259 +544,10 @@ class ConfigManager {
   }
 
   /**
-   * 获取所有 API Profiles
-   */
-  getAPIProfiles() {
-    return this.config.apiProfiles || [];
-  }
-
-  /**
-   * 获取指定 Profile
-   */
-  getAPIProfile(profileId) {
-    return this.config.apiProfiles?.find(p => p.id === profileId) || null;
-  }
-
-  /**
-   * 添加新 Profile
-   */
-  /**
-   * 添加新 Profile
-   */
-  addAPIProfile(profileData) {
-    if (!this.config.apiProfiles) {
-      this.config.apiProfiles = [];
-    }
-
-    // Get global timeout as default value
-    const globalTimeout = this.getTimeout();
-
-    const newProfile = {
-      id: uuidv4(),
-      name: profileData.name || 'New Profile',
-      authToken: profileData.authToken || '',
-      authType: profileData.authType || 'api_key',
-      serviceProvider: profileData.serviceProvider || 'official',  // 使用新字段名
-      description: profileData.description || '',
-      baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
-      selectedModelTier: profileData.selectedModelTier || 'sonnet',  // 使用新字段名
-      modelMapping: profileData.modelMapping || null,  // 使用新字段名
-      requestTimeout: profileData.requestTimeout || globalTimeout.request,
-      disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
-      useProxy: profileData.useProxy || false,
-      httpsProxy: profileData.httpsProxy || '',
-      httpProxy: profileData.httpProxy || '',
-      isDefault: false,
-      createdAt: new Date().toISOString(),
-      lastUsed: new Date().toISOString(),
-      icon: profileData.icon || '🔵'
-    };
-
-    // 如果是第一个 Profile，自动设为默认
-    if (this.config.apiProfiles.length === 0) {
-      newProfile.isDefault = true;
-      this.config.defaultProfileId = newProfile.id;
-    }
-
-    this.config.apiProfiles.push(newProfile);
-    this.save();
-
-    return newProfile;
-  }
-
-  /**
-   * 更新 Profile
-   */
-  updateAPIProfile(profileId, updates) {
-    const profile = this.getAPIProfile(profileId);
-    if (!profile) {
-      return false;
-    }
-
-    // 更新字段（不允许通过此方法修改 isDefault）
-    const { isDefault, ...safeUpdates } = updates;
-    Object.assign(profile, safeUpdates);
-    profile.lastUsed = new Date().toISOString();
-
-    return this.save();
-  }
-
-  /**
-   * 删除 Profile
-   */
-  deleteAPIProfile(profileId) {
-    const index = this.config.apiProfiles?.findIndex(p => p.id === profileId);
-    
-    if (index === -1 || index === undefined) {
-      return false;
-    }
-
-    // 先检查要删除的是否是默认配置
-    const profileToDelete = this.config.apiProfiles[index];
-    const wasDefault = profileToDelete.isDefault || this.config.defaultProfileId === profileId;
-
-    // 删除配置
-    this.config.apiProfiles.splice(index, 1);
-
-    // 如果删除的是默认配置，需要设置新的默认配置
-    if (wasDefault && this.config.apiProfiles.length > 0) {
-      this.config.apiProfiles[0].isDefault = true;
-      this.config.defaultProfileId = this.config.apiProfiles[0].id;
-    } else if (this.config.apiProfiles.length === 0) {
-      // 如果没有配置了，清空 defaultProfileId
-      this.config.defaultProfileId = null;
-    }
-
-    return this.save();
-  }
-
-  /**
-   * 设置默认 Profile
-   */
-  setDefaultProfile(profileId) {
-    const profile = this.getAPIProfile(profileId);
-    if (!profile) {
-      return false;
-    }
-
-    // 取消所有 Profile 的默认状态
-    this.config.apiProfiles.forEach(p => p.isDefault = false);
-    
-    // 设置新的默认
-    profile.isDefault = true;
-    this.config.defaultProfileId = profileId;
-
-    return this.save();
-  }
-
-  /**
-   * 获取默认 Profile（用于启动时推荐）
-   */
-  getDefaultProfile() {
-    if (!this.config.defaultProfileId) {
-      // 如果没有设置默认 Profile，返回标记为默认的或第一个
-      const defaultProfile = this.config.apiProfiles?.find(p => p.isDefault);
-      if (defaultProfile) {
-        this.config.defaultProfileId = defaultProfile.id;
-        this.save();
-        return defaultProfile;
-      }
-      
-      if (this.config.apiProfiles && this.config.apiProfiles.length > 0) {
-        this.config.defaultProfileId = this.config.apiProfiles[0].id;
-        this.config.apiProfiles[0].isDefault = true;
-        this.save();
-        return this.config.apiProfiles[0];
-      }
-      
-      return null;
-    }
-
-    const profile = this.getAPIProfile(this.config.defaultProfileId);
-    
-    // 如果默认 Profile 不存在，回退到标记为默认的或第一个
-    if (!profile) {
-      const fallback = this.config.apiProfiles?.find(p => p.isDefault) 
-        || this.config.apiProfiles?.[0];
-      
-      if (fallback) {
-        this.config.defaultProfileId = fallback.id;
-        this.save();
-        return fallback;
-      }
-      
-      return null;
-    }
-
-    return profile;
-  }
-
-  /**
-   * 获取默认 Profile ID
-   */
-  getDefaultProfileId() {
-    return this.config.defaultProfileId;
-  }
-
-  /**
    * 获取配置文件路径（用于用户手动编辑）
    */
   getConfigPath() {
     return this.configPath;
-  }
-
-  /**
-   * 为指定 Profile 添加自定义模型
-   */
-  addCustomModel(profileId, model) {
-    if (!profileId) {
-      console.error('[ConfigManager] addCustomModel: profileId is required');
-      return false;
-    }
-    
-    const profile = this.getAPIProfile(profileId);
-    if (!profile) {
-      console.error('[ConfigManager] addCustomModel: profile not found:', profileId);
-      return false;
-    }
-    
-    if (!profile.customModels) {
-      profile.customModels = [];
-    }
-    profile.customModels.push(model);
-    return this.save();
-  }
-
-  /**
-   * 为指定 Profile 删除自定义模型
-   */
-  deleteCustomModel(profileId, modelId) {
-    if (!profileId) {
-      console.error('[ConfigManager] deleteCustomModel: profileId is required');
-      return false;
-    }
-    
-    const profile = this.getAPIProfile(profileId);
-    if (!profile) {
-      console.error('[ConfigManager] deleteCustomModel: profile not found:', profileId);
-      return false;
-    }
-    
-    if (!profile.customModels) {
-      return false;
-    }
-    const index = profile.customModels.findIndex(m => m.id === modelId);
-    if (index !== -1) {
-      profile.customModels.splice(index, 1);
-      return this.save();
-    }
-    return false;
-  }
-
-  /**
-   * 为指定 Profile 更新自定义模型
-   */
-  updateCustomModel(profileId, modelId, updates) {
-    if (!profileId) {
-      console.error('[ConfigManager] updateCustomModel: profileId is required');
-      return false;
-    }
-    
-    const profile = this.getAPIProfile(profileId);
-    if (!profile) {
-      console.error('[ConfigManager] updateCustomModel: profile not found:', profileId);
-      return false;
-    }
-    
-    if (!profile.customModels) {
-      return false;
-    }
-    const model = profile.customModels.find(m => m.id === modelId);
-    if (model) {
-      Object.assign(model, updates);
-      return this.save();
-    }
-    return false;
   }
 
   /**
@@ -1223,5 +738,8 @@ class ConfigManager {
 
 
 }
+
+// Apply mixins (provider config, project config, api config)
+Object.assign(ConfigManager.prototype, providerConfigMixin, projectConfigMixin, apiConfigMixin);
 
 module.exports = ConfigManager;

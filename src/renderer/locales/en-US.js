@@ -68,12 +68,26 @@ export default {
     projectSettings: 'Project Settings'
   },
 
+  // Panel Controls
+  panel: {
+    showLeft: 'Show left panel',
+    hideLeft: 'Hide left panel',
+    showRight: 'Show right panel',
+    hideRight: 'Hide right panel'
+  },
+
+  // Right Panel
+  rightPanel: {
+    title: 'Extensions',
+    comingSoon: 'More features coming soon'
+  },
+
   // Settings Menu
   settingsMenu: {
     apiConfig: 'API Configuration',
     providerManager: 'Provider Manager',
     globalSettings: 'Global Settings',
-    sessionHistory: 'Session History'
+    sessionHistory: 'Session Browser'
   },
 
   // API Profile Manager
@@ -152,6 +166,11 @@ export default {
     maxActiveSessionsHint: 'Maximum number of concurrent sessions',
     maxHistorySessions: 'History Sessions',
     maxHistorySessionsHint: 'Maximum number of history sessions displayed in left panel',
+    terminalSettings: 'Terminal Settings',
+    terminalFontSize: 'Font Size',
+    terminalFontSizeHint: 'Terminal font size (10-24)',
+    terminalFontFamily: 'Font Family',
+    terminalFontFamilyHint: 'Terminal font (must be installed)',
     saveSuccess: 'Settings saved'
   },
 
@@ -179,9 +198,9 @@ export default {
     viewMore: 'View More'
   },
 
-  // Session History Manager
+  // Session Browser
   sessionManager: {
-    title: 'Session History',
+    title: 'Session Browser',
     projects: 'Projects',
     sessions: 'sessions',
     messages: 'messages',
@@ -321,6 +340,7 @@ export default {
     icon: 'Icon',
     color: 'Color',
     borderColor: 'Border Color',
+    borderColorHint: 'Reserved for future project card visual distinction',
     resetColor: 'Reset',
     apiProfile: 'API Config',
     apiProfilePlaceholder: 'Select API config (optional)',

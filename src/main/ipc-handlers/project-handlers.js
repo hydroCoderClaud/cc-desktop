@@ -6,23 +6,7 @@
 const { dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
-
-/**
- * Create IPC handler with unified logging and error handling
- */
-function createIPCHandler(ipcMain, channelName, handler) {
-  ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args)
-    try {
-      const result = await handler(...args)
-      console.log(`[IPC] ${channelName} success`)
-      return result
-    } catch (error) {
-      console.error(`[IPC] ${channelName} error:`, error)
-      throw error
-    }
-  })
-}
+const { createIPCHandler } = require('../utils/ipc-utils')
 
 /**
  * 设置工程管理的 IPC 处理器
@@ -120,11 +104,15 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       // If hidden, unhide it
       if (existing.is_hidden) {
         sessionDatabase.unhideProject(existing.id)
-        return { ...existing, is_hidden: 0, restored: true }
+      }
+      // 如果是同步导入的项目，用户主动打开后升级为用户项目
+      if (existing.source === 'sync') {
+        sessionDatabase.updateProject(existing.id, { source: 'user' })
+        existing.source = 'user'
       }
       // Update last_opened_at and return
       sessionDatabase.touchProject(existing.id)
-      return { ...existing, alreadyExists: true }
+      return { ...existing, is_hidden: 0, alreadyExists: true, restored: existing.is_hidden === 1 }
     }
 
     // Create new project

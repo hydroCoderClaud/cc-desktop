@@ -3,22 +3,7 @@
  * 管理运行中的终端会话
  */
 
-/**
- * Create IPC handler with unified logging and error handling
- */
-function createIPCHandler(ipcMain, channelName, handler) {
-  ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args)
-    try {
-      const result = await handler(...args)
-      console.log(`[IPC] ${channelName} success`)
-      return result
-    } catch (error) {
-      console.error(`[IPC] ${channelName} error:`, error)
-      throw error
-    }
-  })
-}
+const { createIPCHandler, createIPCListener } = require('../utils/ipc-utils')
 
 /**
  * 设置活动会话的 IPC 处理器
@@ -28,13 +13,30 @@ function createIPCHandler(ipcMain, channelName, handler) {
 function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
   console.log('[IPC] Setting up active session handlers...')
 
+  // 获取 configManager 实例（通过 activeSessionManager）
+  const configManager = activeSessionManager.configManager
+
   // ========================================
   // 会话生命周期
   // ========================================
 
   // 创建并启动新会话
   createIPCHandler(ipcMain, 'activeSession:create', (options) => {
-    // options: { projectId, projectPath, projectName }
+    // options: { projectId, projectPath, projectName, title, apiProfileId, resumeSessionId }
+
+    // 检查会话数量限制
+    const runningCount = activeSessionManager.getRunningCount()
+    const maxSessions = configManager.getMaxActiveSessions()
+    if (runningCount >= maxSessions) {
+      console.log(`[IPC] Session limit reached: ${runningCount}/${maxSessions}`)
+      return {
+        success: false,
+        error: 'maxSessionsReached',
+        maxSessions,
+        runningCount
+      }
+    }
+
     const session = activeSessionManager.create(options)
     const result = activeSessionManager.start(session.id)
     return result
@@ -106,6 +108,14 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
   // 获取运行中的会话数量
   createIPCHandler(ipcMain, 'activeSession:getRunningCount', () => {
     return activeSessionManager.getRunningCount()
+  })
+
+  // 获取会话限制信息（合并调用，减少 IPC 开销）
+  createIPCHandler(ipcMain, 'activeSession:getSessionLimits', () => {
+    return {
+      runningCount: activeSessionManager.getRunningCount(),
+      maxSessions: configManager.getMaxActiveSessions()
+    }
   })
 
   // 重命名会话

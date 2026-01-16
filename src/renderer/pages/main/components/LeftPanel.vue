@@ -1,8 +1,11 @@
 <template>
-  <div class="left-panel" :class="{ 'dark': isDark }">
+  <div class="left-panel">
     <!-- Header -->
     <div class="panel-header">
       <div class="logo">Claude Code</div>
+      <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
+        ‹
+      </button>
     </div>
 
     <!-- Project Selector -->
@@ -115,13 +118,22 @@
               {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} {{ t('session.messages') }}
             </div>
           </div>
-          <button
-            class="delete-btn"
-            @click.stop="handleDeleteHistorySession(session)"
-            :title="t('session.delete')"
-          >
-            ×
-          </button>
+          <div class="session-actions">
+            <button
+              class="rename-btn"
+              @click.stop="handleEditHistorySession(session)"
+              title="✏️"
+            >
+              ✏️
+            </button>
+            <button
+              class="delete-btn"
+              @click.stop="handleDeleteHistorySession(session)"
+              :title="t('session.delete')"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
 
@@ -180,7 +192,7 @@
       </template>
     </n-modal>
 
-    <!-- Rename Session Dialog -->
+    <!-- Rename Session Dialog (活动会话) -->
     <n-modal
       v-model:show="showRenameDialog"
       preset="card"
@@ -204,6 +216,31 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- Rename History Session Dialog (历史会话，仅内存) -->
+    <n-modal
+      v-model:show="showHistoryRenameDialog"
+      preset="card"
+      :title="t('session.rename') || '重命名会话'"
+      style="width: 360px;"
+      :mask-closable="false"
+    >
+      <n-form>
+        <n-form-item :label="t('session.sessionTitle')">
+          <n-input
+            v-model:value="historyRenameTitle"
+            :placeholder="t('session.sessionTitlePlaceholder')"
+            @keyup.enter="confirmHistoryRename"
+          />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <n-button @click="showHistoryRenameDialog = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" @click="confirmHistoryRename">{{ t('common.confirm') }}</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -212,6 +249,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage, NSelect, NDropdown, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
+import { useSessionPanel } from '@composables/useSessionPanel'
 
 const message = useMessage()
 const { invoke } = useIPC()
@@ -241,29 +279,48 @@ const emit = defineEmits([
   'context-action',
   'session-created',
   'session-selected',
-  'session-closed'
+  'session-closed',
+  'collapse'
 ])
 
-// State
+// Use session panel composable
+const {
+  activeSessions,
+  historySessions,
+  focusedSessionId,
+  maxHistorySessions,
+  showNewSessionDialog,
+  newSessionTitle,
+  showRenameDialog,
+  renameTitle,
+  renamingSession,
+  displayedHistorySessions,
+  loadActiveSessions,
+  loadHistorySessions,
+  loadConfig,
+  checkCanCreateSession,
+  openNewSessionDialog,
+  closeNewSessionDialog,
+  createSession,
+  selectSession,
+  closeSession,
+  openRenameDialog: doOpenRenameDialog,
+  closeRenameDialog,
+  confirmRename: doConfirmRename,
+  resumeHistorySession,
+  deleteHistorySession,
+  formatSessionName: doFormatSessionName,
+  formatDate: doFormatDate,
+  setupEventListeners
+} = useSessionPanel(props, emit)
+
+// Local state
 const selectedProjectId = ref(null)
-const activeSessions = ref([])
-const historySessions = ref([])
-const focusedSessionId = ref(null)
-const maxHistorySessions = ref(10)
 
-// New session dialog
-const showNewSessionDialog = ref(false)
-const newSessionTitle = ref('')
-
-// Rename session dialog
-const showRenameDialog = ref(false)
-const renameTitle = ref('')
-const renamingSession = ref(null)
-
-// 限制显示的历史会话
-const displayedHistorySessions = computed(() => {
-  return historySessions.value.slice(0, maxHistorySessions.value)
-})
+// History session rename (仅内存，不持久化)
+const showHistoryRenameDialog = ref(false)
+const historyRenameTitle = ref('')
+const editingHistorySession = ref(null)
 
 // Watch currentProject changes
 watch(() => props.currentProject, (newProject) => {
@@ -284,8 +341,7 @@ const projectMenuOptions = computed(() => [
   { label: '📂 ' + t('project.openFolder'), key: 'openFolder' },
   { label: '✏️ ' + t('project.edit'), key: 'edit' },
   { type: 'divider', key: 'd1' },
-  { label: '👁️ ' + t('project.hide'), key: 'hide' },
-  { label: '🗑️ ' + t('project.delete'), key: 'delete', props: { style: { color: '#e74c3c' } } }
+  { label: '👁️ ' + t('project.hide'), key: 'hide' }
 ])
 
 // Settings dropdown options
@@ -351,72 +407,13 @@ const handleViewMore = () => {
   }
 }
 
-// Load active sessions
-const loadActiveSessions = async () => {
-  try {
-    const sessions = await invoke('listActiveSessions', true)
-    activeSessions.value = sessions
-  } catch (err) {
-    console.error('Failed to load active sessions:', err)
-    activeSessions.value = []
-  }
-}
+// ========================================
+// Wrapper functions using composable
+// ========================================
 
-// Load history sessions
-const loadHistorySessions = async () => {
-  if (!props.currentProject) {
-    historySessions.value = []
-    return
-  }
-
-  try {
-    const sessions = await invoke('getFileBasedSessions', props.currentProject.path)
-    historySessions.value = (sessions || [])
-      .filter(s => s.messageCount > 0)
-      // 过滤掉 warmup 预热会话
-      .filter(s => !s.firstUserMessage?.toLowerCase().includes('warmup'))
-      .map(s => ({
-        ...s,
-        session_uuid: s.id,
-        name: s.firstUserMessage,
-        message_count: s.messageCount,
-        created_at: s.startTime
-      }))
-  } catch (err) {
-    console.error('Failed to load history sessions:', err)
-    historySessions.value = []
-  }
-}
-
-// Format session name
-const formatSessionName = (session) => {
-  if (session.name) return session.name
-  return `${t('session.session')} ${session.session_uuid?.slice(0, 8) || session.id}`
-}
-
-// Format date
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now - date
-
-  if (diff < 24 * 60 * 60 * 1000 && date.getDate() === now.getDate()) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (date.getDate() === yesterday.getDate()) {
-    return t('common.yesterday') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-  }
-
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' })
-}
+// Formatters with locale
+const formatSessionName = (session) => doFormatSessionName(session, t)
+const formatDate = (dateStr) => doFormatDate(dateStr, t)
 
 // New session
 const handleNewSession = async () => {
@@ -430,92 +427,53 @@ const handleNewSession = async () => {
     return
   }
 
-  // Check session count limit
-  try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
-    if (runningCount >= maxSessions) {
-      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
-      return
-    }
-  } catch (err) {
-    console.error('Failed to check session limit:', err)
+  const { canCreate, maxSessions } = await checkCanCreateSession()
+  if (!canCreate) {
+    message.warning(t('session.maxSessionsReached', { max: maxSessions }))
+    return
   }
 
-  newSessionTitle.value = ''
-  showNewSessionDialog.value = true
+  openNewSessionDialog()
 }
 
 // Confirm new session
 const confirmNewSession = async () => {
-  try {
-    const result = await invoke('createActiveSession', {
-      projectId: props.currentProject.id,
-      projectPath: props.currentProject.path,
-      projectName: props.currentProject.name,
-      title: newSessionTitle.value.trim(),
-      apiProfileId: props.currentProject.api_profile_id
-    })
-
-    if (result.success) {
-      showNewSessionDialog.value = false
-      await loadActiveSessions()
-      focusedSessionId.value = result.session.id
-      emit('session-created', result.session)
-      message.success(t('messages.connectionSuccess'))
-    } else {
-      message.error(result.error || t('messages.connectionFailed'))
-    }
-  } catch (err) {
-    console.error('Failed to create session:', err)
-    message.error(t('messages.connectionFailed'))
+  const result = await createSession(props.currentProject)
+  if (result.success) {
+    emit('session-created', result.session)
+    message.success(t('messages.connectionSuccess'))
+  } else {
+    message.error(result.error || t('messages.connectionFailed'))
   }
 }
 
 // Select active session
 const handleSelectSession = (session) => {
-  focusedSessionId.value = session.id
+  selectSession(session)
   emit('session-selected', session)
 }
 
 // Open rename dialog
 const openRenameDialog = (session) => {
-  renamingSession.value = session
-  renameTitle.value = session.title || ''
-  showRenameDialog.value = true
+  doOpenRenameDialog(session)
 }
 
 // Confirm rename
 const confirmRename = async () => {
-  if (!renamingSession.value) return
-
-  try {
-    await invoke('renameActiveSession', {
-      sessionId: renamingSession.value.id,
-      newTitle: renameTitle.value.trim()
-    })
-    showRenameDialog.value = false
-    await loadActiveSessions()
+  const result = await doConfirmRename()
+  if (result.success) {
     message.success(t('messages.saveSuccess'))
-  } catch (err) {
-    console.error('Failed to rename session:', err)
+  } else if (result.error) {
     message.error(t('messages.saveFailed'))
   }
 }
 
 // Close active session
 const handleCloseSession = async (session) => {
-  try {
-    await invoke('closeActiveSession', session.id)
-    await loadActiveSessions()
-
-    if (focusedSessionId.value === session.id) {
-      focusedSessionId.value = null
-    }
-
+  const result = await closeSession(session.id)
+  if (result.success) {
     emit('session-closed', session)
-  } catch (err) {
-    console.error('Failed to close session:', err)
+  } else {
     message.error(t('messages.operationFailed'))
   }
 }
@@ -532,84 +490,66 @@ const handleOpenHistorySession = async (session) => {
     return
   }
 
-  // 检查是否已有运行中的会话关联了这个历史会话
-  const existingSession = activeSessions.value.find(
-    s => s.resumeSessionId === session.session_uuid
-  )
-  if (existingSession) {
-    // 直接选中已有的运行中会话
-    focusedSessionId.value = existingSession.id
-    emit('session-selected', existingSession)
+  const result = await resumeHistorySession(props.currentProject, session, t)
+
+  if (result.success) {
+    if (result.alreadyRunning) {
+      emit('session-selected', result.session)
+    } else {
+      emit('session-created', result.session)
+      message.success(t('session.resumeSuccess') || '会话已恢复')
+    }
+  } else if (result.error === 'maxSessionsReached') {
+    message.warning(t('session.maxSessionsReached', { max: result.maxSessions }))
+  } else {
+    message.error(result.error || t('messages.connectionFailed'))
+  }
+}
+
+// Edit history session name (仅内存，不恢复会话)
+const handleEditHistorySession = (session) => {
+  editingHistorySession.value = session
+  historyRenameTitle.value = session.name || ''
+  showHistoryRenameDialog.value = true
+}
+
+// Confirm history session rename (仅修改内存中的数据)
+const confirmHistoryRename = () => {
+  if (!editingHistorySession.value) return
+
+  const newName = historyRenameTitle.value.trim()
+  if (!newName) {
+    message.warning(t('session.nameRequired') || '请输入会话名称')
     return
   }
 
-  // Check session count limit
-  try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
-    if (runningCount >= maxSessions) {
-      message.warning(t('session.maxSessionsReached', { max: maxSessions }))
-      return
-    }
-  } catch (err) {
-    console.error('Failed to check session limit:', err)
+  // 直接修改 historySessions 数组中的对应项
+  const session = historySessions.value.find(
+    s => s.session_uuid === editingHistorySession.value.session_uuid
+  )
+  if (session) {
+    session.name = newName
   }
 
-  try {
-    const result = await invoke('createActiveSession', {
-      projectId: props.currentProject.id,
-      projectPath: props.currentProject.path,
-      projectName: props.currentProject.name,
-      title: session.name || `${t('session.resume')}: ${session.session_uuid?.slice(0, 8)}`,
-      apiProfileId: props.currentProject.api_profile_id,
-      resumeSessionId: session.session_uuid
-    })
-
-    if (result.success) {
-      await loadActiveSessions()
-      focusedSessionId.value = result.session.id
-      emit('session-created', result.session)
-      message.success(t('session.resumeSuccess') || '会话已恢复')
-    } else {
-      message.error(result.error || t('messages.connectionFailed'))
-    }
-  } catch (err) {
-    console.error('Failed to resume session:', err)
-    message.error(t('messages.connectionFailed'))
-  }
+  showHistoryRenameDialog.value = false
+  editingHistorySession.value = null
+  message.success(t('messages.saveSuccess') || '已保存（仅当前会话有效）')
 }
 
 // Delete history session
 const handleDeleteHistorySession = async (session) => {
-  // 检查该会话是否正在运行（通过 resumeSessionId 关联）
-  const isRunning = activeSessions.value.some(
-    s => s.resumeSessionId === session.session_uuid
-  )
-  if (isRunning) {
-    message.warning(t('session.cannotDeleteRunning'))
-    return
-  }
-
   const confirmDelete = window.confirm(
     `${t('session.deleteConfirm', { name: session.name || session.session_uuid?.slice(0, 8) })}\n\n${t('session.deleteWarning')}`
   )
   if (!confirmDelete) return
 
-  try {
-    const result = await invoke('deleteSessionFile', {
-      projectPath: props.currentProject.path,
-      sessionId: session.session_uuid
-    })
-
-    if (result.success) {
-      message.success(t('session.deleted'))
-      await loadHistorySessions()
-    } else {
-      message.error(result.error || t('messages.operationFailed'))
-    }
-  } catch (err) {
-    console.error('Failed to delete session:', err)
-    message.error(t('messages.operationFailed'))
+  const result = await deleteHistorySession(props.currentProject.path, session)
+  if (result.success) {
+    message.success(t('session.deleted'))
+  } else if (result.error === 'sessionIsRunning') {
+    message.warning(t('session.cannotDeleteRunning'))
+  } else {
+    message.error(result.error || t('messages.operationFailed'))
   }
 }
 
@@ -618,7 +558,7 @@ watch(() => props.currentProject, async (newProject) => {
   if (newProject) {
     await Promise.all([
       loadActiveSessions(),
-      loadHistorySessions()
+      loadHistorySessions(newProject.path)
     ])
   } else {
     historySessions.value = []
@@ -626,69 +566,44 @@ watch(() => props.currentProject, async (newProject) => {
 }, { immediate: true })
 
 // Listen for session events
-let cleanupFns = []
+let cleanupFn = null
 
 onMounted(async () => {
-  // 加载历史会话显示上限配置
-  try {
-    const max = await invoke('getMaxHistorySessions')
-    maxHistorySessions.value = max || 10
-  } catch (err) {
-    console.error('Failed to load maxHistorySessions:', err)
-  }
-
-  if (window.electronAPI) {
-    cleanupFns.push(
-      window.electronAPI.onSessionStarted(() => {
-        loadActiveSessions()
-      })
-    )
-
-    cleanupFns.push(
-      window.electronAPI.onSessionExit(() => {
-        loadActiveSessions()
-      })
-    )
-  }
+  await loadConfig()
+  cleanupFn = setupEventListeners()
 })
 
 onUnmounted(() => {
-  cleanupFns.forEach(fn => fn && fn())
+  if (cleanupFn) cleanupFn()
 })
 
 // Expose methods
 defineExpose({
   loadActiveSessions,
-  loadHistorySessions,
+  loadHistorySessions: () => loadHistorySessions(props.currentProject?.path),
   focusedSessionId,
-  handleNewSession  // 暴露给外部用于快捷键调用
+  handleNewSession
 })
 </script>
 
 <style scoped>
 .left-panel {
   width: 280px;
-  background: #ffffff;
-  border-right: 1px solid #e5e5e0;
+  background: var(--bg-color-secondary);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   transition: all 0.3s ease;
 }
 
-.left-panel.dark {
-  background: #242424;
-  border-color: #333333;
-}
-
 /* Header */
 .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid #e5e5e0;
-}
-
-.dark .panel-header {
-  border-color: #333333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .logo {
@@ -698,14 +613,36 @@ defineExpose({
   letter-spacing: -0.02em;
 }
 
+.collapse-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  opacity: 0;
+}
+
+.panel-header:hover .collapse-btn {
+  opacity: 1;
+}
+
+.collapse-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
 /* Project Section */
 .project-section {
   padding: 12px;
-  border-bottom: 1px solid #e5e5e0;
-}
-
-.dark .project-section {
-  border-color: #333333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .section-header {
@@ -714,7 +651,7 @@ defineExpose({
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 8px;
@@ -731,11 +668,7 @@ defineExpose({
 }
 
 .open-project-btn:hover {
-  background: #f5f5f0;
-}
-
-.dark .open-project-btn:hover {
-  background: #333333;
+  background: var(--hover-bg);
 }
 
 .project-selector-row {
@@ -752,8 +685,8 @@ defineExpose({
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: #f5f5f0;
-  border: 1px solid #e5e5e0;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -764,29 +697,15 @@ defineExpose({
 }
 
 .project-settings-btn:hover {
-  background: #e8e8e3;
-  border-color: #ff6b35;
-}
-
-.dark .project-settings-btn {
-  background: #333333;
-  border-color: #444444;
-}
-
-.dark .project-settings-btn:hover {
-  background: #404040;
-  border-color: #ff6b35;
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
 }
 
 /* New Session Area (固定不滚动) */
 .new-session-area {
   padding: 12px;
-  border-bottom: 1px solid #e5e5e0;
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-}
-
-.dark .new-session-area {
-  border-color: #333333;
 }
 
 .new-session-btn {
@@ -796,7 +715,7 @@ defineExpose({
   gap: 8px;
   width: 100%;
   padding: 10px 16px;
-  background: #ff6b35;
+  background: var(--primary-color);
   color: white;
   border: none;
   border-radius: 8px;
@@ -807,7 +726,7 @@ defineExpose({
 }
 
 .new-session-btn:hover {
-  background: #ff5722;
+  background: var(--primary-color-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
 }
@@ -835,7 +754,7 @@ defineExpose({
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   text-transform: uppercase;
   padding: 8px 4px;
 }
@@ -851,7 +770,7 @@ defineExpose({
 .group-header .view-more {
   margin-left: auto;
   font-size: 11px;
-  color: #ff6b35;
+  color: var(--primary-color);
   cursor: pointer;
   font-weight: 500;
   text-transform: none;
@@ -874,20 +793,12 @@ defineExpose({
 }
 
 .session-item:hover {
-  background: #f5f5f0;
-}
-
-.dark .session-item:hover {
-  background: #333333;
+  background: var(--hover-bg);
 }
 
 .session-item.active {
-  background: #fff3e0;
-  border: 1px solid #ff6b35;
-}
-
-.dark .session-item.active {
-  background: #3a2a1a;
+  background: var(--warning-bg);
+  border: 1px solid var(--primary-color);
 }
 
 .session-item.other-project {
@@ -932,7 +843,7 @@ defineExpose({
 
 .session-meta {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -972,15 +883,11 @@ defineExpose({
 }
 
 .rename-btn:hover {
-  background: #e8e8e3;
-}
-
-.dark .rename-btn:hover {
-  background: #404040;
+  background: var(--hover-bg);
 }
 
 .close-btn:hover {
-  background: #ff6b35;
+  background: var(--primary-color);
   color: white;
 }
 
@@ -994,18 +901,14 @@ defineExpose({
   padding: 24px 16px;
   text-align: center;
   font-size: 13px;
-  color: #999999;
+  color: var(--text-color-muted);
 }
 
 /* Footer */
 .panel-footer {
-  border-top: 1px solid #e5e5e0;
+  border-top: 1px solid var(--border-color);
   padding: 12px;
   margin-top: auto;
-}
-
-.dark .panel-footer {
-  border-color: #333333;
 }
 
 .footer-row {
@@ -1020,38 +923,27 @@ defineExpose({
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: #f5f5f0;
-  border: 1px solid #e5e5e0;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  color: #2d2d2d;
+  color: var(--text-color);
 }
 
 .settings-btn:hover {
-  background: #e8e8e3;
-  border-color: #ff6b35;
-}
-
-.dark .settings-btn {
-  background: #333333;
-  border-color: #444444;
-  color: #e8e8e8;
-}
-
-.dark .settings-btn:hover {
-  background: #404040;
-  border-color: #ff6b35;
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
 }
 
 .theme-toggle-btn {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: #f5f5f0;
-  border: 1px solid #e5e5e0;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1062,12 +954,7 @@ defineExpose({
 
 .theme-toggle-btn:hover {
   transform: scale(1.05);
-  border-color: #ff6b35;
-}
-
-.dark .theme-toggle-btn {
-  background: #333333;
-  border-color: #444444;
+  border-color: var(--primary-color);
 }
 
 /* Dialog Footer */

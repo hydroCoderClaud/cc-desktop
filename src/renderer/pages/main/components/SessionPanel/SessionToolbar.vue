@@ -41,13 +41,8 @@ defineEmits(['new-session'])
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e5e0;
-  background: #fafafa;
-}
-
-:deep(.dark-theme) .session-toolbar {
-  background: #2a2a2a;
-  border-color: #333333;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color-tertiary);
 }
 
 .toolbar-title {
@@ -56,11 +51,7 @@ defineEmits(['new-session'])
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #666666;
-}
-
-:deep(.dark-theme) .toolbar-title {
-  color: #999999;
+  color: var(--text-color-secondary);
 }
 
 .toolbar-title .icon {
@@ -69,14 +60,14 @@ defineEmits(['new-session'])
 
 .toolbar-title .count {
   font-weight: 400;
-  color: #999999;
+  color: var(--text-color-muted);
 }
 
 .new-session-btn {
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: #ff6b35;
+  background: var(--primary-color);
   color: white;
   border: none;
   font-size: 18px;
@@ -89,7 +80,7 @@ defineEmits(['new-session'])
 }
 
 .new-session-btn:hover:not(:disabled) {
-  background: #ff5722;
+  background: var(--primary-color-hover);
   transform: scale(1.05);
 }
 

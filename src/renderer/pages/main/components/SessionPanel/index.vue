@@ -26,6 +26,7 @@
         :sessions="historySessions"
         :project-id="project?.id"
         @select="handleOpenHistorySession"
+        @edit="handleEditHistorySession"
         @delete="handleDeleteHistorySession"
       />
     </div>
@@ -51,6 +52,31 @@
         <div class="dialog-footer">
           <n-button @click="showNewSessionDialog = false">{{ t('common.cancel') }}</n-button>
           <n-button type="primary" @click="confirmNewSession">{{ t('common.confirm') }}</n-button>
+        </div>
+      </template>
+    </n-modal>
+
+    <!-- Rename History Session Dialog (仅内存) -->
+    <n-modal
+      v-model:show="showRenameDialog"
+      preset="card"
+      :title="t('session.renameHistory') || '重命名历史会话'"
+      style="width: 360px;"
+      :mask-closable="false"
+    >
+      <n-form>
+        <n-form-item :label="t('session.sessionTitle')">
+          <n-input
+            v-model:value="renameTitle"
+            :placeholder="t('session.sessionTitlePlaceholder')"
+            @keyup.enter="confirmRename"
+          />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <n-button @click="showRenameDialog = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" @click="confirmRename">{{ t('common.confirm') }}</n-button>
         </div>
       </template>
     </n-modal>
@@ -94,6 +120,11 @@ const focusedSessionId = ref(null)
 // New session dialog
 const showNewSessionDialog = ref(false)
 const newSessionTitle = ref('')
+
+// Rename session dialog (用于历史会话，仅内存)
+const showRenameDialog = ref(false)
+const renameTitle = ref('')
+const editingHistorySession = ref(null)
 
 // Load active sessions (显示所有项目的运行中会话)
 const loadActiveSessions = async () => {
@@ -148,8 +179,7 @@ const openNewSessionDialog = async () => {
 
   // Check session count limit
   try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
+    const { runningCount, maxSessions } = await invoke('getSessionLimits')
     if (runningCount >= maxSessions) {
       message.warning(t('session.maxSessionsReached', { max: maxSessions }))
       return
@@ -226,8 +256,7 @@ const handleOpenHistorySession = async (session) => {
 
   // 检查会话数量限制
   try {
-    const runningCount = await invoke('getRunningSessionCount')
-    const maxSessions = await invoke('getMaxActiveSessions')
+    const { runningCount, maxSessions } = await invoke('getSessionLimits')
     if (runningCount >= maxSessions) {
       message.warning(t('session.maxSessionsReached', { max: maxSessions }))
       return
@@ -269,6 +298,36 @@ const handleMoveUp = (index) => {
 // Move session down in list
 const handleMoveDown = (index) => {
   swapArrayItems(activeSessions.value, index, index + 1)
+}
+
+// Edit history session name (仅内存，不恢复会话，不保存数据库)
+const handleEditHistorySession = (session) => {
+  editingHistorySession.value = session
+  renameTitle.value = session.name || ''
+  showRenameDialog.value = true
+}
+
+// Confirm rename session (仅修改内存中的数据，不保存数据库)
+const confirmRename = () => {
+  if (!editingHistorySession.value) return
+
+  const newName = renameTitle.value.trim()
+  if (!newName) {
+    message.warning(t('session.nameRequired') || '请输入会话名称')
+    return
+  }
+
+  // 在 historySessions 数组中找到并更新
+  const session = historySessions.value.find(
+    s => s.session_uuid === editingHistorySession.value.session_uuid
+  )
+  if (session) {
+    session.name = newName
+  }
+
+  showRenameDialog.value = false
+  editingHistorySession.value = null
+  message.success(t('messages.saveSuccess') || '已保存（仅当前会话有效）')
 }
 
 // Delete history session (硬删除 ~/.claude 下的会话文件)
@@ -346,15 +405,10 @@ defineExpose({
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #ffffff;
-  border-left: 1px solid #e5e5e0;
+  background: var(--bg-color-secondary);
+  border-left: 1px solid var(--border-color);
   width: 280px;
   flex-shrink: 0;
-}
-
-:deep(.dark-theme) .session-panel {
-  background: #242424;
-  border-color: #333333;
 }
 
 .sessions-content {

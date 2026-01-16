@@ -48,6 +48,16 @@
           <span style="margin-right: 4px">🔄</span>
           {{ t('sessionManager.sync') }}
         </n-button>
+        <!-- Force Full Sync Button -->
+        <n-popconfirm @positive-click="handleForceFullSync">
+          <template #trigger>
+            <n-button :loading="syncing" type="warning">
+              <span style="margin-right: 4px">⚡</span>
+              强制全量同步
+            </n-button>
+          </template>
+          此操作将清空数据库并重新同步所有数据，确定继续？
+        </n-popconfirm>
         <!-- Clear Invalid Sessions Button -->
         <n-popconfirm @positive-click="handleClearInvalid">
           <template #trigger>
@@ -72,6 +82,7 @@
     <div class="main-content">
       <!-- Left: Project List -->
       <ProjectList
+        ref="projectListRef"
         :projects="projects"
         :selected-project="selectedProject"
         :loading-projects="loadingProjects"
@@ -152,6 +163,7 @@ const { cssVars, initTheme } = useTheme()
 const { t, initLocale } = useLocale()
 
 // Refs
+const projectListRef = ref(null)
 const messageViewerRef = ref(null)
 
 // ========================================
@@ -299,6 +311,15 @@ onMounted(async () => {
     const targetProject = projects.value.find(p => p.path === projectPath)
     if (targetProject) {
       await selectProject(targetProject)
+      // 自动选择第一个会话并显示对话内容
+      if (sessions.value.length > 0) {
+        await handleSelectSession(sessions.value[0])
+      }
+      // 等待所有数据加载和 DOM 渲染完成后再滚动
+      await nextTick()
+      setTimeout(() => {
+        projectListRef.value?.scrollToSelected()
+      }, 300)
     }
   }
 })
@@ -388,21 +409,55 @@ const handleSync = async () => {
   syncing.value = true
   try {
     const result = await invoke('syncSessions')
+    console.log('[Sync] Result:', result)  // 诊断日志
     if (result.status === 'success') {
       const stats = await invoke('getSessionStats')
       syncStats.value = {
         timestamp: Date.now(),
+        projectsScanned: result.projectsScanned || 0,
+        projectsAdded: result.projectsAdded || 0,
         messagesAdded: result.messagesAdded,
         sessionsAdded: result.sessionsAdded,
         totalMessages: stats?.messages || 0
       }
-      message.success(`${t('sessionManager.syncSuccess')}: ${result.messagesAdded} ${t('sessionManager.newMessages')}`)
+      // 显示更详细的同步结果
+      const syncInfo = `${t('sessionManager.syncSuccess')}: ${result.projectsScanned} 项目, ${result.sessionsAdded} 会话, ${result.messagesAdded} 消息`
+      message.success(syncInfo)
     } else if (result.status === 'error') {
       message.error(result.message)
     }
     await loadProjects()
   } catch (err) {
     console.error('Sync failed:', err)
+    message.error(t('messages.operationFailed'))
+  } finally {
+    syncing.value = false
+  }
+}
+
+const handleForceFullSync = async () => {
+  syncing.value = true
+  try {
+    const result = await invoke('forceFullSync')
+    console.log('[ForceFullSync] Result:', result)
+    if (result.status === 'success') {
+      const stats = await invoke('getSessionStats')
+      syncStats.value = {
+        timestamp: Date.now(),
+        projectsScanned: result.projectsScanned || 0,
+        projectsAdded: result.projectsAdded || 0,
+        messagesAdded: result.messagesAdded,
+        sessionsAdded: result.sessionsAdded,
+        totalMessages: stats?.messages || 0
+      }
+      const syncInfo = `强制同步完成: ${result.projectsScanned} 项目, ${result.sessionsAdded} 会话, ${result.messagesAdded} 消息`
+      message.success(syncInfo)
+    } else if (result.status === 'error') {
+      message.error(result.message)
+    }
+    await loadProjects()
+  } catch (err) {
+    console.error('Force full sync failed:', err)
     message.error(t('messages.operationFailed'))
   } finally {
     syncing.value = false

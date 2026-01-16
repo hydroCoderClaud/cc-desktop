@@ -25,13 +25,22 @@
           {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} 条消息
         </div>
       </div>
-      <button
-        class="delete-btn"
-        @click.stop="$emit('delete', session)"
-        title="删除会话"
-      >
-        ×
-      </button>
+      <div class="session-actions">
+        <button
+          class="rename-btn"
+          @click.stop="$emit('edit', session)"
+          title="✏️"
+        >
+          ✏️
+        </button>
+        <button
+          class="delete-btn"
+          @click.stop="$emit('delete', session)"
+          title="删除会话"
+        >
+          ×
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -48,7 +57,7 @@ defineProps({
   }
 })
 
-defineEmits(['select', 'delete'])
+defineEmits(['select', 'edit', 'delete'])
 
 const formatSessionName = (session) => {
   if (session.name) return session.name
@@ -86,12 +95,8 @@ const formatDate = (dateStr) => {
 
 <style scoped>
 .history-sessions {
-  border-top: 1px solid #e5e5e0;
+  border-top: 1px solid var(--border-color);
   padding-top: 8px;
-}
-
-:deep(.dark-theme) .history-sessions {
-  border-color: #333333;
 }
 
 .section-header {
@@ -100,7 +105,7 @@ const formatDate = (dateStr) => {
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   text-transform: uppercase;
   padding: 8px 8px 4px;
 }
@@ -120,7 +125,7 @@ const formatDate = (dateStr) => {
 
 .empty-text {
   font-size: 13px;
-  color: #999999;
+  color: var(--text-color-muted);
 }
 
 .session-item {
@@ -135,11 +140,7 @@ const formatDate = (dateStr) => {
 }
 
 .session-item:hover {
-  background: #f5f5f0;
-}
-
-:deep(.dark-theme) .session-item:hover {
-  background: #333333;
+  background: var(--hover-bg);
 }
 
 .session-info {
@@ -167,8 +168,35 @@ const formatDate = (dateStr) => {
 
 .session-meta {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--text-color-muted);
   margin-top: 2px;
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.rename-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  opacity: 0.6;
+}
+
+.rename-btn:hover {
+  background: var(--hover-bg, #f0f0f0);
+  opacity: 1;
 }
 
 .delete-btn {

@@ -65,7 +65,8 @@ class SessionDatabase {
       { name: 'api_profile_id', type: 'TEXT' },
       { name: 'is_pinned', type: 'INTEGER DEFAULT 0' },
       { name: 'is_hidden', type: 'INTEGER DEFAULT 0' },
-      { name: 'last_opened_at', type: 'INTEGER' }
+      { name: 'last_opened_at', type: 'INTEGER' },
+      { name: 'source', type: "TEXT DEFAULT 'sync'" }  // 'user' = 用户添加, 'sync' = 同步导入
     ]
 
     for (const col of newColumns) {
@@ -237,7 +238,7 @@ class SessionDatabase {
   // ========================================
 
   /**
-   * Get or create a project
+   * Get or create a project (用于同步服务，source='sync')
    */
   getOrCreateProject(projectPath, encodedPath, name) {
     const existing = this.db.prepare(
@@ -248,22 +249,36 @@ class SessionDatabase {
       return existing
     }
 
+    // 同步导入的项目，source='sync'
     const result = this.db.prepare(
-      'INSERT INTO projects (path, encoded_path, name) VALUES (?, ?, ?)'
+      "INSERT INTO projects (path, encoded_path, name, source) VALUES (?, ?, ?, 'sync')"
     ).run(projectPath, encodedPath, name)
 
     return {
       id: result.lastInsertRowid,
       path: projectPath,
       encoded_path: encodedPath,
-      name
+      name,
+      source: 'sync'
     }
   }
 
   /**
    * Get all projects (excluding hidden by default)
+   * @param {boolean} includeHidden - 是否包含隐藏项目
+   * @param {boolean} userOnly - 是否只返回用户添加的项目（主面板用）
    */
-  getAllProjects(includeHidden = false) {
+  getAllProjects(includeHidden = false, userOnly = true) {
+    const conditions = []
+
+    if (!includeHidden) {
+      conditions.push("p.is_hidden = 0")
+    }
+
+    if (userOnly) {
+      conditions.push("p.source = 'user'")
+    }
+
     let sql = `
       SELECT p.*,
              COUNT(DISTINCT s.id) as session_count,
@@ -271,9 +286,11 @@ class SessionDatabase {
       FROM projects p
       LEFT JOIN sessions s ON p.id = s.project_id
     `
-    if (!includeHidden) {
-      sql += ' WHERE p.is_hidden = 0'
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ')
     }
+
     sql += `
       GROUP BY p.id
       ORDER BY p.is_pinned DESC, p.last_opened_at DESC NULLS LAST
@@ -312,6 +329,8 @@ class SessionDatabase {
 
   /**
    * Create a new project
+   * @param {Object} projectData - 项目数据
+   * @param {string} projectData.source - 来源: 'user' (用户添加) 或 'sync' (同步导入)
    */
   createProject(projectData) {
     const {
@@ -320,7 +339,8 @@ class SessionDatabase {
       description = '',
       icon = '📁',
       color = '#1890ff',
-      api_profile_id = null
+      api_profile_id = null,
+      source = 'user'  // 默认为用户添加
     } = projectData
 
     // Generate encoded path (base64 of path)
@@ -328,9 +348,9 @@ class SessionDatabase {
 
     const now = Date.now()
     const result = this.db.prepare(`
-      INSERT INTO projects (path, encoded_path, name, description, icon, color, api_profile_id, created_at, updated_at, last_opened_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(projectPath, encodedPath, name, description, icon, color, api_profile_id, now, now, now)
+      INSERT INTO projects (path, encoded_path, name, description, icon, color, api_profile_id, source, created_at, updated_at, last_opened_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(projectPath, encodedPath, name, description, icon, color, api_profile_id, source, now, now, now)
 
     return {
       id: result.lastInsertRowid,
@@ -341,6 +361,7 @@ class SessionDatabase {
       icon,
       color,
       api_profile_id,
+      source,
       is_pinned: 0,
       is_hidden: 0,
       created_at: now,
@@ -353,7 +374,7 @@ class SessionDatabase {
    * Update project
    */
   updateProject(projectId, updates) {
-    const allowedFields = ['name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at']
+    const allowedFields = ['name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at', 'source']
     const fields = []
     const values = []
 

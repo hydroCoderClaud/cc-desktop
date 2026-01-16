@@ -1,5 +1,5 @@
 <template>
-  <div class="tab-bar" :class="{ 'dark': isDark }">
+  <div class="tab-bar">
     <div class="tabs-container">
       <!-- Welcome Tab (固定在最左边) -->
       <div
@@ -68,10 +68,6 @@ const props = defineProps({
   showNewButton: {
     type: Boolean,
     default: true
-  },
-  isDark: {
-    type: Boolean,
-    default: false
   }
 })
 
@@ -100,16 +96,11 @@ const getStatusIcon = getSessionStatusIcon
 .tab-bar {
   display: flex;
   align-items: center;
-  background: #f5f5f0;
-  border-bottom: 1px solid #e5e5e0;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
   padding: 0 8px;
   height: 40px;
   gap: 4px;
-}
-
-.tab-bar.dark {
-  background: #2a2a2a;
-  border-color: #333333;
 }
 
 .tabs-container {
@@ -130,8 +121,8 @@ const getStatusIcon = getSessionStatusIcon
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #ffffff;
-  border: 1px solid #e5e5e0;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
@@ -140,50 +131,28 @@ const getStatusIcon = getSessionStatusIcon
   min-width: 100px;
   position: relative;
   top: 1px;
-}
-
-.dark .tab {
-  background: #333333;
-  border-color: #444444;
-  color: #e8e8e8;
+  color: var(--text-color);
 }
 
 .tab:hover {
-  background: #fafafa;
-}
-
-.dark .tab:hover {
-  background: #3a3a3a;
+  background: var(--hover-bg);
 }
 
 .tab.active {
-  background: #ffffff;
-  border-color: #ff6b35;
-  border-bottom-color: #ffffff;
-}
-
-.dark .tab.active {
-  background: #242424;
-  border-bottom-color: #242424;
+  background: var(--bg-color-secondary);
+  border-color: var(--primary-color);
+  border-bottom-color: var(--bg-color-secondary);
 }
 
 .welcome-tab {
   min-width: auto;
   max-width: none;
   padding: 6px 10px;
-  background: #f0f0f0;
-}
-
-.dark .welcome-tab {
-  background: #2d2d2d;
+  background: var(--bg-color-tertiary);
 }
 
 .welcome-tab.active {
-  background: #ffffff;
-}
-
-.dark .welcome-tab.active {
-  background: #242424;
+  background: var(--bg-color-secondary);
 }
 
 .tab-icon {
@@ -216,7 +185,7 @@ const getStatusIcon = getSessionStatusIcon
   background: transparent;
   border: none;
   font-size: 14px;
-  color: #999999;
+  color: var(--text-color-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -239,7 +208,7 @@ const getStatusIcon = getSessionStatusIcon
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: #ff6b35;
+  background: var(--primary-color);
   border: none;
   font-size: 18px;
   font-weight: 500;
@@ -253,6 +222,6 @@ const getStatusIcon = getSessionStatusIcon
 }
 
 .new-tab-btn:hover {
-  background: #e55a2b;
+  background: var(--primary-color-hover);
 }
 </style>

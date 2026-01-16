@@ -68,12 +68,26 @@ export default {
     projectSettings: '项目设置'
   },
 
+  // 面板控制
+  panel: {
+    showLeft: '显示左侧面板',
+    hideLeft: '隐藏左侧面板',
+    showRight: '显示右侧面板',
+    hideRight: '隐藏右侧面板'
+  },
+
+  // 右侧面板
+  rightPanel: {
+    title: '扩展功能',
+    comingSoon: '更多功能即将推出'
+  },
+
   // 设置菜单
   settingsMenu: {
     apiConfig: 'API 配置管理',
     providerManager: '服务商管理',
     globalSettings: '全局设置',
-    sessionHistory: '会话历史'
+    sessionHistory: '会话查询'
   },
 
   // API 配置管理
@@ -152,6 +166,11 @@ export default {
     maxActiveSessionsHint: '同时运行的会话数量上限',
     maxHistorySessions: '历史会话显示数',
     maxHistorySessionsHint: '左侧面板历史会话最大显示条数',
+    terminalSettings: '终端设置',
+    terminalFontSize: '字体大小',
+    terminalFontSizeHint: '终端显示的字体大小（10-24）',
+    terminalFontFamily: '字体类型',
+    terminalFontFamilyHint: '终端显示的字体（需系统已安装）',
     saveSuccess: '设置已保存'
   },
 
@@ -179,9 +198,9 @@ export default {
     viewMore: '查看更多'
   },
 
-  // 会话历史管理
+  // 会话查询管理
   sessionManager: {
-    title: '会话历史',
+    title: '会话查询',
     projects: '项目',
     sessions: '会话',
     messages: '消息',
@@ -321,6 +340,7 @@ export default {
     icon: '图标',
     color: '颜色',
     borderColor: '边框颜色',
+    borderColorHint: '保留属性，将来可用于项目卡片视觉区分',
     resetColor: '恢复默认',
     apiProfile: 'API 配置',
     apiProfilePlaceholder: '选择 API 配置（可选）',
