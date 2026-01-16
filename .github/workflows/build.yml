@@ -11,11 +11,6 @@ on:
         required: false
         default: ''
 
-# 取消同一 tag 的旧构建
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     strategy:
