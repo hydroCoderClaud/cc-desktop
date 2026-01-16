@@ -7,7 +7,6 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const APIClient = require('./api/api-client');
 const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { projectConfigMixin } = require('./config/project-config');

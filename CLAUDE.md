@@ -695,80 +695,68 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.1.0-alpha (2026-01-16)
+### ✅ Current Version: v1.1.0 (2026-01-16) - Released
 
-**Status**: 🟢 Phase 3 refactoring complete, CSS variable architecture established
+**Status**: 🟢 MVP 已发布，GitHub Actions 自动构建配置完成
 
-**What's Working:**
-- ✅ Service provider management (add/edit/delete custom providers)
-- ✅ API profile configuration (multi-profile support)
-- ✅ Custom model management per profile
-- ✅ Connection testing with proxy support
-- ✅ Global settings (models, timeout, maxActiveSessions)
-- ✅ Session history management
-  - SQLite storage with FTS5 full-text search
-  - Sync from ~/.claude directory
-  - Two-level tag system (session + message tags)
-  - Favorites with filtering
-  - Export/copy (Markdown/JSON)
-- ✅ Active session management
-  - Session titles support
-  - Welcome page as fixed tab
-  - Session list reordering
-  - Cross-project session display
-- ✅ **Code Architecture (REFACTORED)**
+**发布信息：**
+- GitHub: https://github.com/hydroCoderClaud/cc-desktop
+- Releases: https://github.com/hydroCoderClaud/cc-desktop/releases
+- 支持平台: Windows (x64), macOS (x64, arm64)
+
+**已完成功能：**
+- ✅ 服务商管理 (添加/编辑/删除自定义服务商)
+- ✅ API 配置文件 (多配置支持)
+- ✅ 自定义模型管理
+- ✅ 连接测试 (支持代理)
+- ✅ 全局设置 (模型、超时、最大会话数)
+- ✅ 会话历史管理
+  - SQLite 存储 + FTS5 全文搜索
+  - 从 ~/.claude 目录同步
+  - 两级标签系统 (会话 + 消息标签)
+  - 收藏与筛选
+  - 导出/复制 (Markdown/JSON)
+- ✅ 活动会话管理
+  - 会话标题支持
+  - 欢迎页固定标签
+  - 会话列表排序
+  - 跨项目会话显示
+- ✅ 代码架构重构
   - Composables: useProjects, useTabManagement, useSessionPanel
-  - ConfigManager modularized with mixins (api-config, provider-config, project-config)
-  - CSS variable system for theming (useTheme.js)
-  - IPC call optimization (getSessionLimits)
+  - ConfigManager 模块化 (api-config, provider-config, project-config)
+  - CSS 变量主题系统 (useTheme.js)
+- ✅ CI/CD
+  - GitHub Actions 自动构建
+  - 推送 tag 自动发布
 
-### 🎯 Next Steps (Immediate)
+### 🎯 Next Steps: v1.2.0 - 右侧扩展面板
 
-**Priority 1 - Testing & Validation**
-- [ ] Test all Vue pages in Vite dev mode
-- [ ] Verify theme switching in all components
-- [ ] Test IPC communication end-to-end
-- [ ] Verify session management workflows
+**当前进度：**
+- ✅ RightPanel.vue 框架已创建
+- ✅ 折叠/展开交互已实现
+- ⏳ 面板内容待开发
 
-**Priority 2 - Code Quality**
-- [ ] Add unit tests for core ConfigManager methods
-- [ ] Add unit tests for composables
-- [ ] Improve error messages with user-friendly translations
+**计划功能（待确定）：**
+- [ ] 会话信息面板 (Token 用量、元数据)
+- [ ] AI 助手面板 (快捷命令、提示词模板)
+- [ ] 项目文件浏览器
+- [ ] 快捷设置入口
 
-**Priority 3 - Small Enhancements**
-- [ ] Optimize loading indicators
-- [ ] Improve form validation feedback
+### 📍 Quick Reference
 
-### 🚀 Future Roadmap
+**关键文件：**
+- 📖 `CLAUDE.md` - 开发历史和架构 (AI 参考)
+- 📝 `docs/CHANGELOG.md` - 版本历史
+- 📄 `README.md` - 项目介绍
+- 📦 `package.json` - 版本号 (1.1.0)
 
-See detailed plans in `docs/CHANGELOG.md`:
-
-**v1.2.0** - Advanced Features
-- Multiple terminal tabs
-- Terminal history search
-- Keyboard shortcuts configuration
-- Auto-update checker
-
-**v2.0.0** - Long-term Vision
-- Plugin system
-- AI assistance features
-- Cloud config sync
-- Team collaboration
-
-### 📍 Quick Reference for Next Session
-
-**⚡ Fast Start - Check these in order:**
-
-1. **📋 TODO.md** - Quick overview of pending tasks and priorities (START HERE!)
-2. **📖 CLAUDE.md** (this file) - Read "Recent Development History" section for latest changes
-3. **📝 docs/CHANGELOG.md** - Check version updates and detailed feature list
-4. **💻 git log --oneline -10** - Review recent commits
-
-**Key Files to Know:**
-- 📋 `TODO.md` - **Quick task list and next steps** (CHECK THIS FIRST!)
-- 📖 `CLAUDE.md` - Complete development history and architecture (for AI)
-- 📝 `docs/CHANGELOG.md` - Version history and future plans (for humans)
-- 📄 `README.md` - Project overview and quick start
-- 📦 `package.json` - Current version number
-
-**💡 TIP**: If you just want to know "what to do next", go straight to `TODO.md`!
+**文档目录：**
+```
+docs/
+├── CHANGELOG.md              # 主变更日志
+├── ARCHITECTURE.md           # 架构说明
+├── QUICKSTART.md             # 快速开始
+├── CUSTOM-UI-GUIDE.md        # 自定义 UI 模式 (预留)
+├── SESSION-MANAGEMENT-DESIGN.md  # 会话管理设计
+└── ...                       # 其他参考文档
+```
