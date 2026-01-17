@@ -43,17 +43,22 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 创建子窗口的通用配置
   const createSubWindow = (options) => {
-    const { BrowserWindow } = require('electron');
+    const { BrowserWindow, app } = require('electron');
     const pathModule = require('path');
+    const fs = require('fs');
     const isMac = process.platform === 'darwin';
 
+    console.log(`[SubWindow] Creating window for page: ${options.page}, platform: ${process.platform}`);
+
     const preloadPath = pathModule.join(__dirname, '../preload/preload.js');
+    console.log(`[SubWindow] Preload path: ${preloadPath}, exists: ${fs.existsSync(preloadPath)}`);
 
     const window = new BrowserWindow({
       width: options.width || 800,
       height: options.height || 600,
       title: options.title,
-      parent: isMac ? undefined : mainWindow,  // macOS 上不设置 parent，避免窗口不显示
+      // macOS 上不设置 parent，避免窗口不显示
+      ...(isMac ? {} : { parent: mainWindow }),
       modal: false,
       show: false,  // 先隐藏，等待 ready-to-show
       backgroundColor: getThemeBackgroundColor(),
@@ -65,18 +70,30 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       }
     });
 
-    // 窗口准备好后再显示，避免白屏闪烁
+    // 窗口准备好后再显示
     window.once('ready-to-show', () => {
+      console.log(`[SubWindow] Window ready-to-show: ${options.page}`);
       window.show();
+      window.focus();  // macOS 需要显式 focus
+      if (isMac) {
+        app.dock?.show();  // 确保 dock 图标显示
+      }
+    });
+
+    // 加载失败时的处理
+    window.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error(`[SubWindow] Failed to load: ${errorCode} - ${errorDescription}`);
     });
 
     const query = options.query || ''
     if (process.env.VITE_DEV_SERVER_URL) {
       const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');
       const url = `${baseUrl}/pages/${options.page}/${query}`;
+      console.log(`[SubWindow] Loading URL: ${url}`);
       window.loadURL(url);
     } else {
       const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
+      console.log(`[SubWindow] Loading file: ${filePath}, exists: ${fs.existsSync(filePath)}`);
       window.loadFile(filePath, { query: query.replace('?', '') });
     }
 

@@ -16,12 +16,17 @@ const { createIPCHandler } = require('../utils/ipc-utils')
  */
 function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   console.log('[IPC] Setting up project handlers...')
+  console.log(`[IPC] Platform: ${process.platform}`)
+  console.log(`[IPC] mainWindow exists: ${!!mainWindow}`)
+  console.log(`[IPC] sessionDatabase exists: ${!!sessionDatabase}`)
+  console.log(`[IPC] ipcMain exists: ${!!ipcMain}`)
 
   // ========================================
   // 工程列表
   // ========================================
 
   // 获取所有工程（不含隐藏）
+  console.log('[IPC] Registering project:getAll')
   createIPCHandler(ipcMain, 'project:getAll', (includeHidden = false) => {
     const projects = sessionDatabase.getAllProjects(includeHidden)
     // 检查每个项目的路径是否有效
@@ -86,6 +91,7 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   })
 
   // 打开工程（选择已有目录）
+  console.log('[IPC] Registering project:open')
   createIPCHandler(ipcMain, 'project:open', async () => {
     // macOS 上 mainWindow 可能导致问题，使用条件传参
     const dialogOptions = {
