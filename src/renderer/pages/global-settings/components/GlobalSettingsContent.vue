@@ -158,6 +158,14 @@
         </n-grid-item>
       </n-grid>
     </n-card>
+
+    <!-- Footer Buttons -->
+    <div class="footer">
+      <n-space>
+        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
+        <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
+      </n-space>
+    </div>
   </div>
 </template>
 
@@ -173,6 +181,9 @@ const { invoke } = useIPC()
 const { isDark, setTheme, cssVars, initTheme } = useTheme()
 const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
 
+// 字体回退链（英文等宽 → macOS等宽 → 中文）
+const FONT_FALLBACK = '"SF Mono", Monaco, "HarmonyOS Sans SC", DengXian, "Microsoft YaHei", "PingFang SC", monospace'
+
 // Default values
 const DEFAULTS = {
   opus: 'claude-opus-4-5-20251101',
@@ -183,7 +194,7 @@ const DEFAULTS = {
   maxActiveSessions: 5,
   maxHistorySessions: 10,
   terminalFontSize: 14,
-  terminalFontFamily: '"Ubuntu Mono", monospace'
+  terminalFontFamily: `"Ubuntu Mono", ${FONT_FALLBACK}`
 }
 
 const formData = ref({
@@ -192,30 +203,19 @@ const formData = ref({
   opus: '',
   sonnet: '',
   haiku: '',
-  testTimeout: 30,
-  requestTimeout: 120,
-  maxActiveSessions: 5,
-  maxHistorySessions: 10,
-  terminalFontSize: 14,
-  terminalFontFamily: '"Ubuntu Mono", monospace'
+  testTimeout: DEFAULTS.testTimeout,
+  requestTimeout: DEFAULTS.requestTimeout,
+  maxActiveSessions: DEFAULTS.maxActiveSessions,
+  maxHistorySessions: DEFAULTS.maxHistorySessions,
+  terminalFontSize: DEFAULTS.terminalFontSize,
+  terminalFontFamily: DEFAULTS.terminalFontFamily
 })
 
-// Terminal font family options
+// Terminal font family options (跨平台 + 中文回退)
 const fontFamilyOptions = [
-  // 支持中文的等宽字体
-  { label: '更纱黑体 (Sarasa Mono)', value: '"Sarasa Mono SC", "Sarasa Gothic SC", monospace' },
-  { label: '思源等宽 (Source Han Mono)', value: '"Source Han Mono SC", "Source Han Mono", monospace' },
-  { label: '霞鹜文楷等宽 (LXGW WenKai)', value: '"LXGW WenKai Mono", monospace' },
-  // 英文等宽字体
-  { label: 'Ubuntu Mono', value: '"Ubuntu Mono", monospace' },
-  { label: 'Consolas', value: 'Consolas, monospace' },
-  { label: 'Cascadia Code', value: '"Cascadia Code", monospace' },
-  { label: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
-  { label: 'Fira Code', value: '"Fira Code", monospace' },
-  { label: 'Source Code Pro', value: '"Source Code Pro", monospace' },
-  { label: 'Monaco', value: 'Monaco, monospace' },
-  { label: 'Menlo', value: 'Menlo, monospace' },
-  { label: 'Courier New', value: '"Courier New", monospace' }
+  { label: 'Ubuntu Mono', value: `"Ubuntu Mono", ${FONT_FALLBACK}` },
+  { label: 'Cascadia Code (连字)', value: `"Cascadia Code", ${FONT_FALLBACK}` },
+  { label: 'Consolas', value: `Consolas, ${FONT_FALLBACK}` }
 ]
 
 // Theme options
@@ -372,6 +372,10 @@ const handleReset = async () => {
 const useDefault = (field) => {
   formData.value[field] = DEFAULTS[field]
 }
+
+const handleClose = () => {
+  window.close()
+}
 </script>
 
 <style scoped>
@@ -438,5 +442,13 @@ const useDefault = (field) => {
 
 .model-row .model-input {
   flex: 1;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 24px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-color, #e5e5e0);
 }
 </style>

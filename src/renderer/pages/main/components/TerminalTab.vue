@@ -68,6 +68,7 @@ const initTerminal = async () => {
     cursorBlink: true,
     fontSize: props.fontSize,
     fontFamily: props.fontFamily,
+    lineHeight: 1.2,
     theme: getTerminalTheme(),
     convertEol: true
   })

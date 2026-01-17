@@ -20,8 +20,8 @@ export const claudeTheme = {
     borderRadius: '8px',
     borderRadiusSmall: '6px',
 
-    // 字体
-    fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    // 字体 (中文使用圆润字体：苹方、微软雅黑)
+    fontFamily: "'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     fontSize: '14px',
     fontSizeMedium: '14px',
     fontSizeSmall: '13px',
@@ -181,8 +181,8 @@ export const claudeDarkTheme = {
     borderRadius: '8px',
     borderRadiusSmall: '6px',
 
-    // 字体
-    fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    // 字体 (中文使用圆润字体：苹方、微软雅黑)
+    fontFamily: "'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     fontSize: '14px',
     fontSizeMedium: '14px',
     fontSizeSmall: '13px',
