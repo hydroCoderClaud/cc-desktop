@@ -45,6 +45,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const createSubWindow = (options) => {
     const { BrowserWindow } = require('electron');
     const pathModule = require('path');
+    const isMac = process.platform === 'darwin';
 
     const preloadPath = pathModule.join(__dirname, '../preload/preload.js');
 
@@ -52,8 +53,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       width: options.width || 800,
       height: options.height || 600,
       title: options.title,
-      parent: mainWindow,
+      parent: isMac ? undefined : mainWindow,  // macOS 上不设置 parent，避免窗口不显示
       modal: false,
+      show: false,  // 先隐藏，等待 ready-to-show
       backgroundColor: getThemeBackgroundColor(),
       autoHideMenuBar: true,
       webPreferences: {
@@ -61,6 +63,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
         contextIsolation: true,
         nodeIntegration: false
       }
+    });
+
+    // 窗口准备好后再显示，避免白屏闪烁
+    window.once('ready-to-show', () => {
+      window.show();
     });
 
     const query = options.query || ''
@@ -230,7 +237,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   // 工程管理（数据库版）
   // ========================================
-  setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
+  try {
+    setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
+    console.log('[IPC] Project handlers registered successfully');
+  } catch (err) {
+    console.error('[IPC] Failed to setup project handlers:', err);
+  }
 
   // ========================================
   // Terminal 相关

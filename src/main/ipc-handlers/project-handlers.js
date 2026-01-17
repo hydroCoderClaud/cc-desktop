@@ -87,10 +87,14 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
   // 打开工程（选择已有目录）
   createIPCHandler(ipcMain, 'project:open', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
+    // macOS 上 mainWindow 可能导致问题，使用条件传参
+    const dialogOptions = {
       title: '打开工程目录',
       properties: ['openDirectory']
-    })
+    }
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions)
 
     if (result.canceled || !result.filePaths[0]) {
       return { canceled: true }
