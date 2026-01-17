@@ -4,16 +4,56 @@
  */
 
 const { ipcMain, dialog, shell } = require('electron');
-const { SessionDatabase } = require('./session-database');
-const { SessionHistoryService } = require('./session-history-service');
-const { setupConfigHandlers } = require('./ipc-handlers/config-handlers');
-const { setupSessionHandlers } = require('./ipc-handlers/session-handlers');
-const { setupProjectHandlers } = require('./ipc-handlers/project-handlers');
-const { setupActiveSessionHandlers } = require('./ipc-handlers/active-session-handlers');
-const { createIPCHandler } = require('./utils/ipc-utils');
+const path = require('path');
+const fs = require('fs');
+
+// 安全加载模块，捕获错误
+function safeRequire(modulePath, moduleName) {
+  try {
+    const fullPath = path.join(__dirname, modulePath);
+    console.log(`[IPC] Loading ${moduleName} from: ${fullPath}`);
+    console.log(`[IPC] File exists: ${fs.existsSync(fullPath + '.js')}`);
+    const mod = require(modulePath);
+    console.log(`[IPC] ${moduleName} loaded successfully`);
+    return mod;
+  } catch (err) {
+    console.error(`[IPC] Failed to load ${moduleName}:`, err.message);
+    console.error(`[IPC] Stack:`, err.stack);
+    return null;
+  }
+}
+
+const { SessionDatabase } = safeRequire('./session-database', 'SessionDatabase') || {};
+const { SessionHistoryService } = safeRequire('./session-history-service', 'SessionHistoryService') || {};
+const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
+const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
+const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
+const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
+const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
+
+const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
+const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
+const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
+const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
+const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
-const registerHandler = (channelName, handler) => createIPCHandler(ipcMain, channelName, handler);
+const registerHandler = (channelName, handler) => {
+  if (createIPCHandler) {
+    createIPCHandler(ipcMain, channelName, handler);
+  } else {
+    console.error(`[IPC] Cannot register ${channelName}: createIPCHandler not loaded`);
+    // Fallback to direct registration
+    ipcMain.handle(channelName, async (event, ...args) => {
+      try {
+        return await handler(...args);
+      } catch (err) {
+        console.error(`[IPC] ${channelName} error:`, err);
+        throw err;
+      }
+    });
+  }
+};
 
 function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager) {
   console.log('[IPC] Setting up handlers...');
@@ -254,11 +294,15 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   // 工程管理（数据库版）
   // ========================================
-  try {
-    setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
-    console.log('[IPC] Project handlers registered successfully');
-  } catch (err) {
-    console.error('[IPC] Failed to setup project handlers:', err);
+  if (setupProjectHandlers) {
+    try {
+      setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
+      console.log('[IPC] Project handlers registered successfully');
+    } catch (err) {
+      console.error('[IPC] Failed to setup project handlers:', err);
+    }
+  } else {
+    console.error('[IPC] setupProjectHandlers not available - module failed to load');
   }
 
   // ========================================
