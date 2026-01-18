@@ -557,28 +557,53 @@ const handleDeleteHistorySession = async (session) => {
   }
 }
 
-// Watch project change to reload sessions
+// Watch project change to reload sessions and start file watching
 watch(() => props.currentProject, async (newProject) => {
   if (newProject) {
     await Promise.all([
       loadActiveSessions(),
       loadHistorySessions(newProject.path)
     ])
+    // Start watching session files for this project
+    if (window.electronAPI?.watchSessionFiles) {
+      window.electronAPI.watchSessionFiles(newProject.path)
+    }
   } else {
     historySessions.value = []
+    // Stop watching when no project selected
+    if (window.electronAPI?.stopWatchingSessionFiles) {
+      window.electronAPI.stopWatchingSessionFiles()
+    }
   }
 }, { immediate: true })
 
 // Listen for session events
 let cleanupFn = null
+let fileWatcherCleanup = null
 
 onMounted(async () => {
   await loadConfig()
   cleanupFn = setupEventListeners()
+
+  // Listen for session file changes
+  if (window.electronAPI?.onSessionFileChanged) {
+    fileWatcherCleanup = window.electronAPI.onSessionFileChanged(async (data) => {
+      console.log('[LeftPanel] Session file changed:', data)
+      // Reload history sessions when files change
+      if (props.currentProject?.path === data.projectPath) {
+        await loadHistorySessions(props.currentProject.path)
+      }
+    })
+  }
 })
 
 onUnmounted(() => {
   if (cleanupFn) cleanupFn()
+  if (fileWatcherCleanup) fileWatcherCleanup()
+  // Stop file watching when component unmounts
+  if (window.electronAPI?.stopWatchingSessionFiles) {
+    window.electronAPI.stopWatchingSessionFiles()
+  }
 })
 
 // Expose methods

@@ -309,6 +309,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, settings) => callback(settings);
     ipcRenderer.on('settings:changed', listener);
     return () => ipcRenderer.removeListener('settings:changed', listener);
+  },
+
+  // ========================================
+  // 会话文件监控
+  // ========================================
+  watchSessionFiles: (projectPath) => ipcRenderer.invoke('sessionWatcher:watch', projectPath),
+  stopWatchingSessionFiles: () => ipcRenderer.invoke('sessionWatcher:stop'),
+
+  onSessionFileChanged: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('session:fileChanged', listener);
+    return () => ipcRenderer.removeListener('session:fileChanged', listener);
   }
 });
 

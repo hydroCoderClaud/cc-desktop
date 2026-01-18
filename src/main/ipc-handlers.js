@@ -25,6 +25,7 @@ function safeRequire(modulePath, moduleName) {
 
 const { SessionDatabase } = safeRequire('./session-database', 'SessionDatabase') || {};
 const { SessionHistoryService } = safeRequire('./session-history-service', 'SessionHistoryService') || {};
+const { SessionFileWatcher } = safeRequire('./session-file-watcher', 'SessionFileWatcher') || {};
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
 const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
@@ -64,6 +65,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 初始化文件读取服务（实时读取 ~/.claude 目录）
   const sessionHistoryService = new SessionHistoryService();
+
+  // 初始化会话文件监听器
+  const sessionFileWatcher = SessionFileWatcher ? new SessionFileWatcher(mainWindow) : null;
+  if (!sessionFileWatcher) {
+    console.warn('[IPC] SessionFileWatcher not available');
+  }
 
   // ========================================
   // 配置相关处理器（提取到独立模块）
@@ -195,6 +202,28 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       query
     });
     return { success: true };
+  });
+
+  // ========================================
+  // 会话文件监控
+  // ========================================
+
+  // 开始监控项目的会话文件变化
+  ipcMain.handle('sessionWatcher:watch', async (event, projectPath) => {
+    if (sessionFileWatcher) {
+      sessionFileWatcher.watch(projectPath);
+      return { success: true };
+    }
+    return { success: false, error: 'SessionFileWatcher not available' };
+  });
+
+  // 停止文件监控
+  ipcMain.handle('sessionWatcher:stop', async () => {
+    if (sessionFileWatcher) {
+      sessionFileWatcher.stop();
+      return { success: true };
+    }
+    return { success: false, error: 'SessionFileWatcher not available' };
   });
 
   // ========================================
