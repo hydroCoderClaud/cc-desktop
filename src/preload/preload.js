@@ -144,6 +144,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
+  openAppearanceSettings: () => ipcRenderer.invoke('window:openAppearanceSettings'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
 

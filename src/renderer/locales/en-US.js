@@ -87,6 +87,7 @@ export default {
     apiConfig: 'API Configuration',
     providerManager: 'Provider Manager',
     globalSettings: 'Global Settings',
+    appearanceSettings: 'Appearance',
     sessionHistory: 'Session Browser'
   },
 
@@ -149,6 +150,7 @@ export default {
     title: 'Global Settings',
     subtitle: 'Configure global parameters',
     appearance: 'Appearance',
+    themeAndLanguage: 'Theme & Language',
     theme: 'Theme',
     themeLight: 'Light',
     themeDark: 'Dark',

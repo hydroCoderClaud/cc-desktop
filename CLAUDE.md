@@ -238,6 +238,80 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 
 ## Recent Development History
 
+### 2026-01-19: Appearance Settings & Session File Watcher
+
+**Overview:**
+将外观设置从全局设置中拆分为独立页面，新增会话文件监听功能。
+
+**New Features:**
+
+1. **独立外观设置页面 (appearance-settings)**
+   - 从 GlobalSettingsContent.vue 拆分出外观相关设置
+   - 包含：主题切换、语言选择、终端字体配置
+   - 新文件：`src/renderer/pages/appearance-settings/`
+   - 关注点分离，提高代码可维护性
+
+2. **会话文件监听器 (session-file-watcher.js)**
+   - 监控 `~/.claude/projects/{encodedPath}/` 目录
+   - 检测 .jsonl 会话文件变化
+   - 支持目录不存在时的等待机制
+   - 1秒防抖，避免频繁刷新
+   - 自动通知前端刷新会话列表
+
+**Files Changed:**
+- `src/renderer/pages/appearance-settings/` (新增)
+- `src/main/session-file-watcher.js` (新增)
+- `src/main/ipc-handlers.js` - 添加 `window:openAppearanceSettings`
+- `src/renderer/pages/global-settings/components/GlobalSettingsContent.vue` - 移除外观设置 (-127行)
+- `src/preload/preload.js` - 暴露新 API
+- `vite.config.js` - 新增入口点
+
+**Code Metrics:**
+- GlobalSettingsContent.vue: 333 → 206 行 (-38%)
+- 新增 AppearanceSettingsContent.vue: 236 行
+- 关注点分离，全局设置聚焦于模型和会话配置
+
+---
+
+### 2026-01-17 ~ 2026-01-18: CI/CD & macOS Compatibility
+
+**Overview:**
+完善 GitHub Actions 自动构建配置，修复 macOS 平台兼容性问题。
+
+**CI/CD Improvements:**
+
+1. **GitHub Actions 配置** (commit d5a6395)
+   - 添加自动构建工作流
+   - 支持 Windows、macOS、Linux 多平台
+   - 推送 tag 自动触发发布
+
+2. **构建优化** (commits 171bdca, 5869dfd, b5861cc)
+   - 添加 CI 环境变量和超时设置
+   - 添加并发控制防止构建冲突
+   - 简化构建配置
+
+3. **发布流程** (commit dd1e563)
+   - 禁用 electron-builder 自动发布
+   - 使用独立 release job 管理发布
+
+**macOS Fixes:**
+
+1. **子窗口和 Dialog 问题** (commits 530b66c, ccb9065)
+   - 修复 macOS 上子窗口无法正常显示
+   - 修复文件选择对话框问题
+   - 添加调试日志辅助排查
+
+2. **模块加载诊断** (commit 2078cab)
+   - 添加模块加载诊断日志
+   - 帮助定位跨平台兼容问题
+
+**Terminal Font Optimization** (commit 9419b8b):
+- 优化终端字体配置
+- 支持多字体回退链
+- 改进中文字体显示
+
+---
+
 ### 2026-01-16: Phase 3 Code Refactoring & CSS Variable Migration
 
 **Overview:**
@@ -695,9 +769,9 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.1.0 (2026-01-16) - Released
+### ✅ Current Version: v1.1.6 (2026-01-19)
 
-**Status**: 🟢 MVP 已发布，GitHub Actions 自动构建配置完成
+**Status**: 🟢 MVP 已发布，持续迭代中
 
 **发布信息：**
 - GitHub: https://github.com/hydroCoderClaud/cc-desktop
@@ -710,6 +784,7 @@ src/renderer/js/
 - ✅ 自定义模型管理
 - ✅ 连接测试 (支持代理)
 - ✅ 全局设置 (模型、超时、最大会话数)
+- ✅ 外观设置 (主题、语言、终端字体) - **v1.1.6 新增独立页面**
 - ✅ 会话历史管理
   - SQLite 存储 + FTS5 全文搜索
   - 从 ~/.claude 目录同步
@@ -722,12 +797,15 @@ src/renderer/js/
   - 会话列表排序
   - 跨项目会话显示
 - ✅ 代码架构重构
-  - Composables: useProjects, useTabManagement, useSessionPanel
+  - Composables: useProjects, useTabManagement, useSessionPanel 等 13 个
   - ConfigManager 模块化 (api-config, provider-config, project-config)
   - CSS 变量主题系统 (useTheme.js)
 - ✅ CI/CD
   - GitHub Actions 自动构建
   - 推送 tag 自动发布
+- ✅ 跨平台兼容
+  - macOS 子窗口和 dialog 问题修复
+  - 终端字体配置优化
 
 ### 🎯 Next Steps: v1.2.0 - 右侧扩展面板
 
@@ -748,7 +826,7 @@ src/renderer/js/
 - 📖 `CLAUDE.md` - 开发历史和架构 (AI 参考)
 - 📝 `docs/CHANGELOG.md` - 版本历史
 - 📄 `README.md` - 项目介绍
-- 📦 `package.json` - 版本号 (1.1.0)
+- 📦 `package.json` - 版本号 (1.1.6)
 
 **文档目录：**
 ```

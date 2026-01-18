@@ -87,6 +87,7 @@ export default {
     apiConfig: 'API 配置管理',
     providerManager: '服务商管理',
     globalSettings: '全局设置',
+    appearanceSettings: '外观设置',
     sessionHistory: '会话查询'
   },
 
@@ -149,6 +150,7 @@ export default {
     title: '全局设置',
     subtitle: '配置全局参数',
     appearance: '外观',
+    themeAndLanguage: '主题与语言',
     theme: '主题',
     themeLight: '浅色',
     themeDark: '深色',

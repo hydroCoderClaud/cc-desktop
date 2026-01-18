@@ -9,31 +9,6 @@
       </n-space>
     </div>
 
-    <!-- Appearance Section -->
-    <n-card :title="t('globalSettings.appearance')" class="section-card">
-      <n-grid :cols="2" :x-gap="24">
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.theme')">
-            <n-select
-              v-model:value="formData.theme"
-              :options="themeOptions"
-              style="width: 100%"
-            />
-          </n-form-item>
-        </n-grid-item>
-
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.language')">
-            <n-select
-              v-model:value="formData.locale"
-              :options="localeOptions"
-              style="width: 100%"
-            />
-          </n-form-item>
-        </n-grid-item>
-      </n-grid>
-    </n-card>
-
     <!-- Global Models Section -->
     <n-card :title="t('globalSettings.defaultModels')" class="section-card">
       <p class="section-desc">{{ t('globalSettings.defaultModelsHint') }}</p>
@@ -131,34 +106,6 @@
       </n-grid>
     </n-card>
 
-    <!-- Terminal Settings Section -->
-    <n-card :title="t('globalSettings.terminalSettings')" class="section-card">
-      <n-grid :cols="2" :x-gap="24">
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.terminalFontSize')">
-            <n-input-number
-              v-model:value="formData.terminalFontSize"
-              :min="10"
-              :max="24"
-              placeholder="14"
-            />
-            <template #feedback>{{ t('globalSettings.terminalFontSizeHint') }}</template>
-          </n-form-item>
-        </n-grid-item>
-
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.terminalFontFamily')">
-            <n-select
-              v-model:value="formData.terminalFontFamily"
-              :options="fontFamilyOptions"
-              style="width: 100%"
-            />
-            <template #feedback>{{ t('globalSettings.terminalFontFamilyHint') }}</template>
-          </n-form-item>
-        </n-grid-item>
-      </n-grid>
-    </n-card>
-
     <!-- Footer Buttons -->
     <div class="footer">
       <n-space>
@@ -170,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
@@ -178,11 +125,8 @@ import { useLocale } from '@composables/useLocale'
 
 const message = useMessage()
 const { invoke } = useIPC()
-const { isDark, setTheme, cssVars, initTheme } = useTheme()
-const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
-
-// 字体回退链（英文等宽 → macOS等宽 → 中文）
-const FONT_FALLBACK = '"SF Mono", Monaco, "HarmonyOS Sans SC", DengXian, "Microsoft YaHei", "PingFang SC", monospace'
+const { cssVars, initTheme } = useTheme()
+const { t, initLocale } = useLocale()
 
 // Default values
 const DEFAULTS = {
@@ -192,45 +136,18 @@ const DEFAULTS = {
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
-  maxHistorySessions: 10,
-  terminalFontSize: 14,
-  terminalFontFamily: `"Ubuntu Mono", ${FONT_FALLBACK}`
+  maxHistorySessions: 10
 }
 
 const formData = ref({
-  theme: 'light',
-  locale: 'zh-CN',
   opus: '',
   sonnet: '',
   haiku: '',
   testTimeout: DEFAULTS.testTimeout,
   requestTimeout: DEFAULTS.requestTimeout,
   maxActiveSessions: DEFAULTS.maxActiveSessions,
-  maxHistorySessions: DEFAULTS.maxHistorySessions,
-  terminalFontSize: DEFAULTS.terminalFontSize,
-  terminalFontFamily: DEFAULTS.terminalFontFamily
+  maxHistorySessions: DEFAULTS.maxHistorySessions
 })
-
-// Terminal font family options (跨平台 + 中文回退)
-const fontFamilyOptions = [
-  { label: 'Ubuntu Mono', value: `"Ubuntu Mono", ${FONT_FALLBACK}` },
-  { label: 'Cascadia Code (连字)', value: `"Cascadia Code", ${FONT_FALLBACK}` },
-  { label: 'Consolas', value: `Consolas, ${FONT_FALLBACK}` }
-]
-
-// Theme options
-const themeOptions = computed(() => [
-  { label: t('globalSettings.themeLight'), value: 'light' },
-  { label: t('globalSettings.themeDark'), value: 'dark' }
-])
-
-// Locale options
-const localeOptions = computed(() =>
-  availableLocales.value.map(l => ({
-    label: l.label,
-    value: l.value
-  }))
-)
 
 onMounted(async () => {
   await initTheme()
@@ -238,22 +155,8 @@ onMounted(async () => {
   await loadSettings()
 })
 
-// Watch for theme changes
-watch(() => formData.value.theme, async (newTheme) => {
-  await setTheme(newTheme === 'dark')
-})
-
-// Watch for locale changes
-watch(() => formData.value.locale, async (newLocale) => {
-  await setLocale(newLocale)
-})
-
 const loadSettings = async () => {
   try {
-    // Get current theme and locale
-    formData.value.theme = isDark.value ? 'dark' : 'light'
-    formData.value.locale = locale.value
-
     // Get global models
     const globalModels = await invoke('getGlobalModels')
     if (globalModels) {
@@ -276,11 +179,6 @@ const loadSettings = async () => {
     // Get max history sessions
     const maxHistorySessions = await invoke('getMaxHistorySessions')
     formData.value.maxHistorySessions = maxHistorySessions || DEFAULTS.maxHistorySessions
-
-    // Get terminal settings
-    const terminalSettings = await invoke('getTerminalSettings')
-    formData.value.terminalFontSize = terminalSettings?.fontSize || DEFAULTS.terminalFontSize
-    formData.value.terminalFontFamily = terminalSettings?.fontFamily || DEFAULTS.terminalFontFamily
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -310,20 +208,6 @@ const handleSave = async () => {
     // Save max history sessions
     await invoke('updateMaxHistorySessions', formData.value.maxHistorySessions)
 
-    // Save terminal settings
-    await invoke('updateTerminalSettings', {
-      fontSize: formData.value.terminalFontSize,
-      fontFamily: formData.value.terminalFontFamily
-    })
-
-    // Broadcast terminal settings change to other windows
-    if (window.electronAPI?.broadcastSettings) {
-      window.electronAPI.broadcastSettings({
-        terminalFontSize: formData.value.terminalFontSize,
-        terminalFontFamily: formData.value.terminalFontFamily
-      })
-    }
-
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -342,8 +226,6 @@ const handleReset = async () => {
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
-    formData.value.terminalFontSize = DEFAULTS.terminalFontSize
-    formData.value.terminalFontFamily = DEFAULTS.terminalFontFamily
 
     // Save to backend
     await invoke('updateGlobalModels', {
@@ -357,10 +239,6 @@ const handleReset = async () => {
     })
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
-    await invoke('updateTerminalSettings', {
-      fontSize: DEFAULTS.terminalFontSize,
-      fontFamily: DEFAULTS.terminalFontFamily
-    })
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

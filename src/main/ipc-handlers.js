@@ -162,6 +162,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  // 打开外观设置窗口
+  ipcMain.handle('window:openAppearanceSettings', async () => {
+    createSubWindow({
+      width: 600,
+      height: 450,
+      title: '外观设置 - Claude Code Desktop',
+      page: 'appearance-settings'
+    });
+    return { success: true };
+  });
+
   // 打开服务商管理窗口
   ipcMain.handle('window:openProviderManager', async () => {
     createSubWindow({

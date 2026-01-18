@@ -349,6 +349,7 @@ const settingsOptions = computed(() => [
   { label: '🔑 ' + t('settingsMenu.apiConfig'), key: 'api-config' },
   { label: '🏪 ' + t('settingsMenu.providerManager'), key: 'provider-manager' },
   { label: '⚙️ ' + t('settingsMenu.globalSettings'), key: 'global-settings' },
+  { label: '🎨 ' + t('settingsMenu.appearanceSettings'), key: 'appearance-settings' },
   { type: 'divider', key: 'd1' },
   { label: '📜 ' + t('settingsMenu.sessionHistory'), key: 'session-history' }
 ])
@@ -393,6 +394,9 @@ const handleSettingsSelect = (key) => {
       break
     case 'global-settings':
       window.electronAPI.openGlobalSettings()
+      break
+    case 'appearance-settings':
+      window.electronAPI.openAppearanceSettings()
       break
     case 'session-history':
       window.electronAPI.openSessionManager()
