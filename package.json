@@ -15,7 +15,10 @@
     "build:mac": "npm run build:vue && electron-builder --mac",
     "build:linux": "npm run build:vue && electron-builder --linux",
     "build:vue": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -26,13 +29,15 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
+    "@vitest/coverage-v8": "^2.1.8",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "vite": "^5.4.21",
     "vite-plugin-electron": "^0.28.8",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^2.1.8"
   },
   "build": {
     "appId": "com.hydrocoder.claude-code-desktop",
