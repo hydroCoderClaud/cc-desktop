@@ -26,8 +26,8 @@
         :sessions="historySessions"
         :project-id="project?.id"
         @select="handleOpenHistorySession"
-        @edit="handleEditHistorySession"
         @delete="handleDeleteHistorySession"
+        @update-title="handleUpdateHistoryTitle"
       />
     </div>
 
@@ -55,36 +55,11 @@
         </div>
       </template>
     </n-modal>
-
-    <!-- Rename History Session Dialog (仅内存) -->
-    <n-modal
-      v-model:show="showRenameDialog"
-      preset="card"
-      :title="t('session.renameHistory') || '重命名历史会话'"
-      style="width: 360px;"
-      :mask-closable="false"
-    >
-      <n-form>
-        <n-form-item :label="t('session.sessionTitle')">
-          <n-input
-            v-model:value="renameTitle"
-            :placeholder="t('session.sessionTitlePlaceholder')"
-            @keyup.enter="confirmRename"
-          />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <n-button @click="showRenameDialog = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="confirmRename">{{ t('common.confirm') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
@@ -121,16 +96,10 @@ const focusedSessionId = ref(null)
 const showNewSessionDialog = ref(false)
 const newSessionTitle = ref('')
 
-// Rename session dialog (用于历史会话，仅内存)
-const showRenameDialog = ref(false)
-const renameTitle = ref('')
-const editingHistorySession = ref(null)
-
 // Load active sessions (显示所有项目的运行中会话)
 const loadActiveSessions = async () => {
   try {
     const sessions = await invoke('listActiveSessions', true)
-    // 显示所有运行中的会话，保持原始顺序
     activeSessions.value = sessions
   } catch (err) {
     console.error('Failed to load active sessions:', err)
@@ -138,7 +107,7 @@ const loadActiveSessions = async () => {
   }
 }
 
-// Load history sessions (从文件实时读取，而非数据库)
+// Load history sessions (从数据库加载，先同步文件系统)
 const loadHistorySessions = async () => {
   if (!props.project) {
     historySessions.value = []
@@ -146,22 +115,46 @@ const loadHistorySessions = async () => {
   }
 
   try {
-    // 使用文件版本的 API，直接从 ~/.claude 读取，更实时
-    const sessions = await invoke('getFileBasedSessions', props.project.path)
-    // 映射字段名以兼容现有组件（文件版返回 id，数据库版返回 session_uuid）
-    // 过滤掉消息数为 0 的空会话（无法恢复）
+    // 先同步文件系统到数据库
+    await invoke('syncProjectSessions', {
+      projectPath: props.project.path,
+      projectId: props.project.id
+    })
+
+    // 从数据库加载
+    const sessions = await invoke('getProjectSessionsFromDb', props.project.id)
     historySessions.value = (sessions || [])
-      .filter(s => s.messageCount > 0)
+      // 过滤掉没有任何内容的会话（无 uuid 且无 title）
+      .filter(s => s.session_uuid || s.title)
+      // 过滤掉 warmup 预热会话
+      .filter(s => !s.first_user_message?.toLowerCase().includes('warmup'))
       .map(s => ({
         ...s,
-        session_uuid: s.id,  // 文件版的 id 就是 session_uuid
-        name: s.firstUserMessage,  // 使用第一条用户消息作为会话名称
-        message_count: s.messageCount,
-        created_at: s.startTime
+        // 保持兼容性
+        name: s.title || s.first_user_message || null,
+        message_count: s.message_count || 0,
+        created_at: s.started_at || s.created_at
       }))
   } catch (err) {
     console.error('Failed to load history sessions:', err)
     historySessions.value = []
+  }
+}
+
+// Start watching session files
+const startFileWatcher = () => {
+  if (!props.project || !window.electronAPI) return
+
+  window.electronAPI.watchSessionFiles({
+    projectPath: props.project.path,
+    projectId: props.project.id
+  })
+}
+
+// Stop watching session files
+const stopFileWatcher = () => {
+  if (window.electronAPI) {
+    window.electronAPI.stopWatchingSessionFiles()
   }
 }
 
@@ -199,7 +192,7 @@ const confirmNewSession = async () => {
       projectId: props.project.id,
       projectPath: props.project.path,
       projectName: props.project.name,
-      title: newSessionTitle.value.trim(),  // 用户输入的标题
+      title: newSessionTitle.value.trim(),
       apiProfileId: props.project.api_profile_id
     })
 
@@ -230,7 +223,6 @@ const handleCloseSession = async (session) => {
     await invoke('closeActiveSession', session.id)
     await loadActiveSessions()
 
-    // 如果关闭的是当前聚焦的会话，清空聚焦
     if (focusedSessionId.value === session.id) {
       focusedSessionId.value = null
     }
@@ -266,14 +258,13 @@ const handleOpenHistorySession = async (session) => {
   }
 
   try {
-    // 使用 session_uuid 恢复会话
     const result = await invoke('createActiveSession', {
       projectId: props.project.id,
       projectPath: props.project.path,
       projectName: props.project.name,
       title: session.name || `恢复: ${session.session_uuid?.slice(0, 8)}`,
       apiProfileId: props.project.api_profile_id,
-      resumeSessionId: session.session_uuid  // Claude Code 会话 UUID
+      resumeSessionId: session.session_uuid
     })
 
     if (result.success) {
@@ -300,51 +291,46 @@ const handleMoveDown = (index) => {
   swapArrayItems(activeSessions.value, index, index + 1)
 }
 
-// Edit history session name (仅内存，不恢复会话，不保存数据库)
-const handleEditHistorySession = (session) => {
-  editingHistorySession.value = session
-  renameTitle.value = session.name || ''
-  showRenameDialog.value = true
+// Update history session title (保存到数据库)
+const handleUpdateHistoryTitle = async ({ session, newTitle }) => {
+  try {
+    const result = await invoke('updateSessionTitle', {
+      sessionId: session.id,
+      title: newTitle
+    })
+
+    if (result.success) {
+      // 更新本地数据
+      const idx = historySessions.value.findIndex(s => s.id === session.id)
+      if (idx !== -1) {
+        historySessions.value[idx].title = newTitle
+        historySessions.value[idx].name = newTitle
+      }
+      message.success(t('messages.saveSuccess') || '已保存')
+    } else {
+      message.error(result.error || t('messages.saveFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to update session title:', err)
+    message.error(t('messages.saveFailed'))
+  }
 }
 
-// Confirm rename session (仅修改内存中的数据，不保存数据库)
-const confirmRename = () => {
-  if (!editingHistorySession.value) return
-
-  const newName = renameTitle.value.trim()
-  if (!newName) {
-    message.warning(t('session.nameRequired') || '请输入会话名称')
-    return
-  }
-
-  // 在 historySessions 数组中找到并更新
-  const session = historySessions.value.find(
-    s => s.session_uuid === editingHistorySession.value.session_uuid
-  )
-  if (session) {
-    session.name = newName
-  }
-
-  showRenameDialog.value = false
-  editingHistorySession.value = null
-  message.success(t('messages.saveSuccess') || '已保存（仅当前会话有效）')
-}
-
-// Delete history session (硬删除 ~/.claude 下的会话文件)
+// Delete history session (数据库 + 文件)
 const handleDeleteHistorySession = async (session) => {
-  // 确认删除
-  const confirmDelete = window.confirm(`确定要删除会话 "${session.name || session.session_uuid?.slice(0, 8)}" 吗？\n\n此操作将永久删除会话文件，无法恢复。`)
+  const confirmDelete = window.confirm(`确定要删除会话 "${session.name || session.session_uuid?.slice(0, 8)}" 吗？\n\n此操作将永久删除会话，无法恢复。`)
   if (!confirmDelete) return
 
   try {
-    const result = await invoke('deleteSessionFile', {
+    const result = await invoke('deleteSessionWithFile', {
+      sessionId: session.id,
       projectPath: props.project.path,
-      sessionId: session.session_uuid
+      sessionUuid: session.session_uuid
     })
 
     if (result.success) {
       message.success('会话已删除')
-      await loadHistorySessions()  // 刷新列表
+      await loadHistorySessions()
     } else {
       message.error(result.error || '删除失败')
     }
@@ -355,12 +341,19 @@ const handleDeleteHistorySession = async (session) => {
 }
 
 // Watch project change
-watch(() => props.project, async (newProject) => {
+watch(() => props.project, async (newProject, oldProject) => {
+  // 停止旧项目的文件监控
+  if (oldProject) {
+    stopFileWatcher()
+  }
+
   if (newProject) {
     await Promise.all([
       loadActiveSessions(),
       loadHistorySessions()
     ])
+    // 启动新项目的文件监控
+    startFileWatcher()
   } else {
     activeSessions.value = []
     historySessions.value = []
@@ -385,11 +378,23 @@ onMounted(() => {
         loadActiveSessions()
       })
     )
+
+    // 会话文件变化事件
+    cleanupFns.push(
+      window.electronAPI.onSessionFileChanged(({ projectPath, projectId }) => {
+        // 确保是当前项目
+        if (props.project && props.project.path === projectPath) {
+          console.log('[SessionPanel] Session file changed, reloading...')
+          loadHistorySessions()
+        }
+      })
+    )
   }
 })
 
 onUnmounted(() => {
   cleanupFns.forEach(fn => fn && fn())
+  stopFileWatcher()
 })
 
 // 暴露方法

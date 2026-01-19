@@ -1,21 +1,40 @@
 /**
  * Session File Watcher
  * 监控 ~/.claude/projects/{encodedPath}/ 目录的文件变化
- * 当检测到新的 .jsonl 会话文件时通知前端刷新
+ * 当检测到新的 .jsonl 会话文件时：
+ * 1. 解析文件获取 session uuid
+ * 2. 关联到数据库中的待定会话
+ * 3. 通知前端刷新
  */
 
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
+const readline = require('readline')
 const { encodePath } = require('./utils/path-utils')
 
 class SessionFileWatcher {
-  constructor(mainWindow) {
+  constructor(mainWindow, options = {}) {
     this.mainWindow = mainWindow
+    this.sessionDatabase = options.sessionDatabase || null
+    this.activeSessionManager = options.activeSessionManager || null
+
     this.watcher = null
     this.currentProjectPath = null
+    this.currentProjectId = null
     this.debounceTimer = null
     this.debounceDelay = 1000  // 1秒防抖
+
+    // 已知的文件列表（用于检测新文件）
+    this.knownFiles = new Set()
+  }
+
+  /**
+   * 设置依赖（用于延迟注入）
+   */
+  setDependencies({ sessionDatabase, activeSessionManager }) {
+    this.sessionDatabase = sessionDatabase
+    this.activeSessionManager = activeSessionManager
   }
 
   /**
@@ -30,9 +49,10 @@ class SessionFileWatcher {
   /**
    * 开始监控指定项目的会话目录
    * @param {string} projectPath - 项目路径
+   * @param {number} projectId - 项目 ID（数据库）
    */
-  watch(projectPath) {
-    console.log('[FileWatcher] watch() called with projectPath:', projectPath)
+  watch(projectPath, projectId = null) {
+    console.log('[FileWatcher] watch() called with projectPath:', projectPath, 'projectId:', projectId)
 
     // 如果已经在监控同一个项目，不需要重新启动
     if (this.currentProjectPath === projectPath && this.watcher) {
@@ -44,6 +64,7 @@ class SessionFileWatcher {
     this.stop()
 
     this.currentProjectPath = projectPath
+    this.currentProjectId = projectId
     const sessionDir = this.getSessionDir(projectPath)
     console.log('[FileWatcher] Session directory:', sessionDir)
 
@@ -55,7 +76,28 @@ class SessionFileWatcher {
       return
     }
 
+    // 初始化已知文件列表
+    this.initKnownFiles(sessionDir)
+
     this.startWatching(sessionDir)
+  }
+
+  /**
+   * 初始化已知文件列表
+   */
+  initKnownFiles(sessionDir) {
+    this.knownFiles.clear()
+    try {
+      const files = fs.readdirSync(sessionDir)
+      for (const file of files) {
+        if (file.endsWith('.jsonl')) {
+          this.knownFiles.add(file)
+        }
+      }
+      console.log('[FileWatcher] Known files:', this.knownFiles.size)
+    } catch (err) {
+      console.error('[FileWatcher] Failed to read session directory:', err)
+    }
   }
 
   /**
@@ -77,6 +119,7 @@ class SessionFileWatcher {
         if (filename === targetDirName && fs.existsSync(sessionDir)) {
           console.log('[FileWatcher] Session directory created, switching to watch it')
           this.stop()
+          this.initKnownFiles(sessionDir)
           this.startWatching(sessionDir)
         }
       })
@@ -92,11 +135,23 @@ class SessionFileWatcher {
     console.log('[FileWatcher] Starting to watch:', sessionDir)
 
     try {
-      this.watcher = fs.watch(sessionDir, (eventType, filename) => {
-        console.log('[FileWatcher] fs.watch event:', eventType, filename)
+      this.watcher = fs.watch(sessionDir, async (eventType, filename) => {
         // 只关注 .jsonl 文件
         if (filename && filename.endsWith('.jsonl')) {
-          console.log('[FileWatcher] Session file changed:', eventType, filename)
+          console.log('[FileWatcher] Session file event:', eventType, filename)
+
+          // 检测是否是新文件
+          const isNewFile = !this.knownFiles.has(filename)
+
+          if (isNewFile) {
+            console.log('[FileWatcher] New session file detected:', filename)
+            this.knownFiles.add(filename)
+
+            // 处理新文件：解析并关联到数据库
+            const filePath = path.join(sessionDir, filename)
+            await this.handleNewSessionFile(filePath, filename)
+          }
+
           this.notifyChange()
         }
       })
@@ -112,6 +167,163 @@ class SessionFileWatcher {
   }
 
   /**
+   * 处理新会话文件
+   * @param {string} filePath - 文件完整路径
+   * @param {string} filename - 文件名
+   */
+  async handleNewSessionFile(filePath, filename) {
+    if (!this.sessionDatabase || !this.activeSessionManager) {
+      console.log('[FileWatcher] Dependencies not set, skipping file processing')
+      return
+    }
+
+    try {
+      // 等待文件写入完成
+      await this.waitForFileStable(filePath)
+
+      // 解析会话文件
+      const sessionInfo = await this.parseSessionFile(filePath)
+      if (!sessionInfo) {
+        console.log('[FileWatcher] Failed to parse session file:', filename)
+        return
+      }
+
+      console.log('[FileWatcher] Parsed session info:', sessionInfo.sessionId, 'firstMessage:', sessionInfo.firstUserMessage?.slice(0, 50))
+
+      // 查找对应的活动会话
+      const activeSessions = this.activeSessionManager.list()
+      let matchedActiveSession = null
+
+      // 优先通过项目匹配
+      for (const activeSession of activeSessions) {
+        if (activeSession.projectPath === this.currentProjectPath && !activeSession.resumeSessionId) {
+          // 可能是这个活动会话创建的文件
+          matchedActiveSession = activeSession
+          break
+        }
+      }
+
+      if (matchedActiveSession) {
+        // 关联 uuid 到数据库
+        const linkedSession = this.sessionDatabase.linkSessionUuid(
+          matchedActiveSession.id,
+          sessionInfo.sessionId,
+          sessionInfo.firstUserMessage
+        )
+
+        if (linkedSession) {
+          console.log('[FileWatcher] Successfully linked session:', sessionInfo.sessionId)
+        }
+      } else {
+        console.log('[FileWatcher] No matching active session found, syncing as new session')
+        // 没有匹配的活动会话，直接同步到数据库
+        if (this.currentProjectId) {
+          this.sessionDatabase.syncSessionFromFile(this.currentProjectId, {
+            id: sessionInfo.sessionId,
+            firstUserMessage: sessionInfo.firstUserMessage,
+            messageCount: sessionInfo.messageCount,
+            startTime: sessionInfo.startTime,
+            model: sessionInfo.model
+          })
+        }
+      }
+    } catch (err) {
+      console.error('[FileWatcher] Error handling new session file:', err)
+    }
+  }
+
+  /**
+   * 等待文件稳定（写入完成）
+   */
+  async waitForFileStable(filePath, maxWait = 3000) {
+    const startTime = Date.now()
+    let lastSize = 0
+
+    while (Date.now() - startTime < maxWait) {
+      try {
+        const stats = fs.statSync(filePath)
+        if (stats.size === lastSize && stats.size > 0) {
+          // 文件大小稳定
+          return true
+        }
+        lastSize = stats.size
+      } catch (err) {
+        // 文件可能还在创建
+      }
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    return true
+  }
+
+  /**
+   * 解析会话文件
+   */
+  async parseSessionFile(filePath) {
+    return new Promise((resolve) => {
+      try {
+        const stream = fs.createReadStream(filePath, { encoding: 'utf8' })
+        const rl = readline.createInterface({ input: stream })
+
+        let sessionId = null
+        let firstUserMessage = null
+        let messageCount = 0
+        let startTime = null
+        let model = null
+
+        rl.on('line', (line) => {
+          try {
+            const entry = JSON.parse(line)
+
+            // 获取 session id
+            if (entry.sessionId && !sessionId) {
+              sessionId = entry.sessionId
+            }
+
+            // 获取第一条用户消息
+            if (entry.type === 'user' && entry.message?.content && !firstUserMessage) {
+              firstUserMessage = entry.message.content
+            }
+
+            // 获取模型
+            if (entry.message?.model && !model) {
+              model = entry.message.model
+            }
+
+            // 获取开始时间
+            if (entry.timestamp && !startTime) {
+              startTime = entry.timestamp
+            }
+
+            messageCount++
+          } catch (e) {
+            // 跳过解析失败的行
+          }
+        })
+
+        rl.on('close', () => {
+          if (sessionId) {
+            resolve({
+              sessionId,
+              firstUserMessage,
+              messageCount,
+              startTime,
+              model
+            })
+          } else {
+            resolve(null)
+          }
+        })
+
+        rl.on('error', () => {
+          resolve(null)
+        })
+      } catch (err) {
+        resolve(null)
+      }
+    })
+  }
+
+  /**
    * 通知前端文件变化（带防抖）
    */
   notifyChange() {
@@ -123,7 +335,8 @@ class SessionFileWatcher {
       console.log('[FileWatcher] Notifying frontend of session file change')
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send('session:fileChanged', {
-          projectPath: this.currentProjectPath
+          projectPath: this.currentProjectPath,
+          projectId: this.currentProjectId
         })
       }
     }, this.debounceDelay)
@@ -143,14 +356,16 @@ class SessionFileWatcher {
       this.debounceTimer = null
     }
     this.currentProjectPath = null
+    this.currentProjectId = null
+    this.knownFiles.clear()
   }
 
   /**
    * 切换监控的项目
    */
-  switchProject(projectPath) {
+  switchProject(projectPath, projectId = null) {
     if (projectPath) {
-      this.watch(projectPath)
+      this.watch(projectPath, projectId)
     } else {
       this.stop()
     }

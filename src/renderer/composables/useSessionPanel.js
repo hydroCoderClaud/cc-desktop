@@ -55,26 +55,35 @@ export function useSessionPanel(props, emit) {
   }
 
   /**
-   * 加载历史会话列表
+   * 加载历史会话列表（从数据库）
+   * @param {Object} project - 项目对象 { id, path }
    */
-  const loadHistorySessions = async (projectPath) => {
-    if (!projectPath) {
+  const loadHistorySessions = async (project) => {
+    if (!project || !project.id) {
       historySessions.value = []
       return
     }
 
     try {
-      const sessions = await invoke('getFileBasedSessions', projectPath)
+      // 先同步文件系统到数据库
+      await invoke('syncProjectSessions', {
+        projectPath: project.path,
+        projectId: project.id
+      })
+
+      // 从数据库加载
+      const sessions = await invoke('getProjectSessionsFromDb', project.id)
       historySessions.value = (sessions || [])
-        .filter(s => s.messageCount > 0)
+        // 过滤掉没有任何内容的会话（无 uuid 且无 title）
+        .filter(s => s.session_uuid || s.title)
         // 过滤掉 warmup 预热会话
-        .filter(s => !s.firstUserMessage?.toLowerCase().includes('warmup'))
+        .filter(s => !s.first_user_message?.toLowerCase().includes('warmup'))
         .map(s => ({
           ...s,
-          session_uuid: s.id,
-          name: s.firstUserMessage,
-          message_count: s.messageCount,
-          created_at: s.startTime
+          // 保持兼容性
+          name: s.title || s.first_user_message || null,
+          message_count: s.message_count || 0,
+          created_at: s.started_at || s.created_at
         }))
     } catch (err) {
       console.error('Failed to load history sessions:', err)
@@ -290,10 +299,10 @@ export function useSessionPanel(props, emit) {
 
   /**
    * 删除历史会话
-   * @param {string} projectPath - 项目路径
+   * @param {Object} project - 项目对象 { id, path }
    * @param {Object} historySession - 历史会话对象
    */
-  const deleteHistorySession = async (projectPath, historySession) => {
+  const deleteHistorySession = async (project, historySession) => {
     // 检查该会话是否正在运行
     const isRunning = activeSessions.value.some(
       s => s.resumeSessionId === historySession.session_uuid
@@ -303,19 +312,45 @@ export function useSessionPanel(props, emit) {
     }
 
     try {
-      const result = await invoke('deleteSessionFile', {
-        projectPath,
-        sessionId: historySession.session_uuid
+      const result = await invoke('deleteSessionWithFile', {
+        sessionId: historySession.id,
+        projectPath: project.path,
+        sessionUuid: historySession.session_uuid
       })
 
       if (result.success) {
-        await loadHistorySessions(projectPath)
+        await loadHistorySessions(project)
         return { success: true }
       } else {
         return { success: false, error: result.error }
       }
     } catch (err) {
       console.error('Failed to delete session:', err)
+      return { success: false, error: err.message }
+    }
+  }
+
+  /**
+   * 更新历史会话标题
+   * @param {Object} project - 项目对象
+   * @param {Object} historySession - 历史会话对象
+   * @param {string} newTitle - 新标题
+   */
+  const updateHistorySessionTitle = async (project, historySession, newTitle) => {
+    try {
+      const result = await invoke('updateSessionTitle', {
+        sessionId: historySession.id,
+        title: newTitle.trim()
+      })
+
+      if (result.success) {
+        await loadHistorySessions(project)
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (err) {
+      console.error('Failed to update session title:', err)
       return { success: false, error: err.message }
     }
   }
@@ -424,6 +459,7 @@ export function useSessionPanel(props, emit) {
     confirmRename,
     resumeHistorySession,
     deleteHistorySession,
+    updateHistorySessionTitle,
     formatSessionName,
     formatDate,
     setupEventListeners

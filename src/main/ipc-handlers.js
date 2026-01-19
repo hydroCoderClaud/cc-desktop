@@ -74,6 +74,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     console.warn('[IPC] SessionFileWatcher not available');
   }
 
+  // 设置依赖关系
+  if (activeSessionManager) {
+    activeSessionManager.setSessionDatabase(sessionDatabase);
+  }
+  if (sessionFileWatcher) {
+    sessionFileWatcher.setDependencies({
+      sessionDatabase,
+      activeSessionManager
+    });
+  }
+
   // ========================================
   // 配置相关处理器（提取到独立模块）
   // ========================================
@@ -211,9 +222,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
 
   // 开始监控项目的会话文件变化
-  ipcMain.handle('sessionWatcher:watch', async (event, projectPath) => {
+  ipcMain.handle('sessionWatcher:watch', async (event, { projectPath, projectId }) => {
     if (sessionFileWatcher) {
-      sessionFileWatcher.watch(projectPath);
+      sessionFileWatcher.watch(projectPath, projectId);
       return { success: true };
     }
     return { success: false, error: 'SessionFileWatcher not available' };
@@ -322,6 +333,67 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   registerHandler('session:getFileBasedSessions', async (projectPath) => {
     return sessionHistoryService.getProjectSessions(projectPath);
+  });
+
+  // ========================================
+  // 会话面板管理（数据库 + 文件同步）
+  // ========================================
+
+  // 获取项目会话列表（从数据库）
+  registerHandler('session:getProjectSessionsFromDb', async (projectId) => {
+    return sessionDatabase.getProjectSessionsForPanel(projectId);
+  });
+
+  // 同步项目会话到数据库（从文件系统增量同步）
+  registerHandler('session:syncProjectSessions', async ({ projectPath, projectId }) => {
+    // 获取文件系统中的会话
+    const fileSessions = await sessionHistoryService.getProjectSessions(projectPath);
+    if (!fileSessions || fileSessions.length === 0) {
+      return { success: true, synced: 0 };
+    }
+
+    let syncedCount = 0;
+    for (const fileSession of fileSessions) {
+      // 跳过 warmup 会话
+      if (fileSession.firstUserMessage?.toLowerCase().includes('warmup')) {
+        continue;
+      }
+      // 同步到数据库
+      sessionDatabase.syncSessionFromFile(projectId, fileSession);
+      syncedCount++;
+    }
+
+    return { success: true, synced: syncedCount };
+  });
+
+  // 更新会话标题
+  registerHandler('session:updateTitle', async ({ sessionId, title }) => {
+    return sessionDatabase.updateSessionTitle(sessionId, title);
+  });
+
+  // 删除会话（数据库 + 文件）
+  registerHandler('session:deleteWithFile', async ({ sessionId, projectPath, sessionUuid }) => {
+    // 删除文件
+    if (sessionUuid && projectPath) {
+      const path = require('path');
+      const os = require('os');
+      const { encodePath } = require('./utils/path-utils');
+
+      const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+      const encodedPath = encodePath(projectPath);
+      const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionUuid}.jsonl`);
+
+      if (fs.existsSync(sessionFile)) {
+        try {
+          fs.unlinkSync(sessionFile);
+        } catch (err) {
+          console.error('[IPC] Failed to delete session file:', err);
+        }
+      }
+    }
+
+    // 删除数据库记录
+    return sessionDatabase.deleteSession(sessionId);
   });
 
   registerHandler('session:deleteFile', async ({ projectPath, sessionId }) => {

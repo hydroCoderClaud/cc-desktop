@@ -35,6 +35,7 @@ class ActiveSession {
     this.title = options.title || ''  // 用户自定义会话标题
     this.apiProfileId = options.apiProfileId || null  // 关联的 API Profile
     this.resumeSessionId = options.resumeSessionId || null  // Claude Code 会话 UUID（用于恢复）
+    this.dbSessionId = options.dbSessionId || null  // 数据库会话 ID
     this.status = SessionStatus.STARTING
     this.pty = null
     this.pid = null
@@ -58,21 +59,30 @@ class ActiveSession {
       createdAt: this.createdAt.toISOString(),
       exitCode: this.exitCode,
       visible: this.visible,
-      resumeSessionId: this.resumeSessionId  // 用于关联历史会话
+      resumeSessionId: this.resumeSessionId,  // 用于关联历史会话
+      dbSessionId: this.dbSessionId  // 数据库会话 ID
     }
   }
 }
 
 class ActiveSessionManager {
-  constructor(mainWindow, configManager) {
+  constructor(mainWindow, configManager, options = {}) {
     this.mainWindow = mainWindow
     this.configManager = configManager
+    this.sessionDatabase = options.sessionDatabase || null
 
     // 活动会话映射: sessionId -> ActiveSession
     this.sessions = new Map()
 
     // 当前聚焦的会话 ID
     this.focusedSessionId = null
+  }
+
+  /**
+   * 设置会话数据库（延迟注入）
+   */
+  setSessionDatabase(sessionDatabase) {
+    this.sessionDatabase = sessionDatabase
   }
 
   /**
@@ -93,6 +103,21 @@ class ActiveSessionManager {
 
     this.sessions.set(session.id, session)
     console.log(`[ActiveSession] Created session ${session.id} for project: ${options.projectPath}${options.resumeSessionId ? ` (resume: ${options.resumeSessionId})` : ''}`)
+
+    // 如果不是恢复会话，则在数据库创建待定会话记录
+    if (!options.resumeSessionId && this.sessionDatabase && options.projectId) {
+      try {
+        const dbSession = this.sessionDatabase.createPendingSession(
+          options.projectId,
+          options.title,
+          session.id
+        )
+        session.dbSessionId = dbSession.id
+        console.log(`[ActiveSession] Created pending DB session: ${dbSession.id}`)
+      } catch (err) {
+        console.error('[ActiveSession] Failed to create pending DB session:', err)
+      }
+    }
 
     return session
   }

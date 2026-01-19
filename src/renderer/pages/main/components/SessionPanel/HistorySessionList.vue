@@ -14,28 +14,40 @@
       v-for="session in sessions"
       :key="session.id"
       class="session-item"
-      @click="$emit('select', session)"
+      @click="handleSelect(session)"
     >
       <div class="session-info">
         <div class="session-name">
           <span class="icon">💬</span>
-          <span class="name">{{ formatSessionName(session) }}</span>
+          <!-- 编辑模式 -->
+          <input
+            v-if="editingSessionId === session.id"
+            ref="editInputRef"
+            v-model="editingTitle"
+            class="edit-input"
+            @click.stop
+            @keydown.enter="saveTitle(session)"
+            @keydown.escape="cancelEdit"
+            @blur="saveTitle(session)"
+          />
+          <!-- 显示模式 -->
+          <span v-else class="name">{{ formatSessionName(session) }}</span>
         </div>
         <div class="session-meta">
           {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} 条消息
         </div>
       </div>
-      <div class="session-actions">
+      <div class="session-actions" @click.stop>
         <button
-          class="rename-btn"
-          @click.stop="$emit('edit', session)"
-          title="✏️"
+          class="action-btn"
+          @click="startEdit(session)"
+          title="编辑标题"
         >
           ✏️
         </button>
         <button
-          class="delete-btn"
-          @click.stop="$emit('delete', session)"
+          class="action-btn delete-btn"
+          @click="$emit('delete', session)"
           title="删除会话"
         >
           ×
@@ -46,7 +58,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { ref, nextTick } from 'vue'
+
+const props = defineProps({
   sessions: {
     type: Array,
     default: () => []
@@ -57,9 +71,15 @@ defineProps({
   }
 })
 
-defineEmits(['select', 'edit', 'delete'])
+const emit = defineEmits(['select', 'edit', 'delete', 'update-title'])
+
+// 编辑状态
+const editingSessionId = ref(null)
+const editingTitle = ref('')
+const editInputRef = ref(null)
 
 const formatSessionName = (session) => {
+  if (session.title) return session.title
   if (session.name) return session.name
   // 使用 session_uuid 的前8位作为默认名称
   return `会话 ${session.session_uuid?.slice(0, 8) || session.id}`
@@ -90,6 +110,37 @@ const formatDate = (dateStr) => {
 
   // 其他
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+const handleSelect = (session) => {
+  // 编辑模式下不触发选择
+  if (editingSessionId.value === session.id) return
+  emit('select', session)
+}
+
+const startEdit = (session) => {
+  editingSessionId.value = session.id
+  editingTitle.value = session.title || session.name || ''
+  nextTick(() => {
+    if (editInputRef.value) {
+      const input = Array.isArray(editInputRef.value) ? editInputRef.value[0] : editInputRef.value
+      input?.focus()
+      input?.select()
+    }
+  })
+}
+
+const cancelEdit = () => {
+  editingSessionId.value = null
+  editingTitle.value = ''
+}
+
+const saveTitle = (session) => {
+  const newTitle = editingTitle.value.trim()
+  if (newTitle && newTitle !== (session.title || session.name)) {
+    emit('update-title', { session, newTitle })
+  }
+  cancelEdit()
 }
 </script>
 
@@ -146,6 +197,7 @@ const formatDate = (dateStr) => {
 .session-info {
   flex: 1;
   overflow: hidden;
+  min-width: 0;
 }
 
 .session-name {
@@ -158,12 +210,26 @@ const formatDate = (dateStr) => {
 
 .session-name .icon {
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
 }
 
 .session-meta {
@@ -177,11 +243,17 @@ const formatDate = (dateStr) => {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.rename-btn {
-  width: 20px;
-  height: 20px;
+.session-item:hover .session-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   background: transparent;
   border: none;
@@ -194,26 +266,14 @@ const formatDate = (dateStr) => {
   opacity: 0.6;
 }
 
-.rename-btn:hover {
+.action-btn:hover {
   background: var(--hover-bg, #f0f0f0);
   opacity: 1;
 }
 
 .delete-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  font-size: 14px;
+  font-size: 16px;
   color: #cccccc;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s;
-  margin-left: 4px;
 }
 
 .delete-btn:hover {

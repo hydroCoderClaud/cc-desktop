@@ -92,11 +92,11 @@ class SessionDatabaseBase {
    */
   runMigrations() {
     // Get existing columns in projects table
-    const columns = this.db.prepare("PRAGMA table_info(projects)").all()
-    const columnNames = columns.map(c => c.name)
+    const projectColumns = this.db.prepare("PRAGMA table_info(projects)").all()
+    const projectColumnNames = projectColumns.map(c => c.name)
 
     // Add new columns if they don't exist
-    const newColumns = [
+    const projectNewColumns = [
       { name: 'description', type: "TEXT DEFAULT ''" },
       { name: 'icon', type: "TEXT DEFAULT '📁'" },
       { name: 'color', type: "TEXT DEFAULT '#1890ff'" },
@@ -107,10 +107,27 @@ class SessionDatabaseBase {
       { name: 'source', type: "TEXT DEFAULT 'sync'" }  // 'user' = 用户添加, 'sync' = 同步导入
     ]
 
-    for (const col of newColumns) {
-      if (!columnNames.includes(col.name)) {
+    for (const col of projectNewColumns) {
+      if (!projectColumnNames.includes(col.name)) {
         console.log(`[SessionDB] Adding column: projects.${col.name}`)
         this.db.exec(`ALTER TABLE projects ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    // Migrate sessions table
+    const sessionColumns = this.db.prepare("PRAGMA table_info(sessions)").all()
+    const sessionColumnNames = sessionColumns.map(c => c.name)
+
+    const sessionNewColumns = [
+      { name: 'title', type: 'TEXT' },                    // 用户自定义标题
+      { name: 'active_session_id', type: 'TEXT' },        // 关联的活动会话 ID（临时）
+      { name: 'first_user_message', type: 'TEXT' }        // 第一条用户消息（用于显示）
+    ]
+
+    for (const col of sessionNewColumns) {
+      if (!sessionColumnNames.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: sessions.${col.name}`)
+        this.db.exec(`ALTER TABLE sessions ADD COLUMN ${col.name} ${col.type}`)
       }
     }
   }
@@ -143,11 +160,15 @@ class SessionDatabaseBase {
     `)
 
     // Sessions table
+    // Note: session_uuid can be NULL for pending sessions (created before Claude CLI generates the file)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project_id INTEGER NOT NULL,
-        session_uuid TEXT UNIQUE NOT NULL,
+        session_uuid TEXT UNIQUE,
+        title TEXT,
+        active_session_id TEXT,
+        first_user_message TEXT,
         model TEXT,
         started_at INTEGER,
         last_message_at INTEGER,

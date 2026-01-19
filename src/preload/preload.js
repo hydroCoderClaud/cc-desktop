@@ -177,6 +177,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 删除历史会话文件（硬删除）
   deleteSessionFile: ({ projectPath, sessionId }) => ipcRenderer.invoke('session:deleteFile', { projectPath, sessionId }),
 
+  // ========================================
+  // 会话面板管理（数据库 + 文件同步）
+  // ========================================
+  // 从数据库获取项目会话（用于左侧面板）
+  getProjectSessionsFromDb: (projectId) => ipcRenderer.invoke('session:getProjectSessionsFromDb', projectId),
+
+  // 同步项目会话到数据库（从文件系统增量同步）
+  syncProjectSessions: ({ projectPath, projectId }) => ipcRenderer.invoke('session:syncProjectSessions', { projectPath, projectId }),
+
+  // 更新会话标题
+  updateSessionTitle: ({ sessionId, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, title }),
+
+  // 删除会话（数据库 + 文件）
+  deleteSessionWithFile: ({ sessionId, projectPath, sessionUuid }) =>
+    ipcRenderer.invoke('session:deleteWithFile', { sessionId, projectPath, sessionUuid }),
+
   // 搜索
   searchSessions: ({ query, projectId, sessionId, limit }) => ipcRenderer.invoke('session:search', { query, projectId, sessionId, limit }),
 
@@ -333,7 +349,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 会话文件监控
   // ========================================
-  watchSessionFiles: (projectPath) => ipcRenderer.invoke('sessionWatcher:watch', projectPath),
+  watchSessionFiles: ({ projectPath, projectId }) => ipcRenderer.invoke('sessionWatcher:watch', { projectPath, projectId }),
   stopWatchingSessionFiles: () => ipcRenderer.invoke('sessionWatcher:stop'),
 
   onSessionFileChanged: (callback) => {
