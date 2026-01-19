@@ -46,7 +46,10 @@ export default {
     connected: '已连接',
     disconnected: '已断开',
     connect: '连接',
-    disconnect: '断开'
+    disconnect: '断开',
+    saved: '已保存',
+    deleted: '已删除',
+    copyFailed: '复制失败'
   },
 
   // 主页面
@@ -79,7 +82,98 @@ export default {
   // 右侧面板
   rightPanel: {
     title: '扩展功能',
-    comingSoon: '更多功能即将推出'
+    comingSoon: '更多功能即将推出',
+    // 标签页
+    tabs: {
+      queue: '命令队列',
+      plugins: '插件',
+      skills: '技能',
+      mcp: 'MCP',
+      prompts: '提示词',
+      ai: 'AI 助手'
+    },
+    // 快速输入
+    quickInput: {
+      label: '快速输入',
+      hint: 'Enter 加入队列，Ctrl+Enter 直接发送',
+      busy: '终端忙碌中...',
+      placeholder: '输入命令或提示词...',
+      addToQueue: '加入队列',
+      sendDirect: '直接发送'
+    },
+    // 命令队列
+    queue: {
+      empty: '队列为空',
+      emptyHint: '使用下方输入框添加命令',
+      mode: '模式',
+      modeManual: '手动',
+      modeSemiAuto: '半自动',
+      modeAuto: '全自动',
+      import: '导入',
+      settings: '设置',
+      send: '发送',
+      remove: '移除',
+      history: '执行历史'
+    },
+    // 插件
+    plugins: {
+      empty: '未找到插件',
+      emptyHint: '插件目录: ~/.claude/plugins/',
+      search: '搜索插件...',
+      openFolder: '打开插件目录',
+      refresh: '刷新',
+      noDescription: '暂无描述'
+    },
+    // 技能
+    skills: {
+      empty: '未找到技能',
+      emptyHint: '技能由 Claude Code 提供',
+      search: '搜索技能...',
+      refresh: '刷新',
+      uncategorized: '未分类'
+    },
+    // MCP
+    mcp: {
+      empty: '未配置 MCP 服务器',
+      emptyHint: '在 .mcp.json 中配置服务器',
+      refresh: '刷新状态',
+      global: '全局',
+      project: '项目',
+      connected: '已连接',
+      connecting: '连接中...',
+      disconnected: '未连接',
+      error: '连接错误'
+    },
+    // 提示词
+    prompts: {
+      empty: '暂无提示词',
+      emptyHint: '创建提示词模板以便快速使用',
+      addFirst: '创建第一个提示词',
+      search: '搜索提示词...',
+      add: '添加提示词',
+      edit: '编辑提示词',
+      insert: '插入',
+      name: '名称',
+      namePlaceholder: '提示词名称',
+      nameRequired: '请输入名称',
+      content: '内容',
+      contentPlaceholder: '提示词内容...',
+      contentRequired: '请输入内容',
+      category: '分类',
+      categoryPlaceholder: '分类（可选）',
+      deleteConfirm: '确定删除提示词 "{name}" 吗？'
+    },
+    // AI 助手
+    ai: {
+      empty: 'AI 助手',
+      emptyHint: '输入问题获取即时帮助',
+      placeholder: '输入问题...',
+      clear: '清空对话',
+      clearConfirm: '确定清空对话历史吗？',
+      insertToInput: '插入到输入框',
+      notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
+      error: '请求失败，请稍后重试'
+    }
   },
 
   // 设置菜单

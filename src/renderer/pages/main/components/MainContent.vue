@@ -86,7 +86,11 @@
     <!-- Right Panel -->
     <RightPanel
       v-if="showRightPanel"
+      ref="rightPanelRef"
+      :current-project="currentProject"
+      :terminal-busy="terminalBusy"
       @collapse="showRightPanel = false"
+      @send-command="handleSendCommand"
     />
 
     <!-- Right Panel Collapsed Strip -->
@@ -120,7 +124,7 @@ import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
-import RightPanel from './RightPanel.vue'
+import RightPanel from './RightPanel/index.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
@@ -164,9 +168,11 @@ const {
 
 // Refs
 const leftPanelRef = ref(null)
+const rightPanelRef = ref(null)
 const terminalRefs = ref({})
 const terminalFontSize = ref(14)
 const terminalFontFamily = ref('"Ubuntu Mono", monospace')
+const terminalBusy = ref(false)
 
 // Panel visibility
 const showLeftPanel = ref(true)
@@ -404,6 +410,21 @@ const onSessionClosed = (session) => {
 // Terminal ready event
 const handleTerminalReady = ({ sessionId }) => {
   // 终端就绪，无需额外处理
+}
+
+// Send command to active terminal
+const handleSendCommand = (command) => {
+  const activeTab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!activeTab || activeTab.id === 'welcome') {
+    message.warning(t('messages.pleaseSelectProject'))
+    return
+  }
+
+  const terminalRef = terminalRefs.value[activeTab.id]
+  if (terminalRef && window.electronAPI) {
+    // 写入命令到终端
+    window.electronAPI.writeSession(activeTab.sessionId, command + '\r')
+  }
 }
 
 // Theme toggle handler

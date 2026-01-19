@@ -46,7 +46,10 @@ export default {
     connected: 'Connected',
     disconnected: 'Disconnected',
     connect: 'Connect',
-    disconnect: 'Disconnect'
+    disconnect: 'Disconnect',
+    saved: 'Saved',
+    deleted: 'Deleted',
+    copyFailed: 'Copy failed'
   },
 
   // Main Page
@@ -79,7 +82,98 @@ export default {
   // Right Panel
   rightPanel: {
     title: 'Extensions',
-    comingSoon: 'More features coming soon'
+    comingSoon: 'More features coming soon',
+    // Tabs
+    tabs: {
+      queue: 'Queue',
+      plugins: 'Plugins',
+      skills: 'Skills',
+      mcp: 'MCP',
+      prompts: 'Prompts',
+      ai: 'AI'
+    },
+    // Quick Input
+    quickInput: {
+      label: 'Quick Input',
+      hint: 'Enter to queue, Ctrl+Enter to send',
+      busy: 'Terminal busy...',
+      placeholder: 'Enter command or prompt...',
+      addToQueue: 'Add to Queue',
+      sendDirect: 'Send Direct'
+    },
+    // Command Queue
+    queue: {
+      empty: 'Queue is empty',
+      emptyHint: 'Use the input below to add commands',
+      mode: 'Mode',
+      modeManual: 'Manual',
+      modeSemiAuto: 'Semi-Auto',
+      modeAuto: 'Auto',
+      import: 'Import',
+      settings: 'Settings',
+      send: 'Send',
+      remove: 'Remove',
+      history: 'History'
+    },
+    // Plugins
+    plugins: {
+      empty: 'No plugins found',
+      emptyHint: 'Plugin directory: ~/.claude/plugins/',
+      search: 'Search plugins...',
+      openFolder: 'Open plugins folder',
+      refresh: 'Refresh',
+      noDescription: 'No description'
+    },
+    // Skills
+    skills: {
+      empty: 'No skills found',
+      emptyHint: 'Skills are provided by Claude Code',
+      search: 'Search skills...',
+      refresh: 'Refresh',
+      uncategorized: 'Uncategorized'
+    },
+    // MCP
+    mcp: {
+      empty: 'No MCP servers configured',
+      emptyHint: 'Configure servers in .mcp.json',
+      refresh: 'Refresh status',
+      global: 'Global',
+      project: 'Project',
+      connected: 'Connected',
+      connecting: 'Connecting...',
+      disconnected: 'Disconnected',
+      error: 'Error'
+    },
+    // Prompts
+    prompts: {
+      empty: 'No prompts yet',
+      emptyHint: 'Create prompt templates for quick access',
+      addFirst: 'Create your first prompt',
+      search: 'Search prompts...',
+      add: 'Add Prompt',
+      edit: 'Edit Prompt',
+      insert: 'Insert',
+      name: 'Name',
+      namePlaceholder: 'Prompt name',
+      nameRequired: 'Please enter a name',
+      content: 'Content',
+      contentPlaceholder: 'Prompt content...',
+      contentRequired: 'Please enter content',
+      category: 'Category',
+      categoryPlaceholder: 'Category (optional)',
+      deleteConfirm: 'Delete prompt "{name}"?'
+    },
+    // AI Assistant
+    ai: {
+      empty: 'AI Assistant',
+      emptyHint: 'Ask questions for instant help',
+      placeholder: 'Ask a question...',
+      clear: 'Clear chat',
+      clearConfirm: 'Clear chat history?',
+      insertToInput: 'Insert to input',
+      notConfigured: 'AI assistant is not configured. Please set up API in settings.',
+      error: 'Request failed. Please try again.'
+    }
   },
 
   // Settings Menu
