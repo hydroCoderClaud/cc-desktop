@@ -1,7 +1,7 @@
 <template>
-  <div class="global-settings" :style="cssVars">
+  <div class="settings-page" :style="cssVars">
     <!-- Header -->
-    <div class="header">
+    <div class="settings-header">
       <h1>{{ t('globalSettings.title') }}</h1>
       <n-space>
         <n-button @click="handleReset">{{ t('common.reset') }}</n-button>
@@ -10,8 +10,8 @@
     </div>
 
     <!-- Global Models Section -->
-    <n-card :title="t('globalSettings.defaultModels')" class="section-card">
-      <p class="section-desc">{{ t('globalSettings.defaultModelsHint') }}</p>
+    <n-card :title="t('globalSettings.defaultModels')" class="settings-section">
+      <p class="settings-section-desc">{{ t('globalSettings.defaultModelsHint') }}</p>
       <div class="model-inputs">
         <div class="model-row">
           <span class="icon">🚀</span>
@@ -49,7 +49,7 @@
     </n-card>
 
     <!-- Timeout Settings Section -->
-    <n-card :title="t('globalSettings.timeout')" class="section-card">
+    <n-card :title="t('globalSettings.timeout')" class="settings-section">
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('common.testConnection')">
@@ -78,7 +78,7 @@
     </n-card>
 
     <!-- Session Settings Section -->
-    <n-card :title="t('globalSettings.sessionSettings')" class="section-card">
+    <n-card :title="t('globalSettings.sessionSettings')" class="settings-section">
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('globalSettings.maxActiveSessions')">
@@ -107,7 +107,7 @@
     </n-card>
 
     <!-- Footer Buttons -->
-    <div class="footer">
+    <div class="settings-footer">
       <n-space>
         <n-button @click="handleClose">{{ t('common.close') }}</n-button>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
@@ -257,42 +257,7 @@ const handleClose = () => {
 </script>
 
 <style scoped>
-.global-settings {
-  padding: 24px;
-  max-width: 800px;
-  margin: 0 auto;
-  min-height: 100vh;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--border-color, #f0f0f0);
-  background: var(--bg-color-secondary, white);
-  margin: -24px -24px 24px -24px;
-  padding: 24px;
-  border-radius: 12px 12px 0 0;
-}
-
-.header h1 {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.section-card {
-  margin-bottom: 20px;
-}
-
-.section-desc {
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 16px;
-  line-height: 1.5;
-}
-
+/* 组件特有样式 - 公共样式由 settings-common.css 提供 */
 .model-inputs {
   display: flex;
   flex-direction: column;
@@ -320,13 +285,5 @@ const handleClose = () => {
 
 .model-row .model-input {
   flex: 1;
-}
-
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 24px;
-  margin-top: 8px;
-  border-top: 1px solid var(--border-color, #e5e5e0);
 }
 </style>

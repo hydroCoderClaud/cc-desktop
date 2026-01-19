@@ -13,6 +13,7 @@ import {
   NGridItem
 } from 'naive-ui'
 import App from './App.vue'
+import '../../styles/settings-common.css'
 
 console.log('[AppearanceSettings] Initializing Vue app...')
 

@@ -1,7 +1,7 @@
 <template>
-  <div class="appearance-settings" :style="cssVars">
+  <div class="settings-page narrow" :style="cssVars">
     <!-- Header -->
-    <div class="header">
+    <div class="settings-header">
       <h1>{{ t('globalSettings.appearance') }}</h1>
       <n-space>
         <n-button @click="handleReset">{{ t('common.reset') }}</n-button>
@@ -10,7 +10,7 @@
     </div>
 
     <!-- Theme & Language Section -->
-    <n-card :title="t('globalSettings.themeAndLanguage')" class="section-card">
+    <n-card :title="t('globalSettings.themeAndLanguage')" class="settings-section">
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('globalSettings.theme')">
@@ -35,7 +35,7 @@
     </n-card>
 
     <!-- Terminal Font Section -->
-    <n-card :title="t('globalSettings.terminalSettings')" class="section-card">
+    <n-card :title="t('globalSettings.terminalSettings')" class="settings-section">
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('globalSettings.terminalFontSize')">
@@ -63,7 +63,7 @@
     </n-card>
 
     <!-- Footer Buttons -->
-    <div class="footer">
+    <div class="settings-footer">
       <n-space>
         <n-button @click="handleClose">{{ t('common.close') }}</n-button>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
@@ -196,40 +196,6 @@ const handleClose = () => {
 </script>
 
 <style scoped>
-.appearance-settings {
-  padding: 24px;
-  max-width: 700px;
-  margin: 0 auto;
-  min-height: 100vh;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--border-color, #f0f0f0);
-  background: var(--bg-color-secondary, white);
-  margin: -24px -24px 24px -24px;
-  padding: 24px;
-  border-radius: 12px 12px 0 0;
-}
-
-.header h1 {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.section-card {
-  margin-bottom: 20px;
-}
-
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 24px;
-  margin-top: 8px;
-  border-top: 1px solid var(--border-color, #e5e5e0);
-}
+/* 组件特有样式 - 公共样式由 settings-common.css 提供 */
+/* 无额外样式 */
 </style>

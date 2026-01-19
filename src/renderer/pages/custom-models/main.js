@@ -17,6 +17,7 @@ import {
   NEmpty
 } from 'naive-ui'
 import App from './App.vue'
+import '../../styles/settings-common.css'
 
 console.log('[CustomModels] Initializing Vue app...')
 

@@ -1,0 +1,177 @@
+/**
+ * 设置页面公共样式
+ * 用于所有设置/管理页面：global-settings, appearance-settings, profile-manager,
+ * provider-manager, custom-models, session-manager
+ */
+
+/* 页面容器 */
+.settings-page {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.settings-page.narrow {
+  max-width: 600px;
+}
+
+.settings-page.wide {
+  max-width: 1000px;
+}
+
+.settings-page.full {
+  max-width: none;
+}
+
+/* 页面头部 */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border-color, #f0f0f0);
+  background: var(--bg-color-secondary, white);
+  margin: -24px -24px 24px -24px;
+  padding: 24px;
+  border-radius: 12px 12px 0 0;
+}
+
+.settings-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* 内容区块 */
+.settings-section {
+  margin-bottom: 20px;
+}
+
+.settings-section-desc {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* 页面底部 */
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 24px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-color, #e5e5e0);
+}
+
+/* 当前选中状态提示 */
+.settings-current-item {
+  padding: 15px;
+  background: var(--bg-color-tertiary, #f8f9fa);
+  border-radius: 8px;
+  border-left: 4px solid #17a2b8;
+  margin-bottom: 20px;
+}
+
+.settings-current-item.empty {
+  border-left-color: #dc3545;
+}
+
+.settings-current-item .label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.settings-current-item .info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-current-item .icon {
+  font-size: 20px;
+}
+
+.settings-current-item .name {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 列表网格布局 */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* 列表项卡片 */
+.settings-card {
+  margin-bottom: 16px;
+}
+
+.settings-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-card .card-icon {
+  font-size: 24px;
+}
+
+.settings-card .card-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.settings-card .card-subtitle {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* 表单行 */
+.settings-form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.settings-form-row .icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.settings-form-row .label {
+  min-width: 100px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-form-row .input {
+  flex: 1;
+}
+
+/* 警告/提示框 */
+.settings-warning {
+  padding: 12px 16px;
+  background: var(--warning-bg, #fff3cd);
+  color: var(--warning-text, #856404);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.settings-info {
+  padding: 12px 16px;
+  background: var(--info-bg, #d1ecf1);
+  color: var(--info-text, #0c5460);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
