@@ -10,6 +10,11 @@ on:
         description: 'Version tag (e.g., v1.1.0)'
         required: false
         default: ''
+      skip_macos:
+        description: 'Skip macOS build'
+        type: boolean
+        required: false
+        default: false
 
 env:
   CI: true
@@ -47,6 +52,7 @@ jobs:
             platform: mac
 
     runs-on: ${{ matrix.os }}
+    if: ${{ !(matrix.platform == 'mac' && github.event.inputs.skip_macos == 'true') }}
     timeout-minutes: 30
 
     steps:
