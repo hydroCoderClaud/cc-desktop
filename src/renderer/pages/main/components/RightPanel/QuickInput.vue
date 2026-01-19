@@ -2,9 +2,7 @@
   <div class="quick-input">
     <div class="input-header">
       <span class="input-label">{{ t('rightPanel.quickInput.label') }}</span>
-      <span class="input-hint">
-        {{ terminalBusy ? t('rightPanel.quickInput.busy') : t('rightPanel.quickInput.hint') }}
-      </span>
+      <span class="input-hint">{{ t('rightPanel.quickInput.hint') }}</span>
     </div>
     <div class="input-row">
       <textarea
@@ -17,20 +15,20 @@
       />
       <div class="input-actions">
         <button
-          class="action-btn queue-btn"
+          class="action-btn"
           :disabled="!inputText.trim()"
-          :title="t('rightPanel.quickInput.addToQueue') + ' (Enter)'"
+          :title="t('rightPanel.quickInput.addToQueue')"
           @click="handleAddToQueue"
         >
-          📋
+          +
         </button>
         <button
-          class="action-btn send-btn"
-          :disabled="!inputText.trim() || terminalBusy"
-          :title="t('rightPanel.quickInput.sendDirect') + ' (Ctrl+Enter)'"
-          @click="handleSendDirect"
+          class="action-btn create-prompt-btn"
+          :disabled="!inputText.trim()"
+          :title="t('rightPanel.quickInput.createPrompt')"
+          @click="handleCreatePrompt"
         >
-          ▶
+          💬
         </button>
       </div>
     </div>
@@ -43,14 +41,7 @@ import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
 
-const props = defineProps({
-  terminalBusy: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const emit = defineEmits(['add-to-queue', 'send-direct'])
+const emit = defineEmits(['add-to-queue', 'send-to-terminal', 'create-prompt'])
 
 // Refs
 const textareaRef = ref(null)
@@ -58,21 +49,15 @@ const inputText = ref('')
 
 // Handle keyboard shortcuts
 const handleKeydown = (e) => {
-  if (e.key === 'Enter') {
-    if (e.ctrlKey || e.metaKey) {
-      // Ctrl+Enter: Send directly
-      e.preventDefault()
-      handleSendDirect()
-    } else if (!e.shiftKey) {
-      // Enter (without Shift): Add to queue
-      e.preventDefault()
-      handleAddToQueue()
-    }
-    // Shift+Enter: Allow newline (default behavior)
+  if (e.key === 'Enter' && !e.shiftKey) {
+    // Enter: Send to terminal, focus terminal
+    e.preventDefault()
+    handleSendToTerminal()
   } else if (e.key === 'Escape') {
     inputText.value = ''
     textareaRef.value?.blur()
   }
+  // Shift+Enter: Allow newline (default behavior)
 }
 
 // Add to queue
@@ -84,13 +69,22 @@ const handleAddToQueue = () => {
   inputText.value = ''
 }
 
-// Send directly to terminal
-const handleSendDirect = () => {
+// Send to terminal without executing, focus terminal
+const handleSendToTerminal = () => {
   const text = inputText.value.trim()
-  if (!text || props.terminalBusy) return
+  if (!text) return
 
-  emit('send-direct', text)
+  emit('send-to-terminal', text)
   inputText.value = ''
+}
+
+// Create prompt from current input
+const handleCreatePrompt = () => {
+  const text = inputText.value.trim()
+  if (!text) return
+
+  emit('create-prompt', text)
+  // Don't clear input - user might want to continue editing
 }
 
 // Insert text (called from parent)
@@ -167,7 +161,7 @@ defineExpose({
 
 .action-btn {
   width: 32px;
-  height: 24px;
+  height: 100%;
   border-radius: 4px;
   border: 1px solid var(--border-color);
   background: var(--bg-color-secondary);
@@ -175,23 +169,20 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-color-muted);
   transition: all 0.15s ease;
 }
 
 .action-btn:hover:not(:disabled) {
   background: var(--hover-bg);
   border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.send-btn:hover:not(:disabled) {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
 }
 </style>

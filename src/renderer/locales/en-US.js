@@ -96,11 +96,10 @@ export default {
     // Quick Input
     quickInput: {
       label: 'Quick Input',
-      hint: 'Enter to queue, Ctrl+Enter to send',
-      busy: 'Terminal busy...',
+      hint: 'Enter to input, Enter again to run',
       placeholder: 'Enter command or prompt...',
       addToQueue: 'Add to Queue',
-      sendDirect: 'Send Direct'
+      createPrompt: 'Create Prompt'
     },
     // Command Queue
     queue: {
@@ -477,6 +476,7 @@ export default {
     projectPinned: 'Project pinned',
     projectUnpinned: 'Project unpinned',
     terminalExited: 'Terminal process exited',
-    terminalError: 'Terminal error'
+    terminalError: 'Terminal error',
+    noActiveTerminal: 'Please open a terminal session first'
   }
 }

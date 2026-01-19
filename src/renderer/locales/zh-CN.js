@@ -96,11 +96,10 @@ export default {
     // 快速输入
     quickInput: {
       label: '快速输入',
-      hint: 'Enter 加入队列，Ctrl+Enter 直接发送',
-      busy: '终端忙碌中...',
+      hint: '回车输入，再回车执行',
       placeholder: '输入命令或提示词...',
       addToQueue: '加入队列',
-      sendDirect: '直接发送'
+      createPrompt: '创建提示词'
     },
     // 命令队列
     queue: {
@@ -477,6 +476,7 @@ export default {
     projectPinned: '项目已置顶',
     projectUnpinned: '项目已取消置顶',
     terminalExited: '终端进程已退出',
-    terminalError: '终端错误'
+    terminalError: '终端错误',
+    noActiveTerminal: '请先打开一个终端会话'
   }
 }

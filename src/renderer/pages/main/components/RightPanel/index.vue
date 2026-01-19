@@ -13,9 +13,10 @@
       <KeepAlive>
         <component
           :is="currentTabComponent"
+          ref="tabContentRef"
           :current-project="currentProject"
           :terminal-busy="terminalBusy"
-          @send-command="handleSendCommand"
+          @send-command="handleSendToTerminal"
           @insert-to-input="handleInsertToInput"
         />
       </KeepAlive>
@@ -24,15 +25,15 @@
     <!-- Quick Input -->
     <QuickInput
       ref="quickInputRef"
-      :terminal-busy="terminalBusy"
       @add-to-queue="handleAddToQueue"
-      @send-direct="handleSendDirect"
+      @send-to-terminal="handleSendToTerminal"
+      @create-prompt="handleCreatePrompt"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, shallowRef, markRaw } from 'vue'
+import { ref, computed, shallowRef, markRaw, nextTick } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import TabBar from './TabBar.vue'
 import QuickInput from './QuickInput.vue'
@@ -60,10 +61,11 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['collapse', 'send-command'])
+const emit = defineEmits(['collapse', 'send-to-terminal'])
 
 // Refs
 const quickInputRef = ref(null)
+const tabContentRef = ref(null)
 
 // Tab definitions
 const tabs = computed(() => [
@@ -94,8 +96,8 @@ const currentTabComponent = computed(() => {
 })
 
 // Handlers
-const handleSendCommand = (command) => {
-  emit('send-command', command)
+const handleSendToTerminal = (command) => {
+  emit('send-to-terminal', command)
 }
 
 const handleInsertToInput = (text) => {
@@ -111,8 +113,14 @@ const handleAddToQueue = (command) => {
   console.log('Add to queue:', command)
 }
 
-const handleSendDirect = (command) => {
-  emit('send-command', command)
+const handleCreatePrompt = async (content) => {
+  // Switch to prompts tab
+  activeTab.value = 'prompts'
+  // Wait for component to render, then call openCreateWithContent
+  await nextTick()
+  if (tabContentRef.value?.openCreateWithContent) {
+    tabContentRef.value.openCreateWithContent(content)
+  }
 }
 
 // Expose for parent component

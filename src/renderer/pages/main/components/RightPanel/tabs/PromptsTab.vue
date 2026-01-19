@@ -373,10 +373,15 @@ const tagColors = TAG_COLORS
 
 // Methods
 const handleAdd = () => {
+  openCreateWithContent('')
+}
+
+// Open create modal with initial content (exposed for external call)
+const openCreateWithContent = (content = '') => {
   editingPrompt.value = null
   formData.value = {
     name: '',
-    content: '',
+    content: content,
     scope: currentScope.value === 'project' ? 'project' : 'global',
     tagIds: []
   }
@@ -527,6 +532,11 @@ watch(() => props.currentProject, () => {
 onMounted(async () => {
   await loadTags()
   await loadPrompts()
+})
+
+// Expose methods for external access
+defineExpose({
+  openCreateWithContent
 })
 </script>
 

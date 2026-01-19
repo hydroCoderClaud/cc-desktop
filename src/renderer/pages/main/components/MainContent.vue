@@ -90,7 +90,7 @@
       :current-project="currentProject"
       :terminal-busy="terminalBusy"
       @collapse="showRightPanel = false"
-      @send-command="handleSendCommand"
+      @send-to-terminal="handleSendToTerminal"
     />
 
     <!-- Right Panel Collapsed Strip -->
@@ -412,19 +412,28 @@ const handleTerminalReady = ({ sessionId }) => {
   // 终端就绪，无需额外处理
 }
 
-// Send command to active terminal
-const handleSendCommand = (command) => {
+// Send to terminal without executing, then focus terminal
+const handleSendToTerminal = (command) => {
   const activeTab = tabs.value.find(t => t.id === activeTabId.value)
   if (!activeTab || activeTab.id === 'welcome') {
-    message.warning(t('messages.pleaseSelectProject'))
+    message.warning(t('messages.noActiveTerminal'))
     return
   }
 
-  const terminalRef = terminalRefs.value[activeTab.id]
-  if (terminalRef && window.electronAPI) {
-    // 写入命令到终端
-    window.electronAPI.writeSession(activeTab.sessionId, command + '\r')
+  if (window.electronAPI) {
+    // 写入命令到终端（不执行）
+    window.electronAPI.writeActiveSession({
+      sessionId: activeTab.sessionId,
+      data: command
+    })
   }
+
+  // 聚焦终端
+  nextTick(() => {
+    if (terminalRefs.value[activeTab.id]) {
+      terminalRefs.value[activeTab.id].focus()
+    }
+  })
 }
 
 // Theme toggle handler
