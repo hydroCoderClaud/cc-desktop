@@ -203,9 +203,11 @@ function withSessionOperations(BaseClass) {
      * @param {string} title - 新标题
      */
     updateSessionTitle(sessionId, title) {
-      this.db.prepare(`
+      console.log('[SessionDB] updateSessionTitle:', { sessionId, title })
+      const result = this.db.prepare(`
         UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?
       `).run(title, Date.now(), sessionId)
+      console.log('[SessionDB] updateSessionTitle result:', result)
       return { success: true }
     }
 
@@ -222,12 +224,14 @@ function withSessionOperations(BaseClass) {
         FROM sessions s
         WHERE s.project_id = ?
           AND (s.session_uuid IS NOT NULL OR s.active_session_id IS NOT NULL)
+          AND (s.message_count > 0 OR s.session_uuid IS NULL)
         ORDER BY
           CASE WHEN s.session_uuid IS NULL THEN 0 ELSE 1 END,
           COALESCE(s.last_message_at, s.started_at, s.created_at) DESC
         LIMIT ?
       `).all(projectId, limit)
 
+      console.log('[SessionDB] getProjectSessionsForPanel:', projectId, '-> sessions:', sessions.map(s => ({ id: s.id, title: s.title, uuid: s.session_uuid?.slice(0, 8) })))
       return sessions
     }
 

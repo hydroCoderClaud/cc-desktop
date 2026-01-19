@@ -105,15 +105,25 @@ class ActiveSessionManager {
     console.log(`[ActiveSession] Created session ${session.id} for project: ${options.projectPath}${options.resumeSessionId ? ` (resume: ${options.resumeSessionId})` : ''}`)
 
     // 如果不是恢复会话，则在数据库创建待定会话记录
-    if (!options.resumeSessionId && this.sessionDatabase && options.projectId) {
+    if (!options.resumeSessionId && this.sessionDatabase && options.projectPath) {
       try {
+        // 通过 projectPath 获取或创建数据库中的项目
+        const { encodePath } = require('./utils/path-utils')
+        const encodedPath = encodePath(options.projectPath)
+        const dbProject = this.sessionDatabase.getOrCreateProject(
+          options.projectPath,
+          encodedPath,
+          options.projectName || require('path').basename(options.projectPath)
+        )
+
+        // 使用数据库项目的 INTEGER id 创建待定会话
         const dbSession = this.sessionDatabase.createPendingSession(
-          options.projectId,
+          dbProject.id,
           options.title,
           session.id
         )
         session.dbSessionId = dbSession.id
-        console.log(`[ActiveSession] Created pending DB session: ${dbSession.id}`)
+        console.log(`[ActiveSession] Created pending DB session: ${dbSession.id} for DB project: ${dbProject.id}`)
       } catch (err) {
         console.error('[ActiveSession] Failed to create pending DB session:', err)
       }

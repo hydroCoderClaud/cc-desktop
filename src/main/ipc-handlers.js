@@ -340,17 +340,44 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
 
   // 获取项目会话列表（从数据库）
-  registerHandler('session:getProjectSessionsFromDb', async (projectId) => {
-    return sessionDatabase.getProjectSessionsForPanel(projectId);
+  // 参数改为 projectPath，通过路径查找数据库中的项目
+  registerHandler('session:getProjectSessionsFromDb', async (projectPath) => {
+    console.log('[IPC] getProjectSessionsFromDb called with path:', projectPath);
+
+    // 通过路径查找数据库中的项目
+    const dbProject = sessionDatabase.getProjectByPath(projectPath);
+    if (!dbProject) {
+      console.log('[IPC] Project not found in DB for path:', projectPath);
+      return [];
+    }
+
+    console.log('[IPC] Found DB project id:', dbProject.id);
+    const sessions = sessionDatabase.getProjectSessionsForPanel(dbProject.id);
+    console.log('[IPC] Sessions from DB:', sessions?.length || 0);
+    return sessions;
   });
 
   // 同步项目会话到数据库（从文件系统增量同步）
-  registerHandler('session:syncProjectSessions', async ({ projectPath, projectId }) => {
+  registerHandler('session:syncProjectSessions', async ({ projectPath, projectName }) => {
+    console.log('[IPC] syncProjectSessions called:', { projectPath, projectName });
+
     // 获取文件系统中的会话
     const fileSessions = await sessionHistoryService.getProjectSessions(projectPath);
+    console.log('[IPC] File sessions found:', fileSessions?.length || 0);
+
     if (!fileSessions || fileSessions.length === 0) {
       return { success: true, synced: 0 };
     }
+
+    // 获取或创建数据库中的项目（使用路径作为关联键）
+    const { encodePath } = require('./utils/path-utils');
+    const encodedPath = encodePath(projectPath);
+    const dbProject = sessionDatabase.getOrCreateProject(
+      projectPath,
+      encodedPath,
+      projectName || require('path').basename(projectPath)
+    );
+    console.log('[IPC] DB project id:', dbProject.id);
 
     let syncedCount = 0;
     for (const fileSession of fileSessions) {
@@ -358,8 +385,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       if (fileSession.firstUserMessage?.toLowerCase().includes('warmup')) {
         continue;
       }
-      // 同步到数据库
-      sessionDatabase.syncSessionFromFile(projectId, fileSession);
+      // 跳过 0 条消息的会话
+      if (!fileSession.messageCount || fileSession.messageCount === 0) {
+        continue;
+      }
+      // 同步到数据库（使用数据库项目的 INTEGER id）
+      sessionDatabase.syncSessionFromFile(dbProject.id, fileSession);
       syncedCount++;
     }
 
@@ -368,7 +399,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 更新会话标题
   registerHandler('session:updateTitle', async ({ sessionId, title }) => {
-    return sessionDatabase.updateSessionTitle(sessionId, title);
+    console.log('[IPC] updateTitle called:', { sessionId, title });
+    const result = sessionDatabase.updateSessionTitle(sessionId, title);
+    console.log('[IPC] updateTitle result:', result);
+    return result;
   });
 
   // 删除会话（数据库 + 文件）

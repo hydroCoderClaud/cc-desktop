@@ -517,8 +517,8 @@ const handleEditHistorySession = (session) => {
   showHistoryRenameDialog.value = true
 }
 
-// Confirm history session rename (仅修改内存中的数据)
-const confirmHistoryRename = () => {
+// Confirm history session rename (保存到数据库)
+const confirmHistoryRename = async () => {
   if (!editingHistorySession.value) return
 
   const newName = historyRenameTitle.value.trim()
@@ -527,17 +527,33 @@ const confirmHistoryRename = () => {
     return
   }
 
-  // 直接修改 historySessions 数组中的对应项
-  const session = historySessions.value.find(
-    s => s.session_uuid === editingHistorySession.value.session_uuid
-  )
-  if (session) {
-    session.name = newName
+  try {
+    // 保存到数据库
+    const result = await invoke('updateSessionTitle', {
+      sessionId: editingHistorySession.value.id,
+      title: newName
+    })
+
+    if (result.success) {
+      // 更新内存中的数据
+      const session = historySessions.value.find(
+        s => s.id === editingHistorySession.value.id
+      )
+      if (session) {
+        session.name = newName
+        session.title = newName
+      }
+      message.success(t('messages.saveSuccess') || '已保存')
+    } else {
+      message.error(result.error || t('messages.saveFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to update session title:', err)
+    message.error(t('messages.saveFailed'))
   }
 
   showHistoryRenameDialog.value = false
   editingHistorySession.value = null
-  message.success(t('messages.saveSuccess') || '已保存（仅当前会话有效）')
 }
 
 // Delete history session
@@ -562,11 +578,14 @@ watch(() => props.currentProject, async (newProject) => {
   if (newProject) {
     await Promise.all([
       loadActiveSessions(),
-      loadHistorySessions(newProject.path)
+      loadHistorySessions(newProject)
     ])
     // Start watching session files for this project
     if (window.electronAPI?.watchSessionFiles) {
-      window.electronAPI.watchSessionFiles(newProject.path)
+      window.electronAPI.watchSessionFiles({
+        projectPath: newProject.path,
+        projectId: newProject.id
+      })
     }
   } else {
     historySessions.value = []
@@ -591,7 +610,7 @@ onMounted(async () => {
       console.log('[LeftPanel] Session file changed:', data)
       // Reload history sessions when files change
       if (props.currentProject?.path === data.projectPath) {
-        await loadHistorySessions(props.currentProject.path)
+        await loadHistorySessions(props.currentProject)
       }
     })
   }
@@ -609,7 +628,7 @@ onUnmounted(() => {
 // Expose methods
 defineExpose({
   loadActiveSessions,
-  loadHistorySessions: () => loadHistorySessions(props.currentProject?.path),
+  loadHistorySessions: () => loadHistorySessions(props.currentProject),
   focusedSessionId,
   handleNewSession
 })

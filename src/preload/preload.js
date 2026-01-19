@@ -180,11 +180,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 会话面板管理（数据库 + 文件同步）
   // ========================================
-  // 从数据库获取项目会话（用于左侧面板）
-  getProjectSessionsFromDb: (projectId) => ipcRenderer.invoke('session:getProjectSessionsFromDb', projectId),
+  // 从数据库获取项目会话（用于左侧面板）- 通过 projectPath 查询
+  getProjectSessionsFromDb: (projectPath) => ipcRenderer.invoke('session:getProjectSessionsFromDb', projectPath),
 
   // 同步项目会话到数据库（从文件系统增量同步）
-  syncProjectSessions: ({ projectPath, projectId }) => ipcRenderer.invoke('session:syncProjectSessions', { projectPath, projectId }),
+  syncProjectSessions: ({ projectPath, projectName }) => ipcRenderer.invoke('session:syncProjectSessions', { projectPath, projectName }),
 
   // 更新会话标题
   updateSessionTitle: ({ sessionId, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, title }),

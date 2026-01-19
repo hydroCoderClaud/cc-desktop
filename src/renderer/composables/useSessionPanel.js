@@ -59,25 +59,27 @@ export function useSessionPanel(props, emit) {
    * @param {Object} project - 项目对象 { id, path }
    */
   const loadHistorySessions = async (project) => {
-    if (!project || !project.id) {
+    if (!project || !project.path) {
       historySessions.value = []
       return
     }
 
     try {
-      // 先同步文件系统到数据库
+      // 先同步文件系统到数据库（通过 path 关联）
       await invoke('syncProjectSessions', {
         projectPath: project.path,
-        projectId: project.id
+        projectName: project.name
       })
 
-      // 从数据库加载
-      const sessions = await invoke('getProjectSessionsFromDb', project.id)
+      // 从数据库加载（通过 path 查询）
+      const sessions = await invoke('getProjectSessionsFromDb', project.path)
       historySessions.value = (sessions || [])
         // 过滤掉没有任何内容的会话（无 uuid 且无 title）
         .filter(s => s.session_uuid || s.title)
         // 过滤掉 warmup 预热会话
         .filter(s => !s.first_user_message?.toLowerCase().includes('warmup'))
+        // 过滤掉 0 条消息的会话（待定会话除外）
+        .filter(s => s.message_count > 0 || !s.session_uuid)
         .map(s => ({
           ...s,
           // 保持兼容性
