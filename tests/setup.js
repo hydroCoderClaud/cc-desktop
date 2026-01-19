@@ -1,47 +1,31 @@
 /**
  * 测试全局设置
- * 用于 mock Electron 模块和其他全局依赖
+ * 提供共享的测试工具函数
  */
 
-import { vi } from 'vitest'
 import path from 'path'
 import os from 'os'
 import fs from 'fs'
 
-// 创建临时测试目录
-const testTempDir = path.join(os.tmpdir(), 'cc-desktop-test-' + Date.now())
-
-// Mock Electron 模块
-vi.mock('electron', () => ({
-  app: {
-    getPath: (name) => {
-      if (name === 'userData') {
-        return testTempDir
-      }
-      return testTempDir
-    },
-    getName: () => 'claude-code-desktop-test',
-    getVersion: () => '1.0.0-test'
-  },
-  ipcMain: {
-    handle: vi.fn(),
-    on: vi.fn()
-  },
-  BrowserWindow: vi.fn()
-}))
-
-// 清理函数
-export function setupTestDir() {
-  if (!fs.existsSync(testTempDir)) {
-    fs.mkdirSync(testTempDir, { recursive: true })
+/**
+ * 创建临时测试目录
+ * @param {string} prefix - 目录前缀
+ * @returns {string} 临时目录路径
+ */
+export function createTestTempDir(prefix = 'cc-desktop-test') {
+  const tempDir = path.join(os.tmpdir(), `${prefix}-${Date.now()}`)
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true })
   }
-  return testTempDir
+  return tempDir
 }
 
-export function cleanupTestDir() {
-  if (fs.existsSync(testTempDir)) {
-    fs.rmSync(testTempDir, { recursive: true, force: true })
+/**
+ * 清理测试目录
+ * @param {string} dirPath - 要清理的目录路径
+ */
+export function cleanupTestDir(dirPath) {
+  if (dirPath && fs.existsSync(dirPath)) {
+    fs.rmSync(dirPath, { recursive: true, force: true })
   }
 }
-
-export { testTempDir }

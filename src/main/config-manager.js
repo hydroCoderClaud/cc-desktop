@@ -13,9 +13,13 @@ const { projectConfigMixin } = require('./config/project-config');
 const { apiConfigMixin } = require('./config/api-config');
 
 class ConfigManager {
-  constructor() {
-    // 配置文件路径
-    this.userDataPath = app.getPath('userData');
+  /**
+   * @param {Object} options - 可选配置
+   * @param {string} options.userDataPath - 自定义用户数据目录路径（用于测试）
+   */
+  constructor(options = {}) {
+    // 配置文件路径（支持测试时注入自定义路径）
+    this.userDataPath = options.userDataPath || app.getPath('userData');
     this.configPath = path.join(this.userDataPath, 'config.json');
 
     // 默认配置

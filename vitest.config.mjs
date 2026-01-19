@@ -12,9 +12,6 @@ export default defineConfig({
     // 排除
     exclude: ['node_modules', 'dist', 'src/renderer'],
 
-    // 设置文件
-    setupFiles: ['./tests/setup.js'],
-
     // 覆盖率配置
     coverage: {
       provider: 'v8',
