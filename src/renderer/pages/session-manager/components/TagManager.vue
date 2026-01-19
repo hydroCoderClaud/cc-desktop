@@ -25,6 +25,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { TAG_COLORS, DEFAULT_TAG_COLOR } from '@composables/constants'
 
 const { t } = useLocale()
 
@@ -47,8 +48,8 @@ const showModal = computed({
 })
 
 const newTagName = ref('')
-const newTagColor = ref('#1890ff')
-const tagColors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96']
+const newTagColor = ref(DEFAULT_TAG_COLOR)
+const tagColors = TAG_COLORS
 
 const handleCreate = () => {
   if (!newTagName.value.trim()) return

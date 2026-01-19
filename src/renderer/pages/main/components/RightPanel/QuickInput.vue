@@ -12,7 +12,7 @@
         v-model="inputText"
         class="input-field"
         :placeholder="t('rightPanel.quickInput.placeholder')"
-        rows="2"
+        rows="4"
         @keydown="handleKeydown"
       />
       <div class="input-actions">

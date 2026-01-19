@@ -67,30 +67,30 @@ const quickInputRef = ref(null)
 
 // Tab definitions
 const tabs = computed(() => [
+  { id: 'prompts', icon: '💬', label: t('rightPanel.tabs.prompts') },
   { id: 'queue', icon: '📋', label: t('rightPanel.tabs.queue') },
   { id: 'plugins', icon: '🔌', label: t('rightPanel.tabs.plugins') },
   { id: 'skills', icon: '⚡', label: t('rightPanel.tabs.skills') },
   { id: 'mcp', icon: '🔗', label: t('rightPanel.tabs.mcp') },
-  { id: 'prompts', icon: '💬', label: t('rightPanel.tabs.prompts') },
   { id: 'ai', icon: '🤖', label: t('rightPanel.tabs.ai') }
 ])
 
 // Tab components map
 const tabComponents = {
+  prompts: markRaw(PromptsTab),
   queue: markRaw(QueueTab),
   plugins: markRaw(PluginsTab),
   skills: markRaw(SkillsTab),
   mcp: markRaw(MCPTab),
-  prompts: markRaw(PromptsTab),
   ai: markRaw(AITab)
 }
 
 // Active tab state
-const activeTab = ref('queue')
+const activeTab = ref('prompts')
 
 // Current tab component
 const currentTabComponent = computed(() => {
-  return tabComponents[activeTab.value] || tabComponents.queue
+  return tabComponents[activeTab.value] || tabComponents.prompts
 })
 
 // Handlers

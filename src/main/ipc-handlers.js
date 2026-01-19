@@ -30,12 +30,14 @@ const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-
 const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
+const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
+const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -299,6 +301,20 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 会话历史管理（数据库版）
   // ========================================
   setupSessionHandlers(ipcMain, sessionDatabase);
+
+  // ========================================
+  // 提示词管理
+  // ========================================
+  if (registerPromptHandlers) {
+    try {
+      registerPromptHandlers(sessionDatabase);
+      console.log('[IPC] Prompt handlers registered successfully');
+    } catch (err) {
+      console.error('[IPC] Failed to setup prompt handlers:', err);
+    }
+  } else {
+    console.error('[IPC] registerPromptHandlers not available - module failed to load');
+  }
 
   // ========================================
   // 实时会话读取（文件版）

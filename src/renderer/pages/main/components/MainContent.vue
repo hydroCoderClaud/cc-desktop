@@ -176,7 +176,7 @@ const terminalBusy = ref(false)
 
 // Panel visibility
 const showLeftPanel = ref(true)
-const showRightPanel = ref(false)  // 默认隐藏右侧面板
+const showRightPanel = ref(true)  // 默认显示右侧面板
 
 // Set terminal ref
 const setTerminalRef = (tabId, el) => {

@@ -1,15 +1,9 @@
 /**
- * Vitest 测试设置文件
+ * better-sqlite3 Mock 实现
  *
- * 在所有测试运行前执行，用于设置全局 mock
+ * 用于单元测试，模拟 SQLite 数据库行为
+ * 解决 Electron/Node.js 原生模块版本不兼容问题
  */
-
-import { vi } from 'vitest'
-
-// ============================================================================
-// Mock better-sqlite3 原生模块
-// 解决 Electron/Node.js 版本不兼容问题
-// ============================================================================
 
 // 全局内存存储
 let memoryTables = {}
@@ -18,7 +12,7 @@ let autoIncrements = {}
 /**
  * 重置内存数据库 (供测试使用)
  */
-export function resetMemoryDB() {
+function resetMemoryDB() {
   memoryTables = {}
   autoIncrements = {}
 }
@@ -35,12 +29,17 @@ class MockStatement {
   run(...params) {
     const sql = this.sql
 
+    // INSERT
     if (sql.toUpperCase().startsWith('INSERT')) {
       return this._runInsert(params)
     }
+
+    // UPDATE
     if (sql.toUpperCase().startsWith('UPDATE')) {
       return this._runUpdate(params)
     }
+
+    // DELETE
     if (sql.toUpperCase().startsWith('DELETE')) {
       return this._runDelete(params)
     }
@@ -50,7 +49,8 @@ class MockStatement {
 
   get(...params) {
     if (this.sql.toUpperCase().startsWith('SELECT')) {
-      return this._runSelect(params)[0]
+      const results = this._runSelect(params)
+      return results[0]
     }
     return undefined
   }
@@ -77,11 +77,13 @@ class MockStatement {
     const tableName = this._getTableName(this.sql, 'INSERT')
     if (!tableName) return { changes: 0, lastInsertRowid: 0 }
 
+    // 确保表存在
     if (!memoryTables[tableName]) {
       memoryTables[tableName] = []
       autoIncrements[tableName] = 1
     }
 
+    // 解析列名
     const colMatch = this.sql.match(/\(([^)]+)\)\s*VALUES/i)
     if (!colMatch) return { changes: 0, lastInsertRowid: 0 }
 
@@ -93,6 +95,7 @@ class MockStatement {
       row[col] = params[i]
     })
 
+    // 添加时间戳
     const now = new Date().toISOString()
     if (!row.created_at) row.created_at = now
     if (!row.updated_at) row.updated_at = now
@@ -106,10 +109,13 @@ class MockStatement {
     const tableName = this._getTableName(this.sql, 'UPDATE')
     if (!tableName || !memoryTables[tableName]) return { changes: 0 }
 
+    // 解析 SET 子句中的列
     const setMatch = this.sql.match(/SET\s+(.+?)(?:\s+WHERE|$)/i)
     if (!setMatch) return { changes: 0 }
 
     const setParts = setMatch[1].split(',').map(s => s.trim())
+
+    // 最后一个参数通常是 WHERE id = ?
     const whereId = params[params.length - 1]
 
     let changes = 0
@@ -122,6 +128,7 @@ class MockStatement {
           if (part.includes('?')) {
             row[col] = params[paramIndex++]
           } else if (part.includes('+')) {
+            // column = column + 1
             row[col] = (row[col] || 0) + 1
           }
         }
@@ -139,21 +146,27 @@ class MockStatement {
 
     const initialLength = memoryTables[tableName].length
 
+    // 简单的 WHERE 处理
     if (this.sql.includes('prompt_id = ?') && this.sql.includes('tag_id = ?')) {
-      const [promptId, tagId] = params
+      const promptId = params[0]
+      const tagId = params[1]
       memoryTables[tableName] = memoryTables[tableName].filter(
         row => !(row.prompt_id === promptId && row.tag_id === tagId)
       )
     } else if (this.sql.includes('prompt_id = ?')) {
+      const promptId = params[0]
       memoryTables[tableName] = memoryTables[tableName].filter(
-        row => row.prompt_id !== params[0]
+        row => row.prompt_id !== promptId
       )
     } else if (this.sql.includes('tag_id = ?')) {
+      const tagId = params[0]
       memoryTables[tableName] = memoryTables[tableName].filter(
-        row => row.tag_id !== params[0]
+        row => row.tag_id !== tagId
       )
     } else {
-      memoryTables[tableName] = memoryTables[tableName].filter(row => row.id !== params[0])
+      // WHERE id = ?
+      const id = params[0]
+      memoryTables[tableName] = memoryTables[tableName].filter(row => row.id !== id)
     }
 
     return { changes: initialLength - memoryTables[tableName].length }
@@ -164,25 +177,33 @@ class MockStatement {
     if (!tableName || !memoryTables[tableName]) return []
 
     let results = [...memoryTables[tableName]]
+    let paramIndex = 0
 
+    // WHERE 筛选
     if (this.sql.toUpperCase().includes('WHERE')) {
       results = results.filter(row => {
-        if (this.sql.includes('p.id = ?') || (this.sql.includes('id = ?') && !this.sql.includes('prompt_id') && !this.sql.includes('tag_id'))) {
-          return row.id === params[0]
+        // id = ?
+        if (this.sql.includes('p.id = ?') || (this.sql.includes('id = ?') && !this.sql.includes('prompt_id'))) {
+          return row.id === params[paramIndex]
         }
+        // prompt_id = ? AND tag_id = ?
         if (this.sql.includes('prompt_id = ?') && this.sql.includes('tag_id = ?')) {
           return row.prompt_id === params[0] && row.tag_id === params[1]
         }
+        // prompt_id = ?
         if (this.sql.includes('prompt_id = ?')) {
           return row.prompt_id === params[0]
         }
-        if (this.sql.includes("scope = 'all'")) return true
+        // scope 处理
+        if (this.sql.includes("scope = 'all'")) {
+          return true
+        }
         if (this.sql.includes("scope = 'global'")) {
           return row.scope === 'global' || !row.scope
         }
         if (this.sql.includes("scope = 'project'")) {
           if (this.sql.includes('project_id = ?')) {
-            return row.scope === 'project' && row.project_id === params[0]
+            return row.scope === 'project' && row.project_id === params[paramIndex]
           }
           return row.scope === 'project'
         }
@@ -190,14 +211,18 @@ class MockStatement {
       })
     }
 
+    // ORDER BY
     if (this.sql.toUpperCase().includes('ORDER BY')) {
       results.sort((a, b) => {
+        // is_favorite DESC
         if ((b.is_favorite || 0) !== (a.is_favorite || 0)) {
           return (b.is_favorite || 0) - (a.is_favorite || 0)
         }
+        // usage_count DESC
         if ((b.usage_count || 0) !== (a.usage_count || 0)) {
           return (b.usage_count || 0) - (a.usage_count || 0)
         }
+        // updated_at DESC
         return (b.updated_at || '').localeCompare(a.updated_at || '')
       })
     }
@@ -219,6 +244,7 @@ class MockDatabase {
   }
 
   exec(sql) {
+    // 解析 CREATE TABLE 语句
     const createTableRegex = /CREATE TABLE IF NOT EXISTS (\w+)/gi
     let match
     while ((match = createTableRegex.exec(sql)) !== null) {
@@ -236,6 +262,7 @@ class MockDatabase {
   }
 
   pragma(cmd) {
+    // 忽略 pragma 命令
     return null
   }
 
@@ -244,14 +271,14 @@ class MockDatabase {
   }
 }
 
-// Mock better-sqlite3 模块
-vi.mock('better-sqlite3', () => {
-  const Database = function(filename) {
-    return new MockDatabase()
-  }
-  Database.resetMemoryDB = resetMemoryDB
-  return { default: Database }
-})
+// 导出 (CommonJS 格式，因为 session-database.js 使用 require)
+function Database(filename) {
+  return new MockDatabase()
+}
 
-// 将 resetMemoryDB 暴露到全局
-globalThis.resetMemoryDB = resetMemoryDB
+// 附加 resetMemoryDB 供测试使用
+Database.resetMemoryDB = resetMemoryDB
+
+module.exports = Database
+module.exports.default = Database
+module.exports.resetMemoryDB = resetMemoryDB

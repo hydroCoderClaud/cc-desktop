@@ -207,6 +207,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSessionTaggedMessages: (sessionId) => ipcRenderer.invoke('tag:getSessionTaggedMessages', sessionId),
 
   // ========================================
+  // 提示词管理
+  // ========================================
+  listPrompts: (options) => ipcRenderer.invoke('prompts:list', options),
+  getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
+  createPrompt: (promptData) => ipcRenderer.invoke('prompts:create', promptData),
+  updatePrompt: ({ promptId, updates }) => ipcRenderer.invoke('prompts:update', promptId, updates),
+  deletePrompt: (promptId) => ipcRenderer.invoke('prompts:delete', promptId),
+  incrementPromptUsage: (promptId) => ipcRenderer.invoke('prompts:incrementUsage', promptId),
+  togglePromptFavorite: (promptId) => ipcRenderer.invoke('prompts:toggleFavorite', promptId),
+
+  // 提示词标签
+  listPromptTags: () => ipcRenderer.invoke('promptTags:list'),
+  createPromptTag: ({ name, color }) => ipcRenderer.invoke('promptTags:create', name, color),
+  updatePromptTag: ({ tagId, updates }) => ipcRenderer.invoke('promptTags:update', tagId, updates),
+  deletePromptTag: (tagId) => ipcRenderer.invoke('promptTags:delete', tagId),
+  addTagToPrompt: ({ promptId, tagId }) => ipcRenderer.invoke('prompts:addTag', promptId, tagId),
+  removeTagFromPrompt: ({ promptId, tagId }) => ipcRenderer.invoke('prompts:removeTag', promptId, tagId),
+
+  // ========================================
   // 收藏管理
   // ========================================
   addFavorite: ({ sessionId, note }) => ipcRenderer.invoke('favorite:add', { sessionId, note }),

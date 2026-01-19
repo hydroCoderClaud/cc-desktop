@@ -49,7 +49,8 @@ export default {
     disconnect: 'Disconnect',
     saved: 'Saved',
     deleted: 'Deleted',
-    copyFailed: 'Copy failed'
+    copyFailed: 'Copy failed',
+    all: 'All'
   },
 
   // Main Page
@@ -159,6 +160,7 @@ export default {
       content: 'Content',
       contentPlaceholder: 'Prompt content...',
       contentRequired: 'Please enter content',
+      scope: 'Scope',
       category: 'Category',
       categoryPlaceholder: 'Category (optional)',
       deleteConfirm: 'Delete prompt "{name}"?'

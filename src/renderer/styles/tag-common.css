@@ -1,0 +1,59 @@
+/**
+ * Shared tag chip styles
+ * Used by: PromptsTab, TagManager, SessionManager
+ */
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--tag-color, #888) 20%, transparent);
+  color: var(--tag-color, #888);
+  border: 1px solid var(--tag-color, #888);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tag-chip:hover {
+  background: color-mix(in srgb, var(--tag-color, #888) 30%, transparent);
+}
+
+.tag-chip.selected {
+  background: var(--tag-color, #888);
+  color: white;
+}
+
+.tag-chip.small {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+/* Deletable tag style (hover to show delete icon) */
+.tag-chip.deletable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 8px;
+  transition: all 0.15s ease;
+}
+
+.tag-chip.deletable:hover {
+  padding-right: 18px;
+  background: color-mix(in srgb, var(--color-danger, #f44336) 20%, transparent);
+  border-color: var(--color-danger, #f44336);
+  color: var(--color-danger, #f44336);
+}
+
+.tag-chip .tag-delete-icon {
+  position: absolute;
+  right: 4px;
+  opacity: 0;
+  font-size: 12px;
+  font-weight: bold;
+  transition: opacity 0.15s ease;
+}
+
+.tag-chip.deletable:hover .tag-delete-icon {
+  opacity: 1;
+}

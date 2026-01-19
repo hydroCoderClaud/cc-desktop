@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
 
+const __dirname = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Z]:)/, '$1')
+
 export default defineConfig({
   test: {
     // 测试环境
@@ -31,7 +33,17 @@ export default defineConfig({
     testTimeout: 10000,
 
     // 监听模式
-    watch: false
+    watch: false,
+
+    // 测试设置文件 - 在所有测试运行前执行
+    setupFiles: ['./tests/setup.js'],
+
+    // 服务器依赖配置 - 强制内联处理 better-sqlite3 使 vi.mock 生效
+    server: {
+      deps: {
+        inline: ['better-sqlite3']
+      }
+    }
   },
 
   resolve: {

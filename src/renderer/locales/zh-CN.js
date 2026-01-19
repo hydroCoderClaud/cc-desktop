@@ -49,7 +49,8 @@ export default {
     disconnect: '断开',
     saved: '已保存',
     deleted: '已删除',
-    copyFailed: '复制失败'
+    copyFailed: '复制失败',
+    all: '全部'
   },
 
   // 主页面
@@ -159,6 +160,7 @@ export default {
       content: '内容',
       contentPlaceholder: '提示词内容...',
       contentRequired: '请输入内容',
+      scope: '作用域',
       category: '分类',
       categoryPlaceholder: '分类（可选）',
       deleteConfirm: '确定删除提示词 "{name}" 吗？'
