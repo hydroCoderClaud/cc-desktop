@@ -518,6 +518,31 @@ class ActiveSessionManager {
 
     return session.toJSON()
   }
+
+  /**
+   * 关联 Claude Code 会话 UUID 到活动会话
+   * 用于新建会话时，文件监控检测到 .jsonl 文件后关联
+   * @param {string} sessionId - 活动会话 ID
+   * @param {string} sessionUuid - Claude Code 会话 UUID
+   */
+  linkSessionUuid(sessionId, sessionUuid) {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      console.warn(`[ActiveSession] Cannot link uuid: session ${sessionId} not found`)
+      return null
+    }
+
+    session.resumeSessionId = sessionUuid
+    console.log(`[ActiveSession] Linked session ${sessionId} to uuid: ${sessionUuid}`)
+
+    // 通知渲染进程会话已更新
+    this.mainWindow.webContents.send('session:updated', {
+      sessionId: session.id,
+      session: session.toJSON()
+    })
+
+    return session.toJSON()
+  }
 }
 
 module.exports = {

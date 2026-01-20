@@ -134,17 +134,20 @@ function withSessionOperations(BaseClass) {
      */
     createPendingSession(projectId, title, activeSessionId) {
       const now = Date.now()
+      // 使用 "pending-{activeSessionId}" 作为临时 session_uuid
+      // 文件监控检测到真实 .jsonl 文件后会用 fillPendingSession 更新为真实值
+      const pendingUuid = `pending-${activeSessionId}`
       const result = this.db.prepare(`
-        INSERT INTO sessions (project_id, title, active_session_id, created_at, updated_at, started_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(projectId, title || null, activeSessionId, now, now, now)
+        INSERT INTO sessions (project_id, session_uuid, title, active_session_id, created_at, updated_at, started_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(projectId, pendingUuid, title || null, activeSessionId, now, now, now)
 
       return {
         id: result.lastInsertRowid,
         project_id: projectId,
         title,
         active_session_id: activeSessionId,
-        session_uuid: null,
+        session_uuid: pendingUuid,
         created_at: now
       }
     }
@@ -159,7 +162,7 @@ function withSessionOperations(BaseClass) {
     linkSessionUuid(activeSessionId, sessionUuid, firstUserMessage = null) {
       // 先检查是否已存在该 uuid 的会话（避免重复）
       const existingByUuid = this.db.prepare(
-        'SELECT * FROM sessions WHERE session_uuid = ?'
+        "SELECT * FROM sessions WHERE session_uuid = ? AND session_uuid NOT LIKE 'pending-%'"
       ).get(sessionUuid)
 
       if (existingByUuid) {
@@ -167,13 +170,13 @@ function withSessionOperations(BaseClass) {
         return existingByUuid
       }
 
-      // 查找待定会话
+      // 查找待定会话（session_uuid 以 pending- 开头）
       const pending = this.db.prepare(
-        'SELECT * FROM sessions WHERE active_session_id = ? AND session_uuid IS NULL'
+        "SELECT * FROM sessions WHERE active_session_id = ? AND session_uuid LIKE 'pending-%'"
       ).get(activeSessionId)
 
       if (pending) {
-        // 更新待定会话，添加 uuid
+        // 更新待定会话，替换临时 uuid 为真实 uuid
         this.db.prepare(`
           UPDATE sessions
           SET session_uuid = ?, first_user_message = ?, updated_at = ?
@@ -193,8 +196,38 @@ function withSessionOperations(BaseClass) {
      */
     getPendingSession(activeSessionId) {
       return this.db.prepare(
-        'SELECT * FROM sessions WHERE active_session_id = ? AND session_uuid IS NULL'
+        "SELECT * FROM sessions WHERE active_session_id = ? AND session_uuid LIKE 'pending-%'"
       ).get(activeSessionId)
+    }
+
+    /**
+     * Get the latest pending session for a project (session_uuid starts with 'pending-')
+     * @param {number} projectId - 项目 ID
+     * @returns {Object|null} 待定会话
+     */
+    getLatestPendingSession(projectId) {
+      return this.db.prepare(`
+        SELECT * FROM sessions
+        WHERE project_id = ? AND session_uuid LIKE 'pending-%' AND active_session_id IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `).get(projectId)
+    }
+
+    /**
+     * Fill a pending session with uuid and other info
+     * @param {number} sessionId - 数据库会话 ID
+     * @param {Object} data - 要填充的数据
+     */
+    fillPendingSession(sessionId, { sessionUuid, firstUserMessage, messageCount, model }) {
+      const now = Date.now()
+      this.db.prepare(`
+        UPDATE sessions
+        SET session_uuid = ?, first_user_message = ?, message_count = ?, model = ?, updated_at = ?
+        WHERE id = ?
+      `).run(sessionUuid, firstUserMessage, messageCount || 0, model, now, sessionId)
+
+      console.log(`[SessionDB] Filled pending session ${sessionId} with uuid: ${sessionUuid}`)
     }
 
     /**
@@ -212,6 +245,28 @@ function withSessionOperations(BaseClass) {
     }
 
     /**
+     * Update session title by UUID
+     * @param {string} sessionUuid - 会话 UUID
+     * @param {string} title - 新标题
+     * @returns {Object} { success, sessionId } 返回更新的会话 ID
+     */
+    updateSessionTitleByUuid(sessionUuid, title) {
+      console.log('[SessionDB] updateSessionTitleByUuid:', { sessionUuid, title })
+      // 先查找会话
+      const session = this.getSessionByUuid(sessionUuid)
+      if (!session) {
+        console.log('[SessionDB] Session not found by uuid:', sessionUuid)
+        return { success: false, error: 'Session not found' }
+      }
+      // 更新标题
+      const result = this.db.prepare(`
+        UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?
+      `).run(title, Date.now(), session.id)
+      console.log('[SessionDB] updateSessionTitleByUuid result:', result)
+      return { success: true, sessionId: session.id }
+    }
+
+    /**
      * Get project sessions from database (for left panel display)
      * @param {number} projectId - 项目 ID
      * @param {number} limit - 最大返回数量
@@ -224,9 +279,9 @@ function withSessionOperations(BaseClass) {
         FROM sessions s
         WHERE s.project_id = ?
           AND (s.session_uuid IS NOT NULL OR s.active_session_id IS NOT NULL)
-          AND (s.message_count > 0 OR s.session_uuid IS NULL)
+          AND (s.message_count > 0 OR s.session_uuid LIKE 'pending-%')
         ORDER BY
-          CASE WHEN s.session_uuid IS NULL THEN 0 ELSE 1 END,
+          CASE WHEN s.session_uuid LIKE 'pending-%' THEN 0 ELSE 1 END,
           COALESCE(s.last_message_at, s.started_at, s.created_at) DESC
         LIMIT ?
       `).all(projectId, limit)

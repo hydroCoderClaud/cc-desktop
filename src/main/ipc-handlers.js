@@ -398,9 +398,19 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // 更新会话标题
-  registerHandler('session:updateTitle', async ({ sessionId, title }) => {
-    console.log('[IPC] updateTitle called:', { sessionId, title });
-    const result = sessionDatabase.updateSessionTitle(sessionId, title);
+  // 支持两种方式：1. sessionId（数据库ID）2. sessionUuid（Claude Code UUID）
+  registerHandler('session:updateTitle', async ({ sessionId, sessionUuid, title }) => {
+    console.log('[IPC] updateTitle called:', { sessionId, sessionUuid, title });
+    let result;
+    if (sessionId) {
+      // 通过数据库 ID 更新（新建会话）
+      result = sessionDatabase.updateSessionTitle(sessionId, title);
+    } else if (sessionUuid) {
+      // 通过 UUID 更新（恢复会话）
+      result = sessionDatabase.updateSessionTitleByUuid(sessionUuid, title);
+    } else {
+      result = { success: false, error: 'Missing sessionId or sessionUuid' };
+    }
     console.log('[IPC] updateTitle result:', result);
     return result;
   });

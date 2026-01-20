@@ -462,10 +462,46 @@ const openRenameDialog = (session) => {
   doOpenRenameDialog(session)
 }
 
-// Confirm rename
+// Confirm rename (运行中会话)
 const confirmRename = async () => {
+  // 保存当前正在重命名的会话信息（doConfirmRename 会清空 renamingSession）
+  const sessionToRename = renamingSession.value
+  const newTitle = renameTitle.value.trim()
+
   const result = await doConfirmRename()
   if (result.success) {
+    // 同步到数据库历史会话
+    // 优先使用 resumeSessionId（恢复会话，或新建会话已被文件监控关联）
+    // 否则使用 dbSessionId（新建会话但还未关联）
+    if (sessionToRename?.resumeSessionId) {
+      // 有 resumeSessionId：通过 session_uuid 更新
+      await invoke('updateSessionTitle', {
+        sessionUuid: sessionToRename.resumeSessionId,
+        title: newTitle
+      })
+      // 同步更新 historySessions 内存数据（通过 session_uuid 查找）
+      const historySession = historySessions.value.find(
+        s => s.session_uuid === sessionToRename.resumeSessionId
+      )
+      if (historySession) {
+        historySession.name = newTitle
+        historySession.title = newTitle
+      }
+    } else if (sessionToRename?.dbSessionId) {
+      // 无 resumeSessionId，有 dbSessionId：通过数据库 ID 更新（新建会话未关联）
+      await invoke('updateSessionTitle', {
+        sessionId: sessionToRename.dbSessionId,
+        title: newTitle
+      })
+      // 同步更新 historySessions 内存数据
+      const historySession = historySessions.value.find(
+        s => s.id === sessionToRename.dbSessionId
+      )
+      if (historySession) {
+        historySession.name = newTitle
+        historySession.title = newTitle
+      }
+    }
     message.success(t('messages.saveSuccess'))
   } else if (result.error) {
     message.error(t('messages.saveFailed'))
@@ -505,6 +541,8 @@ const handleOpenHistorySession = async (session) => {
     }
   } else if (result.error === 'maxSessionsReached') {
     message.warning(t('session.maxSessionsReached', { max: result.maxSessions }))
+  } else if (result.error === 'pendingSessionClosed') {
+    message.warning(t('session.pendingSessionClosed') || '该会话已关闭，无法恢复')
   } else {
     message.error(result.error || t('messages.connectionFailed'))
   }
@@ -535,14 +573,28 @@ const confirmHistoryRename = async () => {
     })
 
     if (result.success) {
-      // 更新内存中的数据
-      const session = historySessions.value.find(
+      // 更新历史会话内存数据
+      const historySession = historySessions.value.find(
         s => s.id === editingHistorySession.value.id
       )
-      if (session) {
-        session.name = newName
-        session.title = newName
+      if (historySession) {
+        historySession.name = newName
+        historySession.title = newName
       }
+
+      // 同步更新运行中会话（通过 resumeSessionId === session_uuid 关联）
+      const activeSession = activeSessions.value.find(
+        s => s.resumeSessionId === editingHistorySession.value.session_uuid
+      )
+      if (activeSession) {
+        activeSession.title = newName
+        // 同步到后端
+        await invoke('renameActiveSession', {
+          sessionId: activeSession.id,
+          newTitle: newName
+        })
+      }
+
       message.success(t('messages.saveSuccess') || '已保存')
     } else {
       message.error(result.error || t('messages.saveFailed'))
@@ -563,7 +615,7 @@ const handleDeleteHistorySession = async (session) => {
   )
   if (!confirmDelete) return
 
-  const result = await deleteHistorySession(props.currentProject.path, session)
+  const result = await deleteHistorySession(props.currentProject, session)
   if (result.success) {
     message.success(t('session.deleted'))
   } else if (result.error === 'sessionIsRunning') {
@@ -599,6 +651,7 @@ watch(() => props.currentProject, async (newProject) => {
 // Listen for session events
 let cleanupFn = null
 let fileWatcherCleanup = null
+let sessionUpdatedCleanup = null
 
 onMounted(async () => {
   await loadConfig()
@@ -614,11 +667,33 @@ onMounted(async () => {
       }
     })
   }
+
+  // Listen for session updates (e.g., when uuid is linked after file detection)
+  if (window.electronAPI?.onSessionUpdated) {
+    sessionUpdatedCleanup = window.electronAPI.onSessionUpdated((eventData) => {
+      const { sessionId, session } = eventData || {}
+      if (!sessionId || !session) return
+
+      // Update the corresponding active session in memory
+      const activeSession = activeSessions.value.find(s => s.id === sessionId)
+      if (activeSession) {
+        // Update all relevant fields
+        Object.assign(activeSession, {
+          title: session.title,
+          resumeSessionId: session.resumeSessionId,
+          dbSessionId: session.dbSessionId,
+          status: session.status
+        })
+        console.log('[LeftPanel] Active session updated:', sessionId, 'resumeSessionId:', session.resumeSessionId)
+      }
+    })
+  }
 })
 
 onUnmounted(() => {
   if (cleanupFn) cleanupFn()
   if (fileWatcherCleanup) fileWatcherCleanup()
+  if (sessionUpdatedCleanup) sessionUpdatedCleanup()
   // Stop file watching when component unmounts
   if (window.electronAPI?.stopWatchingSessionFiles) {
     window.electronAPI.stopWatchingSessionFiles()

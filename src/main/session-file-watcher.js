@@ -136,12 +136,15 @@ class SessionFileWatcher {
 
     try {
       this.watcher = fs.watch(sessionDir, async (eventType, filename) => {
+        console.log('[FileWatcher] Raw event:', eventType, filename)
+
         // 只关注 .jsonl 文件
         if (filename && filename.endsWith('.jsonl')) {
           console.log('[FileWatcher] Session file event:', eventType, filename)
 
           // 检测是否是新文件
           const isNewFile = !this.knownFiles.has(filename)
+          console.log('[FileWatcher] Is new file:', isNewFile, 'known files count:', this.knownFiles.size)
 
           if (isNewFile) {
             console.log('[FileWatcher] New session file detected:', filename)
@@ -164,6 +167,15 @@ class SessionFileWatcher {
     } catch (err) {
       console.error('[FileWatcher] Failed to start watching:', err)
     }
+  }
+
+  /**
+   * 规范化路径用于比较（统一斜杠方向和大小写）
+   */
+  normalizePath(p) {
+    if (!p) return ''
+    // Windows 上统一使用小写并将反斜杠转为正斜杠
+    return p.toLowerCase().replace(/\\/g, '/')
   }
 
   /**
@@ -190,42 +202,48 @@ class SessionFileWatcher {
 
       console.log('[FileWatcher] Parsed session info:', sessionInfo.sessionId, 'firstMessage:', sessionInfo.firstUserMessage?.slice(0, 50))
 
-      // 查找对应的活动会话
-      const activeSessions = this.activeSessionManager.list()
-      let matchedActiveSession = null
-
-      // 优先通过项目匹配
-      for (const activeSession of activeSessions) {
-        if (activeSession.projectPath === this.currentProjectPath && !activeSession.resumeSessionId) {
-          // 可能是这个活动会话创建的文件
-          matchedActiveSession = activeSession
-          break
-        }
+      // 检查这个 uuid 是否已存在于数据库
+      const existingSession = this.sessionDatabase.getSessionByUuid(sessionInfo.sessionId)
+      if (existingSession) {
+        console.log('[FileWatcher] Session already exists in DB:', sessionInfo.sessionId)
+        return
       }
 
-      if (matchedActiveSession) {
-        // 关联 uuid 到数据库
-        const linkedSession = this.sessionDatabase.linkSessionUuid(
-          matchedActiveSession.id,
-          sessionInfo.sessionId,
-          sessionInfo.firstUserMessage
-        )
+      // 通过 projectPath 获取数据库项目 ID
+      const dbProject = this.sessionDatabase.getProjectByPath(this.currentProjectPath)
+      if (!dbProject) {
+        console.log('[FileWatcher] DB project not found for path:', this.currentProjectPath)
+        return
+      }
+      console.log('[FileWatcher] DB project id:', dbProject.id)
 
-        if (linkedSession) {
-          console.log('[FileWatcher] Successfully linked session:', sessionInfo.sessionId)
+      // 简化逻辑：查找当前项目最近创建的待定会话（没有 uuid 的）
+      const pendingSession = this.sessionDatabase.getLatestPendingSession(dbProject.id)
+
+      if (pendingSession) {
+        console.log('[FileWatcher] Found pending session:', pendingSession.id, 'active_session_id:', pendingSession.active_session_id)
+
+        // 更新待定会话，填充 uuid
+        this.sessionDatabase.fillPendingSession(pendingSession.id, {
+          sessionUuid: sessionInfo.sessionId,
+          firstUserMessage: sessionInfo.firstUserMessage,
+          messageCount: sessionInfo.messageCount,
+          model: sessionInfo.model
+        })
+
+        console.log('[FileWatcher] Filled pending session with uuid:', sessionInfo.sessionId)
+
+        // 同时更新对应的 ActiveSession 的 resumeSessionId
+        if (pendingSession.active_session_id) {
+          this.activeSessionManager.linkSessionUuid(
+            pendingSession.active_session_id,
+            sessionInfo.sessionId
+          )
         }
       } else {
-        console.log('[FileWatcher] No matching active session found, syncing as new session')
-        // 没有匹配的活动会话，直接同步到数据库
-        if (this.currentProjectId) {
-          this.sessionDatabase.syncSessionFromFile(this.currentProjectId, {
-            id: sessionInfo.sessionId,
-            firstUserMessage: sessionInfo.firstUserMessage,
-            messageCount: sessionInfo.messageCount,
-            startTime: sessionInfo.startTime,
-            model: sessionInfo.model
-          })
-        }
+        console.log('[FileWatcher] No pending session found, this might be an external session')
+        // 没有待定会话，可能是外部创建的会话，不处理
+        // 让 syncProjectSessions 在下次同步时处理
       }
     } catch (err) {
       console.error('[FileWatcher] Error handling new session file:', err)
