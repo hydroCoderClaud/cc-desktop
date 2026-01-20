@@ -242,7 +242,9 @@ class ActiveSessionManager {
         const claudeCmd = session.resumeSessionId
           ? `claude --resume ${session.resumeSessionId}`
           : 'claude'
-        this.write(sessionId, `cls; ${claudeCmd}\r`)
+        // cls 是 Windows 命令，macOS/Linux 使用 clear
+        const clearCmd = os.platform() === 'win32' ? 'cls' : 'clear'
+        this.write(sessionId, `${clearCmd}; ${claudeCmd}\r`)
       }, 100)
 
       // 通知创建成功

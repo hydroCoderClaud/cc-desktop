@@ -166,12 +166,14 @@ class SessionFileWatcher {
   }
 
   /**
-   * 规范化路径用于比较（统一斜杠方向和大小写）
+   * 规范化路径用于比较（统一斜杠方向，Windows 上统一大小写）
    */
   normalizePath(p) {
     if (!p) return ''
-    // Windows 上统一使用小写并将反斜杠转为正斜杠
-    return p.toLowerCase().replace(/\\/g, '/')
+    const normalized = p.replace(/\\/g, '/')
+    // 仅 Windows 需要统一大小写（NTFS 大小写不敏感）
+    // macOS APFS 是大小写保留的，不应强制小写
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized
   }
 
   /**
