@@ -136,24 +136,20 @@ class SessionFileWatcher {
 
     try {
       this.watcher = fs.watch(sessionDir, async (eventType, filename) => {
-        console.log('[FileWatcher] Raw event:', eventType, filename)
-
         // 只关注 .jsonl 文件
         if (filename && filename.endsWith('.jsonl')) {
-          console.log('[FileWatcher] Session file event:', eventType, filename)
-
-          // 检测是否是新文件
           const isNewFile = !this.knownFiles.has(filename)
-          console.log('[FileWatcher] Is new file:', isNewFile, 'known files count:', this.knownFiles.size)
+          const filePath = path.join(sessionDir, filename)
 
           if (isNewFile) {
             console.log('[FileWatcher] New session file detected:', filename)
             this.knownFiles.add(filename)
-
-            // 处理新文件：解析并关联到数据库
-            const filePath = path.join(sessionDir, filename)
-            await this.handleNewSessionFile(filePath, filename)
           }
+
+          // 无论新文件还是更新，都尝试处理
+          // handleNewSessionFile 内部会检查：warmup/空内容会跳过，已存在会跳过
+          // 这样当用户输入第一条消息后，文件更新会触发关联
+          await this.handleNewSessionFile(filePath, filename)
 
           this.notifyChange()
         }
@@ -200,7 +196,21 @@ class SessionFileWatcher {
         return
       }
 
-      console.log('[FileWatcher] Parsed session info:', sessionInfo.sessionId, 'firstMessage:', sessionInfo.firstUserMessage?.slice(0, 50))
+      console.log('[FileWatcher] Parsed session info:', sessionInfo.sessionId, 'firstMessage:', sessionInfo.firstUserMessage?.slice(0, 50), 'messageCount:', sessionInfo.messageCount)
+
+      // 过滤 warmup 和空内容会话 - 只有有实际用户消息时才关联
+      const isWarmup = sessionInfo.firstUserMessage?.toLowerCase().includes('warmup')
+      const hasNoValidContent = !sessionInfo.firstUserMessage || sessionInfo.messageCount <= 1
+
+      if (isWarmup) {
+        console.log('[FileWatcher] Skipping warmup session:', filename)
+        return
+      }
+
+      if (hasNoValidContent) {
+        console.log('[FileWatcher] Skipping empty session (no user message yet):', filename)
+        return
+      }
 
       // 检查这个 uuid 是否已存在于数据库
       const existingSession = this.sessionDatabase.getSessionByUuid(sessionInfo.sessionId)

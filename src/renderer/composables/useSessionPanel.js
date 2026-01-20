@@ -74,12 +74,12 @@ export function useSessionPanel(props, emit) {
       // 从数据库加载（通过 path 查询）
       const sessions = await invoke('getProjectSessionsFromDb', project.path)
       historySessions.value = (sessions || [])
-        // 过滤掉没有任何内容的会话（无 uuid 且无 title）
-        .filter(s => s.session_uuid || s.title)
+        // 过滤掉 pending 会话（等待关联到真实 UUID 后才显示）
+        .filter(s => !s.session_uuid?.startsWith('pending-'))
+        // 过滤掉没有真实 uuid 的会话
+        .filter(s => s.session_uuid)
         // 过滤掉 warmup 预热会话
         .filter(s => !s.first_user_message?.toLowerCase().includes('warmup'))
-        // 过滤掉 0 条消息的会话（pending 会话除外）
-        .filter(s => s.message_count > 0 || s.session_uuid?.startsWith('pending-'))
         .map(s => ({
           ...s,
           // 保持兼容性

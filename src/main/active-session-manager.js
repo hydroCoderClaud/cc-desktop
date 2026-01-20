@@ -497,6 +497,7 @@ class ActiveSessionManager {
 
   /**
    * 重命名会话
+   * 同时更新内存和数据库，前端无需单独调用数据库更新接口
    * @param {string} sessionId - 会话 ID
    * @param {string} newTitle - 新标题
    * @returns {Object} 更新后的会话信息
@@ -507,10 +508,31 @@ class ActiveSessionManager {
       throw new Error(`Session ${sessionId} not found`)
     }
 
+    // 1. 更新内存
     session.title = newTitle
     console.log(`[ActiveSession] Renamed session ${sessionId} to: ${newTitle}`)
 
-    // 通知渲染进程会话已更新
+    // 2. 同步更新数据库（后端统一处理，前端无需关心用哪个 ID）
+    if (this.sessionDatabase) {
+      try {
+        if (session.resumeSessionId) {
+          // 有 Claude Code UUID：通过 UUID 更新（恢复会话或已关联的新建会话）
+          this.sessionDatabase.updateSessionTitleByUuid(session.resumeSessionId, newTitle)
+          console.log(`[ActiveSession] DB title updated by uuid: ${session.resumeSessionId}`)
+        } else if (session.dbSessionId) {
+          // 只有数据库 ID：通过 ID 更新（新建会话但还未关联）
+          this.sessionDatabase.updateSessionTitle(session.dbSessionId, newTitle)
+          console.log(`[ActiveSession] DB title updated by dbSessionId: ${session.dbSessionId}`)
+        } else {
+          console.warn(`[ActiveSession] No resumeSessionId or dbSessionId, title not saved to DB`)
+        }
+      } catch (err) {
+        console.error(`[ActiveSession] Failed to update DB title:`, err)
+        // 数据库更新失败不影响内存更新，但记录错误
+      }
+    }
+
+    // 3. 通知渲染进程会话已更新
     this.mainWindow.webContents.send('session:updated', {
       sessionId: session.id,
       session: session.toJSON()

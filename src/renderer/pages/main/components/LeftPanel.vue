@@ -464,47 +464,12 @@ const openRenameDialog = (session) => {
 }
 
 // Confirm rename (运行中会话)
+// 后端 renameSession 会同时更新内存和数据库，前端只需调用一次
 const confirmRename = async () => {
-  // 保存当前正在重命名的会话信息（doConfirmRename 会清空 renamingSession）
-  const sessionToRename = renamingSession.value
-  const newTitle = renameTitle.value.trim()
-
   const result = await doConfirmRename()
   if (result.success) {
-    // 同步到数据库历史会话
-    // 优先使用 resumeSessionId（恢复会话，或新建会话已被文件监控关联）
-    // 否则使用 dbSessionId（新建会话但还未关联）
-    if (sessionToRename?.resumeSessionId) {
-      // 有 resumeSessionId：通过 session_uuid 更新
-      await invoke('updateSessionTitle', {
-        sessionUuid: sessionToRename.resumeSessionId,
-        title: newTitle
-      })
-      // 同步更新 historySessions 内存数据（通过 session_uuid 查找）
-      const historySession = historySessions.value.find(
-        s => s.session_uuid === sessionToRename.resumeSessionId
-      )
-      if (historySession) {
-        historySession.name = newTitle
-        historySession.title = newTitle
-      }
-    } else if (sessionToRename?.dbSessionId) {
-      // 无 resumeSessionId，有 dbSessionId：通过数据库 ID 更新（新建会话未关联）
-      await invoke('updateSessionTitle', {
-        sessionId: sessionToRename.dbSessionId,
-        title: newTitle
-      })
-      // 同步更新 historySessions 内存数据
-      const historySession = historySessions.value.find(
-        s => s.id === sessionToRename.dbSessionId
-      )
-      if (historySession) {
-        historySession.name = newTitle
-        historySession.title = newTitle
-      }
-    } else {
-      console.warn('[LeftPanel] No resumeSessionId or dbSessionId, title not saved to DB!')
-    }
+    // 重新加载历史会话以保持同步（后端已更新数据库）
+    await loadHistorySessions(props.currentProject)
     message.success(t('messages.saveSuccess'))
   } else if (result.error) {
     message.error(t('messages.saveFailed'))
@@ -585,13 +550,16 @@ const confirmHistoryRename = async () => {
         historySession.title = newName
       }
 
-      // 同步更新运行中会话（通过 resumeSessionId === session_uuid 关联）
+      // 同步更新运行中会话（两种关联方式）
+      // 1. 通过 resumeSessionId === session_uuid（恢复会话或已关联的新建会话）
+      // 2. 通过 dbSessionId === id（新建会话，通过数据库 ID 关联）
       const activeSession = activeSessions.value.find(
-        s => s.resumeSessionId === editingHistorySession.value.session_uuid
+        s => (s.resumeSessionId && s.resumeSessionId === editingHistorySession.value.session_uuid) ||
+             (s.dbSessionId && s.dbSessionId === editingHistorySession.value.id)
       )
       if (activeSession) {
         activeSession.title = newName
-        // 同步到后端
+        // 同步到后端内存（数据库已在上面更新）
         await invoke('renameActiveSession', {
           sessionId: activeSession.id,
           newTitle: newName
