@@ -246,12 +246,13 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useMessage, NSelect, NDropdown, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
 
 const message = useMessage()
+const dialog = useDialog()
 const { invoke } = useIPC()
 const { t } = useLocale()
 
@@ -609,20 +610,23 @@ const confirmHistoryRename = async () => {
 }
 
 // Delete history session
-const handleDeleteHistorySession = async (session) => {
-  const confirmDelete = window.confirm(
-    `${t('session.deleteConfirm', { name: session.name || session.session_uuid?.slice(0, 8) })}\n\n${t('session.deleteWarning')}`
-  )
-  if (!confirmDelete) return
-
-  const result = await deleteHistorySession(props.currentProject, session)
-  if (result.success) {
-    message.success(t('session.deleted'))
-  } else if (result.error === 'sessionIsRunning') {
-    message.warning(t('session.cannotDeleteRunning'))
-  } else {
-    message.error(result.error || t('messages.operationFailed'))
-  }
+const handleDeleteHistorySession = (session) => {
+  dialog.warning({
+    title: t('session.deleteTitle') || '删除会话',
+    content: `${t('session.deleteConfirm', { name: session.name || session.session_uuid?.slice(0, 8) })}\n\n${t('session.deleteWarning')}`,
+    positiveText: t('common.confirm') || '确认',
+    negativeText: t('common.cancel') || '取消',
+    onPositiveClick: async () => {
+      const result = await deleteHistorySession(props.currentProject, session)
+      if (result.success) {
+        message.success(t('session.deleted'))
+      } else if (result.error === 'sessionIsRunning') {
+        message.warning(t('session.cannotDeleteRunning'))
+      } else {
+        message.error(result.error || t('messages.operationFailed'))
+      }
+    }
+  })
 }
 
 // Watch project change to reload sessions and start file watching
