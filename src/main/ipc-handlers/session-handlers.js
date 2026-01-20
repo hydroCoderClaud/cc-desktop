@@ -219,6 +219,18 @@ function setupSessionHandlers(ipcMain, sessionDatabase) {
 
   console.log('[IPC] Session handlers ready');
 
+  // 启动时异步执行一次同步（不阻塞启动）
+  setImmediate(async () => {
+    console.log('[IPC] Starting initial session sync...');
+    try {
+      const result = await sessionSyncService.sync();
+      console.log('[IPC] Initial sync completed:', result.status,
+        `(${result.sessionsScanned || 0} scanned, ${result.sessionsAdded || 0} added)`);
+    } catch (err) {
+      console.error('[IPC] Initial sync failed:', err.message);
+    }
+  });
+
   return { sessionSyncService };
 }
 

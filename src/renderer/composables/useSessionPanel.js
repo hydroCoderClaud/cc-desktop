@@ -56,6 +56,8 @@ export function useSessionPanel(props, emit) {
 
   /**
    * 加载历史会话列表（从数据库）
+   * 性能优化：直接读数据库，不再每次都同步文件系统
+   * 文件同步在：1) 应用启动时 2) 文件监控触发时 3) 手动同步时
    * @param {Object} project - 项目对象 { id, path }
    */
   const loadHistorySessions = async (project) => {
@@ -65,13 +67,7 @@ export function useSessionPanel(props, emit) {
     }
 
     try {
-      // 先同步文件系统到数据库（通过 path 关联）
-      await invoke('syncProjectSessions', {
-        projectPath: project.path,
-        projectName: project.name
-      })
-
-      // 从数据库加载（通过 path 查询）
+      // 直接从数据库加载（通过 path 查询）
       // 后端已完全处理过滤：排除 pending 会话、无 uuid 会话、warmup 会话
       const sessions = await invoke('getProjectSessionsFromDb', project.path)
       historySessions.value = (sessions || []).map(s => ({
