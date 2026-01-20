@@ -186,8 +186,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 同步项目会话到数据库（从文件系统增量同步）
   syncProjectSessions: ({ projectPath, projectName }) => ipcRenderer.invoke('session:syncProjectSessions', { projectPath, projectName }),
 
-  // 更新会话标题
-  updateSessionTitle: ({ sessionId, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, title }),
+  // 更新会话标题（支持通过 sessionId 或 sessionUuid 更新）
+  updateSessionTitle: ({ sessionId, sessionUuid, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, sessionUuid, title }),
 
   // 删除会话（数据库 + 文件）
   deleteSessionWithFile: ({ sessionId, projectPath, sessionUuid }) =>

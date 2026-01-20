@@ -502,6 +502,8 @@ const confirmRename = async () => {
         historySession.name = newTitle
         historySession.title = newTitle
       }
+    } else {
+      console.warn('[LeftPanel] No resumeSessionId or dbSessionId, title not saved to DB!')
     }
     message.success(t('messages.saveSuccess'))
   } else if (result.error) {
