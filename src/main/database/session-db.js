@@ -268,6 +268,7 @@ function withSessionOperations(BaseClass) {
 
     /**
      * Get project sessions from database (for left panel display)
+     * 后端完全处理过滤逻辑，前端无需再过滤
      * @param {number} projectId - 项目 ID
      * @param {number} limit - 最大返回数量
      * @returns {Array} 会话列表
@@ -278,15 +279,15 @@ function withSessionOperations(BaseClass) {
                (SELECT COUNT(*) FROM favorites f WHERE f.session_id = s.id) as is_favorite
         FROM sessions s
         WHERE s.project_id = ?
-          AND (s.session_uuid IS NOT NULL OR s.active_session_id IS NOT NULL)
-          AND (s.message_count > 0 OR s.session_uuid LIKE 'pending-%')
-        ORDER BY
-          CASE WHEN s.session_uuid LIKE 'pending-%' THEN 0 ELSE 1 END,
-          COALESCE(s.last_message_at, s.started_at, s.created_at) DESC
+          AND s.session_uuid IS NOT NULL
+          AND s.session_uuid NOT LIKE 'pending-%'
+          AND s.message_count > 0
+          AND (s.first_user_message IS NULL OR LOWER(s.first_user_message) NOT LIKE '%warmup%')
+        ORDER BY COALESCE(s.last_message_at, s.started_at, s.created_at) DESC
         LIMIT ?
       `).all(projectId, limit)
 
-      console.log('[SessionDB] getProjectSessionsForPanel:', projectId, '-> sessions:', sessions.map(s => ({ id: s.id, title: s.title, uuid: s.session_uuid?.slice(0, 8) })))
+      console.log('[SessionDB] getProjectSessionsForPanel:', projectId, '-> count:', sessions.length)
       return sessions
     }
 

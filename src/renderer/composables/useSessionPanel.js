@@ -72,15 +72,9 @@ export function useSessionPanel(props, emit) {
       })
 
       // 从数据库加载（通过 path 查询）
+      // 后端已完全处理过滤：排除 pending 会话、无 uuid 会话、warmup 会话
       const sessions = await invoke('getProjectSessionsFromDb', project.path)
-      historySessions.value = (sessions || [])
-        // 过滤掉 pending 会话（等待关联到真实 UUID 后才显示）
-        .filter(s => !s.session_uuid?.startsWith('pending-'))
-        // 过滤掉没有真实 uuid 的会话
-        .filter(s => s.session_uuid)
-        // 过滤掉 warmup 预热会话
-        .filter(s => !s.first_user_message?.toLowerCase().includes('warmup'))
-        .map(s => ({
+      historySessions.value = (sessions || []).map(s => ({
           ...s,
           // 保持兼容性
           name: s.title || s.first_user_message || null,
@@ -257,25 +251,11 @@ export function useSessionPanel(props, emit) {
   /**
    * 恢复历史会话
    * @param {Object} project - 项目对象
-   * @param {Object} historySession - 历史会话对象
+   * @param {Object} historySession - 历史会话对象（后端已过滤，只有真实 UUID 的会话）
    * @param {Function} t - 国际化函数
    */
   const resumeHistorySession = async (project, historySession, t) => {
-    // 处理 pending 会话（尚未获得真实 UUID 的新建会话）
-    if (historySession.session_uuid?.startsWith('pending-')) {
-      // 通过 dbSessionId 查找已运行的活动会话
-      const existingSession = activeSessions.value.find(
-        s => s.dbSessionId === historySession.id
-      )
-      if (existingSession) {
-        focusedSessionId.value = existingSession.id
-        return { success: true, session: existingSession, alreadyRunning: true }
-      }
-      // pending 会话但找不到对应的活动会话，说明已关闭，无法恢复
-      return { success: false, error: 'pendingSessionClosed' }
-    }
-
-    // 非 pending 会话：检查是否已有运行中的会话关联了这个历史会话
+    // 检查是否已有运行中的会话关联了这个历史会话
     const existingSession = activeSessions.value.find(
       s => s.resumeSessionId === historySession.session_uuid
     )
