@@ -259,6 +259,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateFavoriteNote: ({ sessionId, note }) => ipcRenderer.invoke('favorite:updateNote', { sessionId, note }),
 
   // ========================================
+  // 消息队列管理
+  // ========================================
+  getQueue: (sessionUuid) => ipcRenderer.invoke('queue:list', sessionUuid),
+  searchQueue: ({ sessionUuid, keyword }) => ipcRenderer.invoke('queue:search', { sessionUuid, keyword }),
+  addToQueue: ({ sessionUuid, content }) => ipcRenderer.invoke('queue:add', { sessionUuid, content }),
+  updateQueueItem: ({ id, content }) => ipcRenderer.invoke('queue:update', { id, content }),
+  deleteQueueItem: (id) => ipcRenderer.invoke('queue:delete', id),
+  markQueueItemExecuted: (id) => ipcRenderer.invoke('queue:markExecuted', id),
+  getQueueCount: (sessionUuid) => ipcRenderer.invoke('queue:count', sessionUuid),
+  clearQueue: (sessionUuid) => ipcRenderer.invoke('queue:clear', sessionUuid),
+  swapQueueOrder: ({ id1, id2 }) => ipcRenderer.invoke('queue:swap', { id1, id2 }),
+
+  // ========================================
   // Terminal 相关（旧版单终端，保留兼容）
   // ========================================
   startTerminal: (projectPath) => ipcRenderer.invoke('terminal:start', projectPath),

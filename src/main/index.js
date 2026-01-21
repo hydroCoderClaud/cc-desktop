@@ -102,9 +102,56 @@ function createWindow() {
 }
 
 /**
+ * 修复项目数据（命令行参数 --fix-db 触发）
+ */
+async function fixProjectsData() {
+  const { SessionDatabase } = require('./session-database')
+  const { smartDecodePath } = require('./utils/path-utils')
+  const fs = require('fs')
+  const pathModule = require('path')
+
+  console.log('开始修复项目数据...')
+
+  const db = new SessionDatabase()
+  db.init()
+
+  const projects = db.db.prepare('SELECT * FROM projects').all()
+  console.log(`找到 ${projects.length} 个项目`)
+
+  let fixedCount = 0
+
+  for (const project of projects) {
+    const nameIsNumeric = /^\d+$/.test(String(project.name))
+    const pathExists = project.path && fs.existsSync(project.path)
+    const needsSourceFix = project.source !== 'user'
+
+    if (nameIsNumeric || !pathExists || needsSourceFix) {
+      console.log(`修复项目 ${project.id}: name=${project.name}, path=${project.path}, source=${project.source}`)
+
+      const correctPath = smartDecodePath(project.encoded_path) || project.path
+      const correctName = correctPath ? pathModule.basename(correctPath) : project.name
+
+      db.db.prepare(`UPDATE projects SET path = ?, name = ?, source = 'user', updated_at = ? WHERE id = ?`)
+        .run(correctPath, correctName, Date.now(), project.id)
+      console.log(`  -> path=${correctPath}, name=${correctName}, source=user`)
+      fixedCount++
+    }
+  }
+
+  console.log(`修复完成，共修复 ${fixedCount} 个项目`)
+  db.db.close()
+}
+
+/**
  * 应用就绪事件
  */
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // 检查是否是修复模式
+  if (process.argv.includes('--fix-db')) {
+    await fixProjectsData()
+    app.quit()
+    return
+  }
   // 初始化管理器
   configManager = new ConfigManager();
 

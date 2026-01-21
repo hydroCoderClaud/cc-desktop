@@ -187,6 +187,23 @@ export default {
       insertToInput: 'Insert to input',
       notConfigured: 'AI assistant is not configured. Please set up API in settings.',
       error: 'Request failed. Please try again.'
+    },
+    // Message Queue
+    messageQueue: {
+      label: 'Message Queue',
+      empty: 'Queue is empty',
+      noResults: 'No results found',
+      clickHint: 'Click to send to terminal',
+      editTitle: 'Edit Message',
+      send: 'Send',
+      execute: 'Execute',
+      searchPlaceholder: 'Search messages...',
+      moveUp: 'Move up',
+      moveDown: 'Move down',
+      firstPage: 'First page',
+      prevPage: 'Previous page',
+      nextPage: 'Next page',
+      lastPage: 'Last page'
     }
   },
 

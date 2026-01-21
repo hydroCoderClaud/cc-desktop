@@ -24,7 +24,8 @@ const {
   withMessageOperations,
   withTagOperations,
   withFavoriteOperations,
-  withPromptOperations
+  withPromptOperations,
+  withQueueOperations
 } = require('./database')
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
@@ -166,9 +167,12 @@ class SessionDatabaseBase {
         `)
 
         // 2. 复制数据（去重，保留最新的）
+        // 注意：明确指定列名，避免列顺序不同导致数据错位
+        // 注意：source 列需要特殊处理，旧表可能没有这列，用 COALESCE 设置默认值 'user'
         this.db.exec(`
-          INSERT OR IGNORE INTO projects_new
-          SELECT * FROM projects WHERE id IN (
+          INSERT OR IGNORE INTO projects_new (id, path, encoded_path, name, description, icon, color, api_profile_id, is_pinned, is_hidden, source, created_at, updated_at, last_opened_at)
+          SELECT id, path, encoded_path, name, description, icon, color, api_profile_id, is_pinned, is_hidden, COALESCE(source, 'user'), created_at, updated_at, last_opened_at
+          FROM projects WHERE id IN (
             SELECT MAX(id) FROM projects GROUP BY encoded_path
           )
         `)
@@ -387,6 +391,21 @@ class SessionDatabaseBase {
     `)
 
     // ========================================
+    // Message Queue Table
+    // ========================================
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS session_message_queue (
+        id TEXT PRIMARY KEY,
+        session_uuid TEXT NOT NULL,
+        content TEXT NOT NULL,
+        is_executed INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        executed_at INTEGER
+      )
+    `)
+
+    // ========================================
     // Indexes
     // ========================================
 
@@ -397,6 +416,8 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
       CREATE INDEX IF NOT EXISTS idx_prompts_scope ON prompts(scope);
       CREATE INDEX IF NOT EXISTS idx_prompts_project ON prompts(project_id);
+      CREATE INDEX IF NOT EXISTS idx_queue_session ON session_message_queue(session_uuid);
+      CREATE INDEX IF NOT EXISTS idx_queue_pending ON session_message_queue(session_uuid, is_executed);
     `)
 
     console.log('[SessionDB] Tables and indexes created')
@@ -438,12 +459,14 @@ class SessionDatabaseBase {
 }
 
 // 应用所有 mixin，构建完整的 SessionDatabase 类
-const SessionDatabase = withPromptOperations(
-  withFavoriteOperations(
-    withTagOperations(
-      withMessageOperations(
-        withSessionOperations(
-          withProjectOperations(SessionDatabaseBase)
+const SessionDatabase = withQueueOperations(
+  withPromptOperations(
+    withFavoriteOperations(
+      withTagOperations(
+        withMessageOperations(
+          withSessionOperations(
+            withProjectOperations(SessionDatabaseBase)
+          )
         )
       )
     )

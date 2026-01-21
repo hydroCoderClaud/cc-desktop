@@ -10,7 +10,16 @@
 
     <!-- Tab Content -->
     <div class="panel-content">
-      <KeepAlive>
+      <!-- Queue Tab 使用 MessageQueue 组件 -->
+      <MessageQueue
+        v-if="activeTab === 'queue'"
+        ref="messageQueueRef"
+        :session-uuid="currentSessionUuid"
+        :full-height="true"
+        @send="handleSendToTerminal"
+      />
+      <!-- 其他 Tab -->
+      <KeepAlive v-else>
         <component
           :is="currentTabComponent"
           ref="tabContentRef"
@@ -41,11 +50,11 @@
 import { ref, computed, shallowRef, markRaw, nextTick } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import TabBar from './TabBar.vue'
+import MessageQueue from './MessageQueue.vue'
 import QuickCommands from './QuickCommands.vue'
 import QuickInput from './QuickInput.vue'
 
 // Tab Components (lazy loaded)
-import QueueTab from './tabs/QueueTab.vue'
 import PluginsTab from './tabs/PluginsTab.vue'
 import SkillsTab from './tabs/SkillsTab.vue'
 import MCPTab from './tabs/MCPTab.vue'
@@ -63,6 +72,10 @@ const props = defineProps({
   terminalBusy: {
     type: Boolean,
     default: false
+  },
+  currentSessionUuid: {
+    type: String,
+    default: ''
   }
 })
 
@@ -72,6 +85,10 @@ const emit = defineEmits(['collapse', 'send-to-terminal'])
 // Refs
 const quickInputRef = ref(null)
 const tabContentRef = ref(null)
+const messageQueueRef = ref(null)
+
+// API
+const { addToQueue } = window.electronAPI
 
 // Tab definitions
 const tabs = computed(() => [
@@ -83,10 +100,9 @@ const tabs = computed(() => [
   { id: 'ai', icon: '🤖', label: t('rightPanel.tabs.ai') }
 ])
 
-// Tab components map
+// Tab components map (queue 使用 MessageQueue 直接渲染)
 const tabComponents = {
   prompts: markRaw(PromptsTab),
-  queue: markRaw(QueueTab),
   plugins: markRaw(PluginsTab),
   skills: markRaw(SkillsTab),
   mcp: markRaw(MCPTab),
@@ -112,11 +128,26 @@ const handleInsertToInput = (text) => {
   }
 }
 
-const handleAddToQueue = (command) => {
-  // Switch to queue tab and add command
-  activeTab.value = 'queue'
-  // TODO: Integrate with useCommandQueue
-  console.log('Add to queue:', command)
+const handleAddToQueue = async (content) => {
+  if (!props.currentSessionUuid) {
+    console.warn('No active session to add to queue')
+    return
+  }
+  try {
+    await addToQueue({
+      sessionUuid: props.currentSessionUuid,
+      content
+    })
+    // Switch to queue tab
+    activeTab.value = 'queue'
+    // Refresh queue display
+    await nextTick()
+    if (messageQueueRef.value?.refresh) {
+      messageQueueRef.value.refresh()
+    }
+  } catch (error) {
+    console.error('Failed to add to queue:', error)
+  }
 }
 
 const handleCreatePrompt = async (content) => {
@@ -132,7 +163,8 @@ const handleCreatePrompt = async (content) => {
 // Expose for parent component
 defineExpose({
   activeTab,
-  insertToInput: handleInsertToInput
+  insertToInput: handleInsertToInput,
+  refreshQueue: () => messageQueueRef.value?.refresh()
 })
 </script>
 

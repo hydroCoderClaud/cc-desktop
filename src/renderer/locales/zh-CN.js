@@ -187,6 +187,23 @@ export default {
       insertToInput: '插入到输入框',
       notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
       error: '请求失败，请稍后重试'
+    },
+    // 消息队列
+    messageQueue: {
+      label: '消息队列',
+      empty: '队列为空',
+      noResults: '无搜索结果',
+      clickHint: '点击发送到终端',
+      editTitle: '编辑消息',
+      send: '发送',
+      execute: '执行',
+      searchPlaceholder: '搜索消息...',
+      moveUp: '上移',
+      moveDown: '下移',
+      firstPage: '首页',
+      prevPage: '上一页',
+      nextPage: '下一页',
+      lastPage: '末页'
     }
   },
 

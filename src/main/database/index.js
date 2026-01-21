@@ -10,6 +10,7 @@ const { withMessageOperations } = require('./message-db')
 const { withTagOperations } = require('./tag-db')
 const { withFavoriteOperations } = require('./favorite-db')
 const { withPromptOperations } = require('./prompt-db')
+const { withQueueOperations } = require('./queue-db')
 
 module.exports = {
   withProjectOperations,
@@ -17,5 +18,6 @@ module.exports = {
   withMessageOperations,
   withTagOperations,
   withFavoriteOperations,
-  withPromptOperations
+  withPromptOperations,
+  withQueueOperations
 }

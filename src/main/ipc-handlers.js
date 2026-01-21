@@ -25,6 +25,7 @@ const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'sessi
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
+const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -32,6 +33,7 @@ const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
+const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -301,6 +303,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (registerPromptHandlers) {
     registerPromptHandlers(sessionDatabase);
+  }
+
+  // ========================================
+  // 消息队列管理
+  // ========================================
+  if (setupQueueHandlers) {
+    setupQueueHandlers(ipcMain, sessionDatabase);
   }
 
   // ========================================

@@ -90,6 +90,7 @@
       ref="rightPanelRef"
       :current-project="currentProject"
       :terminal-busy="terminalBusy"
+      :current-session-uuid="currentSessionUuid"
       @collapse="showRightPanel = false"
       @send-to-terminal="handleSendToTerminal"
     />
@@ -117,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -174,6 +175,30 @@ const terminalRefs = ref({})
 const terminalFontSize = ref(14)
 const terminalFontFamily = ref('"Ubuntu Mono", monospace')
 const terminalBusy = ref(false)
+const currentSessionUuid = ref('')
+
+// 当前活动会话的 sessionUuid（用于消息队列等功能）
+const updateCurrentSessionUuid = async () => {
+  if (activeTabId.value === 'welcome') {
+    currentSessionUuid.value = ''
+    return
+  }
+  const activeTab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!activeTab) {
+    currentSessionUuid.value = ''
+    return
+  }
+  try {
+    const session = await window.electronAPI.getActiveSession(activeTab.sessionId)
+    currentSessionUuid.value = session?.resumeSessionId || ''
+  } catch (err) {
+    console.error('Failed to get session uuid:', err)
+    currentSessionUuid.value = ''
+  }
+}
+
+// 监听 activeTabId 变化
+watch(activeTabId, updateCurrentSessionUuid, { immediate: true })
 
 // Panel visibility
 const showLeftPanel = ref(true)
@@ -262,13 +287,18 @@ const setupSessionListeners = () => {
     })
   )
 
-  // 监听会话更新（如重命名）
+  // 监听会话更新（如重命名、UUID关联）
   cleanupFns.push(
     window.electronAPI.onSessionUpdated((eventData) => {
       if (!isValidSessionEvent(eventData)) return
       const { sessionId, session } = eventData
       if (session) {
         updateTabTitle(sessionId, session.title || '')
+        // 如果当前活动会话的 UUID 被更新，刷新 currentSessionUuid
+        const activeTab = tabs.value.find(t => t.id === activeTabId.value)
+        if (activeTab && activeTab.sessionId === sessionId && session.resumeSessionId) {
+          currentSessionUuid.value = session.resumeSessionId
+        }
       }
     })
   )
