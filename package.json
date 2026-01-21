@@ -1,6 +1,6 @@
 {
   "name": "claude-code-desktop",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Claude Code Desktop - 独立桌面终端启动器",
   "main": "src/main/index.js",
   "author": "HydroCoder",
