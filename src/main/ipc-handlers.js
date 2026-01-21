@@ -10,15 +10,9 @@ const fs = require('fs');
 // 安全加载模块，捕获错误
 function safeRequire(modulePath, moduleName) {
   try {
-    const fullPath = path.join(__dirname, modulePath);
-    console.log(`[IPC] Loading ${moduleName} from: ${fullPath}`);
-    console.log(`[IPC] File exists: ${fs.existsSync(fullPath + '.js')}`);
-    const mod = require(modulePath);
-    console.log(`[IPC] ${moduleName} loaded successfully`);
-    return mod;
+    return require(modulePath);
   } catch (err) {
     console.error(`[IPC] Failed to load ${moduleName}:`, err.message);
-    console.error(`[IPC] Stack:`, err.stack);
     return null;
   }
 }
@@ -59,8 +53,6 @@ const registerHandler = (channelName, handler) => {
 };
 
 function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager) {
-  console.log('[IPC] Setting up handlers...');
-
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -105,13 +97,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const createSubWindow = (options) => {
     const { BrowserWindow, app } = require('electron');
     const pathModule = require('path');
-    const fs = require('fs');
     const isMac = process.platform === 'darwin';
-
-    console.log(`[SubWindow] Creating window for page: ${options.page}, platform: ${process.platform}`);
-
     const preloadPath = pathModule.join(__dirname, '../preload/preload.js');
-    console.log(`[SubWindow] Preload path: ${preloadPath}, exists: ${fs.existsSync(preloadPath)}`);
 
     const window = new BrowserWindow({
       width: options.width || 800,
@@ -132,7 +119,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
     // 窗口准备好后再显示
     window.once('ready-to-show', () => {
-      console.log(`[SubWindow] Window ready-to-show: ${options.page}`);
       window.show();
       window.focus();  // macOS 需要显式 focus
       if (isMac) {
@@ -148,12 +134,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const query = options.query || ''
     if (process.env.VITE_DEV_SERVER_URL) {
       const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');
-      const url = `${baseUrl}/pages/${options.page}/${query}`;
-      console.log(`[SubWindow] Loading URL: ${url}`);
-      window.loadURL(url);
+      window.loadURL(`${baseUrl}/pages/${options.page}/${query}`);
     } else {
       const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
-      console.log(`[SubWindow] Loading file: ${filePath}, exists: ${fs.existsSync(filePath)}`);
       window.loadFile(filePath, { query: query.replace('?', '') });
     }
 
@@ -317,14 +300,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 提示词管理
   // ========================================
   if (registerPromptHandlers) {
-    try {
-      registerPromptHandlers(sessionDatabase);
-      console.log('[IPC] Prompt handlers registered successfully');
-    } catch (err) {
-      console.error('[IPC] Failed to setup prompt handlers:', err);
-    }
-  } else {
-    console.error('[IPC] registerPromptHandlers not available - module failed to load');
+    registerPromptHandlers(sessionDatabase);
   }
 
   // ========================================
@@ -342,29 +318,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 获取项目会话列表（从数据库）
   // 参数改为 projectPath，通过路径查找数据库中的项目
   registerHandler('session:getProjectSessionsFromDb', async (projectPath) => {
-    console.log('[IPC] getProjectSessionsFromDb called with path:', projectPath);
-
-    // 通过路径查找数据库中的项目
     const dbProject = sessionDatabase.getProjectByPath(projectPath);
     if (!dbProject) {
-      console.log('[IPC] Project not found in DB for path:', projectPath);
       return [];
     }
-
-    console.log('[IPC] Found DB project id:', dbProject.id);
-    const sessions = sessionDatabase.getProjectSessionsForPanel(dbProject.id);
-    console.log('[IPC] Sessions from DB:', sessions?.length || 0);
-    return sessions;
+    return sessionDatabase.getProjectSessionsForPanel(dbProject.id);
   });
 
   // 同步项目会话到数据库（从文件系统增量同步）
   registerHandler('session:syncProjectSessions', async ({ projectPath, projectName }) => {
-    console.log('[IPC] syncProjectSessions called:', { projectPath, projectName });
-
     // 获取文件系统中的会话
     const fileSessions = await sessionHistoryService.getProjectSessions(projectPath);
-    console.log('[IPC] File sessions found:', fileSessions?.length || 0);
-
     if (!fileSessions || fileSessions.length === 0) {
       return { success: true, synced: 0 };
     }
@@ -377,7 +341,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       encodedPath,
       projectName || require('path').basename(projectPath)
     );
-    console.log('[IPC] DB project id:', dbProject.id);
 
     let syncedCount = 0;
     for (const fileSession of fileSessions) {
@@ -400,19 +363,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 更新会话标题
   // 支持两种方式：1. sessionId（数据库ID）2. sessionUuid（Claude Code UUID）
   registerHandler('session:updateTitle', async ({ sessionId, sessionUuid, title }) => {
-    console.log('[IPC] updateTitle called:', { sessionId, sessionUuid, title });
-    let result;
     if (sessionId) {
-      // 通过数据库 ID 更新（新建会话）
-      result = sessionDatabase.updateSessionTitle(sessionId, title);
+      return sessionDatabase.updateSessionTitle(sessionId, title);
     } else if (sessionUuid) {
-      // 通过 UUID 更新（恢复会话）
-      result = sessionDatabase.updateSessionTitleByUuid(sessionUuid, title);
-    } else {
-      result = { success: false, error: 'Missing sessionId or sessionUuid' };
+      return sessionDatabase.updateSessionTitleByUuid(sessionUuid, title);
     }
-    console.log('[IPC] updateTitle result:', result);
-    return result;
+    return { success: false, error: 'Missing sessionId or sessionUuid' };
   });
 
   // 删除会话（数据库 + 文件）
@@ -467,14 +423,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 工程管理（数据库版）
   // ========================================
   if (setupProjectHandlers) {
-    try {
-      setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
-      console.log('[IPC] Project handlers registered successfully');
-    } catch (err) {
-      console.error('[IPC] Failed to setup project handlers:', err);
-    }
-  } else {
-    console.error('[IPC] setupProjectHandlers not available - module failed to load');
+    setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
   }
 
   // ========================================
@@ -508,8 +457,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   if (activeSessionManager) {
     setupActiveSessionHandlers(ipcMain, activeSessionManager);
   }
-
-  console.log('[IPC] Handlers ready');
 }
 
 module.exports = { setupIPCHandlers };

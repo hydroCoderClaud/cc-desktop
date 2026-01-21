@@ -11,11 +11,8 @@
  */
 function createIPCHandler(ipcMain, channelName, handler) {
   ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args)
     try {
-      const result = await handler(...args)
-      console.log(`[IPC] ${channelName} success`)
-      return result
+      return await handler(...args)
     } catch (error) {
       console.error(`[IPC] ${channelName} error:`, error)
       throw error
@@ -32,11 +29,8 @@ function createIPCHandler(ipcMain, channelName, handler) {
  */
 function createIPCHandlerWithEvent(ipcMain, channelName, handler) {
   ipcMain.handle(channelName, async (event, ...args) => {
-    console.log(`[IPC] ${channelName} called with:`, ...args)
     try {
-      const result = await handler(event, ...args)
-      console.log(`[IPC] ${channelName} success`)
-      return result
+      return await handler(event, ...args)
     } catch (error) {
       console.error(`[IPC] ${channelName} error:`, error)
       throw error

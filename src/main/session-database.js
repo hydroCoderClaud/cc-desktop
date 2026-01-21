@@ -141,6 +141,8 @@ class SessionDatabaseBase {
 
     if (needsRebuild) {
       console.log('[SessionDB] Migrating: rebuilding projects table (unique constraint from path to encoded_path)')
+      // Temporarily disable foreign keys to allow DROP TABLE with references
+      this.db.pragma('foreign_keys = OFF')
       this.db.exec('BEGIN TRANSACTION')
       try {
         // 1. 创建新表（唯一约束在 encoded_path）
@@ -180,6 +182,9 @@ class SessionDatabaseBase {
       } catch (err) {
         this.db.exec('ROLLBACK')
         console.error('[SessionDB] Migration failed:', err)
+      } finally {
+        // Re-enable foreign keys after migration
+        this.db.pragma('foreign_keys = ON')
       }
     }
   }

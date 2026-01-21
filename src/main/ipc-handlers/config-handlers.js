@@ -11,8 +11,6 @@ const { createIPCHandler, createSyncIPCHandler } = require('../utils/ipc-utils')
  * @param {ConfigManager} configManager - ConfigManager instance
  */
 function setupConfigHandlers(ipcMain, configManager) {
-  console.log('[IPC] Setting up config handlers...')
-
   // Helper for creating handlers with configManager context
   const registerHandler = (channel, handler) => createIPCHandler(ipcMain, channel, handler)
 
@@ -237,8 +235,6 @@ function setupConfigHandlers(ipcMain, configManager) {
   registerHandler('quickCommands:delete', (id) => {
     return configManager.deleteQuickCommand(id)
   })
-
-  console.log('[IPC] Config handlers ready')
 }
 
 module.exports = { setupConfigHandlers }

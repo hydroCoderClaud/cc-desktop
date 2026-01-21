@@ -33,9 +33,6 @@ function getThemeBackgroundColor() {
  */
 function createWindow() {
   const preloadPath = path.join(__dirname, '../preload/preload.js');
-  console.log('[Main] Creating main window');
-  console.log('[Main] Preload path:', preloadPath);
-  console.log('[Main] VITE_DEV_SERVER_URL:', process.env.VITE_DEV_SERVER_URL);
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -65,15 +62,12 @@ function createWindow() {
   // 生产模式：从构建后的文件加载
   const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
   if (VITE_DEV_SERVER_URL) {
-    // vite-plugin-electron 设置的 URL 已经包含完整路径
     const url = VITE_DEV_SERVER_URL.endsWith('/')
       ? `${VITE_DEV_SERVER_URL}pages/main/`
       : `${VITE_DEV_SERVER_URL}/pages/main/`;
-    console.log('[Main] Loading URL:', url);
     mainWindow.loadURL(url);
   } else {
     const filePath = path.join(__dirname, '../renderer/pages-dist/pages/main/index.html');
-    console.log('[Main] Loading file:', filePath);
     mainWindow.loadFile(filePath);
   }
 
@@ -111,8 +105,6 @@ function createWindow() {
  * 应用就绪事件
  */
 app.whenReady().then(() => {
-  console.log('[Main] Electron app is ready');
-
   // 初始化管理器
   configManager = new ConfigManager();
 
@@ -150,8 +142,6 @@ app.on('window-all-closed', () => {
  * 应用即将退出事件
  */
 app.on('will-quit', () => {
-  console.log('[Main] Application is quitting...');
-
   // 清理终端进程
   if (terminalManager) {
     terminalManager.kill();

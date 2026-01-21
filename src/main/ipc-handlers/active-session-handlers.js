@@ -11,8 +11,6 @@ const { createIPCHandler, createIPCListener } = require('../utils/ipc-utils')
  * @param {ActiveSessionManager} activeSessionManager - ActiveSessionManager instance
  */
 function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
-  console.log('[IPC] Setting up active session handlers...')
-
   // 获取 configManager 实例（通过 activeSessionManager）
   const configManager = activeSessionManager.configManager
 
@@ -30,7 +28,6 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
       const runningCount = activeSessionManager.getRunningCount()
       const maxSessions = configManager.getMaxActiveSessions()
       if (runningCount >= maxSessions) {
-        console.log(`[IPC] Session limit reached: ${runningCount}/${maxSessions}`)
         return {
           success: false,
           error: 'maxSessionsReached',
@@ -125,8 +122,6 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
   createIPCHandler(ipcMain, 'activeSession:rename', ({ sessionId, newTitle }) => {
     return activeSessionManager.renameSession(sessionId, newTitle)
   })
-
-  console.log('[IPC] Active session handlers ready')
 }
 
 module.exports = { setupActiveSessionHandlers }

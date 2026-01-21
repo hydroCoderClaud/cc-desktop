@@ -26,7 +26,6 @@ class SessionSyncService {
    */
   async sync() {
     if (this.syncing) {
-      console.log('[Sync] Already syncing, skipping...')
       return { status: 'busy', message: 'Sync already in progress' }
     }
 
@@ -43,10 +42,7 @@ class SessionSyncService {
     }
 
     try {
-      console.log('[Sync] Starting sync from', this.projectsDir)
-
       if (!existsSync(this.projectsDir)) {
-        console.log('[Sync] Claude projects directory not found')
         return { status: 'error', message: 'Claude projects directory not found' }
       }
 
@@ -89,9 +85,6 @@ class SessionSyncService {
       }
 
       const duration = Date.now() - startTime
-      console.log('[Sync] Completed in', duration, 'ms')
-      console.log('[Sync] Stats:', stats)
-
       this.lastSyncStats = { ...stats, duration, timestamp: Date.now() }
 
       return {
@@ -366,14 +359,11 @@ class SessionSyncService {
       return { status: 'busy', message: 'Sync already in progress' }
     }
 
-    console.log('[Sync] Starting FORCE FULL sync - clearing database...')
-
     try {
       // Clear all data from database
       this.db.db.exec('DELETE FROM messages')
       this.db.db.exec('DELETE FROM sessions')
       this.db.db.exec('DELETE FROM projects')
-      console.log('[Sync] Database cleared')
 
       // Now run normal sync
       return await this.sync()
@@ -410,8 +400,6 @@ class SessionSyncService {
     }
 
     try {
-      console.log('[Sync] Starting to clear invalid sessions...')
-
       // 1. Get all sessions from database that are invalid
       const invalidSessions = this.db.db.prepare(`
         SELECT s.id, s.session_uuid, s.message_count, p.encoded_path
@@ -419,8 +407,6 @@ class SessionSyncService {
         JOIN projects p ON s.project_id = p.id
         WHERE s.message_count < 2
       `).all()
-
-      console.log(`[Sync] Found ${invalidSessions.length} sessions with < 2 messages in database`)
 
       // 2. Scan all project directories for warmup sessions
       if (existsSync(this.projectsDir)) {
@@ -445,7 +431,6 @@ class SessionSyncService {
                 // Delete the file
                 await fs.unlink(filePath)
                 stats.filesDeleted++
-                console.log(`[Sync] Deleted invalid session file: ${file}`)
 
                 // Delete from database if exists
                 const dbSession = this.db.getSessionByUuid(sessionUuid)
@@ -472,7 +457,6 @@ class SessionSyncService {
         }
       }
 
-      console.log('[Sync] Clear invalid sessions completed:', stats)
       return { status: 'success', ...stats }
 
     } catch (err) {

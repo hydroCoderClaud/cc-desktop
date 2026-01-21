@@ -16,18 +16,11 @@ const { smartDecodePath } = require('../utils/path-utils')
  * @param {BrowserWindow} mainWindow - Main window instance
  */
 function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
-  console.log('[IPC] Setting up project handlers...')
-  console.log(`[IPC] Platform: ${process.platform}`)
-  console.log(`[IPC] mainWindow exists: ${!!mainWindow}`)
-  console.log(`[IPC] sessionDatabase exists: ${!!sessionDatabase}`)
-  console.log(`[IPC] ipcMain exists: ${!!ipcMain}`)
-
   // ========================================
   // 工程列表
   // ========================================
 
   // 获取所有工程（不含隐藏）
-  console.log('[IPC] Registering project:getAll')
   createIPCHandler(ipcMain, 'project:getAll', (includeHidden = false) => {
     const projects = sessionDatabase.getAllProjects(includeHidden)
     // 检查每个项目的路径是否有效
@@ -43,7 +36,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
         const correctPath = smartDecodePath(project.encoded_path)
         if (correctPath) {
           // 找到正确路径，更新数据库
-          console.log(`[IPC] Fixed path for project ${project.id}: ${project.path} -> ${correctPath}`)
           sessionDatabase.updateProject(project.id, { path: correctPath })
           return { ...project, path: correctPath, pathValid: true }
         }
@@ -108,7 +100,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   })
 
   // 打开工程（选择已有目录）
-  console.log('[IPC] Registering project:open')
   createIPCHandler(ipcMain, 'project:open', async () => {
     // macOS 上 mainWindow 可能导致问题，使用条件传参
     const dialogOptions = {
@@ -229,17 +220,13 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
   // 新建会话（占位）
   createIPCHandler(ipcMain, 'project:newSession', (projectId) => {
-    console.log('[IPC] project:newSession - placeholder')
     return { placeholder: true, message: '会话功能待实现' }
   })
 
   // 打开历史会话（占位）
   createIPCHandler(ipcMain, 'project:openSession', ({ projectId, sessionId }) => {
-    console.log('[IPC] project:openSession - placeholder')
     return { placeholder: true, message: '会话功能待实现' }
   })
-
-  console.log('[IPC] Project handlers ready')
 }
 
 module.exports = { setupProjectHandlers }

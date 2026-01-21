@@ -181,8 +181,6 @@ function registerPromptHandlers(sessionDB) {
       throw error
     }
   })
-
-  console.log('[IPC] Prompt handlers registered')
 }
 
 module.exports = { registerPromptHandlers }
