@@ -7,6 +7,7 @@ const { dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { createIPCHandler } = require('../utils/ipc-utils')
+const { smartDecodePath } = require('../utils/path-utils')
 
 /**
  * 设置工程管理的 IPC 处理器
@@ -30,10 +31,26 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   createIPCHandler(ipcMain, 'project:getAll', (includeHidden = false) => {
     const projects = sessionDatabase.getAllProjects(includeHidden)
     // 检查每个项目的路径是否有效
-    return projects.map(project => ({
-      ...project,
-      pathValid: fs.existsSync(project.path)
-    }))
+    return projects.map(project => {
+      // 首先检查存储的路径是否有效
+      if (fs.existsSync(project.path)) {
+        return { ...project, pathValid: true }
+      }
+
+      // 路径无效，且有 encoded_path，尝试智能解码找到正确路径
+      // 这处理了 decodePath 对包含 '-' 的路径解码错误的情况
+      if (project.encoded_path) {
+        const correctPath = smartDecodePath(project.encoded_path)
+        if (correctPath) {
+          // 找到正确路径，更新数据库
+          console.log(`[IPC] Fixed path for project ${project.id}: ${project.path} -> ${correctPath}`)
+          sessionDatabase.updateProject(project.id, { path: correctPath })
+          return { ...project, path: correctPath, pathValid: true }
+        }
+      }
+
+      return { ...project, pathValid: false }
+    })
   })
 
   // 获取隐藏的工程

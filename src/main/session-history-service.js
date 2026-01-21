@@ -10,7 +10,7 @@ const path = require('path')
 const os = require('os')
 const readline = require('readline')
 const { createReadStream, existsSync } = require('fs')
-const { encodePath, decodePath } = require('./utils/path-utils')
+const { encodePath, decodePath, smartDecodePath } = require('./utils/path-utils')
 
 class SessionHistoryService {
   constructor() {
@@ -42,7 +42,8 @@ class SessionHistoryService {
 
           projects.push({
             encodedPath: entry.name,
-            path: decodePath(entry.name),
+            // 优先使用 smartDecodePath 获取正确路径（处理路径中包含 '-' 的情况）
+            path: smartDecodePath(entry.name) || decodePath(entry.name),
             lastModified: stats.mtime,
             sessionCount: sessionFiles.length
           })

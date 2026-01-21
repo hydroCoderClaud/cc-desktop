@@ -9,7 +9,7 @@ const { existsSync, createReadStream, statSync } = require('fs')
 const path = require('path')
 const os = require('os')
 const readline = require('readline')
-const { encodePath, decodePath, getProjectName } = require('./utils/path-utils')
+const { encodePath, decodePath, smartDecodePath, getProjectName } = require('./utils/path-utils')
 
 class SessionSyncService {
   constructor(sessionDatabase) {
@@ -60,7 +60,9 @@ class SessionSyncService {
 
         try {
           const encodedPath = entry.name
-          const projectPath = decodePath(encodedPath)
+          // 优先使用 smartDecodePath 获取正确路径（处理路径中包含 '-' 的情况）
+          // 如果找不到，再用 decodePath 作为备选（路径可能已被删除）
+          const projectPath = smartDecodePath(encodedPath) || decodePath(encodedPath)
           const projectName = getProjectName(projectPath)
 
           // Get or create project in database

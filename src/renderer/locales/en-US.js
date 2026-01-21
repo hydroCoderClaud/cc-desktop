@@ -292,7 +292,12 @@ export default {
     deleteWarning: 'This will permanently delete the session file and cannot be undone.',
     newSessionHint: 'Click "New Session" in the left panel to start',
     cannotDeleteRunning: 'This session is currently running. Please close it first before deleting.',
-    viewMore: 'View More'
+    viewMore: 'View More',
+    sync: 'Sync Sessions',
+    syncSuccess: 'Sync completed: {added} added, {updated} updated',
+    syncNoChanges: 'Already up to date',
+    syncFailed: 'Sync failed',
+    noHistorySessions: 'Click 🔄 to sync history sessions'
   },
 
   // Session Browser

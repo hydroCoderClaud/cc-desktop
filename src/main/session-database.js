@@ -130,6 +130,55 @@ class SessionDatabaseBase {
         this.db.exec(`ALTER TABLE sessions ADD COLUMN ${col.name} ${col.type}`)
       }
     }
+
+    // 迁移：将唯一约束从 path 改为 encoded_path
+    // 检查 projects 表的 SQL 定义，判断是否需要重建
+    const tableInfo = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='projects'").get()
+    const needsRebuild = tableInfo?.sql?.includes('path TEXT UNIQUE')
+
+    if (needsRebuild) {
+      console.log('[SessionDB] Migrating: rebuilding projects table (unique constraint from path to encoded_path)')
+      this.db.exec('BEGIN TRANSACTION')
+      try {
+        // 1. 创建新表（唯一约束在 encoded_path）
+        this.db.exec(`
+          CREATE TABLE projects_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL,
+            encoded_path TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            icon TEXT DEFAULT '📁',
+            color TEXT DEFAULT '#1890ff',
+            api_profile_id TEXT,
+            is_pinned INTEGER DEFAULT 0,
+            is_hidden INTEGER DEFAULT 0,
+            source TEXT DEFAULT 'sync',
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+            last_opened_at INTEGER
+          )
+        `)
+
+        // 2. 复制数据（去重，保留最新的）
+        this.db.exec(`
+          INSERT OR IGNORE INTO projects_new
+          SELECT * FROM projects WHERE id IN (
+            SELECT MAX(id) FROM projects GROUP BY encoded_path
+          )
+        `)
+
+        // 3. 删除旧表，重命名新表
+        this.db.exec('DROP TABLE projects')
+        this.db.exec('ALTER TABLE projects_new RENAME TO projects')
+
+        this.db.exec('COMMIT')
+        console.log('[SessionDB] Migration completed: projects table rebuilt')
+      } catch (err) {
+        this.db.exec('ROLLBACK')
+        console.error('[SessionDB] Migration failed:', err)
+      }
+    }
   }
 
   /**
@@ -141,11 +190,13 @@ class SessionDatabaseBase {
     // ========================================
 
     // Projects table
+    // 注意：唯一约束在 encoded_path 上，而不是 path
+    // 因为 decodePath 对包含 '-' 的路径可能产生歧义
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        path TEXT UNIQUE NOT NULL,
-        encoded_path TEXT NOT NULL,
+        path TEXT NOT NULL,
+        encoded_path TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         description TEXT DEFAULT '',
         icon TEXT DEFAULT '📁',

@@ -94,55 +94,66 @@
       </div>
 
       <!-- History Sessions -->
-      <div class="sessions-group" v-if="currentProject && displayedHistorySessions.length > 0">
+      <div class="sessions-group" v-if="currentProject">
         <div class="group-header">
           <span class="icon">📜</span>
           <span>{{ t('session.history') }}</span>
-          <span class="count">({{ displayedHistorySessions.length }}/{{ historySessions.length }})</span>
+          <span class="count" v-if="historySessions.length > 0">({{ displayedHistorySessions.length }}/{{ historySessions.length }})</span>
+          <button
+            class="sync-btn"
+            :class="{ syncing: isSyncing }"
+            @click.stop="handleSyncSessions"
+            :disabled="isSyncing"
+            :title="t('session.sync') || '同步会话'"
+          >
+            🔄
+          </button>
           <span class="view-more" @click.stop="handleViewMore" v-if="historySessions.length > displayedHistorySessions.length">
             {{ t('session.viewMore') }}
           </span>
         </div>
-        <div
-          v-for="session in displayedHistorySessions"
-          :key="session.session_uuid"
-          class="session-item history"
-          @click="handleOpenHistorySession(session)"
-        >
-          <div class="session-info">
-            <div class="session-title">
-              <span class="icon">💬</span>
-              <span class="title-text">{{ formatSessionName(session) }}</span>
+        <template v-if="displayedHistorySessions.length > 0">
+          <div
+            v-for="session in displayedHistorySessions"
+            :key="session.session_uuid"
+            class="session-item history"
+            @click="handleOpenHistorySession(session)"
+          >
+            <div class="session-info">
+              <div class="session-title">
+                <span class="icon">💬</span>
+                <span class="title-text">{{ formatSessionName(session) }}</span>
+              </div>
+              <div class="session-meta">
+                {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} {{ t('session.messages') }}
+              </div>
             </div>
-            <div class="session-meta">
-              {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} {{ t('session.messages') }}
+            <div class="session-actions">
+              <button
+                class="rename-btn"
+                @click.stop="handleEditHistorySession(session)"
+                title="✏️"
+              >
+                ✏️
+              </button>
+              <button
+                class="delete-btn"
+                @click.stop="handleDeleteHistorySession(session)"
+                :title="t('session.delete')"
+              >
+                ×
+              </button>
             </div>
           </div>
-          <div class="session-actions">
-            <button
-              class="rename-btn"
-              @click.stop="handleEditHistorySession(session)"
-              title="✏️"
-            >
-              ✏️
-            </button>
-            <button
-              class="delete-btn"
-              @click.stop="handleDeleteHistorySession(session)"
-              :title="t('session.delete')"
-            >
-              ×
-            </button>
-          </div>
+        </template>
+        <div v-else class="empty-hint small">
+          {{ t('session.noHistorySessions') || '点击 🔄 同步历史会话' }}
         </div>
       </div>
 
       <!-- Empty State -->
       <div v-if="!currentProject" class="empty-hint">
         {{ t('main.pleaseSelectProject') }}
-      </div>
-      <div v-else-if="activeSessions.length === 0 && historySessions.length === 0" class="empty-hint">
-        {{ t('session.noSessions') }}
       </div>
     </div>
 
@@ -317,6 +328,7 @@ const {
 
 // Local state
 const selectedProjectId = ref(null)
+const isSyncing = ref(false)
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
@@ -341,6 +353,7 @@ const projectOptions = computed(() => {
 const projectMenuOptions = computed(() => [
   { label: '📂 ' + t('project.openFolder'), key: 'openFolder' },
   { label: '✏️ ' + t('project.edit'), key: 'edit' },
+  { label: '🔄 ' + t('session.sync'), key: 'syncSessions' },
   { type: 'divider', key: 'd1' },
   { label: '👁️ ' + t('project.hide'), key: 'hide' }
 ])
@@ -376,6 +389,13 @@ const handleProjectChange = async (projectId) => {
 // Handle project menu actions
 const handleProjectMenuSelect = (key) => {
   if (!props.currentProject) return
+
+  // 同步会话直接在本组件处理
+  if (key === 'syncSessions') {
+    handleSyncSessions()
+    return
+  }
+
   emit('context-action', { action: key, project: props.currentProject })
 }
 
@@ -409,6 +429,36 @@ const handleSettingsSelect = (key) => {
 const handleViewMore = () => {
   if (window.electronAPI && props.currentProject) {
     window.electronAPI.openSessionManager({ projectPath: props.currentProject.path })
+  }
+}
+
+// 手动同步会话
+const handleSyncSessions = async () => {
+  if (!props.currentProject || isSyncing.value) return
+
+  isSyncing.value = true
+  try {
+    const result = await window.electronAPI.syncProjectSessions({
+      projectPath: props.currentProject.path,
+      projectName: props.currentProject.name
+    })
+
+    if (result.success) {
+      await loadHistorySessions(props.currentProject)
+      const synced = result.synced || 0
+      if (synced > 0) {
+        message.success(t('session.syncSuccess', { added: synced, updated: 0 }) || `同步完成：新增 ${synced}`)
+      } else {
+        message.info(t('session.syncNoChanges') || '已是最新，无需同步')
+      }
+    } else {
+      message.warning(result.error || t('session.syncFailed') || '同步失败')
+    }
+  } catch (err) {
+    console.error('Sync sessions failed:', err)
+    message.error(t('session.syncFailed') || '同步失败')
+  } finally {
+    isSyncing.value = false
   }
 }
 
@@ -864,6 +914,42 @@ defineExpose({
   font-weight: 400;
 }
 
+.group-header .sync-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-header .sync-btn:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+.group-header .sync-btn:disabled {
+  cursor: not-allowed;
+}
+
+.group-header .sync-btn.syncing {
+  animation: spin 1s linear infinite;
+  opacity: 1;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .group-header .view-more {
   margin-left: auto;
   font-size: 11px;
@@ -999,6 +1085,11 @@ defineExpose({
   text-align: center;
   font-size: 13px;
   color: var(--text-color-muted);
+}
+
+.empty-hint.small {
+  padding: 12px 8px;
+  font-size: 12px;
 }
 
 /* Footer */

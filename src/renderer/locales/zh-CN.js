@@ -292,7 +292,12 @@ export default {
     deleteWarning: '此操作将永久删除会话文件，无法恢复。',
     newSessionHint: '在左侧面板点击"新建会话"开始',
     cannotDeleteRunning: '该会话正在运行中，请先关闭会话再删除',
-    viewMore: '查看更多'
+    viewMore: '查看更多',
+    sync: '同步会话',
+    syncSuccess: '同步完成：新增 {added}，更新 {updated}',
+    syncNoChanges: '已是最新，无需同步',
+    syncFailed: '同步失败',
+    noHistorySessions: '点击 🔄 同步历史会话'
   },
 
   // 会话查询管理

@@ -4,6 +4,8 @@
  * 项目相关的数据库操作方法
  */
 
+const { encodePath } = require('../utils/path-utils')
+
 /**
  * 将 Project 操作方法混入到目标类
  * @param {Function} BaseClass - 基类
@@ -17,17 +19,21 @@ function withProjectOperations(BaseClass) {
 
     /**
      * Get or create a project (用于同步服务，source='sync')
+     * 注意：使用 encoded_path 进行匹配，避免 decodePath 的 '-' 分隔符歧义
+     * projectPath 参数来自 decodePath，可能不准确，但仍存储用于显示
      */
     getOrCreateProject(projectPath, encodedPath, name) {
+      // 使用 encoded_path 查找，避免路径中包含 '-' 导致的歧义
       const existing = this.db.prepare(
-        'SELECT * FROM projects WHERE path = ?'
-      ).get(projectPath)
+        'SELECT * FROM projects WHERE encoded_path = ?'
+      ).get(encodedPath)
 
       if (existing) {
         return existing
       }
 
       // 同步导入的项目，source='sync'
+      // 注意：projectPath 可能因 decodePath 歧义而不准确
       const result = this.db.prepare(
         "INSERT INTO projects (path, encoded_path, name, source) VALUES (?, ?, ?, 'sync')"
       ).run(projectPath, encodedPath, name)
@@ -100,9 +106,11 @@ function withProjectOperations(BaseClass) {
 
     /**
      * Get project by path
+     * 使用 encoded_path 匹配，避免 decodePath 的 '-' 分隔符歧义问题
      */
     getProjectByPath(projectPath) {
-      return this.db.prepare('SELECT * FROM projects WHERE path = ?').get(projectPath)
+      const encoded = encodePath(projectPath)
+      return this.db.prepare('SELECT * FROM projects WHERE encoded_path = ?').get(encoded)
     }
 
     /**
@@ -121,19 +129,19 @@ function withProjectOperations(BaseClass) {
         source = 'user'  // 默认为用户添加
       } = projectData
 
-      // Generate encoded path (base64 of path)
-      const encodedPath = Buffer.from(projectPath).toString('base64').replace(/[/+=]/g, '_')
+      // 使用 Claude CLI 的目录命名格式作为 encoded_path（与同步导入一致）
+      const encoded = encodePath(projectPath)
 
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO projects (path, encoded_path, name, description, icon, color, api_profile_id, source, created_at, updated_at, last_opened_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(projectPath, encodedPath, name, description, icon, color, api_profile_id, source, now, now, now)
+      `).run(projectPath, encoded, name, description, icon, color, api_profile_id, source, now, now, now)
 
       return {
         id: result.lastInsertRowid,
         path: projectPath,
-        encoded_path: encodedPath,
+        encoded_path: encoded,
         name,
         description,
         icon,
@@ -152,7 +160,8 @@ function withProjectOperations(BaseClass) {
      * Update project
      */
     updateProject(projectId, updates) {
-      const allowedFields = ['name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at', 'source']
+      // path 可更新：用于修正 decodePath 解码错误的路径
+      const allowedFields = ['path', 'name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at', 'source']
       const fields = []
       const values = []
 
