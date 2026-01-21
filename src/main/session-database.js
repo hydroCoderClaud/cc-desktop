@@ -75,6 +75,9 @@ class SessionDatabaseBase {
     const Database = this._Database || getDefaultDatabase()
     this.db = new Database(this.dbPath)
 
+    // Set busy timeout to wait for locks (5 seconds)
+    this.db.pragma('busy_timeout = 5000')
+
     // Enable foreign keys
     this.db.pragma('foreign_keys = ON')
 
