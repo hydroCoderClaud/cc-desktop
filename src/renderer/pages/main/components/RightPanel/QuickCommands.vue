@@ -12,7 +12,7 @@
     </div>
     <div class="commands-list" v-if="commands.length > 0">
       <div
-        v-for="cmd in commands"
+        v-for="cmd in visibleCommands"
         :key="cmd.id"
         class="command-chip"
         :title="cmd.command"
@@ -22,9 +22,40 @@
       >
         {{ cmd.name }}
       </div>
+      <!-- More button -->
+      <div
+        v-if="overflowCommands.length > 0"
+        ref="moreButtonRef"
+        class="command-chip more-chip"
+        @click.stop="toggleMoreDropdown"
+      >
+        +{{ overflowCommands.length }}
+      </div>
     </div>
     <div class="commands-empty" v-else>
       {{ t('rightPanel.quickCommands.empty') }}
+    </div>
+
+    <!-- More Dropdown -->
+    <div
+      v-if="showMoreDropdown"
+      class="more-dropdown"
+      :style="dropdownStyle"
+      v-click-outside="closeMoreDropdown"
+    >
+      <div class="more-dropdown-list">
+        <div
+          v-for="cmd in overflowCommands"
+          :key="cmd.id"
+          class="command-chip"
+          :title="cmd.command"
+          :style="cmd.color ? { backgroundColor: cmd.color, borderColor: cmd.color, color: getContrastColor(cmd.color) } : {}"
+          @click="handleExecuteAndClose(cmd)"
+          @contextmenu.prevent="handleContextMenu($event, cmd)"
+        >
+          {{ cmd.name }}
+        </div>
+      </div>
     </div>
 
     <!-- Context Menu -->
@@ -102,7 +133,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { parseEscapeSequences } from '@composables/useEscapeParser'
 
@@ -120,12 +151,39 @@ const emit = defineEmits(['execute'])
 const commands = ref([])
 const showAddModal = ref(false)
 const showEditModal = ref(false)
+const showMoreDropdown = ref(false)
+const moreButtonRef = ref(null)
+const dropdownStyle = ref({})
 const formData = reactive({
   id: null,
   name: '',
   command: '',
   color: ''
 })
+
+// 显示数量限制（两行约 8 个）
+const VISIBLE_LIMIT = 8
+
+// 计算属性：可见命令和溢出命令
+const visibleCommands = computed(() => commands.value.slice(0, VISIBLE_LIMIT))
+const overflowCommands = computed(() => commands.value.slice(VISIBLE_LIMIT))
+
+// Toggle more dropdown with position calculation
+const toggleMoreDropdown = () => {
+  if (showMoreDropdown.value) {
+    showMoreDropdown.value = false
+    return
+  }
+  // Calculate position based on button
+  if (moreButtonRef.value) {
+    const rect = moreButtonRef.value.getBoundingClientRect()
+    dropdownStyle.value = {
+      bottom: `${window.innerHeight - rect.top + 4}px`,
+      right: '12px'
+    }
+  }
+  showMoreDropdown.value = true
+}
 
 // Preset colors (9 个)
 const presetColors = [
@@ -178,6 +236,17 @@ const loadCommands = async () => {
 const handleExecute = (cmd) => {
   const parsedCommand = parseEscapeSequences(cmd.command)
   emit('execute', parsedCommand)
+}
+
+// Execute and close dropdown
+const handleExecuteAndClose = (cmd) => {
+  handleExecute(cmd)
+  showMoreDropdown.value = false
+}
+
+// Close more dropdown
+const closeMoreDropdown = () => {
+  showMoreDropdown.value = false
 }
 
 // Context menu
@@ -272,6 +341,7 @@ const vClickOutside = {
 
 <style scoped>
 .quick-commands {
+  position: relative;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
   padding: 8px 12px;
@@ -317,8 +387,8 @@ const vClickOutside = {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 90px; /* 三行高度 */
-  overflow-y: auto;
+  max-height: 90px;
+  overflow: hidden;
 }
 
 .commands-list::-webkit-scrollbar {
@@ -356,6 +426,49 @@ const vClickOutside = {
   color: var(--text-color-muted);
   text-align: center;
   padding: 4px 0;
+}
+
+/* More chip button */
+.more-chip {
+  background: var(--bg-color-tertiary);
+  border-style: dashed;
+  font-weight: 500;
+}
+
+.more-chip:hover {
+  background: var(--hover-bg);
+}
+
+/* More dropdown */
+.more-dropdown {
+  position: fixed;
+  bottom: auto;
+  left: auto;
+  right: 12px;
+  width: 296px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  padding: 8px;
+}
+
+.more-dropdown-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.more-dropdown-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.more-dropdown-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #ccc);
+  border-radius: 2px;
 }
 
 /* Context Menu */
