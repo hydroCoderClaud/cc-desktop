@@ -14,11 +14,37 @@ export const SessionStatus = {
 }
 
 /**
+ * 会话类型枚举
+ */
+export const SessionType = {
+  SESSION: 'session',    // Claude 会话
+  TERMINAL: 'terminal'   // 纯终端
+}
+
+/**
  * 获取会话状态图标
  * @param {string} status - 会话状态
+ * @param {string} type - 会话类型 ('session' 或 'terminal')
  * @returns {string} 状态图标
  */
-export function getSessionStatusIcon(status) {
+export function getSessionStatusIcon(status, type = SessionType.SESSION) {
+  // 纯终端使用不同的图标
+  if (type === SessionType.TERMINAL) {
+    switch (status) {
+      case SessionStatus.RUNNING:
+        return '>_'
+      case SessionStatus.STARTING:
+        return '⏳'
+      case SessionStatus.EXITED:
+        return '⏹️'
+      case SessionStatus.ERROR:
+        return '❌'
+      default:
+        return '>_'
+    }
+  }
+
+  // Claude 会话图标
   switch (status) {
     case SessionStatus.RUNNING:
       return '▶️'
@@ -43,6 +69,7 @@ export function createTabFromSession(session, project) {
   return {
     id: `tab-${session.id}`,
     sessionId: session.id,
+    type: session.type || SessionType.SESSION,  // 会话类型
     projectId: project.id,
     projectName: project.name,
     projectPath: project.path,

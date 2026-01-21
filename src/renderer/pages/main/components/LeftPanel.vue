@@ -47,6 +47,9 @@
         <span class="icon">+</span>
         <span>{{ t('session.newSession') }}</span>
       </button>
+      <button class="open-terminal-btn" @click="handleOpenTerminal" :title="t('terminal.openTerminal')">
+        >_
+      </button>
     </div>
 
     <!-- Session Area (滚动区域) -->
@@ -292,6 +295,7 @@ const emit = defineEmits([
   'session-created',
   'session-selected',
   'session-closed',
+  'terminal-created',
   'collapse'
 ])
 
@@ -352,6 +356,7 @@ const projectOptions = computed(() => {
 // Project settings menu options
 const projectMenuOptions = computed(() => [
   { label: '📂 ' + t('project.openFolder'), key: 'openFolder' },
+  { label: '>_ ' + t('terminal.openTerminal'), key: 'openTerminal' },
   { label: '✏️ ' + t('project.edit'), key: 'edit' },
   { label: '🔄 ' + t('session.sync'), key: 'syncSessions' },
   { type: 'divider', key: 'd1' },
@@ -393,6 +398,12 @@ const handleProjectMenuSelect = (key) => {
   // 同步会话直接在本组件处理
   if (key === 'syncSessions') {
     handleSyncSessions()
+    return
+  }
+
+  // 打开终端直接在本组件处理
+  if (key === 'openTerminal') {
+    handleOpenTerminal()
     return
   }
 
@@ -489,6 +500,39 @@ const handleNewSession = async () => {
   }
 
   openNewSessionDialog()
+}
+
+// Open plain terminal (without starting claude)
+const handleOpenTerminal = async () => {
+  if (!props.currentProject) {
+    message.warning(t('messages.pleaseSelectProject'))
+    return
+  }
+
+  if (!props.currentProject.pathValid) {
+    message.error(t('project.pathNotExist'))
+    return
+  }
+
+  try {
+    const result = await invoke('createActiveSession', {
+      type: 'terminal',
+      projectId: props.currentProject.id,
+      projectPath: props.currentProject.path,
+      projectName: props.currentProject.name,
+      title: t('terminal.terminal'),
+      apiProfileId: props.currentProject.api_profile_id
+    })
+
+    if (result.success) {
+      emit('terminal-created', result.session)
+    } else {
+      message.error(result.error || t('terminal.createFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open terminal:', err)
+    message.error(t('terminal.createFailed'))
+  }
 }
 
 // Confirm new session
@@ -853,6 +897,8 @@ defineExpose({
   padding: 12px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  display: flex;
+  gap: 8px;
 }
 
 .new-session-btn {
@@ -860,7 +906,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   padding: 10px 16px;
   background: var(--primary-color);
   color: white;
@@ -881,6 +927,29 @@ defineExpose({
 .new-session-btn .icon {
   font-size: 16px;
   font-weight: bold;
+}
+
+.open-terminal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  padding: 10px;
+  background: var(--bg-color-tertiary);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.open-terminal-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 /* Session Section (滚动区域) */

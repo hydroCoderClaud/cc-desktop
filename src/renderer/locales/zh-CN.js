@@ -300,6 +300,13 @@ export default {
     noHistorySessions: '点击 🔄 同步历史会话'
   },
 
+  // 终端相关
+  terminal: {
+    terminal: '终端',
+    openTerminal: '打开终端',
+    createFailed: '创建终端失败'
+  },
+
   // 会话查询管理
   sessionManager: {
     title: '会话查询',

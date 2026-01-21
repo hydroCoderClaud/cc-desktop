@@ -300,6 +300,13 @@ export default {
     noHistorySessions: 'Click 🔄 to sync history sessions'
   },
 
+  // Terminal
+  terminal: {
+    terminal: 'Terminal',
+    openTerminal: 'Open Terminal',
+    createFailed: 'Failed to create terminal'
+  },
+
   // Session Browser
   sessionManager: {
     title: 'Session Browser',

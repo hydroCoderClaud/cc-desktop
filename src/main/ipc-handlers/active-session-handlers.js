@@ -22,18 +22,21 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
 
   // 创建并启动新会话
   createIPCHandler(ipcMain, 'activeSession:create', (options) => {
-    // options: { projectId, projectPath, projectName, title, apiProfileId, resumeSessionId }
+    // options: { projectId, projectPath, projectName, title, apiProfileId, resumeSessionId, type }
+    // type: 'session' (默认) 或 'terminal' (纯终端)
 
-    // 检查会话数量限制
-    const runningCount = activeSessionManager.getRunningCount()
-    const maxSessions = configManager.getMaxActiveSessions()
-    if (runningCount >= maxSessions) {
-      console.log(`[IPC] Session limit reached: ${runningCount}/${maxSessions}`)
-      return {
-        success: false,
-        error: 'maxSessionsReached',
-        maxSessions,
-        runningCount
+    // 纯终端不受会话数量限制；Claude 会话需要检查限制
+    if (options.type !== 'terminal') {
+      const runningCount = activeSessionManager.getRunningCount()
+      const maxSessions = configManager.getMaxActiveSessions()
+      if (runningCount >= maxSessions) {
+        console.log(`[IPC] Session limit reached: ${runningCount}/${maxSessions}`)
+        return {
+          success: false,
+          error: 'maxSessionsReached',
+          maxSessions,
+          runningCount
+        }
       }
     }
 

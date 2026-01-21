@@ -19,8 +19,8 @@
         :class="{ active: activeTabId === tab.id }"
         @click="selectTab(tab)"
       >
-        <span class="tab-icon" :class="tab.status">
-          {{ getStatusIcon(tab.status) }}
+        <span class="tab-icon" :class="[tab.status, tab.type]">
+          {{ getStatusIcon(tab.status, tab.type) }}
         </span>
         <span class="tab-name" :title="tab.title || tab.projectPath">
           {{ tab.title || tab.projectName || 'Session' }}

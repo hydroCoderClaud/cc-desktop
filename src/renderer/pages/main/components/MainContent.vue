@@ -24,6 +24,7 @@
       @session-created="onSessionCreated"
       @session-selected="handleSessionSelected"
       @session-closed="onSessionClosed"
+      @terminal-created="onTerminalCreated"
       @collapse="showLeftPanel = false"
     />
 
@@ -405,6 +406,12 @@ const handleSessionSelected = (session) => {
 
 const onSessionClosed = (session) => {
   handleSessionClosed(session)
+}
+
+// 终端创建事件（纯终端，不启动 claude）
+const onTerminalCreated = (session) => {
+  // 复用会话创建逻辑，终端也是一种会话（type='terminal'）
+  handleSessionCreated(session)
 }
 
 // Terminal ready event

@@ -24,11 +24,20 @@ const SessionStatus = {
 }
 
 /**
+ * 会话类型
+ */
+const SessionType = {
+  SESSION: 'session',     // Claude 会话
+  TERMINAL: 'terminal'    // 纯终端（不启动 claude）
+}
+
+/**
  * 单个活动会话
  */
 class ActiveSession {
   constructor(options) {
     this.id = options.id || uuidv4()
+    this.type = options.type || SessionType.SESSION  // 会话类型：session 或 terminal
     this.projectId = options.projectId
     this.projectPath = options.projectPath
     this.projectName = options.projectName || ''
@@ -50,6 +59,7 @@ class ActiveSession {
   toJSON() {
     return {
       id: this.id,
+      type: this.type,  // 会话类型：session 或 terminal
       projectId: this.projectId,
       projectPath: this.projectPath,
       projectName: this.projectName,
@@ -88,11 +98,14 @@ class ActiveSessionManager {
   /**
    * 创建新会话
    * @param {Object} options - 会话配置
+   * @param {string} options.type - 会话类型：'session' 或 'terminal'
    * @param {string} options.resumeSessionId - Claude Code 会话 UUID（用于恢复历史会话）
    * @returns {ActiveSession} 创建的会话
    */
   create(options) {
+    const sessionType = options.type || SessionType.SESSION
     const session = new ActiveSession({
+      type: sessionType,
       projectId: options.projectId,
       projectPath: options.projectPath,
       projectName: options.projectName,
@@ -102,10 +115,11 @@ class ActiveSessionManager {
     })
 
     this.sessions.set(session.id, session)
-    console.log(`[ActiveSession] Created session ${session.id} for project: ${options.projectPath}${options.resumeSessionId ? ` (resume: ${options.resumeSessionId})` : ''}`)
+    const typeLabel = sessionType === SessionType.TERMINAL ? 'terminal' : 'session'
+    console.log(`[ActiveSession] Created ${typeLabel} ${session.id} for project: ${options.projectPath}${options.resumeSessionId ? ` (resume: ${options.resumeSessionId})` : ''}`)
 
-    // 如果不是恢复会话，则在数据库创建待定会话记录
-    if (!options.resumeSessionId && this.sessionDatabase && options.projectPath) {
+    // 纯终端不需要数据库记录；如果不是恢复会话，则在数据库创建待定会话记录
+    if (sessionType === SessionType.SESSION && !options.resumeSessionId && this.sessionDatabase && options.projectPath) {
       try {
         // 通过 projectPath 获取或创建数据库中的项目
         const { encodePath } = require('./utils/path-utils')
@@ -236,15 +250,20 @@ class ActiveSessionManager {
         })
       })
 
-      // 等待终端就绪后清屏并启动 Claude CLI
+      // 等待终端就绪后清屏
       setTimeout(() => {
-        // 根据是否有 resumeSessionId 决定启动命令
-        const claudeCmd = session.resumeSessionId
-          ? `claude --resume ${session.resumeSessionId}`
-          : 'claude'
-        // cls 是 Windows 命令，macOS/Linux 使用 clear
         const clearCmd = os.platform() === 'win32' ? 'cls' : 'clear'
-        this.write(sessionId, `${clearCmd}; ${claudeCmd}\r`)
+
+        if (session.type === SessionType.TERMINAL) {
+          // 纯终端：只清屏，不启动 claude
+          this.write(sessionId, `${clearCmd}\r`)
+        } else {
+          // Claude 会话：清屏并启动 claude
+          const claudeCmd = session.resumeSessionId
+            ? `claude --resume ${session.resumeSessionId}`
+            : 'claude'
+          this.write(sessionId, `${clearCmd}; ${claudeCmd}\r`)
+        }
       }, 100)
 
       // 通知创建成功
