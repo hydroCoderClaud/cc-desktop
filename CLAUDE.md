@@ -238,6 +238,59 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 
 ## Recent Development History
 
+### 2026-01-22: 消息队列重构 & UI 优化 (v1.2.0)
+
+**Overview:**
+消息队列模块重构，提取 Composable 提升可维护性；右侧面板 UI 图标优化；快捷命令支持转义序列和溢出菜单。
+
+**Code Refactoring:**
+
+1. **消息队列 Composable 提取**
+   - 新增 `src/renderer/composables/useMessageQueue.js`
+   - MessageQueue.vue 代码量减少 62% (238 → 90 行)
+   - 封装：加载、分页、拖拽排序、CRUD 操作
+
+2. **转义序列解析工具**
+   - 新增 `src/renderer/composables/useEscapeParser.js`
+   - 支持 `\xNN`、`\r`、`\n`、`\t`、`\\`
+   - 快捷命令可发送 Ctrl+L 等控制字符 (如 `\x0c`)
+
+3. **后端优化**
+   - `swapQueueOrder` 添加事务包装确保原子操作
+   - 移除未使用的队列 API：`searchQueue`、`markQueueItemExecuted`、`getQueueCount`
+
+**UI Improvements:**
+
+1. **右侧面板图标优化**
+   - 📜 队列 (原 📋)
+   - 🔧 插件 (原 🔌)
+   - 🌐 MCP (原 🔗)
+   - 搜索图标统一为简洁的 ⌕
+
+2. **快速输入区增强**
+   - 添加发送按钮 (▶)，与回车功能相同
+
+3. **快捷命令溢出处理**
+   - 显示两行 (前 8 个命令)
+   - 溢出命令显示 `+N` 按钮
+   - 点击弹出上拉菜单，内部散排
+
+**Files Changed:**
+- `src/renderer/composables/useMessageQueue.js` (新增)
+- `src/renderer/composables/useEscapeParser.js` (新增)
+- `src/main/database/queue-db.js` - 事务优化，移除未用方法
+- `src/main/ipc-handlers/queue-handlers.js` - 移除未用处理器
+- `src/preload/preload.js` - 移除未用 API
+- `src/renderer/pages/main/components/RightPanel/` - 多文件优化
+- `src/renderer/pages/main/components/RightPanel/tabs/*.vue` - 搜索图标
+
+**Code Metrics:**
+- 新增 composable: ~370 行 (可复用)
+- MessageQueue.vue: -148 行 (-62%)
+- 移除后端死代码: ~50 行
+
+---
+
 ### 2026-01-21: Quick Commands & Database Lock Fix (v1.1.9)
 
 **Overview:**
@@ -809,7 +862,7 @@ src/renderer/js/
 
 ## 📋 Current Status & Next Steps
 
-### ✅ Current Version: v1.1.9 (2026-01-21)
+### ✅ Current Version: v1.2.0 (2026-01-22)
 
 **Status**: 🟢 MVP 已发布，持续迭代中
 
@@ -825,7 +878,18 @@ src/renderer/js/
 - ✅ 连接测试 (支持代理)
 - ✅ 全局设置 (模型、超时、最大会话数)
 - ✅ 外观设置 (主题、语言、终端字体)
-- ✅ 快捷命令 (右侧面板，支持颜色标记) - **v1.1.9 新增**
+- ✅ 快捷命令 - **v1.2.0 增强**
+  - 右侧面板，支持颜色标记
+  - 支持转义序列 (\xNN 发送控制字符)
+  - 两行显示 + 溢出上拉菜单
+- ✅ 消息队列 - **v1.2.0 重构**
+  - useMessageQueue composable
+  - 拖拽排序、分页
+  - 搜索图标优化
+- ✅ 快速输入区
+  - 发送按钮 (▶)
+  - 加入队列 (+)
+  - 创建提示词 (💬)
 - ✅ 会话历史管理
   - SQLite 存储 + FTS5 全文搜索
   - 从 ~/.claude 目录同步
@@ -838,7 +902,7 @@ src/renderer/js/
   - 会话列表排序
   - 跨项目会话显示
 - ✅ 代码架构重构
-  - Composables: useProjects, useTabManagement, useSessionPanel 等 13 个
+  - Composables: useProjects, useTabManagement, useSessionPanel, useMessageQueue, useEscapeParser 等 15 个
   - ConfigManager 模块化 (api-config, provider-config, project-config)
   - CSS 变量主题系统 (useTheme.js)
 - ✅ CI/CD
@@ -848,17 +912,12 @@ src/renderer/js/
   - macOS 子窗口和 dialog 问题修复
   - 终端字体配置优化
 
-### 🎯 Next Steps: v1.2.0 - 右侧扩展面板
+### 🎯 Next Steps: v1.3.0 - AI 助手面板
 
-**当前进度：**
-- ✅ RightPanel.vue 框架已创建
-- ✅ 折叠/展开交互已实现
-- ✅ 快捷命令功能已完成 (v1.1.9)
-
-**计划功能（待确定）：**
-- [ ] 语音输入 (百度语音识别) - 已尝试，遇到页面重载问题，待排查
+**计划功能：**
+- [ ] AI 助手面板 (简单问答，不依赖终端会话)
+- [ ] 语音输入 (百度语音识别) - 待排查页面重载问题
 - [ ] 会话信息面板 (Token 用量、元数据)
-- [ ] AI 助手面板
 - [ ] 项目文件浏览器
 
 ### 🔧 后期调优 (低优先级)
@@ -888,7 +947,7 @@ src/renderer/js/
 - 📖 `CLAUDE.md` - 开发历史和架构 (AI 参考)
 - 📝 `docs/CHANGELOG.md` - 版本历史
 - 📄 `README.md` - 项目介绍
-- 📦 `package.json` - 版本号 (1.1.6)
+- 📦 `package.json` - 版本号 (1.2.0)
 
 **文档目录：**
 ```
