@@ -348,8 +348,8 @@ class ActiveSessionManager {
           session.pty.write('\x03')
           console.log(`[ActiveSession] Sent first Ctrl+C`)
 
-          // 等待 500ms
-          await this._delay(500)
+          // 等待 100ms
+          await this._delay(100)
 
           // 检查是否已退出
           if (session.status === SessionStatus.EXITED) {
@@ -359,8 +359,8 @@ class ActiveSessionManager {
             session.pty.write('\x03')
             console.log(`[ActiveSession] Sent second Ctrl+C`)
 
-            // 再等待 1000ms
-            await this._delay(1000)
+            // 再等待 200ms
+            await this._delay(200)
 
             // 如果还没退出，强制 kill
             if (session.status !== SessionStatus.EXITED && session.pty) {

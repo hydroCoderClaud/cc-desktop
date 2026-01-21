@@ -51,8 +51,16 @@
         v-for="(item, idx) in pagedItems"
         :key="item.id"
         class="queue-item"
+        :class="{ 'drag-over': dragOverId === item.id }"
         :title="t('rightPanel.messageQueue.clickHint')"
+        draggable="true"
         @click="handleSend(item)"
+        @dragstart="handleDragStart($event, item, idx)"
+        @dragover.prevent="handleDragOver($event, item)"
+        @dragenter.prevent="handleDragEnter(item)"
+        @dragleave="handleDragLeave(item)"
+        @drop.prevent="handleDrop($event, item, idx)"
+        @dragend="handleDragEnd"
       >
         <div class="item-index">{{ getGlobalIndex(idx) }}</div>
         <span class="item-content">{{ fullHeight ? item.content : truncateContent(item.content) }}</span>
@@ -164,6 +172,10 @@ const editingItem = ref(null)
 const editContent = ref('')
 const currentPage = ref(1)
 const pageSize = 10
+
+// Drag state
+const dragItem = ref(null)
+const dragOverId = ref(null)
 
 // Computed
 const filteredItems = computed(() => {
@@ -302,6 +314,50 @@ const handleMoveDown = async (item, index) => {
   } catch (error) {
     console.error('Failed to move item:', error)
   }
+}
+
+// Drag and drop handlers
+const handleDragStart = (e, item, idx) => {
+  dragItem.value = { item, globalIndex: getGlobalIndex(idx) - 1 }
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', item.id)
+}
+
+const handleDragOver = (e, item) => {
+  e.dataTransfer.dropEffect = 'move'
+}
+
+const handleDragEnter = (item) => {
+  if (dragItem.value && dragItem.value.item.id !== item.id) {
+    dragOverId.value = item.id
+  }
+}
+
+const handleDragLeave = (item) => {
+  if (dragOverId.value === item.id) {
+    dragOverId.value = null
+  }
+}
+
+const handleDrop = async (e, targetItem, targetIdx) => {
+  dragOverId.value = null
+  if (!dragItem.value || dragItem.value.item.id === targetItem.id) return
+
+  try {
+    await swapQueueOrder({
+      id1: dragItem.value.item.id,
+      id2: targetItem.id
+    })
+    await loadQueue()
+  } catch (error) {
+    console.error('Failed to reorder:', error)
+  }
+  dragItem.value = null
+}
+
+const handleDragEnd = () => {
+  dragItem.value = null
+  dragOverId.value = null
 }
 
 // Close modal
@@ -487,6 +543,20 @@ defineExpose({
 .queue-item:hover {
   background: var(--hover-bg);
   border-color: var(--primary-color);
+}
+
+.queue-item.drag-over {
+  border-color: var(--primary-color);
+  border-style: dashed;
+  background: var(--hover-bg);
+}
+
+.queue-item[draggable="true"] {
+  cursor: grab;
+}
+
+.queue-item[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .item-index {
