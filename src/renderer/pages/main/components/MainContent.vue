@@ -477,7 +477,11 @@ const openApiProfileManager = async () => {
 }
 
 .main-header {
-  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 24px;
+  height: 60px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-secondary);
 }

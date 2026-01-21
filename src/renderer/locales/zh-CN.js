@@ -93,6 +93,19 @@ export default {
       prompts: '提示词',
       ai: 'AI 助手'
     },
+    // 快捷命令
+    quickCommands: {
+      label: '快捷命令',
+      empty: '点击 + 添加常用命令',
+      add: '添加快捷命令',
+      edit: '编辑快捷命令',
+      name: '名称',
+      namePlaceholder: '如：压缩',
+      command: '命令',
+      commandPlaceholder: '如：/compact',
+      color: '颜色',
+      noColor: '无颜色'
+    },
     // 快速输入
     quickInput: {
       label: '快速输入',

@@ -22,6 +22,11 @@
       </KeepAlive>
     </div>
 
+    <!-- Quick Commands -->
+    <QuickCommands
+      @execute="handleSendToTerminal"
+    />
+
     <!-- Quick Input -->
     <QuickInput
       ref="quickInputRef"
@@ -36,6 +41,7 @@
 import { ref, computed, shallowRef, markRaw, nextTick } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import TabBar from './TabBar.vue'
+import QuickCommands from './QuickCommands.vue'
 import QuickInput from './QuickInput.vue'
 
 // Tab Components (lazy loaded)

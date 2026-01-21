@@ -33,6 +33,9 @@ class ConfigManager {
       // 服务商定义（自定义服务商，内置的在 constants.js 中）
       serviceProviderDefinitions: [],
 
+      // 快捷命令（右侧面板）
+      quickCommands: [],
+
       // 全局模型配置（用于官方/中转服务）
       globalModels: { ...DEFAULT_GLOBAL_MODELS },
 
@@ -212,6 +215,66 @@ class ConfigManager {
     }
     this.config.settings.maxHistorySessions = maxHistorySessions;
     return this.save();
+  }
+
+  // ========================================
+  // 快捷命令管理
+  // ========================================
+
+  /**
+   * 获取快捷命令列表
+   */
+  getQuickCommands() {
+    return this.config.quickCommands || [];
+  }
+
+  /**
+   * 添加快捷命令
+   */
+  addQuickCommand(command) {
+    if (!this.config.quickCommands) {
+      this.config.quickCommands = [];
+    }
+    const newCommand = {
+      id: uuidv4(),
+      name: command.name,
+      command: command.command,
+      color: command.color || null,
+      createdAt: new Date().toISOString()
+    };
+    this.config.quickCommands.push(newCommand);
+    this.save();
+    return newCommand;
+  }
+
+  /**
+   * 更新快捷命令
+   */
+  updateQuickCommand(id, updates) {
+    if (!this.config.quickCommands) return null;
+    const index = this.config.quickCommands.findIndex(c => c.id === id);
+    if (index === -1) return null;
+
+    this.config.quickCommands[index] = {
+      ...this.config.quickCommands[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    this.save();
+    return this.config.quickCommands[index];
+  }
+
+  /**
+   * 删除快捷命令
+   */
+  deleteQuickCommand(id) {
+    if (!this.config.quickCommands) return false;
+    const index = this.config.quickCommands.findIndex(c => c.id === id);
+    if (index === -1) return false;
+
+    this.config.quickCommands.splice(index, 1);
+    this.save();
+    return true;
   }
 
   /**

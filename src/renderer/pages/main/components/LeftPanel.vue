@@ -793,7 +793,8 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 0 16px;
+  height: 60px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -818,14 +819,11 @@ defineExpose({
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  opacity: 0;
-}
-
-.panel-header:hover .collapse-btn {
-  opacity: 1;
+  opacity: 0.5;
 }
 
 .collapse-btn:hover {
+  opacity: 1;
   background: var(--hover-bg);
   color: var(--text-color);
 }

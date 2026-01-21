@@ -218,6 +218,26 @@ function setupConfigHandlers(ipcMain, configManager) {
     return configManager.deleteServiceProviderDefinition(id)
   })
 
+  // ========================================
+  // 快捷命令管理
+  // ========================================
+
+  registerHandler('quickCommands:list', () => {
+    return configManager.getQuickCommands()
+  })
+
+  registerHandler('quickCommands:add', (command) => {
+    return configManager.addQuickCommand(command)
+  })
+
+  registerHandler('quickCommands:update', ({ id, name, command, color }) => {
+    return configManager.updateQuickCommand(id, { name, command, color })
+  })
+
+  registerHandler('quickCommands:delete', (id) => {
+    return configManager.deleteQuickCommand(id)
+  })
+
   console.log('[IPC] Config handlers ready')
 }
 

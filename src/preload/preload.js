@@ -158,6 +158,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteProvider: (id) => ipcRenderer.invoke('provider:delete', id),
 
   // ========================================
+  // 快捷命令管理
+  // ========================================
+  getQuickCommands: () => ipcRenderer.invoke('quickCommands:list'),
+  addQuickCommand: (command) => ipcRenderer.invoke('quickCommands:add', command),
+  updateQuickCommand: ({ id, name, command, color }) => ipcRenderer.invoke('quickCommands:update', { id, name, command, color }),
+  deleteQuickCommand: (id) => ipcRenderer.invoke('quickCommands:delete', id),
+
+  // ========================================
   // 会话历史管理（数据库版）
   // ========================================
   // 同步

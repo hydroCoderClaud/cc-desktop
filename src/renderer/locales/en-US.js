@@ -93,6 +93,19 @@ export default {
       prompts: 'Prompts',
       ai: 'AI'
     },
+    // Quick Commands
+    quickCommands: {
+      label: 'Quick Commands',
+      empty: 'Click + to add commands',
+      add: 'Add Quick Command',
+      edit: 'Edit Quick Command',
+      name: 'Name',
+      namePlaceholder: 'e.g., Compact',
+      command: 'Command',
+      commandPlaceholder: 'e.g., /compact',
+      color: 'Color',
+      noColor: 'No color'
+    },
     // Quick Input
     quickInput: {
       label: 'Quick Input',

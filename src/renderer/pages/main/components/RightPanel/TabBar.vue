@@ -49,7 +49,8 @@ defineEmits(['select', 'collapse'])
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
+  padding: 0 12px;
+  height: 60px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
 }
