@@ -140,10 +140,10 @@ const handleAddToQueue = async (content) => {
     })
     // Switch to queue tab
     activeTab.value = 'queue'
-    // Refresh queue display
+    // Refresh queue and go to last page
     await nextTick()
-    if (messageQueueRef.value?.refresh) {
-      messageQueueRef.value.refresh()
+    if (messageQueueRef.value?.refreshAndGoToLast) {
+      messageQueueRef.value.refreshAndGoToLast()
     }
   } catch (error) {
     console.error('Failed to add to queue:', error)

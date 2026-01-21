@@ -311,9 +311,16 @@ const closeModal = () => {
   editContent.value = ''
 }
 
-// Expose refresh method
+// Refresh and go to last page (for new items)
+const refreshAndGoToLast = async () => {
+  await loadQueue()
+  currentPage.value = totalPages.value
+}
+
+// Expose methods
 defineExpose({
-  refresh: loadQueue
+  refresh: loadQueue,
+  refreshAndGoToLast
 })
 </script>
 
