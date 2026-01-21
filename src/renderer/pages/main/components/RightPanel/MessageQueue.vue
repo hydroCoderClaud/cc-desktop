@@ -37,6 +37,7 @@
 
     <!-- Search -->
     <div class="search-box">
+      <span class="search-icon">⌕</span>
       <input
         v-model="searchKeyword"
         type="text"
@@ -55,12 +56,12 @@
         :title="t('rightPanel.messageQueue.clickHint')"
         draggable="true"
         @click="handleSend(item)"
-        @dragstart="handleDragStart($event, item, idx)"
-        @dragover.prevent="handleDragOver($event, item)"
-        @dragenter.prevent="handleDragEnter(item)"
-        @dragleave="handleDragLeave(item)"
-        @drop.prevent="handleDrop($event, item, idx)"
-        @dragend="handleDragEnd"
+        @dragstart="startDrag($event, item, idx)"
+        @dragover.prevent
+        @dragenter.prevent="enterDrag(item)"
+        @dragleave="leaveDrag(item)"
+        @drop.prevent="drop(item)"
+        @dragend="endDrag"
       >
         <div class="item-index">{{ getGlobalIndex(idx) }}</div>
         <span class="item-content">{{ fullHeight ? item.content : truncateContent(item.content) }}</span>
@@ -69,7 +70,7 @@
             class="item-btn move-btn"
             :title="t('rightPanel.messageQueue.moveUp')"
             :disabled="getGlobalIndex(idx) === 1"
-            @click.stop="handleMoveUp(item, getGlobalIndex(idx) - 1)"
+            @click.stop="moveUp(item, getGlobalIndex(idx) - 1)"
           >
             ↑
           </button>
@@ -77,21 +78,21 @@
             class="item-btn move-btn"
             :title="t('rightPanel.messageQueue.moveDown')"
             :disabled="getGlobalIndex(idx) === filteredItems.length"
-            @click.stop="handleMoveDown(item, getGlobalIndex(idx) - 1)"
+            @click.stop="moveDown(item, getGlobalIndex(idx) - 1)"
           >
             ↓
           </button>
           <button
             class="item-btn edit-btn"
             :title="t('common.edit')"
-            @click.stop="handleEdit(item)"
+            @click.stop="openEditModal(item)"
           >
             &#9998;
           </button>
           <button
             class="item-btn delete-btn"
             :title="t('common.delete')"
-            @click.stop="handleDelete(item)"
+            @click.stop="remove(item.id)"
           >
             &times;
           </button>
@@ -108,11 +109,11 @@
     </div>
 
     <!-- Edit Modal -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showEditModal" class="modal-overlay" @click.self="closeEditModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ t('rightPanel.messageQueue.editTitle') }}</h3>
-          <button class="close-btn" @click="closeModal">&times;</button>
+          <button class="close-btn" @click="closeEditModal">&times;</button>
         </div>
         <div class="modal-body">
           <textarea
@@ -123,7 +124,7 @@
           />
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeModal">
+          <button class="btn btn-secondary" @click="closeEditModal">
             {{ t('common.cancel') }}
           </button>
           <button
@@ -140,16 +141,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, toRef, onMounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { useMessageQueue } from '@composables/useMessageQueue'
 
 const { t } = useLocale()
-const {
-  getQueue,
-  updateQueueItem,
-  deleteQueueItem,
-  swapQueueOrder
-} = window.electronAPI
 
 const props = defineProps({
   sessionUuid: {
@@ -164,213 +160,70 @@ const props = defineProps({
 
 const emit = defineEmits(['send'])
 
-// State
-const items = ref([])
-const searchKeyword = ref('')
+// 使用 composable
+const sessionUuidRef = toRef(props, 'sessionUuid')
+const {
+  items,
+  searchKeyword,
+  currentPage,
+  filteredItems,
+  totalPages,
+  pagedItems,
+  dragOverId,
+  loadQueue,
+  update,
+  remove,
+  goToPage,
+  getGlobalIndex,
+  refreshAndGoToLast,
+  moveUp,
+  moveDown,
+  startDrag,
+  enterDrag,
+  leaveDrag,
+  drop,
+  endDrag
+} = useMessageQueue(sessionUuidRef)
+
+// 编辑 Modal 状态（UI 相关，保留在组件内）
 const showEditModal = ref(false)
 const editingItem = ref(null)
 const editContent = ref('')
-const currentPage = ref(1)
-const pageSize = 10
 
-// Drag state
-const dragItem = ref(null)
-const dragOverId = ref(null)
-
-// Computed
-const filteredItems = computed(() => {
-  if (!searchKeyword.value.trim()) {
-    return items.value
-  }
-  const keyword = searchKeyword.value.toLowerCase()
-  return items.value.filter(item =>
-    item.content.toLowerCase().includes(keyword)
-  )
-})
-
-// Pagination computed
-const totalPages = computed(() => Math.ceil(filteredItems.value.length / pageSize) || 1)
-
-const pagedItems = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredItems.value.slice(start, end)
-})
-
-// Get global index for display
-const getGlobalIndex = (localIdx) => {
-  return (currentPage.value - 1) * pageSize + localIdx + 1
-}
-
-// Pagination methods
-const goToPage = (page) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page
-  }
-}
-
-// Reset page when search changes
-watch(searchKeyword, () => {
-  currentPage.value = 1
-})
-
-// Watch sessionUuid changes
-watch(() => props.sessionUuid, async (newUuid) => {
-  if (newUuid) {
-    await loadQueue()
-  } else {
-    items.value = []
-  }
-})
-
-// Load on mount (for tab switching)
+// Load on mount
 onMounted(() => {
   if (props.sessionUuid) {
     loadQueue()
   }
 })
 
-// Load queue
-const loadQueue = async () => {
-  if (!props.sessionUuid) {
-    items.value = []
-    return
-  }
-  try {
-    const result = await getQueue(props.sessionUuid)
-    items.value = result || []
-  } catch (error) {
-    console.error('Failed to load queue:', error)
-    items.value = []
-  }
-}
-
-// Truncate content for display
+// UI Helpers
 const truncateContent = (content) => {
   const firstLine = content.split('\n')[0]
   return firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine
 }
 
-// Send to terminal (click)
+// Event Handlers
 const handleSend = (item) => {
   emit('send', item.content)
 }
 
-// Edit item
-const handleEdit = (item) => {
+const openEditModal = (item) => {
   editingItem.value = item
   editContent.value = item.content
   showEditModal.value = true
 }
 
-// Save edit
-const handleSaveEdit = async () => {
-  if (!editContent.value.trim() || !editingItem.value) return
-  try {
-    await updateQueueItem({
-      id: editingItem.value.id,
-      content: editContent.value.trim()
-    })
-    await loadQueue()
-    closeModal()
-  } catch (error) {
-    console.error('Failed to update item:', error)
-  }
-}
-
-// Delete item
-const handleDelete = async (item) => {
-  try {
-    await deleteQueueItem(item.id)
-    await loadQueue()
-    // If current page is empty and not first page, go to previous page
-    if (pagedItems.value.length === 0 && currentPage.value > 1) {
-      currentPage.value = currentPage.value - 1
-    }
-  } catch (error) {
-    console.error('Failed to delete item:', error)
-  }
-}
-
-// Move item up
-const handleMoveUp = async (item, index) => {
-  if (index <= 0) return
-  const prevItem = filteredItems.value[index - 1]
-  try {
-    await swapQueueOrder({ id1: item.id, id2: prevItem.id })
-    await loadQueue()
-  } catch (error) {
-    console.error('Failed to move item:', error)
-  }
-}
-
-// Move item down
-const handleMoveDown = async (item, index) => {
-  if (index >= filteredItems.value.length - 1) return
-  const nextItem = filteredItems.value[index + 1]
-  try {
-    await swapQueueOrder({ id1: item.id, id2: nextItem.id })
-    await loadQueue()
-  } catch (error) {
-    console.error('Failed to move item:', error)
-  }
-}
-
-// Drag and drop handlers
-const handleDragStart = (e, item, idx) => {
-  dragItem.value = { item, globalIndex: getGlobalIndex(idx) - 1 }
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', item.id)
-}
-
-const handleDragOver = (e, item) => {
-  e.dataTransfer.dropEffect = 'move'
-}
-
-const handleDragEnter = (item) => {
-  if (dragItem.value && dragItem.value.item.id !== item.id) {
-    dragOverId.value = item.id
-  }
-}
-
-const handleDragLeave = (item) => {
-  if (dragOverId.value === item.id) {
-    dragOverId.value = null
-  }
-}
-
-const handleDrop = async (e, targetItem, targetIdx) => {
-  dragOverId.value = null
-  if (!dragItem.value || dragItem.value.item.id === targetItem.id) return
-
-  try {
-    await swapQueueOrder({
-      id1: dragItem.value.item.id,
-      id2: targetItem.id
-    })
-    await loadQueue()
-  } catch (error) {
-    console.error('Failed to reorder:', error)
-  }
-  dragItem.value = null
-}
-
-const handleDragEnd = () => {
-  dragItem.value = null
-  dragOverId.value = null
-}
-
-// Close modal
-const closeModal = () => {
+const closeEditModal = () => {
   showEditModal.value = false
   editingItem.value = null
   editContent.value = ''
 }
 
-// Refresh and go to last page (for new items)
-const refreshAndGoToLast = async () => {
-  await loadQueue()
-  currentPage.value = totalPages.value
+const handleSaveEdit = async () => {
+  if (!editContent.value.trim() || !editingItem.value) return
+  await update(editingItem.value.id, editContent.value)
+  closeEditModal()
 }
 
 // Expose methods
@@ -476,15 +329,26 @@ defineExpose({
 
 .search-box {
   margin-bottom: 8px;
+  position: relative;
 }
 
 .full-height .search-box {
   margin-bottom: 12px;
 }
 
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-color-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
 .search-input {
   width: 100%;
-  padding: 6px 10px;
+  padding: 6px 10px 6px 28px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-color-secondary);
@@ -496,7 +360,7 @@ defineExpose({
 }
 
 .full-height .search-input {
-  padding: 8px 12px;
+  padding: 8px 12px 8px 32px;
   font-size: 13px;
   background: var(--bg-color);
 }
@@ -507,10 +371,6 @@ defineExpose({
 
 .search-input::placeholder {
   color: var(--text-color-muted);
-}
-
-.queue-list {
-  /* 分页模式不需要滚动 */
 }
 
 .full-height .queue-list {

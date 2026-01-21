@@ -93,10 +93,10 @@ const { addToQueue } = window.electronAPI
 // Tab definitions
 const tabs = computed(() => [
   { id: 'prompts', icon: '💬', label: t('rightPanel.tabs.prompts') },
-  { id: 'queue', icon: '📋', label: t('rightPanel.tabs.queue') },
-  { id: 'plugins', icon: '🔌', label: t('rightPanel.tabs.plugins') },
+  { id: 'queue', icon: '📜', label: t('rightPanel.tabs.queue') },
+  { id: 'plugins', icon: '🔧', label: t('rightPanel.tabs.plugins') },
   { id: 'skills', icon: '⚡', label: t('rightPanel.tabs.skills') },
-  { id: 'mcp', icon: '🔗', label: t('rightPanel.tabs.mcp') },
+  { id: 'mcp', icon: '🌐', label: t('rightPanel.tabs.mcp') },
   { id: 'ai', icon: '🤖', label: t('rightPanel.tabs.ai') }
 ])
 

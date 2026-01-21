@@ -111,6 +111,7 @@ export default {
       label: '快速输入',
       hint: '回车输入，再回车执行',
       placeholder: '输入命令或提示词...',
+      send: '发送到终端',
       addToQueue: '加入队列',
       createPrompt: '创建提示词'
     },

@@ -111,6 +111,7 @@ export default {
       label: 'Quick Input',
       hint: 'Enter to input, Enter again to run',
       placeholder: 'Enter command or prompt...',
+      send: 'Send to Terminal',
       addToQueue: 'Add to Queue',
       createPrompt: 'Create Prompt'
     },

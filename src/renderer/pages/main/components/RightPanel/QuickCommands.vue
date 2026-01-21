@@ -104,6 +104,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { parseEscapeSequences } from '@composables/useEscapeParser'
 
 const { t } = useLocale()
 const {
@@ -175,7 +176,8 @@ const loadCommands = async () => {
 
 // Execute command
 const handleExecute = (cmd) => {
-  emit('execute', cmd.command)
+  const parsedCommand = parseEscapeSequences(cmd.command)
+  emit('execute', parsedCommand)
 }
 
 // Context menu
@@ -315,7 +317,7 @@ const vClickOutside = {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 62px; /* 两行高度 */
+  max-height: 90px; /* 三行高度 */
   overflow-y: auto;
 }
 

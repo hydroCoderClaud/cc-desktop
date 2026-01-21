@@ -16,11 +16,6 @@ function setupQueueHandlers(ipcMain, sessionDatabase) {
     return sessionDatabase.getQueue(sessionUuid)
   })
 
-  // 搜索队列
-  createIPCHandler(ipcMain, 'queue:search', ({ sessionUuid, keyword }) => {
-    return sessionDatabase.searchQueue(sessionUuid, keyword)
-  })
-
   // 添加到队列
   createIPCHandler(ipcMain, 'queue:add', ({ sessionUuid, content }) => {
     return sessionDatabase.addToQueue(sessionUuid, content)
@@ -34,16 +29,6 @@ function setupQueueHandlers(ipcMain, sessionDatabase) {
   // 删除队列项
   createIPCHandler(ipcMain, 'queue:delete', (id) => {
     return sessionDatabase.deleteQueueItem(id)
-  })
-
-  // 标记为已执行
-  createIPCHandler(ipcMain, 'queue:markExecuted', (id) => {
-    return sessionDatabase.markQueueItemExecuted(id)
-  })
-
-  // 获取队列数量
-  createIPCHandler(ipcMain, 'queue:count', (sessionUuid) => {
-    return sessionDatabase.getQueueCount(sessionUuid)
   })
 
   // 清空队列

@@ -20,7 +20,7 @@
           @clear="clearSearchResults"
         >
           <template #prefix>
-            <span>🔍</span>
+            <span>⌕</span>
           </template>
         </n-input>
         <!-- Search Button -->

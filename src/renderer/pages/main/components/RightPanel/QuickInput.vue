@@ -15,6 +15,14 @@
       />
       <div class="input-actions">
         <button
+          class="action-btn send-btn"
+          :disabled="!inputText.trim()"
+          :title="t('rightPanel.quickInput.send')"
+          @click="handleSendToTerminal"
+        >
+          ▶
+        </button>
+        <button
           class="action-btn"
           :disabled="!inputText.trim()"
           :title="t('rightPanel.quickInput.addToQueue')"
@@ -69,7 +77,7 @@ const handleAddToQueue = () => {
   inputText.value = ''
 }
 
-// Send to terminal without executing, focus terminal
+// Send to terminal
 const handleSendToTerminal = () => {
   const text = inputText.value.trim()
   if (!text) return

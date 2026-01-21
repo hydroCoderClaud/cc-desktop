@@ -17,7 +17,7 @@
         clearable
       >
         <template #prefix>
-          <span style="opacity: 0.5;">🔍</span>
+          <span>⌕</span>
         </template>
       </n-input>
     </div>

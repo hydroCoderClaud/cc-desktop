@@ -47,20 +47,6 @@ function withQueueOperations(BaseClass) {
     }
 
     /**
-     * 搜索队列
-     * @param {string} sessionUuid - 会话 UUID
-     * @param {string} keyword - 搜索关键词
-     * @returns {Array} - 匹配的队列项
-     */
-    searchQueue(sessionUuid, keyword) {
-      return this.db.prepare(`
-        SELECT * FROM session_message_queue
-        WHERE session_uuid = ? AND is_executed = 0 AND content LIKE ?
-        ORDER BY created_at ASC
-      `).all(sessionUuid, `%${keyword}%`)
-    }
-
-    /**
      * 更新队列项内容
      * @param {string} id - 队列项 ID
      * @param {string} content - 新内容
@@ -74,19 +60,6 @@ function withQueueOperations(BaseClass) {
     }
 
     /**
-     * 标记队列项为已执行
-     * @param {string} id - 队列项 ID
-     * @returns {Object} - 更新结果
-     */
-    markQueueItemExecuted(id) {
-      const now = Date.now()
-      const result = this.db.prepare(`
-        UPDATE session_message_queue SET is_executed = 1, executed_at = ? WHERE id = ?
-      `).run(now, id)
-      return { success: result.changes > 0 }
-    }
-
-    /**
      * 删除队列项
      * @param {string} id - 队列项 ID
      * @returns {Object} - 删除结果
@@ -96,19 +69,6 @@ function withQueueOperations(BaseClass) {
         DELETE FROM session_message_queue WHERE id = ?
       `).run(id)
       return { success: result.changes > 0 }
-    }
-
-    /**
-     * 获取队列项数量
-     * @param {string} sessionUuid - 会话 UUID
-     * @returns {number} - 待执行队列项数量
-     */
-    getQueueCount(sessionUuid) {
-      const result = this.db.prepare(`
-        SELECT COUNT(*) as count FROM session_message_queue
-        WHERE session_uuid = ? AND is_executed = 0
-      `).get(sessionUuid)
-      return result?.count || 0
     }
 
     /**
@@ -139,9 +99,13 @@ function withQueueOperations(BaseClass) {
         return { success: false, error: 'Item not found' }
       }
 
+      // 使用事务确保两个 UPDATE 操作原子执行
       const update = this.db.prepare('UPDATE session_message_queue SET created_at = ? WHERE id = ?')
-      update.run(item2.created_at, id1)
-      update.run(item1.created_at, id2)
+      const swapTransaction = this.db.transaction(() => {
+        update.run(item2.created_at, id1)
+        update.run(item1.created_at, id2)
+      })
+      swapTransaction()
 
       return { success: true }
     }
