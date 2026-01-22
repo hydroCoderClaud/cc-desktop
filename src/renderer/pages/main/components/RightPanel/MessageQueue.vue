@@ -261,17 +261,11 @@ defineExpose({
 
 .full-height .queue-header {
   margin-bottom: 0;
-  padding: 0;
+  margin-left: -12px;
+  margin-right: -12px;
+  padding: 0 12px;
   height: 40px;
   border-bottom: 1px solid var(--border-color);
-}
-
-.full-height .header-left {
-  margin-left: 12px;
-}
-
-.full-height .pagination {
-  margin-right: 12px;
 }
 
 .header-left {
