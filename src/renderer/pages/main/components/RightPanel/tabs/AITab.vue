@@ -153,7 +153,12 @@ const formatTokens = (tokens) => {
 // Update token info
 const updateTokenInfo = async () => {
   if (!aiCountTokens) return
-  const info = await aiCountTokens(messages.value)
+  // 转为纯对象，避免 IPC 序列化错误
+  const plainMessages = messages.value.map(m => ({
+    role: m.role,
+    content: m.content
+  }))
+  const info = await aiCountTokens(plainMessages)
   tokenInfo.value = info
 }
 

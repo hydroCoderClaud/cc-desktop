@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
+    "marked": "^15.0.12",
     "naive-ui": "^2.43.2",
     "node-pty": "^1.0.0",
     "uuid": "^9.0.0",
