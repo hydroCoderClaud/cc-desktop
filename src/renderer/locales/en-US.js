@@ -187,7 +187,14 @@ export default {
       clearConfirm: 'Clear chat history?',
       insertToInput: 'Insert to input',
       notConfigured: 'AI assistant is not configured. Please set up API in settings.',
-      error: 'Request failed. Please try again.'
+      error: 'Request failed. Please try again.',
+      tokenInfo: 'Current context token count',
+      noApiKey: 'Please configure API Key first',
+      contextLarge: 'Context is large, consider compacting to save tokens',
+      compact: 'Compact',
+      compactedHistory: 'Compacted History',
+      compactSuccess: 'Chat history compacted',
+      compactFailed: 'Compact failed, please try again'
     },
     // Message Queue
     messageQueue: {

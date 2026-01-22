@@ -187,7 +187,14 @@ export default {
       clearConfirm: '确定清空对话历史吗？',
       insertToInput: '插入到输入框',
       notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
-      error: '请求失败，请稍后重试'
+      error: '请求失败，请稍后重试',
+      tokenInfo: '当前上下文 Token 数量',
+      noApiKey: '请先配置 API Key',
+      contextLarge: '上下文较大，建议压缩以节省 Token',
+      compact: '压缩',
+      compactedHistory: '压缩的对话历史',
+      compactSuccess: '对话历史已压缩',
+      compactFailed: '压缩失败，请重试'
     },
     // 消息队列
     messageQueue: {

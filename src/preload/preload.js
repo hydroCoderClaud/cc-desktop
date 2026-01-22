@@ -269,6 +269,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   swapQueueOrder: ({ id1, id2 }) => ipcRenderer.invoke('queue:swap', { id1, id2 }),
 
   // ========================================
+  // AI 助手
+  // ========================================
+  aiChat: (messages) => ipcRenderer.invoke('ai:chat', messages),
+  aiStream: (messages) => ipcRenderer.invoke('ai:stream', messages),
+  aiCompact: (messages) => ipcRenderer.invoke('ai:compact', messages),
+  aiCountTokens: (messages) => ipcRenderer.invoke('ai:countTokens', messages),
+
+  // AI 流式响应事件
+  onAIStreamChunk: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('ai:stream-chunk', listener);
+    return () => ipcRenderer.removeListener('ai:stream-chunk', listener);
+  },
+  onAIStreamEnd: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('ai:stream-end', listener);
+    return () => ipcRenderer.removeListener('ai:stream-end', listener);
+  },
+  onAIStreamError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('ai:stream-error', listener);
+    return () => ipcRenderer.removeListener('ai:stream-error', listener);
+  },
+
+  // ========================================
   // Terminal 相关（旧版单终端，保留兼容）
   // ========================================
   startTerminal: (projectPath) => ipcRenderer.invoke('terminal:start', projectPath),

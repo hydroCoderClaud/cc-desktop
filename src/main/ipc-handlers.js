@@ -26,6 +26,7 @@ const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'proje
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
+const aiHandlersMod = safeRequire('./ipc-handlers/ai-handlers', 'ai-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -34,6 +35,7 @@ const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
+const setupAIHandlers = aiHandlersMod?.setupAIHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -310,6 +312,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (setupQueueHandlers) {
     setupQueueHandlers(ipcMain, sessionDatabase);
+  }
+
+  // ========================================
+  // AI 助手
+  // ========================================
+  if (setupAIHandlers) {
+    setupAIHandlers(ipcMain, configManager);
   }
 
   // ========================================
