@@ -234,6 +234,7 @@ const handleSend = async () => {
     streamingContent.value = ''
     await nextTick()
     scrollToBottom()
+    inputRef.value?.focus()
   }
 }
 
@@ -242,7 +243,12 @@ const handleCompact = async () => {
 
   loading.value = true
   try {
-    const result = await aiCompact(messages.value)
+    // 转为纯对象，避免 IPC 序列化错误
+    const plainMessages = messages.value.map(m => ({
+      role: m.role,
+      content: m.content
+    }))
+    const result = await aiCompact(plainMessages)
     if (result.success) {
       // 用摘要替换历史
       messages.value = [{
@@ -260,6 +266,7 @@ const handleCompact = async () => {
     message.error(t('rightPanel.ai.compactFailed'))
   } finally {
     loading.value = false
+    inputRef.value?.focus()
   }
 }
 
