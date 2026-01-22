@@ -159,7 +159,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  height: 40px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -193,8 +194,8 @@ onMounted(() => {
 }
 
 .tab-toolbar {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  margin-top: 12px;
+  padding: 0 12px 12px 12px;
 }
 
 .tab-content {

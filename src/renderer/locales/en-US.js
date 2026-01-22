@@ -91,6 +91,7 @@ export default {
       plugins: 'Plugins',
       skills: 'Skills',
       mcp: 'MCP',
+      agents: 'Agents',
       prompts: 'Prompts',
       ai: 'AI'
     },
@@ -158,6 +159,14 @@ export default {
       connecting: 'Connecting...',
       disconnected: 'Disconnected',
       error: 'Error'
+    },
+    // Agents
+    agents: {
+      empty: 'No Agents',
+      emptyHint: 'Agents will be loaded from Claude Code CLI',
+      refresh: 'Refresh',
+      search: 'Search Agents...',
+      noDescription: 'No description'
     },
     // Prompts
     prompts: {

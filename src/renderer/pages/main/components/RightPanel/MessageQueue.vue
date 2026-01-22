@@ -248,7 +248,7 @@ defineExpose({
   height: 100%;
   border-bottom: none;
   background: var(--bg-color-secondary);
-  padding: 12px 16px;
+  padding: 0 12px 12px 12px;
 }
 
 .queue-header {
@@ -261,9 +261,17 @@ defineExpose({
 
 .full-height .queue-header {
   margin-bottom: 0;
-  padding: 0 12px;
+  padding: 0;
   height: 40px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.full-height .header-left {
+  margin-left: 12px;
+}
+
+.full-height .pagination {
+  margin-right: 12px;
 }
 
 .header-left {
@@ -334,6 +342,7 @@ defineExpose({
 }
 
 .full-height .search-box {
+  margin-top: 12px;
   margin-bottom: 12px;
 }
 

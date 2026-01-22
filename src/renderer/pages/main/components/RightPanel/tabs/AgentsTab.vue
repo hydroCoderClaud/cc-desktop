@@ -1,12 +1,9 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.plugins') }}</span>
+      <span class="tab-title">{{ t('rightPanel.tabs.agents') }}</span>
       <div class="tab-actions">
-        <button class="icon-btn" :title="t('rightPanel.plugins.openFolder')" @click="handleOpenFolder">
-          📂
-        </button>
-        <button class="icon-btn" :title="t('rightPanel.plugins.refresh')" @click="handleRefresh">
+        <button class="icon-btn" :title="t('rightPanel.agents.refresh')" @click="handleRefresh">
           🔄
         </button>
       </div>
@@ -15,7 +12,7 @@
     <div class="tab-toolbar">
       <n-input
         v-model:value="searchText"
-        :placeholder="t('rightPanel.plugins.search')"
+        :placeholder="t('rightPanel.agents.search')"
         size="small"
         clearable
       >
@@ -33,29 +30,26 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="filteredPlugins.length === 0" class="empty-state">
-        <div class="empty-icon">🔌</div>
-        <div class="empty-text">{{ t('rightPanel.plugins.empty') }}</div>
-        <div class="empty-hint">{{ t('rightPanel.plugins.emptyHint') }}</div>
+      <div v-else-if="filteredAgents.length === 0" class="empty-state">
+        <div class="empty-icon">🤖</div>
+        <div class="empty-text">{{ t('rightPanel.agents.empty') }}</div>
+        <div class="empty-hint">{{ t('rightPanel.agents.emptyHint') }}</div>
       </div>
 
-      <!-- Plugin List -->
-      <div v-else class="plugin-list">
+      <!-- Agents List -->
+      <div v-else class="agents-list">
         <div
-          v-for="plugin in filteredPlugins"
-          :key="plugin.id"
-          class="plugin-item"
+          v-for="agent in filteredAgents"
+          :key="agent.name"
+          class="agent-item"
+          @click="handleInsertAgent(agent)"
         >
-          <div class="plugin-icon">📦</div>
-          <div class="plugin-info">
-            <div class="plugin-name">{{ plugin.name }}</div>
-            <div class="plugin-desc">{{ plugin.description || t('rightPanel.plugins.noDescription') }}</div>
+          <div class="agent-icon">🤖</div>
+          <div class="agent-info">
+            <div class="agent-name">{{ agent.name }}</div>
+            <div class="agent-desc">{{ agent.description || t('rightPanel.agents.noDescription') }}</div>
           </div>
-          <n-switch
-            v-model:value="plugin.enabled"
-            size="small"
-            @update:value="(val) => handleToggle(plugin, val)"
-          />
+          <div class="agent-arrow">›</div>
         </div>
       </div>
     </div>
@@ -64,7 +58,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { NInput, NSwitch } from 'naive-ui'
+import { NInput } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
@@ -73,51 +67,47 @@ const props = defineProps({
   currentProject: Object
 })
 
+const emit = defineEmits(['insert-to-input'])
+
 // State
 const loading = ref(false)
 const searchText = ref('')
-const plugins = ref([])
+const agents = ref([])
 
 // Computed
-const filteredPlugins = computed(() => {
-  if (!searchText.value) return plugins.value
+const filteredAgents = computed(() => {
+  if (!searchText.value) return agents.value
   const keyword = searchText.value.toLowerCase()
-  return plugins.value.filter(p =>
-    p.name.toLowerCase().includes(keyword) ||
-    (p.description && p.description.toLowerCase().includes(keyword))
+  return agents.value.filter(a =>
+    a.name.toLowerCase().includes(keyword) ||
+    (a.description && a.description.toLowerCase().includes(keyword))
   )
 })
 
 // Methods
-const handleOpenFolder = async () => {
-  // TODO: Open plugins folder
-  console.log('Open plugins folder')
-}
-
 const handleRefresh = async () => {
-  await loadPlugins()
+  await loadAgents()
 }
 
-const handleToggle = async (plugin, enabled) => {
-  // TODO: Toggle plugin enabled state
-  console.log('Toggle plugin:', plugin.id, enabled)
+const handleInsertAgent = (agent) => {
+  emit('insert-to-input', `@${agent.name} `)
 }
 
-const loadPlugins = async () => {
+const loadAgents = async () => {
   loading.value = true
   try {
-    // TODO: Load plugins from ~/.claude/plugins/
+    // TODO: Load agents from Claude Code CLI
     // Mock data for now
-    plugins.value = []
+    agents.value = []
   } catch (err) {
-    console.error('Failed to load plugins:', err)
+    console.error('Failed to load agents:', err)
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => {
-  loadPlugins()
+  loadAgents()
 })
 </script>
 
@@ -174,7 +164,7 @@ onMounted(() => {
 .tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 0 12px 12px 12px;
 }
 
 /* Loading State */
@@ -226,14 +216,14 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* Plugin List */
-.plugin-list {
+/* Agents List */
+.agents-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.plugin-item {
+.agent-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -241,29 +231,42 @@ onMounted(() => {
   background: var(--bg-color-tertiary);
   border-radius: 6px;
   border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.plugin-icon {
+.agent-item:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+}
+
+.agent-icon {
   font-size: 20px;
   flex-shrink: 0;
 }
 
-.plugin-info {
+.agent-info {
   flex: 1;
   min-width: 0;
 }
 
-.plugin-name {
+.agent-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-color);
 }
 
-.plugin-desc {
+.agent-desc {
   font-size: 11px;
   color: var(--text-color-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-arrow {
+  font-size: 16px;
+  color: var(--text-color-muted);
+  flex-shrink: 0;
 }
 </style>

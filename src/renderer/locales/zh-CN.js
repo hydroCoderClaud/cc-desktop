@@ -91,6 +91,7 @@ export default {
       plugins: '插件',
       skills: '技能',
       mcp: 'MCP',
+      agents: 'Agents',
       prompts: '提示词',
       ai: 'AI 助手'
     },
@@ -158,6 +159,14 @@ export default {
       connecting: '连接中...',
       disconnected: '未连接',
       error: '连接错误'
+    },
+    // Agents
+    agents: {
+      empty: '暂无 Agents',
+      emptyHint: 'Agents 将从 Claude Code CLI 加载',
+      refresh: '刷新',
+      search: '搜索 Agents...',
+      noDescription: '无描述'
     },
     // 提示词
     prompts: {

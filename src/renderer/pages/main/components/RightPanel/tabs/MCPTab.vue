@@ -143,7 +143,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  height: 40px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border-color);
 }
 

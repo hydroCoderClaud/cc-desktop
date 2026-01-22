@@ -19,7 +19,7 @@
         :title="tab.label"
         @click="$emit('select', tab.id)"
       >
-        <span class="tab-icon">{{ tab.icon }}</span>
+        <span class="tab-icon" :class="'icon-' + tab.id">{{ tab.icon }}</span>
       </button>
     </div>
   </div>
@@ -121,5 +121,10 @@ defineEmits(['select', 'collapse'])
 .tab-icon {
   font-size: 16px;
   line-height: 1;
+}
+
+/* Agents icon - darker color */
+.tab-icon.icon-agents {
+  filter: saturate(1.5) brightness(0.85);
 }
 </style>
