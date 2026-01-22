@@ -27,7 +27,9 @@
       </div>
       <div class="setting-row">
         <label>{{ t('rightPanel.ai.model') }}</label>
-        <input v-model="config.model" @change="saveConfig" :placeholder="t('rightPanel.ai.modelPlaceholder')" />
+        <select v-model="config.model" @change="saveConfig">
+          <option v-for="m in modelOptions" :key="m.id" :value="m.id">{{ m.name }}</option>
+        </select>
       </div>
       <div class="setting-row">
         <label>{{ t('rightPanel.ai.maxTokens') }}</label>
@@ -185,6 +187,16 @@ const config = reactive({
   temperature: 1,
   systemPrompt: ''
 })
+
+// Model options
+const modelOptions = [
+  { id: 'claude-3-haiku-20240307', name: 'Haiku (快速)' },
+  { id: 'claude-3-5-haiku-20241022', name: 'Haiku 3.5' },
+  { id: 'claude-3-5-sonnet-20241022', name: 'Sonnet 3.5' },
+  { id: 'claude-sonnet-4-20250514', name: 'Sonnet 4' },
+  { id: 'claude-3-opus-20240229', name: 'Opus 3' },
+  { id: 'claude-opus-4-20250514', name: 'Opus 4' }
+]
 
 // Context menu
 const contextMenu = reactive({
