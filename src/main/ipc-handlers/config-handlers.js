@@ -217,6 +217,18 @@ function setupConfigHandlers(ipcMain, configManager) {
   })
 
   // ========================================
+  // AI 助手配置
+  // ========================================
+
+  registerHandler('aiAssistant:getConfig', () => {
+    return configManager.getAIAssistantConfig()
+  })
+
+  registerHandler('aiAssistant:updateConfig', (config) => {
+    return configManager.updateAIAssistantConfig(config)
+  })
+
+  // ========================================
   // 快捷命令管理
   // ========================================
 

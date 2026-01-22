@@ -7,16 +7,46 @@
         <span class="token-info" v-if="tokenInfo.tokens > 0" :title="t('rightPanel.ai.tokenInfo')">
           {{ formatTokens(tokenInfo.tokens) }} ({{ tokenInfo.percentage }}%)
         </span>
-        <button class="icon-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
-          🗑️
+        <button class="icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
+          <span :class="{ 'settings-active': showSettings }">&#9881;</span>
         </button>
+        <button class="icon-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
+          &#128465;
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div v-if="showSettings" class="settings-panel">
+      <div class="setting-row">
+        <label>{{ t('rightPanel.ai.profile') }}</label>
+        <select v-model="config.profileId" @change="saveConfig">
+          <option :value="null">{{ t('rightPanel.ai.useDefault') }}</option>
+          <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>{{ t('rightPanel.ai.model') }}</label>
+        <input v-model="config.model" @change="saveConfig" :placeholder="t('rightPanel.ai.modelPlaceholder')" />
+      </div>
+      <div class="setting-row">
+        <label>{{ t('rightPanel.ai.maxTokens') }}</label>
+        <input type="number" v-model.number="config.maxTokens" @change="saveConfig" min="100" max="8192" />
+      </div>
+      <div class="setting-row">
+        <label>{{ t('rightPanel.ai.temperature') }}</label>
+        <input type="number" v-model.number="config.temperature" @change="saveConfig" min="0" max="1" step="0.1" />
+      </div>
+      <div class="setting-row">
+        <label>{{ t('rightPanel.ai.systemPrompt') }}</label>
+        <textarea v-model="config.systemPrompt" @change="saveConfig" rows="3" :placeholder="t('rightPanel.ai.systemPromptPlaceholder')" />
       </div>
     </div>
 
     <div class="chat-content" ref="chatContentRef">
       <!-- Empty State -->
       <div v-if="messages.length === 0" class="empty-state">
-        <div class="empty-icon">🤖</div>
+        <div class="empty-icon">&#129302;</div>
         <div class="empty-text">{{ t('rightPanel.ai.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.ai.emptyHint') }}</div>
       </div>
@@ -30,7 +60,7 @@
           :class="msg.role"
         >
           <div class="message-avatar">
-            {{ msg.role === 'user' ? '👤' : '🤖' }}
+            {{ msg.role === 'user' ? '&#128100;' : '&#129302;' }}
           </div>
           <div class="message-body">
             <!-- Markdown 渲染 -->
@@ -42,7 +72,7 @@
             <div v-else class="message-content">{{ msg.content }}</div>
             <!-- Token 信息 -->
             <div class="message-meta" v-if="msg.tokens">
-              <span class="token-badge">{{ msg.tokens.input }}↓ {{ msg.tokens.output }}↑</span>
+              <span class="token-badge">{{ msg.tokens.input }}&#8595; {{ msg.tokens.output }}&#8593;</span>
             </div>
             <div class="message-actions" v-if="msg.role === 'assistant' && !loading">
               <button class="action-link" @click="handleCopy(msg.content)">
@@ -57,7 +87,7 @@
 
         <!-- Streaming indicator -->
         <div v-if="loading" class="message-item assistant">
-          <div class="message-avatar">🤖</div>
+          <div class="message-avatar">&#129302;</div>
           <div class="message-body">
             <div v-if="streamingContent" class="message-content markdown-body" v-html="renderMarkdown(streamingContent)" />
             <div v-else class="loading-dots">
@@ -90,14 +120,14 @@
         :disabled="!inputText.trim() || loading"
         @click="handleSend"
       >
-        {{ loading ? '...' : '▶' }}
+        {{ loading ? '...' : '&#9654;' }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { marked } from 'marked'
@@ -108,7 +138,12 @@ const message = useMessage()
 const emit = defineEmits(['insert-to-input'])
 
 // API
-const { aiChat, aiCompact, aiCountTokens, onAIStreamChunk, onAIStreamEnd, onAIStreamError } = window.electronAPI || {}
+const {
+  aiChat, aiCompact, aiCountTokens,
+  aiGetConfig, aiUpdateConfig,
+  listProfiles,
+  onAIStreamChunk, onAIStreamEnd, onAIStreamError
+} = window.electronAPI || {}
 
 // Refs
 const chatContentRef = ref(null)
@@ -121,6 +156,17 @@ const loading = ref(false)
 const streamingContent = ref('')
 const tokenInfo = ref({ tokens: 0, percentage: 0, shouldCompact: false })
 
+// Settings
+const showSettings = ref(false)
+const profiles = ref([])
+const config = reactive({
+  profileId: null,
+  model: 'claude-3-haiku-20240307',
+  maxTokens: 2048,
+  temperature: 1,
+  systemPrompt: ''
+})
+
 // Stream listeners cleanup
 let cleanupChunk = null
 let cleanupEnd = null
@@ -131,6 +177,38 @@ marked.setOptions({
   breaks: true,
   gfm: true
 })
+
+// Load config and profiles
+const loadConfig = async () => {
+  try {
+    if (aiGetConfig) {
+      const cfg = await aiGetConfig()
+      Object.assign(config, cfg)
+    }
+    if (listProfiles) {
+      profiles.value = await listProfiles()
+    }
+  } catch (err) {
+    console.error('Failed to load AI config:', err)
+  }
+}
+
+// Save config
+const saveConfig = async () => {
+  try {
+    if (aiUpdateConfig) {
+      await aiUpdateConfig({
+        profileId: config.profileId,
+        model: config.model,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature,
+        systemPrompt: config.systemPrompt
+      })
+    }
+  } catch (err) {
+    console.error('Failed to save AI config:', err)
+  }
+}
 
 // Markdown rendering
 const renderMarkdown = (content) => {
@@ -219,7 +297,7 @@ const handleSend = async () => {
       messages.value.push({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ ${errorMsg}`
+        content: `&#9888; ${errorMsg}`
       })
     }
   } catch (err) {
@@ -227,7 +305,7 @@ const handleSend = async () => {
     messages.value.push({
       id: (Date.now() + 1).toString(),
       role: 'assistant',
-      content: `⚠️ ${t('rightPanel.ai.error')}: ${err.message}`
+      content: `&#9888; ${t('rightPanel.ai.error')}: ${err.message}`
     })
   } finally {
     loading.value = false
@@ -254,7 +332,7 @@ const handleCompact = async () => {
       messages.value = [{
         id: Date.now().toString(),
         role: 'assistant',
-        content: `📋 **${t('rightPanel.ai.compactedHistory')}**\n\n${result.data.summary}`
+        content: `&#128203; **${t('rightPanel.ai.compactedHistory')}**\n\n${result.data.summary}`
       }]
       await updateTokenInfo()
       message.success(t('rightPanel.ai.compactSuccess'))
@@ -298,6 +376,7 @@ const scrollToBottom = () => {
 
 onMounted(() => {
   inputRef.value?.focus()
+  loadConfig()
 
   // Setup stream listeners (for future streaming support)
   if (onAIStreamChunk) {
@@ -324,7 +403,7 @@ onMounted(() => {
       messages.value.push({
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ ${errMsg}`
+        content: `&#9888; ${errMsg}`
       })
       loading.value = false
       streamingContent.value = ''
@@ -391,6 +470,62 @@ onUnmounted(() => {
 
 .icon-btn:hover {
   background: var(--hover-bg);
+}
+
+.settings-active {
+  color: var(--primary-color);
+}
+
+/* Settings Panel */
+.settings-panel {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-row label {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  font-weight: 500;
+}
+
+.setting-row input,
+.setting-row select,
+.setting-row textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.setting-row input:focus,
+.setting-row select:focus,
+.setting-row textarea:focus {
+  border-color: var(--primary-color);
+}
+
+.setting-row textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.setting-row input[type="number"] {
+  width: 100px;
 }
 
 .chat-content {

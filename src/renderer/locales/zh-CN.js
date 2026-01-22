@@ -194,7 +194,16 @@ export default {
       compact: '压缩',
       compactedHistory: '压缩的对话历史',
       compactSuccess: '对话历史已压缩',
-      compactFailed: '压缩失败，请重试'
+      compactFailed: '压缩失败，请重试',
+      settings: '设置',
+      profile: 'API 配置',
+      useDefault: '使用默认配置',
+      model: '模型',
+      modelPlaceholder: '如 claude-3-haiku-20240307',
+      maxTokens: '最大输出 Token',
+      temperature: '温度',
+      systemPrompt: '系统提示词',
+      systemPromptPlaceholder: '设置 AI 的角色和行为...'
     },
     // 消息队列
     messageQueue: {

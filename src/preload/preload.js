@@ -275,6 +275,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiStream: (messages) => ipcRenderer.invoke('ai:stream', messages),
   aiCompact: (messages) => ipcRenderer.invoke('ai:compact', messages),
   aiCountTokens: (messages) => ipcRenderer.invoke('ai:countTokens', messages),
+  aiGetConfig: () => ipcRenderer.invoke('aiAssistant:getConfig'),
+  aiUpdateConfig: (config) => ipcRenderer.invoke('aiAssistant:updateConfig', config),
 
   // AI 流式响应事件
   onAIStreamChunk: (callback) => {

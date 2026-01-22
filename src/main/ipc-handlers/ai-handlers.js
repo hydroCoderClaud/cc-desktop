@@ -9,8 +9,30 @@ const { countTokens, countMessagesTokens, shouldCompact } = require('../utils/to
 // 常量
 const MAX_TOKENS = 200000
 const COMPACT_THRESHOLD = 0.5
-const DEFAULT_MODEL = 'claude-3-haiku-20240307'
-const SYSTEM_PROMPT = '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。'
+
+/**
+ * 获取 AI 助手使用的 profile 和配置
+ */
+function getAIConfig(configManager) {
+  const aiConfig = configManager.getAIAssistantConfig()
+
+  // 获取 profile（优先使用指定的，否则使用默认的）
+  let profile = null
+  if (aiConfig.profileId) {
+    profile = configManager.getAPIProfile(aiConfig.profileId)
+  }
+  if (!profile) {
+    profile = configManager.getDefaultProfile()
+  }
+
+  return {
+    profile,
+    model: aiConfig.model || 'claude-3-haiku-20240307',
+    maxTokens: aiConfig.maxTokens || 2048,
+    temperature: aiConfig.temperature ?? 1,
+    systemPrompt: aiConfig.systemPrompt || '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。'
+  }
+}
 
 /**
  * 设置 AI 助手的 IPC 处理器
@@ -25,7 +47,7 @@ function setupAIHandlers(ipcMain, configManager) {
    * @returns {Object} - {success, data: {content, inputTokens, outputTokens}, error}
    */
   createIPCHandler(ipcMain, 'ai:chat', async (messages) => {
-    const profile = configManager.getDefaultProfile()
+    const { profile, model, maxTokens, temperature, systemPrompt } = getAIConfig(configManager)
 
     if (!profile || !profile.authToken) {
       return {
@@ -41,6 +63,22 @@ function setupAIHandlers(ipcMain, configManager) {
         content: m.content
       }))
 
+      const requestBody = {
+        model,
+        max_tokens: maxTokens,
+        messages: apiMessages
+      }
+
+      // 只在有 systemPrompt 时添加
+      if (systemPrompt) {
+        requestBody.system = systemPrompt
+      }
+
+      // 只在 temperature 不为 1 时添加（1 是默认值）
+      if (temperature !== 1) {
+        requestBody.temperature = temperature
+      }
+
       const response = await fetch(`${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -48,12 +86,7 @@ function setupAIHandlers(ipcMain, configManager) {
           'x-api-key': profile.authToken,
           'anthropic-version': '2023-06-01'
         },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          max_tokens: 2048,
-          system: SYSTEM_PROMPT,
-          messages: apiMessages
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -92,7 +125,7 @@ function setupAIHandlers(ipcMain, configManager) {
    * @param {Array} messages - 消息数组
    */
   ipcMain.handle('ai:stream', async (event, messages) => {
-    const profile = configManager.getDefaultProfile()
+    const { profile, model, maxTokens, temperature, systemPrompt } = getAIConfig(configManager)
 
     if (!profile || !profile.authToken) {
       return {
@@ -108,6 +141,21 @@ function setupAIHandlers(ipcMain, configManager) {
         content: m.content
       }))
 
+      const requestBody = {
+        model,
+        max_tokens: maxTokens,
+        messages: apiMessages,
+        stream: true
+      }
+
+      if (systemPrompt) {
+        requestBody.system = systemPrompt
+      }
+
+      if (temperature !== 1) {
+        requestBody.temperature = temperature
+      }
+
       const response = await fetch(`${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -115,13 +163,7 @@ function setupAIHandlers(ipcMain, configManager) {
           'x-api-key': profile.authToken,
           'anthropic-version': '2023-06-01'
         },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          max_tokens: 2048,
-          system: SYSTEM_PROMPT,
-          messages: apiMessages,
-          stream: true
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -204,7 +246,7 @@ function setupAIHandlers(ipcMain, configManager) {
    * @returns {Object} - {success, data: {summary, tokens}}
    */
   createIPCHandler(ipcMain, 'ai:compact', async (messages) => {
-    const profile = configManager.getDefaultProfile()
+    const { profile, model } = getAIConfig(configManager)
 
     if (!profile || !profile.authToken) {
       return {
@@ -231,7 +273,7 @@ ${messages.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: DEFAULT_MODEL,
+          model,
           max_tokens: 1024,
           messages: [{ role: 'user', content: compactPrompt }]
         })

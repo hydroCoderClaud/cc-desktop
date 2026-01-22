@@ -194,7 +194,16 @@ export default {
       compact: 'Compact',
       compactedHistory: 'Compacted History',
       compactSuccess: 'Chat history compacted',
-      compactFailed: 'Compact failed, please try again'
+      compactFailed: 'Compact failed, please try again',
+      settings: 'Settings',
+      profile: 'API Profile',
+      useDefault: 'Use default profile',
+      model: 'Model',
+      modelPlaceholder: 'e.g. claude-3-haiku-20240307',
+      maxTokens: 'Max Output Tokens',
+      temperature: 'Temperature',
+      systemPrompt: 'System Prompt',
+      systemPromptPlaceholder: 'Set AI role and behavior...'
     },
     // Message Queue
     messageQueue: {
