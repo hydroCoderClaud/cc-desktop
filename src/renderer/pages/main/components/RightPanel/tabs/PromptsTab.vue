@@ -551,7 +551,8 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 0 12px;
+  height: 40px;
   border-bottom: 1px solid var(--border-color);
 }
 

@@ -260,8 +260,9 @@ defineExpose({
 }
 
 .full-height .queue-header {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: 0;
+  padding: 0 12px;
+  height: 40px;
   border-bottom: 1px solid var(--border-color);
 }
 

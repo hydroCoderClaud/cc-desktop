@@ -8,17 +8,17 @@
           {{ formatTokens(tokenInfo.tokens) }} ({{ tokenInfo.percentage }}%)
         </span>
         <button
-          class="icon-btn"
+          class="icon-btn compact-btn"
           :title="t('rightPanel.ai.compact')"
           @click="handleCompact"
           :disabled="loading || messages.length < 2"
         >
-          &#128230;
+          ⧉
         </button>
-        <button class="icon-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
-          &#128465;
+        <button class="icon-btn clear-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
+          ✕
         </button>
-        <button class="icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
+        <button class="icon-btn settings-icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
           <span :class="{ 'settings-active': showSettings }">&#9881;</span>
         </button>
       </div>
@@ -525,6 +525,37 @@ onUnmounted(() => {
 
 .icon-btn:hover {
   background: var(--hover-bg);
+}
+
+.icon-btn.compact-btn {
+  color: #f59e0b;
+  font-size: 16px;
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.icon-btn.compact-btn:hover {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.icon-btn.compact-btn:disabled {
+  color: var(--text-color-muted);
+  opacity: 0.5;
+}
+
+.icon-btn.clear-btn {
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.icon-btn.clear-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.icon-btn.settings-icon-btn {
+  font-size: 18px;
 }
 
 .settings-active {
