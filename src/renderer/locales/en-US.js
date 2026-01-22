@@ -11,6 +11,7 @@ export default {
     edit: 'Edit',
     add: 'Add',
     close: 'Close',
+    collapse: 'Collapse',
     loading: 'Loading...',
     success: 'Success',
     error: 'Error',
@@ -185,7 +186,7 @@ export default {
       placeholder: 'Ask a question...',
       clear: 'Clear chat',
       clearConfirm: 'Clear chat history?',
-      insertToInput: 'Insert to input',
+      insertToInput: 'Insert',
       notConfigured: 'AI assistant is not configured. Please set up API in settings.',
       error: 'Request failed. Please try again.',
       tokenInfo: 'Current context token count',
@@ -204,7 +205,9 @@ export default {
       temperature: 'Temperature',
       systemPrompt: 'System Prompt',
       systemPromptPlaceholder: 'Set AI role and behavior...',
-      saveAsPrompt: 'Save as Prompt'
+      saveAsPrompt: 'Save',
+      contextMaxTokens: 'Context Limit',
+      compactThreshold: 'Compact At(%)'
     },
     // Message Queue
     messageQueue: {
@@ -338,7 +341,7 @@ export default {
     noSessions: 'No sessions',
     deleteConfirm: 'Are you sure you want to delete session "{name}"?',
     deleteWarning: 'This will permanently delete the session file and cannot be undone.',
-    newSessionHint: 'Click "New Session" in the left panel to start',
+    newSessionHint: 'Please open a project directory first<br>Then click "New Session" or restore a history session',
     cannotDeleteRunning: 'This session is currently running. Please close it first before deleting.',
     viewMore: 'View More',
     sync: 'Sync Sessions',

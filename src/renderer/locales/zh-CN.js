@@ -11,6 +11,7 @@ export default {
     edit: '编辑',
     add: '添加',
     close: '关闭',
+    collapse: '收起',
     loading: '加载中...',
     success: '成功',
     error: '错误',
@@ -185,7 +186,7 @@ export default {
       placeholder: '输入问题...',
       clear: '清空对话',
       clearConfirm: '确定清空对话历史吗？',
-      insertToInput: '插入到输入框',
+      insertToInput: '插入',
       notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
       error: '请求失败，请稍后重试',
       tokenInfo: '当前上下文 Token 数量',
@@ -204,7 +205,9 @@ export default {
       temperature: '温度',
       systemPrompt: '系统提示词',
       systemPromptPlaceholder: '设置 AI 的角色和行为...',
-      saveAsPrompt: '保存为提示词'
+      saveAsPrompt: '存提示词',
+      contextMaxTokens: '上下文上限',
+      compactThreshold: '压缩阈值(%)'
     },
     // 消息队列
     messageQueue: {
@@ -338,7 +341,7 @@ export default {
     noSessions: '暂无会话',
     deleteConfirm: '确定要删除会话 "{name}" 吗？',
     deleteWarning: '此操作将永久删除会话文件，无法恢复。',
-    newSessionHint: '在左侧面板点击"新建会话"开始',
+    newSessionHint: '请先打开项目工程目录<br>然后点击"新建会话"或恢复历史会话',
     cannotDeleteRunning: '该会话正在运行中，请先关闭会话再删除',
     viewMore: '查看更多',
     sync: '同步会话',

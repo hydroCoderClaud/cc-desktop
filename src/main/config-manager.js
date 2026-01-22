@@ -72,13 +72,14 @@ class ConfigManager {
         maxActiveSessions: 5,  // 最大同时运行的会话数
         maxHistorySessions: 10,  // 左侧面板历史会话最大显示条数
 
-        // AI 助手配置
+        // AI 助手配置（模型从选择的 API Profile 中获取）
         aiAssistant: {
           profileId: null,  // 使用的 API Profile ID，null 表示使用默认
-          model: 'claude-3-haiku-20240307',
           maxTokens: 2048,
           temperature: 1,
-          systemPrompt: '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。'
+          systemPrompt: '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。',
+          contextMaxTokens: 200000,  // 上下文最大 token 数
+          compactThreshold: 50       // 压缩提示阈值（百分比）
         }
       }
     };
@@ -236,7 +237,6 @@ class ConfigManager {
   getAIAssistantConfig() {
     return this.config.settings?.aiAssistant || {
       profileId: null,
-      model: 'claude-3-haiku-20240307',
       maxTokens: 2048,
       temperature: 1,
       systemPrompt: '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。'

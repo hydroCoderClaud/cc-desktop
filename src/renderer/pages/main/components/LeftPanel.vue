@@ -175,6 +175,10 @@
           </button>
         </n-dropdown>
 
+        <button class="locale-toggle-btn" @click="toggleLocale" :title="locale === 'zh-CN' ? 'English' : '中文'">
+          <span>{{ locale === 'zh-CN' ? 'EN' : '中' }}</span>
+        </button>
+
         <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
           <span>{{ isDark ? '☀️' : '🌙' }}</span>
         </button>
@@ -268,7 +272,13 @@ import { useSessionPanel } from '@composables/useSessionPanel'
 const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
-const { t } = useLocale()
+const { t, locale, setLocale } = useLocale()
+
+// 切换语言
+const toggleLocale = () => {
+  const newLocale = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
+  setLocale(newLocale)
+}
 
 // Props
 const props = defineProps({
@@ -1190,6 +1200,27 @@ defineExpose({
 
 .settings-btn:hover {
   background: var(--hover-bg);
+  border-color: var(--primary-color);
+}
+
+.locale-toggle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.locale-toggle-btn:hover {
+  transform: scale(1.05);
   border-color: var(--primary-color);
 }
 

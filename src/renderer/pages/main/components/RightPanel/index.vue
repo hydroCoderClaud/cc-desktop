@@ -10,25 +10,28 @@
 
     <!-- Tab Content -->
     <div class="panel-content">
-      <!-- Queue Tab 使用 MessageQueue 组件 -->
+      <!-- Queue Tab（单独处理，不参与 KeepAlive） -->
       <MessageQueue
-        v-if="activeTab === 'queue'"
+        v-show="activeTab === 'queue'"
         ref="messageQueueRef"
         :session-uuid="currentSessionUuid"
         :full-height="true"
         @send="handleSendToTerminal"
       />
-      <!-- 其他 Tab -->
-      <KeepAlive v-else>
-        <component
-          :is="currentTabComponent"
-          ref="tabContentRef"
-          :current-project="currentProject"
-          :terminal-busy="terminalBusy"
-          @send-command="handleSendToTerminal"
-          @insert-to-input="handleInsertToInput"
-        />
-      </KeepAlive>
+      <!-- 其他 Tab（v-show + KeepAlive 保持所有状态） -->
+      <div v-show="activeTab !== 'queue'" class="tab-content-wrapper">
+        <KeepAlive>
+          <component
+            :is="currentTabComponent"
+            ref="tabContentRef"
+            :current-project="currentProject"
+            :terminal-busy="terminalBusy"
+            @send-command="handleSendToTerminal"
+            @insert-to-input="handleInsertToInput"
+            @save-as-prompt="handleCreatePrompt"
+          />
+        </KeepAlive>
+      </div>
     </div>
 
     <!-- Quick Commands -->
@@ -181,7 +184,16 @@ defineExpose({
 
 .panel-content {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tab-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

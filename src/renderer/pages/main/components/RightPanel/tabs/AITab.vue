@@ -7,41 +7,56 @@
         <span class="token-info" v-if="tokenInfo.tokens > 0" :title="t('rightPanel.ai.tokenInfo')">
           {{ formatTokens(tokenInfo.tokens) }} ({{ tokenInfo.percentage }}%)
         </span>
-        <button class="icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
-          <span :class="{ 'settings-active': showSettings }">&#9881;</span>
+        <button
+          class="icon-btn"
+          :title="t('rightPanel.ai.compact')"
+          @click="handleCompact"
+          :disabled="loading || messages.length < 2"
+        >
+          &#128230;
         </button>
         <button class="icon-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
           &#128465;
+        </button>
+        <button class="icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
+          <span :class="{ 'settings-active': showSettings }">&#9881;</span>
         </button>
       </div>
     </div>
 
     <!-- Settings Panel -->
     <div v-if="showSettings" class="settings-panel">
-      <div class="setting-row">
+      <div class="setting-row-header">
         <label>{{ t('rightPanel.ai.profile') }}</label>
-        <select v-model="config.profileId" @change="saveConfig">
-          <option :value="null">{{ t('rightPanel.ai.useDefault') }}</option>
-          <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-        </select>
+        <button class="collapse-link" @click="showSettings = false">{{ t('common.collapse') }}</button>
       </div>
-      <div class="setting-row">
-        <label>{{ t('rightPanel.ai.model') }}</label>
-        <select v-model="config.model" @change="saveConfig">
-          <option v-for="m in modelOptions" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <label>{{ t('rightPanel.ai.maxTokens') }}</label>
-        <input type="number" v-model.number="config.maxTokens" @change="saveConfig" min="100" max="8192" />
-      </div>
-      <div class="setting-row">
-        <label>{{ t('rightPanel.ai.temperature') }}</label>
-        <input type="number" v-model.number="config.temperature" @change="saveConfig" min="0" max="1" step="0.1" />
+      <select v-model="config.profileId" @change="saveConfig" class="setting-select">
+        <option :value="null">{{ t('rightPanel.ai.useDefault') }}</option>
+        <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+      </select>
+      <div class="setting-row-inline">
+        <div class="setting-field">
+          <label>{{ t('rightPanel.ai.maxTokens') }}</label>
+          <input type="number" v-model.number="config.maxTokens" @change="saveConfig" min="100" max="8192" />
+        </div>
+        <div class="setting-field">
+          <label>{{ t('rightPanel.ai.temperature') }}</label>
+          <input type="number" v-model.number="config.temperature" @change="saveConfig" min="0" max="1" step="0.1" />
+        </div>
       </div>
       <div class="setting-row">
         <label>{{ t('rightPanel.ai.systemPrompt') }}</label>
         <textarea v-model="config.systemPrompt" @change="saveConfig" rows="3" :placeholder="t('rightPanel.ai.systemPromptPlaceholder')" />
+      </div>
+      <div class="setting-row-inline">
+        <div class="setting-field">
+          <label>{{ t('rightPanel.ai.contextMaxTokens') }}</label>
+          <input type="number" v-model.number="config.contextMaxTokens" @change="saveConfig" min="10000" max="1000000" step="10000" />
+        </div>
+        <div class="setting-field">
+          <label>{{ t('rightPanel.ai.compactThreshold') }}</label>
+          <input type="number" v-model.number="config.compactThreshold" @change="saveConfig" min="10" max="90" step="5" />
+        </div>
       </div>
     </div>
 
@@ -64,7 +79,7 @@
           <div class="message-avatar">
             {{ msg.role === 'user' ? '&#128100;' : '&#129302;' }}
           </div>
-          <div class="message-body" @contextmenu.prevent="showContextMenu($event, msg)">
+          <div class="message-body">
             <!-- Markdown 渲染 -->
             <div
               v-if="msg.role === 'assistant'"
@@ -72,17 +87,13 @@
               v-html="renderMarkdown(msg.content)"
             />
             <div v-else class="message-content">{{ msg.content }}</div>
-            <!-- Token 信息 -->
-            <div class="message-meta" v-if="msg.tokens">
-              <span class="token-badge">{{ msg.tokens.input }}&#8595; {{ msg.tokens.output }}&#8593;</span>
-            </div>
-            <div class="message-actions" v-if="msg.role === 'assistant' && !loading">
-              <button class="action-link" @click="handleCopy(msg.content)">
-                {{ t('common.copy') }}
-              </button>
-              <button class="action-link" @click="handleInsertToInput(msg.content)">
-                {{ t('rightPanel.ai.insertToInput') }}
-              </button>
+            <!-- Token 信息和操作按钮 -->
+            <div class="message-meta" v-if="msg.role === 'assistant' && !loading">
+              <span class="token-badge" v-if="msg.tokens">{{ msg.tokens.input }}&#8595; {{ msg.tokens.output }}&#8593;</span>
+              <span class="meta-divider" v-if="msg.tokens">|</span>
+              <button class="action-link" @click="handleCopy(msg.content)">{{ t('common.copy') }}</button>
+              <button class="action-link" @click="handleInsertToInput(msg.content)">{{ t('rightPanel.ai.insertToInput') }}</button>
+              <button class="action-link" @click="handleSaveAsPrompt(msg.content)">{{ t('rightPanel.ai.saveAsPrompt') }}</button>
             </div>
           </div>
         </div>
@@ -126,35 +137,18 @@
       </button>
     </div>
 
-    <!-- Context Menu -->
-    <div
-      v-if="contextMenu.visible"
-      class="context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-      @click.stop
-    >
-      <div class="context-menu-item" @click="handleContextCopy">
-        {{ t('common.copy') }}
-      </div>
-      <div class="context-menu-item" @click="handleContextInsert">
-        {{ t('rightPanel.ai.insertToInput') }}
-      </div>
-      <div class="context-menu-divider" />
-      <div class="context-menu-item" @click="handleContextToPrompt">
-        {{ t('rightPanel.ai.saveAsPrompt') }}
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, nextTick, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { marked } from 'marked'
 
 const { t } = useLocale()
 const message = useMessage()
+const dialog = useDialog()
 
 const emit = defineEmits(['insert-to-input', 'save-as-prompt'])
 
@@ -162,7 +156,7 @@ const emit = defineEmits(['insert-to-input', 'save-as-prompt'])
 const {
   aiChat, aiCompact, aiCountTokens,
   aiGetConfig, aiUpdateConfig,
-  listProfiles,
+  listAPIProfiles,
   onAIStreamChunk, onAIStreamEnd, onAIStreamError
 } = window.electronAPI || {}
 
@@ -177,33 +171,20 @@ const loading = ref(false)
 const streamingContent = ref('')
 const tokenInfo = ref({ tokens: 0, percentage: 0, shouldCompact: false })
 
+// Message ID counter (避免 Date.now() 重复)
+let messageIdCounter = 0
+const generateMessageId = () => `msg_${Date.now()}_${++messageIdCounter}`
+
 // Settings
 const showSettings = ref(false)
 const profiles = ref([])
 const config = reactive({
   profileId: null,
-  model: 'claude-3-haiku-20240307',
   maxTokens: 2048,
   temperature: 1,
-  systemPrompt: ''
-})
-
-// Model options
-const modelOptions = [
-  { id: 'claude-3-haiku-20240307', name: 'Haiku (快速)' },
-  { id: 'claude-3-5-haiku-20241022', name: 'Haiku 3.5' },
-  { id: 'claude-3-5-sonnet-20241022', name: 'Sonnet 3.5' },
-  { id: 'claude-sonnet-4-20250514', name: 'Sonnet 4' },
-  { id: 'claude-3-opus-20240229', name: 'Opus 3' },
-  { id: 'claude-opus-4-20250514', name: 'Opus 4' }
-]
-
-// Context menu
-const contextMenu = reactive({
-  visible: false,
-  x: 0,
-  y: 0,
-  message: null
+  systemPrompt: '',
+  contextMaxTokens: 200000,
+  compactThreshold: 50
 })
 
 // Stream listeners cleanup
@@ -211,11 +192,24 @@ let cleanupChunk = null
 let cleanupEnd = null
 let cleanupError = null
 
-// Configure marked
+// Configure marked with security options
 marked.setOptions({
   breaks: true,
   gfm: true
 })
+
+// Simple HTML sanitizer (removes dangerous tags and attributes)
+const sanitizeHtml = (html) => {
+  // 移除 script, iframe, object, embed, form 标签
+  html = html.replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  html = html.replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
+  // 移除事件处理属性 (onclick, onerror, onload 等)
+  html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
+  html = html.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '')
+  // 移除 javascript: 协议
+  html = html.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"')
+  return html
+}
 
 // Load config and profiles
 const loadConfig = async () => {
@@ -224,8 +218,8 @@ const loadConfig = async () => {
       const cfg = await aiGetConfig()
       Object.assign(config, cfg)
     }
-    if (listProfiles) {
-      profiles.value = await listProfiles()
+    if (listAPIProfiles) {
+      profiles.value = await listAPIProfiles()
     }
   } catch (err) {
     console.error('Failed to load AI config:', err)
@@ -238,11 +232,14 @@ const saveConfig = async () => {
     if (aiUpdateConfig) {
       await aiUpdateConfig({
         profileId: config.profileId,
-        model: config.model,
         maxTokens: config.maxTokens,
         temperature: config.temperature,
-        systemPrompt: config.systemPrompt
+        systemPrompt: config.systemPrompt,
+        contextMaxTokens: config.contextMaxTokens,
+        compactThreshold: config.compactThreshold
       })
+      // 更新 token 信息（阈值可能改变）
+      await updateTokenInfo()
     }
   } catch (err) {
     console.error('Failed to save AI config:', err)
@@ -253,7 +250,12 @@ const saveConfig = async () => {
 const renderMarkdown = (content) => {
   if (!content) return ''
   try {
-    return marked.parse(content)
+    let html = marked.parse(content)
+    // 移除空段落和多余空白
+    html = html.replace(/<p>\s*<\/p>/g, '')
+    html = html.replace(/(<br\s*\/?>\s*){2,}/g, '<br>')
+    // 安全处理
+    return sanitizeHtml(html)
   } catch (e) {
     return content
   }
@@ -293,7 +295,7 @@ const handleSend = async () => {
 
   // Add user message
   messages.value.push({
-    id: Date.now().toString(),
+    id: generateMessageId(),
     role: 'user',
     content: text
   })
@@ -308,17 +310,19 @@ const handleSend = async () => {
   streamingContent.value = ''
 
   try {
-    // 准备发送的消息（只包含 role 和 content）
-    const apiMessages = messages.value.map(m => ({
-      role: m.role,
-      content: m.content
-    }))
+    // 准备发送的消息（只包含 role 和 content，过滤空消息）
+    const apiMessages = messages.value
+      .filter(m => m.content && m.content.trim())
+      .map(m => ({
+        role: m.role,
+        content: m.content
+      }))
 
     const result = await aiChat(apiMessages)
 
     if (result.success) {
       messages.value.push({
-        id: (Date.now() + 1).toString(),
+        id: generateMessageId(),
         role: 'assistant',
         content: result.data.content,
         tokens: {
@@ -334,7 +338,7 @@ const handleSend = async () => {
         errorMsg = t('rightPanel.ai.noApiKey')
       }
       messages.value.push({
-        id: (Date.now() + 1).toString(),
+        id: generateMessageId(),
         role: 'assistant',
         content: `&#9888; ${errorMsg}`
       })
@@ -342,7 +346,7 @@ const handleSend = async () => {
   } catch (err) {
     console.error('AI chat error:', err)
     messages.value.push({
-      id: (Date.now() + 1).toString(),
+      id: generateMessageId(),
       role: 'assistant',
       content: `&#9888; ${t('rightPanel.ai.error')}: ${err.message}`
     })
@@ -369,7 +373,7 @@ const handleCompact = async () => {
     if (result.success) {
       // 用摘要替换历史
       messages.value = [{
-        id: Date.now().toString(),
+        id: generateMessageId(),
         role: 'assistant',
         content: `&#128203; **${t('rightPanel.ai.compactedHistory')}**\n\n${result.data.summary}`
       }]
@@ -389,9 +393,16 @@ const handleCompact = async () => {
 
 const handleClear = () => {
   if (messages.value.length === 0) return
-  if (!window.confirm(t('rightPanel.ai.clearConfirm'))) return
-  messages.value = []
-  tokenInfo.value = { tokens: 0, percentage: 0, shouldCompact: false }
+  dialog.warning({
+    title: t('common.confirm'),
+    content: t('rightPanel.ai.clearConfirm'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: () => {
+      messages.value = []
+      tokenInfo.value = { tokens: 0, percentage: 0, shouldCompact: false }
+    }
+  })
 }
 
 const handleCopy = async (text) => {
@@ -407,38 +418,8 @@ const handleInsertToInput = (text) => {
   emit('insert-to-input', text)
 }
 
-// Context menu methods
-const showContextMenu = (event, msg) => {
-  contextMenu.visible = true
-  contextMenu.x = event.clientX
-  contextMenu.y = event.clientY
-  contextMenu.message = msg
-}
-
-const hideContextMenu = () => {
-  contextMenu.visible = false
-  contextMenu.message = null
-}
-
-const handleContextCopy = async () => {
-  if (contextMenu.message) {
-    await handleCopy(contextMenu.message.content)
-  }
-  hideContextMenu()
-}
-
-const handleContextInsert = () => {
-  if (contextMenu.message) {
-    handleInsertToInput(contextMenu.message.content)
-  }
-  hideContextMenu()
-}
-
-const handleContextToPrompt = () => {
-  if (contextMenu.message) {
-    emit('save-as-prompt', contextMenu.message.content)
-  }
-  hideContextMenu()
+const handleSaveAsPrompt = (text) => {
+  emit('save-as-prompt', text)
 }
 
 const scrollToBottom = () => {
@@ -451,10 +432,7 @@ onMounted(() => {
   inputRef.value?.focus()
   loadConfig()
 
-  // Close context menu on click outside
-  document.addEventListener('click', hideContextMenu)
-
-  // Setup stream listeners (for future streaming support)
+  // 预留：流式响应监听器（当前使用非流式 aiChat，未来可切换到 aiStream）
   if (onAIStreamChunk) {
     cleanupChunk = onAIStreamChunk(({ text }) => {
       streamingContent.value += text
@@ -464,7 +442,7 @@ onMounted(() => {
   if (onAIStreamEnd) {
     cleanupEnd = onAIStreamEnd(({ content, inputTokens, outputTokens }) => {
       messages.value.push({
-        id: (Date.now() + 1).toString(),
+        id: generateMessageId(),
         role: 'assistant',
         content,
         tokens: { input: inputTokens, output: outputTokens }
@@ -477,7 +455,7 @@ onMounted(() => {
   if (onAIStreamError) {
     cleanupError = onAIStreamError(({ message: errMsg }) => {
       messages.value.push({
-        id: (Date.now() + 1).toString(),
+        id: generateMessageId(),
         role: 'assistant',
         content: `&#9888; ${errMsg}`
       })
@@ -491,7 +469,6 @@ onUnmounted(() => {
   cleanupChunk?.()
   cleanupEnd?.()
   cleanupError?.()
-  document.removeEventListener('click', hideContextMenu)
 })
 </script>
 
@@ -506,7 +483,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 0 12px;
+  height: 40px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -555,13 +533,90 @@ onUnmounted(() => {
 
 /* Settings Panel */
 .settings-panel {
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.setting-row-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-row-header label {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  font-weight: 500;
+}
+
+.collapse-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.collapse-link:hover {
+  color: var(--primary-color);
+}
+
+.setting-select {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.setting-select:focus {
+  border-color: var(--primary-color);
+}
+
+.setting-row-inline {
+  display: flex;
+  gap: 12px;
+}
+
+.setting-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.setting-field label {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  font-weight: 500;
+}
+
+.setting-field input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.setting-field input:focus {
+  border-color: var(--primary-color);
 }
 
 .setting-row {
@@ -576,8 +631,6 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.setting-row input,
-.setting-row select,
 .setting-row textarea {
   padding: 6px 8px;
   border: 1px solid var(--border-color);
@@ -588,17 +641,12 @@ onUnmounted(() => {
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s ease;
+  resize: vertical;
+  min-height: 50px;
 }
 
-.setting-row input:focus,
-.setting-row select:focus,
 .setting-row textarea:focus {
   border-color: var(--primary-color);
-}
-
-.setting-row textarea {
-  resize: vertical;
-  min-height: 60px;
 }
 
 .setting-row input[type="number"] {
@@ -690,21 +738,31 @@ onUnmounted(() => {
   border-radius: 12px 12px 12px 2px;
 }
 
-/* Markdown styling */
+/* Markdown styling - 紧凑间距 */
 .markdown-body :deep(p) {
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .markdown-body :deep(p:last-child) {
   margin-bottom: 0;
 }
 
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3),
+.markdown-body :deep(h4), .markdown-body :deep(h5), .markdown-body :deep(h6) {
+  margin: 8px 0 4px 0;
+  font-weight: 600;
+}
+
+.markdown-body :deep(h1) { font-size: 1.3em; }
+.markdown-body :deep(h2) { font-size: 1.2em; }
+.markdown-body :deep(h3) { font-size: 1.1em; }
+
 .markdown-body :deep(pre) {
   background: var(--bg-color-secondary);
   padding: 8px;
   border-radius: 4px;
   overflow-x: auto;
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .markdown-body :deep(code) {
@@ -713,13 +771,32 @@ onUnmounted(() => {
 }
 
 .markdown-body :deep(ul), .markdown-body :deep(ol) {
-  margin: 4px 0;
-  padding-left: 20px;
+  margin: 2px 0;
+  padding-left: 18px;
+}
+
+.markdown-body :deep(li) {
+  margin: 2px 0;
+}
+
+.markdown-body :deep(li > ul), .markdown-body :deep(li > ol) {
+  margin: 2px 0;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--border-color);
+  color: var(--text-color-muted);
 }
 
 .message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
   padding-left: 12px;
+  flex-wrap: wrap;
 }
 
 .token-badge {
@@ -730,11 +807,9 @@ onUnmounted(() => {
   border-radius: 3px;
 }
 
-.message-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
-  padding-left: 12px;
+.meta-divider {
+  color: var(--border-color);
+  font-size: 10px;
 }
 
 .action-link {
@@ -807,7 +882,6 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   padding: 12px;
-  border-top: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
   flex-shrink: 0;
 }
@@ -858,35 +932,5 @@ onUnmounted(() => {
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* Context Menu */
-.context-menu {
-  position: fixed;
-  background: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
-  min-width: 140px;
-  z-index: 1000;
-}
-
-.context-menu-item {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-color);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.context-menu-item:hover {
-  background: var(--hover-bg);
-}
-
-.context-menu-divider {
-  height: 1px;
-  background: var(--border-color);
-  margin: 4px 0;
 }
 </style>

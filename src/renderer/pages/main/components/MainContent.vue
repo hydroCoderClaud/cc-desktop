@@ -56,7 +56,7 @@
             <h2>{{ t('main.welcome') }}</h2>
             <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
             <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
-            <p v-else>{{ t('session.newSessionHint') || '在左侧面板点击"新建会话"开始' }}</p>
+            <p v-else v-html="t('session.newSessionHint')"></p>
           </div>
 
           <div class="warning-box">

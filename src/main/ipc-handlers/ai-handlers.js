@@ -6,9 +6,9 @@
 const { createIPCHandler } = require('../utils/ipc-utils')
 const { countTokens, countMessagesTokens, shouldCompact } = require('../utils/token-counter')
 
-// 常量
-const MAX_TOKENS = 200000
-const COMPACT_THRESHOLD = 0.5
+// 默认值（会被配置覆盖）
+const DEFAULT_MAX_TOKENS = 200000
+const DEFAULT_COMPACT_THRESHOLD = 50  // 百分比
 
 /**
  * 获取 AI 助手使用的 profile 和配置
@@ -25,13 +25,158 @@ function getAIConfig(configManager) {
     profile = configManager.getDefaultProfile()
   }
 
+  // 获取模型名：优先使用 profile.modelMapping，否则使用全局模型
+  const tier = profile?.selectedModelTier || 'sonnet'
+  let model
+  if (profile?.modelMapping?.[tier]?.trim()) {
+    // 第三方服务：使用 profile 的模型映射
+    model = profile.modelMapping[tier].trim()
+  } else {
+    // 官方/中转服务：使用全局模型配置
+    const globalModels = configManager.getGlobalModels()
+    model = globalModels[tier] || globalModels.sonnet || 'claude-sonnet-4-5-20250929'
+  }
+
   return {
     profile,
-    model: aiConfig.model || 'claude-3-haiku-20240307',
+    model,
     maxTokens: aiConfig.maxTokens || 2048,
     temperature: aiConfig.temperature ?? 1,
     systemPrompt: aiConfig.systemPrompt || '你是一个有帮助的 AI 助手。请简洁、准确地回答问题。'
   }
+}
+
+/**
+ * 构建 API 请求的公共配置
+ * 根据 authType 区分官方/中转服务 和 第三方服务的认证方式
+ */
+function buildRequestConfig(profile) {
+  const authType = profile.authType || 'api_key'
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+
+  if (authType === 'api_key') {
+    // 官方 API 或官方格式中转：使用 x-api-key
+    headers['x-api-key'] = profile.authToken
+    headers['anthropic-version'] = '2023-06-01'
+  } else {
+    // 第三方服务（auth_token）：使用 Authorization Bearer
+    headers['Authorization'] = `Bearer ${profile.authToken}`
+  }
+
+  return {
+    baseUrl: `${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`,
+    headers
+  }
+}
+
+/**
+ * 从 API 响应中提取文本内容
+ * 兼容 Anthropic 格式（含 thinking）和 OpenAI 格式
+ */
+function extractContentFromResponse(data) {
+  if (data.content && Array.isArray(data.content)) {
+    // Anthropic 格式: { content: [{ type: "text", text: "..." }, ...] }
+    // 找到 type === "text" 的元素（MiniMax 等可能有 thinking 类型在前面）
+    const textBlock = data.content.find(c => c.type === 'text') || data.content[0]
+    return textBlock?.text || ''
+  } else if (data.choices?.[0]?.message?.content) {
+    // OpenAI 格式: { choices: [{ message: { content: "..." } }] }
+    return data.choices[0].message.content
+  }
+  return ''
+}
+
+/**
+ * 从 API 响应中提取 token 使用信息
+ * 兼容 Anthropic 和 OpenAI 格式
+ */
+function extractUsageFromResponse(data) {
+  return {
+    inputTokens: data.usage?.input_tokens || data.usage?.prompt_tokens || 0,
+    outputTokens: data.usage?.output_tokens || data.usage?.completion_tokens || 0
+  }
+}
+
+/**
+ * 构建请求体
+ */
+function buildRequestBody(model, maxTokens, messages, options = {}) {
+  const body = {
+    model,
+    max_tokens: maxTokens,
+    messages
+  }
+
+  if (options.system) {
+    body.system = options.system
+  }
+  if (options.temperature !== undefined && options.temperature !== 1) {
+    body.temperature = options.temperature
+  }
+  if (options.stream) {
+    body.stream = true
+  }
+
+  return body
+}
+
+/**
+ * 发送 API 请求（带超时）
+ */
+async function sendAPIRequest(profile, requestBody, timeout = 120000) {
+  const { baseUrl, headers } = buildRequestConfig(profile)
+
+  // 创建 AbortController 用于超时控制
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        success: false,
+        error: 'API_ERROR',
+        message: errorData.error?.message || `API 错误: ${response.status}`
+      }
+    }
+
+    return { success: true, response }
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'TIMEOUT',
+        message: '请求超时，请稍后重试'
+      }
+    }
+    throw error
+  }
+}
+
+/**
+ * 验证配置
+ */
+function validateConfig(profile) {
+  if (!profile || !profile.authToken) {
+    return {
+      success: false,
+      error: 'NO_API_KEY',
+      message: '请先配置 API Key'
+    }
+  }
+  return null
 }
 
 /**
@@ -43,140 +188,63 @@ function setupAIHandlers(ipcMain, configManager) {
 
   /**
    * 发送消息到 AI
-   * @param {Array} messages - 消息数组 [{role, content}]
-   * @returns {Object} - {success, data: {content, inputTokens, outputTokens}, error}
    */
   createIPCHandler(ipcMain, 'ai:chat', async (messages) => {
     const { profile, model, maxTokens, temperature, systemPrompt } = getAIConfig(configManager)
 
-    if (!profile || !profile.authToken) {
-      return {
-        success: false,
-        error: 'NO_API_KEY',
-        message: '请先配置 API Key'
-      }
-    }
+    const validationError = validateConfig(profile)
+    if (validationError) return validationError
 
     try {
-      const apiMessages = messages.map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-
-      const requestBody = {
-        model,
-        max_tokens: maxTokens,
-        messages: apiMessages
-      }
-
-      // 只在有 systemPrompt 时添加
-      if (systemPrompt) {
-        requestBody.system = systemPrompt
-      }
-
-      // 只在 temperature 不为 1 时添加（1 是默认值）
-      if (temperature !== 1) {
-        requestBody.temperature = temperature
-      }
-
-      const response = await fetch(`${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': profile.authToken,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestBody)
+      const apiMessages = messages.map(m => ({ role: m.role, content: m.content }))
+      const requestBody = buildRequestBody(model, maxTokens, apiMessages, {
+        system: systemPrompt,
+        temperature
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return {
-          success: false,
-          error: 'API_ERROR',
-          message: errorData.error?.message || `API 错误: ${response.status}`
-        }
-      }
+      const result = await sendAPIRequest(profile, requestBody)
+      if (!result.success) return result
 
-      const data = await response.json()
+      const data = await result.response.json()
+      const { inputTokens, outputTokens } = extractUsageFromResponse(data)
 
       return {
         success: true,
         data: {
-          content: data.content?.[0]?.text || '',
-          inputTokens: data.usage?.input_tokens || 0,
-          outputTokens: data.usage?.output_tokens || 0,
+          content: extractContentFromResponse(data),
+          inputTokens,
+          outputTokens,
           model: data.model
         }
       }
     } catch (error) {
       console.error('AI chat error:', error)
-      return {
-        success: false,
-        error: 'NETWORK_ERROR',
-        message: error.message || '网络错误'
-      }
+      return { success: false, error: 'NETWORK_ERROR', message: error.message || '网络错误' }
     }
   })
 
   /**
    * 流式发送消息
-   * @param {Object} event - IPC event (用于发送流数据)
-   * @param {Array} messages - 消息数组
    */
   ipcMain.handle('ai:stream', async (event, messages) => {
     const { profile, model, maxTokens, temperature, systemPrompt } = getAIConfig(configManager)
 
-    if (!profile || !profile.authToken) {
-      return {
-        success: false,
-        error: 'NO_API_KEY',
-        message: '请先配置 API Key'
-      }
-    }
+    const validationError = validateConfig(profile)
+    if (validationError) return validationError
 
     try {
-      const apiMessages = messages.map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-
-      const requestBody = {
-        model,
-        max_tokens: maxTokens,
-        messages: apiMessages,
+      const apiMessages = messages.map(m => ({ role: m.role, content: m.content }))
+      const requestBody = buildRequestBody(model, maxTokens, apiMessages, {
+        system: systemPrompt,
+        temperature,
         stream: true
-      }
-
-      if (systemPrompt) {
-        requestBody.system = systemPrompt
-      }
-
-      if (temperature !== 1) {
-        requestBody.temperature = temperature
-      }
-
-      const response = await fetch(`${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': profile.authToken,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestBody)
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return {
-          success: false,
-          error: 'API_ERROR',
-          message: errorData.error?.message || `API 错误: ${response.status}`
-        }
-      }
+      const result = await sendAPIRequest(profile, requestBody)
+      if (!result.success) return result
 
       // 读取流式响应
-      const reader = response.body.getReader()
+      const reader = result.response.body.getReader()
       const decoder = new TextDecoder()
       let fullContent = ''
       let inputTokens = 0
@@ -187,77 +255,45 @@ function setupAIHandlers(ipcMain, configManager) {
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') continue
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-
-            try {
-              const json = JSON.parse(data)
-
-              if (json.type === 'content_block_delta') {
-                const text = json.delta?.text || ''
-                fullContent += text
-                // 发送增量到前端
-                event.sender.send('ai:stream-chunk', { text })
-              } else if (json.type === 'message_delta') {
-                outputTokens = json.usage?.output_tokens || 0
-              } else if (json.type === 'message_start') {
-                inputTokens = json.message?.usage?.input_tokens || 0
-              }
-            } catch (e) {
-              // 忽略解析错误
+          try {
+            const json = JSON.parse(data)
+            if (json.type === 'content_block_delta') {
+              const text = json.delta?.text || ''
+              fullContent += text
+              event.sender.send('ai:stream-chunk', { text })
+            } else if (json.type === 'message_delta') {
+              outputTokens = json.usage?.output_tokens || 0
+            } else if (json.type === 'message_start') {
+              inputTokens = json.message?.usage?.input_tokens || 0
             }
-          }
+          } catch (e) { /* 忽略解析错误 */ }
         }
       }
 
-      // 发送完成信号
-      event.sender.send('ai:stream-end', {
-        content: fullContent,
-        inputTokens,
-        outputTokens
-      })
-
-      return {
-        success: true,
-        data: {
-          content: fullContent,
-          inputTokens,
-          outputTokens
-        }
-      }
+      event.sender.send('ai:stream-end', { content: fullContent, inputTokens, outputTokens })
+      return { success: true, data: { content: fullContent, inputTokens, outputTokens } }
     } catch (error) {
       console.error('AI stream error:', error)
       event.sender.send('ai:stream-error', { message: error.message })
-      return {
-        success: false,
-        error: 'NETWORK_ERROR',
-        message: error.message || '网络错误'
-      }
+      return { success: false, error: 'NETWORK_ERROR', message: error.message || '网络错误' }
     }
   })
 
   /**
    * 压缩对话历史
-   * @param {Array} messages - 消息数组
-   * @returns {Object} - {success, data: {summary, tokens}}
    */
   createIPCHandler(ipcMain, 'ai:compact', async (messages) => {
     const { profile, model } = getAIConfig(configManager)
 
-    if (!profile || !profile.authToken) {
-      return {
-        success: false,
-        error: 'NO_API_KEY',
-        message: '请先配置 API Key'
-      }
-    }
+    const validationError = validateConfig(profile)
+    if (validationError) return validationError
 
     try {
-      // 构建压缩请求
       const compactPrompt = `请将以下对话历史压缩成一个简洁的摘要，保留关键信息和上下文。摘要应该让 AI 能够继续对话而不丢失重要背景。
 
 对话历史：
@@ -265,46 +301,17 @@ ${messages.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join
 
 请直接输出摘要，不要加任何前缀或解释。`
 
-      const response = await fetch(`${profile.baseUrl || 'https://api.anthropic.com'}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': profile.authToken,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: compactPrompt }]
-        })
-      })
+      const requestBody = buildRequestBody(model, 1024, [{ role: 'user', content: compactPrompt }])
+      const result = await sendAPIRequest(profile, requestBody)
+      if (!result.success) return result
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return {
-          success: false,
-          error: 'API_ERROR',
-          message: errorData.error?.message || `API 错误: ${response.status}`
-        }
-      }
+      const data = await result.response.json()
+      const summary = extractContentFromResponse(data)
 
-      const data = await response.json()
-      const summary = data.content?.[0]?.text || ''
-
-      return {
-        success: true,
-        data: {
-          summary,
-          tokens: countTokens(summary)
-        }
-      }
+      return { success: true, data: { summary, tokens: countTokens(summary) } }
     } catch (error) {
       console.error('AI compact error:', error)
-      return {
-        success: false,
-        error: 'NETWORK_ERROR',
-        message: error.message || '网络错误'
-      }
+      return { success: false, error: 'NETWORK_ERROR', message: error.message || '网络错误' }
     }
   })
 
@@ -314,13 +321,18 @@ ${messages.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join
    * @returns {Object} - {tokens, shouldCompact}
    */
   createIPCHandler(ipcMain, 'ai:countTokens', (messages) => {
+    const aiConfig = configManager.getAIAssistantConfig()
+    const maxTokens = aiConfig.contextMaxTokens || DEFAULT_MAX_TOKENS
+    const thresholdPercent = aiConfig.compactThreshold ?? DEFAULT_COMPACT_THRESHOLD
+    const threshold = thresholdPercent / 100  // 转为小数
+
     const tokens = countMessagesTokens(messages)
     return {
       tokens,
-      maxTokens: MAX_TOKENS,
-      threshold: COMPACT_THRESHOLD,
-      shouldCompact: shouldCompact(tokens, MAX_TOKENS, COMPACT_THRESHOLD),
-      percentage: Math.round((tokens / MAX_TOKENS) * 100)
+      maxTokens,
+      threshold: thresholdPercent,
+      shouldCompact: shouldCompact(tokens, maxTokens, threshold),
+      percentage: Math.round((tokens / maxTokens) * 100)
     }
   })
 }
