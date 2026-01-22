@@ -62,7 +62,7 @@
           <div class="message-avatar">
             {{ msg.role === 'user' ? '&#128100;' : '&#129302;' }}
           </div>
-          <div class="message-body">
+          <div class="message-body" @contextmenu.prevent="showContextMenu($event, msg)">
             <!-- Markdown 渲染 -->
             <div
               v-if="msg.role === 'assistant'"
@@ -123,6 +123,25 @@
         {{ loading ? '...' : '&#9654;' }}
       </button>
     </div>
+
+    <!-- Context Menu -->
+    <div
+      v-if="contextMenu.visible"
+      class="context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+    >
+      <div class="context-menu-item" @click="handleContextCopy">
+        {{ t('common.copy') }}
+      </div>
+      <div class="context-menu-item" @click="handleContextInsert">
+        {{ t('rightPanel.ai.insertToInput') }}
+      </div>
+      <div class="context-menu-divider" />
+      <div class="context-menu-item" @click="handleContextToPrompt">
+        {{ t('rightPanel.ai.saveAsPrompt') }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -135,7 +154,7 @@ import { marked } from 'marked'
 const { t } = useLocale()
 const message = useMessage()
 
-const emit = defineEmits(['insert-to-input'])
+const emit = defineEmits(['insert-to-input', 'save-as-prompt'])
 
 // API
 const {
@@ -165,6 +184,14 @@ const config = reactive({
   maxTokens: 2048,
   temperature: 1,
   systemPrompt: ''
+})
+
+// Context menu
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  message: null
 })
 
 // Stream listeners cleanup
@@ -368,6 +395,40 @@ const handleInsertToInput = (text) => {
   emit('insert-to-input', text)
 }
 
+// Context menu methods
+const showContextMenu = (event, msg) => {
+  contextMenu.visible = true
+  contextMenu.x = event.clientX
+  contextMenu.y = event.clientY
+  contextMenu.message = msg
+}
+
+const hideContextMenu = () => {
+  contextMenu.visible = false
+  contextMenu.message = null
+}
+
+const handleContextCopy = async () => {
+  if (contextMenu.message) {
+    await handleCopy(contextMenu.message.content)
+  }
+  hideContextMenu()
+}
+
+const handleContextInsert = () => {
+  if (contextMenu.message) {
+    handleInsertToInput(contextMenu.message.content)
+  }
+  hideContextMenu()
+}
+
+const handleContextToPrompt = () => {
+  if (contextMenu.message) {
+    emit('save-as-prompt', contextMenu.message.content)
+  }
+  hideContextMenu()
+}
+
 const scrollToBottom = () => {
   if (chatContentRef.value) {
     chatContentRef.value.scrollTop = chatContentRef.value.scrollHeight
@@ -377,6 +438,9 @@ const scrollToBottom = () => {
 onMounted(() => {
   inputRef.value?.focus()
   loadConfig()
+
+  // Close context menu on click outside
+  document.addEventListener('click', hideContextMenu)
 
   // Setup stream listeners (for future streaming support)
   if (onAIStreamChunk) {
@@ -415,6 +479,7 @@ onUnmounted(() => {
   cleanupChunk?.()
   cleanupEnd?.()
   cleanupError?.()
+  document.removeEventListener('click', hideContextMenu)
 })
 </script>
 
@@ -781,5 +846,35 @@ onUnmounted(() => {
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 140px;
+  z-index: 1000;
+}
+
+.context-menu-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.context-menu-item:hover {
+  background: var(--hover-bg);
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
 }
 </style>

@@ -203,7 +203,8 @@ export default {
       maxTokens: 'Max Output Tokens',
       temperature: 'Temperature',
       systemPrompt: 'System Prompt',
-      systemPromptPlaceholder: 'Set AI role and behavior...'
+      systemPromptPlaceholder: 'Set AI role and behavior...',
+      saveAsPrompt: 'Save as Prompt'
     },
     // Message Queue
     messageQueue: {

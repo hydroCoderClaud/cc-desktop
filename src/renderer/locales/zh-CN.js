@@ -203,7 +203,8 @@ export default {
       maxTokens: '最大输出 Token',
       temperature: '温度',
       systemPrompt: '系统提示词',
-      systemPromptPlaceholder: '设置 AI 的角色和行为...'
+      systemPromptPlaceholder: '设置 AI 的角色和行为...',
+      saveAsPrompt: '保存为提示词'
     },
     // 消息队列
     messageQueue: {
