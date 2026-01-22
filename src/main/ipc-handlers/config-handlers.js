@@ -154,6 +154,15 @@ function setupConfigHandlers(ipcMain, configManager) {
     return configManager.updateMaxHistorySessions(maxHistorySessions)
   })
 
+  // 自动压缩阈值 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE)
+  registerHandler('config:getAutocompactPctOverride', () => {
+    return configManager.getAutocompactPctOverride()
+  })
+
+  registerHandler('config:updateAutocompactPctOverride', (value) => {
+    return configManager.updateAutocompactPctOverride(value)
+  })
+
   registerHandler('config:getTerminalSettings', () => {
     return configManager.getTerminalSettings()
   })

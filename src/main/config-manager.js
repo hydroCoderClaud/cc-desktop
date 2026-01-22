@@ -227,6 +227,26 @@ class ConfigManager {
     return this.save();
   }
 
+  /**
+   * 获取自动压缩阈值百分比 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE)
+   * @returns {number|null} 阈值百分比 (0-100)，null 表示使用默认值
+   */
+  getAutocompactPctOverride() {
+    return this.config.settings?.autocompactPctOverride ?? null;
+  }
+
+  /**
+   * 更新自动压缩阈值百分比
+   * @param {number|null} value - 阈值百分比 (0-100)，null 表示使用默认值
+   */
+  updateAutocompactPctOverride(value) {
+    if (!this.config.settings) {
+      this.config.settings = {};
+    }
+    this.config.settings.autocompactPctOverride = value;
+    return this.save();
+  }
+
   // ========================================
   // AI 助手配置
   // ========================================

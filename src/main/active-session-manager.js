@@ -192,10 +192,16 @@ class ActiveSessionManager {
     // 2. 构建我们的环境变量
     const claudeEnvVars = buildClaudeEnvVars(profile)
 
-    // 3. 合并（我们的设置覆盖基础环境）
+    // 3. 添加全局设置中的环境变量
+    const autocompactPct = this.configManager.getAutocompactPctOverride()
+    if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
+      claudeEnvVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
+    }
+
+    // 4. 合并（我们的设置覆盖基础环境）
     const envVars = { ...baseEnv, TERM: 'xterm-256color', ...claudeEnvVars }
 
-    // 4. 清理空字符串
+    // 5. 清理空字符串
     for (const key of Object.keys(envVars)) {
       if (envVars[key] === '') {
         delete envVars[key]

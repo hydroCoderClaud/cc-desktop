@@ -53,6 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMaxHistorySessions: () => ipcRenderer.invoke('config:getMaxHistorySessions'),
   updateMaxHistorySessions: (max) => ipcRenderer.invoke('config:updateMaxHistorySessions', max),
 
+  // Autocompact Pct Override (自动压缩阈值百分比)
+  getAutocompactPctOverride: () => ipcRenderer.invoke('config:getAutocompactPctOverride'),
+  updateAutocompactPctOverride: (value) => ipcRenderer.invoke('config:updateAutocompactPctOverride', value),
+
   // Terminal Settings (终端字体大小等)
   getTerminalSettings: () => ipcRenderer.invoke('config:getTerminalSettings'),
   updateTerminalSettings: (settings) => ipcRenderer.invoke('config:updateTerminalSettings', settings),

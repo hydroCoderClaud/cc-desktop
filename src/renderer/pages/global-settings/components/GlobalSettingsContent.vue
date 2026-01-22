@@ -103,6 +103,19 @@
             <template #feedback>{{ t('globalSettings.maxHistorySessionsHint') }}</template>
           </n-form-item>
         </n-grid-item>
+
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.autocompactPctOverride')">
+            <n-input-number
+              v-model:value="formData.autocompactPctOverride"
+              :min="0"
+              :max="100"
+              :placeholder="t('globalSettings.autocompactDefault')"
+              clearable
+            />
+            <template #feedback>{{ t('globalSettings.autocompactPctOverrideHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
       </n-grid>
     </n-card>
 
@@ -136,7 +149,8 @@ const DEFAULTS = {
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
-  maxHistorySessions: 10
+  maxHistorySessions: 10,
+  autocompactPctOverride: null  // null 表示使用 Claude Code 默认值
 }
 
 const formData = ref({
@@ -146,7 +160,8 @@ const formData = ref({
   testTimeout: DEFAULTS.testTimeout,
   requestTimeout: DEFAULTS.requestTimeout,
   maxActiveSessions: DEFAULTS.maxActiveSessions,
-  maxHistorySessions: DEFAULTS.maxHistorySessions
+  maxHistorySessions: DEFAULTS.maxHistorySessions,
+  autocompactPctOverride: DEFAULTS.autocompactPctOverride
 })
 
 onMounted(async () => {
@@ -179,6 +194,10 @@ const loadSettings = async () => {
     // Get max history sessions
     const maxHistorySessions = await invoke('getMaxHistorySessions')
     formData.value.maxHistorySessions = maxHistorySessions || DEFAULTS.maxHistorySessions
+
+    // Get autocompact pct override
+    const autocompactPct = await invoke('getAutocompactPctOverride')
+    formData.value.autocompactPctOverride = autocompactPct
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -208,6 +227,9 @@ const handleSave = async () => {
     // Save max history sessions
     await invoke('updateMaxHistorySessions', formData.value.maxHistorySessions)
 
+    // Save autocompact pct override
+    await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -226,6 +248,7 @@ const handleReset = async () => {
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
+    formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
 
     // Save to backend
     await invoke('updateGlobalModels', {
@@ -239,6 +262,7 @@ const handleReset = async () => {
     })
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
+    await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {
