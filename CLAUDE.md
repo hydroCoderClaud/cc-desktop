@@ -114,8 +114,13 @@ src/
 │   ├── config-manager.js     # Config file I/O and project list
 │   ├── terminal-manager.js   # PTY spawn/kill/write/resize
 │   ├── ipc-handlers.js       # IPC channel definitions
+│   ├── plugin-manager.js     # Claude Code plugin management
 │   ├── session-manager.js    # SQLite database operations for session history
 │   ├── session-handlers.js   # Session-related IPC handlers
+│   ├── ipc-handlers/         # Modular IPC handlers
+│   │   ├── plugin-handlers.js    # Plugin management IPC
+│   │   ├── ai-handlers.js        # AI assistant IPC
+│   │   └── ...
 │   └── utils/
 │       ├── constants.js      # Shared constants
 │       └── path-utils.js     # Path resolution utilities
@@ -238,10 +243,10 @@ The codebase includes `src/main/claude-api-manager.js` demonstrating API mode in
 
 ## Recent Development History
 
-### 2026-01-22: AI 助手增强 & Agents 标签页 & UI 统一 (v1.2.0)
+### 2026-01-22: Plugin 管理 & AI 助手增强 & Agents 标签页 (v1.2.0)
 
 **Overview:**
-AI 助手多格式 API 兼容、手动压缩功能；新增独立 Agents 标签页；右侧面板 UI 统一优化；消息队列模块重构。
+实现 Plugin 管理功能（展示、启用/禁用、卸载）；AI 助手多格式 API 兼容、手动压缩功能；新增独立 Agents 标签页；右侧面板 UI 统一优化。
 
 **AI Assistant Enhancements:**
 
@@ -268,14 +273,25 @@ AI 助手多格式 API 兼容、手动压缩功能；新增独立 Agents 标签�
 
 **New Features:**
 
-1. **独立 Agents 标签页**
+1. **Plugin 管理功能**
+   - 新增 `plugin-manager.js` 读取 `~/.claude/plugins/` 插件
+   - 新增 `plugin-handlers.js` IPC 处理器
+   - 展示插件列表（名称、描述、版本、来源 marketplace）
+   - 点击展开显示组件分类：Commands、Agents、Skills、Hooks、MCP
+   - Commands/Agents/Skills 点击插入命令到输入框
+   - 启用/禁用开关（写入 `~/.claude/settings.json`）
+   - 卸载功能（删除注册表和文件）
+   - 路径安全检查防止路径遍历攻击
+   - 搜索过滤、刷新、打开插件目录
+
+2. **独立 Agents 标签页**
    - 新增 `AgentsTab.vue` (位于 MCP 和 AI 之间)
    - 图标 🧩 使用深色样式
    - 搜索功能、空状态提示
    - 点击 agent 插入 `@agent_name` 到输入框
    - 预留 Claude Code CLI 集成接口
 
-2. **左侧面板中英文切换**
+3. **左侧面板中英文切换**
    - 左下角添加语言切换按钮 (EN/中)
    - 一键切换界面语言
 
@@ -307,9 +323,14 @@ AI 助手多格式 API 兼容、手动压缩功能；新增独立 Agents 标签�
    - 新增 `src/renderer/composables/useEscapeParser.js`
 
 **Files Changed:**
+- `src/main/plugin-manager.js` (新增) - 插件管理核心逻辑
+- `src/main/ipc-handlers/plugin-handlers.js` (新增) - 插件 IPC 处理器
+- `src/renderer/pages/main/components/RightPanel/tabs/PluginsTab.vue` - 重写插件标签页
 - `src/renderer/pages/main/components/RightPanel/tabs/AgentsTab.vue` (新增)
 - `src/renderer/pages/main/components/RightPanel/tabs/AITab.vue` - AI 增强
 - `src/main/ipc-handlers/ai-handlers.js` - 多格式兼容
+- `src/main/ipc-handlers.js` - 引入插件处理器
+- `src/preload/preload.js` - 暴露插件 API
 - `src/main/config-manager.js` - 压缩配置
 - `src/renderer/pages/main/components/RightPanel/*.vue` - UI 统一
 - `src/renderer/pages/main/components/LeftPanel.vue` - 语言切换
@@ -918,6 +939,12 @@ src/renderer/js/
   - 独立标签页 (🧩)
   - 搜索、空状态
   - 预留 CLI 集成接口
+- ✅ Plugin 管理 - **v1.2.0 新增**
+  - 读取 `~/.claude/plugins/` 已安装插件
+  - 展示组件 (Commands/Agents/Skills/Hooks/MCP)
+  - 点击插入命令到输入框
+  - 启用/禁用、卸载功能
+  - 显示来源 marketplace 区分同名插件
 - ✅ 快捷命令 - **v1.2.0 增强**
   - 右侧面板，支持颜色标记
   - 支持转义序列 (\xNN 发送控制字符)
