@@ -138,7 +138,18 @@ export default {
       search: '搜索插件...',
       openFolder: '打开插件目录',
       refresh: '刷新',
-      noDescription: '暂无描述'
+      noDescription: '暂无描述',
+      noComponents: '暂无组件',
+      commands: '命令',
+      agents: 'Agents',
+      skills: '技能',
+      hooks: 'Hooks',
+      mcp: 'MCP',
+      version: '版本',
+      author: '作者',
+      deleteConfirm: '确认卸载插件',
+      deleteWarning: '确定要卸载插件 "{name}" 吗？此操作将同时删除插件文件。',
+      uninstall: '卸载'
     },
     // 技能
     skills: {

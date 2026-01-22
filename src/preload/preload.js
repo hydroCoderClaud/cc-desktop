@@ -170,6 +170,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteQuickCommand: (id) => ipcRenderer.invoke('quickCommands:delete', id),
 
   // ========================================
+  // Plugin 管理 (Claude Code Plugins)
+  // ========================================
+  listPlugins: () => ipcRenderer.invoke('plugins:list'),
+  getPluginDetails: (pluginId) => ipcRenderer.invoke('plugins:details', pluginId),
+  setPluginEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugins:setEnabled', pluginId, enabled),
+  openPluginsFolder: () => ipcRenderer.invoke('plugins:openFolder'),
+  deletePlugin: (pluginId, deleteFiles = true) => ipcRenderer.invoke('plugins:delete', pluginId, deleteFiles),
+
+  // ========================================
   // 会话历史管理（数据库版）
   // ========================================
   // 同步

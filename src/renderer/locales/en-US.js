@@ -138,7 +138,18 @@ export default {
       search: 'Search plugins...',
       openFolder: 'Open plugins folder',
       refresh: 'Refresh',
-      noDescription: 'No description'
+      noDescription: 'No description',
+      noComponents: 'No components',
+      commands: 'Commands',
+      agents: 'Agents',
+      skills: 'Skills',
+      hooks: 'Hooks',
+      mcp: 'MCP',
+      version: 'Version',
+      author: 'Author',
+      deleteConfirm: 'Uninstall Plugin',
+      deleteWarning: 'Are you sure you want to uninstall plugin "{name}"? This will also delete the plugin files.',
+      uninstall: 'Uninstall'
     },
     // Skills
     skills: {

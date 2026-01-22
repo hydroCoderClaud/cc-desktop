@@ -27,6 +27,7 @@ const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-hand
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
 const aiHandlersMod = safeRequire('./ipc-handlers/ai-handlers', 'ai-handlers');
+const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -36,6 +37,7 @@ const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionH
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const setupAIHandlers = aiHandlersMod?.setupAIHandlers;
+const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -319,6 +321,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (setupAIHandlers) {
     setupAIHandlers(ipcMain, configManager);
+  }
+
+  // ========================================
+  // Plugin 管理
+  // ========================================
+  if (setupPluginHandlers) {
+    setupPluginHandlers(ipcMain);
   }
 
   // ========================================
