@@ -157,6 +157,8 @@ export default {
     commands: {
       empty: 'No commands found',
       emptyHint: 'Commands are provided by plugins or project .claude/commands/',
+      deprecated: 'Recommend using Skills (.claude/skills/) instead',
+      legacy: 'Legacy',
       search: 'Search commands...',
       refresh: 'Refresh',
       uncategorized: 'Uncategorized',

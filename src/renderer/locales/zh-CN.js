@@ -157,6 +157,8 @@ export default {
     commands: {
       empty: '未找到命令',
       emptyHint: '命令由插件或项目 .claude/commands/ 提供',
+      deprecated: '推荐使用 Skills (.claude/skills/) 替代',
+      legacy: '旧版',
       search: '搜索命令...',
       refresh: '刷新',
       uncategorized: '未分类',

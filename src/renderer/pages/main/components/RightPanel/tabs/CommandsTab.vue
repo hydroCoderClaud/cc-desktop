@@ -1,7 +1,10 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.commands') }} ({{ totalCount }})</span>
+      <span class="tab-title">
+        {{ t('rightPanel.tabs.commands') }} ({{ totalCount }})
+        <span class="deprecated-badge">{{ t('rightPanel.commands.legacy') }}</span>
+      </span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.commands.refresh')" @click="handleRefresh">
           🔄
@@ -34,6 +37,7 @@
         <div class="empty-icon">⌨️</div>
         <div class="empty-text">{{ t('rightPanel.commands.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.commands.emptyHint') }}</div>
+        <div class="empty-hint deprecated">{{ t('rightPanel.commands.deprecated') }}</div>
       </div>
 
       <!-- Commands List -->
@@ -221,6 +225,18 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deprecated-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--warning-bg, rgba(255, 193, 7, 0.15));
+  color: var(--warning-color, #ffc107);
 }
 
 .tab-actions {
@@ -303,6 +319,12 @@ onMounted(() => {
 .empty-hint {
   font-size: 12px;
   opacity: 0.7;
+}
+
+.empty-hint.deprecated {
+  margin-top: 8px;
+  color: var(--warning-color, #ffc107);
+  opacity: 1;
 }
 
 /* Commands List */
