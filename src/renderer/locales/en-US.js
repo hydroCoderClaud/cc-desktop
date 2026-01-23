@@ -89,7 +89,9 @@ export default {
     tabs: {
       queue: 'Queue',
       plugins: 'Plugins',
+      commands: 'Commands',
       skills: 'Skills',
+      hooks: 'Hooks',
       mcp: 'MCP',
       agents: 'Agents',
       prompts: 'Prompts',
@@ -151,13 +153,44 @@ export default {
       deleteWarning: 'Are you sure you want to uninstall plugin "{name}"? This will also delete the plugin files.',
       uninstall: 'Uninstall'
     },
+    // Commands
+    commands: {
+      empty: 'No commands found',
+      emptyHint: 'Commands are provided by plugins or project .claude/commands/',
+      search: 'Search commands...',
+      refresh: 'Refresh',
+      uncategorized: 'Uncategorized',
+      global: 'Global Commands',
+      project: 'Project Commands'
+    },
     // Skills
     skills: {
       empty: 'No skills found',
       emptyHint: 'Skills are provided by Claude Code',
       search: 'Search skills...',
       refresh: 'Refresh',
-      uncategorized: 'Uncategorized'
+      uncategorized: 'Uncategorized',
+      global: 'Global Skills',
+      project: 'Project Skills'
+    },
+    // Hooks
+    hooks: {
+      empty: 'No hooks found',
+      emptyHint: 'Hooks are provided by plugins and run automatically',
+      search: 'Search hooks...',
+      refresh: 'Refresh',
+      uncategorized: 'Uncategorized',
+      noDescription: 'No description',
+      editHook: 'Edit Hook',
+      event: 'Event Type',
+      matcher: 'Matcher',
+      matcherPlaceholder: 'Leave empty to match all',
+      type: 'Type',
+      command: 'Command',
+      commandPlaceholder: 'Command or script to execute',
+      readFailed: 'Failed to read configuration',
+      saveFailed: 'Failed to save',
+      hookNotFound: 'Hook not found'
     },
     // MCP
     mcp: {

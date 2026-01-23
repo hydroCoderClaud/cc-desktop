@@ -1,9 +1,9 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.skills') }} ({{ totalCount }})</span>
+      <span class="tab-title">{{ t('rightPanel.tabs.commands') }} ({{ totalCount }})</span>
       <div class="tab-actions">
-        <button class="icon-btn" :title="t('rightPanel.skills.refresh')" @click="handleRefresh">
+        <button class="icon-btn" :title="t('rightPanel.commands.refresh')" @click="handleRefresh">
           🔄
         </button>
       </div>
@@ -12,7 +12,7 @@
     <div class="tab-toolbar">
       <n-input
         v-model:value="searchText"
-        :placeholder="t('rightPanel.skills.search')"
+        :placeholder="t('rightPanel.commands.search')"
         size="small"
         clearable
       >
@@ -31,45 +31,45 @@
 
       <!-- Empty State -->
       <div v-else-if="totalCount === 0" class="empty-state">
-        <div class="empty-icon">⚡</div>
-        <div class="empty-text">{{ t('rightPanel.skills.empty') }}</div>
-        <div class="empty-hint">{{ t('rightPanel.skills.emptyHint') }}</div>
+        <div class="empty-icon">⌨️</div>
+        <div class="empty-text">{{ t('rightPanel.commands.empty') }}</div>
+        <div class="empty-hint">{{ t('rightPanel.commands.emptyHint') }}</div>
       </div>
 
-      <!-- Skills List -->
-      <div v-else class="skills-list">
-        <!-- Project Skills -->
-        <div v-if="filteredProjectSkills.length > 0" class="skill-group">
+      <!-- Commands List -->
+      <div v-else class="commands-list">
+        <!-- Project Commands -->
+        <div v-if="filteredProjectCommands.length > 0" class="command-group">
           <div class="group-header">
-            <span class="group-icon">⚡</span>
-            <span class="group-name">{{ t('rightPanel.skills.project') }}</span>
-            <span class="group-count">({{ filteredProjectSkills.length }})</span>
+            <span class="group-icon">📁</span>
+            <span class="group-name">{{ t('rightPanel.commands.project') }}</span>
+            <span class="group-count">({{ filteredProjectCommands.length }})</span>
           </div>
           <div class="group-items">
             <div
-              v-for="skill in filteredProjectSkills"
-              :key="skill.fullName"
-              class="skill-item"
-              @click="handleSkillClick(skill)"
+              v-for="cmd in filteredProjectCommands"
+              :key="cmd.fullName"
+              class="command-item"
+              @click="handleCommandClick(cmd)"
             >
-              <span class="skill-name">/{{ skill.fullName }}</span>
-              <span class="skill-desc">{{ skill.description }}</span>
+              <span class="command-name">/{{ cmd.fullName }}</span>
+              <span class="command-desc">{{ cmd.description }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Global Skills -->
-        <div v-if="filteredGlobalSkills.length > 0" class="skill-group">
+        <!-- Global Commands -->
+        <div v-if="filteredGlobalCommands.length > 0" class="command-group">
           <div class="group-header">
             <span class="group-icon">🌐</span>
-            <span class="group-name">{{ t('rightPanel.skills.global') }}</span>
-            <span class="group-count">({{ filteredGlobalSkills.length }})</span>
+            <span class="group-name">{{ t('rightPanel.commands.global') }}</span>
+            <span class="group-count">({{ filteredGlobalCommands.length }})</span>
           </div>
           <div class="group-items">
             <div
-              v-for="category in groupedGlobalSkills"
+              v-for="category in groupedGlobalCommands"
               :key="category.name"
-              class="skill-category"
+              class="command-category"
             >
               <div
                 class="category-header"
@@ -77,17 +77,17 @@
               >
                 <span class="category-icon">{{ expandedCategories.includes(category.name) ? '▼' : '▶' }}</span>
                 <span class="category-name">{{ category.name }}</span>
-                <span class="category-count">({{ category.skills.length }})</span>
+                <span class="category-count">({{ category.commands.length }})</span>
               </div>
               <div v-if="expandedCategories.includes(category.name)" class="category-items">
                 <div
-                  v-for="skill in category.skills"
-                  :key="skill.fullName"
-                  class="skill-item"
-                  @click="handleSkillClick(skill)"
+                  v-for="cmd in category.commands"
+                  :key="cmd.fullName"
+                  class="command-item"
+                  @click="handleCommandClick(cmd)"
                 >
-                  <span class="skill-name">/{{ skill.fullName }}</span>
-                  <span class="skill-desc">{{ skill.description }}</span>
+                  <span class="command-name">/{{ cmd.fullName }}</span>
+                  <span class="command-desc">{{ cmd.description }}</span>
                 </div>
               </div>
             </div>
@@ -114,49 +114,49 @@ const emit = defineEmits(['send-command', 'insert-to-input'])
 // State
 const loading = ref(false)
 const searchText = ref('')
-const globalSkills = ref([])
-const projectSkills = ref([])
+const globalCommands = ref([])
+const projectCommands = ref([])
 const expandedCategories = ref([])
 
 // Computed
-const totalCount = computed(() => globalSkills.value.length + projectSkills.value.length)
+const totalCount = computed(() => globalCommands.value.length + projectCommands.value.length)
 
-const matchSkill = (skill, keyword) => {
-  return skill.name.toLowerCase().includes(keyword) ||
-    skill.fullName.toLowerCase().includes(keyword) ||
-    (skill.description && skill.description.toLowerCase().includes(keyword))
+const matchCommand = (cmd, keyword) => {
+  return cmd.name.toLowerCase().includes(keyword) ||
+    cmd.fullName.toLowerCase().includes(keyword) ||
+    (cmd.description && cmd.description.toLowerCase().includes(keyword))
 }
 
-const filteredGlobalSkills = computed(() => {
-  if (!searchText.value) return globalSkills.value
+const filteredGlobalCommands = computed(() => {
+  if (!searchText.value) return globalCommands.value
   const keyword = searchText.value.toLowerCase()
-  return globalSkills.value.filter(s => matchSkill(s, keyword))
+  return globalCommands.value.filter(c => matchCommand(c, keyword))
 })
 
-const filteredProjectSkills = computed(() => {
-  if (!searchText.value) return projectSkills.value
+const filteredProjectCommands = computed(() => {
+  if (!searchText.value) return projectCommands.value
   const keyword = searchText.value.toLowerCase()
-  return projectSkills.value.filter(s => matchSkill(s, keyword))
+  return projectCommands.value.filter(c => matchCommand(c, keyword))
 })
 
-const groupedGlobalSkills = computed(() => {
+const groupedGlobalCommands = computed(() => {
   const groups = {}
-  filteredGlobalSkills.value.forEach(skill => {
-    const cat = skill.category || t('rightPanel.skills.uncategorized')
+  filteredGlobalCommands.value.forEach(cmd => {
+    const cat = cmd.category || t('rightPanel.commands.uncategorized')
     if (!groups[cat]) {
       groups[cat] = []
     }
-    groups[cat].push(skill)
+    groups[cat].push(cmd)
   })
   return Object.keys(groups).map(name => ({
     name,
-    skills: groups[name]
+    commands: groups[name]
   }))
 })
 
 // Methods
 const handleRefresh = async () => {
-  await loadSkills()
+  await loadCommands()
 }
 
 const toggleCategory = (categoryName) => {
@@ -169,23 +169,23 @@ const toggleCategory = (categoryName) => {
 }
 
 // 单击发送到终端
-const handleSkillClick = (skill) => {
-  emit('send-command', `/${skill.fullName}`)
+const handleCommandClick = (cmd) => {
+  emit('send-command', `/${cmd.fullName}`)
 }
 
-const loadSkills = async () => {
+const loadCommands = async () => {
   loading.value = true
   try {
     const projectPath = props.currentProject?.path || null
-    const result = await window.electronAPI.listSkillsAll(projectPath)
+    const result = await window.electronAPI.listCommandsAll(projectPath)
 
-    // 按 source 分离全局和项目技能
-    globalSkills.value = (result || []).filter(s => s.source === 'plugin')
-    projectSkills.value = (result || []).filter(s => s.source === 'project')
+    // 按 source 分离全局和项目命令
+    globalCommands.value = (result || []).filter(c => c.source === 'plugin')
+    projectCommands.value = (result || []).filter(c => c.source === 'project')
   } catch (err) {
-    console.error('Failed to load skills:', err)
-    globalSkills.value = []
-    projectSkills.value = []
+    console.error('Failed to load commands:', err)
+    globalCommands.value = []
+    projectCommands.value = []
   } finally {
     loading.value = false
   }
@@ -193,11 +193,11 @@ const loadSkills = async () => {
 
 // Watch project change
 watch(() => props.currentProject, () => {
-  loadSkills()
+  loadCommands()
 })
 
 onMounted(() => {
-  loadSkills()
+  loadCommands()
 })
 </script>
 
@@ -305,15 +305,15 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* Skills List */
-.skills-list {
+/* Commands List */
+.commands-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 8px 0;
 }
 
-.skill-group {
+.command-group {
   display: flex;
   flex-direction: column;
 }
@@ -346,7 +346,7 @@ onMounted(() => {
   padding: 4px 0;
 }
 
-.skill-category {
+.command-category {
   margin-bottom: 4px;
 }
 
@@ -380,7 +380,7 @@ onMounted(() => {
   padding: 0 8px;
 }
 
-.skill-item {
+.command-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -391,17 +391,17 @@ onMounted(() => {
   transition: background 0.15s ease;
 }
 
-.skill-item:hover {
+.command-item:hover {
   background: var(--hover-bg);
 }
 
-.skill-name {
+.command-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--primary-color);
 }
 
-.skill-desc {
+.command-desc {
   font-size: 11px;
   color: var(--text-color-muted);
   overflow: hidden;

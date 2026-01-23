@@ -4,9 +4,22 @@
  */
 
 const { PluginManager } = require('../plugin-manager')
+const {
+  SkillsManager,
+  CommandsManager,
+  AgentsManager,
+  HooksManager,
+  McpManager
+} = require('../managers')
+const { shell } = require('electron')
 
 function setupPluginHandlers(ipcMain) {
   const pluginManager = new PluginManager()
+  const skillsManager = new SkillsManager()
+  const commandsManager = new CommandsManager()
+  const agentsManager = new AgentsManager()
+  const hooksManager = new HooksManager()
+  const mcpManager = new McpManager()
 
   // 获取插件列表
   ipcMain.handle('plugins:list', async () => {
@@ -63,6 +76,252 @@ function setupPluginHandlers(ipcMain) {
       return await pluginManager.deletePlugin(pluginId, !!deleteFiles)
     } catch (err) {
       console.error('[IPC] plugins:delete error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取所有 Skills 聚合列表 (兼容旧接口)
+  ipcMain.handle('skills:list', async () => {
+    try {
+      return await skillsManager.getGlobalSkills()
+    } catch (err) {
+      console.error('[IPC] skills:list error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // Skills Manager IPC Handlers
+  // ========================================
+
+  // 获取全局 Skills
+  ipcMain.handle('skills:listGlobal', async () => {
+    try {
+      return await skillsManager.getGlobalSkills()
+    } catch (err) {
+      console.error('[IPC] skills:listGlobal error:', err)
+      return []
+    }
+  })
+
+  // 获取项目级 Skills
+  ipcMain.handle('skills:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return await skillsManager.getProjectSkills(projectPath)
+    } catch (err) {
+      console.error('[IPC] skills:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 Skills (全局 + 项目级)
+  ipcMain.handle('skills:listAll', async (event, projectPath) => {
+    try {
+      return await skillsManager.getAllSkills(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] skills:listAll error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // Commands Manager IPC Handlers
+  // ========================================
+
+  // 获取全局 Commands
+  ipcMain.handle('commands:listGlobal', async () => {
+    try {
+      return await commandsManager.getGlobalCommands()
+    } catch (err) {
+      console.error('[IPC] commands:listGlobal error:', err)
+      return []
+    }
+  })
+
+  // 获取项目级 Commands
+  ipcMain.handle('commands:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return await commandsManager.getProjectCommands(projectPath)
+    } catch (err) {
+      console.error('[IPC] commands:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 Commands (全局 + 项目级)
+  ipcMain.handle('commands:listAll', async (event, projectPath) => {
+    try {
+      return await commandsManager.getAllCommands(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] commands:listAll error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // Agents Manager IPC Handlers
+  // ========================================
+
+  // 获取全局 Agents
+  ipcMain.handle('agents:listGlobal', async () => {
+    try {
+      return await agentsManager.getGlobalAgents()
+    } catch (err) {
+      console.error('[IPC] agents:listGlobal error:', err)
+      return []
+    }
+  })
+
+  // 获取项目级 Agents
+  ipcMain.handle('agents:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return await agentsManager.getProjectAgents(projectPath)
+    } catch (err) {
+      console.error('[IPC] agents:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 Agents (全局 + 项目级)
+  ipcMain.handle('agents:listAll', async (event, projectPath) => {
+    try {
+      return await agentsManager.getAllAgents(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] agents:listAll error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // Hooks Manager IPC Handlers
+  // ========================================
+
+  // 获取全局 Hooks
+  ipcMain.handle('hooks:listGlobal', async () => {
+    try {
+      return await hooksManager.getGlobalHooks()
+    } catch (err) {
+      console.error('[IPC] hooks:listGlobal error:', err)
+      return []
+    }
+  })
+
+  // 获取项目级 Hooks
+  ipcMain.handle('hooks:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return await hooksManager.getProjectHooks(projectPath)
+    } catch (err) {
+      console.error('[IPC] hooks:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 Hooks (全局 + 项目级)
+  ipcMain.handle('hooks:listAll', async (event, projectPath) => {
+    try {
+      return await hooksManager.getAllHooks(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] hooks:listAll error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // MCP Manager IPC Handlers
+  // ========================================
+
+  // 获取全局 MCP
+  ipcMain.handle('mcp:listGlobal', async () => {
+    try {
+      return await mcpManager.getGlobalMcp()
+    } catch (err) {
+      console.error('[IPC] mcp:listGlobal error:', err)
+      return []
+    }
+  })
+
+  // 获取项目级 MCP
+  ipcMain.handle('mcp:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return await mcpManager.getProjectMcp(projectPath)
+    } catch (err) {
+      console.error('[IPC] mcp:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 MCP (全局 + 项目级)
+  ipcMain.handle('mcp:listAll', async (event, projectPath) => {
+    try {
+      return await mcpManager.getAllMcp(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] mcp:listAll error:', err)
+      return []
+    }
+  })
+
+  // ========================================
+  // 文件操作
+  // ========================================
+
+  // 在系统默认编辑器中打开文件
+  ipcMain.handle('file:openInEditor', async (event, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid file path' }
+      }
+
+      const result = await shell.openPath(filePath)
+      if (result) {
+        // 返回非空字符串表示出错
+        return { success: false, error: result }
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] file:openInEditor error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 读取 JSON 文件内容
+  ipcMain.handle('file:readJson', async (event, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid file path' }
+      }
+
+      const fs = require('fs')
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found' }
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const data = JSON.parse(content)
+      return { success: true, data }
+    } catch (err) {
+      console.error('[IPC] file:readJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 写入 JSON 文件内容
+  ipcMain.handle('file:writeJson', async (event, filePath, data) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid file path' }
+      }
+
+      const fs = require('fs')
+      const content = JSON.stringify(data, null, 2)
+      fs.writeFileSync(filePath, content, 'utf-8')
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] file:writeJson error:', err)
       return { success: false, error: err.message }
     }
   })

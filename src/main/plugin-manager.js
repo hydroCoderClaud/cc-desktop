@@ -1,20 +1,32 @@
 /**
  * Claude Code Plugin Manager
  * 管理 Claude Code CLI 的插件，读取、解析、启用/禁用
+ *
+ * 重构说明:
+ * - 插件级别操作保留在此 (list, enable/disable, delete)
+ * - 组件扫描委托给各个 Manager (Skills, Agents, Hooks, MCP)
  */
 
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { shell } = require('electron')
+const { ComponentScanner } = require('./component-scanner')
+const {
+  SkillsManager,
+  AgentsManager,
+  HooksManager,
+  McpManager
+} = require('./managers')
 
-class PluginManager {
+class PluginManager extends ComponentScanner {
   constructor() {
-    // Claude Code 配置目录
-    this.claudeDir = path.join(os.homedir(), '.claude')
-    this.pluginsDir = path.join(this.claudeDir, 'plugins')
-    this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
-    this.settingsPath = path.join(this.claudeDir, 'settings.json')
+    super()
+    // 初始化组件管理器
+    this.skillsManager = new SkillsManager()
+    this.agentsManager = new AgentsManager()
+    this.hooksManager = new HooksManager()
+    this.mcpManager = new McpManager()
   }
 
   /**
@@ -23,26 +35,19 @@ class PluginManager {
    */
   async listPlugins() {
     try {
-      // 读取已安装插件注册表
       const installedPlugins = this._readInstalledPlugins()
       if (!installedPlugins || !installedPlugins.plugins) {
         return []
       }
 
-      // 读取启用状态
       const enabledPlugins = this._readEnabledPlugins()
-
       const plugins = []
 
       for (const [pluginId, installations] of Object.entries(installedPlugins.plugins)) {
-        // 取最新安装（数组第一个）
         const installation = installations[0]
         if (!installation || !installation.installPath) continue
 
-        // 解析插件清单
         const pluginJson = this._readPluginJson(installation.installPath)
-
-        // 解析 pluginId: "plugin-name@marketplace"
         const [name, marketplace] = pluginId.split('@')
 
         plugins.push({
@@ -50,7 +55,7 @@ class PluginManager {
           name: pluginJson?.name || name,
           description: pluginJson?.description || '',
           version: installation.version || 'unknown',
-          enabled: enabledPlugins[pluginId] !== false, // 默认启用
+          enabled: enabledPlugins[pluginId] !== false,
           installPath: installation.installPath,
           marketplace: marketplace || 'unknown',
           installedAt: installation.installedAt,
@@ -58,9 +63,7 @@ class PluginManager {
         })
       }
 
-      // 按名称排序
       plugins.sort((a, b) => a.name.localeCompare(b.name))
-
       return plugins
     } catch (err) {
       console.error('[PluginManager] Failed to list plugins:', err)
@@ -83,19 +86,17 @@ class PluginManager {
 
       const installation = installations[0]
       const installPath = installation.installPath
-
-      // 基本信息
       const pluginJson = this._readPluginJson(installPath)
       const enabledPlugins = this._readEnabledPlugins()
       const [name, marketplace] = pluginId.split('@')
 
-      // 扫描组件
+      // 使用组件管理器扫描各类组件
       const components = {
-        commands: this._scanCommands(installPath),
-        agents: this._scanAgents(installPath),
-        skills: this._scanSkills(installPath),
-        hooks: this._scanHooks(installPath),
-        mcp: this._scanMcp(installPath)
+        commands: await this._scanPluginCommands(installPath),
+        agents: await this._scanPluginAgents(installPath),
+        skills: await this._scanPluginSkills(installPath),
+        hooks: await this._scanPluginHooks(installPath),
+        mcp: await this._scanPluginMcp(installPath)
       }
 
       return {
@@ -118,9 +119,6 @@ class PluginManager {
 
   /**
    * 设置插件启用/禁用状态
-   * @param {string} pluginId - 插件 ID
-   * @param {boolean} enabled - 是否启用
-   * @returns {boolean} 是否成功
    */
   async setPluginEnabled(pluginId, enabled) {
     try {
@@ -139,6 +137,14 @@ class PluginManager {
   }
 
   /**
+   * 获取所有插件的 Skills 聚合列表
+   * @deprecated 使用 SkillsManager.getGlobalSkills() 代替
+   */
+  async getAllSkills() {
+    return this.skillsManager.getGlobalSkills()
+  }
+
+  /**
    * 打开插件目录
    */
   async openPluginsFolder() {
@@ -153,9 +159,6 @@ class PluginManager {
 
   /**
    * 删除插件
-   * @param {string} pluginId - 插件 ID (plugin-name@marketplace)
-   * @param {boolean} deleteFiles - 是否同时删除插件文件
-   * @returns {Object} { success, error? }
    */
   async deletePlugin(pluginId, deleteFiles = true) {
     try {
@@ -165,25 +168,20 @@ class PluginManager {
         return { success: false, error: '插件不存在' }
       }
 
-      // 获取安装路径（用于删除文件）
       const installations = installedPlugins.plugins[pluginId]
       const installPaths = installations.map(i => i.installPath).filter(Boolean)
 
-      // 从注册表中移除
       delete installedPlugins.plugins[pluginId]
       this._writeInstalledPlugins(installedPlugins)
 
-      // 同时从 settings.json 的 enabledPlugins 中移除
       const settings = this._readSettings()
       if (settings.enabledPlugins && settings.enabledPlugins[pluginId] !== undefined) {
         delete settings.enabledPlugins[pluginId]
         this._writeSettings(settings)
       }
 
-      // 删除插件文件
       if (deleteFiles) {
         for (const installPath of installPaths) {
-          // 安全检查：确保路径在 plugins 目录内
           if (!installPath || !this._isPathSafe(installPath)) {
             console.warn(`[PluginManager] Skipping unsafe path: ${installPath}`)
             continue
@@ -207,15 +205,18 @@ class PluginManager {
     }
   }
 
+  // ========================================
+  // 私有方法：文件读写
+  // ========================================
+
   _writeInstalledPlugins(data) {
     fs.writeFileSync(this.installedPluginsPath, JSON.stringify(data, null, 2), 'utf-8')
   }
 
-  /**
-   * 检查路径是否安全（在 plugins 目录内）
-   * @param {string} targetPath - 要检查的路径
-   * @returns {boolean}
-   */
+  _writeSettings(settings) {
+    fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+  }
+
   _isPathSafe(targetPath) {
     try {
       const normalizedTarget = path.resolve(targetPath)
@@ -224,45 +225,6 @@ class PluginManager {
     } catch {
       return false
     }
-  }
-
-  // ========================================
-  // 私有方法：文件读写
-  // ========================================
-
-  _readInstalledPlugins() {
-    try {
-      if (!fs.existsSync(this.installedPluginsPath)) {
-        return { version: 2, plugins: {} }
-      }
-      const content = fs.readFileSync(this.installedPluginsPath, 'utf-8')
-      return JSON.parse(content)
-    } catch (err) {
-      console.error('[PluginManager] Failed to read installed_plugins.json:', err)
-      return { version: 2, plugins: {} }
-    }
-  }
-
-  _readSettings() {
-    try {
-      if (!fs.existsSync(this.settingsPath)) {
-        return {}
-      }
-      const content = fs.readFileSync(this.settingsPath, 'utf-8')
-      return JSON.parse(content)
-    } catch (err) {
-      console.error('[PluginManager] Failed to read settings.json:', err)
-      return {}
-    }
-  }
-
-  _writeSettings(settings) {
-    fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
-  }
-
-  _readEnabledPlugins() {
-    const settings = this._readSettings()
-    return settings.enabledPlugins || {}
   }
 
   _readPluginJson(installPath) {
@@ -279,211 +241,76 @@ class PluginManager {
   }
 
   // ========================================
-  // 私有方法：扫描组件
+  // 私有方法：单个插件的组件扫描
+  // 用于 getPluginDetails()
   // ========================================
 
-  /**
-   * 扫描 Commands
-   */
-  _scanCommands(installPath) {
+  async _scanPluginCommands(installPath) {
     const commandsDir = path.join(installPath, 'commands')
-    if (!fs.existsSync(commandsDir)) return []
-
-    const commands = []
-    try {
-      const files = fs.readdirSync(commandsDir)
-      for (const file of files) {
-        if (!file.endsWith('.md')) continue
-        const name = file.replace('.md', '')
-        const filePath = path.join(commandsDir, file)
-        const frontmatter = this._parseYamlFrontmatter(filePath)
-        commands.push({
-          name,
-          description: frontmatter?.description || '',
-          argumentHint: frontmatter?.['argument-hint'] || ''
-        })
-      }
-    } catch (err) {
-      console.error('[PluginManager] Failed to scan commands:', err)
-    }
-    return commands
+    const commands = this.scanMarkdownFiles(commandsDir)
+    return commands.map(cmd => ({
+      name: cmd.name,
+      description: cmd.frontmatter?.description || '',
+      argumentHint: cmd.frontmatter?.['argument-hint'] || ''
+    }))
   }
 
-  /**
-   * 扫描 Agents
-   */
-  _scanAgents(installPath) {
+  async _scanPluginAgents(installPath) {
     const agentsDir = path.join(installPath, 'agents')
-    if (!fs.existsSync(agentsDir)) return []
-
-    const agents = []
-    try {
-      const files = fs.readdirSync(agentsDir)
-      for (const file of files) {
-        if (!file.endsWith('.md')) continue
-        const filePath = path.join(agentsDir, file)
-        const frontmatter = this._parseYamlFrontmatter(filePath)
-        agents.push({
-          name: frontmatter?.name || file.replace('.md', ''),
-          description: frontmatter?.description || ''
-        })
-      }
-    } catch (err) {
-      console.error('[PluginManager] Failed to scan agents:', err)
-    }
-    return agents
+    const agents = this.scanMarkdownFiles(agentsDir)
+    return agents.map(agent => ({
+      name: agent.frontmatter?.name || agent.name,
+      description: agent.frontmatter?.description || ''
+    }))
   }
 
-  /**
-   * 扫描 Skills
-   */
-  _scanSkills(installPath) {
+  async _scanPluginSkills(installPath) {
     const skillsDir = path.join(installPath, 'skills')
-    if (!fs.existsSync(skillsDir)) return []
-
-    const skills = []
-    try {
-      const items = fs.readdirSync(skillsDir, { withFileTypes: true })
-      for (const item of items) {
-        if (!item.isDirectory()) continue
-        const skillMdPath = path.join(skillsDir, item.name, 'SKILL.md')
-        if (!fs.existsSync(skillMdPath)) continue
-
-        const frontmatter = this._parseYamlFrontmatter(skillMdPath)
-        skills.push({
-          name: frontmatter?.name || item.name,
-          description: frontmatter?.description || ''
-        })
-      }
-    } catch (err) {
-      console.error('[PluginManager] Failed to scan skills:', err)
-    }
-    return skills
+    const skills = this.scanSkillDirectories(skillsDir)
+    return skills.map(skill => ({
+      id: skill.id,
+      name: skill.frontmatter?.name || skill.id,
+      description: skill.frontmatter?.description || ''
+    }))
   }
 
-  /**
-   * 扫描 Hooks
-   */
-  _scanHooks(installPath) {
+  async _scanPluginHooks(installPath) {
     const hooksJsonPath = path.join(installPath, 'hooks', 'hooks.json')
-    if (!fs.existsSync(hooksJsonPath)) return []
+    const hooksConfig = this.readJsonFile(hooksJsonPath)
+    if (!hooksConfig) return []
 
     const hooks = []
-    try {
-      const content = fs.readFileSync(hooksJsonPath, 'utf-8')
-      const hooksConfig = JSON.parse(content)
+    const hooksObj = hooksConfig.hooks || hooksConfig
 
-      // hooks.json 可能有 hooks 字段或直接是事件对象
-      const hooksObj = hooksConfig.hooks || hooksConfig
+    for (const [event, handlers] of Object.entries(hooksObj)) {
+      if (event === 'description') continue
+      if (!Array.isArray(handlers)) continue
 
-      for (const [event, handlers] of Object.entries(hooksObj)) {
-        if (event === 'description') continue
-        if (!Array.isArray(handlers)) continue
-
-        for (const handler of handlers) {
-          hooks.push({
-            event,
-            matcher: handler.matcher || '',
-            type: handler.hooks?.[0]?.type || handler.type || 'unknown'
-          })
-        }
+      for (const handler of handlers) {
+        hooks.push({
+          event,
+          matcher: handler.matcher || '',
+          type: handler.hooks?.[0]?.type || handler.type || 'unknown'
+        })
       }
-    } catch (err) {
-      console.error('[PluginManager] Failed to scan hooks:', err)
     }
     return hooks
   }
 
-  /**
-   * 扫描 MCP 配置
-   */
-  _scanMcp(installPath) {
+  async _scanPluginMcp(installPath) {
     const mcpJsonPath = path.join(installPath, '.mcp.json')
-    if (!fs.existsSync(mcpJsonPath)) return []
+    const mcpConfig = this.readJsonFile(mcpJsonPath)
+    if (!mcpConfig) return []
 
     const mcpServers = []
-    try {
-      const content = fs.readFileSync(mcpJsonPath, 'utf-8')
-      const mcpConfig = JSON.parse(content)
-
-      for (const [name, config] of Object.entries(mcpConfig)) {
-        mcpServers.push({
-          name,
-          command: config.command || '',
-          args: config.args || []
-        })
-      }
-    } catch (err) {
-      console.error('[PluginManager] Failed to scan mcp:', err)
+    for (const [name, config] of Object.entries(mcpConfig)) {
+      mcpServers.push({
+        name,
+        command: config.command || '',
+        args: config.args || []
+      })
     }
     return mcpServers
-  }
-
-  /**
-   * 解析 YAML frontmatter
-   */
-  _parseYamlFrontmatter(filePath) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8')
-      const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-      if (!match) return null
-
-      const yaml = match[1]
-      const result = {}
-
-      // 简单的 YAML 解析（支持单行和多行 description）
-      let currentKey = null
-      let currentValue = ''
-      let inMultiline = false
-
-      for (const line of yaml.split('\n')) {
-        const trimmed = line.trim()
-
-        // 检查是否是新的 key
-        const keyMatch = line.match(/^(\w[\w-]*):(.*)$/)
-        if (keyMatch && !inMultiline) {
-          // 保存之前的 key-value
-          if (currentKey) {
-            result[currentKey] = currentValue.trim()
-          }
-
-          currentKey = keyMatch[1]
-          const value = keyMatch[2].trim()
-
-          if (value === '|' || value === '>') {
-            // 多行值
-            inMultiline = true
-            currentValue = ''
-          } else {
-            currentValue = value
-          }
-        } else if (inMultiline && line.startsWith('  ')) {
-          // 多行值的续行
-          currentValue += (currentValue ? ' ' : '') + trimmed
-        } else if (inMultiline && !line.startsWith('  ') && trimmed) {
-          // 多行值结束
-          inMultiline = false
-          if (currentKey) {
-            result[currentKey] = currentValue.trim()
-          }
-          // 处理新的 key
-          const newKeyMatch = line.match(/^(\w[\w-]*):(.*)$/)
-          if (newKeyMatch) {
-            currentKey = newKeyMatch[1]
-            currentValue = newKeyMatch[2].trim()
-          }
-        }
-      }
-
-      // 保存最后一个 key-value
-      if (currentKey) {
-        result[currentKey] = currentValue.trim()
-      }
-
-      return result
-    } catch (err) {
-      return null
-    }
   }
 }
 

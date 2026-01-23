@@ -179,6 +179,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePlugin: (pluginId, deleteFiles = true) => ipcRenderer.invoke('plugins:delete', pluginId, deleteFiles),
 
   // ========================================
+  // Skills 管理 (来自插件和项目级)
+  // ========================================
+  listSkills: () => ipcRenderer.invoke('skills:list'),  // 兼容旧接口
+  listSkillsGlobal: () => ipcRenderer.invoke('skills:listGlobal'),
+  listSkillsProject: (projectPath) => ipcRenderer.invoke('skills:listProject', projectPath),
+  listSkillsAll: (projectPath) => ipcRenderer.invoke('skills:listAll', projectPath),
+
+  // ========================================
+  // Commands 管理 (来自插件和项目级)
+  // ========================================
+  listCommandsGlobal: () => ipcRenderer.invoke('commands:listGlobal'),
+  listCommandsProject: (projectPath) => ipcRenderer.invoke('commands:listProject', projectPath),
+  listCommandsAll: (projectPath) => ipcRenderer.invoke('commands:listAll', projectPath),
+
+  // ========================================
+  // Agents 管理 (来自插件和项目级，自动触发)
+  // ========================================
+  listAgentsGlobal: () => ipcRenderer.invoke('agents:listGlobal'),
+  listAgentsProject: (projectPath) => ipcRenderer.invoke('agents:listProject', projectPath),
+  listAgentsAll: (projectPath) => ipcRenderer.invoke('agents:listAll', projectPath),
+
+  // ========================================
+  // Hooks 管理 (来自 settings.json、插件和项目级，自动执行)
+  // ========================================
+  listHooksGlobal: () => ipcRenderer.invoke('hooks:listGlobal'),
+  listHooksProject: (projectPath) => ipcRenderer.invoke('hooks:listProject', projectPath),
+  listHooksAll: (projectPath) => ipcRenderer.invoke('hooks:listAll', projectPath),
+
+  // ========================================
+  // MCP 管理 (来自插件和项目级，自动加载)
+  // ========================================
+  listMcpGlobal: () => ipcRenderer.invoke('mcp:listGlobal'),
+  listMcpProject: (projectPath) => ipcRenderer.invoke('mcp:listProject', projectPath),
+  listMcpAll: (projectPath) => ipcRenderer.invoke('mcp:listAll', projectPath),
+
+  // ========================================
+  // 文件操作
+  // ========================================
+  openFileInEditor: (filePath) => ipcRenderer.invoke('file:openInEditor', filePath),
+  readJsonFile: (filePath) => ipcRenderer.invoke('file:readJson', filePath),
+  writeJsonFile: (filePath, data) => ipcRenderer.invoke('file:writeJson', filePath, data),
+
+  // ========================================
   // 会话历史管理（数据库版）
   // ========================================
   // 同步

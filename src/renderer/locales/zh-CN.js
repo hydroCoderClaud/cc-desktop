@@ -89,7 +89,9 @@ export default {
     tabs: {
       queue: '命令队列',
       plugins: '插件',
+      commands: '命令',
       skills: '技能',
+      hooks: 'Hooks',
       mcp: 'MCP',
       agents: 'Agents',
       prompts: '提示词',
@@ -151,13 +153,44 @@ export default {
       deleteWarning: '确定要卸载插件 "{name}" 吗？此操作将同时删除插件文件。',
       uninstall: '卸载'
     },
+    // 命令
+    commands: {
+      empty: '未找到命令',
+      emptyHint: '命令由插件或项目 .claude/commands/ 提供',
+      search: '搜索命令...',
+      refresh: '刷新',
+      uncategorized: '未分类',
+      global: '全局命令',
+      project: '项目命令'
+    },
     // 技能
     skills: {
       empty: '未找到技能',
       emptyHint: '技能由 Claude Code 提供',
       search: '搜索技能...',
       refresh: '刷新',
-      uncategorized: '未分类'
+      uncategorized: '未分类',
+      global: '全局技能',
+      project: '项目技能'
+    },
+    // Hooks
+    hooks: {
+      empty: '未找到 Hooks',
+      emptyHint: 'Hooks 由插件提供，自动执行',
+      search: '搜索 Hooks...',
+      refresh: '刷新',
+      uncategorized: '未分类',
+      noDescription: '无描述',
+      editHook: '编辑 Hook',
+      event: '事件类型',
+      matcher: '匹配规则',
+      matcherPlaceholder: '留空表示匹配所有',
+      type: '执行类型',
+      command: '命令',
+      commandPlaceholder: '要执行的命令或脚本',
+      readFailed: '读取配置失败',
+      saveFailed: '保存失败',
+      hookNotFound: '未找到该 Hook'
     },
     // MCP
     mcp: {
