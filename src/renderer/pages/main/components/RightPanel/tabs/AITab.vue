@@ -141,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { marked } from 'marked'
@@ -427,6 +427,17 @@ const scrollToBottom = () => {
     chatContentRef.value.scrollTop = chatContentRef.value.scrollHeight
   }
 }
+
+// Watch settings panel visibility and reload profiles when opened
+watch(showSettings, async (newVal) => {
+  if (newVal && listAPIProfiles) {
+    try {
+      profiles.value = await listAPIProfiles()
+    } catch (err) {
+      console.error('Failed to reload API profiles:', err)
+    }
+  }
+})
 
 onMounted(() => {
   inputRef.value?.focus()

@@ -1,6 +1,6 @@
 {
   "name": "claude-code-desktop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Claude Code Desktop - 独立桌面终端启动器",
   "main": "src/main/index.js",
   "author": "HydroCoder",
@@ -23,6 +23,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
     "better-sqlite3": "^11.10.0",
     "marked": "^15.0.12",
     "naive-ui": "^2.43.2",

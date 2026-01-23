@@ -269,6 +269,21 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return result.filePaths[0];
   });
 
+  ipcMain.handle('dialog:selectFile', async (event, options = {}) => {
+    const { title, filters } = options
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      title: title || 'Select File',
+      filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+    });
+
+    if (result.canceled) {
+      return null;
+    }
+
+    return result.filePaths[0];
+  });
+
   ipcMain.handle('dialog:saveFile', async (event, { filename, content, ext }) => {
     const filters = ext === 'md'
       ? [{ name: 'Markdown', extensions: ['md'] }]

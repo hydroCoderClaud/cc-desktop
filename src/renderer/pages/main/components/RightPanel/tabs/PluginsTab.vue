@@ -1,7 +1,7 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.plugins') }}</span>
+      <span class="tab-title">{{ t('rightPanel.tabs.plugins') }} ({{ plugins.length }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.plugins.openFolder')" @click="handleOpenFolder">
           📂

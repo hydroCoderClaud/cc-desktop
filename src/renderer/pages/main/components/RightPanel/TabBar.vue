@@ -93,7 +93,7 @@ defineEmits(['select', 'collapse'])
 }
 
 .tab-btn {
-  width: 36px;
+  width: 28px;
   height: 32px;
   border-radius: 6px;
   background: transparent;
@@ -119,7 +119,7 @@ defineEmits(['select', 'collapse'])
 }
 
 .tab-icon {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
