@@ -136,6 +136,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialog 相关
   // ========================================
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  selectFile: (options) => ipcRenderer.invoke('dialog:selectFile', options),
   saveFile: ({ filename, content, ext }) => ipcRenderer.invoke('dialog:saveFile', { filename, content, ext }),
 
   // ========================================
@@ -185,6 +186,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listSkillsGlobal: () => ipcRenderer.invoke('skills:listGlobal'),
   listSkillsProject: (projectPath) => ipcRenderer.invoke('skills:listProject', projectPath),
   listSkillsAll: (projectPath) => ipcRenderer.invoke('skills:listAll', projectPath),
+  createSkill: (params) => ipcRenderer.invoke('skills:create', params),
+  updateSkill: (params) => ipcRenderer.invoke('skills:update', params),
+  deleteSkill: (params) => ipcRenderer.invoke('skills:delete', params),
+  copySkill: (params) => ipcRenderer.invoke('skills:copy', params),
+  getSkillContent: (params) => ipcRenderer.invoke('skills:getContent', params),
+  openSkillsFolder: (params) => ipcRenderer.invoke('skills:openFolder', params),
+  // 导入导出
+  validateSkillImport: (sourcePath) => ipcRenderer.invoke('skills:validateImport', sourcePath),
+  checkSkillConflicts: (params) => ipcRenderer.invoke('skills:checkConflicts', params),
+  importSkills: (params) => ipcRenderer.invoke('skills:import', params),
+  exportSkill: (params) => ipcRenderer.invoke('skills:export', params),
+  exportSkillsBatch: (params) => ipcRenderer.invoke('skills:exportBatch', params),
 
   // ========================================
   // Commands 管理 (来自插件和项目级)

@@ -121,7 +121,175 @@ function setupPluginHandlers(ipcMain) {
       return await skillsManager.getAllSkills(projectPath || null)
     } catch (err) {
       console.error('[IPC] skills:listAll error:', err)
-      return []
+      return { official: [], user: [], project: [], all: [] }
+    }
+  })
+
+  // 创建 Skill
+  ipcMain.handle('skills:create', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.createSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:create error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新 Skill
+  ipcMain.handle('skills:update', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.updateSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 删除 Skill
+  ipcMain.handle('skills:delete', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.deleteSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:delete error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 复制 Skill (升级到全局 / 复制到项目)
+  ipcMain.handle('skills:copy', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.copySkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:copy error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取 Skill 内容
+  ipcMain.handle('skills:getContent', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.getSkillContent(params)
+    } catch (err) {
+      console.error('[IPC] skills:getContent error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 打开 Skills 文件夹
+  ipcMain.handle('skills:openFolder', async (event, params) => {
+    try {
+      const { source, projectPath } = params || {}
+      let folderPath
+
+      if (source === 'user') {
+        // ~/.claude/skills/
+        const os = require('os')
+        const path = require('path')
+        folderPath = path.join(os.homedir(), '.claude', 'skills')
+      } else if (source === 'project' && projectPath) {
+        // {project}/.claude/skills/
+        const path = require('path')
+        folderPath = path.join(projectPath, '.claude', 'skills')
+      } else {
+        return { success: false, error: 'Invalid source' }
+      }
+
+      // 确保目录存在
+      const fs = require('fs')
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true })
+      }
+
+      const result = await shell.openPath(folderPath)
+      if (result) {
+        return { success: false, error: result }
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] skills:openFolder error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 校验导入源
+  ipcMain.handle('skills:validateImport', async (event, sourcePath) => {
+    try {
+      if (!sourcePath || typeof sourcePath !== 'string') {
+        return { valid: false, errors: ['Invalid source path'] }
+      }
+      return await skillsManager.validateImportSource(sourcePath)
+    } catch (err) {
+      console.error('[IPC] skills:validateImport error:', err)
+      return { valid: false, errors: [err.message] }
+    }
+  })
+
+  // 检测导入冲突
+  ipcMain.handle('skills:checkConflicts', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { conflicts: [] }
+      }
+      return skillsManager.checkImportConflicts(params)
+    } catch (err) {
+      console.error('[IPC] skills:checkConflicts error:', err)
+      return { conflicts: [] }
+    }
+  })
+
+  // 导入 Skills
+  ipcMain.handle('skills:import', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, errors: ['Invalid parameters'] }
+      }
+      return await skillsManager.importSkills(params)
+    } catch (err) {
+      console.error('[IPC] skills:import error:', err)
+      return { success: false, errors: [err.message] }
+    }
+  })
+
+  // 导出单个 Skill
+  ipcMain.handle('skills:export', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.exportSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:export error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 批量导出 Skills
+  ipcMain.handle('skills:exportBatch', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      const result = await skillsManager.exportSkillsBatch(params)
+      // 确保返回纯 JSON 对象，避免 IPC 序列化问题
+      return JSON.parse(JSON.stringify(result))
+    } catch (err) {
+      console.error('[IPC] skills:exportBatch error:', err)
+      return { success: false, error: String(err.message || err) }
     }
   })
 
