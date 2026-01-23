@@ -688,8 +688,9 @@ class ConfigManager {
       useProxy: apiConfig.useProxy,
       httpsProxy: apiConfig.httpsProxy
     }, null, 2));
-    
+
     const https = require('https');
+    const http = require('http');
     const { URL } = require('url');
 
     return new Promise((resolve) => {
@@ -751,8 +752,14 @@ class ConfigManager {
         const url = new URL(fullUrl);
         
         console.log('[API Test] - hostname:', url.hostname);
-        console.log('[API Test] - port:', url.port || 443);
+        console.log('[API Test] - protocol:', url.protocol);
+        console.log('[API Test] - port:', url.port || (url.protocol === 'https:' ? 443 : 80));
         console.log('[API Test] - pathname:', url.pathname);
+
+        // 判断是否使用 HTTPS
+        const isHttps = url.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+        const defaultPort = isHttps ? 443 : 80;
         
         // 2. Build auth header
         const authHeader = apiConfig.authType === 'auth_token' 
@@ -771,7 +778,7 @@ class ConfigManager {
         // 4. 构造请求选项
         const options = {
           hostname: url.hostname,
-          port: url.port || 443,
+          port: url.port || defaultPort,
           path: url.pathname + url.search,
           method: 'POST',
           headers: {
@@ -800,8 +807,8 @@ class ConfigManager {
         }
 
         // 6. Create request
-        console.log('[API Test] Creating HTTPS request...');
-        request = https.request(options, (res) => {
+        console.log(`[API Test] Creating ${isHttps ? 'HTTPS' : 'HTTP'} request...`);
+        request = httpModule.request(options, (res) => {
           console.log('[API Test] Received response, status code:', res.statusCode);
 
           let responseData = '';
