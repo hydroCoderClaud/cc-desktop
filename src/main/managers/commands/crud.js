@@ -91,7 +91,7 @@ const commandsCrudMixin = {
       const validation = this._validateParams(params)
       if (!validation.valid) return { success: false, error: validation.error }
 
-      const { source, commandId, name, description, content, projectPath } = params
+      const { source, commandId, description, content, projectPath } = params
 
       if (!/^[a-zA-Z0-9-]+$/.test(commandId)) {
         return { success: false, error: 'Command ID 只能包含字母、数字和连字符' }
@@ -107,14 +107,13 @@ const commandsCrudMixin = {
       fs.mkdirSync(commandsDir, { recursive: true })
 
       const mdContent = this._generateCommandMd({
-        name: name || commandId,
         description: description || '',
-        content: content || `# ${name || commandId}\n\n请在此编写命令内容。`
+        content: content || `# ${commandId}\n\n请在此编写命令内容。`
       })
       fs.writeFileSync(commandPath, mdContent, 'utf-8')
 
       console.log(`[CommandsManager] Created command: ${commandId} (${source})`)
-      return { success: true, command: { id: commandId, name: name || commandId, description: description || '', source, filePath: commandPath } }
+      return { success: true, command: { id: commandId, name: commandId, description: description || '', source, filePath: commandPath } }
     } catch (err) {
       console.error('[CommandsManager] Failed to create command:', err)
       return { success: false, error: err.message }
@@ -129,7 +128,7 @@ const commandsCrudMixin = {
       const validation = this._validateParams(params)
       if (!validation.valid) return { success: false, error: validation.error }
 
-      const { source, commandId, name, description, content, projectPath } = params
+      const { source, commandId, description, content, projectPath } = params
       const commandPath = this._getCommandPath(source, commandId, projectPath)
 
       if (!fs.existsSync(commandPath)) {
@@ -141,7 +140,6 @@ const commandsCrudMixin = {
       const existingBody = this._extractBodyContent(existingContent)
 
       const mdContent = this._generateCommandMd({
-        name: name !== undefined ? name : existingFrontmatter.name,
         description: description !== undefined ? description : existingFrontmatter.description,
         content: content !== undefined ? content : existingBody
       })
@@ -202,7 +200,7 @@ const commandsCrudMixin = {
         success: true,
         command: {
           id: commandId,
-          name: frontmatter.name || commandId,
+          name: commandId,  // name 就是 id
           description: frontmatter.description || '',
           content: body,
           source,
@@ -243,19 +241,6 @@ const commandsCrudMixin = {
 
       // 复制文件
       fs.copyFileSync(sourcePath, targetPath)
-
-      // 如果改了名，更新文件中的 name 字段
-      if (newCommandId && newCommandId !== commandId) {
-        const content = fs.readFileSync(targetPath, 'utf-8')
-        const frontmatter = this._parseYamlFrontmatter(targetPath) || {}
-        const body = this._extractBodyContent(content)
-        const newContent = this._generateCommandMd({
-          name: newCommandId,
-          description: frontmatter.description || '',
-          content: body
-        })
-        fs.writeFileSync(targetPath, newContent, 'utf-8')
-      }
 
       const actionText = fromSource === 'project' ? '升级到全局' : '复制到项目'
       console.log(`[CommandsManager] ${actionText}: ${commandId} → ${targetCommandId}`)

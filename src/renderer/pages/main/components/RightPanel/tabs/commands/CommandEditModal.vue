@@ -3,16 +3,19 @@
     <n-form :model="form" label-placement="top">
       <n-form-item v-if="!form.isEdit" :label="t('rightPanel.commands.commandId')">
         <n-input v-model:value="form.commandId" :placeholder="t('rightPanel.commands.commandIdPlaceholder')" />
+        <template #feedback>
+          <span class="field-hint">{{ t('rightPanel.commands.commandIdHint') }}</span>
+        </template>
       </n-form-item>
-      <n-form-item :label="t('rightPanel.commands.name')">
-        <n-input v-model:value="form.name" :placeholder="t('rightPanel.commands.namePlaceholder')" />
+      <n-form-item v-else :label="t('rightPanel.commands.commandId')">
+        <n-input :value="form.commandId" disabled />
       </n-form-item>
       <n-form-item :label="t('rightPanel.commands.description')">
         <n-input
           v-model:value="form.description"
           type="textarea"
           :placeholder="t('rightPanel.commands.descriptionPlaceholder')"
-          :rows="3"
+          :rows="2"
         />
       </n-form-item>
       <n-form-item :label="t('rightPanel.commands.content')">
@@ -60,7 +63,6 @@ const form = ref({
   isEdit: false,
   source: 'user',
   commandId: '',
-  name: '',
   description: '',
   content: ''
 })
@@ -91,7 +93,6 @@ watch(() => props.command, async (command) => {
         projectPath: props.projectPath
       })
       if (result.success) {
-        form.value.name = result.command.name
         form.value.description = result.command.description
         form.value.content = result.command.content
       } else {
@@ -107,7 +108,6 @@ watch(() => props.command, async (command) => {
     form.value.isEdit = false
     form.value.source = props.source
     form.value.commandId = ''
-    form.value.name = ''
     form.value.description = ''
     form.value.content = ''
   }
@@ -131,7 +131,6 @@ const handleSave = async () => {
     const params = {
       source: form.value.source,
       commandId: form.value.commandId,
-      name: form.value.name || form.value.commandId,
       description: form.value.description,
       content: form.value.content,
       projectPath: props.projectPath
@@ -159,3 +158,10 @@ const handleSave = async () => {
   }
 }
 </script>
+
+<style scoped>
+.field-hint {
+  font-size: 12px;
+  color: var(--text-color-muted);
+}
+</style>

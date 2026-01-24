@@ -55,15 +55,19 @@ class CommandsManager extends ComponentScanner {
 
   /**
    * 生成 command .md 文件内容
+   * 只保留 description 字段，符合 Claude Code 原生格式
    */
-  _generateCommandMd({ name, description, content }) {
-    return `---
-name: ${name}
+  _generateCommandMd({ description, content }) {
+    if (description) {
+      return `---
 description: ${description}
 ---
 
 ${content}
 `
+    }
+    // 无 description 时，直接返回纯内容（无 frontmatter）
+    return content
   }
 
   /**
@@ -93,7 +97,7 @@ ${content}
     const { source, editable, category, fullNameFn, extraFields } = options
     return {
       id: cmd.name,
-      name: cmd.frontmatter?.name || cmd.name,
+      name: cmd.name,  // name 就是 id（文件名）
       description: cmd.frontmatter?.description || '',
       fullName: fullNameFn ? fullNameFn(cmd) : cmd.name,
       source,
