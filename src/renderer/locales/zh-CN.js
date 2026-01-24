@@ -218,12 +218,10 @@ export default {
       deleteConfirmTitle: '确认删除',
       deleteConfirmMsg: '确定要删除技能',
       deleteWarning: '此操作将删除整个技能目录，不可恢复！',
-      // 复制/升级
-      promoteToGlobal: '升级到全局',
-      copyToProject: '复制到项目',
-      promoteSuccess: '已升级到全局',
-      promoteFailed: '升级失败',
-      copySuccess: '已复制到项目',
+      // 复制
+      copySkill: '复制技能',
+      copyTarget: '复制到',
+      copySuccess: '复制成功',
       copyFailed: '复制失败',
       noProjectSelected: '请先选择项目',
       // 重名检测
@@ -260,6 +258,10 @@ export default {
       importSuccess: '成功导入 {count} 个技能',
       importSuccessWithSkipped: '成功导入 {count} 个技能，跳过 {skipped} 个',
       importFailed: '导入失败',
+      importResult: '导入结果',
+      importedCount: '成功导入 {count} 个',
+      skippedCount: '跳过 {count} 个',
+      errorCount: '错误 {count} 个',
       exportSource: '导出来源',
       exportScope: '导出范围',
       exportSingle: '单个技能',

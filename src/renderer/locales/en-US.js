@@ -218,12 +218,10 @@ export default {
       deleteConfirmTitle: 'Confirm Delete',
       deleteConfirmMsg: 'Are you sure you want to delete skill',
       deleteWarning: 'This will delete the entire skill directory and cannot be undone!',
-      // Copy/Promote
-      promoteToGlobal: 'Promote to Global',
-      copyToProject: 'Copy to Project',
-      promoteSuccess: 'Promoted to global',
-      promoteFailed: 'Promote failed',
-      copySuccess: 'Copied to project',
+      // Copy
+      copySkill: 'Copy Skill',
+      copyTarget: 'Copy to',
+      copySuccess: 'Copied successfully',
       copyFailed: 'Copy failed',
       noProjectSelected: 'Please select a project first',
       // Conflict detection
@@ -260,6 +258,10 @@ export default {
       importSuccess: 'Successfully imported {count} skill(s)',
       importSuccessWithSkipped: 'Imported {count} skill(s), skipped {skipped}',
       importFailed: 'Import failed',
+      importResult: 'Import Results',
+      importedCount: 'Successfully imported {count}',
+      skippedCount: 'Skipped {count}',
+      errorCount: '{count} error(s)',
       exportSource: 'Export From',
       exportScope: 'Export Scope',
       exportSingle: 'Single Skill',

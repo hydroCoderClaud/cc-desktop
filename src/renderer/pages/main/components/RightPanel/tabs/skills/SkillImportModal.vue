@@ -17,7 +17,7 @@
         </p>
       </div>
 
-      <!-- Step 2: 校验结果 -->
+      <!-- Step 2: 校验结果 + 选择目标 -->
       <div v-if="step === 2" class="import-step">
         <p class="step-title">{{ t('rightPanel.skills.importStep2') }}</p>
         <div v-if="validating" class="validating">
@@ -28,96 +28,71 @@
             <p class="validation-label error">{{ t('rightPanel.skills.validationErrors') }}:</p>
             <ul><li v-for="(err, i) in validation.errors" :key="i">{{ err }}</li></ul>
           </div>
-          <div v-if="validation.warnings?.length" class="validation-warnings">
-            <p class="validation-label warning">{{ t('rightPanel.skills.validationWarnings') }}:</p>
-            <ul><li v-for="(warn, i) in validation.warnings" :key="i">{{ warn }}</li></ul>
-          </div>
           <div v-if="validation.valid && validation.skills?.length" class="validation-skills">
             <p class="validation-label success">{{ t('rightPanel.skills.foundSkills', { count: validation.skills.length }) }}:</p>
-            <div class="skill-checkboxes">
-              <n-checkbox-group v-model:value="form.selectedSkillIds">
-                <div v-for="skill in validation.skills" :key="skill.skillId" class="skill-checkbox-item">
-                  <n-checkbox :value="skill.skillId">
-                    <span class="checkbox-skill-name">{{ skill.skillId }}</span>
-                    <span v-if="skill.name" class="checkbox-skill-label">({{ skill.name }})</span>
-                    <span v-if="!skill.nameMatch" class="checkbox-skill-warn">⚠️</span>
-                  </n-checkbox>
-                </div>
-              </n-checkbox-group>
+            <div class="skill-list-preview">
+              <div v-for="skill in validation.skills" :key="skill.skillId" class="skill-preview-item">
+                <span class="skill-id">{{ skill.skillId }}</span>
+                <span v-if="skill.name && skill.name !== skill.skillId" class="skill-name">({{ skill.name }})</span>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Step 3: 选择目标 -->
-      <div v-if="step === 3" class="import-step">
-        <p class="step-title">{{ t('rightPanel.skills.importStep3') }}</p>
-        <n-radio-group v-model:value="form.targetSource" class="target-radio-group">
-          <n-radio value="user">{{ t('rightPanel.skills.importToUser') }}</n-radio>
-          <n-radio v-if="currentProject" value="project">{{ t('rightPanel.skills.importToProject') }}</n-radio>
-        </n-radio-group>
-      </div>
-
-      <!-- Step 4: 冲突处理 -->
-      <div v-if="step === 4" class="import-step">
-        <p class="step-title">{{ t('rightPanel.skills.conflictStep') }}</p>
-
-        <!-- 跨作用域警告：导入到项目时，全局有同名 -->
-        <div v-if="shadowedByGlobal.length > 0" class="cross-scope-warning shadowed">
-          <p class="warning-title">{{ t('rightPanel.skills.shadowedByGlobalTitle') }}</p>
-          <p class="warning-desc">{{ t('rightPanel.skills.shadowedByGlobalDesc') }}</p>
-          <ul class="warning-list">
-            <li v-for="skillId in shadowedByGlobal" :key="'shadowed-' + skillId">{{ skillId }}</li>
-          </ul>
-        </div>
-
-        <!-- 跨作用域警告：导入到全局时，项目有同名 -->
-        <div v-if="willShadowProject.length > 0" class="cross-scope-warning will-shadow">
-          <p class="warning-title">{{ t('rightPanel.skills.willShadowProjectTitle') }}</p>
-          <p class="warning-desc">{{ t('rightPanel.skills.willShadowProjectDesc') }}</p>
-          <ul class="warning-list">
-            <li v-for="skillId in willShadowProject" :key="'shadow-' + skillId">{{ skillId }}</li>
-          </ul>
-        </div>
-
-        <div v-if="conflicts.length > 0" class="conflict-list">
-          <p class="conflict-hint">{{ t('rightPanel.skills.conflictHint') }}</p>
-          <div v-for="skillId in conflicts" :key="skillId" class="conflict-item">
-            <span class="conflict-name">{{ skillId }}</span>
-            <div class="conflict-actions">
-              <n-radio-group v-model:value="form.conflictActions[skillId]" size="small">
-                <n-radio value="skip">{{ t('rightPanel.skills.conflictSkip') }}</n-radio>
-                <n-radio value="rename">{{ t('rightPanel.skills.conflictRename') }}</n-radio>
-                <n-radio value="overwrite">{{ t('rightPanel.skills.conflictOverwrite') }}</n-radio>
+            <!-- 选择目标 -->
+            <div class="target-section">
+              <p class="section-label">{{ t('rightPanel.skills.importStep3') }}</p>
+              <n-radio-group v-model:value="form.targetSource" class="target-radio-group">
+                <n-radio value="user">{{ t('rightPanel.skills.importToUser') }}</n-radio>
+                <n-radio v-if="currentProject" value="project">{{ t('rightPanel.skills.importToProject') }}</n-radio>
               </n-radio-group>
-              <n-input
-                v-if="form.conflictActions[skillId] === 'rename'"
-                v-model:value="form.renamedSkills[skillId]"
-                :placeholder="t('rightPanel.skills.newSkillIdPlaceholder')"
-                size="small"
-                style="width: 180px; margin-top: 4px;"
-              />
             </div>
           </div>
         </div>
-        <div v-else-if="shadowedByGlobal.length === 0 && willShadowProject.length === 0" class="no-conflicts">
-          <p class="validation-label success">{{ t('rightPanel.skills.noConflicts') }}</p>
+      </div>
+
+      <!-- Step 3: 导入结果 -->
+      <div v-if="step === 3" class="import-step">
+        <p class="step-title">{{ t('rightPanel.skills.importResult') }}</p>
+
+        <!-- 成功导入 -->
+        <div v-if="importResult.imported?.length" class="result-section success">
+          <p class="result-label">{{ t('rightPanel.skills.importedCount', { count: importResult.imported.length }) }}</p>
+          <ul class="result-list">
+            <li v-for="skill in importResult.imported" :key="skill.skillId">
+              {{ skill.skillId }}
+              <span v-if="skill.name && skill.name !== skill.skillId" class="skill-name">({{ skill.name }})</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 跳过的 -->
+        <div v-if="importResult.skipped?.length" class="result-section warning">
+          <p class="result-label">{{ t('rightPanel.skills.skippedCount', { count: importResult.skipped.length }) }}</p>
+          <ul class="result-list">
+            <li v-for="skill in importResult.skipped" :key="skill.skillId">
+              <span class="skip-id">{{ skill.skillId }}</span>
+              <span class="skip-reason">{{ skill.reason }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 错误 -->
+        <div v-if="importResult.errors?.length" class="result-section error">
+          <p class="result-label">{{ t('rightPanel.skills.errorCount', { count: importResult.errors.length }) }}</p>
+          <ul class="result-list">
+            <li v-for="(err, i) in importResult.errors" :key="i">
+              {{ err.skillId }}: {{ err.error }}
+            </li>
+          </ul>
         </div>
       </div>
     </div>
     <template #footer>
       <div style="display: flex; justify-content: space-between;">
-        <n-button v-if="step > 1" @click="step--">{{ t('common.previous') }}</n-button>
+        <n-button v-if="step === 2" @click="step = 1">{{ t('common.previous') }}</n-button>
         <span v-else></span>
         <div style="display: flex; gap: 12px;">
-          <n-button @click="visible = false">{{ t('common.cancel') }}</n-button>
-          <n-button v-if="step === 2 && validation?.valid" type="primary" @click="step = 3">
-            {{ t('common.next') }}
-          </n-button>
-          <n-button v-if="step === 3" type="primary" @click="goToConflictStep" :loading="checkingConflicts">
-            {{ t('common.next') }}
-          </n-button>
-          <n-button v-if="step === 4" type="primary" @click="handleImport" :loading="importing" :disabled="!canImport">
+          <n-button @click="visible = false">{{ step === 3 ? t('common.close') : t('common.cancel') }}</n-button>
+          <n-button v-if="step === 2 && validation?.valid" type="primary" @click="handleImport" :loading="importing">
             {{ t('rightPanel.skills.confirmImport') }}
           </n-button>
         </div>
@@ -128,7 +103,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { NModal, NButton, NRadio, NRadioGroup, NCheckbox, NCheckboxGroup, NInput, useMessage } from 'naive-ui'
+import { NModal, NButton, NRadio, NRadioGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
@@ -151,18 +126,12 @@ const step = ref(1)
 const form = ref({
   sourcePath: '',
   sourceType: '',
-  targetSource: 'user',
-  selectedSkillIds: [],
-  conflictActions: {},
-  renamedSkills: {}
+  targetSource: 'user'
 })
 const validating = ref(false)
 const validation = ref(null)
 const importing = ref(false)
-const checkingConflicts = ref(false)
-const conflicts = ref([])
-const shadowedByGlobal = ref([])
-const willShadowProject = ref([])
+const importResult = ref({})
 
 // 重置表单当打开
 watch(visible, (val) => {
@@ -171,28 +140,11 @@ watch(visible, (val) => {
     form.value = {
       sourcePath: '',
       sourceType: '',
-      targetSource: 'user',
-      selectedSkillIds: [],
-      conflictActions: {},
-      renamedSkills: {}
+      targetSource: 'user'
     }
     validation.value = null
-    conflicts.value = []
-    shadowedByGlobal.value = []
-    willShadowProject.value = []
+    importResult.value = {}
   }
-})
-
-const canImport = computed(() => {
-  for (const skillId of conflicts.value) {
-    const action = form.value.conflictActions[skillId]
-    if (!action) return false
-    if (action === 'rename') {
-      const newId = form.value.renamedSkills[skillId]
-      if (!newId || !/^[a-zA-Z0-9-]+$/.test(newId)) return false
-    }
-  }
-  return true
 })
 
 const selectSource = async (type) => {
@@ -217,9 +169,6 @@ const selectSource = async (type) => {
     try {
       const result = await window.electronAPI.validateSkillImport(sourcePath)
       validation.value = result
-      if (result.valid && result.skills) {
-        form.value.selectedSkillIds = result.skills.map(s => s.skillId)
-      }
     } catch (err) {
       validation.value = { valid: false, errors: [err.message] }
     } finally {
@@ -230,94 +179,26 @@ const selectSource = async (type) => {
   }
 }
 
-const goToConflictStep = async () => {
-  checkingConflicts.value = true
-  try {
-    const result = await window.electronAPI.checkSkillConflicts({
-      skillIds: [...form.value.selectedSkillIds],
-      targetSource: form.value.targetSource,
-      projectPath: props.currentProject?.path
-    })
-    conflicts.value = result.conflicts || []
-    shadowedByGlobal.value = result.shadowedByGlobal || []
-    willShadowProject.value = result.willShadowProject || []
-
-    // 初始化冲突处理选项
-    form.value.conflictActions = {}
-    form.value.renamedSkills = {}
-    for (const skillId of conflicts.value) {
-      form.value.conflictActions[skillId] = 'skip'
-      form.value.renamedSkills[skillId] = ''
-    }
-    step.value = 4
-  } catch (err) {
-    message.error(err.message)
-  } finally {
-    checkingConflicts.value = false
-  }
-}
-
 const handleImport = async () => {
-  if (!form.value.selectedSkillIds.length) {
+  if (!validation.value?.skills?.length) {
     message.warning(t('rightPanel.skills.noSkillsSelected'))
     return
   }
 
   importing.value = true
   try {
-    const finalSkillIds = []
-    const renamedSkills = {}
-    const overwriteSkillIds = []
-    let skippedCount = 0
-
-    for (const skillId of form.value.selectedSkillIds) {
-      const action = form.value.conflictActions[skillId]
-      if (action === 'skip') {
-        skippedCount++
-        continue
-      } else if (action === 'rename') {
-        const newId = form.value.renamedSkills[skillId]
-        if (newId) {
-          finalSkillIds.push(skillId)
-          renamedSkills[skillId] = newId
-        }
-      } else if (action === 'overwrite') {
-        finalSkillIds.push(skillId)
-        overwriteSkillIds.push(skillId)
-      } else {
-        finalSkillIds.push(skillId)
-      }
-    }
-
-    if (finalSkillIds.length === 0) {
-      if (skippedCount > 0) {
-        message.info(t('rightPanel.skills.allSkipped', { count: skippedCount }))
-        visible.value = false
-      } else {
-        message.warning(t('rightPanel.skills.noSkillsSelected'))
-      }
-      importing.value = false
-      return
-    }
-
     const result = await window.electronAPI.importSkills({
       sourcePath: form.value.sourcePath,
       targetSource: form.value.targetSource,
       projectPath: props.currentProject?.path,
-      selectedSkillIds: [...finalSkillIds],
-      renamedSkills,
-      overwriteSkillIds: [...overwriteSkillIds]
+      selectedSkillIds: validation.value.skills.map(s => s.skillId)
     })
 
-    if (result.success) {
-      const msg = skippedCount > 0
-        ? t('rightPanel.skills.importSuccessWithSkipped', { count: result.imported || finalSkillIds.length, skipped: skippedCount })
-        : t('rightPanel.skills.importSuccess', { count: result.imported || finalSkillIds.length })
-      message.success(msg)
-      visible.value = false
+    importResult.value = result
+    step.value = 3
+
+    if (result.imported?.length > 0) {
       emit('imported')
-    } else {
-      message.error(result.errors?.join(', ') || t('rightPanel.skills.importFailed'))
     }
   } catch (err) {
     message.error(`${t('rightPanel.skills.importFailed')}: ${err.message}`)
@@ -383,7 +264,6 @@ const handleImport = async () => {
 }
 
 .validation-errors,
-.validation-warnings,
 .validation-skills {
   margin-bottom: 12px;
 }
@@ -395,41 +275,50 @@ const handleImport = async () => {
 }
 
 .validation-label.error { color: #e74c3c; }
-.validation-label.warning { color: #faad14; }
 .validation-label.success { color: #52c41a; }
 
-.validation-errors ul,
-.validation-warnings ul {
+.validation-errors ul {
   margin: 0;
   padding-left: 20px;
   font-size: 12px;
   color: var(--text-color-muted);
 }
 
-.skill-checkboxes {
-  max-height: 200px;
+.skill-list-preview {
+  max-height: 150px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  margin-bottom: 16px;
 }
 
-.skill-checkbox-item {
+.skill-preview-item {
   padding: 4px 0;
+  font-size: 13px;
 }
 
-.checkbox-skill-name {
+.skill-id {
   font-weight: 500;
+  color: var(--text-color);
 }
 
-.checkbox-skill-label {
+.skill-name {
   color: var(--text-color-muted);
   margin-left: 4px;
 }
 
-.checkbox-skill-warn {
-  color: #faad14;
-  margin-left: 4px;
+.target-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 8px;
 }
 
 .target-radio-group {
@@ -438,86 +327,58 @@ const handleImport = async () => {
   gap: 8px;
 }
 
-/* Conflict handling */
-.conflict-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.conflict-hint {
-  font-size: 12px;
-  color: var(--text-color-muted);
-  margin-bottom: 8px;
-}
-
-.conflict-item {
-  background: rgba(250, 173, 20, 0.1);
-  border: 1px solid rgba(250, 173, 20, 0.2);
-  border-radius: 6px;
+/* Import Result */
+.result-section {
+  margin-bottom: 16px;
   padding: 12px;
-}
-
-.conflict-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #d48806;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.conflict-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.conflict-actions .n-radio-group {
-  display: flex;
-  gap: 16px;
-}
-
-.no-conflicts {
-  padding: 20px;
-  text-align: center;
-}
-
-/* Cross-scope warnings */
-.cross-scope-warning {
   border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 12px;
 }
 
-.cross-scope-warning.shadowed {
-  background: rgba(231, 76, 60, 0.1);
-  border: 1px solid rgba(231, 76, 60, 0.3);
+.result-section.success {
+  background: rgba(82, 196, 26, 0.1);
+  border: 1px solid rgba(82, 196, 26, 0.3);
 }
 
-.cross-scope-warning.will-shadow {
+.result-section.warning {
   background: rgba(250, 173, 20, 0.1);
   border: 1px solid rgba(250, 173, 20, 0.3);
 }
 
-.cross-scope-warning .warning-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
+.result-section.error {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
 }
 
-.cross-scope-warning.shadowed .warning-title { color: #e74c3c; }
-.cross-scope-warning.will-shadow .warning-title { color: #d48806; }
-
-.cross-scope-warning .warning-desc {
-  font-size: 12px;
-  color: var(--text-color-muted);
+.result-label {
+  font-size: 13px;
+  font-weight: 600;
   margin: 0 0 8px 0;
 }
 
-.cross-scope-warning .warning-list {
+.result-section.success .result-label { color: #52c41a; }
+.result-section.warning .result-label { color: #d48806; }
+.result-section.error .result-label { color: #e74c3c; }
+
+.result-list {
   margin: 0;
   padding-left: 20px;
   font-size: 12px;
-  color: var(--text-color);
+}
+
+.result-list li {
+  padding: 2px 0;
+}
+
+.skip-id {
+  font-weight: 500;
+}
+
+.skip-reason {
+  color: var(--text-color-muted);
+  margin-left: 8px;
+}
+
+.skip-reason::before {
+  content: '— ';
 }
 </style>

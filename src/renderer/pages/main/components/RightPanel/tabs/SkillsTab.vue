@@ -38,7 +38,7 @@
           :expanded="expandedGroups.includes('project')" @toggle="toggleGroup('project')"
           @create="showCreateModal('project')" @open-folder="openSkillsFolder('project')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="skill => showCopyModal(skill, 'promote')" copy-icon="⬆️" :copy-title="t('rightPanel.skills.promoteToGlobal')"
+          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noProjectSkills')" />
 
         <!-- 自定义全局 Skills -->
@@ -47,8 +47,7 @@
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openSkillsFolder('user')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="currentProject ? (skill => showCopyModal(skill, 'copy')) : null"
-          copy-icon="⬇️" :copy-title="t('rightPanel.skills.copyToProject')"
+          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noUserSkills')" />
 
         <!-- 官方全局 Skills -->
@@ -101,11 +100,10 @@
       </template>
     </n-modal>
 
-    <!-- 复制/改名 Modal -->
+    <!-- 复制 Modal -->
     <SkillCopyModal
       v-model="copyModalVisible"
       :skill="copySkill"
-      :direction="copyDirection"
       :skills="skills"
       :project-path="currentProject?.path"
       @copied="loadSkills"
@@ -162,7 +160,6 @@ const deleting = ref(false)
 // Copy Modal States
 const copyModalVisible = ref(false)
 const copySkill = ref(null)
-const copyDirection = ref('copy')  // 'promote' | 'copy'
 
 // Import Modal State
 const importModalVisible = ref(false)
@@ -255,13 +252,8 @@ const handleConfirmDelete = async () => {
 }
 
 // Copy Modal
-const showCopyModal = (skill, direction) => {
-  if (direction === 'copy' && !props.currentProject?.path) {
-    message.warning(t('rightPanel.skills.noProjectSelected'))
-    return
-  }
+const showCopyModal = (skill) => {
   copySkill.value = skill
-  copyDirection.value = direction
   copyModalVisible.value = true
 }
 

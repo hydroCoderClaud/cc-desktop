@@ -1,8 +1,24 @@
 <template>
-  <n-modal v-model:show="visible" preset="card" :title="modalTitle" style="width: 450px; max-width: 90vw;">
+  <n-modal v-model:show="visible" preset="card" :title="t('rightPanel.skills.copySkill')" style="width: 450px; max-width: 90vw;">
     <div class="copy-modal-content">
       <p class="copy-note">{{ t('rightPanel.skills.copyFromNote', { skillId: form.skillId }) }}</p>
       <n-form :model="form" label-placement="top">
+        <!-- 目标位置选择 -->
+        <n-form-item :label="t('rightPanel.skills.copyTarget')">
+          <n-radio-group v-model:value="form.toSource" name="target">
+            <n-space>
+              <n-radio value="user">
+                {{ t('rightPanel.skills.userSkills') }}
+              </n-radio>
+              <n-radio value="project" :disabled="!projectPath">
+                {{ t('rightPanel.skills.projectSkills') }}
+                <span v-if="!projectPath" class="radio-hint">({{ t('rightPanel.skills.noProjectSelected') }})</span>
+              </n-radio>
+            </n-space>
+          </n-radio-group>
+        </n-form-item>
+
+        <!-- 新 Skill ID -->
         <n-form-item :label="t('rightPanel.skills.newSkillId')">
           <n-input
             v-model:value="form.newSkillId"
@@ -18,7 +34,7 @@
     </div>
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 12px;">
-        <n-button @click="visible = false">{{ t('rightPanel.skills.cancel') }}</n-button>
+        <n-button @click="visible = false">{{ t('common.cancel') }}</n-button>
         <n-button
           v-if="form.existsInTarget"
           type="warning"
@@ -38,7 +54,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NButton, NRadioGroup, NRadio, NSpace, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
@@ -47,7 +63,6 @@ const message = useMessage()
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   skill: { type: Object, default: null },
-  direction: { type: String, default: 'copy' },  // 'promote' | 'copy'
   skills: { type: Object, default: () => ({ user: [], project: [] }) },
   projectPath: { type: String, default: null }
 })
@@ -69,18 +84,19 @@ const form = ref({
 
 const copying = ref(false)
 
-const isPromote = computed(() => props.direction === 'promote')
-
-const modalTitle = computed(() =>
-  t(isPromote.value ? 'rightPanel.skills.promoteToGlobal' : 'rightPanel.skills.copyToProject')
-)
-
 // 监听 skill 变化，初始化表单
 watch(() => props.skill, (skill) => {
   if (skill) {
+    const fromSource = skill.source
+    // 默认目标：如果来自项目则默认到全局，如果来自全局则默认到项目（如果有项目的话）
+    let defaultTarget = fromSource === 'project' ? 'user' : 'project'
+    if (defaultTarget === 'project' && !props.projectPath) {
+      defaultTarget = 'user'  // 没有项目时默认到全局
+    }
+
     form.value = {
-      fromSource: isPromote.value ? 'project' : 'user',
-      toSource: isPromote.value ? 'user' : 'project',
+      fromSource,
+      toSource: defaultTarget,
       skillId: skill.id,
       newSkillId: '',
       existsInTarget: false
@@ -88,11 +104,22 @@ watch(() => props.skill, (skill) => {
   }
 }, { immediate: true })
 
-// 监听 direction 变化
-watch(() => props.direction, () => {
-  if (props.skill) {
-    form.value.fromSource = isPromote.value ? 'project' : 'user'
-    form.value.toSource = isPromote.value ? 'user' : 'project'
+// 监听模态框打开，重置表单状态
+watch(() => props.modelValue, (newVal) => {
+  if (newVal && props.skill) {
+    const fromSource = props.skill.source
+    let defaultTarget = fromSource === 'project' ? 'user' : 'project'
+    if (defaultTarget === 'project' && !props.projectPath) {
+      defaultTarget = 'user'
+    }
+
+    form.value = {
+      fromSource,
+      toSource: defaultTarget,
+      skillId: props.skill.id,
+      newSkillId: '',
+      existsInTarget: false
+    }
   }
 })
 
@@ -142,7 +169,7 @@ const handleCopy = async (overwrite = false) => {
     })
 
     if (result.success) {
-      message.success(t(fromSource === 'project' ? 'rightPanel.skills.promoteSuccess' : 'rightPanel.skills.copySuccess'))
+      message.success(t('rightPanel.skills.copySuccess'))
       visible.value = false
       emit('copied')
     } else {
@@ -185,5 +212,11 @@ const handleCopy = async (overwrite = false) => {
   margin-top: 12px;
   font-size: 13px;
   color: #d48806;
+}
+
+.radio-hint {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  margin-left: 4px;
 }
 </style>
