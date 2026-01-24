@@ -59,7 +59,6 @@ import QuickInput from './QuickInput.vue'
 
 // Tab Components (lazy loaded)
 import PluginsTab from './tabs/PluginsTab.vue'
-import CommandsTab from './tabs/CommandsTab.vue'
 import SkillsTab from './tabs/SkillsTab.vue'
 import HooksTab from './tabs/HooksTab.vue'
 import MCPTab from './tabs/MCPTab.vue'
@@ -101,7 +100,6 @@ const tabs = computed(() => [
   { id: 'prompts', icon: '💬', label: t('rightPanel.tabs.prompts') },
   { id: 'queue', icon: '📜', label: t('rightPanel.tabs.queue') },
   { id: 'plugins', icon: '🔧', label: t('rightPanel.tabs.plugins') },
-  { id: 'commands', icon: '⌨️', label: t('rightPanel.tabs.commands') },
   { id: 'skills', icon: '⚡', label: t('rightPanel.tabs.skills') },
   { id: 'hooks', icon: '🪝', label: t('rightPanel.tabs.hooks') },
   { id: 'mcp', icon: '🌐', label: t('rightPanel.tabs.mcp') },
@@ -113,7 +111,6 @@ const tabs = computed(() => [
 const tabComponents = {
   prompts: markRaw(PromptsTab),
   plugins: markRaw(PluginsTab),
-  commands: markRaw(CommandsTab),
   skills: markRaw(SkillsTab),
   hooks: markRaw(HooksTab),
   mcp: markRaw(MCPTab),

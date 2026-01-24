@@ -200,26 +200,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportSkillsBatch: (params) => ipcRenderer.invoke('skills:exportBatch', params),
 
   // ========================================
-  // Commands 管理 (三级: 插件/用户/项目)
-  // ========================================
-  listCommandsPlugin: () => ipcRenderer.invoke('commands:listPlugin'),
-  listCommandsUser: () => ipcRenderer.invoke('commands:listUser'),
-  listCommandsProject: (projectPath) => ipcRenderer.invoke('commands:listProject', projectPath),
-  listCommandsAll: (projectPath) => ipcRenderer.invoke('commands:listAll', projectPath),
-  listCommandsGlobal: () => ipcRenderer.invoke('commands:listGlobal'), // 兼容旧接口
-  createCommand: (params) => ipcRenderer.invoke('commands:create', params),
-  updateCommand: (params) => ipcRenderer.invoke('commands:update', params),
-  deleteCommand: (params) => ipcRenderer.invoke('commands:delete', params),
-  copyCommand: (params) => ipcRenderer.invoke('commands:copy', params),
-  getCommandContent: (params) => ipcRenderer.invoke('commands:getContent', params),
-  openCommandsFolder: (params) => ipcRenderer.invoke('commands:openFolder', params),
-  validateCommandsImport: (sourcePath) => ipcRenderer.invoke('commands:validateImport', sourcePath),
-  checkCommandsConflicts: (params) => ipcRenderer.invoke('commands:checkConflicts', params),
-  importCommands: (params) => ipcRenderer.invoke('commands:import', params),
-  exportCommand: (params) => ipcRenderer.invoke('commands:export', params),
-  exportCommandsBatch: (params) => ipcRenderer.invoke('commands:exportBatch', params),
-
-  // ========================================
   // Agents 管理 (来自插件和项目级，自动触发)
   // ========================================
   listAgentsGlobal: () => ipcRenderer.invoke('agents:listGlobal'),
