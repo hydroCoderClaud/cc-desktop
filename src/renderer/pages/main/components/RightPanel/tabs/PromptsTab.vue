@@ -610,7 +610,7 @@ defineExpose({
 .icon-btn.small {
   width: 24px;
   height: 24px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .icon-btn.mini {

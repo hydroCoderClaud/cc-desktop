@@ -146,13 +146,13 @@ defineExpose({
 }
 
 .clear-btn {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 3px;
   border: none;
   background: transparent;
   color: var(--text-color-muted);
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
