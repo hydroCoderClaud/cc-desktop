@@ -1,7 +1,17 @@
 <template>
   <div class="quick-input">
     <div class="input-header">
-      <span class="input-label">{{ t('rightPanel.quickInput.label') }}</span>
+      <div class="input-label-group">
+        <span class="input-label">{{ t('rightPanel.quickInput.label') }}</span>
+        <button
+          v-if="inputText.trim()"
+          class="clear-btn"
+          :title="t('common.clear')"
+          @click="inputText = ''"
+        >
+          ✕
+        </button>
+      </div>
       <span class="input-hint">{{ t('rightPanel.quickInput.hint') }}</span>
     </div>
     <div class="input-row">
@@ -123,10 +133,36 @@ defineExpose({
   margin-bottom: 8px;
 }
 
+.input-label-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .input-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-color);
+}
+
+.clear-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-color-muted);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.clear-btn:hover {
+  background: #ff4d4f;
+  color: white;
 }
 
 .input-hint {
