@@ -1,7 +1,7 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.mcp') }}</span>
+      <span class="tab-title">{{ t('rightPanel.tabs.mcp') }} ({{ totalCount }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.mcp.refresh')" @click="handleRefresh">
           🔄
@@ -17,7 +17,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="servers.length === 0" class="empty-state">
+      <div v-else-if="totalCount === 0" class="empty-state">
         <div class="empty-icon">🔗</div>
         <div class="empty-text">{{ t('rightPanel.mcp.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.mcp.emptyHint') }}</div>
@@ -25,40 +25,73 @@
 
       <!-- Server List -->
       <div v-else class="server-list">
-        <!-- Global Servers -->
-        <div class="server-group" v-if="globalServers.length > 0">
-          <div class="group-header">
-            <span class="group-icon">🌐</span>
-            <span class="group-name">{{ t('rightPanel.mcp.global') }}</span>
-          </div>
-          <div class="group-items">
-            <div
-              v-for="server in globalServers"
-              :key="server.name"
-              class="server-item"
-            >
-              <span class="status-dot" :class="getStatusClass(server.status)"></span>
-              <span class="server-name">{{ server.name }}</span>
-              <span class="server-status">{{ getStatusText(server.status) }}</span>
-            </div>
-          </div>
-        </div>
-
         <!-- Project Servers -->
-        <div class="server-group" v-if="projectServers.length > 0">
-          <div class="group-header">
-            <span class="group-icon">📁</span>
-            <span class="group-name">{{ t('rightPanel.mcp.project') }}</span>
+        <div class="server-group" v-if="currentProject">
+          <div class="group-header" @click="toggleGroup('project')">
+            <span class="group-icon">{{ expandedGroups.includes('project') ? '▼' : '▶' }}</span>
+            <span class="group-title">{{ t('rightPanel.mcp.project') }}</span>
+            <span class="group-count">({{ projectServers.length }})</span>
           </div>
-          <div class="group-items">
+          <div v-if="expandedGroups.includes('project')" class="group-items">
+            <div v-if="projectServers.length === 0" class="empty-hint-inline">
+              {{ t('rightPanel.mcp.noServersInGroup') }}
+            </div>
             <div
               v-for="server in projectServers"
               :key="server.name"
               class="server-item"
             >
-              <span class="status-dot" :class="getStatusClass(server.status)"></span>
-              <span class="server-name">{{ server.name }}</span>
-              <span class="server-status">{{ getStatusText(server.status) }}</span>
+              <div class="server-main">
+                <div class="server-header">
+                  <span class="server-name">{{ server.name }}</span>
+                </div>
+                <div class="server-content">
+                  <div class="server-command">
+                    <span class="label">{{ t('rightPanel.mcp.command') }}:</span>
+                    <code>{{ server.command }}</code>
+                  </div>
+                  <div v-if="server.args && server.args.length > 0" class="server-args">
+                    <span class="label">{{ t('rightPanel.mcp.args') }}:</span>
+                    <code>{{ server.args.join(' ') }}</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plugin Servers (Global) -->
+        <div class="server-group">
+          <div class="group-header" @click="toggleGroup('plugin')">
+            <span class="group-icon">{{ expandedGroups.includes('plugin') ? '▼' : '▶' }}</span>
+            <span class="group-title">{{ t('rightPanel.mcp.pluginServers') }}</span>
+            <span class="group-count">({{ globalServers.length }})</span>
+          </div>
+          <div v-if="expandedGroups.includes('plugin')" class="group-items">
+            <div v-if="globalServers.length === 0" class="empty-hint-inline">
+              {{ t('rightPanel.mcp.noServersInGroup') }}
+            </div>
+            <div
+              v-for="server in globalServers"
+              :key="`${server.pluginId}-${server.name}`"
+              class="server-item"
+            >
+              <div class="server-main">
+                <div class="server-header">
+                  <span class="server-name">{{ server.name }}</span>
+                  <span class="plugin-badge">{{ server.pluginShortName || server.category }}</span>
+                </div>
+                <div class="server-content">
+                  <div class="server-command">
+                    <span class="label">{{ t('rightPanel.mcp.command') }}:</span>
+                    <code>{{ server.command }}</code>
+                  </div>
+                  <div v-if="server.args && server.args.length > 0" class="server-args">
+                    <span class="label">{{ t('rightPanel.mcp.args') }}:</span>
+                    <code>{{ server.args.join(' ') }}</code>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -81,42 +114,43 @@ const props = defineProps({
 const loading = ref(false)
 const globalServers = ref([])
 const projectServers = ref([])
+const expandedGroups = ref(['project', 'plugin'])
 
 // Computed
-const servers = computed(() => [...globalServers.value, ...projectServers.value])
+const totalCount = computed(() => globalServers.value.length + projectServers.value.length)
 
 // Methods
+const toggleGroup = (group) => {
+  const index = expandedGroups.value.indexOf(group)
+  if (index === -1) {
+    expandedGroups.value.push(group)
+  } else {
+    expandedGroups.value.splice(index, 1)
+  }
+}
+
 const handleRefresh = async () => {
   await loadServers()
-}
-
-const getStatusClass = (status) => {
-  switch (status) {
-    case 'connected': return 'connected'
-    case 'connecting': return 'connecting'
-    case 'error': return 'error'
-    default: return 'disconnected'
-  }
-}
-
-const getStatusText = (status) => {
-  switch (status) {
-    case 'connected': return t('rightPanel.mcp.connected')
-    case 'connecting': return t('rightPanel.mcp.connecting')
-    case 'error': return t('rightPanel.mcp.error')
-    default: return t('rightPanel.mcp.disconnected')
-  }
 }
 
 const loadServers = async () => {
   loading.value = true
   try {
-    // TODO: Load MCP servers from config
-    // Mock data for now
-    globalServers.value = []
-    projectServers.value = []
+    // 加载全局 MCP（来自插件）
+    const global = await window.electronAPI.listMcpGlobal()
+    globalServers.value = global
+
+    // 加载项目级 MCP
+    if (props.currentProject?.path) {
+      const project = await window.electronAPI.listMcpProject(props.currentProject.path)
+      projectServers.value = project
+    } else {
+      projectServers.value = []
+    }
   } catch (err) {
     console.error('Failed to load MCP servers:', err)
+    globalServers.value = []
+    projectServers.value = []
   } finally {
     loading.value = false
   }
@@ -125,7 +159,7 @@ const loadServers = async () => {
 // Watch project change
 watch(() => props.currentProject, () => {
   loadServers()
-}, { immediate: true })
+})
 
 onMounted(() => {
   loadServers()
@@ -180,7 +214,6 @@ onMounted(() => {
 .tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
 }
 
 /* Loading State */
@@ -234,80 +267,114 @@ onMounted(() => {
 
 /* Server List */
 .server-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  padding: 8px 0;
 }
 
 .server-group {
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 8px;
 }
 
 .group-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 4px;
-  font-size: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.group-header:hover {
+  background: var(--hover-bg);
+}
+
+.group-icon {
+  font-size: 10px;
+  width: 12px;
+}
+
+.group-title {
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-color);
+}
+
+.group-count {
+  font-size: 12px;
   color: var(--text-color-muted);
 }
 
 .group-items {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  padding: 4px 8px;
+}
+
+.empty-hint-inline {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-color-muted);
 }
 
 .server-item {
   display: flex;
+  align-items: stretch;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.server-main {
+  flex: 1;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.server-header {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  background: var(--bg-color-tertiary);
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-dot.connected {
-  background: #52c41a;
-}
-
-.status-dot.connecting {
-  background: #faad14;
-  animation: pulse 1s ease-in-out infinite;
-}
-
-.status-dot.error {
-  background: #ff4d4f;
-}
-
-.status-dot.disconnected {
-  background: #8c8c8c;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  margin-bottom: 6px;
 }
 
 .server-name {
-  flex: 1;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-color);
 }
 
-.server-status {
+.plugin-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 3px;
+}
+
+.server-content {
   font-size: 11px;
   color: var(--text-color-muted);
+}
+
+.server-command,
+.server-args {
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-command .label,
+.server-args .label {
+  color: var(--text-color-muted);
+  margin-right: 4px;
+}
+
+.server-command code,
+.server-args code {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-color);
 }
 </style>

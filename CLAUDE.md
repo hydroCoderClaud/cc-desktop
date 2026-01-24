@@ -169,6 +169,9 @@ src/
     │                   ├── SkillCopyModal.vue
     │                   ├── SkillImportModal.vue
     │                   └── SkillExportModal.vue
+    │               └── hooks/        # Hooks 子组件
+    │                   ├── HookGroup.vue
+    │                   └── HookEditModal.vue
     ├── composables/          # 可复用逻辑
     │   ├── useProjects.js
     │   ├── useTabManagement.js
@@ -202,6 +205,18 @@ src/
 - 导出：单个/批量导出，支持 ZIP 和文件夹格式
 - 显示格式：`id (/name)`，点击发送 `/name`
 - 校验：新建/编辑时检查 name 重名
+
+**Hooks 完整管理**：
+- 三级分类：项目级、全局级、插件级（仅启用插件）
+- CRUD：新建、编辑、删除（插件级可编辑不可删除）
+- 表单/JSON 双模式编辑
+- 复制：支持复制到全局或项目，重复检测与覆盖确认
+- 打开配置文件功能
+
+**MCP 配置展示**：
+- 两级分类：项目级（.mcp.json）、插件级
+- 展示 MCP 服务器名称、命令、参数
+- 只读展示（配置由 Claude Code CLI 管理）
 
 **右侧面板标签**：
 ```

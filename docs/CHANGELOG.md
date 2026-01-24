@@ -25,8 +25,22 @@
 - 后端模块化：`managers/skills/` (crud, import, export, utils)
 - 前端组件化：`skills/` (SkillGroup, SkillEditModal, SkillCopyModal, SkillImportModal, SkillExportModal)
 
+### ✨ Hooks 完整管理
+
+**核心功能**
+- 三级分类：项目级、全局级、插件级（仅显示启用插件）
+- CRUD：新建、编辑、删除 Hook（插件级可编辑但不可删除）
+- 表单/JSON 双模式编辑
+- 复制功能：支持复制到全局或项目，重复检测与覆盖确认
+- 打开配置文件功能
+
+**代码结构**
+- 后端：`managers/hooks-manager.js` (CRUD + 复制 + 重复检测)
+- 前端组件化：`hooks/` (HookGroup, HookEditModal)
+
 ### 🔧 其他改进
 
+- **MCP 配置展示** - 读取并展示项目级和插件级 MCP 服务器配置
 - 移除 Commands 标签页（功能合并到 Plugins）
 - 右侧面板简化为 8 个标签
 

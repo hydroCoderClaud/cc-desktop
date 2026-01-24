@@ -374,10 +374,14 @@ export default {
       refresh: '刷新状态',
       global: '全局',
       project: '项目',
+      pluginServers: '插件 MCP',
       connected: '已连接',
       connecting: '连接中...',
       disconnected: '未连接',
-      error: '连接错误'
+      error: '连接错误',
+      command: '命令',
+      args: '参数',
+      noServersInGroup: '暂无 MCP 服务器'
     },
     // Agents
     agents: {

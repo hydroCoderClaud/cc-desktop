@@ -374,10 +374,14 @@ export default {
       refresh: 'Refresh status',
       global: 'Global',
       project: 'Project',
+      pluginServers: 'Plugin MCP',
       connected: 'Connected',
       connecting: 'Connecting...',
       disconnected: 'Disconnected',
-      error: 'Error'
+      error: 'Error',
+      command: 'Command',
+      args: 'Args',
+      noServersInGroup: 'No MCP servers'
     },
     // Agents
     agents: {
