@@ -18,7 +18,7 @@
           @click="$emit('click-skill', skill)"
         >
           <div class="skill-row">
-            <span class="skill-name">/{{ skill.fullName }}</span>
+            <span class="skill-name">{{ skill.id }} <span class="skill-invoke">(/{{ skill.name || skill.id }})</span></span>
             <span class="skill-actions">
               <button
                 v-if="copy"
@@ -180,8 +180,13 @@ const createTitle = computed(() => {
 .skill-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--text-color);
   flex: 1;
+}
+
+.skill-name .skill-invoke {
+  color: var(--primary-color);
+  font-weight: 400;
 }
 
 .skill-actions {

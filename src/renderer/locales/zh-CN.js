@@ -262,6 +262,7 @@ export default {
       importedCount: '成功导入 {count} 个',
       skippedCount: '跳过 {count} 个',
       errorCount: '错误 {count} 个',
+      noImportResult: '没有执行任何导入操作',
       exportSource: '导出来源',
       exportScope: '导出范围',
       exportSingle: '单个技能',

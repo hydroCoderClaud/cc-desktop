@@ -69,7 +69,7 @@
               <div v-if="expandedCategories.includes(cat.name)" class="category-items">
                 <div v-for="skill in cat.skills" :key="skill.fullName" class="skill-item" @click="handleSkillClick(skill)">
                   <div class="skill-row">
-                    <span class="skill-name">/{{ skill.fullName }}</span>
+                    <span class="skill-name">{{ skill.id || skill.fullName }} <span class="skill-invoke">(/{{ skill.name || skill.fullName }})</span></span>
                     <button class="item-btn view" :title="t('rightPanel.skills.viewOfficial')" @click.stop="showViewModal(skill)">👁</button>
                   </div>
                   <span class="skill-desc">{{ skill.description }}</span>
@@ -203,7 +203,7 @@ const toggleCategory = (name) => {
   idx === -1 ? expandedCategories.value.push(name) : expandedCategories.value.splice(idx, 1)
 }
 
-const handleSkillClick = (skill) => emit('send-command', `/${skill.fullName}`)
+const handleSkillClick = (skill) => emit('send-command', `/${skill.name || skill.fullName}`)
 
 const openSkillsFolder = async (source) => {
   const params = source === 'user' ? { source: 'user' } : { source: 'project', projectPath: props.currentProject?.path }
@@ -335,7 +335,8 @@ onMounted(loadSkills)
 .skill-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; margin: 2px 0; border-radius: 4px; cursor: pointer; transition: background 0.15s ease; }
 .skill-item:hover { background: var(--hover-bg); }
 .skill-row { display: flex; align-items: center; gap: 8px; }
-.skill-name { font-size: 13px; font-weight: 500; color: var(--primary-color); flex: 1; }
+.skill-name { font-size: 13px; font-weight: 500; color: var(--text-color); flex: 1; }
+.skill-name .skill-invoke { color: var(--primary-color); font-weight: 400; }
 .skill-desc { font-size: 11px; color: var(--text-color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* View button for official skills */

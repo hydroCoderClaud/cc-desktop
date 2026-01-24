@@ -84,6 +84,11 @@
             </li>
           </ul>
         </div>
+
+        <!-- 无结果时的兜底提示 -->
+        <div v-if="!importResult.imported?.length && !importResult.skipped?.length && !importResult.errors?.length" class="result-section info">
+          <p class="result-label">{{ t('rightPanel.skills.noImportResult') }}</p>
+        </div>
       </div>
     </div>
     <template #footer>
@@ -349,6 +354,11 @@ const handleImport = async () => {
   border: 1px solid rgba(231, 76, 60, 0.3);
 }
 
+.result-section.info {
+  background: rgba(114, 132, 154, 0.1);
+  border: 1px solid rgba(114, 132, 154, 0.3);
+}
+
 .result-label {
   font-size: 13px;
   font-weight: 600;
@@ -358,6 +368,7 @@ const handleImport = async () => {
 .result-section.success .result-label { color: #52c41a; }
 .result-section.warning .result-label { color: #d48806; }
 .result-section.error .result-label { color: #e74c3c; }
+.result-section.info .result-label { color: var(--text-color-muted); }
 
 .result-list {
   margin: 0;

@@ -262,6 +262,7 @@ export default {
       importedCount: 'Successfully imported {count}',
       skippedCount: 'Skipped {count}',
       errorCount: '{count} error(s)',
+      noImportResult: 'No import actions were performed',
       exportSource: 'Export From',
       exportScope: 'Export Scope',
       exportSingle: 'Single Skill',
