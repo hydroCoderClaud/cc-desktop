@@ -417,7 +417,7 @@ const handleDelete = async (prompt) => {
 }
 
 const handleInsert = async (prompt) => {
-  emit('insert-to-input', prompt.content)
+  emit('send-command', prompt.content)
   await incrementUsage(prompt.id)
 }
 
