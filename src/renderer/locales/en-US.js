@@ -51,6 +51,7 @@ export default {
     saved: 'Saved',
     deleted: 'Deleted',
     copyFailed: 'Copy failed',
+    openFailed: 'Failed to open',
     all: 'All'
   },
 
@@ -294,21 +295,77 @@ export default {
     // Hooks
     hooks: {
       empty: 'No hooks found',
-      emptyHint: 'Hooks are provided by plugins and run automatically',
+      emptyHint: 'Hooks run automatically before/after tool calls',
       search: 'Search hooks...',
       refresh: 'Refresh',
       uncategorized: 'Uncategorized',
       noDescription: 'No description',
+      // Three-level classification
+      projectHooks: 'Project Hooks',
+      globalHooks: 'Global Hooks',
+      pluginHooks: 'Plugin Hooks (enabled only)',
+      noHooksInGroup: 'No hooks',
+      // CRUD
+      createHook: 'New Hook',
       editHook: 'Edit Hook',
+      viewHook: 'View Hook',
+      deleteSuccess: 'Deleted successfully',
+      confirmDelete: 'Are you sure you want to delete this hook?',
+      // Form fields
       event: 'Event Type',
+      selectEvent: 'Select event type',
+      eventRequired: 'Please select an event type',
       matcher: 'Matcher',
-      matcherPlaceholder: 'Leave empty to match all',
+      matcherPlaceholder: 'Regex pattern, e.g. Bash|Write',
+      matcherHint: 'Regex to match tool names, leave empty to match all',
       type: 'Type',
+      // Command type
       command: 'Command',
-      commandPlaceholder: 'Command or script to execute',
+      commandPlaceholder: 'Shell command or script to execute',
+      commandRequired: 'Please enter a command',
+      async: 'Async',
+      asyncHint: 'Run in background, non-blocking',
+      // Prompt/Agent type
+      prompt: 'Prompt',
+      promptPlaceholder: 'Enter LLM evaluation prompt...',
+      promptRequired: 'Please enter a prompt',
+      model: 'Model',
+      modelPlaceholder: 'Optional, e.g. claude-sonnet-4-5-20250929',
+      // Advanced options
+      advancedOptions: 'Advanced Options',
+      timeout: 'Timeout',
+      timeoutPlaceholder: 'Default 60',
+      seconds: 'seconds',
+      statusMessage: 'Status Message',
+      statusMessagePlaceholder: 'Message shown during execution',
+      once: 'Run Once',
+      onceHint: 'Auto-remove after execution',
+      // Status
+      readonly: 'Read-only',
+      source: 'Source',
+      // JSON edit
+      editJson: 'Edit JSON',
+      editGlobalJson: 'Edit Global Hooks (JSON)',
+      editProjectJson: 'Edit Project Hooks (JSON)',
+      formatJson: 'Format',
+      invalidJson: 'Invalid JSON',
+      jsonPlaceholder: 'Enter Hooks configuration JSON...',
+      formMode: 'Form',
+      jsonHint: 'JSON format Hook config with event, type, command/prompt fields',
+      // Legacy fields for compatibility
       readFailed: 'Failed to read configuration',
       saveFailed: 'Failed to save',
-      hookNotFound: 'Hook not found'
+      hookNotFound: 'Hook not found',
+      // Open folder
+      openFolder: 'Open config file',
+      noConfigFile: 'Config file does not exist',
+      // Copy
+      copyHook: 'Copy Hook',
+      copyTarget: 'Target',
+      copySuccess: 'Copied successfully',
+      duplicateFound: 'Duplicate Found',
+      duplicateConfirm: 'A hook with identical content already exists. Overwrite?',
+      overwrite: 'Overwrite'
     },
     // MCP
     mcp: {

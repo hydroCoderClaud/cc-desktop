@@ -51,6 +51,7 @@ export default {
     saved: '已保存',
     deleted: '已删除',
     copyFailed: '复制失败',
+    openFailed: '打开失败',
     all: '全部'
   },
 
@@ -294,21 +295,77 @@ export default {
     // Hooks
     hooks: {
       empty: '未找到 Hooks',
-      emptyHint: 'Hooks 由插件提供，自动执行',
+      emptyHint: 'Hooks 可在工具调用前后自动执行',
       search: '搜索 Hooks...',
       refresh: '刷新',
       uncategorized: '未分类',
       noDescription: '无描述',
+      // 三级分类
+      projectHooks: '项目 Hooks',
+      globalHooks: '全局 Hooks',
+      pluginHooks: '插件 Hooks（仅启用）',
+      noHooksInGroup: '暂无 Hooks',
+      // CRUD
+      createHook: '新建 Hook',
       editHook: '编辑 Hook',
+      viewHook: '查看 Hook',
+      deleteSuccess: '删除成功',
+      confirmDelete: '确定删除此 Hook？',
+      // 表单字段
       event: '事件类型',
+      selectEvent: '选择事件类型',
+      eventRequired: '请选择事件类型',
       matcher: '匹配规则',
-      matcherPlaceholder: '留空表示匹配所有',
+      matcherPlaceholder: '正则表达式，如 Bash|Write',
+      matcherHint: '正则匹配工具名，留空表示匹配所有',
       type: '执行类型',
+      // Command 类型
       command: '命令',
-      commandPlaceholder: '要执行的命令或脚本',
+      commandPlaceholder: '要执行的 shell 命令或脚本',
+      commandRequired: '请输入命令',
+      async: '异步执行',
+      asyncHint: '后台运行，不阻塞 Claude',
+      // Prompt/Agent 类型
+      prompt: '提示词',
+      promptPlaceholder: '输入 LLM 评估提示词...',
+      promptRequired: '请输入提示词',
+      model: '模型',
+      modelPlaceholder: '可选，如 claude-sonnet-4-5-20250929',
+      // 高级选项
+      advancedOptions: '高级选项',
+      timeout: '超时',
+      timeoutPlaceholder: '默认 60',
+      seconds: '秒',
+      statusMessage: '状态消息',
+      statusMessagePlaceholder: '执行时显示的提示文字',
+      once: '仅执行一次',
+      onceHint: '执行后自动移除',
+      // 状态
+      readonly: '只读',
+      source: '来源',
+      // JSON 编辑
+      editJson: '编辑 JSON',
+      editGlobalJson: '编辑全局 Hooks (JSON)',
+      editProjectJson: '编辑项目 Hooks (JSON)',
+      formatJson: '格式化',
+      invalidJson: 'JSON 格式错误',
+      jsonPlaceholder: '输入 Hooks 配置 JSON...',
+      formMode: '表单',
+      jsonHint: 'JSON 格式的 Hook 配置，包含 event、type、command/prompt 等字段',
+      // 旧字段保留兼容
       readFailed: '读取配置失败',
       saveFailed: '保存失败',
-      hookNotFound: '未找到该 Hook'
+      hookNotFound: '未找到该 Hook',
+      // 打开目录
+      openFolder: '打开配置文件',
+      noConfigFile: '配置文件不存在',
+      // 复制
+      copyHook: '复制 Hook',
+      copyTarget: '复制目标',
+      copySuccess: '复制成功',
+      duplicateFound: '发现重复',
+      duplicateConfirm: '目标位置已存在相同内容的 Hook，是否覆盖？',
+      overwrite: '覆盖'
     },
     // MCP
     mcp: {

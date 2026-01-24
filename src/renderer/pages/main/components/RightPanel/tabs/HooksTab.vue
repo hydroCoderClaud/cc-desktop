@@ -1,7 +1,7 @@
 <template>
   <div class="tab-container">
     <div class="tab-header">
-      <span class="tab-title">{{ t('rightPanel.tabs.hooks') }} ({{ hooks.length }})</span>
+      <span class="tab-title">{{ t('rightPanel.tabs.hooks') }} ({{ totalCount }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.hooks.refresh')" @click="handleRefresh">
           🔄
@@ -30,292 +30,420 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="filteredHooks.length === 0" class="empty-state">
+      <div v-else-if="totalCount === 0 && !searchText" class="empty-state">
         <div class="empty-icon">🪝</div>
         <div class="empty-text">{{ t('rightPanel.hooks.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.hooks.emptyHint') }}</div>
+        <n-button size="small" type="primary" @click="handleCreate('global')">
+          {{ t('rightPanel.hooks.createHook') }}
+        </n-button>
       </div>
 
-      <!-- Hooks List -->
+      <!-- Hooks List (三级分类) -->
       <div v-else class="hooks-list">
-        <div
-          v-for="category in groupedHooks"
-          :key="category.name"
-          class="hook-category"
-        >
-          <div
-            class="category-header"
-            @click="toggleCategory(category.name)"
-          >
-            <span class="category-icon">{{ expandedCategories.includes(category.name) ? '▼' : '▶' }}</span>
-            <span class="category-name">{{ category.name }}</span>
-            <span class="category-count">({{ category.hooks.length }})</span>
-          </div>
-          <div v-if="expandedCategories.includes(category.name)" class="category-items">
-            <div
-              v-for="hook in category.hooks"
-              :key="hook.id"
-              class="hook-item"
-              :class="{ 'has-file': hook.filePath }"
-              @click="handleOpenHook(hook)"
-            >
-              <div class="hook-header">
-                <span class="hook-name">{{ getHookDisplayName(hook) }}</span>
-                <span class="hook-event">{{ hook.event }}</span>
-              </div>
-              <div class="hook-desc">
-                <span v-if="hook.matcher" class="hook-matcher">{{ hook.matcher }}</span>
-                <span v-if="hook.command" class="hook-command">{{ hook.command }}</span>
-              </div>
-              <div v-if="hook.source" class="hook-source">
-                {{ hook.category || hook.source }}
-                <span v-if="hook.filePath" class="edit-hint">📝</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 项目级 Hooks -->
+        <HookGroup
+          v-if="currentProject"
+          :title="t('rightPanel.hooks.projectHooks')"
+          :hooks="filteredProjectHooks"
+          :expanded="expandedGroups.includes('project')"
+          :editable="true"
+          :file-path="projectHooksFilePath"
+          @toggle="toggleGroup('project')"
+          @create="handleCreate('project')"
+          @edit="handleEdit($event, 'project')"
+          @delete="handleDelete($event, 'project')"
+          @open-folder="handleOpenFolder('project')"
+          @open-file="handleOpenFile"
+          @copy="handleCopy"
+        />
+
+        <!-- 全局 Hooks -->
+        <HookGroup
+          :title="t('rightPanel.hooks.globalHooks')"
+          :hooks="filteredGlobalHooks"
+          :expanded="expandedGroups.includes('global')"
+          :editable="true"
+          :file-path="globalHooksFilePath"
+          @toggle="toggleGroup('global')"
+          @create="handleCreate('global')"
+          @edit="handleEdit($event, 'global')"
+          @delete="handleDelete($event, 'global')"
+          @open-folder="handleOpenFolder('global')"
+          @open-file="handleOpenFile"
+          @copy="handleCopy"
+        />
+
+        <!-- 插件 Hooks (可编辑但不可删除) -->
+        <HookGroup
+          :title="t('rightPanel.hooks.pluginHooks')"
+          :hooks="filteredPluginHooks"
+          :expanded="expandedGroups.includes('plugin')"
+          :editable="false"
+          @toggle="toggleGroup('plugin')"
+          @edit="handleEdit($event, 'plugin')"
+          @open-file="handleOpenFile"
+          @copy="handleCopy"
+        />
       </div>
     </div>
 
-    <!-- Edit Hook Modal -->
-    <n-modal
+    <!-- Edit/Create Modal -->
+    <HookEditModal
       v-model:show="showEditModal"
+      :hook="editingHook"
+      :scope="editScope"
+      :project-path="currentProject?.path"
+      :schema="hooksSchema"
+      @saved="handleSaved"
+    />
+
+    <!-- Delete Confirm -->
+    <n-modal
+      v-model:show="showDeleteConfirm"
+      preset="dialog"
+      type="warning"
+      :title="t('common.confirm')"
+      :content="t('rightPanel.hooks.confirmDelete')"
+      :positive-text="t('common.delete')"
+      :negative-text="t('common.cancel')"
+      @positive-click="confirmDelete"
+    />
+
+    <!-- Copy Modal -->
+    <n-modal
+      v-model:show="showCopyModal"
       preset="card"
-      :title="t('rightPanel.hooks.editHook')"
-      style="width: 600px"
+      :title="t('rightPanel.hooks.copyHook')"
+      style="width: 400px;"
     >
-      <n-form v-if="editingHook">
-        <n-form-item :label="t('rightPanel.hooks.event')">
-          <n-input v-model:value="editingHook.event" readonly disabled />
+      <div class="copy-form">
+        <div class="copy-info">
+          <span class="label">{{ t('rightPanel.hooks.event') }}:</span>
+          <span class="value">{{ copyingHook?.event }}</span>
+        </div>
+        <div class="copy-info">
+          <span class="label">{{ t('rightPanel.hooks.type') }}:</span>
+          <span class="value">{{ copyingHook?.type }}</span>
+        </div>
+        <n-divider style="margin: 12px 0;" />
+        <n-form-item :label="t('rightPanel.hooks.copyTarget')">
+          <n-radio-group v-model:value="copyTargetScope">
+            <n-space>
+              <n-radio value="global">{{ t('rightPanel.hooks.globalHooks') }}</n-radio>
+              <n-radio v-if="currentProject" value="project">{{ t('rightPanel.hooks.projectHooks') }}</n-radio>
+            </n-space>
+          </n-radio-group>
         </n-form-item>
-        <n-form-item :label="t('rightPanel.hooks.matcher')">
-          <n-input
-            v-model:value="editingHook.matcher"
-            :placeholder="t('rightPanel.hooks.matcherPlaceholder')"
-          />
-        </n-form-item>
-        <n-form-item :label="t('rightPanel.hooks.type')">
-          <n-select
-            v-model:value="editingHook.type"
-            :options="typeOptions"
-          />
-        </n-form-item>
-        <n-form-item :label="t('rightPanel.hooks.command')">
-          <n-input
-            v-model:value="editingHook.command"
-            type="textarea"
-            :rows="4"
-            :placeholder="t('rightPanel.hooks.commandPlaceholder')"
-          />
-        </n-form-item>
-      </n-form>
+      </div>
       <template #footer>
         <div class="modal-footer">
-          <n-button @click="showEditModal = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="handleSaveHook">{{ t('common.save') }}</n-button>
+          <n-button @click="showCopyModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" :loading="copying" @click="confirmCopy">{{ t('common.copy') }}</n-button>
         </div>
       </template>
     </n-modal>
+
+    <!-- Duplicate Confirm -->
+    <n-modal
+      v-model:show="showDuplicateConfirm"
+      preset="dialog"
+      type="warning"
+      :title="t('rightPanel.hooks.duplicateFound')"
+      :content="t('rightPanel.hooks.duplicateConfirm')"
+      :positive-text="t('rightPanel.hooks.overwrite')"
+      :negative-text="t('common.cancel')"
+      @positive-click="confirmOverwrite"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { NInput, NModal, NForm, NFormItem, NButton, NSelect, useMessage } from 'naive-ui'
+import { ref, computed, onMounted, watch } from 'vue'
+import { NInput, NButton, NModal, NRadio, NRadioGroup, NSpace, NDivider, NFormItem, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import HookGroup from '../hooks/HookGroup.vue'
+import HookEditModal from '../hooks/HookEditModal.vue'
 
 const { t } = useLocale()
 const message = useMessage()
-
-// Type options for select
-const typeOptions = [
-  { label: 'Command', value: 'command' },
-  { label: 'Bash', value: 'bash' },
-  { label: 'Block', value: 'block' }
-]
 
 const props = defineProps({
   currentProject: Object
 })
 
-const emit = defineEmits(['send-command', 'insert-to-input'])
-
 // State
 const loading = ref(false)
 const searchText = ref('')
-const hooks = ref([])
-const expandedCategories = ref([])
+const hooksSchema = ref({ events: [], types: [], typeFields: {} })
+
+// Hooks 数据 (按来源分类)
+const projectHooks = ref([])
+const globalHooks = ref([])
+const pluginHooks = ref([])
+
+// UI State
+const expandedGroups = ref(['project', 'global', 'plugin'])
 const showEditModal = ref(false)
 const editingHook = ref(null)
-const originalHookData = ref(null)
+const editScope = ref('global')
+const showDeleteConfirm = ref(false)
+const deletingHook = ref(null)
+const deleteScope = ref('global')
+
+// Copy State
+const showCopyModal = ref(false)
+const copyingHook = ref(null)
+const copyTargetScope = ref('global')
+const copying = ref(false)
+const showDuplicateConfirm = ref(false)
+const duplicateHandlerIndex = ref(null)
 
 // Computed
-const filteredHooks = computed(() => {
-  if (!searchText.value) return hooks.value
-  const keyword = searchText.value.toLowerCase()
-  return hooks.value.filter(h =>
-    h.name.toLowerCase().includes(keyword) ||
-    h.event.toLowerCase().includes(keyword) ||
-    (h.description && h.description.toLowerCase().includes(keyword))
-  )
+const totalCount = computed(() => {
+  return projectHooks.value.length + globalHooks.value.length + pluginHooks.value.length
 })
 
-const groupedHooks = computed(() => {
-  const groups = {}
-  filteredHooks.value.forEach(hook => {
-    // 按事件类型分组
-    const cat = hook.event || t('rightPanel.hooks.uncategorized')
-    if (!groups[cat]) {
-      groups[cat] = []
-    }
-    groups[cat].push(hook)
-  })
-  return Object.keys(groups).map(name => ({
-    name,
-    hooks: groups[name]
-  }))
-})
+const filterHooks = (hooks) => {
+  if (!searchText.value) return hooks
+  const keyword = searchText.value.toLowerCase()
+  return hooks.filter(h =>
+    h.event.toLowerCase().includes(keyword) ||
+    h.type.toLowerCase().includes(keyword) ||
+    (h.matcher && h.matcher.toLowerCase().includes(keyword)) ||
+    (h.command && h.command.toLowerCase().includes(keyword)) ||
+    (h.prompt && h.prompt.toLowerCase().includes(keyword))
+  )
+}
+
+const filteredProjectHooks = computed(() => filterHooks(projectHooks.value))
+const filteredGlobalHooks = computed(() => filterHooks(globalHooks.value))
+const filteredPluginHooks = computed(() => filterHooks(pluginHooks.value))
+
+// 获取各分组的配置文件路径
+const projectHooksFilePath = computed(() => projectHooks.value[0]?.filePath || null)
+const globalHooksFilePath = computed(() => globalHooks.value[0]?.filePath || null)
 
 // Methods
-const handleRefresh = async () => {
-  await loadHooks()
-}
-
-const toggleCategory = (categoryName) => {
-  const index = expandedCategories.value.indexOf(categoryName)
+const toggleGroup = (group) => {
+  const index = expandedGroups.value.indexOf(group)
   if (index === -1) {
-    expandedCategories.value.push(categoryName)
+    expandedGroups.value.push(group)
   } else {
-    expandedCategories.value.splice(index, 1)
-  }
-}
-
-const getHookDisplayName = (hook) => {
-  // 尝试从 matcher 或 command 提取名称
-  if (hook.matcher) {
-    // 匹配器可能包含有用信息
-    const match = hook.matcher.match(/["']([^"']+)["']/)
-    if (match) return match[1]
-  }
-  return hook.type || 'Hook'
-}
-
-const handleOpenHook = async (hook) => {
-  if (!hook.filePath) {
-    console.warn('Hook has no file path')
-    return
-  }
-
-  try {
-    // 读取配置文件
-    const result = await window.electronAPI.readJsonFile(hook.filePath)
-    if (!result.success) {
-      message.error(t('rightPanel.hooks.readFailed'))
-      console.error('Failed to read hook file:', result.error)
-      return
-    }
-
-    // 保存原始数据用于保存时使用
-    originalHookData.value = {
-      filePath: hook.filePath,
-      fullData: result.data,
-      hook: hook
-    }
-
-    // 编辑当前 hook
-    editingHook.value = {
-      event: hook.event,
-      matcher: hook.matcher,
-      type: hook.type,
-      command: hook.command
-    }
-
-    showEditModal.value = true
-  } catch (err) {
-    console.error('Failed to open hook:', err)
-    message.error(t('rightPanel.hooks.readFailed'))
-  }
-}
-
-const handleSaveHook = async () => {
-  if (!editingHook.value || !originalHookData.value) return
-
-  try {
-    const { filePath, fullData, hook } = originalHookData.value
-
-    // 深拷贝 fullData 以避免修改原始对象，并确保可序列化
-    const updatedData = JSON.parse(JSON.stringify(fullData))
-
-    // 更新配置数据
-    const hooksConfig = updatedData.hooks || updatedData
-    const eventHandlers = hooksConfig[hook.event]
-
-    if (!Array.isArray(eventHandlers)) {
-      message.error(t('rightPanel.hooks.saveFailed'))
-      return
-    }
-
-    // 查找要更新的 handler（通过 matcher 和 command 匹配）
-    const handlerIndex = eventHandlers.findIndex(h =>
-      (h.matcher || '') === (hook.matcher || '') &&
-      ((h.hooks?.[0]?.command || h.command || '') === (hook.command || ''))
-    )
-
-    if (handlerIndex === -1) {
-      message.error(t('rightPanel.hooks.hookNotFound'))
-      return
-    }
-
-    // 更新 handler
-    const handler = eventHandlers[handlerIndex]
-    handler.matcher = editingHook.value.matcher
-
-    if (handler.hooks && handler.hooks[0]) {
-      handler.hooks[0].type = editingHook.value.type
-      handler.hooks[0].command = editingHook.value.command
-    } else {
-      handler.type = editingHook.value.type
-      handler.command = editingHook.value.command
-    }
-
-    // 写入文件
-    const writeResult = await window.electronAPI.writeJsonFile(filePath, updatedData)
-    if (!writeResult.success) {
-      message.error(t('rightPanel.hooks.saveFailed'))
-      console.error('Failed to write hook file:', writeResult.error)
-      return
-    }
-
-    message.success(t('common.saved'))
-    showEditModal.value = false
-
-    // 重新加载
-    await loadHooks()
-  } catch (err) {
-    console.error('Failed to save hook:', err)
-    message.error(t('rightPanel.hooks.saveFailed'))
+    expandedGroups.value.splice(index, 1)
   }
 }
 
 const loadHooks = async () => {
   loading.value = true
   try {
-    // 从已安装的插件中加载 Hooks
-    const result = await window.electronAPI.listHooksGlobal()
-    hooks.value = result || []
+    // 加载 schema
+    const schema = await window.electronAPI.getHooksSchema()
+    hooksSchema.value = schema
 
-    // 自动展开有内容的分类
-    if (hooks.value.length > 0) {
-      const categories = [...new Set(hooks.value.map(h => h.event || t('rightPanel.hooks.uncategorized')))]
-      expandedCategories.value = categories
-    }
+    // 加载所有 hooks
+    const allHooks = await window.electronAPI.listHooksAll(props.currentProject?.path || null)
+
+    // 按来源分类
+    projectHooks.value = allHooks.filter(h => h.source === 'project')
+    globalHooks.value = allHooks.filter(h => h.source === 'settings')
+    pluginHooks.value = allHooks.filter(h => h.source === 'plugin')
   } catch (err) {
     console.error('Failed to load hooks:', err)
-    hooks.value = []
+    projectHooks.value = []
+    globalHooks.value = []
+    pluginHooks.value = []
   } finally {
     loading.value = false
   }
 }
+
+const handleRefresh = () => {
+  loadHooks()
+}
+
+const handleCreate = (scope) => {
+  editingHook.value = null
+  editScope.value = scope
+  showEditModal.value = true
+}
+
+const handleEdit = (hook, scope) => {
+  editingHook.value = hook
+  editScope.value = scope
+  showEditModal.value = true
+}
+
+const handleDelete = (hook, scope) => {
+  deletingHook.value = hook
+  deleteScope.value = scope
+  showDeleteConfirm.value = true
+}
+
+const handleOpenFolder = async (scope) => {
+  let filePath = null
+  if (scope === 'project') {
+    filePath = projectHooksFilePath.value
+  } else if (scope === 'global') {
+    filePath = globalHooksFilePath.value
+  }
+
+  if (!filePath) {
+    message.warning(t('rightPanel.hooks.noConfigFile'))
+    return
+  }
+
+  try {
+    const result = await window.electronAPI.openFileInEditor(filePath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Open folder failed:', err)
+    message.error(t('common.openFailed'))
+  }
+}
+
+// 打开单个 hook 的配置文件
+const handleOpenFile = async (hook) => {
+  if (!hook.filePath) {
+    message.warning(t('rightPanel.hooks.noConfigFile'))
+    return
+  }
+
+  try {
+    const result = await window.electronAPI.openFileInEditor(hook.filePath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Open file failed:', err)
+    message.error(t('common.openFailed'))
+  }
+}
+
+const confirmDelete = async () => {
+  if (!deletingHook.value) return
+
+  try {
+    const result = await window.electronAPI.deleteHook({
+      scope: deleteScope.value,
+      projectPath: props.currentProject?.path,
+      event: deletingHook.value.event,
+      handlerIndex: deletingHook.value.handlerIndex
+    })
+
+    if (result.success) {
+      message.success(t('rightPanel.hooks.deleteSuccess'))
+      await loadHooks()
+    } else {
+      message.error(result.error || t('common.deleteFailed'))
+    }
+  } catch (err) {
+    console.error('Delete hook failed:', err)
+    message.error(t('common.deleteFailed'))
+  }
+
+  deletingHook.value = null
+  showDeleteConfirm.value = false
+}
+
+const handleSaved = () => {
+  loadHooks()
+}
+
+// 复制 Hook
+const handleCopy = (hook) => {
+  copyingHook.value = hook
+  copyTargetScope.value = 'global'
+  showCopyModal.value = true
+}
+
+// 构建复制用的 hook 对象
+const buildCopyHookObject = () => {
+  const hook = {
+    type: copyingHook.value.type,
+    command: copyingHook.value.command || undefined,
+    prompt: copyingHook.value.prompt || undefined,
+    timeout: copyingHook.value.timeout || undefined,
+    model: copyingHook.value.model || undefined,
+    async: copyingHook.value.async || undefined
+  }
+  // 移除 undefined 字段
+  Object.keys(hook).forEach(key => hook[key] === undefined && delete hook[key])
+  return hook
+}
+
+const confirmCopy = async () => {
+  if (!copyingHook.value) return
+
+  copying.value = true
+  try {
+    const result = await window.electronAPI.copyHook({
+      targetScope: copyTargetScope.value,
+      projectPath: props.currentProject?.path,
+      event: copyingHook.value.event,
+      matcher: copyingHook.value.matcher || '',
+      hook: buildCopyHookObject()
+    })
+
+    if (result.success) {
+      message.success(t('rightPanel.hooks.copySuccess'))
+      showCopyModal.value = false
+      copyingHook.value = null
+      await loadHooks()
+    } else if (result.duplicate) {
+      // 发现重复，提示覆盖
+      duplicateHandlerIndex.value = result.handlerIndex
+      showDuplicateConfirm.value = true
+    } else {
+      message.error(result.error || t('common.copyFailed'))
+    }
+  } catch (err) {
+    console.error('Copy hook failed:', err)
+    message.error(t('common.copyFailed'))
+  } finally {
+    copying.value = false
+  }
+}
+
+const confirmOverwrite = async () => {
+  if (!copyingHook.value) return
+
+  copying.value = true
+  try {
+    const result = await window.electronAPI.copyHook({
+      targetScope: copyTargetScope.value,
+      projectPath: props.currentProject?.path,
+      event: copyingHook.value.event,
+      matcher: copyingHook.value.matcher || '',
+      hook: buildCopyHookObject(),
+      overwrite: true,
+      overwriteIndex: duplicateHandlerIndex.value
+    })
+
+    if (result.success) {
+      message.success(t('rightPanel.hooks.copySuccess'))
+      showCopyModal.value = false
+      showDuplicateConfirm.value = false
+      copyingHook.value = null
+      duplicateHandlerIndex.value = null
+      await loadHooks()
+    } else {
+      message.error(result.error || t('common.copyFailed'))
+    }
+  } catch (err) {
+    console.error('Overwrite hook failed:', err)
+    message.error(t('common.copyFailed'))
+  } finally {
+    copying.value = false
+  }
+}
+
+// Watch project change
+watch(() => props.currentProject, () => {
+  loadHooks()
+})
 
 onMounted(() => {
   loadHooks()
@@ -407,23 +535,24 @@ onMounted(() => {
   text-align: center;
   color: var(--text-color-muted);
   padding: 24px;
+  gap: 8px;
 }
 
 .empty-icon {
   font-size: 48px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   opacity: 0.5;
 }
 
 .empty-text {
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 4px;
 }
 
 .empty-hint {
   font-size: 12px;
   opacity: 0.7;
+  margin-bottom: 12px;
 }
 
 /* Hooks List */
@@ -431,116 +560,30 @@ onMounted(() => {
   padding: 8px 0;
 }
 
-.hook-category {
-  margin-bottom: 4px;
+/* Copy Modal */
+.copy-form {
+  padding: 4px 0;
 }
 
-.category-header {
+.copy-info {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.category-header:hover {
-  background: var(--hover-bg);
-}
-
-.category-icon {
-  font-size: 10px;
-  width: 12px;
-}
-
-.category-count {
-  font-weight: 400;
-  opacity: 0.7;
-}
-
-.category-items {
-  padding: 0 8px;
-}
-
-.hook-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  margin: 2px 0;
-  border-radius: 4px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  transition: all 0.15s ease;
-}
-
-.hook-item.has-file {
-  cursor: pointer;
-}
-
-.hook-item.has-file:hover {
-  background: var(--hover-bg);
-  border-color: var(--primary-color);
-}
-
-.hook-header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
-.hook-name {
+.copy-info .label {
   font-size: 13px;
-  font-weight: 500;
+  color: var(--text-color-muted);
+  min-width: 60px;
+}
+
+.copy-info .value {
+  font-size: 13px;
   color: var(--text-color);
-}
-
-.hook-event {
-  font-size: 10px;
-  padding: 2px 6px;
-  background: var(--primary-color);
-  color: white;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.hook-desc {
-  font-size: 11px;
-  color: var(--text-color-muted);
-  line-height: 1.4;
-}
-
-.hook-source {
-  font-size: 10px;
-  color: var(--text-color-muted);
-  opacity: 0.7;
-  font-style: italic;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.edit-hint {
-  font-size: 12px;
-  opacity: 0.6;
-}
-
-.hook-matcher,
-.hook-command {
-  display: block;
-  font-size: 10px;
-  color: var(--text-color-muted);
   font-family: monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* Edit Modal */
 .modal-footer {
   display: flex;
   justify-content: flex-end;

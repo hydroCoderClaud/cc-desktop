@@ -211,6 +211,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listHooksGlobal: () => ipcRenderer.invoke('hooks:listGlobal'),
   listHooksProject: (projectPath) => ipcRenderer.invoke('hooks:listProject', projectPath),
   listHooksAll: (projectPath) => ipcRenderer.invoke('hooks:listAll', projectPath),
+  getHooksSchema: () => ipcRenderer.invoke('hooks:getSchema'),
+  createHook: (params) => ipcRenderer.invoke('hooks:create', params),
+  updateHook: (params) => ipcRenderer.invoke('hooks:update', params),
+  deleteHook: (params) => ipcRenderer.invoke('hooks:delete', params),
+  copyHook: (params) => ipcRenderer.invoke('hooks:copy', params),
+  getHooksJson: (params) => ipcRenderer.invoke('hooks:getJson', params),
+  saveHooksJson: (params) => ipcRenderer.invoke('hooks:saveJson', params),
 
   // ========================================
   // MCP 管理 (来自插件和项目级，自动加载)

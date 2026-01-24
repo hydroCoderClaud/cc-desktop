@@ -351,6 +351,76 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
+  // 获取 Hooks Schema
+  ipcMain.handle('hooks:getSchema', async () => {
+    try {
+      return hooksManager.getHooksSchema()
+    } catch (err) {
+      console.error('[IPC] hooks:getSchema error:', err)
+      return { events: [], types: [], typeFields: {} }
+    }
+  })
+
+  // 创建 Hook
+  ipcMain.handle('hooks:create', async (event, params) => {
+    try {
+      return await hooksManager.createHook(params)
+    } catch (err) {
+      console.error('[IPC] hooks:create error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新 Hook
+  ipcMain.handle('hooks:update', async (event, params) => {
+    try {
+      return await hooksManager.updateHook(params)
+    } catch (err) {
+      console.error('[IPC] hooks:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 删除 Hook
+  ipcMain.handle('hooks:delete', async (event, params) => {
+    try {
+      return await hooksManager.deleteHook(params)
+    } catch (err) {
+      console.error('[IPC] hooks:delete error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 复制 Hook
+  ipcMain.handle('hooks:copy', async (event, params) => {
+    try {
+      return await hooksManager.copyHook(params)
+    } catch (err) {
+      console.error('[IPC] hooks:copy error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取 Hooks JSON 原始数据
+  ipcMain.handle('hooks:getJson', async (event, params) => {
+    try {
+      return await hooksManager.getHooksJson(params)
+    } catch (err) {
+      console.error('[IPC] hooks:getJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 保存 Hooks JSON 原始数据
+  ipcMain.handle('hooks:saveJson', async (event, params) => {
+    try {
+      return await hooksManager.saveHooksJson(params)
+    } catch (err) {
+      console.error('[IPC] hooks:saveJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // ========================================
   // MCP Manager IPC Handlers
   // ========================================
