@@ -401,4 +401,13 @@ defineExpose({
 .terminal :deep(.xterm-viewport) {
   overflow-y: scroll !important;
 }
+
+/* IME textarea 固定在左下角 */
+.terminal :deep(.xterm-helper-textarea) {
+  position: fixed !important;
+  left: 280px !important;
+  bottom: 80px !important;
+  top: auto !important;
+  transform: none !important;
+}
 </style>
