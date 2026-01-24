@@ -38,11 +38,9 @@ const skillsImportMixin = {
       return { valid: false, error: `"${skillId}/SKILL.md" 缺少有效的 YAML frontmatter` }
     }
 
-    // 5. 检查 name 字段（警告但不阻止）
     const name = frontmatter.name || skillId
-    const nameMatch = name === skillId
 
-    return { valid: true, skillId, name, nameMatch, frontmatter }
+    return { valid: true, skillId, name, frontmatter }
   },
 
   /**
@@ -136,9 +134,6 @@ const skillsImportMixin = {
           const validation = this.validateSkillDir(dirPath)
           if (validation.valid) {
             result.skills.push({ ...validation, sourcePath: dirPath })
-            if (!validation.nameMatch) {
-              result.warnings.push(`"${validation.skillId}": 目录名与 SKILL.md 中的 name (${validation.name}) 不一致`)
-            }
           }
           // 忽略无效目录，不报错
         }

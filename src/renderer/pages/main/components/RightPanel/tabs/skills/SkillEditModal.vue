@@ -55,7 +55,7 @@
     </n-form>
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 12px;">
-        <n-button @click="visible = false">{{ t('common.close') }}</n-button>
+        <n-button @click="visible = false">{{ isReadonly ? t('common.close') : t('common.cancel') }}</n-button>
         <n-button v-if="!isReadonly" type="primary" @click="handleSave" :loading="saving">{{ t('rightPanel.skills.save') }}</n-button>
       </div>
     </template>
@@ -190,7 +190,7 @@ const invocationName = computed(() => {
 })
 
 // 监听 skill prop 变化，加载内容
-watch(() => props.skill, async (skill) => {
+const loadSkillContent = async (skill) => {
   if (skill) {
     // 编辑模式：加载完整的原始内容
     form.value.isEdit = true
@@ -229,7 +229,16 @@ description: 描述
 技能内容...
 `
   }
-}, { immediate: true })
+}
+
+watch(() => props.skill, loadSkillContent, { immediate: true })
+
+// 监听模态框打开，重新加载内容（修复取消后再次打开仍保留改动的问题）
+watch(() => props.modelValue, (newVal) => {
+  if (newVal) {
+    loadSkillContent(props.skill)
+  }
+})
 
 // 监听 source prop 变化
 watch(() => props.source, (source) => {
