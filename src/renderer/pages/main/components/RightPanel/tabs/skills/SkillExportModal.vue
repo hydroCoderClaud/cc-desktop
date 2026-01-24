@@ -92,14 +92,23 @@ const exporting = ref(false)
 // 重置表单当打开
 watch(visible, (val) => {
   if (val) {
+    // 默认选中第一个 skill
+    const defaultSkillId = props.skills.user?.[0]?.id || ''
     form.value = {
       source: 'user',
       scope: 'single',
-      skillId: '',
+      skillId: defaultSkillId,
       skillIds: [],
       format: 'zip'
     }
   }
+})
+
+// 切换 source 时更新默认选中
+watch(() => form.value.source, (source) => {
+  const skills = source === 'user' ? props.skills.user : props.skills.project
+  form.value.skillId = skills?.[0]?.id || ''
+  form.value.skillIds = []
 })
 
 const exportableSkills = computed(() => {
