@@ -84,42 +84,30 @@ const form = ref({
 
 const copying = ref(false)
 
-// 监听 skill 变化，初始化表单
-watch(() => props.skill, (skill) => {
-  if (skill) {
-    const fromSource = skill.source
-    // 默认目标：如果来自项目则默认到全局，如果来自全局则默认到项目（如果有项目的话）
-    let defaultTarget = fromSource === 'project' ? 'user' : 'project'
-    if (defaultTarget === 'project' && !props.projectPath) {
-      defaultTarget = 'user'  // 没有项目时默认到全局
-    }
+// 初始化表单函数
+const initForm = (skill, projectPath) => {
+  if (!skill) return
 
-    form.value = {
-      fromSource,
-      toSource: defaultTarget,
-      skillId: skill.id,
-      newSkillId: '',
-      existsInTarget: false
-    }
+  const fromSource = skill.source
+  // 默认目标：如果来自项目则默认到全局，如果来自全局则默认到项目（如果有项目的话）
+  let defaultTarget = fromSource === 'project' ? 'user' : 'project'
+  if (defaultTarget === 'project' && !projectPath) {
+    defaultTarget = 'user'  // 没有项目时默认到全局
   }
-}, { immediate: true })
 
-// 监听模态框打开，重置表单状态
+  form.value = {
+    fromSource,
+    toSource: defaultTarget,
+    skillId: skill.id,
+    newSkillId: '',
+    existsInTarget: false
+  }
+}
+
+// 监听模态框打开，初始化表单
 watch(() => props.modelValue, (newVal) => {
   if (newVal && props.skill) {
-    const fromSource = props.skill.source
-    let defaultTarget = fromSource === 'project' ? 'user' : 'project'
-    if (defaultTarget === 'project' && !props.projectPath) {
-      defaultTarget = 'user'
-    }
-
-    form.value = {
-      fromSource,
-      toSource: defaultTarget,
-      skillId: props.skill.id,
-      newSkillId: '',
-      existsInTarget: false
-    }
+    initForm(props.skill, props.projectPath)
   }
 })
 

@@ -104,15 +104,14 @@ ${content}
   },
 
   /**
-   * 更新 SKILL.md 中的 name 字段
+   * 更新 SKILL.md 中的 name 字段（保留其他所有 frontmatter 字段）
    */
   _updateSkillName(skillMdPath, newName) {
     try {
       const content = fs.readFileSync(skillMdPath, 'utf-8')
-      const frontmatter = this._parseYamlFrontmatter(skillMdPath) || {}
-      const body = this._extractBodyContent(content)
-      const newContent = this._generateSkillMd({ name: newName, description: frontmatter.description || '', content: body })
-      fs.writeFileSync(skillMdPath, newContent, 'utf-8')
+      // 使用正则直接替换 name 字段的值，保留其他所有内容
+      const updatedContent = content.replace(/^(name:\s*)(.*)$/m, `$1${newName}`)
+      fs.writeFileSync(skillMdPath, updatedContent, 'utf-8')
       console.log(`[SkillsManager] Updated skill name to: ${newName}`)
     } catch (err) {
       console.error('[SkillsManager] Failed to update skill name:', err)

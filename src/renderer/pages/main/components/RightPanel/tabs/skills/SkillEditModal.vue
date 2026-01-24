@@ -247,19 +247,6 @@ watch(() => props.source, (source) => {
   }
 })
 
-// 监听 skillId 变化，同步更新内容中的 name 字段
-watch(() => form.value.skillId, (newId) => {
-  if (!newId) return
-
-  const content = form.value.rawContent
-  const nameRegex = /^(name:\s*)(.*)$/m
-
-  if (nameRegex.test(content)) {
-    // 直接替换 name 字段为新的 skillId
-    form.value.rawContent = content.replace(nameRegex, `$1${newId}`)
-  }
-})
-
 const handleSave = async () => {
   if (!form.value.isEdit && !form.value.skillId) {
     message.warning(t('rightPanel.skills.skillIdRequired'))
