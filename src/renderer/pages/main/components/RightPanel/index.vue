@@ -28,6 +28,7 @@
             :terminal-busy="terminalBusy"
             @send-command="handleSendToTerminal"
             @insert-to-input="handleInsertToInput"
+            @add-to-queue="handleAddToQueue"
             @save-as-prompt="handleCreatePrompt"
           />
         </KeepAlive>

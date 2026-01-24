@@ -168,6 +168,13 @@
             </button>
             <button
               class="icon-btn small"
+              :title="t('rightPanel.quickInput.addToQueue')"
+              @click="handleAddToQueue(prompt)"
+            >
+              +
+            </button>
+            <button
+              class="icon-btn small"
               :title="t('common.edit')"
               @click="handleEdit(prompt)"
             >
@@ -319,7 +326,7 @@ const props = defineProps({
   currentProject: Object
 })
 
-const emit = defineEmits(['send-command', 'insert-to-input'])
+const emit = defineEmits(['send-command', 'insert-to-input', 'add-to-queue'])
 
 // Use prompts composable
 const {
@@ -423,6 +430,10 @@ const handleInsert = async (prompt) => {
 
 const handleInsertToInput = (prompt) => {
   emit('insert-to-input', prompt.content)
+}
+
+const handleAddToQueue = (prompt) => {
+  emit('add-to-queue', prompt.content)
 }
 
 const handleToggleFavorite = async (prompt) => {
