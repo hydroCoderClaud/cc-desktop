@@ -182,15 +182,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // Skills 管理 (来自插件和项目级)
   // ========================================
-  listSkills: () => ipcRenderer.invoke('skills:list'),  // 兼容旧接口
   listSkillsGlobal: () => ipcRenderer.invoke('skills:listGlobal'),
   listSkillsProject: (projectPath) => ipcRenderer.invoke('skills:listProject', projectPath),
   listSkillsAll: (projectPath) => ipcRenderer.invoke('skills:listAll', projectPath),
-  createSkill: (params) => ipcRenderer.invoke('skills:create', params),
-  updateSkill: (params) => ipcRenderer.invoke('skills:update', params),
   deleteSkill: (params) => ipcRenderer.invoke('skills:delete', params),
   copySkill: (params) => ipcRenderer.invoke('skills:copy', params),
-  getSkillContent: (params) => ipcRenderer.invoke('skills:getContent', params),
+  getSkillRawContent: (params) => ipcRenderer.invoke('skills:getRawContent', params),
+  createSkillRaw: (params) => ipcRenderer.invoke('skills:createRaw', params),
+  updateSkillRaw: (params) => ipcRenderer.invoke('skills:updateRaw', params),
   openSkillsFolder: (params) => ipcRenderer.invoke('skills:openFolder', params),
   // 导入导出
   validateSkillImport: (sourcePath) => ipcRenderer.invoke('skills:validateImport', sourcePath),

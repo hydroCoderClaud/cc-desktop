@@ -84,75 +84,6 @@ const skillsCrudMixin = {
   // ========== CRUD 操作 ==========
 
   /**
-   * 创建新 Skill
-   */
-  async createSkill(params) {
-    try {
-      const validation = this._validateParams(params)
-      if (!validation.valid) return { success: false, error: validation.error }
-
-      const { source, skillId, name, description, content, projectPath } = params
-
-      if (!/^[a-zA-Z0-9-]+$/.test(skillId)) {
-        return { success: false, error: 'Skill ID 只能包含字母、数字和连字符' }
-      }
-
-      const skillDir = this._getSkillDir(source, skillId, projectPath)
-      if (fs.existsSync(skillDir)) {
-        return { success: false, error: `Skill "${skillId}" 已存在` }
-      }
-
-      fs.mkdirSync(skillDir, { recursive: true })
-      const mdContent = this._generateSkillMd({
-        name: name || skillId,
-        description: description || '',
-        content: content || `# ${name || skillId}\n\n请在此编写技能内容。`
-      })
-      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), mdContent, 'utf-8')
-
-      console.log(`[SkillsManager] Created skill: ${skillId} (${source})`)
-      return { success: true, skill: { id: skillId, name: name || skillId, description: description || '', source, skillPath: skillDir } }
-    } catch (err) {
-      console.error('[SkillsManager] Failed to create skill:', err)
-      return { success: false, error: err.message }
-    }
-  },
-
-  /**
-   * 更新 Skill
-   */
-  async updateSkill(params) {
-    try {
-      const validation = this._validateParams(params)
-      if (!validation.valid) return { success: false, error: validation.error }
-
-      const { source, skillId, name, description, content, projectPath } = params
-      const skillMdPath = path.join(this._getSkillDir(source, skillId, projectPath), 'SKILL.md')
-
-      if (!fs.existsSync(skillMdPath)) {
-        return { success: false, error: `Skill "${skillId}" 不存在` }
-      }
-
-      const existingContent = fs.readFileSync(skillMdPath, 'utf-8')
-      const existingFrontmatter = this._parseYamlFrontmatter(skillMdPath) || {}
-      const existingBody = this._extractBodyContent(existingContent)
-
-      const mdContent = this._generateSkillMd({
-        name: name !== undefined ? name : existingFrontmatter.name,
-        description: description !== undefined ? description : existingFrontmatter.description,
-        content: content !== undefined ? content : existingBody
-      })
-      fs.writeFileSync(skillMdPath, mdContent, 'utf-8')
-
-      console.log(`[SkillsManager] Updated skill: ${skillId} (${source})`)
-      return { success: true }
-    } catch (err) {
-      console.error('[SkillsManager] Failed to update skill:', err)
-      return { success: false, error: err.message }
-    }
-  },
-
-  /**
    * 删除 Skill
    */
   async deleteSkill(params) {
@@ -177,15 +108,22 @@ const skillsCrudMixin = {
   },
 
   /**
-   * 读取 Skill 详细内容
+   * 读取 Skill 原始内容（完整的 SKILL.md 文件）
    */
-  async getSkillContent(params) {
+  async getSkillRawContent(params) {
     try {
       const validation = this._validateParams(params)
       if (!validation.valid) return { success: false, error: validation.error }
 
-      const { source, skillId, projectPath } = params
-      const skillDir = this._getSkillDir(source, skillId, projectPath)
+      const { source, skillId, projectPath, skillPath: providedSkillPath } = params
+
+      let skillDir
+      if ((source === 'official' || source === 'plugin') && providedSkillPath) {
+        skillDir = providedSkillPath
+      } else {
+        skillDir = this._getSkillDir(source, skillId, projectPath)
+      }
+
       const skillMdPath = path.join(skillDir, 'SKILL.md')
 
       if (!fs.existsSync(skillMdPath)) {
@@ -193,12 +131,67 @@ const skillsCrudMixin = {
       }
 
       const content = fs.readFileSync(skillMdPath, 'utf-8')
-      const frontmatter = this._parseYamlFrontmatter(skillMdPath) || {}
-      const body = this._extractBodyContent(content)
-
-      return { success: true, skill: { id: skillId, name: frontmatter.name || skillId, description: frontmatter.description || '', content: body, source, skillPath: skillDir } }
+      return { success: true, content, skillPath: skillDir }
     } catch (err) {
-      console.error('[SkillsManager] Failed to get skill content:', err)
+      console.error('[SkillsManager] Failed to get skill raw content:', err)
+      return { success: false, error: err.message }
+    }
+  },
+
+  /**
+   * 创建 Skill（原始内容模式）
+   */
+  async createSkillRaw(params) {
+    try {
+      const { source, skillId, rawContent, projectPath } = params
+
+      if (!skillId) {
+        return { success: false, error: '缺少必要参数: skillId' }
+      }
+      if (!/^[a-zA-Z0-9-]+$/.test(skillId)) {
+        return { success: false, error: 'Skill ID 只能包含字母、数字和连字符' }
+      }
+
+      const skillDir = this._getSkillDir(source, skillId, projectPath)
+      if (fs.existsSync(skillDir)) {
+        return { success: false, error: `Skill "${skillId}" 已存在` }
+      }
+
+      fs.mkdirSync(skillDir, { recursive: true })
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), rawContent || '', 'utf-8')
+
+      console.log(`[SkillsManager] Created skill (raw): ${skillId} (${source})`)
+      return { success: true, skillPath: skillDir }
+    } catch (err) {
+      console.error('[SkillsManager] Failed to create skill (raw):', err)
+      return { success: false, error: err.message }
+    }
+  },
+
+  /**
+   * 更新 Skill（原始内容模式）
+   */
+  async updateSkillRaw(params) {
+    try {
+      const { source, skillId, rawContent, projectPath } = params
+
+      if (!skillId) {
+        return { success: false, error: '缺少必要参数: skillId' }
+      }
+
+      const skillDir = this._getSkillDir(source, skillId, projectPath)
+      const skillMdPath = path.join(skillDir, 'SKILL.md')
+
+      if (!fs.existsSync(skillMdPath)) {
+        return { success: false, error: `Skill "${skillId}" 不存在` }
+      }
+
+      fs.writeFileSync(skillMdPath, rawContent || '', 'utf-8')
+
+      console.log(`[SkillsManager] Updated skill (raw): ${skillId} (${source})`)
+      return { success: true }
+    } catch (err) {
+      console.error('[SkillsManager] Failed to update skill (raw):', err)
       return { success: false, error: err.message }
     }
   },
@@ -246,12 +239,6 @@ const skillsCrudMixin = {
     }
   },
 
-  // ========== 兼容旧接口 ==========
-
-  /** @deprecated 使用 getOfficialSkills() 代替 */
-  async getGlobalSkills() {
-    return this.getOfficialSkills()
-  }
 }
 
 module.exports = { skillsCrudMixin }

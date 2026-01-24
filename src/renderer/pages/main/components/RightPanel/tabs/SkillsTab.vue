@@ -69,7 +69,10 @@
               </div>
               <div v-if="expandedCategories.includes(cat.name)" class="category-items">
                 <div v-for="skill in cat.skills" :key="skill.fullName" class="skill-item" @click="handleSkillClick(skill)">
-                  <div class="skill-row"><span class="skill-name">/{{ skill.fullName }}</span></div>
+                  <div class="skill-row">
+                    <span class="skill-name">/{{ skill.fullName }}</span>
+                    <button class="item-btn view" :title="t('rightPanel.skills.viewOfficial')" @click.stop="showViewModal(skill)">👁</button>
+                  </div>
                   <span class="skill-desc">{{ skill.description }}</span>
                 </div>
               </div>
@@ -226,6 +229,13 @@ const showEditModal = (skill) => {
   editModalVisible.value = true
 }
 
+// 查看官方技能（只读模式）
+const showViewModal = (skill) => {
+  editSkill.value = skill
+  editSource.value = skill.source
+  editModalVisible.value = true
+}
+
 // Delete Modal
 const showDeleteModal = (skill) => { deleteTarget.value = skill; deleteModalVisible.value = true }
 
@@ -335,6 +345,11 @@ onMounted(loadSkills)
 .skill-row { display: flex; align-items: center; gap: 8px; }
 .skill-name { font-size: 13px; font-weight: 500; color: var(--primary-color); flex: 1; }
 .skill-desc { font-size: 11px; color: var(--text-color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* View button for official skills */
+.item-btn { width: 22px; height: 22px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transition: all 0.15s ease; }
+.skill-item:hover .item-btn { opacity: 0.7; }
+.item-btn:hover { background: var(--hover-bg); opacity: 1 !important; }
 
 /* Group badge for official skills */
 .group-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }

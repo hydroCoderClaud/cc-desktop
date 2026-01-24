@@ -82,11 +82,13 @@ const skillsUtilsMixin = {
 
   /**
    * 生成 SKILL.md 文件内容
+   * name: 调用名称（默认等于目录名，可自定义）
+   * description: 描述
    */
   _generateSkillMd({ name, description, content }) {
     return `---
-name: ${name}
-description: ${description}
+name: ${name || ''}
+description: ${description || ''}
 ---
 
 ${content}

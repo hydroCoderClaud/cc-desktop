@@ -78,24 +78,14 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 获取所有 Skills 聚合列表 (兼容旧接口)
-  ipcMain.handle('skills:list', async () => {
-    try {
-      return await skillsManager.getGlobalSkills()
-    } catch (err) {
-      console.error('[IPC] skills:list error:', err)
-      return []
-    }
-  })
-
   // ========================================
   // Skills Manager IPC Handlers
   // ========================================
 
-  // 获取全局 Skills
+  // 获取官方全局 Skills
   ipcMain.handle('skills:listGlobal', async () => {
     try {
-      return await skillsManager.getGlobalSkills()
+      return await skillsManager.getOfficialSkills()
     } catch (err) {
       console.error('[IPC] skills:listGlobal error:', err)
       return []
@@ -120,32 +110,6 @@ function setupPluginHandlers(ipcMain) {
     } catch (err) {
       console.error('[IPC] skills:listAll error:', err)
       return { official: [], user: [], project: [], all: [] }
-    }
-  })
-
-  // 创建 Skill
-  ipcMain.handle('skills:create', async (event, params) => {
-    try {
-      if (!params || typeof params !== 'object') {
-        return { success: false, error: 'Invalid parameters' }
-      }
-      return await skillsManager.createSkill(params)
-    } catch (err) {
-      console.error('[IPC] skills:create error:', err)
-      return { success: false, error: err.message }
-    }
-  })
-
-  // 更新 Skill
-  ipcMain.handle('skills:update', async (event, params) => {
-    try {
-      if (!params || typeof params !== 'object') {
-        return { success: false, error: 'Invalid parameters' }
-      }
-      return await skillsManager.updateSkill(params)
-    } catch (err) {
-      console.error('[IPC] skills:update error:', err)
-      return { success: false, error: err.message }
     }
   })
 
@@ -175,15 +139,41 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 获取 Skill 内容
-  ipcMain.handle('skills:getContent', async (event, params) => {
+  // 获取 Skill 原始内容（完整 SKILL.md）
+  ipcMain.handle('skills:getRawContent', async (event, params) => {
     try {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
-      return await skillsManager.getSkillContent(params)
+      return await skillsManager.getSkillRawContent(params)
     } catch (err) {
-      console.error('[IPC] skills:getContent error:', err)
+      console.error('[IPC] skills:getRawContent error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 创建 Skill（原始内容模式）
+  ipcMain.handle('skills:createRaw', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.createSkillRaw(params)
+    } catch (err) {
+      console.error('[IPC] skills:createRaw error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新 Skill（原始内容模式）
+  ipcMain.handle('skills:updateRaw', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.updateSkillRaw(params)
+    } catch (err) {
+      console.error('[IPC] skills:updateRaw error:', err)
       return { success: false, error: err.message }
     }
   })
