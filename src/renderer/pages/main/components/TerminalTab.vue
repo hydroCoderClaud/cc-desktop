@@ -43,6 +43,7 @@ const terminalRef = ref(null)
 // Terminal instance
 let terminal = null
 let fitAddon = null
+let webglAddon = null  // 保存 WebGL addon 引用
 let resizeObserver = null
 let resizeTimer = null
 let initialized = ref(false)
@@ -80,15 +81,21 @@ const initTerminal = async () => {
   // 优先使用 WebGL 渲染器，失败则回退 Canvas，再失败用 DOM
   if (window.WebglAddon) {
     try {
-      const webglAddon = new window.WebglAddon.WebglAddon()
+      webglAddon = new window.WebglAddon.WebglAddon()
       webglAddon.onContextLoss(() => {
         console.warn('[Terminal] WebGL context lost, disposing addon')
-        webglAddon.dispose()
+        try {
+          webglAddon.dispose()
+        } catch (e) {
+          // 忽略 dispose 错误
+        }
+        webglAddon = null
       })
       terminal.loadAddon(webglAddon)
       console.log('[Terminal] Using WebGL renderer')
     } catch (e) {
       console.warn('[Terminal] WebGL failed, trying Canvas:', e)
+      webglAddon = null
       if (window.CanvasAddon) {
         try {
           terminal.loadAddon(new window.CanvasAddon.CanvasAddon())
@@ -343,8 +350,21 @@ onUnmounted(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+  // 先 dispose WebGL addon，再 dispose terminal
+  if (webglAddon) {
+    try {
+      webglAddon.dispose()
+    } catch (e) {
+      // 忽略 WebGL dispose 错误
+    }
+    webglAddon = null
+  }
   if (terminal) {
-    terminal.dispose()
+    try {
+      terminal.dispose()
+    } catch (e) {
+      // 忽略 terminal dispose 错误
+    }
     terminal = null
   }
 })
