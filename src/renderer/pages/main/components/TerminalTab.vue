@@ -70,11 +70,35 @@ const initTerminal = async () => {
     fontFamily: props.fontFamily,
     lineHeight: 1.2,
     theme: getTerminalTheme(),
-    convertEol: true
+    convertEol: true,
+    allowProposedApi: true  // WebGL addon 需要
   })
 
   fitAddon = new window.FitAddon.FitAddon()
   terminal.loadAddon(fitAddon)
+
+  // 优先使用 WebGL 渲染器，失败则回退 Canvas，再失败用 DOM
+  if (window.WebglAddon) {
+    try {
+      const webglAddon = new window.WebglAddon.WebglAddon()
+      webglAddon.onContextLoss(() => {
+        console.warn('[Terminal] WebGL context lost, disposing addon')
+        webglAddon.dispose()
+      })
+      terminal.loadAddon(webglAddon)
+      console.log('[Terminal] Using WebGL renderer')
+    } catch (e) {
+      console.warn('[Terminal] WebGL failed, trying Canvas:', e)
+      if (window.CanvasAddon) {
+        try {
+          terminal.loadAddon(new window.CanvasAddon.CanvasAddon())
+          console.log('[Terminal] Using Canvas renderer')
+        } catch (e2) {
+          console.warn('[Terminal] Canvas failed, using DOM renderer:', e2)
+        }
+      }
+    }
+  }
 
   if (window.WebLinksAddon) {
     // 自定义链接处理：使用系统默认浏览器打开
@@ -376,27 +400,5 @@ defineExpose({
 
 .terminal :deep(.xterm-viewport) {
   overflow-y: scroll !important;
-}
-
-/* IME textarea 修复 - 使用 fixed 定位固定在终端左下角 */
-.terminal :deep(.xterm-helper-textarea) {
-  position: fixed !important;
-  left: 280px !important;
-  bottom: 50px !important;
-  top: auto !important;
-  border: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  outline: none !important;
-}
-
-/* 隐藏 xterm.js 的 IME 组合文字显示 */
-.terminal :deep(.xterm-composition-view) {
-  display: none !important;
-}
-
-/* 隐藏右下角的光标 */
-.terminal :deep(.xterm-cursor-layer) {
-  display: none !important;
 }
 </style>
