@@ -445,7 +445,7 @@ export default {
       placeholder: 'Ask a question...',
       clear: 'Clear chat',
       clearConfirm: 'Clear chat history?',
-      insertToInput: 'Insert',
+      insertToInput: 'Fill to input',
       notConfigured: 'AI assistant is not configured. Please set up API in settings.',
       error: 'Request failed. Please try again.',
       tokenInfo: 'Current context token count',

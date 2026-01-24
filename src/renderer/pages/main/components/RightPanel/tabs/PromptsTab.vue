@@ -161,10 +161,10 @@
           <div class="prompt-actions">
             <button
               class="icon-btn small"
-              :title="t('rightPanel.prompts.insert')"
-              @click="handleInsert(prompt)"
+              :title="t('rightPanel.prompts.insertToInput')"
+              @click="handleInsertToInput(prompt)"
             >
-              ▶
+              ⬇
             </button>
             <button
               class="icon-btn small"
@@ -419,6 +419,10 @@ const handleDelete = async (prompt) => {
 const handleInsert = async (prompt) => {
   emit('send-command', prompt.content)
   await incrementUsage(prompt.id)
+}
+
+const handleInsertToInput = (prompt) => {
+  emit('insert-to-input', prompt.content)
 }
 
 const handleToggleFavorite = async (prompt) => {

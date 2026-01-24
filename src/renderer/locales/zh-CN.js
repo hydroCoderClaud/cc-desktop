@@ -445,7 +445,7 @@ export default {
       placeholder: '输入问题...',
       clear: '清空对话',
       clearConfirm: '确定清空对话历史吗？',
-      insertToInput: '插入',
+      insertToInput: '填入输入框',
       notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
       error: '请求失败，请稍后重试',
       tokenInfo: '当前上下文 Token 数量',
