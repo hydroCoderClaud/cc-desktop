@@ -25,99 +25,124 @@
 
       <!-- Server List -->
       <div v-else class="server-list">
-        <!-- Project Servers -->
-        <div class="server-group" v-if="currentProject">
-          <div class="group-header" @click="toggleGroup('project')">
-            <span class="group-icon">{{ expandedGroups.includes('project') ? '▼' : '▶' }}</span>
-            <span class="group-title">{{ t('rightPanel.mcp.project') }}</span>
-            <span class="group-count">({{ projectServers.length }})</span>
-          </div>
-          <div v-if="expandedGroups.includes('project')" class="group-items">
-            <div v-if="projectServers.length === 0" class="empty-hint-inline">
-              {{ t('rightPanel.mcp.noServersInGroup') }}
-            </div>
-            <div
-              v-for="server in projectServers"
-              :key="server.name"
-              class="server-item"
-            >
-              <div class="server-main">
-                <div class="server-header">
-                  <span class="server-name">{{ server.name }}</span>
-                </div>
-                <div class="server-content">
-                  <div class="server-command">
-                    <span class="label">{{ t('rightPanel.mcp.command') }}:</span>
-                    <code>{{ server.command }}</code>
-                  </div>
-                  <div v-if="server.args && server.args.length > 0" class="server-args">
-                    <span class="label">{{ t('rightPanel.mcp.args') }}:</span>
-                    <code>{{ server.args.join(' ') }}</code>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- User Servers -->
+        <MCPGroup
+          :title="t('rightPanel.mcp.userScope')"
+          :servers="mcpData.user"
+          :expanded="expandedGroups.includes('user')"
+          :editable="true"
+          @toggle="toggleGroup('user')"
+          @create="handleCreate('user')"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @copy="handleCopy"
+          @click="handleClick"
+        />
 
-        <!-- Plugin Servers (Global) -->
-        <div class="server-group">
-          <div class="group-header" @click="toggleGroup('plugin')">
-            <span class="group-icon">{{ expandedGroups.includes('plugin') ? '▼' : '▶' }}</span>
-            <span class="group-title">{{ t('rightPanel.mcp.pluginServers') }}</span>
-            <span class="group-count">({{ globalServers.length }})</span>
-          </div>
-          <div v-if="expandedGroups.includes('plugin')" class="group-items">
-            <div v-if="globalServers.length === 0" class="empty-hint-inline">
-              {{ t('rightPanel.mcp.noServersInGroup') }}
-            </div>
-            <div
-              v-for="server in globalServers"
-              :key="`${server.pluginId}-${server.name}`"
-              class="server-item"
-            >
-              <div class="server-main">
-                <div class="server-header">
-                  <span class="server-name">{{ server.name }}</span>
-                  <span class="plugin-badge">{{ server.pluginShortName || server.category }}</span>
-                </div>
-                <div class="server-content">
-                  <div class="server-command">
-                    <span class="label">{{ t('rightPanel.mcp.command') }}:</span>
-                    <code>{{ server.command }}</code>
-                  </div>
-                  <div v-if="server.args && server.args.length > 0" class="server-args">
-                    <span class="label">{{ t('rightPanel.mcp.args') }}:</span>
-                    <code>{{ server.args.join(' ') }}</code>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Local Servers -->
+        <MCPGroup
+          v-if="currentProject"
+          :title="t('rightPanel.mcp.localScope')"
+          :servers="mcpData.local"
+          :expanded="expandedGroups.includes('local')"
+          :editable="true"
+          @toggle="toggleGroup('local')"
+          @create="handleCreate('local')"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @copy="handleCopy"
+          @click="handleClick"
+        />
+
+        <!-- Project Servers -->
+        <MCPGroup
+          v-if="currentProject"
+          :title="t('rightPanel.mcp.projectScope')"
+          :servers="mcpData.project"
+          :expanded="expandedGroups.includes('project')"
+          :editable="true"
+          @toggle="toggleGroup('project')"
+          @create="handleCreate('project')"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @copy="handleCopy"
+          @click="handleClick"
+        />
+
+        <!-- Plugin Servers -->
+        <MCPGroup
+          :title="t('rightPanel.mcp.pluginScope')"
+          :servers="mcpData.plugin"
+          :expanded="expandedGroups.includes('plugin')"
+          :editable="false"
+          @toggle="toggleGroup('plugin')"
+          @copy="handleCopy"
+          @click="handleClick"
+          @view="handleView"
+        />
       </div>
     </div>
+
+    <!-- Edit Modal -->
+    <MCPEditModal
+      v-model:show="showEditModal"
+      :mcp="editingMcp"
+      :scope="editingScope"
+      :project-path="currentProject?.path"
+      :readonly="editingReadonly"
+      @saved="handleRefresh"
+    />
+
+    <!-- Copy Modal -->
+    <MCPCopyModal
+      v-model:show="showCopyModal"
+      :mcp="copyingMcp"
+      :project-path="currentProject?.path"
+      @copied="handleRefresh"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import MCPGroup from '../mcp/MCPGroup.vue'
+import MCPEditModal from '../mcp/MCPEditModal.vue'
+import MCPCopyModal from '../mcp/MCPCopyModal.vue'
 
 const { t } = useLocale()
+const dialog = useDialog()
+const message = useMessage()
 
 const props = defineProps({
   currentProject: Object
 })
 
+const emit = defineEmits(['send-command'])
+
 // State
 const loading = ref(false)
-const globalServers = ref([])
-const projectServers = ref([])
-const expandedGroups = ref(['project', 'plugin'])
+const mcpData = ref({ user: [], local: [], project: [], plugin: [] })
+const expandedGroups = ref(['user', 'local', 'project', 'plugin'])
+
+// Edit Modal
+const showEditModal = ref(false)
+const editingMcp = ref(null)
+const editingScope = ref('')
+const editingReadonly = ref(false)
+
+// Copy Modal
+const showCopyModal = ref(false)
+const copyingMcp = ref(null)
 
 // Computed
-const totalCount = computed(() => globalServers.value.length + projectServers.value.length)
+const totalCount = computed(() => {
+  return mcpData.value.user.length +
+         mcpData.value.local.length +
+         mcpData.value.project.length +
+         mcpData.value.plugin.length
+})
 
 // Methods
 const toggleGroup = (group) => {
@@ -136,24 +161,71 @@ const handleRefresh = async () => {
 const loadServers = async () => {
   loading.value = true
   try {
-    // 加载全局 MCP（来自插件）
-    const global = await window.electronAPI.listMcpGlobal()
-    globalServers.value = global
-
-    // 加载项目级 MCP
-    if (props.currentProject?.path) {
-      const project = await window.electronAPI.listMcpProject(props.currentProject.path)
-      projectServers.value = project
-    } else {
-      projectServers.value = []
-    }
+    const result = await window.electronAPI.listMcpAll(props.currentProject?.path)
+    mcpData.value = result
   } catch (err) {
     console.error('Failed to load MCP servers:', err)
-    globalServers.value = []
-    projectServers.value = []
+    mcpData.value = { user: [], local: [], project: [], plugin: [] }
   } finally {
     loading.value = false
   }
+}
+
+const handleCreate = (scope) => {
+  editingMcp.value = null
+  editingScope.value = scope
+  editingReadonly.value = false
+  showEditModal.value = true
+}
+
+const handleEdit = (server) => {
+  editingMcp.value = server
+  editingScope.value = server.source
+  editingReadonly.value = false
+  showEditModal.value = true
+}
+
+const handleView = (server) => {
+  editingMcp.value = server
+  editingScope.value = server.source
+  editingReadonly.value = true
+  showEditModal.value = true
+}
+
+const handleDelete = (server) => {
+  dialog.warning({
+    title: t('rightPanel.mcp.confirmDelete'),
+    content: t('rightPanel.mcp.confirmDeleteContent', { name: server.name }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        const result = await window.electronAPI.deleteMcp({
+          scope: server.source,
+          projectPath: props.currentProject?.path,
+          name: server.name
+        })
+        if (result.success) {
+          message.success(t('rightPanel.mcp.deleteSuccess'))
+          await loadServers()
+        } else {
+          message.error(result.error || t('common.deleteFailed'))
+        }
+      } catch (err) {
+        console.error('Delete MCP failed:', err)
+        message.error(t('common.deleteFailed'))
+      }
+    }
+  })
+}
+
+const handleCopy = (server) => {
+  copyingMcp.value = server
+  showCopyModal.value = true
+}
+
+const handleClick = (server) => {
+  emit('send-command', `/${server.name}`)
 }
 
 // Watch project change
@@ -216,7 +288,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* Loading State */
 .loading-state {
   display: flex;
   align-items: center;
@@ -236,7 +307,6 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Empty State */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -265,116 +335,7 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* Server List */
 .server-list {
   padding: 8px 0;
-}
-
-.server-group {
-  margin-bottom: 8px;
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.group-header:hover {
-  background: var(--hover-bg);
-}
-
-.group-icon {
-  font-size: 10px;
-  width: 12px;
-}
-
-.group-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.group-count {
-  font-size: 12px;
-  color: var(--text-color-muted);
-}
-
-.group-items {
-  padding: 4px 8px;
-}
-
-.empty-hint-inline {
-  padding: 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-color-muted);
-}
-
-.server-item {
-  display: flex;
-  align-items: stretch;
-  margin: 4px 0;
-  border-radius: 6px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.server-main {
-  flex: 1;
-  padding: 10px 12px;
-  min-width: 0;
-}
-
-.server-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.server-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.plugin-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  background: var(--primary-color);
-  color: white;
-  border-radius: 3px;
-}
-
-.server-content {
-  font-size: 11px;
-  color: var(--text-color-muted);
-}
-
-.server-command,
-.server-args {
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.server-command .label,
-.server-args .label {
-  color: var(--text-color-muted);
-  margin-right: 4px;
-}
-
-.server-command code,
-.server-args code {
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--text-color);
 }
 </style>

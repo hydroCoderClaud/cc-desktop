@@ -9,6 +9,7 @@ export default {
     confirm: 'Confirm',
     delete: 'Delete',
     edit: 'Edit',
+    view: 'View',
     add: 'Add',
     close: 'Close',
     collapse: 'Collapse',
@@ -370,8 +371,8 @@ export default {
     // MCP
     mcp: {
       empty: 'No MCP servers configured',
-      emptyHint: 'Configure servers in .mcp.json',
-      refresh: 'Refresh status',
+      emptyHint: 'Add MCP servers in configuration files',
+      refresh: 'Refresh',
       global: 'Global',
       project: 'Project',
       pluginServers: 'Plugin MCP',
@@ -381,7 +382,33 @@ export default {
       error: 'Error',
       command: 'Command',
       args: 'Args',
-      noServersInGroup: 'No MCP servers'
+      noServersInGroup: 'No MCP servers',
+      // Four-level classification
+      userScope: 'User MCP (Cross-project)',
+      localScope: 'Local MCP (Project private)',
+      projectScope: 'Project MCP (Shareable)',
+      pluginScope: 'Plugin MCP (Read-only)',
+      // CRUD
+      create: 'New',
+      createMcp: 'New MCP Server',
+      editMcp: 'Edit MCP Server',
+      viewMcp: 'View MCP Server',
+      saveTo: 'Save to',
+      copyTo: 'Copy to',
+      copySuccess: 'Copied successfully',
+      copyFailed: 'Copy failed',
+      targetUser: 'User',
+      targetLocal: 'Local',
+      targetProject: 'Project',
+      formatJson: 'Format',
+      invalidJson: 'Invalid JSON',
+      singleMcpRequired: 'Please enter a single MCP configuration',
+      invalidConfig: 'Invalid configuration format',
+      jsonHint: 'Enter complete MCP config: { "mcp-name": { config } }',
+      confirmDelete: 'Confirm Delete',
+      confirmDeleteContent: 'Are you sure you want to delete MCP Server "{name}"?',
+      deleteSuccess: 'Deleted successfully',
+      readonly: 'Read-only'
     },
     // Agents
     agents: {

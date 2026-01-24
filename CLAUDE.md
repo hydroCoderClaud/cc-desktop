@@ -191,6 +191,40 @@ src/
 - **CSP**: 限制资源来源为 self + CDN
 - **contextBridge**: 仅暴露 preload.js 中定义的 API
 
+## 常见陷阱
+
+### 1. Vue Proxy 对象无法通过 IPC 传输
+
+**错误信息**：`An object could not be cloned`
+
+**原因**：Vue 3 的响应式对象是 Proxy，无法被 Electron IPC 的结构化克隆算法处理。
+
+**解决方案**：在通过 IPC 发送前，使用深拷贝转换为普通对象：
+```javascript
+// ❌ 错误
+await window.electronAPI.someApi(props.reactiveObject)
+
+// ✅ 正确
+const plainObject = JSON.parse(JSON.stringify(props.reactiveObject))
+await window.electronAPI.someApi(plainObject)
+```
+
+### 2. Naive UI Dialog 回调属性名
+
+**错误**：使用 `onPositive` / `onNegative` 无效
+
+**正确属性名**：
+```javascript
+dialog.warning({
+  title: '确认',
+  content: '确定删除？',
+  positiveText: '删除',
+  negativeText: '取消',
+  onPositiveClick: async () => { /* ... */ },  // ✅ 不是 onPositive
+  onNegativeClick: () => { /* ... */ }         // ✅ 不是 onNegative
+})
+```
+
 ---
 
 ## 当前状态

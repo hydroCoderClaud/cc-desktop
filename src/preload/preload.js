@@ -220,11 +220,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveHooksJson: (params) => ipcRenderer.invoke('hooks:saveJson', params),
 
   // ========================================
-  // MCP 管理 (来自插件和项目级，自动加载)
+  // MCP 管理 (四级: User/Local/Project/Plugin)
   // ========================================
-  listMcpGlobal: () => ipcRenderer.invoke('mcp:listGlobal'),
-  listMcpProject: (projectPath) => ipcRenderer.invoke('mcp:listProject', projectPath),
   listMcpAll: (projectPath) => ipcRenderer.invoke('mcp:listAll', projectPath),
+  listMcpUser: () => ipcRenderer.invoke('mcp:listUser'),
+  listMcpLocal: (projectPath) => ipcRenderer.invoke('mcp:listLocal', projectPath),
+  listMcpProject: (projectPath) => ipcRenderer.invoke('mcp:listProject', projectPath),
+  listMcpPlugin: () => ipcRenderer.invoke('mcp:listPlugin'),
+  listMcpGlobal: () => ipcRenderer.invoke('mcp:listGlobal'), // 旧版兼容
+  createMcp: (params) => ipcRenderer.invoke('mcp:create', params),
+  updateMcp: (params) => ipcRenderer.invoke('mcp:update', params),
+  deleteMcp: (params) => ipcRenderer.invoke('mcp:delete', params),
 
   // ========================================
   // 文件操作

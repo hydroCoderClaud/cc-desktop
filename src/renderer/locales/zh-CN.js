@@ -9,6 +9,7 @@ export default {
     confirm: '确认',
     delete: '删除',
     edit: '编辑',
+    view: '查看',
     add: '添加',
     close: '关闭',
     collapse: '收起',
@@ -370,8 +371,8 @@ export default {
     // MCP
     mcp: {
       empty: '未配置 MCP 服务器',
-      emptyHint: '在 .mcp.json 中配置服务器',
-      refresh: '刷新状态',
+      emptyHint: '在配置文件中添加 MCP 服务器',
+      refresh: '刷新',
       global: '全局',
       project: '项目',
       pluginServers: '插件 MCP',
@@ -381,7 +382,33 @@ export default {
       error: '连接错误',
       command: '命令',
       args: '参数',
-      noServersInGroup: '暂无 MCP 服务器'
+      noServersInGroup: '暂无 MCP 服务器',
+      // 四级分类
+      userScope: '用户 MCP（跨项目）',
+      localScope: '本地 MCP（项目私有）',
+      projectScope: '工程 MCP（可共享）',
+      pluginScope: '插件 MCP（只读）',
+      // CRUD
+      create: '新建',
+      createMcp: '新建 MCP Server',
+      editMcp: '编辑 MCP Server',
+      viewMcp: '查看 MCP Server',
+      saveTo: '保存到',
+      copyTo: '复制到',
+      copySuccess: '复制成功',
+      copyFailed: '复制失败',
+      targetUser: '用户',
+      targetLocal: '本地',
+      targetProject: '工程',
+      formatJson: '格式化',
+      invalidJson: 'JSON 格式错误',
+      singleMcpRequired: '请输入单个 MCP 配置',
+      invalidConfig: '配置格式无效',
+      jsonHint: '输入完整的 MCP 配置，格式：{ "mcp-name": { config } }',
+      confirmDelete: '确认删除',
+      confirmDeleteContent: '确定要删除 MCP Server "{name}" 吗？',
+      deleteSuccess: '删除成功',
+      readonly: '只读'
     },
     // Agents
     agents: {

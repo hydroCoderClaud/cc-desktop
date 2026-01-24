@@ -425,7 +425,59 @@ function setupPluginHandlers(ipcMain) {
   // MCP Manager IPC Handlers
   // ========================================
 
-  // 获取全局 MCP
+  // 获取所有 MCP (四级分类)
+  ipcMain.handle('mcp:listAll', async (event, projectPath) => {
+    try {
+      return mcpManager.listMcpAll(projectPath || null)
+    } catch (err) {
+      console.error('[IPC] mcp:listAll error:', err)
+      return { user: [], local: [], project: [], plugin: [] }
+    }
+  })
+
+  // 获取 User scope MCP
+  ipcMain.handle('mcp:listUser', async () => {
+    try {
+      return mcpManager.listMcpUser()
+    } catch (err) {
+      console.error('[IPC] mcp:listUser error:', err)
+      return []
+    }
+  })
+
+  // 获取 Local scope MCP
+  ipcMain.handle('mcp:listLocal', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return mcpManager.listMcpLocal(projectPath)
+    } catch (err) {
+      console.error('[IPC] mcp:listLocal error:', err)
+      return []
+    }
+  })
+
+  // 获取 Project scope MCP
+  ipcMain.handle('mcp:listProject', async (event, projectPath) => {
+    try {
+      if (!projectPath || typeof projectPath !== 'string') return []
+      return mcpManager.listMcpProject(projectPath)
+    } catch (err) {
+      console.error('[IPC] mcp:listProject error:', err)
+      return []
+    }
+  })
+
+  // 获取 Plugin scope MCP (只读)
+  ipcMain.handle('mcp:listPlugin', async () => {
+    try {
+      return mcpManager.listMcpPlugin()
+    } catch (err) {
+      console.error('[IPC] mcp:listPlugin error:', err)
+      return []
+    }
+  })
+
+  // 旧版兼容: 获取全局 MCP (插件)
   ipcMain.handle('mcp:listGlobal', async () => {
     try {
       return await mcpManager.getGlobalMcp()
@@ -435,24 +487,42 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 获取项目级 MCP
-  ipcMain.handle('mcp:listProject', async (event, projectPath) => {
+  // 创建 MCP
+  ipcMain.handle('mcp:create', async (event, params) => {
     try {
-      if (!projectPath || typeof projectPath !== 'string') return []
-      return await mcpManager.getProjectMcp(projectPath)
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return mcpManager.createMcp(params)
     } catch (err) {
-      console.error('[IPC] mcp:listProject error:', err)
-      return []
+      console.error('[IPC] mcp:create error:', err)
+      return { success: false, error: err.message }
     }
   })
 
-  // 获取所有 MCP (全局 + 项目级)
-  ipcMain.handle('mcp:listAll', async (event, projectPath) => {
+  // 更新 MCP
+  ipcMain.handle('mcp:update', async (event, params) => {
     try {
-      return await mcpManager.getAllMcp(projectPath || null)
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return mcpManager.updateMcp(params)
     } catch (err) {
-      console.error('[IPC] mcp:listAll error:', err)
-      return []
+      console.error('[IPC] mcp:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 删除 MCP
+  ipcMain.handle('mcp:delete', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return mcpManager.deleteMcp(params)
+    } catch (err) {
+      console.error('[IPC] mcp:delete error:', err)
+      return { success: false, error: err.message }
     }
   })
 
