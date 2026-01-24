@@ -74,6 +74,7 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   skill: { type: Object, default: null },
   source: { type: String, default: 'user' },
+  skills: { type: Object, default: () => ({ user: [], project: [] }) },
   projectPath: { type: String, default: null }
 })
 
@@ -262,6 +263,23 @@ watch(() => form.value.skillId, (newId) => {
 const handleSave = async () => {
   if (!form.value.isEdit && !form.value.skillId) {
     message.warning(t('rightPanel.skills.skillIdRequired'))
+    return
+  }
+
+  // 检查 name 是否和现有 skill 重名
+  const currentName = invocationName.value
+  const allSkills = [...(props.skills.user || []), ...(props.skills.project || [])]
+  const duplicateSkill = allSkills.find(s => {
+    // 编辑模式下排除自己
+    if (form.value.isEdit && s.id === form.value.skillId && s.source === form.value.source) {
+      return false
+    }
+    return s.name === currentName
+  })
+
+  if (duplicateSkill) {
+    const sourceText = duplicateSkill.source === 'user' ? t('rightPanel.skills.userSkills') : t('rightPanel.skills.projectSkills')
+    message.error(t('rightPanel.skills.nameDuplicate', { name: currentName, source: sourceText }))
     return
   }
 

@@ -86,6 +86,7 @@
       v-model="editModalVisible"
       :skill="editSkill"
       :source="editSource"
+      :skills="skills"
       :project-path="currentProject?.path"
       @saved="loadSkills"
     />

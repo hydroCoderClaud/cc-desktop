@@ -232,6 +232,7 @@ export default {
       confirmCopy: '确认复制',
       invalidSkillId: 'Skill ID 只能包含字母、数字和连字符',
       cannotSameName: '不能与源技能同名，请输入不同的 ID',
+      nameDuplicate: '名称 "{name}" 已被{source}中的技能使用',
       overwriteWarning: '目标位置已存在 "{skillId}"，是否覆盖？',
       confirmOverwrite: '确认覆盖',
       // 导入导出

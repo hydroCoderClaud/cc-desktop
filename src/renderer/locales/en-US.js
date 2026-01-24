@@ -232,6 +232,7 @@ export default {
       confirmCopy: 'Confirm Copy',
       invalidSkillId: 'Skill ID can only contain letters, numbers, and hyphens',
       cannotSameName: 'Cannot use same name as source skill. Please enter a different ID.',
+      nameDuplicate: 'Name "{name}" is already used by a skill in {source}',
       overwriteWarning: '"{skillId}" already exists at target. Overwrite?',
       confirmOverwrite: 'Confirm Overwrite',
       // Import/Export
