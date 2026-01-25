@@ -3,8 +3,14 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.plugins') }} ({{ plugins.length }})</span>
       <div class="tab-actions">
+        <button class="icon-btn" :title="t('rightPanel.plugins.openInstalledJson')" @click="handleOpenInstalledJson">
+          📋
+        </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.openFolder')" @click="handleOpenFolder">
           📂
+        </button>
+        <button class="icon-btn" :title="t('rightPanel.plugins.openSettingsJson')" @click="handleOpenSettingsJson">
+          ⚙️
         </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.refresh')" @click="handleRefresh">
           🔄
@@ -299,6 +305,30 @@ const filteredPlugins = computed(() => {
 })
 
 // Methods
+const handleOpenInstalledJson = async () => {
+  try {
+    const result = await window.electronAPI.openInstalledPluginsJson()
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open installed_plugins.json:', err)
+    message.error(t('common.openFailed'))
+  }
+}
+
+const handleOpenSettingsJson = async () => {
+  try {
+    const result = await window.electronAPI.openSettingsJson()
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open settings.json:', err)
+    message.error(t('common.openFailed'))
+  }
+}
+
 const handleOpenFolder = async () => {
   try {
     await invoke('openPluginsFolder')
@@ -345,11 +375,15 @@ const handleDelete = (plugin) => {
           delete pluginDetails[plugin.id]
           delete loadingDetails[plugin.id]
           delete expandedSections[plugin.id]
+          // 提示用户可能需要重启 Claude Code
+          message.success(t('rightPanel.plugins.uninstallSuccess'))
+          message.info(t('rightPanel.plugins.restartHint'), { duration: 5000 })
         } else {
-          console.error('Failed to delete plugin:', result.error)
+          message.error(result.error || t('rightPanel.plugins.uninstallFailed'))
         }
       } catch (err) {
         console.error('Failed to delete plugin:', err)
+        message.error(t('rightPanel.plugins.uninstallFailed'))
       }
     }
   })

@@ -65,6 +65,28 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
+  // 打开 installed_plugins.json 文件
+  ipcMain.handle('plugins:openInstalledJson', async () => {
+    try {
+      const result = await shell.openPath(pluginManager.installedPluginsPath)
+      return { success: !result, error: result || undefined }
+    } catch (err) {
+      console.error('[IPC] plugins:openInstalledJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 打开 settings.json 文件（查看 enabledPlugins）
+  ipcMain.handle('plugins:openSettingsJson', async () => {
+    try {
+      const result = await shell.openPath(pluginManager.settingsPath)
+      return { success: !result, error: result || undefined }
+    } catch (err) {
+      console.error('[IPC] plugins:openSettingsJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // 删除插件
   ipcMain.handle('plugins:delete', async (event, pluginId, deleteFiles = true) => {
     try {

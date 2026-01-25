@@ -178,6 +178,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPluginDetails: (pluginId) => ipcRenderer.invoke('plugins:details', pluginId),
   setPluginEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugins:setEnabled', pluginId, enabled),
   openPluginsFolder: () => ipcRenderer.invoke('plugins:openFolder'),
+  openInstalledPluginsJson: () => ipcRenderer.invoke('plugins:openInstalledJson'),
+  openSettingsJson: () => ipcRenderer.invoke('plugins:openSettingsJson'),
   deletePlugin: (pluginId, deleteFiles = true) => ipcRenderer.invoke('plugins:delete', pluginId, deleteFiles),
 
   // ========================================

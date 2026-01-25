@@ -141,6 +141,8 @@ export default {
       emptyHint: '插件目录: ~/.claude/plugins/',
       search: '搜索插件...',
       openFolder: '打开插件目录',
+      openInstalledJson: '打开 installed_plugins.json',
+      openSettingsJson: '打开 settings.json（启用状态）',
       refresh: '刷新',
       noDescription: '暂无描述',
       noComponents: '暂无组件',
@@ -153,7 +155,10 @@ export default {
       author: '作者',
       deleteConfirm: '确认卸载插件',
       deleteWarning: '确定要卸载插件 "{name}" 吗？此操作将同时删除插件文件。',
-      uninstall: '卸载'
+      uninstall: '卸载',
+      uninstallSuccess: '插件已卸载',
+      uninstallFailed: '卸载失败',
+      restartHint: '如果终端中正在运行 Claude Code，可能需要重启才能生效'
     },
     // 命令（插件内的 Commands）
     commands: {

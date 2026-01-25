@@ -141,6 +141,8 @@ export default {
       emptyHint: 'Plugin directory: ~/.claude/plugins/',
       search: 'Search plugins...',
       openFolder: 'Open plugins folder',
+      openInstalledJson: 'Open installed_plugins.json',
+      openSettingsJson: 'Open settings.json (enabled status)',
       refresh: 'Refresh',
       noDescription: 'No description',
       noComponents: 'No components',
@@ -153,7 +155,10 @@ export default {
       author: 'Author',
       deleteConfirm: 'Uninstall Plugin',
       deleteWarning: 'Are you sure you want to uninstall plugin "{name}"? This will also delete the plugin files.',
-      uninstall: 'Uninstall'
+      uninstall: 'Uninstall',
+      uninstallSuccess: 'Plugin uninstalled',
+      uninstallFailed: 'Uninstall failed',
+      restartHint: 'If Claude Code is running in terminal, you may need to restart it for changes to take effect'
     },
     // Commands (plugin commands)
     commands: {
