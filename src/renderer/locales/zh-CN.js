@@ -166,13 +166,15 @@ export default {
       // 三级分类
       projectSkills: '工程技能',
       userSkills: '自定义全局',
-      officialSkills: '官方全局',
+      officialSkills: '来自插件',
       editable: '可编辑',
       readonly: '只读',
+      plugin: '插件',
       viewOfficial: '查看官方技能',
       noProjectSkills: '暂无工程技能',
       noUserSkills: '暂无自定义技能',
       openFolder: '打开文件夹',
+      openFile: '打开文件',
       // CRUD
       create: '新建技能',
       createProject: '新建工程技能',
@@ -305,6 +307,7 @@ export default {
       projectHooks: '项目 Hooks',
       globalHooks: '全局 Hooks',
       pluginHooks: '插件 Hooks（仅启用）',
+      plugin: '插件',
       noHooksInGroup: '暂无 Hooks',
       // CRUD
       createHook: '新建 Hook',
@@ -359,6 +362,7 @@ export default {
       hookNotFound: '未找到该 Hook',
       // 打开目录
       openFolder: '打开配置文件',
+      openFile: '打开文件',
       noConfigFile: '配置文件不存在',
       // 复制
       copyHook: '复制 Hook',
@@ -373,6 +377,7 @@ export default {
       empty: '未配置 MCP 服务器',
       emptyHint: '在配置文件中添加 MCP 服务器',
       refresh: '刷新',
+      search: '搜索服务器...',
       global: '全局',
       project: '项目',
       pluginServers: '插件 MCP',
@@ -387,7 +392,8 @@ export default {
       userScope: '用户 MCP（跨项目）',
       localScope: '本地 MCP（项目私有）',
       projectScope: '工程 MCP（可共享）',
-      pluginScope: '插件 MCP（只读）',
+      pluginScope: '插件 MCP',
+      plugin: '插件',
       // CRUD
       create: '新建',
       createMcp: '新建 MCP Server',
@@ -408,7 +414,8 @@ export default {
       confirmDelete: '确认删除',
       confirmDeleteContent: '确定要删除 MCP Server "{name}" 吗？',
       deleteSuccess: '删除成功',
-      readonly: '只读'
+      readonly: '只读',
+      openFile: '打开配置文件'
     },
     // Agents
     agents: {
@@ -427,6 +434,7 @@ export default {
       noUserAgents: '暂无自定义 Agents',
       uncategorized: '未分类',
       openFolder: '打开文件夹',
+      openFile: '打开文件',
       // CRUD
       create: '新建 Agent',
       createProject: '新建项目 Agent',
@@ -452,6 +460,7 @@ export default {
       format: '格式化',
       formatSuccess: 'YAML 格式化完成',
       noFrontmatter: '未找到 YAML frontmatter',
+      invalidYaml: 'YAML 格式无效',
       agentIdRequired: '请输入 Agent 名称',
       // 删除确认
       deleteConfirmTitle: '确认删除',

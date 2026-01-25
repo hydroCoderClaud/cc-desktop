@@ -38,7 +38,8 @@
           :expanded="expandedGroups.includes('project')" @toggle="toggleGroup('project')"
           @create="showCreateModal('project')" @open-folder="openAgentsFolder('project')"
           @click-agent="handleAgentClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.agents.copyAgent')"
+          @openFile="handleOpenFile"
+          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.agents.copyAgent')"
           :empty-text="t('rightPanel.agents.noProjectAgents')" />
 
         <!-- 自定义全局 Agents -->
@@ -47,7 +48,8 @@
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openAgentsFolder('user')"
           @click-agent="handleAgentClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.agents.copyAgent')"
+          @openFile="handleOpenFile"
+          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.agents.copyAgent')"
           :empty-text="t('rightPanel.agents.noUserAgents')" />
 
         <!-- 插件级 Agents -->
@@ -57,7 +59,7 @@
             <span class="group-icon">🧩</span>
             <span class="group-name">{{ t('rightPanel.agents.pluginAgents') }}</span>
             <span class="group-count">({{ filteredAgents.plugin.length }})</span>
-            <span class="group-badge readonly">{{ t('rightPanel.agents.readonly') }}</span>
+            <span class="group-badge plugin">{{ t('rightPanel.agents.plugin') }}</span>
           </div>
           <div v-if="expandedGroups.includes('plugin')" class="group-items">
             <div v-for="cat in groupedPluginAgents" :key="cat.name" class="agent-category">
@@ -74,8 +76,11 @@
                       {{ agent.id }}
                       <span v-if="agent.name && agent.name !== agent.id" class="agent-name-suffix">(/{{ agent.name }})</span>
                     </span>
-                    <button class="item-btn copy" :title="t('rightPanel.agents.copyAgent')" @click.stop="showCopyModal(agent)">📋</button>
-                    <button class="item-btn view" :title="t('rightPanel.agents.viewPlugin')" @click.stop="showViewModal(agent)">👁</button>
+                    <span class="agent-actions-inline">
+                      <button class="item-btn copy" :title="t('rightPanel.agents.copyAgent')" @click.stop="showCopyModal(agent)">⧉</button>
+                      <button class="item-btn edit" :title="t('rightPanel.agents.edit')" @click.stop="showEditModal(agent)">✏️</button>
+                      <button v-if="agent.agentPath" class="item-btn" :title="t('rightPanel.agents.openFile')" @click.stop="handleOpenFile(agent)">↗️</button>
+                    </span>
                   </div>
                   <span class="agent-desc">{{ agent.description }}</span>
                 </div>
@@ -213,6 +218,22 @@ const toggleCategory = (name) => {
 // Agent click: 发送 @agent-id 到终端
 const handleAgentClick = (agent) => {
   emit('send-command', `@${agent.id}`)
+}
+
+const handleOpenFile = async (agent) => {
+  if (!agent.agentPath) {
+    message.warning(t('common.openFailed'))
+    return
+  }
+  try {
+    const result = await window.electronAPI.openFileInEditor(agent.agentPath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open file:', err)
+    message.error(t('common.openFailed'))
+  }
 }
 
 const openAgentsFolder = async (source) => {
@@ -354,10 +375,15 @@ onMounted(loadAgents)
 .item-btn { width: 22px; height: 22px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transition: all 0.15s ease; }
 .agent-item:hover .item-btn { opacity: 0.7; }
 .item-btn:hover { background: var(--hover-bg); opacity: 1 !important; }
+.item-btn.copy:hover { background: rgba(24, 144, 255, 0.15); }
+.item-btn.edit:hover { background: rgba(82, 196, 26, 0.15); }
+.agent-actions-inline { display: none; gap: 4px; }
+.agent-item:hover .agent-actions-inline { display: flex; }
 
 /* Group badge for plugin agents */
 .group-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
 .group-badge.readonly { background: rgba(114, 132, 154, 0.15); color: var(--text-color-muted); }
+.group-badge.plugin { background: rgba(24, 144, 255, 0.15); color: #1890ff; }
 
 .delete-warning { color: #e74c3c; font-size: 12px; margin-top: 8px; }
 

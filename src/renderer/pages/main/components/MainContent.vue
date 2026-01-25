@@ -458,7 +458,6 @@ const handleSendToTerminal = (command) => {
   }
 
   if (window.electronAPI) {
-    // 写入命令到终端（不执行）
     window.electronAPI.writeActiveSession({
       sessionId: activeTab.sessionId,
       data: command

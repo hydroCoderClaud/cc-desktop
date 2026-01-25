@@ -9,6 +9,12 @@
       </div>
     </div>
 
+    <div class="tab-toolbar">
+      <n-input v-model:value="searchText" :placeholder="t('rightPanel.mcp.search')" size="small" clearable>
+        <template #prefix><span>⌕</span></template>
+      </n-input>
+    </div>
+
     <div class="tab-content">
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
@@ -28,7 +34,7 @@
         <!-- User Servers -->
         <MCPGroup
           :title="t('rightPanel.mcp.userScope')"
-          :servers="mcpData.user"
+          :servers="filteredMcpData.user"
           :expanded="expandedGroups.includes('user')"
           :editable="true"
           @toggle="toggleGroup('user')"
@@ -37,13 +43,14 @@
           @delete="handleDelete"
           @copy="handleCopy"
           @click="handleClick"
+          @openFile="handleOpenFile"
         />
 
         <!-- Local Servers -->
         <MCPGroup
           v-if="currentProject"
           :title="t('rightPanel.mcp.localScope')"
-          :servers="mcpData.local"
+          :servers="filteredMcpData.local"
           :expanded="expandedGroups.includes('local')"
           :editable="true"
           @toggle="toggleGroup('local')"
@@ -52,13 +59,14 @@
           @delete="handleDelete"
           @copy="handleCopy"
           @click="handleClick"
+          @openFile="handleOpenFile"
         />
 
         <!-- Project Servers -->
         <MCPGroup
           v-if="currentProject"
           :title="t('rightPanel.mcp.projectScope')"
-          :servers="mcpData.project"
+          :servers="filteredMcpData.project"
           :expanded="expandedGroups.includes('project')"
           :editable="true"
           @toggle="toggleGroup('project')"
@@ -67,18 +75,22 @@
           @delete="handleDelete"
           @copy="handleCopy"
           @click="handleClick"
+          @openFile="handleOpenFile"
         />
 
         <!-- Plugin Servers -->
         <MCPGroup
           :title="t('rightPanel.mcp.pluginScope')"
-          :servers="mcpData.plugin"
+          :servers="filteredMcpData.plugin"
           :expanded="expandedGroups.includes('plugin')"
           :editable="false"
+          :badge="t('rightPanel.mcp.plugin')"
+          badge-class="plugin"
           @toggle="toggleGroup('plugin')"
+          @edit="handleEdit"
           @copy="handleCopy"
           @click="handleClick"
-          @view="handleView"
+          @openFile="handleOpenFile"
         />
       </div>
     </div>
@@ -105,7 +117,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useDialog, useMessage } from 'naive-ui'
+import { NInput, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import MCPGroup from '../mcp/MCPGroup.vue'
 import MCPEditModal from '../mcp/MCPEditModal.vue'
@@ -123,6 +135,7 @@ const emit = defineEmits(['send-command'])
 
 // State
 const loading = ref(false)
+const searchText = ref('')
 const mcpData = ref({ user: [], local: [], project: [], plugin: [] })
 const expandedGroups = ref(['user', 'local', 'project', 'plugin'])
 
@@ -142,6 +155,21 @@ const totalCount = computed(() => {
          mcpData.value.local.length +
          mcpData.value.project.length +
          mcpData.value.plugin.length
+})
+
+const filterServerList = (list, keyword) => {
+  if (!keyword) return list
+  return list.filter(s => s.name.toLowerCase().includes(keyword))
+}
+
+const filteredMcpData = computed(() => {
+  const kw = searchText.value.toLowerCase()
+  return {
+    user: filterServerList(mcpData.value.user, kw),
+    local: filterServerList(mcpData.value.local, kw),
+    project: filterServerList(mcpData.value.project, kw),
+    plugin: filterServerList(mcpData.value.plugin, kw)
+  }
 })
 
 // Methods
@@ -228,6 +256,22 @@ const handleClick = (server) => {
   emit('send-command', `/${server.name}`)
 }
 
+const handleOpenFile = async (server) => {
+  if (!server.filePath) {
+    message.warning(t('common.openFailed'))
+    return
+  }
+  try {
+    const result = await window.electronAPI.openFileInEditor(server.filePath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open file:', err)
+    message.error(t('common.openFailed'))
+  }
+}
+
 // Watch project change
 watch(() => props.currentProject, () => {
   loadServers()
@@ -263,6 +307,11 @@ onMounted(() => {
 .tab-actions {
   display: flex;
   gap: 4px;
+}
+
+.tab-toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .icon-btn {

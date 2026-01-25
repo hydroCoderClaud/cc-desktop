@@ -4,6 +4,7 @@
       <span class="group-icon">{{ expanded ? '▼' : '▶' }}</span>
       <span class="group-title">{{ title }}</span>
       <span class="group-count">({{ hooks.length }})</span>
+      <span v-if="badge" class="group-badge" :class="badgeClass">{{ badge }}</span>
       <div class="group-actions" @click.stop>
         <button v-if="filePath" class="action-btn" :title="t('rightPanel.hooks.openFolder')" @click="$emit('openFolder')">
           📋
@@ -46,7 +47,7 @@
         <div v-if="isEditable(hook)" class="hook-actions">
           <button class="action-btn" :title="t('common.edit')" @click.stop="$emit('edit', hook)">✏️</button>
           <button class="action-btn" :title="t('common.copy')" @click.stop="$emit('copy', hook)">⧉</button>
-          <button v-if="hook.filePath" class="action-btn" :title="t('rightPanel.hooks.openFolder')" @click.stop="$emit('openFile', hook)">📋</button>
+          <button v-if="hook.filePath" class="action-btn" :title="t('rightPanel.hooks.openFile')" @click.stop="$emit('openFile', hook)">↗️</button>
           <button v-if="isDeletable(hook)" class="action-btn danger" :title="t('common.delete')" @click.stop="$emit('delete', hook)">🗑️</button>
         </div>
       </div>
@@ -64,7 +65,9 @@ const props = defineProps({
   hooks: { type: Array, default: () => [] },
   expanded: Boolean,
   editable: { type: Boolean, default: true },
-  filePath: String  // 配置文件路径，用于打开目录
+  filePath: String,  // 配置文件路径，用于打开目录
+  badge: String,     // 显示的徽章文本
+  badgeClass: String // 徽章样式类名
 })
 
 const emit = defineEmits(['toggle', 'create', 'edit', 'delete', 'click', 'openFolder', 'openFile', 'copy'])
@@ -125,6 +128,18 @@ const handleClick = (hook) => {
 .group-count {
   font-size: 12px;
   color: var(--text-color-muted);
+}
+
+.group-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.group-badge.plugin {
+  background: rgba(24, 144, 255, 0.15);
+  color: #1890ff;
 }
 
 .group-actions {

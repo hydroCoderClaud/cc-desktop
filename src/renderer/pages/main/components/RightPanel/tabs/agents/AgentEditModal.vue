@@ -73,6 +73,7 @@
 import { ref, computed, watch } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NButton, NPopover, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import yaml from 'js-yaml'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -97,6 +98,7 @@ const form = ref({
   source: 'user',
   agentId: '',
   originalAgentId: '',  // 记录原始 ID，用于检测改名
+  agentPath: '',        // 用于插件级保存
   rawContent: ''
 })
 
@@ -173,129 +175,55 @@ const toggleField = (field) => {
 const formatContent = () => {
   const content = form.value.rawContent.trim()
 
-  // 检查是否以 --- 开头（允许前导空格）
-  if (!/^[ \t]*---/.test(content)) {
+  // 提取 frontmatter
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
+  if (!match) {
     message.warning(t('rightPanel.agents.noFrontmatter'))
     return
   }
 
-  // 找到第一个换行符后的位置
-  const firstNewline = content.indexOf('\n')
-  if (firstNewline === -1) {
-    message.warning(t('rightPanel.agents.noFrontmatter'))
-    return
-  }
+  try {
+    const frontmatter = yaml.load(match[1]) || {}
+    const body = match[2]
 
-  // 找到第二个 --- 的位置（在第一行之后，允许前导空格）
-  const restContent = content.substring(firstNewline + 1)
-  const secondDashMatch = restContent.match(/^([\s\S]*?)\n[ \t]*---[ \t]*(?:\n|$)/)
+    // 按照标准顺序排列字段
+    const orderedKeys = ['name', 'description', 'model', 'color', 'tools', 'disallowedTools', 'permissionMode', 'skills', 'hooks']
+    const sortedFrontmatter = {}
 
-  if (!secondDashMatch) {
-    message.warning(t('rightPanel.agents.noFrontmatter'))
-    return
-  }
-
-  const yamlContent = secondDashMatch[1]
-  const secondDashEnd = firstNewline + 1 + secondDashMatch[0].length
-  const body = content.substring(secondDashEnd)
-
-  // 解析 YAML 字段
-  const fields = []
-  const lines = yamlContent.split('\n')
-  let currentKey = null
-  let currentValue = null
-  let isArray = false
-  let arrayItems = []
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-
-    // 检查是否是数组项
-    if (trimmed.startsWith('- ')) {
-      if (isArray) {
-        arrayItems.push(trimmed.substring(2))
-      }
-      continue
-    }
-
-    // 检查是否是新的 key
-    const keyMatch = trimmed.match(/^([a-zA-Z_][\w-]*):\s*(.*)$/)
-    if (keyMatch) {
-      // 保存之前的字段
-      if (currentKey !== null) {
-        fields.push({ key: currentKey, value: isArray ? arrayItems : currentValue, isArray })
-      }
-
-      currentKey = keyMatch[1]
-      const value = keyMatch[2].trim()
-
-      if (value === '' || value === '[]') {
-        isArray = true
-        arrayItems = []
-        currentValue = null
-      } else {
-        isArray = false
-        arrayItems = []
-        currentValue = value
+    // 先添加有序字段
+    for (const key of orderedKeys) {
+      if (key in frontmatter) {
+        sortedFrontmatter[key] = frontmatter[key]
       }
     }
-  }
 
-  // 保存最后一个字段
-  if (currentKey !== null) {
-    fields.push({ key: currentKey, value: isArray ? arrayItems : currentValue, isArray })
-  }
-
-  // 按照标准顺序排列
-  const orderedKeys = ['name', 'description', 'model', 'color', 'tools', 'disallowedTools', 'permissionMode', 'skills', 'hooks']
-  const sortedFields = []
-
-  for (const key of orderedKeys) {
-    const field = fields.find(f => f.key === key)
-    if (field) sortedFields.push(field)
-  }
-
-  // 添加其他未在标准顺序中的字段
-  for (const field of fields) {
-    if (!orderedKeys.includes(field.key)) {
-      sortedFields.push(field)
-    }
-  }
-
-  // 生成格式化后的 YAML
-  const formattedLines = ['---']
-  for (const field of sortedFields) {
-    if (field.isArray && Array.isArray(field.value)) {
-      // 数组字段：空数组输出为 []，非空数组展开
-      if (field.value.length === 0) {
-        formattedLines.push(`${field.key}: []`)
-      } else {
-        formattedLines.push(`${field.key}:`)
-        for (const item of field.value) {
-          formattedLines.push(`  - ${item}`)
-        }
+    // 再添加其他字段
+    for (const key of Object.keys(frontmatter)) {
+      if (!orderedKeys.includes(key)) {
+        sortedFrontmatter[key] = frontmatter[key]
       }
-    } else if (field.value !== null && field.value !== '') {
-      formattedLines.push(`${field.key}: ${field.value}`)
     }
-  }
-  formattedLines.push('---')
-  formattedLines.push('')
 
-  form.value.rawContent = formattedLines.join('\n') + body.trim()
-  message.success(t('rightPanel.agents.formatSuccess'))
+    // 生成格式化后的 YAML
+    const yamlStr = yaml.dump(sortedFrontmatter, {
+      lineWidth: -1,  // 不自动换行
+      quotingType: "'",
+      forceQuotes: false
+    }).trim()
+
+    form.value.rawContent = `---\n${yamlStr}\n---\n\n${body.trim()}`
+    message.success(t('rightPanel.agents.formatSuccess'))
+  } catch (err) {
+    message.error(t('rightPanel.agents.invalidYaml'))
+  }
 }
 
-// 是否为只读模式（插件代理）
+// 是否为只读模式（已废弃，现在所有来源都可编辑）
 const isReadonly = computed(() => {
-  return form.value.source === 'plugin'
+  return false
 })
 
 const modalTitle = computed(() => {
-  if (isReadonly.value) {
-    return t('rightPanel.agents.viewPlugin')
-  }
   if (form.value.isEdit) {
     return t('rightPanel.agents.edit')
   }
@@ -313,6 +241,7 @@ const loadAgentContent = async (agent) => {
     form.value.source = agent.source
     form.value.agentId = agentId
     form.value.originalAgentId = agentId  // 记录原始 ID
+    form.value.agentPath = agent.agentPath || agent.filePath || ''  // 保存路径用于插件级保存
 
     try {
       const result = await window.electronAPI.getAgentRawContent({
@@ -440,6 +369,7 @@ const handleSave = async () => {
       result = await window.electronAPI.updateAgentRaw({
         source: form.value.source,
         agentId: form.value.agentId,
+        agentPath: form.value.agentPath,  // 插件级需要 agentPath
         rawContent: form.value.rawContent,
         projectPath: props.projectPath
       })

@@ -143,7 +143,8 @@ const handleSave = async () => {
       scope: props.scope,
       projectPath: props.projectPath,
       name,
-      config
+      config,
+      filePath: props.mcp?.filePath  // 插件级需要 filePath
     }
 
     let result

@@ -51,6 +51,7 @@ const skillsUtilsMixin = {
       source,
       editable,
       skillPath: skill.skillPath,
+      filePath: skill.filePath,  // SKILL.md 文件路径
       category,
       ...extraFields
     }

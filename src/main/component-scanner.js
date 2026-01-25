@@ -6,6 +6,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
+const yaml = require('js-yaml')
 
 class ComponentScanner {
   constructor() {
@@ -145,6 +146,7 @@ class ComponentScanner {
         results.push({
           id: item.name,  // 目录名作为 ID
           skillPath: skillDir,
+          filePath: skillMdPath,  // SKILL.md 文件路径
           frontmatter
         })
       }
@@ -185,60 +187,9 @@ class ComponentScanner {
       const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
       if (!match) return null
 
-      const yaml = match[1]
-      const result = {}
-
-      // 简单的 YAML 解析（支持单行和多行 description）
-      let currentKey = null
-      let currentValue = ''
-      let inMultiline = false
-
-      for (const line of yaml.split('\n')) {
-        const trimmed = line.trim()
-
-        // 检查是否是新的 key
-        const keyMatch = line.match(/^(\w[\w-]*):(.*)$/)
-        if (keyMatch && !inMultiline) {
-          // 保存之前的 key-value
-          if (currentKey) {
-            result[currentKey] = currentValue.trim()
-          }
-
-          currentKey = keyMatch[1]
-          const value = keyMatch[2].trim()
-
-          if (value === '|' || value === '>') {
-            // 多行值
-            inMultiline = true
-            currentValue = ''
-          } else {
-            currentValue = value
-          }
-        } else if (inMultiline && line.startsWith('  ')) {
-          // 多行值的续行
-          currentValue += (currentValue ? ' ' : '') + trimmed
-        } else if (inMultiline && !line.startsWith('  ') && trimmed) {
-          // 多行值结束
-          inMultiline = false
-          if (currentKey) {
-            result[currentKey] = currentValue.trim()
-          }
-          // 处理新的 key
-          const newKeyMatch = line.match(/^(\w[\w-]*):(.*)$/)
-          if (newKeyMatch) {
-            currentKey = newKeyMatch[1]
-            currentValue = newKeyMatch[2].trim()
-          }
-        }
-      }
-
-      // 保存最后一个 key-value
-      if (currentKey) {
-        result[currentKey] = currentValue.trim()
-      }
-
-      return result
+      return yaml.load(match[1]) || {}
     } catch (err) {
+      console.error(`[ComponentScanner] Failed to parse YAML frontmatter: ${filePath}`, err.message)
       return null
     }
   }

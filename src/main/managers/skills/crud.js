@@ -173,13 +173,20 @@ const skillsCrudMixin = {
    */
   async updateSkillRaw(params) {
     try {
-      const { source, skillId, rawContent, projectPath } = params
+      const { source, skillId, rawContent, projectPath, skillPath: providedSkillPath } = params
 
       if (!skillId) {
         return { success: false, error: '缺少必要参数: skillId' }
       }
 
-      const skillDir = this._getSkillDir(source, skillId, projectPath)
+      // 获取 skill 目录：插件来源使用传入的 skillPath，其他来源计算路径
+      let skillDir
+      if ((source === 'official' || source === 'plugin') && providedSkillPath) {
+        skillDir = providedSkillPath
+      } else {
+        skillDir = this._getSkillDir(source, skillId, projectPath)
+      }
+
       const skillMdPath = path.join(skillDir, 'SKILL.md')
 
       if (!fs.existsSync(skillMdPath)) {
@@ -204,8 +211,15 @@ const skillsCrudMixin = {
       const validation = this._validateParams(params, ['skillId', 'fromSource', 'toSource'])
       if (!validation.valid) return { success: false, error: validation.error }
 
-      const { fromSource, skillId, toSource, projectPath, newSkillId } = params
-      const sourceDir = this._getSkillDir(fromSource, skillId, projectPath)
+      const { fromSource, skillId, toSource, projectPath, newSkillId, skillPath } = params
+
+      // 获取源目录：插件来源使用传入的 skillPath，其他来源计算路径
+      let sourceDir
+      if ((fromSource === 'official' || fromSource === 'plugin') && skillPath) {
+        sourceDir = skillPath
+      } else {
+        sourceDir = this._getSkillDir(fromSource, skillId, projectPath)
+      }
 
       if (!fs.existsSync(sourceDir)) {
         return { success: false, error: `源技能 "${skillId}" 不存在` }

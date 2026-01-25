@@ -174,13 +174,19 @@ const agentsCrudMixin = {
    */
   async updateAgentRaw(params) {
     try {
-      const { source, agentId, rawContent, projectPath } = params
+      const { source, agentId, rawContent, projectPath, agentPath: providedPath } = params
 
       if (!agentId) {
         return { success: false, error: '缺少必要参数: agentId' }
       }
 
-      const agentPath = this._getAgentFilePath(source, agentId, projectPath)
+      // 获取 agent 文件路径：插件来源使用传入的 agentPath，其他来源计算路径
+      let agentPath
+      if (source === 'plugin' && providedPath) {
+        agentPath = providedPath
+      } else {
+        agentPath = this._getAgentFilePath(source, agentId, projectPath)
+      }
 
       if (!fs.existsSync(agentPath)) {
         return { success: false, error: `Agent "${agentId}" 不存在` }

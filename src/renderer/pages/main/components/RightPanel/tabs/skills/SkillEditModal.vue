@@ -89,6 +89,7 @@ const form = ref({
   isEdit: false,
   source: 'user',
   skillId: '',
+  skillPath: '',
   rawContent: ''
 })
 
@@ -160,15 +161,12 @@ const toggleField = (field) => {
   showFieldsPopover.value = false
 }
 
-// 是否为只读模式（官方技能）
+// 是否为只读模式（已废弃，现在所有来源都可编辑）
 const isReadonly = computed(() => {
-  return form.value.source === 'official' || form.value.source === 'plugin'
+  return false
 })
 
 const modalTitle = computed(() => {
-  if (isReadonly.value) {
-    return t('rightPanel.skills.viewOfficial')
-  }
   if (form.value.isEdit) {
     return t('rightPanel.skills.edit')
   }
@@ -197,6 +195,7 @@ const loadSkillContent = async (skill) => {
     form.value.isEdit = true
     form.value.source = skill.source
     form.value.skillId = skill.id
+    form.value.skillPath = skill.skillPath || ''
 
     try {
       const result = await window.electronAPI.getSkillRawContent({
@@ -288,6 +287,7 @@ const handleSave = async () => {
     const params = {
       source: form.value.source,
       skillId: form.value.skillId,
+      skillPath: form.value.skillPath,
       rawContent: form.value.rawContent,
       projectPath: props.projectPath
     }

@@ -38,7 +38,8 @@
           :expanded="expandedGroups.includes('project')" @toggle="toggleGroup('project')"
           @create="showCreateModal('project')" @open-folder="openSkillsFolder('project')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.skills.copySkill')"
+          @openFile="handleOpenFile"
+          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noProjectSkills')" />
 
         <!-- 自定义全局 Skills -->
@@ -47,7 +48,8 @@
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openSkillsFolder('user')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
-          :copy="showCopyModal" copy-icon="📋" :copy-title="t('rightPanel.skills.copySkill')"
+          @openFile="handleOpenFile"
+          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noUserSkills')" />
 
         <!-- 官方全局 Skills -->
@@ -57,7 +59,7 @@
             <span class="group-icon">🏢</span>
             <span class="group-name">{{ t('rightPanel.skills.officialSkills') }}</span>
             <span class="group-count">({{ filteredSkills.official.length }})</span>
-            <span class="group-badge readonly">{{ t('rightPanel.skills.readonly') }}</span>
+            <span class="group-badge plugin">{{ t('rightPanel.skills.plugin') }}</span>
           </div>
           <div v-if="expandedGroups.includes('official')" class="group-items">
             <div v-for="cat in groupedOfficialSkills" :key="cat.name" class="skill-category">
@@ -70,7 +72,11 @@
                 <div v-for="skill in cat.skills" :key="skill.fullName" class="skill-item" @click="handleSkillClick(skill)">
                   <div class="skill-row">
                     <span class="skill-name">{{ skill.id || skill.fullName }} <span class="skill-invoke">(/{{ skill.name || skill.fullName }})</span></span>
-                    <button class="item-btn view" :title="t('rightPanel.skills.viewOfficial')" @click.stop="showViewModal(skill)">👁</button>
+                    <span class="skill-actions-inline">
+                      <button class="item-btn copy" :title="t('rightPanel.skills.copySkill')" @click.stop="showCopyModal(skill)">⧉</button>
+                      <button class="item-btn edit" :title="t('rightPanel.skills.edit')" @click.stop="showEditModal(skill)">✏️</button>
+                      <button v-if="skill.filePath" class="item-btn" :title="t('rightPanel.skills.openFile')" @click.stop="handleOpenFile(skill)">↗️</button>
+                    </span>
                   </div>
                   <span class="skill-desc">{{ skill.description }}</span>
                 </div>
@@ -205,6 +211,22 @@ const toggleCategory = (name) => {
 }
 
 const handleSkillClick = (skill) => emit('send-command', `/${skill.name || skill.fullName}`)
+
+const handleOpenFile = async (skill) => {
+  if (!skill.filePath) {
+    message.warning(t('common.openFailed'))
+    return
+  }
+  try {
+    const result = await window.electronAPI.openFileInEditor(skill.filePath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open file:', err)
+    message.error(t('common.openFailed'))
+  }
+}
 
 const openSkillsFolder = async (source) => {
   const params = source === 'user' ? { source: 'user' } : { source: 'project', projectPath: props.currentProject?.path }
@@ -344,10 +366,15 @@ onMounted(loadSkills)
 .item-btn { width: 22px; height: 22px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transition: all 0.15s ease; }
 .skill-item:hover .item-btn { opacity: 0.7; }
 .item-btn:hover { background: var(--hover-bg); opacity: 1 !important; }
+.item-btn.copy:hover { background: rgba(24, 144, 255, 0.15); }
+.item-btn.edit:hover { background: rgba(82, 196, 26, 0.15); }
+.skill-actions-inline { display: none; gap: 4px; }
+.skill-item:hover .skill-actions-inline { display: flex; }
 
 /* Group badge for official skills */
 .group-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
 .group-badge.readonly { background: rgba(114, 132, 154, 0.15); color: var(--text-color-muted); }
+.group-badge.plugin { background: rgba(24, 144, 255, 0.15); color: #1890ff; }
 
 .delete-warning { color: #e74c3c; font-size: 12px; margin-top: 8px; }
 

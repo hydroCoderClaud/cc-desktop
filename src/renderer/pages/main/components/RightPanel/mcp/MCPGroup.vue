@@ -4,6 +4,7 @@
       <span class="group-icon">{{ expanded ? '▼' : '▶' }}</span>
       <span class="group-title">{{ title }}</span>
       <span class="group-count">({{ servers.length }})</span>
+      <span v-if="badge" class="group-badge" :class="badgeClass">{{ badge }}</span>
       <div class="group-actions" v-if="editable" @click.stop>
         <button class="action-btn" :title="t('rightPanel.mcp.create')" @click="$emit('create')">
           ➕
@@ -19,12 +20,10 @@
         v-for="server in servers"
         :key="server.name"
         class="server-item"
-        :class="{ readonly: server.readonly }"
       >
         <div class="server-main" @click="$emit('click', server)">
           <div class="server-header">
             <span class="server-name">{{ server.name }}</span>
-            <span v-if="server.readonly" class="readonly-badge">{{ t('rightPanel.mcp.readonly') }}</span>
             <span v-if="server.category && server.source === 'plugin'" class="plugin-badge">
               {{ server.category }}
             </span>
@@ -45,14 +44,10 @@
         </div>
 
         <div class="server-actions">
-          <button class="action-btn" :title="t('common.copy')" @click="$emit('copy', server)">📋</button>
-          <template v-if="editable && !server.readonly">
-            <button class="action-btn" :title="t('common.edit')" @click="$emit('edit', server)">✏️</button>
-            <button class="action-btn danger" :title="t('common.delete')" @click="$emit('delete', server)">🗑️</button>
-          </template>
-          <template v-else>
-            <button class="action-btn" :title="t('common.view')" @click="$emit('view', server)">👁️</button>
-          </template>
+          <button class="action-btn" :title="t('common.copy')" @click="$emit('copy', server)">⧉</button>
+          <button class="action-btn" :title="t('common.edit')" @click="$emit('edit', server)">✏️</button>
+          <button v-if="server.filePath" class="action-btn" :title="t('rightPanel.mcp.openFile')" @click="$emit('openFile', server)">↗️</button>
+          <button v-if="editable" class="action-btn danger" :title="t('common.delete')" @click="$emit('delete', server)">🗑️</button>
         </div>
       </div>
     </div>
@@ -68,10 +63,12 @@ defineProps({
   title: String,
   servers: Array,
   expanded: Boolean,
-  editable: { type: Boolean, default: true }
+  editable: { type: Boolean, default: true },
+  badge: String,
+  badgeClass: String
 })
 
-defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'view'])
+defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
 </script>
 
 <style scoped>
@@ -107,6 +104,18 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'view'])
 .group-count {
   font-size: 12px;
   color: var(--text-color-muted);
+}
+
+.group-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.group-badge.plugin {
+  background: rgba(24, 144, 255, 0.15);
+  color: #1890ff;
 }
 
 .group-actions {

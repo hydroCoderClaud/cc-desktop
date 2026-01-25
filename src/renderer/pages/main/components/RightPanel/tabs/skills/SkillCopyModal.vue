@@ -78,6 +78,7 @@ const form = ref({
   fromSource: '',
   toSource: '',
   skillId: '',
+  skillPath: '',
   newSkillId: '',
   existsInTarget: false
 })
@@ -99,6 +100,7 @@ const initForm = (skill, projectPath) => {
     fromSource,
     toSource: defaultTarget,
     skillId: skill.id,
+    skillPath: skill.skillPath,
     newSkillId: '',
     existsInTarget: false
   }
@@ -112,7 +114,7 @@ watch(() => props.modelValue, (newVal) => {
 })
 
 const handleCopy = async (overwrite = false) => {
-  const { newSkillId, skillId, fromSource, toSource } = form.value
+  const { newSkillId, skillId, skillPath, fromSource, toSource } = form.value
 
   // 验证
   if (!newSkillId) {
@@ -151,6 +153,7 @@ const handleCopy = async (overwrite = false) => {
     const result = await window.electronAPI.copySkill({
       fromSource,
       skillId,
+      skillPath,
       toSource,
       newSkillId,
       projectPath: props.projectPath

@@ -166,13 +166,15 @@ export default {
       // Three-level classification
       projectSkills: 'Project Skills',
       userSkills: 'Custom Global',
-      officialSkills: 'Official Global',
+      officialSkills: 'From Plugins',
       editable: 'Editable',
       readonly: 'Read-only',
+      plugin: 'Plugin',
       viewOfficial: 'View Official Skill',
       noProjectSkills: 'No project skills',
       noUserSkills: 'No custom skills',
       openFolder: 'Open Folder',
+      openFile: 'Open File',
       // CRUD
       create: 'New Skill',
       createProject: 'New Project Skill',
@@ -305,6 +307,7 @@ export default {
       projectHooks: 'Project Hooks',
       globalHooks: 'Global Hooks',
       pluginHooks: 'Plugin Hooks (enabled only)',
+      plugin: 'Plugin',
       noHooksInGroup: 'No hooks',
       // CRUD
       createHook: 'New Hook',
@@ -359,6 +362,7 @@ export default {
       hookNotFound: 'Hook not found',
       // Open folder
       openFolder: 'Open config file',
+      openFile: 'Open File',
       noConfigFile: 'Config file does not exist',
       // Copy
       copyHook: 'Copy Hook',
@@ -373,6 +377,7 @@ export default {
       empty: 'No MCP servers configured',
       emptyHint: 'Add MCP servers in configuration files',
       refresh: 'Refresh',
+      search: 'Search servers...',
       global: 'Global',
       project: 'Project',
       pluginServers: 'Plugin MCP',
@@ -387,7 +392,8 @@ export default {
       userScope: 'User MCP (Cross-project)',
       localScope: 'Local MCP (Project private)',
       projectScope: 'Project MCP (Shareable)',
-      pluginScope: 'Plugin MCP (Read-only)',
+      pluginScope: 'Plugin MCP',
+      plugin: 'Plugin',
       // CRUD
       create: 'New',
       createMcp: 'New MCP Server',
@@ -408,7 +414,8 @@ export default {
       confirmDelete: 'Confirm Delete',
       confirmDeleteContent: 'Are you sure you want to delete MCP Server "{name}"?',
       deleteSuccess: 'Deleted successfully',
-      readonly: 'Read-only'
+      readonly: 'Read-only',
+      openFile: 'Open Config File'
     },
     // Agents
     agents: {
@@ -427,6 +434,7 @@ export default {
       noUserAgents: 'No user agents',
       uncategorized: 'Uncategorized',
       openFolder: 'Open folder',
+      openFile: 'Open File',
       // CRUD
       create: 'New Agent',
       createProject: 'New Project Agent',
@@ -452,6 +460,7 @@ export default {
       format: 'Format',
       formatSuccess: 'YAML formatted',
       noFrontmatter: 'No YAML frontmatter found',
+      invalidYaml: 'Invalid YAML format',
       agentIdRequired: 'Please enter Agent name',
       // Delete confirmation
       deleteConfirmTitle: 'Confirm Delete',

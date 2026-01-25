@@ -32,6 +32,12 @@
                 @click.stop="$emit('edit', skill)"
               >✏️</button>
               <button
+                v-if="skill.filePath"
+                class="skill-action-btn"
+                :title="t('rightPanel.skills.openFile')"
+                @click.stop="$emit('openFile', skill)"
+              >↗️</button>
+              <button
                 class="skill-action-btn delete"
                 :title="t('rightPanel.skills.delete')"
                 @click.stop="$emit('delete', skill)"
@@ -61,11 +67,11 @@ const props = defineProps({
   expanded: { type: Boolean, default: false },
   emptyText: { type: String, default: '' },
   copy: { type: Function, default: null },
-  copyIcon: { type: String, default: '📋' },
+  copyIcon: { type: String, default: '⧉' },
   copyTitle: { type: String, default: '' }
 })
 
-defineEmits(['toggle', 'create', 'open-folder', 'click-skill', 'edit', 'delete'])
+defineEmits(['toggle', 'create', 'open-folder', 'click-skill', 'edit', 'delete', 'openFile'])
 
 const createTitle = computed(() => {
   return props.groupKey === 'project'

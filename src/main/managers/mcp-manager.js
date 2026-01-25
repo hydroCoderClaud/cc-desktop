@@ -80,7 +80,8 @@ class McpManager extends ComponentScanner {
       name,
       config,
       source: 'user',
-      category: 'User'
+      category: 'User',
+      filePath: CLAUDE_JSON_PATH
     }))
   }
 
@@ -101,7 +102,8 @@ class McpManager extends ComponentScanner {
       name,
       config,
       source: 'local',
-      category: 'Local'
+      category: 'Local',
+      filePath: CLAUDE_JSON_PATH
     }))
   }
 
@@ -126,7 +128,8 @@ class McpManager extends ComponentScanner {
           name,
           config,
           source: 'project',
-          category: 'Project'
+          category: 'Project',
+          filePath: mcpJsonPath
         }))
       }
     } catch (err) {
@@ -157,7 +160,8 @@ class McpManager extends ComponentScanner {
               source: 'plugin',
               category: pluginShortName || pluginId,
               pluginId,
-              readonly: true
+              readonly: true,
+              filePath: mcpJsonPath
             })
           }
         }
@@ -288,10 +292,10 @@ class McpManager extends ComponentScanner {
 
   /**
    * 更新 MCP Server
-   * @param {Object} params - { scope, projectPath?, oldName, name, config }
+   * @param {Object} params - { scope, projectPath?, oldName, name, config, filePath? }
    * @returns {Object} { success, error? }
    */
-  updateMcp({ scope, projectPath, oldName, name, config }) {
+  updateMcp({ scope, projectPath, oldName, name, config, filePath }) {
     try {
       if (!oldName || typeof oldName !== 'string') {
         return { success: false, error: 'Invalid old MCP name' }
@@ -351,6 +355,30 @@ class McpManager extends ComponentScanner {
         delete content.mcpServers[oldName]
         content.mcpServers[name] = config
         fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+
+      } else if (scope === 'plugin') {
+        // 插件级 MCP：使用传入的 filePath
+        if (!filePath) {
+          return { success: false, error: 'filePath required for Plugin scope' }
+        }
+        if (!fs.existsSync(filePath)) {
+          return { success: false, error: 'MCP config file not found' }
+        }
+        const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+        const mcpServers = content.mcpServers || content
+        if (!mcpServers[oldName]) {
+          return { success: false, error: 'MCP not found' }
+        }
+        if (oldName !== name && mcpServers[name]) {
+          return { success: false, error: `MCP "${name}" already exists` }
+        }
+        delete mcpServers[oldName]
+        mcpServers[name] = config
+        // 保持原有结构
+        if (content.mcpServers) {
+          content.mcpServers = mcpServers
+        }
+        fs.writeFileSync(filePath, JSON.stringify(content.mcpServers ? content : mcpServers, null, 2), 'utf-8')
 
       } else {
         return { success: false, error: `Invalid scope: ${scope}` }

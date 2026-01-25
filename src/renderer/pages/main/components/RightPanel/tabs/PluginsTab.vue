@@ -148,7 +148,7 @@
                 </div>
               </div>
 
-              <!-- MCP (只展示) -->
+              <!-- MCP -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.mcp.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'mcp')">
                   <span class="section-arrow">{{ expandedSections[plugin.id]?.mcp ? '▼' : '▶' }}</span>
@@ -158,7 +158,8 @@
                   <div
                     v-for="mcp in pluginDetails[plugin.id].components.mcp"
                     :key="mcp.name"
-                    class="component-item"
+                    class="component-item clickable"
+                    @click="handleInsertMcp(mcp)"
                   >
                     <span class="component-name">{{ mcp.name }}</span>
                     <span class="component-desc">{{ mcp.command }}</span>
@@ -204,7 +205,7 @@ const { t } = useLocale()
 const { invoke } = useIPC()
 const dialog = useDialog()
 
-const emit = defineEmits(['insert-to-input'])
+const emit = defineEmits(['insert-to-input', 'send-command'])
 
 // State
 const loading = ref(false)
@@ -338,16 +339,19 @@ const loadPluginDetails = async (pluginId) => {
 }
 
 const handleInsertCommand = (cmd) => {
-  emit('insert-to-input', `/${cmd.name} `)
+  emit('send-command', `/${cmd.name}`)
 }
 
 const handleInsertAgent = (agent) => {
-  emit('insert-to-input', `@${agent.name} `)
+  emit('send-command', `@${agent.name}`)
 }
 
 const handleInsertSkill = (skill) => {
-  // Skills 使用插件名:技能名 格式
-  emit('insert-to-input', `/${skill.name} `)
+  emit('send-command', `/${skill.name}`)
+}
+
+const handleInsertMcp = (mcp) => {
+  emit('send-command', `/${mcp.name}`)
 }
 
 onMounted(() => {

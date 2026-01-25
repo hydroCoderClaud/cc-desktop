@@ -80,6 +80,8 @@
           :hooks="filteredPluginHooks"
           :expanded="expandedGroups.includes('plugin')"
           :editable="false"
+          :badge="t('rightPanel.hooks.plugin')"
+          badge-class="plugin"
           @toggle="toggleGroup('plugin')"
           @edit="handleEdit($event, 'plugin')"
           @open-file="handleOpenFile"
