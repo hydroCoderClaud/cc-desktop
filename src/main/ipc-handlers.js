@@ -284,6 +284,22 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return result.filePaths[0];
   });
 
+  // 选择多个文件
+  ipcMain.handle('dialog:selectFiles', async (event, options = {}) => {
+    const { title, filters } = options
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile', 'multiSelections'],
+      title: title || 'Select Files',
+      filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths;
+  });
+
   ipcMain.handle('dialog:saveFile', async (event, { filename, content, ext }) => {
     const filters = ext === 'md'
       ? [{ name: 'Markdown', extensions: ['md'] }]

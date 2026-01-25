@@ -22,3 +22,26 @@ export const DEFAULT_TAG_COLOR = '#888888'
  * Maximum number of visible tags before showing "+N" dropdown
  */
 export const MAX_VISIBLE_TAGS = 5
+
+/**
+ * Agent color mapping
+ * Used for displaying agent color indicators
+ */
+export const AGENT_COLORS = {
+  blue: '#3b82f6',
+  green: '#22c55e',
+  red: '#ef4444',
+  yellow: '#eab308',
+  purple: '#a855f7',
+  pink: '#ec4899',
+  orange: '#f97316',
+  cyan: '#06b6d4',
+  gray: '#6b7280'
+}
+
+/**
+ * Get agent color by name, with fallback to blue
+ * @param {string} color - Color name
+ * @returns {string} Hex color code
+ */
+export const getAgentColor = (color) => AGENT_COLORS[color] || AGENT_COLORS.blue

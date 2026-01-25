@@ -4,7 +4,7 @@
  */
 
 const { SkillsManager } = require('./skills-manager')
-const { AgentsManager } = require('./agents-manager')
+const { AgentsManager } = require('./agents')
 const { HooksManager } = require('./hooks-manager')
 const { McpManager } = require('./mcp-manager')
 

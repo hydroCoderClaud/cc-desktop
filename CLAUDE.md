@@ -129,7 +129,8 @@ src/
 │   │   ├── ai-handlers.js
 │   │   └── ...
 │   ├── managers/
-│   │   ├── skills/           # Skills 管理
+│   │   ├── skills/           # Skills 管理（mixin 模式）
+│   │   ├── agents/           # Agents 管理（mixin 模式）
 │   │   ├── hooks-manager.js  # Hooks 管理
 │   │   └── mcp-manager.js    # MCP 管理
 │   ├── config/               # ConfigManager mixins
@@ -142,9 +143,10 @@ src/
     ├── pages/main/components/RightPanel/
     │   ├── tabs/             # 8 个标签页
     │   ├── skills/           # Skills 组件
+    │   ├── agents/           # Agents 组件
     │   ├── hooks/            # Hooks 组件
     │   └── mcp/              # MCP 组件
-    ├── composables/          # 可复用逻辑
+    ├── composables/          # 可复用逻辑（含共享常量）
     └── locales/              # 国际化
 ```
 
@@ -193,20 +195,21 @@ dialog.warning({
 
 ## 当前状态
 
-### v1.3.0 (2026-01-24) - 最新
+### v1.4.0 (2026-01-25) - 最新
 
 **右侧面板 8 标签页**：提示词 | 队列 | 插件 | 技能 | Hooks | MCP | Agents | AI
 
-**Skills / Hooks / MCP 三大模块完整管理**：
-- 三级分类：项目级、全局级、插件级（只读）
-- CRUD：新建、编辑、删除、复制
-- 点击发送命令到终端
+**已完成的大模块**：
+- ✅ **Skills 管理** - 三级分类（用户/项目/插件）、CRUD、导入导出
+- ✅ **Hooks 管理** - 三级分类、CRUD、表单+JSON双模式编辑、13种事件类型
+- ✅ **MCP 管理** - 四级分类（User/Local/Project/Plugin）、CRUD、服务器配置
+- ✅ **Agents 管理** - 三级分类、CRUD、重命名、复制、导入导出、点击发送到终端
+- ✅ **终端优化** - WebGL 渲染（Canvas/DOM 降级）、IME 输入法定位修复
 
-### 下一步
+### 待办
 
-- [ ] Agents 集成
-- [ ] 语音输入
-- [ ] 会话信息面板
+- [ ] 语音输入（待排查页面重载问题）
+- [ ] 会话信息面板（Token 用量、元数据）
 
 ---
 

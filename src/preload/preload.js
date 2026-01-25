@@ -137,6 +137,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   selectFile: (options) => ipcRenderer.invoke('dialog:selectFile', options),
+  selectFiles: (options) => ipcRenderer.invoke('dialog:selectFiles', options),
   saveFile: ({ filename, content, ext }) => ipcRenderer.invoke('dialog:saveFile', { filename, content, ext }),
 
   // ========================================
@@ -199,11 +200,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportSkillsBatch: (params) => ipcRenderer.invoke('skills:exportBatch', params),
 
   // ========================================
-  // Agents 管理 (来自插件和项目级，自动触发)
+  // Agents 管理 (三级: 用户全局/项目级/插件)
   // ========================================
-  listAgentsGlobal: () => ipcRenderer.invoke('agents:listGlobal'),
+  listAgentsUser: () => ipcRenderer.invoke('agents:listUser'),
   listAgentsProject: (projectPath) => ipcRenderer.invoke('agents:listProject', projectPath),
+  listAgentsPlugin: () => ipcRenderer.invoke('agents:listPlugin'),
   listAgentsAll: (projectPath) => ipcRenderer.invoke('agents:listAll', projectPath),
+  listAgentsGlobal: () => ipcRenderer.invoke('agents:listGlobal'), // 旧版兼容
+  getAgentRawContent: (params) => ipcRenderer.invoke('agents:getRawContent', params),
+  createAgentRaw: (params) => ipcRenderer.invoke('agents:createRaw', params),
+  updateAgentRaw: (params) => ipcRenderer.invoke('agents:updateRaw', params),
+  deleteAgent: (params) => ipcRenderer.invoke('agents:delete', params),
+  copyAgent: (params) => ipcRenderer.invoke('agents:copy', params),
+  renameAgent: (params) => ipcRenderer.invoke('agents:rename', params),
+  openAgentsFolder: (params) => ipcRenderer.invoke('agents:openFolder', params),
+  // 导入导出
+  validateAgentImport: (sourcePath) => ipcRenderer.invoke('agents:validateImport', sourcePath),
+  checkAgentConflicts: (params) => ipcRenderer.invoke('agents:checkConflicts', params),
+  importAgents: (params) => ipcRenderer.invoke('agents:import', params),
+  exportAgent: (params) => ipcRenderer.invoke('agents:export', params),
+  exportAgentsBatch: (params) => ipcRenderer.invoke('agents:exportBatch', params),
 
   // ========================================
   // Hooks 管理 (来自 settings.json、插件和项目级，自动执行)

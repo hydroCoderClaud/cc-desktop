@@ -285,12 +285,12 @@ function setupPluginHandlers(ipcMain) {
   // Agents Manager IPC Handlers
   // ========================================
 
-  // 获取全局 Agents
-  ipcMain.handle('agents:listGlobal', async () => {
+  // 获取用户全局 Agents
+  ipcMain.handle('agents:listUser', async () => {
     try {
-      return await agentsManager.getGlobalAgents()
+      return await agentsManager.getUserAgents()
     } catch (err) {
-      console.error('[IPC] agents:listGlobal error:', err)
+      console.error('[IPC] agents:listUser error:', err)
       return []
     }
   })
@@ -306,12 +306,211 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 获取所有 Agents (全局 + 项目级)
+  // 获取插件级 Agents (只读)
+  ipcMain.handle('agents:listPlugin', async () => {
+    try {
+      return await agentsManager.getPluginAgents()
+    } catch (err) {
+      console.error('[IPC] agents:listPlugin error:', err)
+      return []
+    }
+  })
+
+  // 获取所有 Agents (三级分类)
   ipcMain.handle('agents:listAll', async (event, projectPath) => {
     try {
       return await agentsManager.getAllAgents(projectPath || null)
     } catch (err) {
       console.error('[IPC] agents:listAll error:', err)
+      return { user: [], project: [], plugin: [] }
+    }
+  })
+
+  // 获取 Agent 原始内容
+  ipcMain.handle('agents:getRawContent', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.getAgentRawContent(params)
+    } catch (err) {
+      console.error('[IPC] agents:getRawContent error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 创建 Agent（原始内容模式）
+  ipcMain.handle('agents:createRaw', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.createAgentRaw(params)
+    } catch (err) {
+      console.error('[IPC] agents:createRaw error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新 Agent（原始内容模式）
+  ipcMain.handle('agents:updateRaw', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.updateAgentRaw(params)
+    } catch (err) {
+      console.error('[IPC] agents:updateRaw error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 删除 Agent
+  ipcMain.handle('agents:delete', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.deleteAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:delete error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 复制 Agent
+  ipcMain.handle('agents:copy', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.copyAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:copy error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 重命名 Agent
+  ipcMain.handle('agents:rename', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.renameAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:rename error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 打开 Agents 文件夹
+  ipcMain.handle('agents:openFolder', async (event, params) => {
+    try {
+      const { source, projectPath } = params || {}
+      let folderPath
+
+      if (source === 'user') {
+        const os = require('os')
+        const path = require('path')
+        folderPath = path.join(os.homedir(), '.claude', 'agents')
+      } else if (source === 'project' && projectPath) {
+        const path = require('path')
+        folderPath = path.join(projectPath, '.claude', 'agents')
+      } else {
+        return { success: false, error: 'Invalid source' }
+      }
+
+      // 确保目录存在
+      const fs = require('fs')
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true })
+      }
+
+      const result = await shell.openPath(folderPath)
+      if (result) {
+        return { success: false, error: result }
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agents:openFolder error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 校验导入源
+  ipcMain.handle('agents:validateImport', async (event, sourcePath) => {
+    try {
+      // sourcePath 可以是字符串（单文件/文件夹/ZIP）或字符串数组（多选文件）
+      if (!sourcePath || (typeof sourcePath !== 'string' && !Array.isArray(sourcePath))) {
+        return { valid: false, errors: ['Invalid source path'] }
+      }
+      return await agentsManager.validateAgentImportSource(sourcePath)
+    } catch (err) {
+      console.error('[IPC] agents:validateImport error:', err)
+      return { valid: false, errors: [err.message] }
+    }
+  })
+
+  // 检测导入冲突
+  ipcMain.handle('agents:checkConflicts', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { results: [] }
+      }
+      return await agentsManager.checkAgentImportConflicts(params)
+    } catch (err) {
+      console.error('[IPC] agents:checkConflicts error:', err)
+      return { results: [] }
+    }
+  })
+
+  // 导入 Agents
+  ipcMain.handle('agents:import', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, errors: ['Invalid parameters'] }
+      }
+      return await agentsManager.importAgents(params)
+    } catch (err) {
+      console.error('[IPC] agents:import error:', err)
+      return { success: false, errors: [err.message] }
+    }
+  })
+
+  // 导出单个 Agent
+  ipcMain.handle('agents:export', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.exportAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:export error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 批量导出 Agents
+  ipcMain.handle('agents:exportBatch', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      const result = await agentsManager.exportAgentsBatch(params)
+      return JSON.parse(JSON.stringify(result))
+    } catch (err) {
+      console.error('[IPC] agents:exportBatch error:', err)
+      return { success: false, error: String(err.message || err) }
+    }
+  })
+
+  // 兼容旧接口: 获取全局 Agents (插件)
+  ipcMain.handle('agents:listGlobal', async () => {
+    try {
+      return await agentsManager.getPluginAgents()
+    } catch (err) {
+      console.error('[IPC] agents:listGlobal error:', err)
       return []
     }
   })
