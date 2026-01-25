@@ -53,6 +53,7 @@ export default {
     deleted: '已删除',
     copyFailed: '复制失败',
     openFailed: '打开失败',
+    openFile: '打开文件',
     all: '全部'
   },
 
@@ -153,6 +154,17 @@ export default {
       deleteConfirm: '确认卸载插件',
       deleteWarning: '确定要卸载插件 "{name}" 吗？此操作将同时删除插件文件。',
       uninstall: '卸载'
+    },
+    // 命令（插件内的 Commands）
+    commands: {
+      edit: '编辑命令',
+      name: '命令名称',
+      content: '命令内容',
+      contentPlaceholder: '命令内容（Markdown 格式）',
+      loadError: '加载命令内容失败',
+      saveSuccess: '命令已保存',
+      saveError: '保存命令失败',
+      noPath: '未找到命令文件路径'
     },
     // 技能
     skills: {

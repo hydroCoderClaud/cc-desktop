@@ -251,7 +251,8 @@ class PluginManager extends ComponentScanner {
     return commands.map(cmd => ({
       name: cmd.name,
       description: cmd.frontmatter?.description || '',
-      argumentHint: cmd.frontmatter?.['argument-hint'] || ''
+      argumentHint: cmd.frontmatter?.['argument-hint'] || '',
+      filePath: cmd.filePath || path.join(commandsDir, `${cmd.name}.md`)
     }))
   }
 
@@ -260,7 +261,8 @@ class PluginManager extends ComponentScanner {
     const agents = this.scanMarkdownFiles(agentsDir)
     return agents.map(agent => ({
       name: agent.frontmatter?.name || agent.name,
-      description: agent.frontmatter?.description || ''
+      description: agent.frontmatter?.description || '',
+      filePath: agent.filePath || path.join(agentsDir, `${agent.name}.md`)
     }))
   }
 
@@ -270,7 +272,8 @@ class PluginManager extends ComponentScanner {
     return skills.map(skill => ({
       id: skill.id,
       name: skill.frontmatter?.name || skill.id,
-      description: skill.frontmatter?.description || ''
+      description: skill.frontmatter?.description || '',
+      filePath: skill.filePath || path.join(skillsDir, skill.id, `${skill.id}.md`)
     }))
   }
 
@@ -290,7 +293,8 @@ class PluginManager extends ComponentScanner {
         hooks.push({
           event,
           matcher: handler.matcher || '',
-          type: handler.hooks?.[0]?.type || handler.type || 'unknown'
+          type: handler.hooks?.[0]?.type || handler.type || 'unknown',
+          filePath: hooksJsonPath
         })
       }
     }
@@ -302,12 +306,24 @@ class PluginManager extends ComponentScanner {
     const mcpConfig = this.readJsonFile(mcpJsonPath)
     if (!mcpConfig) return []
 
+    // 支持两种格式：
+    // 1. { "mcpServers": { "name": { config } } }
+    // 2. { "name": { config } }
+    const servers = mcpConfig.mcpServers || mcpConfig
+
     const mcpServers = []
-    for (const [name, config] of Object.entries(mcpConfig)) {
+    for (const [name, config] of Object.entries(servers)) {
+      // 跳过非对象值（如 mcpServers 本身是 key 但被遍历到）
+      if (typeof config !== 'object' || config === null) continue
+
       mcpServers.push({
         name,
         command: config.command || '',
-        args: config.args || []
+        args: config.args || [],
+        type: config.type || '',
+        url: config.url || '',
+        config,  // 保存完整配置用于编辑
+        filePath: mcpJsonPath
       })
     }
     return mcpServers

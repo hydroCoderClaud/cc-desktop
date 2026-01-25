@@ -254,6 +254,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFileInEditor: (filePath) => ipcRenderer.invoke('file:openInEditor', filePath),
   readJsonFile: (filePath) => ipcRenderer.invoke('file:readJson', filePath),
   writeJsonFile: (filePath, data) => ipcRenderer.invoke('file:writeJson', filePath, data),
+  readFile: (filePath) => ipcRenderer.invoke('file:read', filePath),
+  writeFile: (filePath, content) => ipcRenderer.invoke('file:write', filePath, content),
 
   // ========================================
   // 会话历史管理（数据库版）

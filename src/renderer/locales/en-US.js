@@ -53,6 +53,7 @@ export default {
     deleted: 'Deleted',
     copyFailed: 'Copy failed',
     openFailed: 'Failed to open',
+    openFile: 'Open File',
     all: 'All'
   },
 
@@ -153,6 +154,17 @@ export default {
       deleteConfirm: 'Uninstall Plugin',
       deleteWarning: 'Are you sure you want to uninstall plugin "{name}"? This will also delete the plugin files.',
       uninstall: 'Uninstall'
+    },
+    // Commands (plugin commands)
+    commands: {
+      edit: 'Edit Command',
+      name: 'Command Name',
+      content: 'Command Content',
+      contentPlaceholder: 'Command content (Markdown format)',
+      loadError: 'Failed to load command content',
+      saveSuccess: 'Command saved',
+      saveError: 'Failed to save command',
+      noPath: 'Command file path not found'
     },
     // Skills
     skills: {

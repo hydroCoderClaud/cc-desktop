@@ -786,6 +786,42 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
+  // 读取文件内容（文本）
+  ipcMain.handle('file:read', async (event, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid file path' }
+      }
+
+      const fs = require('fs')
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found' }
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8')
+      return { success: true, content }
+    } catch (err) {
+      console.error('[IPC] file:read error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 写入文件内容（文本）
+  ipcMain.handle('file:write', async (event, filePath, content) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid file path' }
+      }
+
+      const fs = require('fs')
+      fs.writeFileSync(filePath, content, 'utf-8')
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] file:write error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   console.log('[IPC] Plugin handlers registered')
 }
 

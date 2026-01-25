@@ -79,7 +79,8 @@ const jsonPlaceholder = computed(() => {
 // 监听 mcp 变化，填充 JSON
 watch(() => props.mcp, (mcp) => {
   if (mcp) {
-    const obj = { [mcp.name]: mcp.config }
+    const config = mcp.config || {}
+    const obj = { [mcp.name]: config }
     jsonText.value = JSON.stringify(obj, null, 2)
   } else {
     jsonText.value = ''
@@ -87,10 +88,16 @@ watch(() => props.mcp, (mcp) => {
   jsonError.value = ''
 }, { immediate: true })
 
-// 监听 show，重置状态
+// 监听 show，重新加载内容（修复打开时数据未更新的问题）
 watch(() => props.show, (show) => {
-  if (show && !props.mcp) {
-    jsonText.value = ''
+  if (show) {
+    if (props.mcp) {
+      const config = props.mcp.config || {}
+      const obj = { [props.mcp.name]: config }
+      jsonText.value = JSON.stringify(obj, null, 2)
+    } else {
+      jsonText.value = ''
+    }
     jsonError.value = ''
   }
 })

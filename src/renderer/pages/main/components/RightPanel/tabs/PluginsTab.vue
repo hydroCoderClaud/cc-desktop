@@ -84,10 +84,13 @@
                     v-for="cmd in pluginDetails[plugin.id].components.commands"
                     :key="cmd.name"
                     class="component-item clickable"
-                    @click="handleInsertCommand(cmd)"
                   >
-                    <span class="component-name">/{{ cmd.name }}</span>
-                    <span class="component-desc">{{ cmd.description }}</span>
+                    <span class="component-name" @click="handleInsertCommand(cmd)">/{{ cmd.name }}</span>
+                    <span class="component-desc" @click="handleInsertCommand(cmd)">{{ cmd.description }}</span>
+                    <div class="component-actions">
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditCommand(cmd)">✏️</button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(cmd.filePath)">↗️</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -103,10 +106,13 @@
                     v-for="agent in pluginDetails[plugin.id].components.agents"
                     :key="agent.name"
                     class="component-item clickable"
-                    @click="handleInsertAgent(agent)"
                   >
-                    <span class="component-name">@{{ agent.name }}</span>
-                    <span class="component-desc">{{ agent.description }}</span>
+                    <span class="component-name" @click="handleInsertAgent(agent)">@{{ agent.name }}</span>
+                    <span class="component-desc" @click="handleInsertAgent(agent)">{{ agent.description }}</span>
+                    <div class="component-actions">
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditAgent(agent)">✏️</button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(agent.filePath)">↗️</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -122,15 +128,18 @@
                     v-for="skill in pluginDetails[plugin.id].components.skills"
                     :key="skill.name"
                     class="component-item clickable"
-                    @click="handleInsertSkill(skill)"
                   >
-                    <span class="component-name">/{{ skill.name }}</span>
-                    <span class="component-desc">{{ skill.description }}</span>
+                    <span class="component-name" @click="handleInsertSkill(skill)">/{{ skill.name }}</span>
+                    <span class="component-desc" @click="handleInsertSkill(skill)">{{ skill.description }}</span>
+                    <div class="component-actions">
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditSkill(skill)">✏️</button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(skill.filePath)">↗️</button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Hooks (只展示) -->
+              <!-- Hooks -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.hooks.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'hooks')">
                   <span class="section-arrow">{{ expandedSections[plugin.id]?.hooks ? '▼' : '▶' }}</span>
@@ -140,10 +149,14 @@
                   <div
                     v-for="(hook, idx) in pluginDetails[plugin.id].components.hooks"
                     :key="idx"
-                    class="component-item"
+                    class="component-item clickable"
                   >
                     <span class="component-name">{{ hook.event }}</span>
                     <span class="component-desc">{{ hook.matcher ? `matcher: ${hook.matcher}` : hook.type }}</span>
+                    <div class="component-actions">
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditHook(hook)">✏️</button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(hook.filePath)">↗️</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -159,10 +172,13 @@
                     v-for="mcp in pluginDetails[plugin.id].components.mcp"
                     :key="mcp.name"
                     class="component-item clickable"
-                    @click="handleInsertMcp(mcp)"
                   >
-                    <span class="component-name">{{ mcp.name }}</span>
-                    <span class="component-desc">{{ mcp.command }}</span>
+                    <span class="component-name" @click="handleInsertMcp(mcp)">{{ mcp.name }}</span>
+                    <span class="component-desc" @click="handleInsertMcp(mcp)">{{ mcp.type === 'http' ? mcp.url : mcp.command }}</span>
+                    <div class="component-actions">
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditMcp(mcp)">✏️</button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(mcp.filePath)">↗️</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -192,18 +208,62 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Modals -->
+    <SkillEditModal
+      v-model="showSkillModal"
+      :skill="editingSkill"
+      :source="'plugin'"
+      :skills="{ user: [], project: [] }"
+      @saved="handleRefresh"
+    />
+
+    <AgentEditModal
+      v-model="showAgentModal"
+      :agent="editingAgent"
+      :source="'plugin'"
+      :agents="{ user: [], project: [] }"
+      @saved="handleRefresh"
+    />
+
+    <HookEditModal
+      v-model:show="showHookModal"
+      :hook="editingHook"
+      :scope="'plugin'"
+      @saved="handleRefresh"
+    />
+
+    <MCPEditModal
+      v-model:show="showMcpModal"
+      :mcp="editingMcp"
+      :scope="'plugin'"
+      :readonly="false"
+      @saved="handleRefresh"
+    />
+
+    <CommandEditModal
+      v-model="showCommandModal"
+      :command="editingCommand"
+      @saved="handleRefresh"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { NInput, NSwitch, useDialog } from 'naive-ui'
+import { NInput, NSwitch, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useIPC } from '@composables/useIPC'
+import SkillEditModal from './skills/SkillEditModal.vue'
+import AgentEditModal from './agents/AgentEditModal.vue'
+import HookEditModal from '../hooks/HookEditModal.vue'
+import MCPEditModal from '../mcp/MCPEditModal.vue'
+import CommandEditModal from './commands/CommandEditModal.vue'
 
 const { t } = useLocale()
 const { invoke } = useIPC()
 const dialog = useDialog()
+const message = useMessage()
 
 const emit = defineEmits(['insert-to-input', 'send-command'])
 
@@ -215,6 +275,18 @@ const expandedPlugins = ref(new Set())
 const pluginDetails = reactive({})
 const loadingDetails = reactive({})
 const expandedSections = reactive({})
+
+// Edit Modal States
+const showSkillModal = ref(false)
+const editingSkill = ref(null)
+const showAgentModal = ref(false)
+const editingAgent = ref(null)
+const showHookModal = ref(false)
+const editingHook = ref(null)
+const showMcpModal = ref(false)
+const editingMcp = ref(null)
+const showCommandModal = ref(false)
+const editingCommand = ref(null)
 
 // Computed
 const filteredPlugins = computed(() => {
@@ -352,6 +424,69 @@ const handleInsertSkill = (skill) => {
 
 const handleInsertMcp = (mcp) => {
   emit('send-command', `/${mcp.name}`)
+}
+
+// Edit handlers
+const handleEditSkill = (skill) => {
+  editingSkill.value = {
+    ...skill,
+    source: 'plugin',
+    skillPath: skill.filePath ? skill.filePath.replace(/[/\\][^/\\]+\.md$/, '') : ''
+  }
+  showSkillModal.value = true
+}
+
+const handleEditAgent = (agent) => {
+  editingAgent.value = {
+    ...agent,
+    source: 'plugin',
+    agentPath: agent.filePath
+  }
+  showAgentModal.value = true
+}
+
+const handleEditHook = (hook) => {
+  editingHook.value = {
+    ...hook,
+    source: 'plugin',
+    hookPath: hook.filePath
+  }
+  showHookModal.value = true
+}
+
+const handleEditMcp = (mcp) => {
+  editingMcp.value = {
+    ...mcp,
+    source: 'plugin',
+    mcpPath: mcp.filePath
+  }
+  showMcpModal.value = true
+}
+
+const handleEditCommand = (cmd) => {
+  editingCommand.value = {
+    ...cmd,
+    name: cmd.name,
+    filePath: cmd.filePath
+  }
+  showCommandModal.value = true
+}
+
+// Open file in external editor
+const handleOpenFile = async (filePath) => {
+  if (!filePath) {
+    message.warning(t('common.openFailed'))
+    return
+  }
+  try {
+    const result = await window.electronAPI.openFileInEditor(filePath)
+    if (!result.success) {
+      message.error(result.error || t('common.openFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open file:', err)
+    message.error(t('common.openFailed'))
+  }
 }
 
 onMounted(() => {
@@ -618,6 +753,10 @@ onMounted(() => {
   background: var(--hover-bg);
 }
 
+.component-item.clickable:hover .component-actions {
+  opacity: 1;
+}
+
 .component-name {
   color: var(--primary-color);
   font-weight: 500;
@@ -629,6 +768,34 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+}
+
+.component-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.action-btn:hover {
+  background: var(--hover-bg);
 }
 
 .no-components {
