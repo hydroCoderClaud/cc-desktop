@@ -422,7 +422,12 @@ class McpManager extends ComponentScanner {
         if (Object.keys(content.mcpServers).length === 0) {
           delete content.mcpServers
         }
-        fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+        // 如果 content 为空，删除整个 .mcp.json 文件
+        if (Object.keys(content).length === 0) {
+          fs.unlinkSync(mcpJsonPath)
+        } else {
+          fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+        }
 
       } else {
         return { success: false, error: `Invalid scope: ${scope}` }
