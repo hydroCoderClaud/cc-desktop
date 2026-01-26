@@ -80,6 +80,12 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       throw new Error('目录不存在')
     }
 
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    const folderName = path.basename(projectData.path)
+    if (folderName.includes('_') || folderName.includes('-')) {
+      throw new Error(`项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`)
+    }
+
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectData.path)
     if (existing) {
@@ -115,6 +121,12 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     }
 
     const projectPath = result.filePaths[0]
+
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    const folderName = path.basename(projectPath)
+    if (folderName.includes('_') || folderName.includes('-')) {
+      throw new Error(`项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`)
+    }
 
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectPath)
