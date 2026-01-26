@@ -156,11 +156,6 @@ const handleAdd = () => {
 }
 
 const handleEdit = (provider) => {
-  if (provider.isBuiltIn) {
-    message.warning(t('providerManager.cannotEditBuiltIn'))
-    return
-  }
-
   isEdit.value = true
   formData.value = {
     id: provider.id,

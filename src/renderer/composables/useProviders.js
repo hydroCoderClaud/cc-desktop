@@ -104,10 +104,10 @@ export function useProviders() {
   }
 
   /**
-   * 检查服务商是否可编辑
+   * 检查服务商是否可编辑（内置和自定义都可编辑）
    */
   const canEdit = (provider) => {
-    return !provider.isBuiltIn
+    return true
   }
 
   return {

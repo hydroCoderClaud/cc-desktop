@@ -38,7 +38,6 @@
       <n-space justify="end">
         <n-button
           size="small"
-          :disabled="provider.isBuiltIn"
           @click="$emit('edit', provider)"
         >
           {{ t('common.edit') }}
