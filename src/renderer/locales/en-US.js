@@ -903,7 +903,8 @@ export default {
     openExisting: 'Open existing project',
     deleteConfirm: 'Confirm Delete Project',
     deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
-    deleteWithSessions: 'Also delete associated session records'
+    deleteWithSessions: 'Also delete associated session records',
+    unsupportedPathError: 'Project folder name "{name}" contains underscore(_) or hyphen(-), which causes session sync issues. Please rename the folder before adding.'
   },
 
   // Messages

@@ -903,7 +903,8 @@ export default {
     openExisting: '打开已有项目',
     deleteConfirm: '确认删除项目',
     deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
-    deleteWithSessions: '同时删除关联的会话记录'
+    deleteWithSessions: '同时删除关联的会话记录',
+    unsupportedPathError: '项目文件夹名称 "{name}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。'
   },
 
   // 消息提示
