@@ -268,14 +268,21 @@ const needsModelMapping = computed(() => {
 // Watch for profile changes to populate form
 watch(() => props.profile, (newProfile) => {
   if (newProfile) {
+    // 获取服务商的默认模型映射
+    const provider = props.providers?.find(p => p.id === newProfile.serviceProvider)
+    const defaultMapping = provider?.defaultModelMapping || {}
+
+    // 优先使用配置中的映射，否则使用服务商默认映射
+    const modelMapping = {
+      opus: newProfile.modelMapping?.opus || defaultMapping.opus || '',
+      sonnet: newProfile.modelMapping?.sonnet || defaultMapping.sonnet || '',
+      haiku: newProfile.modelMapping?.haiku || defaultMapping.haiku || ''
+    }
+
     formData.value = {
       ...defaultFormData(),
       ...newProfile,
-      modelMapping: {
-        opus: newProfile.modelMapping?.opus || '',
-        sonnet: newProfile.modelMapping?.sonnet || '',
-        haiku: newProfile.modelMapping?.haiku || ''
-      },
+      modelMapping,
       requestTimeout: (newProfile.requestTimeout || 120000) / 1000
     }
   } else {
