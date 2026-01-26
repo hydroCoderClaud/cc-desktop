@@ -514,16 +514,6 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 兼容旧接口: 获取全局 Agents (插件)
-  ipcMain.handle('agents:listGlobal', async () => {
-    try {
-      return await agentsManager.getPluginAgents()
-    } catch (err) {
-      console.error('[IPC] agents:listGlobal error:', err)
-      return []
-    }
-  })
-
   // ========================================
   // Hooks Manager IPC Handlers
   // ========================================
@@ -681,16 +671,6 @@ function setupPluginHandlers(ipcMain) {
       return mcpManager.listMcpPlugin()
     } catch (err) {
       console.error('[IPC] mcp:listPlugin error:', err)
-      return []
-    }
-  })
-
-  // 旧版兼容: 获取全局 MCP (插件)
-  ipcMain.handle('mcp:listGlobal', async () => {
-    try {
-      return await mcpManager.getGlobalMcp()
-    } catch (err) {
-      console.error('[IPC] mcp:listGlobal error:', err)
       return []
     }
   })

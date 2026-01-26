@@ -606,7 +606,10 @@ export default {
       firstPage: '首页',
       prevPage: '上一页',
       nextPage: '下一页',
-      lastPage: '末页'
+      lastPage: '末页',
+      history: '发送历史',
+      reuseHint: '点击重新发送',
+      clearHistory: '清空历史'
     }
   },
 

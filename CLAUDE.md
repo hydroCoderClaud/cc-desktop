@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本文件为 Claude Code 提供项目开发指导。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
 
@@ -18,11 +18,20 @@ npm run dev          # 开发模式（自动打开 DevTools）
 npm run build:win    # Windows 构建
 npm run build:mac    # macOS 构建
 npm run build:linux  # Linux 构建
+
+# 测试
+npm test             # 运行测试
+npm run test:watch   # 监听模式
+npm run test:coverage # 覆盖率报告
+
+# 原生模块重建（better-sqlite3、node-pty 编译问题时使用）
+npm run rebuild:sqlite
 ```
 
 **开发提示**：
 - F12 切换 DevTools
 - 配置文件：`%APPDATA%/claude-code-desktop/config.json` (Windows) 或 `~/.config/claude-code-desktop/config.json` (Linux/macOS)
+- 测试文件位于 `tests/` 目录，使用 Vitest 框架
 
 ## 架构
 
@@ -113,6 +122,7 @@ installed_plugins.json → 读取 installPath → 扫描 skills/ 目录
 **关键点**：
 - 没注册到 `installed_plugins.json` = 不会被加载
 - 启用/禁用状态存储在 `~/.claude/settings.json` 的 `enabledPlugins` 字段
+- YAML 解析使用 `js-yaml` 库
 
 ## 文件结构
 
@@ -190,26 +200,6 @@ dialog.warning({
   onNegativeClick: () => { /* ... */ }         // ✅ 不是 onNegative
 })
 ```
-
----
-
-## 当前状态
-
-### v1.4.0 (2026-01-25) - 最新
-
-**右侧面板 8 标签页**：提示词 | 队列 | 插件 | 技能 | Hooks | MCP | Agents | AI
-
-**已完成的大模块**：
-- ✅ **Skills 管理** - 三级分类（用户/项目/插件）、CRUD、导入导出
-- ✅ **Hooks 管理** - 三级分类、CRUD、表单+JSON双模式编辑、13种事件类型
-- ✅ **MCP 管理** - 四级分类（User/Local/Project/Plugin）、CRUD、服务器配置
-- ✅ **Agents 管理** - 三级分类、CRUD、重命名、复制、导入导出、点击发送到终端
-- ✅ **终端优化** - WebGL 渲染（Canvas/DOM 降级）、IME 输入法定位修复
-
-### 待办
-
-- [ ] 语音输入（待排查页面重载问题）
-- [ ] 会话信息面板（Token 用量、元数据）
 
 ---
 

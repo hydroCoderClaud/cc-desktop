@@ -72,7 +72,7 @@
             :disabled="getGlobalIndex(idx) === 1"
             @click.stop="moveUp(item, getGlobalIndex(idx) - 1)"
           >
-            ↑
+            ▲
           </button>
           <button
             class="item-btn move-btn"
@@ -80,7 +80,7 @@
             :disabled="getGlobalIndex(idx) === filteredItems.length"
             @click.stop="moveDown(item, getGlobalIndex(idx) - 1)"
           >
-            ↓
+            ▼
           </button>
           <button
             class="item-btn edit-btn"
@@ -106,6 +106,33 @@
     </div>
     <div class="queue-empty" v-else>
       {{ t('rightPanel.messageQueue.noResults') }}
+    </div>
+
+    <!-- History Section -->
+    <div class="history-section" v-if="history.length > 0">
+      <div class="section-header" @click="showHistory = !showHistory">
+        <span>📝 {{ t('rightPanel.messageQueue.history') }} ({{ history.length }})</span>
+        <span class="toggle-icon">{{ showHistory ? '▼' : '▶' }}</span>
+      </div>
+      <div v-if="showHistory" class="history-list">
+        <div
+          v-for="item in history.slice(0, 10)"
+          :key="item.id"
+          class="history-item"
+          :title="t('rightPanel.messageQueue.reuseHint')"
+          @click="handleReuse(item)"
+        >
+          <span class="history-text">{{ truncateContent(item.content) }}</span>
+          <span class="history-time">{{ formatTime(item.sentAt) }}</span>
+        </div>
+        <button
+          v-if="history.length > 0"
+          class="clear-history-btn"
+          @click.stop="clearHistory"
+        >
+          {{ t('rightPanel.messageQueue.clearHistory') }}
+        </button>
+      </div>
     </div>
 
     <!-- Edit Modal -->
@@ -190,6 +217,11 @@ const showEditModal = ref(false)
 const editingItem = ref(null)
 const editContent = ref('')
 
+// 发送历史状态
+const history = ref([])
+const showHistory = ref(false)
+const MAX_HISTORY = 50
+
 // Load on mount
 onMounted(() => {
   if (props.sessionUuid) {
@@ -206,6 +238,31 @@ const truncateContent = (content) => {
 // Event Handlers
 const handleSend = (item) => {
   emit('send', item.content)
+  // 添加到发送历史
+  history.value.unshift({
+    id: Date.now().toString(),
+    content: item.content,
+    sentAt: new Date()
+  })
+  // 限制历史记录数量
+  if (history.value.length > MAX_HISTORY) {
+    history.value = history.value.slice(0, MAX_HISTORY)
+  }
+}
+
+const handleReuse = (item) => {
+  emit('send', item.content)
+}
+
+const formatTime = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const clearHistory = () => {
+  history.value = []
+  showHistory.value = false
 }
 
 const openEditModal = (item) => {
@@ -466,11 +523,11 @@ defineExpose({
 }
 
 .item-btn {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 4px;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -481,7 +538,18 @@ defineExpose({
 }
 
 .item-btn:hover {
-  background: var(--bg-color);
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+}
+
+.move-btn {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.move-btn:hover {
+  color: var(--primary-color);
+  background: var(--primary-color-light, rgba(59, 130, 246, 0.1));
 }
 
 .edit-btn:hover {
@@ -490,10 +558,7 @@ defineExpose({
 
 .delete-btn:hover {
   color: #dc3545;
-}
-
-.move-btn:hover {
-  color: var(--primary-color);
+  background: rgba(220, 53, 69, 0.1);
 }
 
 .move-btn:disabled {
@@ -502,7 +567,8 @@ defineExpose({
 }
 
 .move-btn:disabled:hover {
-  background: transparent;
+  background: var(--bg-color-secondary);
+  border-color: var(--border-color);
   color: var(--text-color-muted);
 }
 
@@ -655,5 +721,86 @@ defineExpose({
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* History Section */
+.history-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.section-header:hover {
+  background: var(--hover-bg);
+}
+
+.toggle-icon {
+  font-size: 10px;
+}
+
+.history-list {
+  padding: 0 12px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-bottom: 4px;
+}
+
+.history-item:hover {
+  background: var(--hover-bg);
+}
+
+.history-text {
+  flex: 1;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-time {
+  color: var(--text-color-muted);
+  font-size: 11px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.clear-history-btn {
+  width: 100%;
+  padding: 6px;
+  margin-top: 8px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.clear-history-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--text-color-muted);
 }
 </style>

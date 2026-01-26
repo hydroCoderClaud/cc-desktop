@@ -207,7 +207,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentsProject: (projectPath) => ipcRenderer.invoke('agents:listProject', projectPath),
   listAgentsPlugin: () => ipcRenderer.invoke('agents:listPlugin'),
   listAgentsAll: (projectPath) => ipcRenderer.invoke('agents:listAll', projectPath),
-  listAgentsGlobal: () => ipcRenderer.invoke('agents:listGlobal'), // 旧版兼容
   getAgentRawContent: (params) => ipcRenderer.invoke('agents:getRawContent', params),
   createAgentRaw: (params) => ipcRenderer.invoke('agents:createRaw', params),
   updateAgentRaw: (params) => ipcRenderer.invoke('agents:updateRaw', params),
@@ -244,7 +243,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listMcpLocal: (projectPath) => ipcRenderer.invoke('mcp:listLocal', projectPath),
   listMcpProject: (projectPath) => ipcRenderer.invoke('mcp:listProject', projectPath),
   listMcpPlugin: () => ipcRenderer.invoke('mcp:listPlugin'),
-  listMcpGlobal: () => ipcRenderer.invoke('mcp:listGlobal'), // 旧版兼容
   createMcp: (params) => ipcRenderer.invoke('mcp:create', params),
   updateMcp: (params) => ipcRenderer.invoke('mcp:update', params),
   deleteMcp: (params) => ipcRenderer.invoke('mcp:delete', params),

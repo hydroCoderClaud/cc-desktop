@@ -10,7 +10,7 @@
           📋
         </button>
         <button v-if="editable" class="action-btn" :title="t('rightPanel.hooks.createHook')" @click="$emit('create')">
-          ➕
+          ＋
         </button>
       </div>
     </div>
@@ -117,12 +117,13 @@ const handleClick = (hook) => {
 .group-icon {
   font-size: 10px;
   width: 12px;
+  color: var(--text-color-muted);
 }
 
 .group-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--text-color-muted);
 }
 
 .group-count {
@@ -149,17 +150,24 @@ const handleClick = (hook) => {
 }
 
 .action-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-color);
   background: transparent;
   cursor: pointer;
   border-radius: 4px;
   font-size: 12px;
+  color: var(--text-color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  background: var(--hover-bg);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
 }
 
 .action-btn.danger:hover {
@@ -289,5 +297,11 @@ const handleClick = (hook) => {
 .hook-actions .action-btn {
   flex: 1;
   border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.hook-actions .action-btn:last-child {
+  border-bottom: none;
 }
 </style>

@@ -299,7 +299,7 @@ const filteredPlugins = computed(() => {
 // Methods
 const handleOpenInstalledJson = async () => {
   try {
-    const result = await window.electronAPI.openInstalledPluginsJson()
+    const result = await invoke('openInstalledPluginsJson')
     if (!result.success) {
       message.error(result.error || t('common.openFailed'))
     }
@@ -311,7 +311,7 @@ const handleOpenInstalledJson = async () => {
 
 const handleOpenSettingsJson = async () => {
   try {
-    const result = await window.electronAPI.openSettingsJson()
+    const result = await invoke('openSettingsJson')
     if (!result.success) {
       message.error(result.error || t('common.openFailed'))
     }
@@ -471,7 +471,7 @@ const handleOpenFile = async (filePath) => {
     return
   }
   try {
-    const result = await window.electronAPI.openFileInEditor(filePath)
+    const result = await invoke('openFileInEditor', filePath)
     if (!result.success) {
       message.error(result.error || t('common.openFailed'))
     }

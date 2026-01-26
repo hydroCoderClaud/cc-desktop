@@ -606,7 +606,10 @@ export default {
       firstPage: 'First page',
       prevPage: 'Previous page',
       nextPage: 'Next page',
-      lastPage: 'Last page'
+      lastPage: 'Last page',
+      history: 'Send History',
+      reuseHint: 'Click to resend',
+      clearHistory: 'Clear History'
     }
   },
 

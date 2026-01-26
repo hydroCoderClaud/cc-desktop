@@ -188,38 +188,6 @@ class McpManager extends ComponentScanner {
   }
 
   // ========================================
-  // 旧版兼容方法
-  // ========================================
-
-  /**
-   * 获取插件 MCP (来自已安装插件) - 旧版兼容
-   * @returns {Array} MCP 服务器列表
-   */
-  async getGlobalMcp() {
-    return this.listMcpPlugin()
-  }
-
-  /**
-   * 获取项目级 MCP - 旧版兼容
-   * @param {string} projectPath - 项目根目录
-   * @returns {Array} MCP 服务器列表
-   */
-  async getProjectMcp(projectPath) {
-    return this.listMcpProject(projectPath)
-  }
-
-  /**
-   * 获取所有 MCP (全局 + 项目级) - 旧版兼容
-   * @param {string} projectPath - 项目根目录 (可选)
-   * @returns {Array} MCP 服务器列表
-   */
-  async getAllMcp(projectPath = null) {
-    const all = this.listMcpAll(projectPath)
-    // 合并为数组，顺序: user -> local -> project -> plugin
-    return [...all.user, ...all.local, ...all.project, ...all.plugin]
-  }
-
-  // ========================================
   // CRUD 方法
   // ========================================
 
