@@ -267,7 +267,10 @@ class ActiveSessionManager {
 
       // 等待终端就绪后清屏
       setTimeout(() => {
-        const clearCmd = os.platform() === 'win32' ? 'cls' : 'clear'
+        const isWin = os.platform() === 'win32'
+        const clearCmd = isWin ? 'cls' : 'clear'
+        // Windows cmd.exe 用 & 分隔命令，PowerShell/Unix shell 用 ;
+        const cmdSep = isWin && shell.toLowerCase().includes('cmd') ? '&' : ';'
 
         if (session.type === SessionType.TERMINAL) {
           // 纯终端：只清屏，不启动 claude
@@ -277,7 +280,7 @@ class ActiveSessionManager {
           const claudeCmd = session.resumeSessionId
             ? `claude --resume ${session.resumeSessionId}`
             : 'claude'
-          this.write(sessionId, `${clearCmd}; ${claudeCmd}\r`)
+          this.write(sessionId, `${clearCmd} ${cmdSep} ${claudeCmd}\r`)
         }
       }, 100)
 
