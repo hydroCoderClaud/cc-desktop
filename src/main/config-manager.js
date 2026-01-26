@@ -9,7 +9,6 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
-const { projectConfigMixin } = require('./config/project-config');
 const { apiConfigMixin } = require('./config/api-config');
 
 class ConfigManager {
@@ -872,7 +871,7 @@ class ConfigManager {
 
 }
 
-// Apply mixins (provider config, project config, api config)
-Object.assign(ConfigManager.prototype, providerConfigMixin, projectConfigMixin, apiConfigMixin);
+// Apply mixins (provider config, api config)
+Object.assign(ConfigManager.prototype, providerConfigMixin, apiConfigMixin);
 
 module.exports = ConfigManager;
