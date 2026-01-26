@@ -333,6 +333,15 @@ const handleOpenProject = async () => {
     const result = await openProject()
     if (result.canceled) return
 
+    // 检查是否有路径不支持的错误
+    if (result.error && result.errorType === 'unsupportedPath') {
+      message.error(
+        t('project.unsupportedPathError', { name: result.folderName }) ||
+        `项目文件夹名称 "${result.folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`
+      )
+      return
+    }
+
     if (result.restored) {
       message.success(t('messages.projectRestored') + ': ' + result.name)
     } else if (result.alreadyExists) {
