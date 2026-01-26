@@ -22,7 +22,12 @@ class TerminalManager {
     this.kill();
 
     const config = this.configManager.getConfig();
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+
+    // 跨平台 shell 选择：优先使用系统默认 shell
+    const isWin = os.platform() === 'win32';
+    const shell = isWin
+      ? (process.env.COMSPEC || 'cmd.exe')  // Windows: 使用 COMSPEC 或 cmd.exe
+      : (process.env.SHELL || '/bin/sh');   // macOS/Linux: 使用 SHELL 或 /bin/sh
 
     console.log(`[Terminal] Starting in: ${projectPath}`);
 

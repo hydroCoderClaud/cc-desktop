@@ -163,8 +163,17 @@ class ActiveSessionManager {
     }
 
     const isWin = os.platform() === 'win32'
-    const shell = isWin ? 'powershell.exe' : 'bash'
-    const shellArgs = isWin ? ['-NoLogo', '-NoProfile'] : []  // 抑制 PowerShell 启动横幅
+
+    // 跨平台 shell 选择：优先使用系统默认 shell
+    const shell = isWin
+      ? (process.env.COMSPEC || 'cmd.exe')  // Windows: 使用 COMSPEC 或 cmd.exe
+      : (process.env.SHELL || '/bin/sh')    // macOS/Linux: 使用 SHELL 或 /bin/sh
+
+    // 根据 shell 类型设置参数
+    let shellArgs = []
+    if (isWin && shell.toLowerCase().includes('powershell')) {
+      shellArgs = ['-NoLogo', '-NoProfile']  // PowerShell 抑制启动横幅
+    }
 
     // 获取 API Profile 并设置环境变量
     let profile = null

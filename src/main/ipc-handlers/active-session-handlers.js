@@ -4,6 +4,7 @@
  */
 
 const { createIPCHandler, createIPCListener } = require('../utils/ipc-utils')
+const path = require('path')
 
 /**
  * 设置活动会话的 IPC 处理器
@@ -22,6 +23,17 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
   createIPCHandler(ipcMain, 'activeSession:create', (options) => {
     // options: { projectId, projectPath, projectName, title, apiProfileId, resumeSessionId, type }
     // type: 'session' (默认) 或 'terminal' (纯终端)
+
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    if (options.projectPath) {
+      const folderName = path.basename(options.projectPath)
+      if (folderName.includes('_') || folderName.includes('-')) {
+        return {
+          success: false,
+          error: `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再打开。`
+        }
+      }
+    }
 
     // 纯终端不受会话数量限制；Claude 会话需要检查限制
     if (options.type !== 'terminal') {

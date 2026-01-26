@@ -237,6 +237,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   ipcMain.handle('project:add', async (event, { name, path }) => {
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    const folderName = require('path').basename(path);
+    if (folderName.includes('_') || folderName.includes('-')) {
+      return {
+        success: false,
+        error: `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`
+      };
+    }
     return configManager.addRecentProject(name, path);
   });
 
@@ -266,7 +274,20 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       return null;
     }
 
-    return result.filePaths[0];
+    const selectedPath = result.filePaths[0];
+
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    // Claude CLI 会把 _ 和 - 都编码成 -，解码时无法区分
+    const folderName = require('path').basename(selectedPath);
+    if (folderName.includes('_') || folderName.includes('-')) {
+      dialog.showErrorBox(
+        '路径不支持',
+        `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)。\n\n这会导致 Claude CLI 会话无法正确同步。\n\n请重命名文件夹后再添加。`
+      );
+      return null;
+    }
+
+    return selectedPath;
   });
 
   ipcMain.handle('dialog:selectFile', async (event, options = {}) => {
@@ -489,6 +510,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
 
   ipcMain.handle('terminal:start', async (event, projectPath) => {
+    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
+    const folderName = require('path').basename(projectPath);
+    if (folderName.includes('_') || folderName.includes('-')) {
+      return {
+        success: false,
+        error: `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再打开。`
+      };
+    }
     return terminalManager.start(projectPath);
   });
 
