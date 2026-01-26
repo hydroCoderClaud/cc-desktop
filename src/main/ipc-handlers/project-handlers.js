@@ -83,7 +83,11 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
     const folderName = path.basename(projectData.path)
     if (folderName.includes('_') || folderName.includes('-')) {
-      throw new Error(`项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`)
+      dialog.showErrorBox(
+        '无法创建项目',
+        `项目文件夹名称 "${folderName}"\n包含下划线(_)或连字符(-)，会导致会话同步问题。\n\n请重命名文件夹后再添加。`
+      )
+      return { canceled: true }
     }
 
     // Check if project already exists
@@ -125,7 +129,11 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
     const folderName = path.basename(projectPath)
     if (folderName.includes('_') || folderName.includes('-')) {
-      throw new Error(`项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`)
+      dialog.showErrorBox(
+        '无法打开项目',
+        `项目文件夹名称 "${folderName}"\n包含下划线(_)或连字符(-)，会导致会话同步问题。\n\n请重命名文件夹后再添加。`
+      )
+      return { canceled: true }
     }
 
     // Check if project already exists
