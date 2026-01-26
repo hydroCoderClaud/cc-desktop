@@ -2,7 +2,7 @@
   <div class="left-panel">
     <!-- Header -->
     <div class="panel-header">
-      <div class="logo">Claude Code</div>
+      <div class="logo">CC Desktop</div>
       <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
         ‹
       </button>

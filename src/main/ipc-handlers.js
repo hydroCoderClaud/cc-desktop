@@ -154,7 +154,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 700,
-      title: 'API 配置管理 - Claude Code Desktop',
+      title: 'API 配置管理 - CC Desktop',
       page: 'profile-manager'
     });
     return { success: true };
@@ -165,7 +165,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 750,
       height: 500,
-      title: '全局设置 - Claude Code Desktop',
+      title: '全局设置 - CC Desktop',
       page: 'global-settings'
     });
     return { success: true };
@@ -176,7 +176,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 600,
       height: 450,
-      title: '外观设置 - Claude Code Desktop',
+      title: '外观设置 - CC Desktop',
       page: 'appearance-settings'
     });
     return { success: true };
@@ -187,7 +187,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 650,
-      title: '服务商管理 - Claude Code Desktop',
+      title: '服务商管理 - CC Desktop',
       page: 'provider-manager'
     });
     return { success: true };
@@ -199,7 +199,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1200,
       height: 700,
-      title: '会话查询 - Claude Code Desktop',
+      title: '会话查询 - CC Desktop',
       page: 'session-manager',
       query
     });

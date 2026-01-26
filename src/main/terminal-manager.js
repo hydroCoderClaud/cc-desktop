@@ -63,7 +63,7 @@ class TerminalManager {
       // 发送欢迎消息
       setTimeout(() => {
         this.writeLine('');
-        this.writeLine('# Claude Code Desktop Terminal');
+        this.writeLine('# CC Desktop Terminal');
         this.writeLine(`# Working Directory: ${projectPath}`);
         this.writeLine('# Type "claude code" to start Claude Code CLI');
         this.writeLine('');
