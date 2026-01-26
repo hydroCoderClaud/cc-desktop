@@ -124,15 +124,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProjectSession: ({ projectId, sessionId }) => ipcRenderer.invoke('project:openSession', { projectId, sessionId }),
 
   // ========================================
-  // 旧版 Project 相关（保留兼容）
-  // ========================================
-  listProjects: () => ipcRenderer.invoke('projects:list'),
-  addProject: ({ name, path }) => ipcRenderer.invoke('project:add', { name, path }),
-  removeProject: (projectId) => ipcRenderer.invoke('project:remove', projectId),
-  renameProject: ({ projectId, newName }) => ipcRenderer.invoke('project:rename', { projectId, newName }),
-  togglePinProject: (projectId) => ipcRenderer.invoke('project:togglePin', projectId),
-
-  // ========================================
   // Dialog 相关
   // ========================================
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),

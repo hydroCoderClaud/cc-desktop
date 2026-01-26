@@ -229,38 +229,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // ========================================
-  // Project 相关（简单的列表操作保留在此）
-  // ========================================
-
-  ipcMain.handle('projects:list', async () => {
-    return configManager.getRecentProjects();
-  });
-
-  ipcMain.handle('project:add', async (event, { name, path }) => {
-    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
-    const folderName = require('path').basename(path);
-    if (folderName.includes('_') || folderName.includes('-')) {
-      return {
-        success: false,
-        error: `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`
-      };
-    }
-    return configManager.addRecentProject(name, path);
-  });
-
-  ipcMain.handle('project:remove', async (event, projectId) => {
-    return configManager.removeRecentProject(projectId);
-  });
-
-  ipcMain.handle('project:rename', async (event, { projectId, newName }) => {
-    return configManager.renameProject(projectId, newName);
-  });
-
-  ipcMain.handle('project:togglePin', async (event, projectId) => {
-    return configManager.togglePinProject(projectId);
-  });
-
-  // ========================================
   // Dialog 相关
   // ========================================
 
