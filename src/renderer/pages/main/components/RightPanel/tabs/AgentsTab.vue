@@ -95,7 +95,7 @@
     <AgentEditModal
       v-model="editModalVisible"
       :agent="editAgent"
-      :source="editSource"
+      :scope="editSource"
       :agents="agents"
       :project-path="currentProject?.path"
       @saved="loadAgents"

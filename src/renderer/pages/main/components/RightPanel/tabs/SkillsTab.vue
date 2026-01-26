@@ -91,7 +91,7 @@
     <SkillEditModal
       v-model="editModalVisible"
       :skill="editSkill"
-      :source="editSource"
+      :scope="editSource"
       :skills="skills"
       :project-path="currentProject?.path"
       @saved="loadSkills"

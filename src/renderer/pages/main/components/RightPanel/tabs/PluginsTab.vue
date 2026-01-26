@@ -202,13 +202,6 @@
               >
                 {{ t('rightPanel.plugins.noComponents') }}
               </div>
-
-              <!-- 删除按钮 -->
-              <div class="plugin-actions">
-                <button class="delete-btn" @click="handleDelete(plugin)">
-                  {{ t('rightPanel.plugins.uninstall') }}
-                </button>
-              </div>
             </template>
           </div>
         </div>
@@ -219,7 +212,7 @@
     <SkillEditModal
       v-model="showSkillModal"
       :skill="editingSkill"
-      :source="'plugin'"
+      :scope="'plugin'"
       :skills="{ user: [], project: [] }"
       @saved="handleRefresh"
     />
@@ -227,7 +220,7 @@
     <AgentEditModal
       v-model="showAgentModal"
       :agent="editingAgent"
-      :source="'plugin'"
+      :scope="'plugin'"
       :agents="{ user: [], project: [] }"
       @saved="handleRefresh"
     />
@@ -257,7 +250,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { NInput, NSwitch, useDialog, useMessage } from 'naive-ui'
+import { NInput, NSwitch, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useIPC } from '@composables/useIPC'
 import SkillEditModal from './skills/SkillEditModal.vue'
@@ -268,7 +261,6 @@ import CommandEditModal from './commands/CommandEditModal.vue'
 
 const { t } = useLocale()
 const { invoke } = useIPC()
-const dialog = useDialog()
 const message = useMessage()
 
 const emit = defineEmits(['insert-to-input', 'send-command'])
@@ -353,40 +345,6 @@ const handleToggle = async (plugin, enabled) => {
     console.error('Failed to toggle plugin:', err)
     plugin.enabled = previousState // 回滚
   }
-}
-
-const handleDelete = (plugin) => {
-  dialog.warning({
-    title: t('rightPanel.plugins.deleteConfirm'),
-    content: t('rightPanel.plugins.deleteWarning', { name: plugin.name }),
-    positiveText: t('common.delete'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      try {
-        const result = await invoke('deletePlugin', plugin.id, true)
-        if (result.success) {
-          // 从列表中移除
-          const idx = plugins.value.findIndex(p => p.id === plugin.id)
-          if (idx !== -1) {
-            plugins.value.splice(idx, 1)
-          }
-          // 清理相关状态
-          expandedPlugins.value.delete(plugin.id)
-          delete pluginDetails[plugin.id]
-          delete loadingDetails[plugin.id]
-          delete expandedSections[plugin.id]
-          // 提示用户可能需要重启 Claude Code
-          message.success(t('rightPanel.plugins.uninstallSuccess'))
-          message.info(t('rightPanel.plugins.restartHint'), { duration: 5000 })
-        } else {
-          message.error(result.error || t('rightPanel.plugins.uninstallFailed'))
-        }
-      } catch (err) {
-        console.error('Failed to delete plugin:', err)
-        message.error(t('rightPanel.plugins.uninstallFailed'))
-      }
-    }
-  })
 }
 
 const toggleExpand = async (plugin) => {
@@ -837,29 +795,5 @@ onMounted(() => {
   color: var(--text-color-muted);
   font-size: 12px;
   padding: 12px;
-}
-
-.plugin-actions {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.delete-btn {
-  padding: 4px 12px;
-  font-size: 11px;
-  color: #dc2626;
-  background: transparent;
-  border: 1px solid #dc2626;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.delete-btn:hover {
-  background: #dc2626;
-  color: white;
 }
 </style>

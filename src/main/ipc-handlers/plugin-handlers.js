@@ -87,19 +87,6 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
-  // 删除插件
-  ipcMain.handle('plugins:delete', async (event, pluginId, deleteFiles = true) => {
-    try {
-      if (!pluginId || typeof pluginId !== 'string') {
-        return { success: false, error: 'Invalid plugin ID' }
-      }
-      return await pluginManager.deletePlugin(pluginId, !!deleteFiles)
-    } catch (err) {
-      console.error('[IPC] plugins:delete error:', err)
-      return { success: false, error: err.message }
-    }
-  })
-
   // ========================================
   // Skills Manager IPC Handlers
   // ========================================

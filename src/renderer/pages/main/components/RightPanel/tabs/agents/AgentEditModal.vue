@@ -81,7 +81,7 @@ const message = useMessage()
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   agent: { type: Object, default: null },
-  source: { type: String, default: 'user' },
+  scope: { type: String, default: 'user' },
   agents: { type: Object, default: () => ({ user: [], project: [] }) },
   projectPath: { type: String, default: null }
 })
@@ -263,7 +263,7 @@ const loadAgentContent = async (agent) => {
   } else {
     // 新建模式：提供默认模板
     form.value.isEdit = false
-    form.value.source = props.source
+    form.value.source = props.scope
     form.value.agentId = 'my-agent'
     form.value.originalAgentId = ''  // 新建模式无原始 ID
     form.value.rawContent = `---
@@ -288,10 +288,10 @@ watch(() => props.modelValue, (newVal) => {
   }
 })
 
-// 监听 source prop 变化
-watch(() => props.source, (source) => {
+// 监听 scope prop 变化
+watch(() => props.scope, (scope) => {
   if (!form.value.isEdit) {
-    form.value.source = source
+    form.value.source = scope
   }
 })
 

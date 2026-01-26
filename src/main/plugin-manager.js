@@ -157,74 +157,12 @@ class PluginManager extends ComponentScanner {
     }
   }
 
-  /**
-   * 删除插件
-   */
-  async deletePlugin(pluginId, deleteFiles = true) {
-    try {
-      const installedPlugins = this._readInstalledPlugins()
-
-      if (!installedPlugins.plugins || !installedPlugins.plugins[pluginId]) {
-        return { success: false, error: '插件不存在' }
-      }
-
-      const installations = installedPlugins.plugins[pluginId]
-      const installPaths = installations.map(i => i.installPath).filter(Boolean)
-
-      delete installedPlugins.plugins[pluginId]
-      this._writeInstalledPlugins(installedPlugins)
-
-      const settings = this._readSettings()
-      if (settings.enabledPlugins && settings.enabledPlugins[pluginId] !== undefined) {
-        delete settings.enabledPlugins[pluginId]
-        this._writeSettings(settings)
-      }
-
-      if (deleteFiles) {
-        for (const installPath of installPaths) {
-          if (!installPath || !this._isPathSafe(installPath)) {
-            console.warn(`[PluginManager] Skipping unsafe path: ${installPath}`)
-            continue
-          }
-          if (fs.existsSync(installPath)) {
-            try {
-              fs.rmSync(installPath, { recursive: true, force: true })
-              console.log(`[PluginManager] Deleted plugin files: ${installPath}`)
-            } catch (err) {
-              console.warn(`[PluginManager] Failed to delete plugin files: ${installPath}`, err.message)
-            }
-          }
-        }
-      }
-
-      console.log(`[PluginManager] Plugin ${pluginId} deleted successfully`)
-      return { success: true }
-    } catch (err) {
-      console.error('[PluginManager] Failed to delete plugin:', err)
-      return { success: false, error: err.message }
-    }
-  }
-
   // ========================================
   // 私有方法：文件读写
   // ========================================
 
-  _writeInstalledPlugins(data) {
-    fs.writeFileSync(this.installedPluginsPath, JSON.stringify(data, null, 2), 'utf-8')
-  }
-
   _writeSettings(settings) {
     fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
-  }
-
-  _isPathSafe(targetPath) {
-    try {
-      const normalizedTarget = path.resolve(targetPath)
-      const normalizedPlugins = path.resolve(this.pluginsDir)
-      return normalizedTarget.startsWith(normalizedPlugins + path.sep)
-    } catch {
-      return false
-    }
   }
 
   _readPluginJson(installPath) {

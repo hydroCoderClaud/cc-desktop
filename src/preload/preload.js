@@ -180,7 +180,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPluginsFolder: () => ipcRenderer.invoke('plugins:openFolder'),
   openInstalledPluginsJson: () => ipcRenderer.invoke('plugins:openInstalledJson'),
   openSettingsJson: () => ipcRenderer.invoke('plugins:openSettingsJson'),
-  deletePlugin: (pluginId, deleteFiles = true) => ipcRenderer.invoke('plugins:delete', pluginId, deleteFiles),
 
   // ========================================
   // Skills 管理 (来自插件和项目级)

@@ -73,7 +73,7 @@ const message = useMessage()
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   skill: { type: Object, default: null },
-  source: { type: String, default: 'user' },
+  scope: { type: String, default: 'user' },
   skills: { type: Object, default: () => ({ user: [], project: [] }) },
   projectPath: { type: String, default: null }
 })
@@ -217,7 +217,7 @@ const loadSkillContent = async (skill) => {
   } else {
     // 新建模式：提供默认模板
     form.value.isEdit = false
-    form.value.source = props.source
+    form.value.source = props.scope
     form.value.skillId = 'my-skill'
     form.value.rawContent = `---
 name: my-skill
@@ -240,10 +240,10 @@ watch(() => props.modelValue, (newVal) => {
   }
 })
 
-// 监听 source prop 变化
-watch(() => props.source, (source) => {
+// 监听 scope prop 变化
+watch(() => props.scope, (scope) => {
   if (!form.value.isEdit) {
-    form.value.source = source
+    form.value.source = scope
   }
 })
 
