@@ -75,9 +75,14 @@
           :placeholder="t('profileManager.apiKeyPlaceholder')"
         >
           <template #suffix>
-            <n-button text @click="showPassword = !showPassword">
-              {{ showPassword ? '🙈' : '👁️' }}
-            </n-button>
+            <n-space :size="4">
+              <n-button text @click="copyApiKey" :title="t('common.copy')">
+                📋
+              </n-button>
+              <n-button text @click="showPassword = !showPassword">
+                {{ showPassword ? '🙈' : '👁️' }}
+              </n-button>
+            </n-space>
           </template>
         </n-input>
       </n-form-item>
@@ -180,9 +185,11 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 
 const { t } = useLocale()
+const message = useMessage()
 
 const props = defineProps({
   show: Boolean,
@@ -195,6 +202,16 @@ const emit = defineEmits(['update:show', 'save', 'test'])
 
 const formRef = ref(null)
 const showPassword = ref(false)
+
+const copyApiKey = async () => {
+  if (!formData.value.authToken) return
+  try {
+    await navigator.clipboard.writeText(formData.value.authToken)
+    message.success(t('common.copied'))
+  } catch (err) {
+    message.error(t('common.copyFailed'))
+  }
+}
 
 const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '⚫']
 
