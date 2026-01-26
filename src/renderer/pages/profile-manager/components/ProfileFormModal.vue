@@ -256,6 +256,12 @@ const providerOptions = computed(() => {
 
 const needsModelMapping = computed(() => {
   const sp = formData.value.serviceProvider
+  // 从服务商定义中读取 needsMapping 属性
+  const provider = props.providers?.find(p => p.id === sp)
+  if (provider) {
+    return provider.needsMapping === true
+  }
+  // 兜底：官方和代理不需要映射
   return sp !== 'official' && sp !== 'proxy'
 })
 
