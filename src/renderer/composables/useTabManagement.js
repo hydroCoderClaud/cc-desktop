@@ -108,15 +108,20 @@ export function useTabManagement() {
    * @param {Object} tab - Tab 对象
    */
   const closeTab = async (tab) => {
+    console.log(`[TabManagement] closeTab called for tab: ${tab.id}, sessionId: ${tab.sessionId}`)
+
     // 断开连接（会话在后台继续运行）
     try {
+      console.log(`[TabManagement] Calling disconnectActiveSession...`)
       await invoke('disconnectActiveSession', tab.sessionId)
+      console.log(`[TabManagement] disconnectActiveSession completed`)
     } catch (err) {
       console.error('Failed to disconnect session:', err)
     }
 
     // 移除 tab 并切换到合适的 tab
     activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
+    console.log(`[TabManagement] Tab removed, new activeTabId: ${activeTabId.value}`)
   }
 
   /**

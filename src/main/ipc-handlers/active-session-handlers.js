@@ -62,7 +62,9 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
 
   // 断开连接（保持后台运行）
   createIPCHandler(ipcMain, 'activeSession:disconnect', (sessionId) => {
+    console.log(`[IPC] activeSession:disconnect called for session: ${sessionId}`)
     activeSessionManager.setVisible(sessionId, false)
+    console.log(`[IPC] activeSession:disconnect completed`)
     return { success: true }
   })
 
