@@ -45,8 +45,10 @@ export function useSessionPanel(props, emit) {
    * 加载活动会话列表
    */
   const loadActiveSessions = async () => {
+    console.log('[useSessionPanel] loadActiveSessions called')
     try {
       const sessions = await invoke('listActiveSessions', true)
+      console.log('[useSessionPanel] loadActiveSessions received', sessions.length, 'sessions')
       activeSessions.value = sessions
     } catch (err) {
       console.error('Failed to load active sessions:', err)

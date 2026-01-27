@@ -753,13 +753,16 @@ onMounted(async () => {
       if (!sessionId || !session) return
 
       console.log('[LeftPanel] Session updated event received:', sessionId, 'visible:', session.visible)
+      console.log('[LeftPanel] About to call loadActiveSessions()...')
 
       // 始终重新加载会话列表以确保同步
       // 这样可以处理：新会话创建、会话关闭、可见性变化等所有情况
       await loadActiveSessions()
+      console.log('[LeftPanel] loadActiveSessions() completed')
 
       // 如果是当前项目的会话，同时更新历史会话列表（可能有 resumeSessionId 变化）
       if (props.currentProject && session.projectId === props.currentProject.id) {
+        console.log('[LeftPanel] Also loading history sessions...')
         await loadHistorySessions(props.currentProject)
       }
     })
