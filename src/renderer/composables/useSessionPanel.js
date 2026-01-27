@@ -51,8 +51,13 @@ export function useSessionPanel(props, emit) {
       console.log('[useSessionPanel] loadActiveSessions received', sessions.length, 'sessions:', sessions)
       console.log('[useSessionPanel] Before update, activeSessions.value.length =', activeSessions.value.length)
 
-      // 强制创建新数组引用以触发 Vue 响应式更新
-      activeSessions.value = [...sessions]
+      // 强制触发 Vue 响应式更新的技巧：
+      // 1. 先清空数组
+      activeSessions.value = []
+      // 2. 等待下一个 tick（让 Vue 处理清空）
+      await new Promise(resolve => setTimeout(resolve, 0))
+      // 3. 再设置新数组
+      activeSessions.value = sessions
 
       console.log('[useSessionPanel] After update, activeSessions.value.length =', activeSessions.value.length)
     } catch (err) {
