@@ -57,7 +57,7 @@ Electron 应用
 ### 设计原则
 
 1. **单用户无认证** - 无 JWT、无用户管理
-2. **单终端模式** - 切换项目时杀掉旧 PTY 创建新的
+2. **多会话并发** - 支持同时运行多个终端会话，可后台运行
 3. **简单项目管理** - 最近项目列表存储在单个 JSON
 4. **直接 IPC 通信** - 无 WebSocket
 5. **纯本地** - 所有数据存储在本地 AppData
@@ -100,6 +100,62 @@ window.electronAPI.onTerminalData((data) => terminal.write(data));
 1. 更新 `src/main/config-manager.js` 的 `defaultConfig`
 2. ConfigManager 自动合并现有配置
 3. 通过 `configManager.getConfig()` 或 `config:get` IPC 访问
+
+### Tab 管理双数组模式
+
+为了在关闭 Tab 时保持终端缓冲区（xterm.js buffer），使用双数组架构：
+
+```javascript
+const tabs = ref([])      // TabBar UI 显示的 tabs
+const allTabs = ref([])   // 所有 TerminalTab 组件（包括后台的）
+```
+
+**关键点**：
+- `tabs`：控制 TabBar 中显示哪些 Tab（用户可见的 UI 状态）
+- `allTabs`：保持所有 TerminalTab 组件实例（即使 Tab 关闭，组件不销毁）
+- 关闭 Tab：从 `tabs` 移除，但保留在 `allTabs` → xterm buffer 不丢失
+- 重新打开 Tab：从 `allTabs` 找到现有组件，添加回 `tabs` → 终端内容恢复
+
+**实现模式**：
+```javascript
+// MainContent.vue: 渲染所有终端组件
+<TerminalTab
+  v-for="tab in allTabs"  // 使用 allTabs，不是 tabs
+  :key="tab.id"
+  :visible="activeTabId === tab.id"
+/>
+
+// useTabManagement.js: 关闭 Tab
+const closeTab = async (tab) => {
+  // 1. 断开连接（后台运行）
+  await invoke('disconnectActiveSession', tab.sessionId)
+
+  // 2. 从 tabs 移除（UI 隐藏）
+  const index = tabs.value.findIndex(t => t.id === tab.id)
+  if (index !== -1) {
+    tabs.value.splice(index, 1)
+  }
+  // 3. 保留在 allTabs 中（组件不销毁）
+}
+
+// useTabManagement.js: 重新打开 Tab
+const ensureSessionTab = (session) => {
+  // 1. 先在 allTabs 中查找（保持缓冲区）
+  const existingTab = findTabBySessionId(allTabs.value, session.id)
+  if (existingTab) {
+    // 2. 添加回 tabs（UI 显示）
+    if (!tabs.value.find(t => t.id === existingTab.id)) {
+      tabs.value.push(existingTab)
+    }
+    return existingTab
+  }
+
+  // 3. 不存在则创建新 Tab，同时添加到两个数组
+  const newTab = { /* ... */ }
+  tabs.value.push(newTab)
+  allTabs.value.push(newTab)
+}
+```
 
 ### Plugin/Skills 加载机制
 
@@ -200,6 +256,61 @@ dialog.warning({
   onNegativeClick: () => { /* ... */ }         // ✅ 不是 onNegative
 })
 ```
+
+### 3. macOS BrowserWindow 生命周期
+
+**问题**：macOS 上关闭窗口不会退出应用，重新激活时出现 "Object has been destroyed" 错误。
+
+**原因**：
+- macOS 窗口关闭时 `mainWindow` 被销毁，但 app 不退出
+- Manager 类持有的 `mainWindow` 引用变成已销毁对象
+- 重新激活时调用 `mainWindow.webContents.send()` 报错
+
+**解决方案**：
+
+1. **更新 activate 事件处理**：
+```javascript
+// src/main/index.js
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+
+    // 更新 manager 引用，避免使用已销毁的 mainWindow
+    if (terminalManager) {
+      terminalManager.mainWindow = mainWindow;
+    }
+    if (activeSessionManager) {
+      activeSessionManager.mainWindow = mainWindow;
+    }
+  }
+});
+```
+
+2. **防御性 IPC 发送**：
+```javascript
+// 在所有 Manager 类中添加 _safeSend 方法
+_safeSend(channel, data) {
+  try {
+    if (this.mainWindow &&
+        !this.mainWindow.isDestroyed() &&
+        this.mainWindow.webContents &&
+        !this.mainWindow.webContents.isDestroyed()) {
+      this.mainWindow.webContents.send(channel, data)
+      return true
+    }
+    console.warn(`Cannot send to ${channel}: window destroyed`)
+    return false
+  } catch (error) {
+    console.error(`Failed to send to ${channel}:`, error)
+    return false
+  }
+}
+
+// 替换所有 webContents.send() 调用
+this._safeSend('session:data', { sessionId, data })
+```
+
+**注意**：Windows/Linux 关闭窗口会退出应用，所以这是 macOS 特定问题。
 
 ---
 
