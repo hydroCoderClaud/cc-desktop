@@ -45,11 +45,8 @@ export function useSessionPanel(props, emit) {
    * 加载活动会话列表
    */
   const loadActiveSessions = async () => {
-    console.log('[useSessionPanel] loadActiveSessions called')
     try {
       const sessions = await invoke('listActiveSessions', true)
-      console.log('[useSessionPanel] loadActiveSessions received', sessions.length, 'sessions:', sessions)
-      console.log('[useSessionPanel] Before update, activeSessions.value.length =', activeSessions.value.length)
 
       // 强制触发 Vue 响应式更新的技巧：
       // 1. 先清空数组
@@ -58,8 +55,6 @@ export function useSessionPanel(props, emit) {
       await new Promise(resolve => setTimeout(resolve, 0))
       // 3. 再设置新数组
       activeSessions.value = sessions
-
-      console.log('[useSessionPanel] After update, activeSessions.value.length =', activeSessions.value.length)
     } catch (err) {
       console.error('Failed to load active sessions:', err)
       activeSessions.value = []

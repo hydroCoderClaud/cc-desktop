@@ -732,19 +732,16 @@ let fileWatcherCleanup = null
 let sessionUpdatedCleanup = null
 
 onMounted(async () => {
-  console.log('[LeftPanel] Component mounted')
   await loadConfig()
 
   // 初始加载活动会话列表
   await loadActiveSessions()
-  console.log('[LeftPanel] Initial load completed, activeSessions count:', activeSessions.value.length)
 
   cleanupFn = setupEventListeners()
 
   // Listen for session file changes
   if (window.electronAPI?.onSessionFileChanged) {
     fileWatcherCleanup = window.electronAPI.onSessionFileChanged(async (data) => {
-      console.log('[LeftPanel] Session file changed:', data)
       // Reload history sessions when files change
       if (props.currentProject?.path === data.projectPath) {
         await loadHistorySessions(props.currentProject)
@@ -758,20 +755,14 @@ onMounted(async () => {
       const { sessionId, session } = eventData || {}
       if (!sessionId || !session) return
 
-      console.log('[LeftPanel] Session updated event received:', sessionId, 'visible:', session.visible)
-      console.log('[LeftPanel] About to call loadActiveSessions()...')
-
-      // 始终重新加载会话列表以确保同步
+      // 重新加载会话列表以确保UI同步
       await loadActiveSessions()
 
       // 强制 Vue 更新 DOM
       await nextTick()
 
-      console.log('[LeftPanel] loadActiveSessions() completed, nextTick() done')
-
       // 如果是当前项目的会话，同时更新历史会话列表（可能有 resumeSessionId 变化）
       if (props.currentProject && session.projectId === props.currentProject.id) {
-        console.log('[LeftPanel] Also loading history sessions...')
         await loadHistorySessions(props.currentProject)
       }
     })

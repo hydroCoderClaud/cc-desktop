@@ -55,13 +55,11 @@ export function useTabManagement() {
     // 先在 allTabs 中查找（保持终端缓冲区的 tabs）
     const existingTab = findTabBySessionId(allTabs.value, session.id)
     if (existingTab) {
-      console.log('[TabManagement] Tab already exists in allTabs, activating:', existingTab.id)
       activeTabId.value = existingTab.id
 
       // 如果不在 tabs 中（TabBar 显示），添加回去
       if (!tabs.value.find(t => t.id === existingTab.id)) {
         tabs.value.push(existingTab)
-        console.log('[TabManagement] Added tab back to TabBar')
       }
 
       // 重要：通知后端该会话被聚焦（设置 visible=true）
@@ -93,7 +91,6 @@ export function useTabManagement() {
       window.electronAPI.focusActiveSession(session.id)
     }
 
-    console.log('[TabManagement] Created new tab:', newTab.id)
     return newTab
   }
 
@@ -133,13 +130,9 @@ export function useTabManagement() {
    * @param {Object} tab - Tab 对象
    */
   const closeTab = async (tab) => {
-    console.log(`[TabManagement] closeTab called for tab: ${tab.id}, sessionId: ${tab.sessionId}`)
-
     // 断开连接（会话在后台继续运行）
     try {
-      console.log(`[TabManagement] Calling disconnectActiveSession...`)
       await invoke('disconnectActiveSession', tab.sessionId)
-      console.log(`[TabManagement] disconnectActiveSession completed`)
     } catch (err) {
       console.error('Failed to disconnect session:', err)
     }
@@ -148,7 +141,6 @@ export function useTabManagement() {
     const index = tabs.value.findIndex(t => t.id === tab.id)
     if (index !== -1) {
       tabs.value.splice(index, 1)
-      console.log(`[TabManagement] Removed tab from TabBar`)
     }
 
     // 但保留在 allTabs 中，这样 TerminalTab 组件和缓冲区数据不会丢失
@@ -163,8 +155,6 @@ export function useTabManagement() {
         activeTabId.value = 'welcome'
       }
     }
-
-    console.log(`[TabManagement] Tab hidden, new activeTabId: ${activeTabId.value}`)
   }
 
   /**

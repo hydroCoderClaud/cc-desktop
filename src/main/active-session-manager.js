@@ -98,7 +98,6 @@ class ActiveSessionManager {
     try {
       if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
         this.mainWindow.webContents.send(channel, data)
-        console.log(`[ActiveSession] _safeSend SUCCESS: ${channel}`, { sessionId: data.sessionId })
         return true
       }
       console.warn(`[ActiveSession] Cannot send to ${channel}: window or webContents destroyed`)
@@ -501,10 +500,6 @@ class ActiveSessionManager {
       if (includeHidden || session.visible) {
         result.push(session.toJSON())
       }
-    }
-    console.log(`[ActiveSession] list() called with includeHidden=${includeHidden}, returning ${result.length} sessions`)
-    if (result.length > 0) {
-      result.forEach(s => console.log(`  - ${s.id}: visible=${s.visible}, title="${s.title}"`))
     }
     return result
   }
