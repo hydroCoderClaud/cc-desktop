@@ -98,6 +98,7 @@ class ActiveSessionManager {
     try {
       if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
         this.mainWindow.webContents.send(channel, data)
+        console.log(`[ActiveSession] _safeSend SUCCESS: ${channel}`, { sessionId: data.sessionId })
         return true
       }
       console.warn(`[ActiveSession] Cannot send to ${channel}: window or webContents destroyed`)
