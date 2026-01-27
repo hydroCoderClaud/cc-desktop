@@ -195,14 +195,36 @@ export function useTabManagement() {
   }
 
   /**
-   * 处理会话关闭事件
+   * 处理会话关闭事件（左侧面板点击关闭按钮）
+   * 与 closeTab 不同：这里是真正关闭会话，需要同时清理 tabs 和 allTabs
    * @param {Object} session - 会话对象
    */
   const handleSessionClosed = (session) => {
     if (!isValidSession(session)) return
-    const tab = findTabBySessionId(tabs.value, session.id)
-    if (tab) {
-      activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
+
+    // 从 allTabs 中查找（因为可能在后台）
+    const tab = findTabBySessionId(allTabs.value, session.id)
+    if (!tab) return
+
+    // 从 tabs 中移除（UI 显示）
+    const tabsIndex = tabs.value.findIndex(t => t.id === tab.id)
+    if (tabsIndex !== -1) {
+      tabs.value.splice(tabsIndex, 1)
+    }
+
+    // 从 allTabs 中移除（组件销毁）
+    const allTabsIndex = allTabs.value.findIndex(t => t.id === tab.id)
+    if (allTabsIndex !== -1) {
+      allTabs.value.splice(allTabsIndex, 1)
+    }
+
+    // 如果关闭的是当前活动 tab，切换到其他 tab
+    if (activeTabId.value === tab.id) {
+      if (tabs.value.length > 0) {
+        activeTabId.value = tabs.value[tabs.value.length - 1].id
+      } else {
+        activeTabId.value = 'welcome'
+      }
     }
   }
 
