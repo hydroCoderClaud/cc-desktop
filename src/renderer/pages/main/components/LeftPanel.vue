@@ -755,14 +755,22 @@ onMounted(async () => {
       // Update the corresponding active session in memory
       const activeSession = activeSessions.value.find(s => s.id === sessionId)
       if (activeSession) {
+        const visibleChanged = activeSession.visible !== session.visible
+
         // Update all relevant fields
         Object.assign(activeSession, {
           title: session.title,
           resumeSessionId: session.resumeSessionId,
           dbSessionId: session.dbSessionId,
-          status: session.status
+          status: session.status,
+          visible: session.visible
         })
-        console.log('[LeftPanel] Active session updated:', sessionId, 'resumeSessionId:', session.resumeSessionId)
+        console.log('[LeftPanel] Active session updated:', sessionId, 'visible:', session.visible)
+
+        // 如果可见性发生变化（tab 关闭/恢复），重新加载会话列表以确保 UI 同步
+        if (visibleChanged) {
+          loadActiveSessions()
+        }
       }
     })
   }
