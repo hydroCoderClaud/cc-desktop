@@ -6,8 +6,9 @@
   "author": "HydroCoder",
   "license": "MIT",
   "scripts": {
-    "postinstall": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3 && electron-rebuild -f -w node-pty -o node-pty",
     "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
+    "rebuild:pty": "electron-rebuild -f -w node-pty -o node-pty",
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173/ electron .",

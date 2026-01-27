@@ -5,6 +5,7 @@
 
 const pty = require('node-pty');
 const os = require('os');
+const fs = require('fs');
 
 class TerminalManager {
   constructor(mainWindow, configManager) {
@@ -24,12 +25,47 @@ class TerminalManager {
     const config = this.configManager.getConfig();
 
     // 跨平台 shell 选择：优先使用系统默认 shell
-    const isWin = os.platform() === 'win32';
-    const shell = isWin
-      ? (process.env.COMSPEC || 'cmd.exe')  // Windows: 使用 COMSPEC 或 cmd.exe
-      : (process.env.SHELL || '/bin/sh');   // macOS/Linux: 使用 SHELL 或 /bin/sh
+    const platform = os.platform();
+    let shell;
+    
+    if (platform === 'win32') {
+      // Windows: 使用 COMSPEC 或 cmd.exe
+      shell = process.env.COMSPEC || 'cmd.exe';
+    } else if (platform === 'darwin') {
+      // macOS: 优先使用 zsh（macOS 10.15+ 默认），其次 bash
+      shell = process.env.SHELL || '/bin/zsh';
+      // 如果 SHELL 环境变量指向不存在的路径，尝试常见路径
+      try {
+        fs.accessSync(shell, fs.constants.X_OK);
+      } catch (e) {
+        console.warn(`[Terminal] Shell ${shell} not accessible, trying alternatives...`);
+        // 如果默认 shell 不可用，尝试其他常见 shell
+        const alternativeShells = ['/bin/zsh', '/bin/bash', '/bin/sh'];
+        for (const altShell of alternativeShells) {
+          try {
+            fs.accessSync(altShell, fs.constants.X_OK);
+            shell = altShell;
+            console.log(`[Terminal] Found working shell: ${shell}`);
+            break;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+      
+      // 确保以登录 shell 方式启动，这样可以加载 .zshrc 等配置文件
+      if (shell.includes('/zsh') || shell.includes('/bash')) {
+        shell = shell + ' -l'; // 添加 -l 参数作为登录 shell
+      }
+    } else {
+      // Linux: 使用 SHELL 或 /bin/bash
+      shell = process.env.SHELL || '/bin/bash';
+    }
 
-    console.log(`[Terminal] Starting in: ${projectPath}`);
+    console.log(`[Terminal] Platform: ${platform}`);
+    console.log(`[Terminal] Selected shell: ${shell}`);
+    console.log(`[Terminal] SHELL env: ${process.env.SHELL}`);
+    console.log(`[Terminal] Working directory: ${projectPath}`);
 
     try {
       // 创建 PTY 进程
@@ -40,8 +76,23 @@ class TerminalManager {
         cwd: projectPath,
         env: {
           ...process.env,
-          ANTHROPIC_API_KEY: config.settings.anthropicApiKey || config.settings.claudeApiKey,
-          TERM: 'xterm-256color'
+          // 清除所有可能的认证变量，避免冲突
+          ANTHROPIC_API_KEY: undefined,
+          ANTHROPIC_API_TOKEN: undefined,
+          ANTHROPIC_AUTH_TOKEN: undefined,
+          CLAUDE_AI_TOKEN: undefined,
+          // 根据配置设置正确的认证方式（二选一）
+          ...(config.settings.anthropicApiKey ? {
+            ANTHROPIC_API_KEY: config.settings.anthropicApiKey
+          } : {}),
+          ...(config.settings.anthropicApiToken ? {
+            ANTHROPIC_API_TOKEN: config.settings.anthropicApiToken
+          } : {}),
+          ...(config.settings.claudeApiKey ? {
+            ANTHROPIC_API_KEY: config.settings.claudeApiKey
+          } : {}),
+          TERM: 'xterm-256color',
+          PATH: process.env.PATH // 确保 PATH 正确传递
         }
       });
 
@@ -60,13 +111,16 @@ class TerminalManager {
         this.mainWindow.webContents.send('terminal:exit', { exitCode, signal });
       });
 
-      // 发送欢迎消息
+      // 发送欢迎消息并启动 claude code
       setTimeout(() => {
         this.writeLine('');
         this.writeLine('# CC Desktop Terminal');
         this.writeLine(`# Working Directory: ${projectPath}`);
-        this.writeLine('# Type "claude code" to start Claude Code CLI');
+        this.writeLine('# Starting Claude Code CLI...');
         this.writeLine('');
+        
+        // 自动启动 claude code
+        this.writeLine('claude code');
       }, 100);
 
       return { success: true, path: projectPath };
