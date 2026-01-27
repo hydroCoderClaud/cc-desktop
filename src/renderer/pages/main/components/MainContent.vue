@@ -70,7 +70,7 @@
         <!-- Terminal Tabs Container -->
         <div v-show="activeTabId !== 'welcome'" class="terminal-container">
           <TerminalTab
-            v-for="tab in tabs"
+            v-for="tab in allTabs"
             :key="tab.id"
             :ref="el => setTerminalRef(tab.id, el)"
             :session-id="tab.sessionId"
@@ -156,6 +156,7 @@ const {
 
 const {
   tabs,
+  allTabs,  // 所有 TerminalTab 组件（包括后台的）
   activeTabId,
   ensureSessionTab,
   selectTab,

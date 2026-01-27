@@ -11,7 +11,8 @@ export function useTabManagement() {
   const { invoke } = useIPC()
 
   // State
-  const tabs = ref([])
+  const tabs = ref([])  // TabBar 中显示的 tabs（用户可见的）
+  const allTabs = ref([])  // 所有 TerminalTab 组件（包括后台的，保持缓冲区数据）
   const activeTabId = ref('welcome')  // 默认显示欢迎页
 
   /**
@@ -51,9 +52,23 @@ export function useTabManagement() {
    * @returns {Object} Tab 对象
    */
   const ensureSessionTab = (session) => {
-    const existingTab = findTabBySessionId(tabs.value, session.id)
+    // 先在 allTabs 中查找（保持终端缓冲区的 tabs）
+    const existingTab = findTabBySessionId(allTabs.value, session.id)
     if (existingTab) {
+      console.log('[TabManagement] Tab already exists in allTabs, activating:', existingTab.id)
       activeTabId.value = existingTab.id
+
+      // 如果不在 tabs 中（TabBar 显示），添加回去
+      if (!tabs.value.find(t => t.id === existingTab.id)) {
+        tabs.value.push(existingTab)
+        console.log('[TabManagement] Added tab back to TabBar')
+      }
+
+      // 重要：通知后端该会话被聚焦（设置 visible=true）
+      if (window.electronAPI) {
+        window.electronAPI.focusActiveSession(session.id)
+      }
+
       return existingTab
     }
 
@@ -67,8 +82,18 @@ export function useTabManagement() {
       title: session.title || '',
       status: session.status
     }
+
+    // 同时添加到两个数组
     tabs.value.push(newTab)
+    allTabs.value.push(newTab)
     activeTabId.value = newTab.id
+
+    // 通知后端聚焦该会话
+    if (window.electronAPI) {
+      window.electronAPI.focusActiveSession(session.id)
+    }
+
+    console.log('[TabManagement] Created new tab:', newTab.id)
     return newTab
   }
 
@@ -119,9 +144,27 @@ export function useTabManagement() {
       console.error('Failed to disconnect session:', err)
     }
 
-    // 移除 tab 并切换到合适的 tab
-    activeTabId.value = removeTabAndGetNextActive(tabs.value, tab.id, activeTabId.value)
-    console.log(`[TabManagement] Tab removed, new activeTabId: ${activeTabId.value}`)
+    // 从 TabBar 的 tabs 数组中删除（UI 上移除 Tab）
+    const index = tabs.value.findIndex(t => t.id === tab.id)
+    if (index !== -1) {
+      tabs.value.splice(index, 1)
+      console.log(`[TabManagement] Removed tab from TabBar`)
+    }
+
+    // 但保留在 allTabs 中，这样 TerminalTab 组件和缓冲区数据不会丢失
+
+    // 如果关闭的是当前活动 tab，切换到其他 tab
+    if (activeTabId.value === tab.id) {
+      if (tabs.value.length > 0) {
+        // 切换到剩余 tabs 中的最后一个
+        activeTabId.value = tabs.value[tabs.value.length - 1].id
+      } else {
+        // 没有其他 tabs 了，显示欢迎页
+        activeTabId.value = 'welcome'
+      }
+    }
+
+    console.log(`[TabManagement] Tab hidden, new activeTabId: ${activeTabId.value}`)
   }
 
   /**
@@ -179,7 +222,7 @@ export function useTabManagement() {
    * @param {string} status - 新状态
    */
   const updateTabStatus = (sessionId, status) => {
-    const tab = tabs.value.find(t => t.sessionId === sessionId)
+    const tab = allTabs.value.find(t => t.sessionId === sessionId)
     if (tab) {
       tab.status = status
     }
@@ -191,7 +234,7 @@ export function useTabManagement() {
    * @param {string} title - 新标题
    */
   const updateTabTitle = (sessionId, title) => {
-    const tab = tabs.value.find(t => t.sessionId === sessionId)
+    const tab = allTabs.value.find(t => t.sessionId === sessionId)
     if (tab) {
       tab.title = title
     }
@@ -203,7 +246,7 @@ export function useTabManagement() {
    * @returns {Array} Tab 列表
    */
   const getTabsByProjectId = (projectId) => {
-    return tabs.value.filter(t => t.projectId === projectId)
+    return allTabs.value.filter(t => t.projectId === projectId)
   }
 
   /**
@@ -219,12 +262,13 @@ export function useTabManagement() {
    * @returns {Object|null} Tab 对象
    */
   const findTabById = (tabId) => {
-    return tabs.value.find(t => t.id === tabId) || null
+    return allTabs.value.find(t => t.id === tabId) || null
   }
 
   return {
     // State
-    tabs,
+    tabs,  // TabBar 显示的 tabs
+    allTabs,  // 所有 TerminalTab 组件（包括后台的）
     activeTabId,
 
     // Computed
@@ -246,6 +290,6 @@ export function useTabManagement() {
     getTabsByProjectId,
     goToWelcome,
     findTabById,
-    findTabBySessionId: (sessionId) => findTabBySessionId(tabs.value, sessionId)
+    findTabBySessionId: (sessionId) => findTabBySessionId(allTabs.value, sessionId)  // 使用 allTabs 查找
   }
 }
