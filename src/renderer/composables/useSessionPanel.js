@@ -47,13 +47,7 @@ export function useSessionPanel(props, emit) {
   const loadActiveSessions = async () => {
     try {
       const sessions = await invoke('listActiveSessions', true)
-
-      // 强制触发 Vue 响应式更新的技巧：
-      // 1. 先清空数组
-      activeSessions.value = []
-      // 2. 等待下一个 tick（让 Vue 处理清空）
-      await new Promise(resolve => setTimeout(resolve, 0))
-      // 3. 再设置新数组
+      // 直接赋值新数组，Vue 会检测引用变化
       activeSessions.value = sessions
     } catch (err) {
       console.error('Failed to load active sessions:', err)

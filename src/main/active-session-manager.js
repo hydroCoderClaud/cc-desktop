@@ -459,7 +459,6 @@ class ActiveSessionManager {
     const session = this.sessions.get(sessionId)
     if (session) {
       session.visible = visible
-      console.log(`[ActiveSession] Session ${sessionId} visibility set to: ${visible}`)
 
       // 通知渲染进程会话可见性已更新
       this._safeSend('session:updated', {

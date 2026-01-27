@@ -4,7 +4,7 @@
  */
 import { ref, computed } from 'vue'
 import { useIPC } from './useIPC'
-import { createTabFromSession, findTabBySessionId, removeTabAndGetNextActive } from './useSessionUtils'
+import { createTabFromSession, findTabBySessionId } from './useSessionUtils'
 import { isValidSession } from './useValidation'
 
 export function useTabManagement() {
