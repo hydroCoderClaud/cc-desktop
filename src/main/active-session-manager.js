@@ -501,6 +501,10 @@ class ActiveSessionManager {
         result.push(session.toJSON())
       }
     }
+    console.log(`[ActiveSession] list() called with includeHidden=${includeHidden}, returning ${result.length} sessions`)
+    if (result.length > 0) {
+      result.forEach(s => console.log(`  - ${s.id}: visible=${s.visible}, title="${s.title}"`))
+    }
     return result
   }
 

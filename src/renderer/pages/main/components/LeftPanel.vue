@@ -746,31 +746,21 @@ onMounted(async () => {
     })
   }
 
-  // Listen for session updates (e.g., when uuid is linked after file detection)
+  // Listen for session updates (e.g., when uuid is linked after file detection, visibility changed)
   if (window.electronAPI?.onSessionUpdated) {
-    sessionUpdatedCleanup = window.electronAPI.onSessionUpdated((eventData) => {
+    sessionUpdatedCleanup = window.electronAPI.onSessionUpdated(async (eventData) => {
       const { sessionId, session } = eventData || {}
       if (!sessionId || !session) return
 
-      // Update the corresponding active session in memory
-      const activeSession = activeSessions.value.find(s => s.id === sessionId)
-      if (activeSession) {
-        const visibleChanged = activeSession.visible !== session.visible
+      console.log('[LeftPanel] Session updated event received:', sessionId, 'visible:', session.visible)
 
-        // Update all relevant fields
-        Object.assign(activeSession, {
-          title: session.title,
-          resumeSessionId: session.resumeSessionId,
-          dbSessionId: session.dbSessionId,
-          status: session.status,
-          visible: session.visible
-        })
-        console.log('[LeftPanel] Active session updated:', sessionId, 'visible:', session.visible)
+      // 始终重新加载会话列表以确保同步
+      // 这样可以处理：新会话创建、会话关闭、可见性变化等所有情况
+      await loadActiveSessions()
 
-        // 如果可见性发生变化（tab 关闭/恢复），重新加载会话列表以确保 UI 同步
-        if (visibleChanged) {
-          loadActiveSessions()
-        }
+      // 如果是当前项目的会话，同时更新历史会话列表（可能有 resumeSessionId 变化）
+      if (props.currentProject && session.projectId === props.currentProject.id) {
+        await loadHistorySessions(props.currentProject)
       }
     })
   }
