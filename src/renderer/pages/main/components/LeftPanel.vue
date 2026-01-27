@@ -732,7 +732,13 @@ let fileWatcherCleanup = null
 let sessionUpdatedCleanup = null
 
 onMounted(async () => {
+  console.log('[LeftPanel] Component mounted')
   await loadConfig()
+
+  // 初始加载活动会话列表
+  await loadActiveSessions()
+  console.log('[LeftPanel] Initial load completed, activeSessions count:', activeSessions.value.length)
+
   cleanupFn = setupEventListeners()
 
   // Listen for session file changes

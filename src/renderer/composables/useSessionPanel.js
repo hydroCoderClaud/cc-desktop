@@ -48,8 +48,13 @@ export function useSessionPanel(props, emit) {
     console.log('[useSessionPanel] loadActiveSessions called')
     try {
       const sessions = await invoke('listActiveSessions', true)
-      console.log('[useSessionPanel] loadActiveSessions received', sessions.length, 'sessions')
-      activeSessions.value = sessions
+      console.log('[useSessionPanel] loadActiveSessions received', sessions.length, 'sessions:', sessions)
+      console.log('[useSessionPanel] Before update, activeSessions.value.length =', activeSessions.value.length)
+
+      // 强制创建新数组引用以触发 Vue 响应式更新
+      activeSessions.value = [...sessions]
+
+      console.log('[useSessionPanel] After update, activeSessions.value.length =', activeSessions.value.length)
     } catch (err) {
       console.error('Failed to load active sessions:', err)
       activeSessions.value = []
