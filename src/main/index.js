@@ -171,6 +171,14 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+
+      // 更新所有 manager 的 mainWindow 引用
+      if (terminalManager) {
+        terminalManager.mainWindow = mainWindow;
+      }
+      if (activeSessionManager) {
+        activeSessionManager.mainWindow = mainWindow;
+      }
     }
   });
 });

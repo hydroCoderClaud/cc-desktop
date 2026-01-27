@@ -16,6 +16,26 @@ class TerminalManager {
   }
 
   /**
+   * 安全地发送消息到渲染进程
+   * @param {string} channel - IPC 频道
+   * @param {any} data - 数据
+   * @returns {boolean} 是否发送成功
+   */
+  _safeSend(channel, data) {
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
+        this.mainWindow.webContents.send(channel, data)
+        return true
+      }
+      console.warn(`[Terminal] Cannot send to ${channel}: window or webContents destroyed`)
+      return false
+    } catch (error) {
+      console.error(`[Terminal] Failed to send to ${channel}:`, error)
+      return false
+    }
+  }
+
+  /**
    * 启动终端进程
    */
   start(projectPath) {
@@ -100,7 +120,7 @@ class TerminalManager {
 
       // 监听数据输出
       this.pty.onData(data => {
-        this.mainWindow.webContents.send('terminal:data', data);
+        this._safeSend('terminal:data', data);
       });
 
       // 监听退出
@@ -108,7 +128,7 @@ class TerminalManager {
         console.log(`[Terminal] Process exited. Code: ${exitCode}, Signal: ${signal}`);
         this.pty = null;
         this.currentProject = null;
-        this.mainWindow.webContents.send('terminal:exit', { exitCode, signal });
+        this._safeSend('terminal:exit', { exitCode, signal });
       });
 
       // 发送欢迎消息并启动 claude code
@@ -126,7 +146,7 @@ class TerminalManager {
       return { success: true, path: projectPath };
     } catch (error) {
       console.error('[Terminal] Failed to start:', error);
-      this.mainWindow.webContents.send('terminal:error', error.message);
+      this._safeSend('terminal:error', error.message);
       return { success: false, error: error.message };
     }
   }

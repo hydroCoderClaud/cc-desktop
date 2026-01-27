@@ -89,6 +89,26 @@ class ActiveSessionManager {
   }
 
   /**
+   * 安全地发送消息到渲染进程
+   * @param {string} channel - IPC 频道
+   * @param {any} data - 数据
+   * @returns {boolean} 是否发送成功
+   */
+  _safeSend(channel, data) {
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
+        this.mainWindow.webContents.send(channel, data)
+        return true
+      }
+      console.warn(`[ActiveSession] Cannot send to ${channel}: window or webContents destroyed`)
+      return false
+    } catch (error) {
+      console.error(`[ActiveSession] Failed to send to ${channel}:`, error)
+      return false
+    }
+  }
+
+  /**
    * 设置会话数据库（延迟注入）
    */
   setSessionDatabase(sessionDatabase) {
@@ -245,7 +265,7 @@ class ActiveSessionManager {
       // 监听数据输出
       session.pty.onData(data => {
         // 发送到渲染进程，带上 sessionId
-        this.mainWindow.webContents.send('session:data', {
+        this._safeSend('session:data', {
           sessionId: session.id,
           data
         })
@@ -258,7 +278,7 @@ class ActiveSessionManager {
         session.exitCode = exitCode
         session.pty = null
 
-        this.mainWindow.webContents.send('session:exit', {
+        this._safeSend('session:exit', {
           sessionId: session.id,
           exitCode,
           signal
@@ -285,7 +305,7 @@ class ActiveSessionManager {
       }, 100)
 
       // 通知创建成功
-      this.mainWindow.webContents.send('session:started', {
+      this._safeSend('session:started', {
         sessionId: session.id,
         session: session.toJSON()
       })
@@ -296,7 +316,7 @@ class ActiveSessionManager {
       session.status = SessionStatus.ERROR
       session.error = error.message
 
-      this.mainWindow.webContents.send('session:error', {
+      this._safeSend('session:error', {
         sessionId: session.id,
         error: error.message
       })
@@ -572,7 +592,7 @@ class ActiveSessionManager {
     }
 
     // 3. 通知渲染进程会话已更新
-    this.mainWindow.webContents.send('session:updated', {
+    this._safeSend('session:updated', {
       sessionId: session.id,
       session: session.toJSON()
     })
@@ -597,7 +617,7 @@ class ActiveSessionManager {
     console.log(`[ActiveSession] Linked session ${sessionId} to uuid: ${sessionUuid}`)
 
     // 通知渲染进程会话已更新
-    this.mainWindow.webContents.send('session:updated', {
+    this._safeSend('session:updated', {
       sessionId: session.id,
       session: session.toJSON()
     })
