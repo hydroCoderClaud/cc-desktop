@@ -47,7 +47,8 @@ class TerminalManager {
     // 跨平台 shell 选择：优先使用系统默认 shell
     const platform = os.platform();
     let shell;
-    
+    let shellArgs = [];  // shell 启动参数
+
     if (platform === 'win32') {
       // Windows: 使用 COMSPEC 或 cmd.exe
       shell = process.env.COMSPEC || 'cmd.exe';
@@ -72,10 +73,10 @@ class TerminalManager {
           }
         }
       }
-      
-      // 确保以登录 shell 方式启动，这样可以加载 .zshrc 等配置文件
+
+      // 以登录 shell 方式启动，加载 .zshrc/.bashrc 等配置文件
       if (shell.includes('/zsh') || shell.includes('/bash')) {
-        shell = shell + ' -l'; // 添加 -l 参数作为登录 shell
+        shellArgs = ['-l'];
       }
     } else {
       // Linux: 使用 SHELL 或 /bin/bash
@@ -89,7 +90,7 @@ class TerminalManager {
 
     try {
       // 创建 PTY 进程
-      this.pty = pty.spawn(shell, [], {
+      this.pty = pty.spawn(shell, shellArgs, {
         name: 'xterm-color',
         cols: 80,
         rows: 24,
@@ -133,12 +134,17 @@ class TerminalManager {
 
       // 发送欢迎消息并启动 claude code
       setTimeout(() => {
+        // Windows: 设置 UTF-8 代码页以正确显示 Unicode 字符
+        if (platform === 'win32') {
+          this.writeLine('chcp 65001 >nul');
+        }
+
         this.writeLine('');
         this.writeLine('# CC Desktop Terminal');
         this.writeLine(`# Working Directory: ${projectPath}`);
         this.writeLine('# Starting Claude Code CLI...');
         this.writeLine('');
-        
+
         // 自动启动 claude code
         this.writeLine('claude code');
       }, 100);

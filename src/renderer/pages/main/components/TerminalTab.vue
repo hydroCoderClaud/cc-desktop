@@ -78,32 +78,13 @@ const initTerminal = async () => {
   fitAddon = new window.FitAddon.FitAddon()
   terminal.loadAddon(fitAddon)
 
-  // 优先使用 WebGL 渲染器，失败则回退 Canvas，再失败用 DOM
-  if (window.WebglAddon) {
+  // 优先使用 Canvas 渲染器（WebGL 在某些情况下有渲染问题）
+  if (window.CanvasAddon) {
     try {
-      webglAddon = new window.WebglAddon.WebglAddon()
-      webglAddon.onContextLoss(() => {
-        console.warn('[Terminal] WebGL context lost, disposing addon')
-        try {
-          webglAddon.dispose()
-        } catch (e) {
-          // 忽略 dispose 错误
-        }
-        webglAddon = null
-      })
-      terminal.loadAddon(webglAddon)
-      console.log('[Terminal] Using WebGL renderer')
+      terminal.loadAddon(new window.CanvasAddon.CanvasAddon())
+      console.log('[Terminal] Using Canvas renderer')
     } catch (e) {
-      console.warn('[Terminal] WebGL failed, trying Canvas:', e)
-      webglAddon = null
-      if (window.CanvasAddon) {
-        try {
-          terminal.loadAddon(new window.CanvasAddon.CanvasAddon())
-          console.log('[Terminal] Using Canvas renderer')
-        } catch (e2) {
-          console.warn('[Terminal] Canvas failed, using DOM renderer:', e2)
-        }
-      }
+      console.warn('[Terminal] Canvas failed, using DOM renderer:', e)
     }
   }
 

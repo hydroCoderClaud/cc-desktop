@@ -292,15 +292,18 @@ class ActiveSessionManager {
         // Windows cmd.exe 用 & 分隔命令，PowerShell/Unix shell 用 ;
         const cmdSep = isWin && shell.toLowerCase().includes('cmd') ? '&' : ';'
 
+        // Windows: 设置 UTF-8 代码页以正确显示 Unicode 字符
+        const chcpCmd = isWin ? 'chcp 65001 >nul &' : ''
+
         if (session.type === SessionType.TERMINAL) {
-          // 纯终端：只清屏，不启动 claude
-          this.write(sessionId, `${clearCmd}\r`)
+          // 纯终端：设置代码页、清屏，不启动 claude
+          this.write(sessionId, `${chcpCmd}${clearCmd}\r`)
         } else {
-          // Claude 会话：清屏并启动 claude
+          // Claude 会话：设置代码页、清屏并启动 claude
           const claudeCmd = session.resumeSessionId
             ? `claude --resume ${session.resumeSessionId}`
             : 'claude'
-          this.write(sessionId, `${clearCmd} ${cmdSep} ${claudeCmd}\r`)
+          this.write(sessionId, `${chcpCmd}${clearCmd} ${cmdSep} ${claudeCmd}\r`)
         }
       }, 100)
 
