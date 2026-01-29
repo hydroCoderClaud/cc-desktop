@@ -687,6 +687,7 @@ export default {
     themeLight: '浅色',
     themeDark: '深色',
     themeSystem: '跟随系统',
+    colorScheme: '配色方案',
     language: '语言',
     languageZh: '中文',
     languageEn: 'English',

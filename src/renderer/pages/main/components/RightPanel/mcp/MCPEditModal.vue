@@ -17,7 +17,7 @@
           v-model:value="jsonText"
           type="textarea"
           :rows="16"
-          font-family="monospace"
+          :style="{ fontFamily: 'var(--font-mono)' }"
           :placeholder="jsonPlaceholder"
           :status="jsonError ? 'error' : undefined"
           :readonly="readonly"

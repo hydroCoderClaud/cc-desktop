@@ -20,7 +20,7 @@
     <div class="current-profile no-profile" v-else>
       <div class="label">{{ t('profileManager.isDefault') }}</div>
       <div class="profile-info">
-        <span class="icon">❌</span>
+        <span class="icon no-icon"><Icon name="xCircle" :size="24" /></span>
         <span class="name">{{ t('profileManager.noProfiles') }}</span>
       </div>
     </div>
@@ -62,6 +62,7 @@ import { useProviders } from '@composables/useProviders'
 import { useLocale } from '@composables/useLocale'
 import ProfileCard from '@components/ProfileCard.vue'
 import ProfileFormModal from './ProfileFormModal.vue'
+import Icon from '@components/icons/Icon.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -228,6 +229,10 @@ const handleTestConnection = async (config) => {
 
 .current-profile .icon {
   font-size: 24px;
+}
+
+.current-profile .icon.no-icon {
+  color: #dc3545;
 }
 
 .current-profile .name {

@@ -6,7 +6,7 @@
       @click="$emit('collapse')"
       :title="t('panel.hideRight')"
     >
-      ›
+      <Icon name="chevronRight" :size="14" />
     </button>
 
     <!-- Tab Buttons -->
@@ -19,7 +19,7 @@
         :title="tab.label"
         @click="$emit('select', tab.id)"
       >
-        <span class="tab-icon" :class="'icon-' + tab.id">{{ tab.icon }}</span>
+        <Icon :name="tab.icon" :size="16" class="tab-icon" />
       </button>
     </div>
   </div>
@@ -27,6 +27,7 @@
 
 <script setup>
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 
@@ -115,16 +116,15 @@ defineEmits(['select', 'collapse'])
 }
 
 .tab-btn.active .tab-icon {
-  filter: brightness(1.2);
+  color: white;
 }
 
 .tab-icon {
-  font-size: 15px;
   line-height: 1;
+  color: var(--text-color-muted);
 }
 
-/* Agents icon - darker color */
-.tab-icon.icon-agents {
-  filter: saturate(1.5) brightness(0.85);
+.tab-btn:hover .tab-icon {
+  color: var(--text-color);
 }
 </style>

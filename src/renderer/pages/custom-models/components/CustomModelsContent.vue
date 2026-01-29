@@ -298,7 +298,7 @@ const handleSave = async () => {
 
 .model-id {
   font-size: 12px;
-  font-family: 'Consolas', monospace;
+  font-family: var(--font-mono);
   color: #666;
 }
 

@@ -14,7 +14,7 @@
       <p class="settings-section-desc">{{ t('globalSettings.defaultModelsHint') }}</p>
       <div class="model-inputs">
         <div class="model-row">
-          <span class="icon">🚀</span>
+          <span class="icon"><Icon name="rocket" :size="20" /></span>
           <span class="label">{{ t('profileManager.opusModel') }}</span>
           <n-input
             v-model:value="formData.opus"
@@ -25,7 +25,7 @@
         </div>
 
         <div class="model-row">
-          <span class="icon">⚡</span>
+          <span class="icon"><Icon name="zap" :size="20" /></span>
           <span class="label">{{ t('profileManager.sonnetModel') }}</span>
           <n-input
             v-model:value="formData.sonnet"
@@ -36,7 +36,7 @@
         </div>
 
         <div class="model-row">
-          <span class="icon">💨</span>
+          <span class="icon"><Icon name="wind" :size="20" /></span>
           <span class="label">{{ t('profileManager.haikuModel') }}</span>
           <n-input
             v-model:value="formData.haiku"
@@ -135,6 +135,7 @@ import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const message = useMessage()
 const { invoke } = useIPC()

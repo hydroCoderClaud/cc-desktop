@@ -32,6 +32,25 @@
           </n-form-item>
         </n-grid-item>
       </n-grid>
+
+      <!-- Color Scheme Selector -->
+      <n-form-item :label="t('globalSettings.colorScheme')">
+        <div class="color-scheme-selector">
+          <div
+            v-for="scheme in colorSchemeList"
+            :key="scheme.key"
+            class="color-scheme-item"
+            :class="{ active: formData.colorScheme === scheme.key }"
+            @click="formData.colorScheme = scheme.key"
+          >
+            <div
+              class="color-preview"
+              :style="{ background: isDark ? scheme.primaryDark : scheme.primaryLight }"
+            ></div>
+            <span class="color-name">{{ scheme.icon }} {{ scheme.name }}</span>
+          </div>
+        </div>
+      </n-form-item>
     </n-card>
 
     <!-- Terminal Font Section -->
@@ -81,7 +100,7 @@ import { useLocale } from '@composables/useLocale'
 
 const message = useMessage()
 const { invoke } = useIPC()
-const { isDark, setTheme, cssVars, initTheme } = useTheme()
+const { isDark, setTheme, cssVars, initTheme, colorScheme, setColorScheme, colorSchemeList } = useTheme()
 const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
 
 // 字体回退链
@@ -96,6 +115,7 @@ const DEFAULTS = {
 const formData = ref({
   theme: 'light',
   locale: 'zh-CN',
+  colorScheme: 'ember',
   terminalFontSize: DEFAULTS.terminalFontSize,
   terminalFontFamily: DEFAULTS.terminalFontFamily
 })
@@ -137,10 +157,16 @@ watch(() => formData.value.locale, async (newLocale) => {
   await setLocale(newLocale)
 })
 
+// Watch for color scheme changes
+watch(() => formData.value.colorScheme, async (newScheme) => {
+  await setColorScheme(newScheme)
+})
+
 const loadSettings = async () => {
   try {
     formData.value.theme = isDark.value ? 'dark' : 'light'
     formData.value.locale = locale.value
+    formData.value.colorScheme = colorScheme.value
 
     const terminalSettings = await invoke('getTerminalSettings')
     formData.value.terminalFontSize = terminalSettings?.fontSize || DEFAULTS.terminalFontSize
@@ -196,6 +222,45 @@ const handleClose = () => {
 </script>
 
 <style scoped>
-/* 组件特有样式 - 公共样式由 settings-common.css 提供 */
-/* 无额外样式 */
+/* 配色方案选择器 */
+.color-scheme-selector {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.color-scheme-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-color-secondary);
+}
+
+.color-scheme-item:hover {
+  border-color: var(--border-color-light);
+  background: var(--hover-bg);
+}
+
+.color-scheme-item.active {
+  border-color: var(--primary-color);
+  background: var(--primary-ghost);
+}
+
+.color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.color-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+}
 </style>

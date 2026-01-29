@@ -13,13 +13,13 @@
           @click="handleCompact"
           :disabled="loading || messages.length < 2"
         >
-          ⧉
+          <Icon name="compress" :size="14" />
         </button>
         <button class="icon-btn clear-btn" :title="t('rightPanel.ai.clear')" @click="handleClear">
-          ✕
+          <Icon name="close" :size="14" />
         </button>
         <button class="icon-btn settings-icon-btn" :title="t('rightPanel.ai.settings')" @click="showSettings = !showSettings">
-          <span :class="{ 'settings-active': showSettings }">&#9881;</span>
+          <Icon name="settings" :size="16" :class="{ 'settings-active': showSettings }" />
         </button>
       </div>
     </div>
@@ -63,7 +63,7 @@
     <div class="chat-content" ref="chatContentRef">
       <!-- Empty State -->
       <div v-if="messages.length === 0" class="empty-state">
-        <div class="empty-icon">&#129302;</div>
+        <div class="empty-icon"><Icon name="robot" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.ai.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.ai.emptyHint') }}</div>
       </div>
@@ -77,7 +77,7 @@
           :class="msg.role"
         >
           <div class="message-avatar">
-            {{ msg.role === 'user' ? '&#128100;' : '&#129302;' }}
+            <Icon :name="msg.role === 'user' ? 'user' : 'robot'" :size="14" />
           </div>
           <div class="message-body">
             <!-- Markdown 渲染 -->
@@ -89,7 +89,7 @@
             <div v-else class="message-content">{{ msg.content }}</div>
             <!-- Token 信息和操作按钮 -->
             <div class="message-meta" v-if="msg.role === 'assistant' && !loading">
-              <span class="token-badge" v-if="msg.tokens">{{ msg.tokens.input }}&#8595; {{ msg.tokens.output }}&#8593;</span>
+              <span class="token-badge" v-if="msg.tokens">{{ msg.tokens.input }}<Icon name="arrowDown" :size="10" class="token-arrow" /> {{ msg.tokens.output }}<Icon name="arrowUp" :size="10" class="token-arrow" /></span>
               <span class="meta-divider" v-if="msg.tokens">|</span>
               <button class="action-link" @click="handleCopy(msg.content)">{{ t('common.copy') }}</button>
               <button class="action-link" @click="handleInsertToInput(msg.content)">{{ t('rightPanel.ai.insertToInput') }}</button>
@@ -100,7 +100,7 @@
 
         <!-- Streaming indicator -->
         <div v-if="loading" class="message-item assistant">
-          <div class="message-avatar">&#129302;</div>
+          <div class="message-avatar"><Icon name="robot" :size="14" /></div>
           <div class="message-body">
             <div v-if="streamingContent" class="message-content markdown-body" v-html="renderMarkdown(streamingContent)" />
             <div v-else class="loading-dots">
@@ -133,7 +133,8 @@
         :disabled="!inputText.trim() || loading"
         @click="handleSend"
       >
-        {{ loading ? '...' : '&#9654;' }}
+        <span v-if="loading">...</span>
+        <Icon v-else name="play" :size="14" />
       </button>
     </div>
 
@@ -145,6 +146,7 @@ import { ref, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { marked } from 'marked'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -520,26 +522,8 @@ onUnmounted(() => {
   border-radius: 4px;
 }
 
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.icon-btn:hover {
-  background: var(--hover-bg);
-}
-
 .icon-btn.compact-btn {
-  color: #f59e0b;
+  color: var(--primary-color);
   font-size: 16px;
   border: none;
   outline: none;
@@ -808,7 +792,7 @@ onUnmounted(() => {
 }
 
 .markdown-body :deep(code) {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 

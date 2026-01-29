@@ -4,27 +4,27 @@
       <span class="tab-title">{{ t('rightPanel.tabs.mcp') }} ({{ totalCount }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.mcp.refresh')" @click="handleRefresh">
-          🔄
+          <Icon name="refresh" :size="14" />
         </button>
       </div>
     </div>
 
     <div class="tab-toolbar">
       <n-input v-model:value="searchText" :placeholder="t('rightPanel.mcp.search')" size="small" clearable>
-        <template #prefix><span>⌕</span></template>
+        <template #prefix><Icon name="search" :size="14" /></template>
       </n-input>
     </div>
 
     <div class="tab-content">
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
-        <span class="loading-icon">⏳</span>
+        <Icon name="clock" :size="16" class="loading-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="totalCount === 0" class="empty-state">
-        <div class="empty-icon">🔗</div>
+        <div class="empty-icon"><Icon name="link" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.mcp.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.mcp.emptyHint') }}</div>
       </div>
@@ -119,6 +119,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { NInput, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 import MCPGroup from '../mcp/MCPGroup.vue'
 import MCPEditModal from '../mcp/MCPEditModal.vue'
 import MCPCopyModal from '../mcp/MCPCopyModal.vue'
@@ -307,29 +308,6 @@ onMounted(() => {
 .tab-actions {
   display: flex;
   gap: 4px;
-}
-
-.tab-toolbar {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.icon-btn:hover {
-  background: var(--hover-bg);
 }
 
 .tab-content {

@@ -21,7 +21,7 @@
       <div v-if="step === 2" class="import-step">
         <p class="step-title">{{ t('rightPanel.agents.importStep2') }}</p>
         <div v-if="validating" class="validating">
-          <span class="loading-icon">⏳</span> {{ t('rightPanel.agents.validating') }}
+          <Icon name="clock" :size="16" class="loading-icon" /> {{ t('rightPanel.agents.validating') }}
         </div>
         <div v-else-if="validation">
           <div v-if="validation.errors?.length" class="validation-errors">
@@ -112,6 +112,7 @@ import { ref, computed, watch } from 'vue'
 import { NModal, NButton, NRadio, NRadioGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { getAgentColor } from '@composables/constants'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()

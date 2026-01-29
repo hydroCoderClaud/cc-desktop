@@ -72,7 +72,7 @@
                 :disabled="!formData.api_profile_id"
                 @click="$emit('open-profile-manager')"
               >
-                ⚙️
+                <Icon name="settings" :size="14" />
               </n-button>
             </template>
             {{ t('project.editApiProfile') }}
@@ -96,6 +96,7 @@
 import { ref, watch, computed } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NButton, NColorPicker, NSelect, NTooltip } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 

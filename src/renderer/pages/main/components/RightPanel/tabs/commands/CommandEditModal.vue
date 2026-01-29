@@ -13,7 +13,7 @@
           type="textarea"
           :placeholder="t('rightPanel.commands.contentPlaceholder')"
           :rows="14"
-          style="font-family: monospace;"
+          :style="{ fontFamily: 'var(--font-mono)' }"
         />
       </n-form-item>
     </n-form>

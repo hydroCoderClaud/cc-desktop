@@ -15,7 +15,7 @@
         <div v-for="tag in allTags" :key="tag.id" class="tag-item">
           <n-tag :color="{ color: tag.color, textColor: '#fff' }">{{ tag.name }}</n-tag>
           <span class="tag-count">{{ (tag.session_count || 0) + (tag.message_count || 0) }}</span>
-          <n-button size="tiny" quaternary @click="handleDelete(tag.id)">🗑️</n-button>
+          <n-button size="tiny" quaternary @click="handleDelete(tag.id)"><Icon name="delete" :size="14" /></n-button>
         </div>
       </div>
     </div>
@@ -26,6 +26,7 @@
 import { ref, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { TAG_COLORS, DEFAULT_TAG_COLOR } from '@composables/constants'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 

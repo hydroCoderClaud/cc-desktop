@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Desktop - 主题预览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+      background: #0a0a0a;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #FF6B35, #FF8A65);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 24px;
+      margin-bottom: 60px;
+    }
+
+    .theme-card {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #2a2a2a;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .theme-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+
+    .theme-header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .theme-icon {
+      font-size: 24px;
+    }
+
+    .theme-name {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .theme-desc {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .theme-preview {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Color swatches */
+    .color-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .color-swatch {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .color-swatch::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      opacity: 0.5;
+      white-space: nowrap;
+    }
+
+    /* Button preview */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .btn--primary {
+      color: white;
+    }
+
+    .btn--secondary {
+      background: transparent;
+    }
+
+    .btn--ghost {
+      background: transparent;
+      border-color: transparent;
+    }
+
+    /* Icon button preview */
+    .icon-btn-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.15s;
+    }
+
+    .icon-btn:hover svg {
+      transform: scale(1.05);
+    }
+
+    .icon-btn--sm {
+      width: 22px;
+      height: 22px;
+    }
+
+    .icon-btn--sm svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Input preview */
+    .input {
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    /* Card preview */
+    .mini-card {
+      padding: 12px;
+      border-radius: 8px;
+      border-width: 1px;
+      border-style: solid;
+    }
+
+    .mini-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .mini-card-text {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    /* Section headers */
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      color: #fff;
+    }
+
+    /* Icon showcase */
+    .icon-showcase {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 16px;
+    }
+
+    .icon-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+
+    .icon-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .icon-item svg {
+      width: 24px;
+      height: 24px;
+      color: #e8e8e8;
+    }
+
+    .icon-item span {
+      font-size: 10px;
+      color: #888;
+    }
+
+    /* Hover demo */
+    .hover-demo {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+
+    .hover-demo-row {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .hover-demo-item {
+      flex: 1;
+      padding: 16px;
+      border-radius: 8px;
+      background: #242424;
+    }
+
+    .hover-demo-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    .hover-demo-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Bad hover example */
+    .icon-btn--bad:hover {
+      background: #FF6B35;
+    }
+    .icon-btn--bad:hover svg {
+      color: #FF6B35;
+    }
+
+    /* Good hover example */
+    .icon-btn--good {
+      color: #888;
+    }
+    .icon-btn--good:hover {
+      background: rgba(255, 107, 53, 0.15);
+      color: #FF6B35;
+    }
+
+    /* Status indicator */
+    .status-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+
+    .mode-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: #888;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-btn.active {
+      background: #2a2a2a;
+      color: #fff;
+    }
+
+    /* Comparison table */
+    .comparison {
+      background: #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    .comparison table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .comparison th,
+    .comparison td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    .comparison th {
+      background: #242424;
+      font-size: 12px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .comparison td {
+      font-size: 13px;
+    }
+
+    .comparison tr:last-child td {
+      border-bottom: none;
+    }
+
+    .check {
+      color: #10B981;
+    }
+
+    .cross {
+      color: #EF4444;
+    }
+  </style>
+</head>
+<body>
+  <h1>Claude Code Desktop 设计系统</h1>
+  <p class="subtitle">主题预览与组件规范 · 版本 1.0</p>
+
+  <!-- Mode Toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('dark')">深色模式</button>
+    <button class="mode-btn" onclick="setMode('light')">浅色模式</button>
+  </div>
+
+  <!-- Theme Grid -->
+  <h2 class="section-title">🎨 五套主题方案</h2>
+  <div class="theme-grid" id="themeGrid">
+    <!-- Themes will be rendered by JS -->
+  </div>
+
+  <!-- Icon Showcase -->
+  <h2 class="section-title">✨ 统一图标系统</h2>
+  <div class="icon-showcase">
+    <div class="icon-grid" id="iconGrid">
+      <!-- Icons will be rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Hover Demo -->
+  <h2 class="section-title">🖱️ 图标按钮 Hover 效果对比</h2>
+  <div class="hover-demo">
+    <div class="hover-demo-row">
+      <div class="hover-demo-item">
+        <div class="hover-demo-label">❌ 错误示例：背景覆盖图标</div>
+        <div class="hover-demo-buttons">
+          <button class="icon-btn icon-btn--bad">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 10a7 7 0 1 1 1.5 4.3"/>
+              <path d="M3 15V10h5"/>
+            </svg>
+          </button>
+          <button class="icon-btn icon-btn--bad">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="8.5" cy="8.5" r="5.5"/>
+              <path d="M13 13l4 4"/>
+            </svg>
+          </button>
+          <button class="icon-btn icon-btn--bad">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M10 4v12M4 10h12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="hover-demo-item">
+        <div class="hover-demo-label">✅ 正确示例：光晕悬停效果</div>
+        <div class="hover-demo-buttons">
+          <button class="icon-btn icon-btn--good">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 10a7 7 0 1 1 1.5 4.3"/>
+              <path d="M3 15V10h5"/>
+            </svg>
+          </button>
+          <button class="icon-btn icon-btn--good">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="8.5" cy="8.5" r="5.5"/>
+              <path d="M13 13l4 4"/>
+            </svg>
+          </button>
+          <button class="icon-btn icon-btn--good">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M10 4v12M4 10h12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Table -->
+  <h2 class="section-title">📊 主题特性对比</h2>
+  <div class="comparison">
+    <table>
+      <thead>
+        <tr>
+          <th>特性</th>
+          <th>Ember 🔥</th>
+          <th>Ocean 🌊</th>
+          <th>Forest 🌲</th>
+          <th>Violet 💜</th>
+          <th>Graphite ⚫</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>色调</td>
+          <td>暖色</td>
+          <td>冷色</td>
+          <td>自然</td>
+          <td>中性偏暖</td>
+          <td>中性</td>
+        </tr>
+        <tr>
+          <td>视觉刺激</td>
+          <td>中等</td>
+          <td>低</td>
+          <td>低</td>
+          <td>中等</td>
+          <td>极低</td>
+        </tr>
+        <tr>
+          <td>适合长时间使用</td>
+          <td>⭐⭐⭐</td>
+          <td>⭐⭐⭐⭐</td>
+          <td>⭐⭐⭐⭐⭐</td>
+          <td>⭐⭐⭐</td>
+          <td>⭐⭐⭐⭐⭐</td>
+        </tr>
+        <tr>
+          <td>品牌识别度</td>
+          <td>⭐⭐⭐⭐⭐</td>
+          <td>⭐⭐⭐</td>
+          <td>⭐⭐⭐</td>
+          <td>⭐⭐⭐⭐</td>
+          <td>⭐⭐</td>
+        </tr>
+        <tr>
+          <td>推荐场景</td>
+          <td>品牌展示</td>
+          <td>日常编码</td>
+          <td>夜间使用</td>
+          <td>创意工作</td>
+          <td>专注模式</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // Theme definitions
+    const themes = {
+      ember: {
+        name: 'Ember',
+        icon: '🔥',
+        desc: '温暖活力，Claude 品牌色',
+        light: {
+          primary: '#E85A2D',
+          primaryHover: '#D14820',
+          primaryGhost: 'rgba(232, 90, 45, 0.15)',
+          bg: '#FAFAF8',
+          bgElevated: '#FFFFFF',
+          bgSunken: '#F2F2EE',
+          text: '#1A1A1A',
+          textSecondary: '#5C5C5C',
+          border: '#E5E5E0',
+          success: '#2E9E5E',
+          warning: '#D97706',
+          danger: '#DC2626'
+        },
+        dark: {
+          primary: '#FF7043',
+          primaryHover: '#FF8A65',
+          primaryGhost: 'rgba(255, 112, 67, 0.22)',
+          bg: '#141414',
+          bgElevated: '#1E1E1E',
+          bgSunken: '#0A0A0A',
+          text: '#ECECEC',
+          textSecondary: '#A3A3A3',
+          border: '#2E2E2E',
+          success: '#34D399',
+          warning: '#FBBF24',
+          danger: '#F87171'
+        }
+      },
+      ocean: {
+        name: 'Ocean',
+        icon: '🌊',
+        desc: '冷静专业，适合长时间编码',
+        light: {
+          primary: '#2563EB',
+          primaryHover: '#1D4ED8',
+          primaryGhost: 'rgba(37, 99, 235, 0.15)',
+          bg: '#F8FAFC',
+          bgElevated: '#FFFFFF',
+          bgSunken: '#F1F5F9',
+          text: '#0F172A',
+          textSecondary: '#475569',
+          border: '#E2E8F0',
+          success: '#059669',
+          warning: '#D97706',
+          danger: '#DC2626'
+        },
+        dark: {
+          primary: '#3B82F6',
+          primaryHover: '#60A5FA',
+          primaryGhost: 'rgba(59, 130, 246, 0.22)',
+          bg: '#0F172A',
+          bgElevated: '#1E293B',
+          bgSunken: '#020617',
+          text: '#F1F5F9',
+          textSecondary: '#94A3B8',
+          border: '#334155',
+          success: '#34D399',
+          warning: '#FBBF24',
+          danger: '#F87171'
+        }
+      },
+      forest: {
+        name: 'Forest',
+        icon: '🌲',
+        desc: '自然护眼，减少蓝光',
+        light: {
+          primary: '#059669',
+          primaryHover: '#047857',
+          primaryGhost: 'rgba(5, 150, 105, 0.15)',
+          bg: '#F9FBF9',
+          bgElevated: '#FFFFFF',
+          bgSunken: '#F0F5F0',
+          text: '#14251A',
+          textSecondary: '#4A5D52',
+          border: '#DCE7DE',
+          success: '#059669',
+          warning: '#B45309',
+          danger: '#B91C1C'
+        },
+        dark: {
+          primary: '#10B981',
+          primaryHover: '#34D399',
+          primaryGhost: 'rgba(16, 185, 129, 0.22)',
+          bg: '#0D1512',
+          bgElevated: '#162019',
+          bgSunken: '#060A08',
+          text: '#E8F0EB',
+          textSecondary: '#9DB3A5',
+          border: '#243D2E',
+          success: '#34D399',
+          warning: '#FCD34D',
+          danger: '#FCA5A5'
+        }
+      },
+      violet: {
+        name: 'Violet',
+        icon: '💜',
+        desc: '创意优雅，现代感',
+        light: {
+          primary: '#7C3AED',
+          primaryHover: '#6D28D9',
+          primaryGhost: 'rgba(124, 58, 237, 0.15)',
+          bg: '#FAFAFC',
+          bgElevated: '#FFFFFF',
+          bgSunken: '#F3F2F7',
+          text: '#1C1527',
+          textSecondary: '#544D63',
+          border: '#E5E2ED',
+          success: '#059669',
+          warning: '#D97706',
+          danger: '#DC2626'
+        },
+        dark: {
+          primary: '#A78BFA',
+          primaryHover: '#C4B5FD',
+          primaryGhost: 'rgba(167, 139, 250, 0.22)',
+          bg: '#13111C',
+          bgElevated: '#1E1A2E',
+          bgSunken: '#0A0910',
+          text: '#EDE9FE',
+          textSecondary: '#A5A0B8',
+          border: '#312E45',
+          success: '#34D399',
+          warning: '#FBBF24',
+          danger: '#F87171'
+        }
+      },
+      graphite: {
+        name: 'Graphite',
+        icon: '⚫',
+        desc: '极简中性，零干扰',
+        light: {
+          primary: '#525252',
+          primaryHover: '#404040',
+          primaryGhost: 'rgba(82, 82, 82, 0.15)',
+          bg: '#FAFAFA',
+          bgElevated: '#FFFFFF',
+          bgSunken: '#F0F0F0',
+          text: '#171717',
+          textSecondary: '#525252',
+          border: '#E5E5E5',
+          success: '#16A34A',
+          warning: '#CA8A04',
+          danger: '#DC2626'
+        },
+        dark: {
+          primary: '#A3A3A3',
+          primaryHover: '#D4D4D4',
+          primaryGhost: 'rgba(163, 163, 163, 0.22)',
+          bg: '#141414',
+          bgElevated: '#1F1F1F',
+          bgSunken: '#0A0A0A',
+          text: '#EDEDED',
+          textSecondary: '#A3A3A3',
+          border: '#2E2E2E',
+          success: '#4ADE80',
+          warning: '#FACC15',
+          danger: '#F87171'
+        }
+      }
+    };
+
+    // Icons
+    const icons = [
+      { name: '刷新', svg: '<path d="M3 10a7 7 0 1 1 1.5 4.3"/><path d="M3 15V10h5"/>' },
+      { name: '搜索', svg: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/>' },
+      { name: '导入', svg: '<path d="M10 3v10m0 0l-3-3m3 3l3-3"/><path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/>' },
+      { name: '导出', svg: '<path d="M10 13V3m0 0L7 6m3-3l3 3"/><path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/>' },
+      { name: '添加', svg: '<path d="M10 4v12M4 10h12"/>' },
+      { name: '关闭', svg: '<path d="M5 5l10 10M15 5L5 15"/>' },
+      { name: '编辑', svg: '<path d="M12 3l5 5-9 9H3v-5l9-9z"/>' },
+      { name: '删除', svg: '<path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/>' },
+      { name: '设置', svg: '<circle cx="10" cy="10" r="2.5"/><path d="M10 2v2.5M10 15.5V18M18 10h-2.5M4.5 10H2M15.66 4.34l-1.77 1.77M6.11 13.89l-1.77 1.77M15.66 15.66l-1.77-1.77M6.11 6.11L4.34 4.34"/>' },
+      { name: '展开', svg: '<path d="M6 8l4 4 4-4"/>' },
+      { name: '收起', svg: '<path d="M6 12l4-4 4 4"/>' },
+      { name: '外链', svg: '<path d="M11 3h6v6M17 3L8 12M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>' },
+      { name: '复制', svg: '<rect x="6" y="6" width="11" height="11" rx="1"/><path d="M3 14V4a1 1 0 0 1 1-1h10"/>' },
+      { name: '文件夹', svg: '<path d="M3 5a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5z"/>' },
+      { name: '终端', svg: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>' },
+      { name: '播放', svg: '<path d="M6 4l10 6-10 6V4z"/>' },
+      { name: '停止', svg: '<rect x="4" y="4" width="12" height="12" rx="1"/>' },
+      { name: '用户', svg: '<circle cx="10" cy="6" r="3"/><path d="M4 18v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1"/>' },
+      { name: '机器人', svg: '<rect x="4" y="6" width="12" height="10" rx="2"/><path d="M10 2v4M7 10h.01M13 10h.01M8 14h4"/>' },
+      { name: '勾选', svg: '<path d="M4 10l4 4 8-8" stroke-width="2.5"/>' },
+      { name: '警告', svg: '<path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14v.01"/>' },
+      { name: '信息', svg: '<circle cx="10" cy="10" r="7"/><path d="M10 9v4M10 7v.01"/>' }
+    ];
+
+    let currentMode = 'dark';
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(mode === 'dark' ? '深色' : '浅色'));
+      });
+      renderThemes();
+    }
+
+    function renderThemes() {
+      const grid = document.getElementById('themeGrid');
+      grid.innerHTML = '';
+
+      Object.entries(themes).forEach(([key, theme]) => {
+        const colors = currentMode === 'dark' ? theme.dark : theme.light;
+
+        const card = document.createElement('div');
+        card.className = 'theme-card';
+        card.style.background = colors.bgElevated;
+
+        card.innerHTML = `
+          <div class="theme-header" style="background: ${colors.bg}">
+            <span class="theme-icon">${theme.icon}</span>
+            <div>
+              <div class="theme-name" style="color: ${colors.text}">${theme.name}</div>
+              <div class="theme-desc" style="color: ${colors.textSecondary}">${theme.desc}</div>
+            </div>
+          </div>
+          <div class="theme-preview" style="background: ${colors.bgElevated}">
+            <!-- Color swatches -->
+            <div class="color-row">
+              <div class="color-swatch" style="background: ${colors.primary}" data-label="主色"></div>
+              <div class="color-swatch" style="background: ${colors.primaryHover}" data-label="悬停"></div>
+              <div class="color-swatch" style="background: ${colors.bg}" data-label="背景"></div>
+              <div class="color-swatch" style="background: ${colors.success}" data-label="成功"></div>
+              <div class="color-swatch" style="background: ${colors.warning}" data-label="警告"></div>
+              <div class="color-swatch" style="background: ${colors.danger}" data-label="危险"></div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-row">
+              <button class="btn btn--primary" style="background: ${colors.primary}; border-color: ${colors.primary}">主要按钮</button>
+              <button class="btn btn--secondary" style="color: ${colors.text}; border-color: ${colors.border}">次要按钮</button>
+              <button class="btn btn--ghost" style="color: ${colors.textSecondary}">幽灵按钮</button>
+            </div>
+
+            <!-- Icon buttons -->
+            <div class="icon-btn-row">
+              <button class="icon-btn" style="color: ${colors.textSecondary}" onmouseover="this.style.background='${colors.primaryGhost}';this.style.color='${colors.primary}'" onmouseout="this.style.background='transparent';this.style.color='${colors.textSecondary}'">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 10a7 7 0 1 1 1.5 4.3"/><path d="M3 15V10h5"/></svg>
+              </button>
+              <button class="icon-btn" style="color: ${colors.textSecondary}" onmouseover="this.style.background='${colors.primaryGhost}';this.style.color='${colors.primary}'" onmouseout="this.style.background='transparent';this.style.color='${colors.textSecondary}'">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+              </button>
+              <button class="icon-btn" style="color: ${colors.textSecondary}" onmouseover="this.style.background='${colors.primaryGhost}';this.style.color='${colors.primary}'" onmouseout="this.style.background='transparent';this.style.color='${colors.textSecondary}'">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg>
+              </button>
+              <button class="icon-btn" style="color: ${colors.textSecondary}" onmouseover="this.style.background='${colors.primaryGhost}';this.style.color='${colors.primary}'" onmouseout="this.style.background='transparent';this.style.color='${colors.textSecondary}'">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l5 5-9 9H3v-5l9-9z"/></svg>
+              </button>
+              <button class="icon-btn icon-btn--sm" style="color: ${colors.danger}" onmouseover="this.style.background='rgba(220,38,38,0.15)'" onmouseout="this.style.background='transparent'">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+              </button>
+            </div>
+
+            <!-- Input -->
+            <input class="input" placeholder="搜索..." style="background: ${colors.bg}; color: ${colors.text}; border-color: ${colors.border}">
+
+            <!-- Mini card -->
+            <div class="mini-card" style="background: ${colors.bg}; border-color: ${colors.border}">
+              <div class="mini-card-title" style="color: ${colors.text}">示例卡片</div>
+              <div class="mini-card-text" style="color: ${colors.textSecondary}">这是一段描述文字</div>
+            </div>
+
+            <!-- Status badges -->
+            <div class="status-row">
+              <span class="status-badge" style="background: rgba(16,185,129,0.15); color: ${colors.success}">
+                <span class="status-dot" style="background: ${colors.success}"></span>
+                运行中
+              </span>
+              <span class="status-badge" style="background: rgba(251,191,36,0.15); color: ${colors.warning}">
+                <span class="status-dot" style="background: ${colors.warning}"></span>
+                等待中
+              </span>
+              <span class="status-badge" style="background: rgba(248,113,113,0.15); color: ${colors.danger}">
+                <span class="status-dot" style="background: ${colors.danger}"></span>
+                已停止
+              </span>
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    function renderIcons() {
+      const grid = document.getElementById('iconGrid');
+      grid.innerHTML = '';
+
+      icons.forEach(icon => {
+        const item = document.createElement('div');
+        item.className = 'icon-item';
+        item.innerHTML = `
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${icon.svg}
+          </svg>
+          <span>${icon.name}</span>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    // Initial render
+    renderThemes();
+    renderIcons();
+  </script>
+</body>
+</html>

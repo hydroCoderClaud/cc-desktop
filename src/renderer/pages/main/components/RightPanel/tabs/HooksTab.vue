@@ -4,7 +4,7 @@
       <span class="tab-title">{{ t('rightPanel.tabs.hooks') }} ({{ totalCount }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.hooks.refresh')" @click="handleRefresh">
-          🔄
+          <Icon name="refresh" :size="14" />
         </button>
       </div>
     </div>
@@ -17,7 +17,7 @@
         clearable
       >
         <template #prefix>
-          <span>⌕</span>
+          <Icon name="search" :size="14" />
         </template>
       </n-input>
     </div>
@@ -25,13 +25,13 @@
     <div class="tab-content">
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
-        <span class="loading-icon">⏳</span>
+        <Icon name="clock" :size="16" class="loading-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="totalCount === 0 && !searchText" class="empty-state">
-        <div class="empty-icon">🪝</div>
+        <div class="empty-icon"><Icon name="hook" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.hooks.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.hooks.emptyHint') }}</div>
         <n-button size="small" type="primary" @click="handleCreate('global')">
@@ -164,6 +164,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { NInput, NButton, NModal, NRadio, NRadioGroup, NSpace, NDivider, NFormItem, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 import HookGroup from '../hooks/HookGroup.vue'
 import HookEditModal from '../hooks/HookEditModal.vue'
 
@@ -474,29 +475,6 @@ onMounted(() => {
   color: var(--text-color);
 }
 
-.tab-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.icon-btn:hover {
-  background: var(--hover-bg);
-}
-
 .tab-toolbar {
   margin-top: 12px;
   padding: 0 12px 12px 12px;
@@ -583,7 +561,7 @@ onMounted(() => {
 .copy-info .value {
   font-size: 13px;
   color: var(--text-color);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .modal-footer {

@@ -1,0 +1,119 @@
+/**
+ * 公共样式
+ * 用于主页面组件的通用样式定义
+ */
+
+/* ========== 图标按钮 ========== */
+
+/* 基础图标按钮 */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.15s ease;
+}
+
+/* 光晕悬停效果 - 解决小按钮 hover 时图标看不清的问题 */
+.icon-btn:hover {
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
+}
+
+.icon-btn:hover svg {
+  transform: scale(1.05);
+}
+
+/* 激活状态 */
+.icon-btn:active {
+  background: var(--primary-ghost);
+  transform: scale(0.95);
+}
+
+/* 选中状态 */
+.icon-btn.active {
+  background: var(--primary-ghost);
+  color: var(--primary-color);
+}
+
+/* 禁用状态 */
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-color-secondary);
+  transform: none;
+}
+
+/* 危险操作按钮 */
+.icon-btn.danger:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger-color);
+}
+
+/* 尺寸变体 */
+.icon-btn.small {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.icon-btn.small svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn.mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.icon-btn.mini svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ========== 工具栏 ========== */
+
+.tab-toolbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tab-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ========== 等宽字体 ========== */
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+code, kbd, pre, samp {
+  font-family: var(--font-mono);
+}

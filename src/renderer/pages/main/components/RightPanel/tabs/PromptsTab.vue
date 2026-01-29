@@ -9,10 +9,10 @@
           :title="showFavoritesOnly ? t('sessionManager.showAll') : t('sessionManager.showFavorites')"
           @click="toggleFavoritesFilter"
         >
-          ⭐
+          <Icon :name="showFavoritesOnly ? 'starFilled' : 'star'" :size="14" />
         </button>
         <button class="icon-btn" :title="t('rightPanel.prompts.add')" @click="handleAdd">
-          ➕
+          <Icon name="add" :size="14" />
         </button>
       </div>
     </div>
@@ -25,7 +25,7 @@
         clearable
       >
         <template #prefix>
-          <span>⌕</span>
+          <Icon name="search" :size="14" />
         </template>
       </n-input>
 
@@ -64,7 +64,7 @@
             @click="clearTagFilter"
             :title="t('common.clearAll') || '清除筛选'"
           >
-            ✕
+            <Icon name="close" :size="12" />
           </button>
           <!-- 显示前几个标签 -->
           <span
@@ -103,7 +103,7 @@
             </div>
           </n-popover>
           <button class="icon-btn mini" :title="t('sessionManager.manageTags')" @click="showTagManager = true">
-            ⚙️
+            <Icon name="settings" :size="12" />
           </button>
         </div>
       </div>
@@ -117,7 +117,7 @@
 
       <!-- Empty State -->
       <div v-else-if="filteredPrompts.length === 0" class="empty-state">
-        <div class="empty-icon">💬</div>
+        <div class="empty-icon"><Icon name="message" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.prompts.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.prompts.emptyHint') }}</div>
         <button class="add-btn" @click="handleAdd">
@@ -136,14 +136,14 @@
             <div class="prompt-header">
               <span class="prompt-name">{{ prompt.name }}</span>
               <span class="prompt-scope" :class="prompt.scope">
-                {{ prompt.scope === 'global' ? '🌐' : '📁' }}
+                <Icon :name="prompt.scope === 'global' ? 'globe' : 'folder'" :size="12" />
               </span>
               <span
                 class="favorite-icon"
                 :class="{ active: prompt.is_favorite }"
                 @click.stop="handleToggleFavorite(prompt)"
               >
-                {{ prompt.is_favorite ? '⭐' : '☆' }}
+                <Icon :name="prompt.is_favorite ? 'starFilled' : 'star'" :size="12" />
               </span>
             </div>
             <div class="prompt-preview">{{ prompt.content }}</div>
@@ -164,28 +164,28 @@
               :title="t('rightPanel.prompts.insertToInput')"
               @click="handleInsertToInput(prompt)"
             >
-              ⬇
+              <Icon name="insertDown" :size="12" />
             </button>
             <button
               class="icon-btn small"
               :title="t('rightPanel.quickInput.addToQueue')"
               @click="handleAddToQueue(prompt)"
             >
-              +
+              <Icon name="add" :size="12" />
             </button>
             <button
               class="icon-btn small"
               :title="t('common.edit')"
               @click="handleEdit(prompt)"
             >
-              ✏️
+              <Icon name="edit" :size="12" />
             </button>
             <button
               class="icon-btn small"
               :title="t('common.delete')"
               @click="handleDelete(prompt)"
             >
-              🗑️
+              <Icon name="delete" :size="12" />
             </button>
           </div>
         </div>
@@ -317,6 +317,7 @@ import {
 import { useLocale } from '@composables/useLocale'
 import { usePrompts } from '@composables/usePrompts'
 import { TAG_COLORS, DEFAULT_TAG_COLOR, MAX_VISIBLE_TAGS } from '@composables/constants'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -577,59 +578,6 @@ defineExpose({
   color: var(--text-color);
 }
 
-.tab-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.icon-btn:hover {
-  background: var(--hover-bg);
-}
-
-.icon-btn.active {
-  color: #f5a623;
-}
-
-.favorite-filter-btn {
-  opacity: 0.4;
-}
-
-.favorite-filter-btn:hover {
-  opacity: 0.8;
-}
-
-.favorite-filter-btn.active {
-  opacity: 1;
-  background: #fff3cd;
-  border: 1px solid #f5a623;
-}
-
-.icon-btn.small {
-  width: 24px;
-  height: 24px;
-  font-size: 14px;
-}
-
-.icon-btn.mini {
-  width: 20px;
-  height: 20px;
-  font-size: 10px;
-}
-
 .tab-toolbar {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
@@ -826,7 +774,7 @@ defineExpose({
 .favorite-icon:hover,
 .favorite-icon.active {
   opacity: 1;
-  color: #f5a623;
+  color: var(--primary-color);
 }
 
 .prompt-preview {

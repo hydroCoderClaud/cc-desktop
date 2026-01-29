@@ -3,30 +3,30 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.skills') }} ({{ totalCount }})</span>
       <div class="tab-actions">
-        <button class="icon-btn" :title="t('rightPanel.skills.refresh')" @click="loadSkills">🔄</button>
+        <button class="icon-btn" :title="t('rightPanel.skills.refresh')" @click="loadSkills"><Icon name="refresh" :size="16" /></button>
       </div>
     </div>
 
     <div class="tab-toolbar">
       <div class="toolbar-row">
         <n-input v-model:value="searchText" :placeholder="t('rightPanel.skills.search')" size="small" clearable style="flex: 1;">
-          <template #prefix><span>⌕</span></template>
+          <template #prefix><Icon name="search" :size="14" /></template>
         </n-input>
         <n-button-group size="small">
-          <n-button @click="showImportModal" :title="t('rightPanel.skills.import')">📥</n-button>
-          <n-button @click="showExportModal" :title="t('rightPanel.skills.export')">📤</n-button>
+          <n-button @click="showImportModal" :title="t('rightPanel.skills.import')"><Icon name="import" :size="16" /></n-button>
+          <n-button @click="showExportModal" :title="t('rightPanel.skills.export')"><Icon name="export" :size="16" /></n-button>
         </n-button-group>
       </div>
     </div>
 
     <div class="tab-content">
       <div v-if="loading" class="loading-state">
-        <span class="loading-icon">⏳</span>
+        <Icon name="clock" :size="16" class="loading-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <div v-else-if="totalCount === 0" class="empty-state">
-        <div class="empty-icon">⚡</div>
+        <div class="empty-icon"><Icon name="zap" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.skills.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.skills.emptyHint') }}</div>
       </div>
@@ -34,29 +34,29 @@
       <div v-else class="skills-list">
         <!-- 工程级别 Skills -->
         <SkillGroup v-if="currentProject" group-key="project" :skills="filteredSkills.project"
-          :title="t('rightPanel.skills.projectSkills')" icon="📁" :editable="true"
+          :title="t('rightPanel.skills.projectSkills')" icon="folder" :editable="true"
           :expanded="expandedGroups.includes('project')" @toggle="toggleGroup('project')"
           @create="showCreateModal('project')" @open-folder="openSkillsFolder('project')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
           @openFile="handleOpenFile"
-          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.skills.copySkill')"
+          :copy="showCopyModal" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noProjectSkills')" />
 
         <!-- 自定义全局 Skills -->
         <SkillGroup group-key="user" :skills="filteredSkills.user"
-          :title="t('rightPanel.skills.userSkills')" icon="👤" :editable="true"
+          :title="t('rightPanel.skills.userSkills')" icon="user" :editable="true"
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openSkillsFolder('user')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
           @openFile="handleOpenFile"
-          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.skills.copySkill')"
+          :copy="showCopyModal" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noUserSkills')" />
 
         <!-- 官方全局 Skills -->
         <div v-if="filteredSkills.official.length > 0" class="skill-group">
           <div class="group-header clickable" @click="toggleGroup('official')">
-            <span class="group-toggle">{{ expandedGroups.includes('official') ? '▼' : '▶' }}</span>
-            <span class="group-icon">🏢</span>
+            <span class="group-toggle"><Icon :name="expandedGroups.includes('official') ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
+            <span class="group-icon"><Icon name="building" :size="14" /></span>
             <span class="group-name">{{ t('rightPanel.skills.officialSkills') }}</span>
             <span class="group-count">({{ filteredSkills.official.length }})</span>
             <span class="group-badge plugin">{{ t('rightPanel.skills.plugin') }}</span>
@@ -64,7 +64,7 @@
           <div v-if="expandedGroups.includes('official')" class="group-items">
             <div v-for="cat in groupedOfficialSkills" :key="cat.name" class="skill-category">
               <div class="category-header" @click="toggleCategory(cat.name)">
-                <span class="category-icon">{{ expandedCategories.includes(cat.name) ? '▼' : '▶' }}</span>
+                <span class="category-icon"><Icon :name="expandedCategories.includes(cat.name) ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                 <span class="category-name">{{ cat.name }}</span>
                 <span class="category-count">({{ cat.skills.length }})</span>
               </div>
@@ -73,9 +73,9 @@
                   <div class="skill-row">
                     <span class="skill-name">{{ skill.id || skill.fullName }} <span class="skill-invoke">(/{{ skill.name || skill.fullName }})</span></span>
                     <span class="skill-actions-inline">
-                      <button class="item-btn copy" :title="t('rightPanel.skills.copySkill')" @click.stop="showCopyModal(skill)">⧉</button>
-                      <button class="item-btn edit" :title="t('rightPanel.skills.edit')" @click.stop="showEditModal(skill)">✏️</button>
-                      <button v-if="skill.filePath" class="item-btn" :title="t('rightPanel.skills.openFile')" @click.stop="handleOpenFile(skill)">↗️</button>
+                      <button class="item-btn copy" :title="t('rightPanel.skills.copySkill')" @click.stop="showCopyModal(skill)"><Icon name="copy" :size="14" /></button>
+                      <button class="item-btn edit" :title="t('rightPanel.skills.edit')" @click.stop="showEditModal(skill)"><Icon name="edit" :size="14" /></button>
+                      <button v-if="skill.filePath" class="item-btn" :title="t('rightPanel.skills.openFile')" @click.stop="handleOpenFile(skill)"><Icon name="externalLink" :size="14" /></button>
                     </span>
                   </div>
                   <span class="skill-desc">{{ skill.description }}</span>
@@ -136,6 +136,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { NInput, NModal, NButton, NButtonGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 import SkillGroup from './skills/SkillGroup.vue'
 import SkillEditModal from './skills/SkillEditModal.vue'
 import SkillCopyModal from './skills/SkillCopyModal.vue'
@@ -319,9 +320,6 @@ onMounted(loadSkills)
 .tab-container { display: flex; flex-direction: column; height: 100%; }
 .tab-header { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border-color); }
 .tab-title { font-size: 14px; font-weight: 600; color: var(--text-color); }
-.tab-actions { display: flex; gap: 4px; }
-.icon-btn { width: 28px; height: 28px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.15s ease; }
-.icon-btn:hover { background: var(--hover-bg); }
 .tab-toolbar { margin-top: 12px; padding: 0 12px 12px 12px; }
 .tab-content { flex: 1; overflow-y: auto; }
 

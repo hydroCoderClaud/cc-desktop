@@ -13,7 +13,7 @@
               <n-button :disabled="isReadonly" class="field-select-btn" size="medium">
                 {{ t('rightPanel.skills.selectField') }}
                 <template #icon>
-                  <span style="font-size: 10px;">▼</span>
+                  <Icon name="chevronDown" :size="10" />
                 </template>
               </n-button>
             </template>
@@ -48,7 +48,7 @@
           type="textarea"
           :placeholder="t('rightPanel.skills.rawContentPlaceholder')"
           :rows="16"
-          style="font-family: monospace;"
+          :style="{ fontFamily: 'var(--font-mono)' }"
           :disabled="isReadonly"
         />
       </n-form-item>
@@ -66,6 +66,7 @@
 import { ref, computed, watch } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NButton, NPopover, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -324,7 +325,7 @@ const handleSave = async () => {
 }
 
 .invoke-cmd {
-  color: #f90;
+  color: var(--primary-color);
   font-weight: 500;
 }
 

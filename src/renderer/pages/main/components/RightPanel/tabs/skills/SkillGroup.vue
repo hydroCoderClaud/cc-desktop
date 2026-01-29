@@ -1,13 +1,13 @@
 <template>
   <div class="skill-group">
     <div class="group-header clickable">
-      <span class="group-toggle" @click="$emit('toggle')">{{ expanded ? '▼' : '▶' }}</span>
-      <span class="group-icon" @click="$emit('toggle')">{{ icon }}</span>
+      <span class="group-toggle" @click="$emit('toggle')"><Icon :name="expanded ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
+      <span class="group-icon" @click="$emit('toggle')"><Icon :name="icon" :size="14" /></span>
       <span class="group-name" @click="$emit('toggle')">{{ title }}</span>
       <span class="group-count" @click="$emit('toggle')">({{ skills.length }})</span>
       <span v-if="editable" class="group-badge editable">{{ t('rightPanel.skills.editable') }}</span>
-      <button v-if="editable" class="group-add-btn" :title="createTitle" @click.stop="$emit('create')">＋</button>
-      <button v-if="editable" class="group-add-btn" :title="t('rightPanel.skills.openFolder')" @click.stop="$emit('open-folder')">📂</button>
+      <button v-if="editable" class="group-add-btn" :title="createTitle" @click.stop="$emit('create')"><Icon name="add" :size="12" /></button>
+      <button v-if="editable" class="group-add-btn" :title="t('rightPanel.skills.openFolder')" @click.stop="$emit('open-folder')"><Icon name="folderOpen" :size="14" /></button>
     </div>
     <div v-if="expanded" class="group-items">
       <template v-if="skills.length > 0">
@@ -25,23 +25,23 @@
                 :class="['skill-action-btn', groupKey === 'project' ? 'promote' : 'copy']"
                 :title="copyTitle"
                 @click.stop="copy(skill)"
-              >{{ copyIcon }}</button>
+              ><Icon name="copy" :size="14" /></button>
               <button
                 class="skill-action-btn"
                 :title="t('rightPanel.skills.edit')"
                 @click.stop="$emit('edit', skill)"
-              >✏️</button>
+              ><Icon name="edit" :size="14" /></button>
               <button
                 v-if="skill.filePath"
                 class="skill-action-btn"
                 :title="t('rightPanel.skills.openFile')"
                 @click.stop="$emit('openFile', skill)"
-              >↗️</button>
+              ><Icon name="externalLink" :size="14" /></button>
               <button
                 class="skill-action-btn delete"
                 :title="t('rightPanel.skills.delete')"
                 @click.stop="$emit('delete', skill)"
-              >🗑️</button>
+              ><Icon name="delete" :size="14" /></button>
             </span>
           </div>
           <span class="skill-desc">{{ skill.description }}</span>
@@ -55,6 +55,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 
@@ -62,12 +63,11 @@ const props = defineProps({
   groupKey: { type: String, required: true },
   skills: { type: Array, default: () => [] },
   title: { type: String, required: true },
-  icon: { type: String, default: '📁' },
+  icon: { type: String, default: 'folder' },
   editable: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
   emptyText: { type: String, default: '' },
   copy: { type: Function, default: null },
-  copyIcon: { type: String, default: '⧉' },
   copyTitle: { type: String, default: '' }
 })
 

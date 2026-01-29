@@ -107,7 +107,7 @@
           type="textarea"
           :rows="18"
           :placeholder="t('rightPanel.hooks.jsonPlaceholder')"
-          font-family="monospace"
+          :style="{ fontFamily: 'var(--font-mono)' }"
           :status="jsonError ? 'error' : undefined"
         />
         <div class="json-hint">{{ t('rightPanel.hooks.jsonHint') }}</div>

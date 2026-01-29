@@ -7,7 +7,7 @@
         :class="{ active: activeTabId === 'welcome' }"
         @click="$emit('select-tab', { id: 'welcome' })"
       >
-        <span class="tab-icon">🏠</span>
+        <span class="tab-icon"><Icon name="home" :size="14" /></span>
         <span class="tab-name">欢迎</span>
       </div>
 
@@ -20,7 +20,7 @@
         @click="selectTab(tab)"
       >
         <span class="tab-icon" :class="[tab.status, tab.type]">
-          {{ getStatusIcon(tab.status, tab.type) }}
+          <Icon :name="getStatusIconName(tab.status, tab.type)" :size="12" />
         </span>
         <span class="tab-name" :title="tab.title || tab.projectPath">
           {{ tab.title || tab.projectName || 'Session' }}
@@ -30,7 +30,7 @@
           @click.stop="closeTab(tab)"
           title="断开连接（后台继续运行）"
         >
-          ×
+          <Icon name="close" :size="12" />
         </button>
       </div>
     </div>
@@ -42,13 +42,14 @@
       @click="$emit('new-tab')"
       title="新建会话"
     >
-      +
+      <Icon name="add" :size="16" />
     </button>
   </div>
 </template>
 
 <script setup>
-import { getSessionStatusIcon } from '@composables/useSessionUtils'
+import Icon from '@components/icons/Icon.vue'
+import { SessionStatus, SessionType } from '@composables/useSessionUtils'
 
 // Props
 const props = defineProps({
@@ -88,8 +89,38 @@ const closeTab = (tab) => {
   emit('close-tab', tab)
 }
 
-// 使用公共函数
-const getStatusIcon = getSessionStatusIcon
+// 根据状态获取图标名称
+const getStatusIconName = (status, type = SessionType.SESSION) => {
+  // 纯终端使用终端图标
+  if (type === SessionType.TERMINAL) {
+    switch (status) {
+      case SessionStatus.RUNNING:
+        return 'terminal'
+      case SessionStatus.STARTING:
+        return 'clock'
+      case SessionStatus.EXITED:
+        return 'stop'
+      case SessionStatus.ERROR:
+        return 'xCircle'
+      default:
+        return 'terminal'
+    }
+  }
+
+  // Claude 会话图标
+  switch (status) {
+    case SessionStatus.RUNNING:
+      return 'play'
+    case SessionStatus.STARTING:
+      return 'clock'
+    case SessionStatus.EXITED:
+      return 'stop'
+    case SessionStatus.ERROR:
+      return 'xCircle'
+    default:
+      return 'chat'
+  }
+}
 </script>
 
 <style scoped>

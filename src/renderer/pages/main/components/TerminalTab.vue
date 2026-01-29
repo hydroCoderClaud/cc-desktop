@@ -30,6 +30,10 @@ const props = defineProps({
   fontFamily: {
     type: String,
     default: '"Ubuntu Mono", monospace'
+  },
+  cursorColor: {
+    type: String,
+    default: '#FF6B35'
   }
 })
 
@@ -53,11 +57,11 @@ const getTerminalTheme = () => {
   return props.isDark ? {
     background: '#0d0d0d',
     foreground: '#e8e8e8',
-    cursor: '#ff6b35'
+    cursor: props.cursorColor
   } : {
     background: '#1a1a1a',
     foreground: '#ffffff',
-    cursor: '#ff6b35'
+    cursor: props.cursorColor
   }
 }
 
@@ -282,6 +286,13 @@ watch(() => props.visible, async (newVal) => {
 
 // Watch theme
 watch(() => props.isDark, () => {
+  if (terminal) {
+    terminal.options.theme = getTerminalTheme()
+  }
+})
+
+// Watch cursor color
+watch(() => props.cursorColor, () => {
   if (terminal) {
     terminal.options.theme = getTerminalTheme()
   }

@@ -1,13 +1,13 @@
 <template>
   <div class="mcp-group">
     <div class="group-header" @click="$emit('toggle')">
-      <span class="group-icon">{{ expanded ? '▼' : '▶' }}</span>
+      <span class="group-icon"><Icon :name="expanded ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
       <span class="group-title">{{ title }}</span>
       <span class="group-count">({{ servers.length }})</span>
       <span v-if="badge" class="group-badge" :class="badgeClass">{{ badge }}</span>
       <div class="group-actions" v-if="editable" @click.stop>
         <button class="action-btn" :title="t('rightPanel.mcp.create')" @click="$emit('create')">
-          ＋
+          <Icon name="add" :size="12" />
         </button>
       </div>
     </div>
@@ -44,10 +44,10 @@
         </div>
 
         <div class="server-actions">
-          <button class="action-btn" :title="t('common.copy')" @click="$emit('copy', server)">⧉</button>
-          <button class="action-btn" :title="t('common.edit')" @click="$emit('edit', server)">✏️</button>
-          <button v-if="server.filePath" class="action-btn" :title="t('rightPanel.mcp.openFile')" @click="$emit('openFile', server)">↗️</button>
-          <button v-if="editable" class="action-btn danger" :title="t('common.delete')" @click="$emit('delete', server)">🗑️</button>
+          <button class="action-btn" :title="t('common.copy')" @click="$emit('copy', server)"><Icon name="copy" :size="14" /></button>
+          <button class="action-btn" :title="t('common.edit')" @click="$emit('edit', server)"><Icon name="edit" :size="14" /></button>
+          <button v-if="server.filePath" class="action-btn" :title="t('rightPanel.mcp.openFile')" @click="$emit('openFile', server)"><Icon name="externalLink" :size="14" /></button>
+          <button v-if="editable" class="action-btn danger" :title="t('common.delete')" @click="$emit('delete', server)"><Icon name="delete" :size="14" /></button>
         </div>
       </div>
     </div>
@@ -56,6 +56,7 @@
 
 <script setup>
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 
@@ -233,7 +234,7 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
 }
 
 .server-content code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-color);
 }

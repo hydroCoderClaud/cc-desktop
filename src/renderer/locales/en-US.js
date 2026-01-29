@@ -687,6 +687,7 @@ export default {
     themeLight: 'Light',
     themeDark: 'Dark',
     themeSystem: 'System',
+    colorScheme: 'Color Scheme',
     language: 'Language',
     languageZh: '中文',
     languageEn: 'English',

@@ -1,13 +1,13 @@
 <template>
   <div class="agent-group">
     <div class="group-header clickable">
-      <span class="group-toggle" @click="$emit('toggle')">{{ expanded ? '▼' : '▶' }}</span>
-      <span class="group-icon" @click="$emit('toggle')">{{ icon }}</span>
+      <span class="group-toggle" @click="$emit('toggle')"><Icon :name="expanded ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
+      <span class="group-icon" @click="$emit('toggle')"><Icon :name="icon" :size="14" /></span>
       <span class="group-name" @click="$emit('toggle')">{{ title }}</span>
       <span class="group-count" @click="$emit('toggle')">({{ agents.length }})</span>
       <span v-if="editable" class="group-badge editable">{{ t('rightPanel.agents.editable') }}</span>
-      <button v-if="editable" class="group-add-btn" :title="createTitle" @click.stop="$emit('create')">＋</button>
-      <button v-if="editable" class="group-add-btn" :title="t('rightPanel.agents.openFolder')" @click.stop="$emit('open-folder')">📂</button>
+      <button v-if="editable" class="group-add-btn" :title="createTitle" @click.stop="$emit('create')"><Icon name="add" :size="12" /></button>
+      <button v-if="editable" class="group-add-btn" :title="t('rightPanel.agents.openFolder')" @click.stop="$emit('open-folder')"><Icon name="folderOpen" :size="14" /></button>
     </div>
     <div v-if="expanded" class="group-items">
       <template v-if="agents.length > 0">
@@ -29,23 +29,23 @@
                 :class="['agent-action-btn', groupKey === 'project' ? 'promote' : 'copy']"
                 :title="copyTitle"
                 @click.stop="copy(agent)"
-              >{{ copyIcon }}</button>
+              ><Icon name="copy" :size="14" /></button>
               <button
                 class="agent-action-btn"
                 :title="t('rightPanel.agents.edit')"
                 @click.stop="$emit('edit', agent)"
-              >✏️</button>
+              ><Icon name="edit" :size="14" /></button>
               <button
                 v-if="agent.agentPath"
                 class="agent-action-btn"
                 :title="t('rightPanel.agents.openFile')"
                 @click.stop="$emit('openFile', agent)"
-              >↗️</button>
+              ><Icon name="externalLink" :size="14" /></button>
               <button
                 class="agent-action-btn delete"
                 :title="t('rightPanel.agents.delete')"
                 @click.stop="$emit('delete', agent)"
-              >🗑️</button>
+              ><Icon name="delete" :size="14" /></button>
             </span>
           </div>
           <span class="agent-desc">{{ agent.description }}</span>
@@ -60,6 +60,7 @@
 import { computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { getAgentColor } from '@composables/constants'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 
@@ -67,12 +68,11 @@ const props = defineProps({
   groupKey: { type: String, required: true },
   agents: { type: Array, default: () => [] },
   title: { type: String, required: true },
-  icon: { type: String, default: '📁' },
+  icon: { type: String, default: 'folder' },
   editable: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
   emptyText: { type: String, default: '' },
   copy: { type: Function, default: null },
-  copyIcon: { type: String, default: '⧉' },
   copyTitle: { type: String, default: '' }
 })
 

@@ -50,7 +50,7 @@
       <div class="main-area">
         <!-- Welcome Page -->
         <div v-show="activeTabId === 'welcome'" class="empty-state">
-          <div class="pixel-mascot">🤖</div>
+          <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
 
           <div class="welcome-message">
             <h2>{{ t('main.welcome') }}</h2>
@@ -60,7 +60,7 @@
           </div>
 
           <div class="warning-box">
-            <div class="warning-icon">⚠️</div>
+            <div class="warning-icon"><Icon name="warning" :size="20" /></div>
             <div class="warning-text">
               {{ t('main.warningText') }}
             </div>
@@ -78,6 +78,7 @@
             :is-dark="isDark"
             :font-size="terminalFontSize"
             :font-family="terminalFontFamily"
+            :cursor-color="currentColors.primary"
             @ready="handleTerminalReady"
           />
         </div>
@@ -130,10 +131,11 @@ import RightPanel from './RightPanel/index.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
+import Icon from '@components/icons/Icon.vue'
 
 const message = useMessage()
 const dialog = useDialog()
-const { isDark, cssVars, toggleTheme } = useTheme()
+const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
 const { t, initLocale } = useLocale()
 
 // Use composables
@@ -578,7 +580,7 @@ const openApiProfileManager = async () => {
 .project-path {
   font-size: 13px;
   color: var(--text-color-muted);
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: var(--font-mono);
 }
 
 .main-area {
@@ -600,9 +602,10 @@ const openApiProfileManager = async () => {
 }
 
 .pixel-mascot {
-  font-size: 80px;
   margin-bottom: 32px;
   animation: float 3s ease-in-out infinite;
+  color: var(--primary-color);
+  opacity: 0.8;
 }
 
 @keyframes float {

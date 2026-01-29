@@ -4,16 +4,16 @@
       <span class="tab-title">{{ t('rightPanel.tabs.plugins') }} ({{ plugins.length }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.plugins.openInstalledJson')" @click="handleOpenInstalledJson">
-          📋
+          <Icon name="clipboard" :size="14" />
         </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.openFolder')" @click="handleOpenFolder">
-          📂
+          <Icon name="folderOpen" :size="14" />
         </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.openSettingsJson')" @click="handleOpenSettingsJson">
-          ⚙️
+          <Icon name="settings" :size="14" />
         </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.refresh')" @click="handleRefresh">
-          🔄
+          <Icon name="refresh" :size="14" />
         </button>
       </div>
     </div>
@@ -26,7 +26,7 @@
         clearable
       >
         <template #prefix>
-          <span>⌕</span>
+          <Icon name="search" :size="14" />
         </template>
       </n-input>
     </div>
@@ -34,13 +34,13 @@
     <div class="tab-content">
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
-        <span class="loading-icon">⏳</span>
+        <Icon name="clock" :size="16" class="loading-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="filteredPlugins.length === 0" class="empty-state">
-        <div class="empty-icon">🔌</div>
+        <div class="empty-icon"><Icon name="plugin" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.plugins.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.plugins.emptyHint') }}</div>
       </div>
@@ -55,7 +55,7 @@
         >
           <!-- Plugin Header -->
           <div class="plugin-header" @click="toggleExpand(plugin)">
-            <div class="plugin-icon">📦</div>
+            <div class="plugin-icon"><Icon name="plugin" :size="20" /></div>
             <div class="plugin-info">
               <div class="plugin-name">{{ plugin.name }}</div>
               <div class="plugin-desc">{{ plugin.description || t('rightPanel.plugins.noDescription') }}</div>
@@ -70,7 +70,7 @@
               @click.stop
               @update:value="(val) => handleToggle(plugin, val)"
             />
-            <span class="expand-arrow">{{ expandedPlugins.has(plugin.id) ? '▼' : '▶' }}</span>
+            <span class="expand-arrow"><Icon :name="expandedPlugins.has(plugin.id) ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
           </div>
 
           <!-- Plugin Details (展开后显示) -->
@@ -82,7 +82,7 @@
               <!-- Commands -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.commands.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'commands')">
-                  <span class="section-arrow">{{ expandedSections[plugin.id]?.commands ? '▼' : '▶' }}</span>
+                  <span class="section-arrow"><Icon :name="expandedSections[plugin.id]?.commands ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                   <span class="section-title">Commands ({{ pluginDetails[plugin.id].components.commands.length }})</span>
                 </div>
                 <div v-if="expandedSections[plugin.id]?.commands" class="section-content">
@@ -94,8 +94,8 @@
                     <span class="component-name" @click="handleInsertCommand(cmd)">/{{ cmd.name }}</span>
                     <span class="component-desc" @click="handleInsertCommand(cmd)">{{ cmd.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditCommand(cmd)">✏️</button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(cmd.filePath)">↗️</button>
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditCommand(cmd)"><Icon name="edit" :size="14" /></button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(cmd.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -104,7 +104,7 @@
               <!-- Agents -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.agents.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'agents')">
-                  <span class="section-arrow">{{ expandedSections[plugin.id]?.agents ? '▼' : '▶' }}</span>
+                  <span class="section-arrow"><Icon :name="expandedSections[plugin.id]?.agents ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                   <span class="section-title">Agents ({{ pluginDetails[plugin.id].components.agents.length }})</span>
                 </div>
                 <div v-if="expandedSections[plugin.id]?.agents" class="section-content">
@@ -116,8 +116,8 @@
                     <span class="component-name" @click="handleInsertAgent(agent)">@{{ agent.name }}</span>
                     <span class="component-desc" @click="handleInsertAgent(agent)">{{ agent.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditAgent(agent)">✏️</button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(agent.filePath)">↗️</button>
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditAgent(agent)"><Icon name="edit" :size="14" /></button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(agent.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -126,7 +126,7 @@
               <!-- Skills -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.skills.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'skills')">
-                  <span class="section-arrow">{{ expandedSections[plugin.id]?.skills ? '▼' : '▶' }}</span>
+                  <span class="section-arrow"><Icon :name="expandedSections[plugin.id]?.skills ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                   <span class="section-title">Skills ({{ pluginDetails[plugin.id].components.skills.length }})</span>
                 </div>
                 <div v-if="expandedSections[plugin.id]?.skills" class="section-content">
@@ -138,8 +138,8 @@
                     <span class="component-name" @click="handleInsertSkill(skill)">/{{ skill.name }}</span>
                     <span class="component-desc" @click="handleInsertSkill(skill)">{{ skill.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditSkill(skill)">✏️</button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(skill.filePath)">↗️</button>
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditSkill(skill)"><Icon name="edit" :size="14" /></button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(skill.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -148,7 +148,7 @@
               <!-- Hooks -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.hooks.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'hooks')">
-                  <span class="section-arrow">{{ expandedSections[plugin.id]?.hooks ? '▼' : '▶' }}</span>
+                  <span class="section-arrow"><Icon :name="expandedSections[plugin.id]?.hooks ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                   <span class="section-title">Hooks ({{ pluginDetails[plugin.id].components.hooks.length }})</span>
                 </div>
                 <div v-if="expandedSections[plugin.id]?.hooks" class="section-content">
@@ -160,8 +160,8 @@
                     <span class="component-name">{{ hook.event }}</span>
                     <span class="component-desc">{{ hook.matcher ? `matcher: ${hook.matcher}` : hook.type }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditHook(hook)">✏️</button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(hook.filePath)">↗️</button>
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditHook(hook)"><Icon name="edit" :size="14" /></button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(hook.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -170,7 +170,7 @@
               <!-- MCP -->
               <div class="component-section" v-if="pluginDetails[plugin.id].components.mcp.length > 0">
                 <div class="section-header" @click="toggleSection(plugin.id, 'mcp')">
-                  <span class="section-arrow">{{ expandedSections[plugin.id]?.mcp ? '▼' : '▶' }}</span>
+                  <span class="section-arrow"><Icon :name="expandedSections[plugin.id]?.mcp ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                   <span class="section-title">MCP ({{ pluginDetails[plugin.id].components.mcp.length }})</span>
                 </div>
                 <div v-if="expandedSections[plugin.id]?.mcp" class="section-content">
@@ -182,8 +182,8 @@
                     <span class="component-name" @click="handleInsertMcp(mcp)">{{ mcp.name }}</span>
                     <span class="component-desc" @click="handleInsertMcp(mcp)">{{ mcp.type === 'http' ? mcp.url : mcp.command }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditMcp(mcp)">✏️</button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(mcp.filePath)">↗️</button>
+                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditMcp(mcp)"><Icon name="edit" :size="14" /></button>
+                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(mcp.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -253,6 +253,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { NInput, NSwitch, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useIPC } from '@composables/useIPC'
+import Icon from '@components/icons/Icon.vue'
 import SkillEditModal from './skills/SkillEditModal.vue'
 import AgentEditModal from './agents/AgentEditModal.vue'
 import HookEditModal from '../hooks/HookEditModal.vue'
@@ -506,29 +507,6 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
-}
-
-.tab-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.icon-btn:hover {
-  background: var(--hover-bg);
 }
 
 .tab-toolbar {

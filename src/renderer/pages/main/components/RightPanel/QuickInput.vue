@@ -9,7 +9,7 @@
           :title="t('common.clear')"
           @click="inputText = ''"
         >
-          ✕
+          <Icon name="close" :size="12" />
         </button>
       </div>
       <span class="input-hint">{{ t('rightPanel.quickInput.hint') }}</span>
@@ -30,7 +30,7 @@
           :title="t('rightPanel.quickInput.send')"
           @click="handleSendToTerminal"
         >
-          ▶
+          <Icon name="play" :size="16" />
         </button>
         <button
           class="action-btn"
@@ -38,7 +38,7 @@
           :title="t('rightPanel.quickInput.addToQueue')"
           @click="handleAddToQueue"
         >
-          +
+          <Icon name="add" :size="16" />
         </button>
         <button
           class="action-btn create-prompt-btn"
@@ -46,7 +46,7 @@
           :title="t('rightPanel.quickInput.createPrompt')"
           @click="handleCreatePrompt"
         >
-          💬
+          <Icon name="message" :size="16" />
         </button>
       </div>
     </div>
@@ -56,6 +56,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 

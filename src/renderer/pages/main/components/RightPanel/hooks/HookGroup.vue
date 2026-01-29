@@ -1,16 +1,16 @@
 <template>
   <div class="hook-group">
     <div class="group-header" @click="$emit('toggle')">
-      <span class="group-icon">{{ expanded ? '▼' : '▶' }}</span>
+      <span class="group-icon"><Icon :name="expanded ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
       <span class="group-title">{{ title }}</span>
       <span class="group-count">({{ hooks.length }})</span>
       <span v-if="badge" class="group-badge" :class="badgeClass">{{ badge }}</span>
       <div class="group-actions" @click.stop>
         <button v-if="filePath" class="action-btn" :title="t('rightPanel.hooks.openFolder')" @click="$emit('openFolder')">
-          📋
+          <Icon name="file" :size="14" />
         </button>
         <button v-if="editable" class="action-btn" :title="t('rightPanel.hooks.createHook')" @click="$emit('create')">
-          ＋
+          <Icon name="add" :size="12" />
         </button>
       </div>
     </div>
@@ -45,10 +45,10 @@
         </div>
 
         <div v-if="isEditable(hook)" class="hook-actions">
-          <button class="action-btn" :title="t('common.edit')" @click.stop="$emit('edit', hook)">✏️</button>
-          <button class="action-btn" :title="t('common.copy')" @click.stop="$emit('copy', hook)">⧉</button>
-          <button v-if="hook.filePath" class="action-btn" :title="t('rightPanel.hooks.openFile')" @click.stop="$emit('openFile', hook)">↗️</button>
-          <button v-if="isDeletable(hook)" class="action-btn danger" :title="t('common.delete')" @click.stop="$emit('delete', hook)">🗑️</button>
+          <button class="action-btn" :title="t('common.edit')" @click.stop="$emit('edit', hook)"><Icon name="edit" :size="14" /></button>
+          <button class="action-btn" :title="t('common.copy')" @click.stop="$emit('copy', hook)"><Icon name="copy" :size="14" /></button>
+          <button v-if="hook.filePath" class="action-btn" :title="t('rightPanel.hooks.openFile')" @click.stop="$emit('openFile', hook)"><Icon name="externalLink" :size="14" /></button>
+          <button v-if="isDeletable(hook)" class="action-btn danger" :title="t('common.delete')" @click.stop="$emit('delete', hook)"><Icon name="delete" :size="14" /></button>
         </div>
       </div>
     </div>
@@ -57,6 +57,7 @@
 
 <script setup>
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 
@@ -265,7 +266,7 @@ const handleClick = (hook) => {
 }
 
 .hook-command {
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

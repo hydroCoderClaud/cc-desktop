@@ -77,10 +77,10 @@
           <template #suffix>
             <n-space :size="4">
               <n-button text @click="copyApiKey" :title="t('common.copy')">
-                📋
+                <Icon name="copy" :size="14" />
               </n-button>
               <n-button text @click="showPassword = !showPassword">
-                {{ showPassword ? '🙈' : '👁️' }}
+                <Icon :name="showPassword ? 'eyeOff' : 'eye'" :size="14" />
               </n-button>
             </n-space>
           </template>
@@ -98,9 +98,9 @@
           <n-form-item label=" ">
             <n-radio-group v-model:value="formData.selectedModelTier">
               <n-space>
-                <n-radio value="opus">🚀 Opus</n-radio>
-                <n-radio value="sonnet">⚡ Sonnet</n-radio>
-                <n-radio value="haiku">💨 Haiku</n-radio>
+                <n-radio value="opus"><Icon name="rocket" :size="14" class="model-tier-icon" /> Opus</n-radio>
+                <n-radio value="sonnet"><Icon name="zap" :size="14" class="model-tier-icon" /> Sonnet</n-radio>
+                <n-radio value="haiku"><Icon name="wind" :size="14" class="model-tier-icon" /> Haiku</n-radio>
               </n-space>
             </n-radio-group>
           </n-form-item>
@@ -113,17 +113,26 @@
         <p class="mapping-hint">{{ t('profileManager.modelMappingHint') }}</p>
         <n-grid :cols="3" :x-gap="16">
           <n-grid-item>
-            <n-form-item :label="'🚀 ' + t('profileManager.opusModel')">
+            <n-form-item>
+              <template #label>
+                <span class="model-mapping-label"><Icon name="rocket" :size="14" /> {{ t('profileManager.opusModel') }}</span>
+              </template>
               <n-input v-model:value="formData.modelMapping.opus" placeholder="e.g., claude-3-opus" />
             </n-form-item>
           </n-grid-item>
           <n-grid-item>
-            <n-form-item :label="'⚡ ' + t('profileManager.sonnetModel')">
+            <n-form-item>
+              <template #label>
+                <span class="model-mapping-label"><Icon name="zap" :size="14" /> {{ t('profileManager.sonnetModel') }}</span>
+              </template>
               <n-input v-model:value="formData.modelMapping.sonnet" placeholder="e.g., claude-3-sonnet" />
             </n-form-item>
           </n-grid-item>
           <n-grid-item>
-            <n-form-item :label="'💨 ' + t('profileManager.haikuModel')">
+            <n-form-item>
+              <template #label>
+                <span class="model-mapping-label"><Icon name="wind" :size="14" /> {{ t('profileManager.haikuModel') }}</span>
+              </template>
               <n-input v-model:value="formData.modelMapping.haiku" placeholder="e.g., claude-3-haiku" />
             </n-form-item>
           </n-grid-item>
@@ -187,6 +196,7 @@
 import { ref, watch, computed } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -397,13 +407,13 @@ const handleTest = () => {
 }
 
 .icon-option:hover {
-  border-color: #FF6B35;
-  background: #fff8f7;
+  border-color: var(--primary-color);
+  background: var(--primary-ghost);
 }
 
 .icon-option.selected {
-  border-color: #FF6B35;
-  background: #FF6B35;
+  border-color: var(--primary-color);
+  background: var(--primary-color);
 }
 
 .model-mapping-section {
@@ -425,5 +435,16 @@ const handleTest = () => {
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.model-tier-icon {
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+.model-mapping-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 </style>

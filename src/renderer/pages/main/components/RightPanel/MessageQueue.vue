@@ -12,32 +12,32 @@
           :disabled="currentPage === 1"
           :title="t('rightPanel.messageQueue.firstPage')"
           @click="goToPage(1)"
-        >⟪</button>
+        ><Icon name="chevronDoubleLeft" :size="14" /></button>
         <button
           class="page-btn"
           :disabled="currentPage === 1"
           :title="t('rightPanel.messageQueue.prevPage')"
           @click="goToPage(currentPage - 1)"
-        >‹</button>
+        ><Icon name="chevronLeft" :size="14" /></button>
         <span class="page-info">{{ currentPage }}/{{ totalPages }}</span>
         <button
           class="page-btn"
           :disabled="currentPage === totalPages"
           :title="t('rightPanel.messageQueue.nextPage')"
           @click="goToPage(currentPage + 1)"
-        >›</button>
+        ><Icon name="chevronRight" :size="14" /></button>
         <button
           class="page-btn"
           :disabled="currentPage === totalPages"
           :title="t('rightPanel.messageQueue.lastPage')"
           @click="goToPage(totalPages)"
-        >⟫</button>
+        ><Icon name="chevronDoubleRight" :size="14" /></button>
       </div>
     </div>
 
     <!-- Search -->
     <div class="search-box">
-      <span class="search-icon">⌕</span>
+      <Icon name="search" :size="14" class="search-icon" />
       <input
         v-model="searchKeyword"
         type="text"
@@ -72,7 +72,7 @@
             :disabled="getGlobalIndex(idx) === 1"
             @click.stop="moveUp(item, getGlobalIndex(idx) - 1)"
           >
-            ▲
+            <Icon name="chevronUp" :size="12" />
           </button>
           <button
             class="item-btn move-btn"
@@ -80,27 +80,27 @@
             :disabled="getGlobalIndex(idx) === filteredItems.length"
             @click.stop="moveDown(item, getGlobalIndex(idx) - 1)"
           >
-            ▼
+            <Icon name="chevronDown" :size="12" />
           </button>
           <button
             class="item-btn edit-btn"
             :title="t('common.edit')"
             @click.stop="openEditModal(item)"
           >
-            &#9998;
+            <Icon name="edit" :size="12" />
           </button>
           <button
             class="item-btn delete-btn"
             :title="t('common.delete')"
             @click.stop="remove(item.id)"
           >
-            &times;
+            <Icon name="close" :size="12" />
           </button>
         </div>
       </div>
     </div>
     <div class="queue-empty" v-else-if="items.length === 0">
-      <div class="empty-icon">📋</div>
+      <div class="empty-icon"><Icon name="queue" :size="48" /></div>
       <div class="empty-text">{{ t('rightPanel.messageQueue.empty') }}</div>
       <div class="empty-hint">{{ t('rightPanel.quickInput.hint') }}</div>
     </div>
@@ -111,8 +111,8 @@
     <!-- History Section -->
     <div class="history-section" v-if="history.length > 0">
       <div class="section-header" @click="showHistory = !showHistory">
-        <span>📝 {{ t('rightPanel.messageQueue.history') }} ({{ history.length }})</span>
-        <span class="toggle-icon">{{ showHistory ? '▼' : '▶' }}</span>
+        <span><Icon name="history" :size="12" /> {{ t('rightPanel.messageQueue.history') }} ({{ history.length }})</span>
+        <span class="toggle-icon"><Icon :name="showHistory ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
       </div>
       <div v-if="showHistory" class="history-list">
         <div
@@ -140,7 +140,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ t('rightPanel.messageQueue.editTitle') }}</h3>
-          <button class="close-btn" @click="closeEditModal">&times;</button>
+          <button class="close-btn" @click="closeEditModal"><Icon name="close" :size="16" /></button>
         </div>
         <div class="modal-body">
           <textarea
@@ -171,6 +171,7 @@
 import { ref, toRef, onMounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { useMessageQueue } from '@composables/useMessageQueue'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 

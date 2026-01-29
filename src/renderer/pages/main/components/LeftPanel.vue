@@ -4,7 +4,7 @@
     <div class="panel-header">
       <div class="logo">CC Desktop</div>
       <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
-        ‹
+        <Icon name="chevronLeft" :size="14" />
       </button>
     </div>
 
@@ -13,7 +13,7 @@
       <div class="section-header">
         <span>{{ t('main.projects') }}</span>
         <button class="open-project-btn" @click="$emit('open-project')" :title="t('project.openExisting')">
-          📂
+          <Icon name="folderOpen" :size="14" />
         </button>
       </div>
 
@@ -35,7 +35,7 @@
           placement="bottom-end"
         >
           <button class="project-settings-btn" :title="t('main.projectSettings')">
-            ⚙️
+            <Icon name="settings" :size="14" />
           </button>
         </n-dropdown>
       </div>
@@ -48,7 +48,7 @@
         <span>{{ t('session.newSession') }}</span>
       </button>
       <button class="open-terminal-btn" @click="handleOpenTerminal" :title="t('terminal.openTerminal')">
-        >_
+        <Icon name="terminal" :size="14" />
       </button>
     </div>
 
@@ -57,7 +57,7 @@
       <!-- Active Sessions -->
       <div class="sessions-group" v-if="activeSessions.length > 0">
         <div class="group-header">
-          <span class="icon">🟢</span>
+          <span class="icon running-icon"></span>
           <span>{{ t('session.running') }}</span>
           <span class="count">({{ activeSessions.length }})</span>
         </div>
@@ -81,16 +81,16 @@
             <button
               class="rename-btn"
               @click.stop="openRenameDialog(session)"
-              title="✏️"
+              :title="t('common.edit')"
             >
-              ✏️
+              <Icon name="edit" :size="12" />
             </button>
             <button
               class="close-btn"
               @click.stop="handleCloseSession(session)"
               :title="t('session.close')"
             >
-              ×
+              <Icon name="close" :size="12" />
             </button>
           </div>
         </div>
@@ -99,7 +99,7 @@
       <!-- History Sessions -->
       <div class="sessions-group" v-if="currentProject">
         <div class="group-header">
-          <span class="icon">📜</span>
+          <Icon name="history" :size="14" class="icon" />
           <span>{{ t('session.history') }}</span>
           <span class="count" v-if="historySessions.length > 0">({{ displayedHistorySessions.length }}/{{ historySessions.length }})</span>
           <button
@@ -117,7 +117,7 @@
             :disabled="isSyncing"
             :title="t('session.sync') || '同步会话'"
           >
-            🔄
+            <Icon name="refresh" :size="12" />
           </button>
           <span class="view-more" @click.stop="handleViewMore" v-if="historySessions.length > displayedHistorySessions.length">
             {{ t('session.viewMore') }}
@@ -132,7 +132,7 @@
           >
             <div class="session-info">
               <div class="session-title">
-                <span class="icon">💬</span>
+                <Icon name="message" :size="12" class="icon" />
                 <span class="title-text">{{ formatSessionName(session) }}</span>
               </div>
               <div class="session-meta">
@@ -143,22 +143,22 @@
               <button
                 class="rename-btn"
                 @click.stop="handleEditHistorySession(session)"
-                title="✏️"
+                :title="t('common.edit')"
               >
-                ✏️
+                <Icon name="edit" :size="12" />
               </button>
               <button
                 class="delete-btn"
                 @click.stop="handleDeleteHistorySession(session)"
                 :title="t('session.delete')"
               >
-                ×
+                <Icon name="close" :size="12" />
               </button>
             </div>
           </div>
         </template>
         <div v-else class="empty-hint small">
-          {{ t('session.noHistorySessions') || '点击 🔄 同步历史会话' }}
+          {{ t('session.noHistorySessions') || '点击同步历史会话' }}
         </div>
       </div>
 
@@ -178,7 +178,7 @@
           placement="top-start"
         >
           <button class="settings-btn">
-            <span class="icon">⚙️</span>
+            <Icon name="settings" :size="16" class="icon" />
             <span class="text">{{ t('main.settingsMenu') }}</span>
           </button>
         </n-dropdown>
@@ -188,7 +188,7 @@
         </button>
 
         <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
-          <span>{{ isDark ? '☀️' : '🌙' }}</span>
+          <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
         </button>
       </div>
     </div>
@@ -276,6 +276,7 @@ import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NI
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
+import Icon from '@components/icons/Icon.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -960,7 +961,7 @@ defineExpose({
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  font-family: monospace;
+  font-family: var(--font-mono);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -996,6 +997,13 @@ defineExpose({
 
 .group-header .icon {
   font-size: 12px;
+}
+
+.group-header .running-icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #52c41a;
 }
 
 .group-header .count {

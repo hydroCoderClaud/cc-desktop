@@ -3,30 +3,30 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.agents') }} ({{ totalCount }})</span>
       <div class="tab-actions">
-        <button class="icon-btn" :title="t('rightPanel.agents.refresh')" @click="loadAgents">🔄</button>
+        <button class="icon-btn" :title="t('rightPanel.agents.refresh')" @click="loadAgents"><Icon name="refresh" :size="16" /></button>
       </div>
     </div>
 
     <div class="tab-toolbar">
       <div class="toolbar-row">
         <n-input v-model:value="searchText" :placeholder="t('rightPanel.agents.search')" size="small" clearable style="flex: 1;">
-          <template #prefix><span>⌕</span></template>
+          <template #prefix><Icon name="search" :size="14" /></template>
         </n-input>
         <n-button-group size="small">
-          <n-button @click="showImportModal" :title="t('rightPanel.agents.import')">📥</n-button>
-          <n-button @click="showExportModal" :title="t('rightPanel.agents.export')">📤</n-button>
+          <n-button @click="showImportModal" :title="t('rightPanel.agents.import')"><Icon name="import" :size="16" /></n-button>
+          <n-button @click="showExportModal" :title="t('rightPanel.agents.export')"><Icon name="export" :size="16" /></n-button>
         </n-button-group>
       </div>
     </div>
 
     <div class="tab-content">
       <div v-if="loading" class="loading-state">
-        <span class="loading-icon">⏳</span>
+        <Icon name="clock" :size="16" class="loading-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <div v-else-if="totalCount === 0" class="empty-state">
-        <div class="empty-icon">🤖</div>
+        <div class="empty-icon"><Icon name="robot" :size="48" /></div>
         <div class="empty-text">{{ t('rightPanel.agents.empty') }}</div>
         <div class="empty-hint">{{ t('rightPanel.agents.emptyHint') }}</div>
       </div>
@@ -34,29 +34,29 @@
       <div v-else class="agents-list">
         <!-- 工程级别 Agents -->
         <AgentGroup v-if="currentProject" group-key="project" :agents="filteredAgents.project"
-          :title="t('rightPanel.agents.projectAgents')" icon="📁" :editable="true"
+          :title="t('rightPanel.agents.projectAgents')" icon="folder" :editable="true"
           :expanded="expandedGroups.includes('project')" @toggle="toggleGroup('project')"
           @create="showCreateModal('project')" @open-folder="openAgentsFolder('project')"
           @click-agent="handleAgentClick" @edit="showEditModal" @delete="showDeleteModal"
           @openFile="handleOpenFile"
-          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.agents.copyAgent')"
+          :copy="showCopyModal" :copy-title="t('rightPanel.agents.copyAgent')"
           :empty-text="t('rightPanel.agents.noProjectAgents')" />
 
         <!-- 自定义全局 Agents -->
         <AgentGroup group-key="user" :agents="filteredAgents.user"
-          :title="t('rightPanel.agents.userAgents')" icon="👤" :editable="true"
+          :title="t('rightPanel.agents.userAgents')" icon="user" :editable="true"
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openAgentsFolder('user')"
           @click-agent="handleAgentClick" @edit="showEditModal" @delete="showDeleteModal"
           @openFile="handleOpenFile"
-          :copy="showCopyModal" copy-icon="⧉" :copy-title="t('rightPanel.agents.copyAgent')"
+          :copy="showCopyModal" :copy-title="t('rightPanel.agents.copyAgent')"
           :empty-text="t('rightPanel.agents.noUserAgents')" />
 
         <!-- 插件级 Agents -->
         <div v-if="filteredAgents.plugin.length > 0" class="agent-group">
           <div class="group-header clickable" @click="toggleGroup('plugin')">
-            <span class="group-toggle">{{ expandedGroups.includes('plugin') ? '▼' : '▶' }}</span>
-            <span class="group-icon">🧩</span>
+            <span class="group-toggle"><Icon :name="expandedGroups.includes('plugin') ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
+            <span class="group-icon"><Icon name="puzzle" :size="14" /></span>
             <span class="group-name">{{ t('rightPanel.agents.pluginAgents') }}</span>
             <span class="group-count">({{ filteredAgents.plugin.length }})</span>
             <span class="group-badge plugin">{{ t('rightPanel.agents.plugin') }}</span>
@@ -64,7 +64,7 @@
           <div v-if="expandedGroups.includes('plugin')" class="group-items">
             <div v-for="cat in groupedPluginAgents" :key="cat.name" class="agent-category">
               <div class="category-header" @click="toggleCategory(cat.name)">
-                <span class="category-icon">{{ expandedCategories.includes(cat.name) ? '▼' : '▶' }}</span>
+                <span class="category-icon"><Icon :name="expandedCategories.includes(cat.name) ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
                 <span class="category-name">{{ cat.name }}</span>
                 <span class="category-count">({{ cat.agents.length }})</span>
               </div>
@@ -77,9 +77,9 @@
                       <span v-if="agent.name && agent.name !== agent.id" class="agent-name-suffix">(/{{ agent.name }})</span>
                     </span>
                     <span class="agent-actions-inline">
-                      <button class="item-btn copy" :title="t('rightPanel.agents.copyAgent')" @click.stop="showCopyModal(agent)">⧉</button>
-                      <button class="item-btn edit" :title="t('rightPanel.agents.edit')" @click.stop="showEditModal(agent)">✏️</button>
-                      <button v-if="agent.agentPath" class="item-btn" :title="t('rightPanel.agents.openFile')" @click.stop="handleOpenFile(agent)">↗️</button>
+                      <button class="item-btn copy" :title="t('rightPanel.agents.copyAgent')" @click.stop="showCopyModal(agent)"><Icon name="copy" :size="14" /></button>
+                      <button class="item-btn edit" :title="t('rightPanel.agents.edit')" @click.stop="showEditModal(agent)"><Icon name="edit" :size="14" /></button>
+                      <button v-if="agent.agentPath" class="item-btn" :title="t('rightPanel.agents.openFile')" @click.stop="handleOpenFile(agent)"><Icon name="externalLink" :size="14" /></button>
                     </span>
                   </div>
                   <span class="agent-desc">{{ agent.description }}</span>
@@ -141,6 +141,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { NInput, NModal, NButton, NButtonGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { AGENT_COLORS, getAgentColor } from '@composables/constants'
+import Icon from '@components/icons/Icon.vue'
 import AgentGroup from './agents/AgentGroup.vue'
 import AgentEditModal from './agents/AgentEditModal.vue'
 import AgentCopyModal from './agents/AgentCopyModal.vue'
@@ -327,9 +328,6 @@ onMounted(loadAgents)
 .tab-container { display: flex; flex-direction: column; height: 100%; }
 .tab-header { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border-color); }
 .tab-title { font-size: 14px; font-weight: 600; color: var(--text-color); }
-.tab-actions { display: flex; gap: 4px; }
-.icon-btn { width: 28px; height: 28px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.15s ease; }
-.icon-btn:hover { background: var(--hover-bg); }
 .tab-toolbar { margin-top: 12px; padding: 0 12px 12px 12px; }
 .tab-content { flex: 1; overflow-y: auto; }
 

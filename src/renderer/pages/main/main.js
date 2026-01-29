@@ -20,6 +20,9 @@ import {
 } from 'naive-ui'
 import App from './App.vue'
 
+// 公共样式
+import '@/styles/common.css'
+
 console.log('[Main] Initializing Vue app...')
 
 const naive = create({

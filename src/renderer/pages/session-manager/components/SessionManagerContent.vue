@@ -20,7 +20,7 @@
           @clear="clearSearchResults"
         >
           <template #prefix>
-            <span>⌕</span>
+            <Icon name="search" :size="14" />
           </template>
         </n-input>
         <!-- Search Button -->
@@ -29,7 +29,7 @@
         </n-button>
         <!-- Search Results Navigation -->
         <n-space v-if="searchResults.length > 0" align="center" :size="4" class="search-nav">
-          <n-button size="small" quaternary :disabled="searchIndex <= 0" @click="prevResult">◀</n-button>
+          <n-button size="small" quaternary :disabled="searchIndex <= 0" @click="prevResult"><Icon name="chevronLeft" :size="14" /></n-button>
           <n-input-number
             v-model:value="searchIndexDisplay"
             size="small"
@@ -40,19 +40,19 @@
             @update:value="goToResult"
           />
           <span class="search-nav-total">/ {{ searchResults.length }}</span>
-          <n-button size="small" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult">▶</n-button>
-          <n-button size="small" quaternary @click="clearSearchResults">✕</n-button>
+          <n-button size="small" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult"><Icon name="chevronRight" :size="14" /></n-button>
+          <n-button size="small" quaternary @click="clearSearchResults"><Icon name="close" :size="14" /></n-button>
         </n-space>
         <!-- Sync Button -->
         <n-button :loading="syncing" @click="handleSync">
-          <span style="margin-right: 4px">🔄</span>
+          <Icon name="sync" :size="14" style="margin-right: 4px" />
           {{ t('sessionManager.sync') }}
         </n-button>
         <!-- Force Full Sync Button -->
         <n-popconfirm @positive-click="handleForceFullSync">
           <template #trigger>
             <n-button :loading="syncing" type="warning">
-              <span style="margin-right: 4px">⚡</span>
+              <Icon name="zap" :size="14" style="margin-right: 4px" />
               强制全量同步
             </n-button>
           </template>
@@ -62,7 +62,7 @@
         <n-popconfirm @positive-click="handleClearInvalid">
           <template #trigger>
             <n-button :loading="clearing" type="warning">
-              <span style="margin-right: 4px">🧹</span>
+              <Icon name="broom" :size="14" style="margin-right: 4px" />
               {{ t('sessionManager.clearInvalid') }}
             </n-button>
           </template>
@@ -150,6 +150,7 @@ import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { formatDate, formatTime, scrollToElement } from '@composables/useFormatters'
+import Icon from '@components/icons/Icon.vue'
 
 // Sub-components
 import ProjectList from './ProjectList.vue'

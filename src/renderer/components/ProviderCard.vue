@@ -120,7 +120,7 @@ defineEmits(['edit', 'delete'])
 }
 
 .value.code {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   background: var(--bg-color-tertiary, #f5f5f0);
   padding: 2px 8px;

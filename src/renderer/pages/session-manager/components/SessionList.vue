@@ -12,10 +12,10 @@
           :class="{ active: showFavoritesOnly }"
           :title="showFavoritesOnly ? t('sessionManager.showAll') : t('sessionManager.showFavorites')"
           @click="$emit('toggle-favorites-filter')"
-        >{{ showFavoritesOnly ? '⭐' : '☆' }}</span>
+        ><Icon :name="showFavoritesOnly ? 'starFilled' : 'star'" :size="14" /></span>
         <!-- Session tag filter (click) -->
         <div v-if="sessionFilterTagList.length > 0" class="tag-filter-wrapper" v-click-outside="() => showTagFilter = false">
-          <span class="filter-icon" :class="{ active: sessionTagFilter }" @click="showTagFilter = !showTagFilter">🏷️</span>
+          <span class="filter-icon" :class="{ active: sessionTagFilter }" @click="showTagFilter = !showTagFilter"><Icon name="tag" :size="14" /></span>
           <div v-show="showTagFilter" class="tag-filter-dropdown">
             <div
               class="tag-filter-all"
@@ -41,7 +41,7 @@
       </div>
       <!-- Add tag to session -->
       <div v-if="selectedSession" class="tag-filter-wrapper" v-click-outside="() => showAddTag = false">
-        <span class="filter-icon" @click="showAddTag = !showAddTag" :title="t('sessionManager.addTag')">+🏷️</span>
+        <span class="filter-icon" @click="showAddTag = !showAddTag" :title="t('sessionManager.addTag')"><Icon name="tag" :size="14" /><span class="add-tag-plus">+</span></span>
         <div v-show="showAddTag" class="tag-filter-dropdown" style="right: 0; left: auto;">
           <div class="tag-filter-list">
             <n-tag
@@ -66,7 +66,7 @@
             <span class="quick-add-btn" @click="handleQuickAddTag">+</span>
           </div>
           <div class="tag-filter-action" @click="handleAddTagSelect('manage')">
-            ⚙️ {{ t('sessionManager.manageTags') }}
+            <Icon name="settings" :size="14" /> {{ t('sessionManager.manageTags') }}
           </div>
         </div>
       </div>
@@ -96,7 +96,7 @@
                 @click.stop="$emit('toggle-favorite', session)"
                 :title="session.is_favorite ? t('sessionManager.unfavorite') : t('sessionManager.favorite')"
               >
-                {{ session.is_favorite ? '⭐' : '☆' }}
+                <Icon :name="session.is_favorite ? 'starFilled' : 'star'" :size="14" />
               </span>
             </div>
           </div>
@@ -131,6 +131,7 @@ import { ref } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { vClickOutside } from '@composables/useClickOutside'
 import { formatDate } from '@composables/useFormatters'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const showTagFilter = ref(false)
@@ -261,6 +262,12 @@ const handleQuickAddTag = () => {
 .action-icon:hover,
 .action-icon.active {
   opacity: 1;
+}
+
+.add-tag-plus {
+  font-size: 10px;
+  font-weight: bold;
+  margin-left: -2px;
 }
 
 .session-summary {

@@ -5,7 +5,7 @@
         <span>{{ t('sessionManager.conversation') }}</span>
         <!-- Tag filter dropdown (click) -->
         <div v-if="messageFilterTagList.length > 0" class="tag-filter-wrapper" v-click-outside="() => showTagFilter = false">
-          <span class="filter-icon" :class="{ active: activeTagFilter }" @click="showTagFilter = !showTagFilter">🏷️</span>
+          <span class="filter-icon" :class="{ active: activeTagFilter }" @click="showTagFilter = !showTagFilter"><Icon name="tag" :size="14" /></span>
           <div v-show="showTagFilter" class="tag-filter-dropdown">
             <div
               class="tag-filter-all"
@@ -34,13 +34,13 @@
         <span class="nav-buttons">
           <n-tooltip>
             <template #trigger>
-              <n-button size="small" quaternary @click="scrollToOldest">⬆️</n-button>
+              <n-button size="small" quaternary @click="scrollToOldest"><Icon name="arrowUp" :size="14" /></n-button>
             </template>
             {{ t('sessionManager.goToOldest') }}
           </n-tooltip>
           <n-tooltip>
             <template #trigger>
-              <n-button size="small" quaternary @click="scrollToNewest">⬇️</n-button>
+              <n-button size="small" quaternary @click="scrollToNewest"><Icon name="arrowDown" :size="14" /></n-button>
             </template>
             {{ t('sessionManager.goToNewest') }}
           </n-tooltip>
@@ -83,7 +83,7 @@
               <div class="message-header-right">
                 <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                 <div class="tag-action-wrapper" v-click-outside="() => openMessageTagId = null">
-                  <span class="tag-action" @click.stop="openMessageTagId = openMessageTagId === msg.id ? null : msg.id">🏷️</span>
+                  <span class="tag-action" @click.stop="openMessageTagId = openMessageTagId === msg.id ? null : msg.id"><Icon name="tag" :size="12" /></span>
                   <div v-show="openMessageTagId === msg.id" class="tag-filter-dropdown message-tag-dropdown">
                     <div class="tag-filter-list">
                       <n-tag
@@ -108,7 +108,7 @@
                       <span class="quick-add-btn" @click="handleQuickAddTag(msg.id)">+</span>
                     </div>
                     <div class="tag-filter-action" @click.stop="handleAddMessageTagSelect(msg.id, 'manage')">
-                      ⚙️ {{ t('sessionManager.manageTags') }}
+                      <Icon name="settings" :size="14" /> {{ t('sessionManager.manageTags') }}
                     </div>
                   </div>
                 </div>
@@ -145,6 +145,7 @@ import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { vClickOutside } from '@composables/useClickOutside'
 import { formatTime, scrollToElement } from '@composables/useFormatters'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
