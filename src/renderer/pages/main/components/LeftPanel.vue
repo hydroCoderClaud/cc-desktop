@@ -108,7 +108,7 @@
             @click.stop="toggleSubagentSessions"
             :title="showSubagentSessions ? t('session.hideSubagent') : t('session.showSubagent')"
           >
-            🤖
+            <Icon name="agent" :size="14" />
           </button>
           <button
             class="sync-btn"
@@ -271,7 +271,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, h } from 'vue'
 import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
@@ -375,23 +375,25 @@ const projectOptions = computed(() => {
 })
 
 // Project settings menu options
+const renderMenuIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
+
 const projectMenuOptions = computed(() => [
-  { label: '📂 ' + t('project.openFolder'), key: 'openFolder' },
-  { label: '>_ ' + t('terminal.openTerminal'), key: 'openTerminal' },
-  { label: '✏️ ' + t('project.edit'), key: 'edit' },
-  { label: '🔄 ' + t('session.sync'), key: 'syncSessions' },
+  { label: t('project.openFolder'), key: 'openFolder', icon: renderMenuIcon('folderOpen') },
+  { label: t('terminal.openTerminal'), key: 'openTerminal', icon: renderMenuIcon('terminal') },
+  { label: t('project.edit'), key: 'edit', icon: renderMenuIcon('edit') },
+  { label: t('session.sync'), key: 'syncSessions', icon: renderMenuIcon('sync') },
   { type: 'divider', key: 'd1' },
-  { label: '👁️ ' + t('project.hide'), key: 'hide' }
+  { label: t('project.hide'), key: 'hide', icon: renderMenuIcon('eyeOff') }
 ])
 
 // Settings dropdown options
 const settingsOptions = computed(() => [
-  { label: '🔑 ' + t('settingsMenu.apiConfig'), key: 'api-config' },
-  { label: '🏪 ' + t('settingsMenu.providerManager'), key: 'provider-manager' },
-  { label: '⚙️ ' + t('settingsMenu.globalSettings'), key: 'global-settings' },
-  { label: '🎨 ' + t('settingsMenu.appearanceSettings'), key: 'appearance-settings' },
+  { label: t('settingsMenu.apiConfig'), key: 'api-config', icon: renderMenuIcon('key') },
+  { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
+  { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
+  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { type: 'divider', key: 'd1' },
-  { label: '📜 ' + t('settingsMenu.sessionHistory'), key: 'session-history' }
+  { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') }
 ])
 
 // Handle project selection change
@@ -803,7 +805,6 @@ defineExpose({
 .left-panel {
   width: 280px;
   background: var(--bg-color-secondary);
-  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -817,7 +818,6 @@ defineExpose({
   justify-content: space-between;
   padding: 0 16px;
   height: 60px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .logo {
@@ -833,7 +833,7 @@ defineExpose({
   border-radius: 4px;
   background: transparent;
   border: none;
-  color: var(--text-color-muted);
+  color: var(--primary-color);
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
@@ -841,19 +841,16 @@ defineExpose({
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  opacity: 0.5;
 }
 
 .collapse-btn:hover {
-  opacity: 1;
   background: var(--hover-bg);
-  color: var(--text-color);
+  color: var(--primary-color-hover);
 }
 
 /* Project Section */
 .project-section {
   padding: 12px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .section-header {
@@ -915,7 +912,6 @@ defineExpose({
 /* New Session Area (固定不滚动) */
 .new-session-area {
   padding: 12px;
-  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
   display: flex;
   gap: 8px;
@@ -1035,9 +1031,9 @@ defineExpose({
   background: transparent;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  color: var(--text-color-muted);
   cursor: pointer;
-  opacity: 0.4;
+  opacity: 0.5;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -1051,8 +1047,7 @@ defineExpose({
 
 .group-header .toggle-subagent-btn.active {
   opacity: 1;
-  background: var(--primary-color);
-  border-radius: 4px;
+  color: var(--primary-color);
 }
 
 .group-header .sync-btn:hover {
@@ -1218,7 +1213,6 @@ defineExpose({
 
 /* Footer */
 .panel-footer {
-  border-top: 1px solid var(--border-color);
   padding: 12px;
   margin-top: auto;
 }

@@ -100,10 +100,10 @@ const { addToQueue } = window.electronAPI
 const tabs = computed(() => [
   { id: 'prompts', icon: 'prompt', label: t('rightPanel.tabs.prompts') },
   { id: 'queue', icon: 'queue', label: t('rightPanel.tabs.queue') },
-  { id: 'skills', icon: 'skill', label: t('rightPanel.tabs.skills') },
-  { id: 'mcp', icon: 'mcp', label: t('rightPanel.tabs.mcp') },
-  { id: 'agents', icon: 'agent', label: t('rightPanel.tabs.agents') },
-  { id: 'hooks', icon: 'hook', label: t('rightPanel.tabs.hooks') },
+  { id: 'skills', icon: 'letterS', label: t('rightPanel.tabs.skills') },
+  { id: 'mcp', icon: 'letterM', label: t('rightPanel.tabs.mcp') },
+  { id: 'agents', icon: 'letterA', label: t('rightPanel.tabs.agents') },
+  { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
   { id: 'ai', icon: 'robot', label: t('rightPanel.tabs.ai') }
 ])
@@ -184,7 +184,6 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   background: var(--bg-color-secondary);
-  border-left: 1px solid var(--border-color);
   width: 320px;
   flex-shrink: 0;
 }
@@ -194,7 +193,6 @@ defineExpose({
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-bottom: 2px solid var(--border-color);
 }
 
 .tab-content-wrapper {

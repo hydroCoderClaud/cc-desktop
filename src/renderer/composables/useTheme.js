@@ -272,7 +272,15 @@ export function useTheme() {
         ...baseTheme.Button,
         colorPrimary: colors.primary,
         colorHoverPrimary: colors.primaryHover,
-        colorPressedPrimary: colors.primaryHover
+        colorPressedPrimary: colors.primaryHover,
+        // Warning 按钮跟随主题主色
+        colorWarning: colors.primary,
+        colorHoverWarning: colors.primaryHover,
+        colorPressedWarning: colors.primaryHover,
+        borderWarning: `1px solid ${colors.primary}`,
+        borderHoverWarning: `1px solid ${colors.primaryHover}`,
+        borderPressedWarning: `1px solid ${colors.primaryHover}`,
+        borderFocusWarning: `1px solid ${colors.primaryHover}`
       },
       Input: {
         ...baseTheme.Input,

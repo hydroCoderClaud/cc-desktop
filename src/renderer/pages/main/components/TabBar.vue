@@ -128,7 +128,6 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
   display: flex;
   align-items: center;
   background: var(--bg-color);
-  border-bottom: 1px solid var(--border-color);
   padding: 0 8px;
   height: 40px;
   gap: 4px;

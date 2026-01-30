@@ -84,8 +84,6 @@
           :servers="filteredMcpData.plugin"
           :expanded="expandedGroups.includes('plugin')"
           :editable="false"
-          :badge="t('rightPanel.mcp.plugin')"
-          badge-class="plugin"
           @toggle="toggleGroup('plugin')"
           @edit="handleEdit"
           @copy="handleCopy"
@@ -296,7 +294,6 @@ onMounted(() => {
   justify-content: space-between;
   height: 40px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .tab-title {

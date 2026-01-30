@@ -7,7 +7,8 @@
 // 图标 SVG 路径定义
 export const iconPaths = {
   // 操作类
-  refresh: '<path d="M3 10a7 7 0 1 1 1.5 4.3"/><path d="M3 15V10h5"/>',
+  // 紧凑循环：双弧 + 箭头，半径6更紧凑
+  refresh: '<path d="M4 10a6 6 0 0 1 6-6"/><path d="M16 10a6 6 0 0 1-6 6"/><path d="M10 4l2.5 1.5-2.5 1.5"/><path d="M10 16l-2.5-1.5 2.5-1.5"/>',
   search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/>',
   add: '<path d="M10 4v12M4 10h12"/>',
   close: '<path d="M5 5l10 10M15 5L5 15"/>',
@@ -32,6 +33,8 @@ export const iconPaths = {
   folder: '<path d="M3 5a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5z"/>',
   folderOpen: '<path d="M4 4h4l2 2h7a1 1 0 0 1 1 1v2H3V5a1 1 0 0 1 1-1z"/><path d="M2 9h16l-2 8H4L2 9z"/>',
   file: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
+  // 文件+文字：打开文本文件
+  fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/><path d="M7 9h6M7 12h6M7 15h4"/>',
 
   // 终端类
   terminal: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>',
@@ -50,8 +53,8 @@ export const iconPaths = {
   error: '<circle cx="10" cy="10" r="7"/><path d="M7 7l6 6M13 7l-6 6"/>',
 
   // 设置类
-  // 齿轮图标：中心圆 + 4个矩形齿，明显区别于太阳图标
-  settings: '<circle cx="10" cy="10" r="2.5"/><path d="M9 2v3h2V2zM9 15v3h2v-3zM2 9h3v2H2zM15 9h3v2h-3z"/>',
+  // 6齿长城齿轮：方形齿像城墙垛口，和太阳图标区分明显
+  settings: '<circle cx="10" cy="10" r="2.5"/><path d="M11.5 4.5L12 2.5H8L8.5 4.5L6 6L4.5 4.5L2.5 8L4.5 8.5L4.5 11.5L2.5 12L4.5 15.5L6 14L8.5 15.5L8 17.5H12L11.5 15.5L14 14L15.5 15.5L17.5 12L15.5 11.5L15.5 8.5L17.5 8L15.5 4.5L14 6Z"/>',
   // 齿轮（复杂版本，带锯齿边缘）
   gear: '<path d="M10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M17.4 10c0-.4 0-.7-.1-1l1.5-1.2-1.5-2.6-1.8.6c-.5-.4-1-.7-1.7-.9L13.5 3h-3l-.3 1.9c-.6.2-1.2.5-1.7.9l-1.8-.6-1.5 2.6L6.7 9c-.1.3-.1.7-.1 1s0 .7.1 1l-1.5 1.2 1.5 2.6 1.8-.6c.5.4 1 .7 1.7.9l.3 1.9h3l.3-1.9c.6-.2 1.2-.5 1.7-.9l1.8.6 1.5-2.6-1.5-1.2c.1-.3.1-.7.1-1z"/>',
   sliders: '<path d="M4 6h4M12 6h4M4 10h8M16 10h0M4 14h2M10 14h6"/><circle cx="10" cy="6" r="2"/><circle cx="14" cy="10" r="2"/><circle cx="8" cy="14" r="2"/>',
@@ -168,7 +171,13 @@ export const iconPaths = {
   puzzle: '<path d="M17 9h-1V7a2 2 0 0 0-2-2h-2a2 2 0 0 0-4 0H6a2 2 0 0 0-2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0 2 2h2a2 2 0 0 0 4 0h2a2 2 0 0 0 2-2v-2a2 2 0 0 0 0-4z"/>',
 
   // 建筑（官方/企业）
-  building: '<rect x="3" y="5" width="14" height="12" rx="1"/><path d="M6 8h2M6 11h2M6 14h2M12 8h2M12 11h2M12 14h2"/><path d="M9 17v-4h2v4"/>'
+  building: '<rect x="3" y="5" width="14" height="12" rx="1"/><path d="M6 8h2M6 11h2M6 14h2M12 8h2M12 11h2M12 14h2"/><path d="M9 17v-4h2v4"/>',
+
+  // 字母图标（用于 Tab 标识）
+  letterS: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">S</text>',
+  letterM: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">M</text>',
+  letterA: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">A</text>',
+  letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>'
 }
 
 // 图标名称列表（用于校验）

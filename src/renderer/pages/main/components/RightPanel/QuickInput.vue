@@ -121,7 +121,6 @@ defineExpose({
 
 <style scoped>
 .quick-input {
-  border-top: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
   padding: 10px 12px;
   flex-shrink: 0;

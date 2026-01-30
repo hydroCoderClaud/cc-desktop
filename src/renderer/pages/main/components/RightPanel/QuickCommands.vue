@@ -342,7 +342,6 @@ const vClickOutside = {
 <style scoped>
 .quick-commands {
   position: relative;
-  border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-tertiary);
   padding: 8px 12px;
   flex-shrink: 0;

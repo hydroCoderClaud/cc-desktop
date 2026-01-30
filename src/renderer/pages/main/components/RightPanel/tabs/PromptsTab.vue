@@ -136,7 +136,7 @@
             <div class="prompt-header">
               <span class="prompt-name">{{ prompt.name }}</span>
               <span class="prompt-scope" :class="prompt.scope">
-                <Icon :name="prompt.scope === 'global' ? 'globe' : 'folder'" :size="12" />
+                <Icon :name="prompt.scope === 'global' ? 'user' : 'folder'" :size="12" />
               </span>
               <span
                 class="favorite-icon"
@@ -569,7 +569,6 @@ defineExpose({
   justify-content: space-between;
   padding: 0 12px;
   height: 40px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .tab-title {
@@ -580,7 +579,6 @@ defineExpose({
 
 .tab-toolbar {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: 8px;

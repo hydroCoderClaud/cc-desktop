@@ -52,8 +52,7 @@ defineEmits(['select', 'collapse'])
   gap: 4px;
   padding: 0 12px;
   height: 60px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-color-tertiary);
+  background: var(--bg-color-secondary);
 }
 
 .collapse-btn {
@@ -62,7 +61,7 @@ defineEmits(['select', 'collapse'])
   border-radius: 4px;
   background: transparent;
   border: none;
-  color: var(--text-color-muted);
+  color: var(--primary-color);
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
@@ -70,14 +69,12 @@ defineEmits(['select', 'collapse'])
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  opacity: 0.5;
   flex-shrink: 0;
 }
 
 .collapse-btn:hover {
-  opacity: 1;
   background: var(--hover-bg);
-  color: var(--text-color);
+  color: var(--primary-color-hover);
 }
 
 .tab-buttons {

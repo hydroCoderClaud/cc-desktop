@@ -408,6 +408,71 @@
     .cross {
       color: #EF4444;
     }
+
+    /* Settings icon comparison */
+    .settings-icon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .settings-icon-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #242424;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 2px solid transparent;
+    }
+
+    .settings-icon-item:hover {
+      background: #2a2a2a;
+      border-color: #444;
+    }
+
+    .settings-icon-item[data-scheme="current"] {
+      border-color: #FF6B35;
+      background: rgba(255, 107, 53, 0.1);
+    }
+
+    .settings-icon-preview {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a1a;
+      border-radius: 8px;
+      border: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    .settings-icon-preview svg {
+      width: 28px;
+      height: 28px;
+      color: #e8e8e8;
+    }
+
+    .settings-icon-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .settings-icon-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e8e8e8;
+      margin-bottom: 4px;
+    }
+
+    .settings-icon-desc {
+      font-size: 11px;
+      color: #888;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -431,6 +496,436 @@
   <div class="icon-showcase">
     <div class="icon-grid" id="iconGrid">
       <!-- Icons will be rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Refresh Icon Comparison -->
+  <h2 class="section-title">🔄 刷新图标方案对比</h2>
+  <div class="icon-showcase">
+    <p style="color: #888; margin-bottom: 20px; font-size: 14px;">选择一个更直观的刷新图标</p>
+    <div class="settings-icon-grid">
+      <div class="settings-icon-item" data-scheme="current">
+        <div class="settings-icon-preview" style="border-color: #FF6B35;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10a7 7 0 1 1 1.5 4.3"/>
+            <path d="M3 15V10h5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">当前：单弧箭头</div>
+          <div class="settings-icon-desc">圆弧 + 左下角箭头</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="A">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 10a7 7 0 1 1-2-5"/>
+            <path d="M17 3v5h-5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">A. 右上箭头 ⭐推荐</div>
+          <div class="settings-icon-desc">经典刷新，箭头在右上</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="B">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 10a6 6 0 0 1 6-6h1"/>
+            <path d="M16 10a6 6 0 0 1-6 6h-1"/>
+            <path d="M11 1l-2 3 2 3"/>
+            <path d="M9 19l2-3-2-3"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">B. 双箭头循环</div>
+          <div class="settings-icon-desc">上下两个弧形箭头</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="C">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 10a8 8 0 0 1 8-8"/>
+            <path d="M18 10a8 8 0 0 1-8 8"/>
+            <path d="M10 2l3 2-3 2"/>
+            <path d="M10 18l-3-2 3-2"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">C. 同步循环</div>
+          <div class="settings-icon-desc">两段弧，箭头指向旋转方向</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="C2">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 10a6 6 0 0 1 6-6"/>
+            <path d="M16 10a6 6 0 0 1-6 6"/>
+            <path d="M10 4l2.5 1.5-2.5 1.5"/>
+            <path d="M10 16l-2.5-1.5 2.5-1.5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">C2. 紧凑循环 ⭐</div>
+          <div class="settings-icon-desc">更紧凑的双弧，视觉平衡</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="D">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 4l3 3-3 3"/>
+            <path d="M17 7H8a4 4 0 1 0 0 8h1"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">D. 重做箭头</div>
+          <div class="settings-icon-desc">类似 Redo，更简洁</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Icon Comparison -->
+  <h2 class="section-title">⚙️ 设置图标方案对比</h2>
+  <div class="icon-showcase">
+    <p style="color: #888; margin-bottom: 20px; font-size: 14px;">选择一个合适的设置图标，需要与深浅色切换的太阳/月亮图标有明显区分</p>
+    <div class="settings-icon-grid">
+      <div class="settings-icon-item" data-scheme="A">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.1 5.1l1.4 1.4M13.5 13.5l1.4 1.4"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">A. 简洁齿轮</div>
+          <div class="settings-icon-desc">中心圆 + 6个短线齿</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="B">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h12M4 10h12M4 14h12"/>
+            <circle cx="14" cy="6" r="1.5"/>
+            <circle cx="8" cy="10" r="1.5"/>
+            <circle cx="11" cy="14" r="1.5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">B. 滑块调节 ⭐推荐</div>
+          <div class="settings-icon-desc">三条横线带滑块点，语义清晰</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="C">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0-1.4l-1.6-1.6a1 1 0 0 0-1.4 0l-2.3 2.3L4 10v4h4l4.4-5.4 2.3-2.3z"/>
+            <path d="M5 17l1-1"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">C. 扳手</div>
+          <div class="settings-icon-desc">工具图标，偏向维修</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="D">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M10 2v3M10 15v3M2 10h3M15 10h3"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">D. 圆角齿轮</div>
+          <div class="settings-icon-desc">4个方向的短线，更简洁</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="E">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2"/>
+            <circle cx="10" cy="10" r="5"/>
+            <path d="M10 2v3M10 15v3M2 10h3M15 10h3"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">E. 双圈齿轮</div>
+          <div class="settings-icon-desc">同心圆设计，有层次感</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="current">
+        <div class="settings-icon-preview" style="border-color: #FF6B35;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M9 2v3h2V2zM9 15v3h2v-3zM2 9h3v2H2zM15 9h3v2h-3z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">当前：矩形齿轮</div>
+          <div class="settings-icon-desc">中心圆 + 4个矩形齿</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="F">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M17.5 10L14.6 8.1L15.3 4.7L11.9 5.4L10 2.5L8.1 5.4L4.7 4.7L5.4 8.1L2.5 10L5.4 11.9L4.7 15.3L8.1 14.6L10 17.5L11.9 14.6L15.3 15.3L14.6 11.9Z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">F. 尖锐齿轮</div>
+          <div class="settings-icon-desc">8齿，极坐标精确计算</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="H">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M10 2.5Q12 5 14.5 4Q15.5 6.5 17.5 7.5Q15.5 9.5 17.5 10Q15.5 10.5 17.5 12.5Q15.5 13.5 14.5 16Q12 15 10 17.5Q8 15 5.5 16Q4.5 13.5 2.5 12.5Q4.5 10.5 2.5 10Q4.5 9.5 2.5 7.5Q4.5 6.5 5.5 4Q8 5 10 2.5Z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">H. 圆润齿轮 ⭐</div>
+          <div class="settings-icon-desc">8齿，贝塞尔曲线平滑</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="I">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M10 3Q11.5 5 13.5 4.5Q14.5 6.5 16.5 7Q15 8.5 16.5 10Q15 11.5 16.5 13Q14.5 13.5 13.5 15.5Q11.5 15 10 17Q8.5 15 6.5 15.5Q5.5 13.5 3.5 13Q5 11.5 3.5 10Q5 8.5 3.5 7Q5.5 6.5 6.5 4.5Q8.5 5 10 3Z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">I. 花瓣齿轮</div>
+          <div class="settings-icon-desc">更圆润，类似花朵</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="J">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M11.5 4.5L12 2.5H8L8.5 4.5L6 6L4.5 4.5L2.5 8L4.5 8.5L4.5 11.5L2.5 12L4.5 15.5L6 14L8.5 15.5L8 17.5H12L11.5 15.5L14 14L15.5 15.5L17.5 12L15.5 11.5L15.5 8.5L17.5 8L15.5 4.5L14 6Z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">J. 6齿长城 ⭐</div>
+          <div class="settings-icon-desc">6个方形齿，简洁有力</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="K">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M9 2h2v2.5h2l1-2.5h1.5l.5 2.5 2.5.5-1 1.5 2 2v1.5l-2.5 1 .5 2.5-1.5.5-1-2.5h-2v2.5h-2v-2.5h-2l-1 2.5-1.5-.5.5-2.5-2.5-.5 1-1.5-2-2v-1.5l2.5-1-.5-2.5 1.5-.5 1 2.5h2z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">K. 12齿长城</div>
+          <div class="settings-icon-desc">更多方形齿，更精细</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="G">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M10 2l1 1.5h1.5l.8 1.3 1.5.3.3 1.5 1.3.8v1.5L17 10l-1.5 1v1.5l-1.3.8-.3 1.5-1.5.3-.8 1.3H11l-1 1.5-1-1.5H7.5l-.8-1.3-1.5-.3-.3-1.5-1.3-.8v-1.5L2 10l1.5-1V7.5l1.3-.8.3-1.5 1.5-.3.8-1.3H9z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">G. 12齿齿轮</div>
+          <div class="settings-icon-desc">更多齿，更精细</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #2a2a2a;">
+      <p style="color: #888; font-size: 13px; margin-bottom: 12px;">对比参考：深浅色切换图标</p>
+      <div style="display: flex; gap: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 20 20" width="24" height="24" fill="none" stroke="#e8e8e8" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41"/>
+          </svg>
+          <span style="color: #888; font-size: 12px;">太阳（浅色模式）</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 20 20" width="24" height="24" fill="none" stroke="#e8e8e8" stroke-width="2" stroke-linecap="round">
+            <path d="M17 10a7 7 0 1 1-7-7 5 5 0 0 0 7 7z"/>
+          </svg>
+          <span style="color: #888; font-size: 12px;">月亮（深色模式）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sun Icon Comparison -->
+  <h2 class="section-title">☀️ 浅色模式图标方案对比</h2>
+  <div class="icon-showcase">
+    <p style="color: #888; margin-bottom: 20px; font-size: 14px;">选择一个和设置齿轮区分度更高的浅色模式图标</p>
+    <div class="settings-icon-grid">
+      <div class="settings-icon-item" data-scheme="current">
+        <div class="settings-icon-preview" style="border-color: #FF6B35;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">当前：经典太阳</div>
+          <div class="settings-icon-desc">圆形 + 8条射线</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S1">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="4"/>
+            <path d="M10 2v3M10 15v3M2 10h3M15 10h3"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S1. 简化太阳</div>
+          <div class="settings-icon-desc">大圆 + 4条射线</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S2">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="3.5"/>
+            <path d="M10 3v1.5M10 15.5v1.5M3 10h1.5M15.5 10h1.5M5.4 5.4l1 1M13.6 13.6l1 1M5.4 14.6l1-1M13.6 6.4l1-1"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S2. 短射线太阳 ⭐</div>
+          <div class="settings-icon-desc">更大的圆，更短的射线</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S3">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="12" r="4"/>
+            <path d="M10 4v2M4 12H2M18 12h-2M5.5 7.5l1.5 1.5M14.5 7.5l-1.5 1.5"/>
+            <path d="M3 18h14"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S3. 日出</div>
+          <div class="settings-icon-desc">地平线上的太阳</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S4">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S4. 纯圆</div>
+          <div class="settings-icon-desc">极简，无射线</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S5">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M10 2v2M10 16v2M2 10h2M16 10h2"/>
+            <circle cx="10" cy="10" r="4" fill="currentColor" stroke="none" opacity="0.3"/>
+            <circle cx="10" cy="10" r="4"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S5. 半填充太阳</div>
+          <div class="settings-icon-desc">4射线 + 淡填充</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="S6">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M10 3l1 2h-2zM10 17l-1-2h2zM3 10l2 1v-2zM17 10l-2-1v2zM5 5l2 1-1 1zM15 15l-2-1 1-1zM15 5l-1 2-1-1zM5 15l1-2 1 1z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">S6. 三角射线</div>
+          <div class="settings-icon-desc">射线为小三角形</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subagent Toggle Icon Comparison -->
+  <h2 class="section-title">🤖 子代理会话开关图标对比</h2>
+  <div class="icon-showcase">
+    <p style="color: #888; margin-bottom: 20px; font-size: 14px;">选择一个适合"显示/隐藏子代理会话"功能的图标</p>
+    <div class="settings-icon-grid">
+      <div class="settings-icon-item" data-scheme="current">
+        <div class="settings-icon-preview">
+          <span style="font-size: 24px;">🤖</span>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">当前：Emoji</div>
+          <div class="settings-icon-desc">伙伴使用的 emoji</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="A">
+        <div class="settings-icon-preview" style="border-color: #FF6B35;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="6" width="12" height="10" rx="2"/>
+            <path d="M10 2v4M7 10h.01M13 10h.01M8 14h4"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">A. robot ⭐推荐</div>
+          <div class="settings-icon-desc">机器人头像，和emoji含义一致</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="B">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="8" r="4"/>
+            <path d="M4 18c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+            <path d="M10 4V2M14 5l1-1.7M16 8h2"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">B. agent</div>
+          <div class="settings-icon-desc">代理图标，人形+天线</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="C">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="2.5"/>
+            <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">C. eye (显示时)</div>
+          <div class="settings-icon-desc">眼睛，表示可见状态</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="D">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 10s3-5 8-5c1.1 0 2.1.2 3 .5M18 10s-1.3 2.2-3.5 3.5M7.5 14.5A8.4 8.4 0 0 1 2 10"/>
+            <path d="M3 3l14 14"/>
+            <circle cx="10" cy="10" r="2.5"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">D. eyeOff (隐藏时)</div>
+          <div class="settings-icon-desc">带斜线的眼睛，表示隐藏</div>
+        </div>
+      </div>
+      <div class="settings-icon-item" data-scheme="E">
+        <div class="settings-icon-preview">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h14l-5 6v7l-4-2V10L3 4z"/>
+          </svg>
+        </div>
+        <div class="settings-icon-info">
+          <div class="settings-icon-name">E. filter</div>
+          <div class="settings-icon-desc">过滤器，表示筛选功能</div>
+        </div>
+      </div>
     </div>
   </div>
 
