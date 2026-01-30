@@ -167,9 +167,9 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 }
 
 .tab.active {
-  background: var(--bg-color-secondary);
+  background: var(--primary-color);
   border-color: var(--primary-color);
-  border-bottom-color: var(--bg-color-secondary);
+  color: white;
 }
 
 .welcome-tab {
@@ -180,7 +180,8 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 }
 
 .welcome-tab.active {
-  background: var(--bg-color-secondary);
+  background: var(--primary-color);
+  color: white;
 }
 
 .tab-icon {
