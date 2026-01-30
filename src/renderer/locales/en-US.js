@@ -37,6 +37,7 @@ export default {
     custom: 'Custom',
     builtIn: 'Built-in',
     yesterday: 'Yesterday',
+    later: 'Later',
     name: 'Name',
     description: 'Description',
     status: 'Status',
@@ -736,7 +737,9 @@ export default {
     syncSuccess: 'Sync completed: {added} added, {updated} updated',
     syncNoChanges: 'Already up to date',
     syncFailed: 'Sync failed',
-    noHistorySessions: 'Click 🔄 to sync history sessions'
+    noHistorySessions: 'Click 🔄 to sync history sessions',
+    showSubagent: 'Show subagent sessions',
+    hideSubagent: 'Hide subagent sessions'
   },
 
   // Terminal
@@ -904,7 +907,11 @@ export default {
     deleteConfirm: 'Confirm Delete Project',
     deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
     deleteWithSessions: 'Also delete associated session records',
-    unsupportedPathError: 'Project folder name "{name}" contains underscore(_) or hyphen(-), which causes session sync issues. Please rename the folder before adding.'
+    unsupportedPathError: 'Project folder name "{name}" contains underscore(_) or hyphen(-), which causes session sync issues. Please rename the folder before adding.',
+    apiProfileChangedTitle: 'API Config Changed',
+    apiProfileChangedContent: 'The new API config requires restarting sessions to take effect. Restart running sessions now?',
+    restartSessions: 'Restart Sessions',
+    sessionsRestarted: 'Sessions restarted with new config'
   },
 
   // Messages

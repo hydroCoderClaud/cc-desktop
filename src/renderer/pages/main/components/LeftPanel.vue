@@ -103,6 +103,14 @@
           <span>{{ t('session.history') }}</span>
           <span class="count" v-if="historySessions.length > 0">({{ displayedHistorySessions.length }}/{{ historySessions.length }})</span>
           <button
+            class="toggle-subagent-btn"
+            :class="{ active: showSubagentSessions }"
+            @click.stop="toggleSubagentSessions"
+            :title="showSubagentSessions ? t('session.hideSubagent') : t('session.showSubagent')"
+          >
+            🤖
+          </button>
+          <button
             class="sync-btn"
             :class="{ syncing: isSyncing }"
             @click.stop="handleSyncSessions"
@@ -315,6 +323,7 @@ const {
   historySessions,
   focusedSessionId,
   maxHistorySessions,
+  showSubagentSessions,
   showNewSessionDialog,
   newSessionTitle,
   showRenameDialog,
@@ -337,7 +346,8 @@ const {
   deleteHistorySession,
   formatSessionName: doFormatSessionName,
   formatDate: doFormatDate,
-  setupEventListeners
+  setupEventListeners,
+  toggleSubagentSessions
 } = useSessionPanel(props, emit)
 
 // Local state
@@ -1007,6 +1017,34 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.group-header .toggle-subagent-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-header .toggle-subagent-btn:hover {
+  opacity: 0.8;
+  background: var(--hover-bg);
+}
+
+.group-header .toggle-subagent-btn.active {
+  opacity: 1;
+  background: var(--primary-color);
+  border-radius: 4px;
 }
 
 .group-header .sync-btn:hover {

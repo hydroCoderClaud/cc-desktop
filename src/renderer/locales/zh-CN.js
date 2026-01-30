@@ -37,6 +37,7 @@ export default {
     custom: '自定义',
     builtIn: '内置',
     yesterday: '昨天',
+    later: '稍后',
     name: '名称',
     description: '描述',
     status: '状态',
@@ -736,7 +737,9 @@ export default {
     syncSuccess: '同步完成：新增 {added}，更新 {updated}',
     syncNoChanges: '已是最新，无需同步',
     syncFailed: '同步失败',
-    noHistorySessions: '点击 🔄 同步历史会话'
+    noHistorySessions: '点击 🔄 同步历史会话',
+    showSubagent: '显示子代理会话',
+    hideSubagent: '隐藏子代理会话'
   },
 
   // 终端相关
@@ -904,7 +907,11 @@ export default {
     deleteConfirm: '确认删除项目',
     deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
     deleteWithSessions: '同时删除关联的会话记录',
-    unsupportedPathError: '项目文件夹名称 "{name}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。'
+    unsupportedPathError: '项目文件夹名称 "{name}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。',
+    apiProfileChangedTitle: 'API 配置已更改',
+    apiProfileChangedContent: '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
+    restartSessions: '重启会话',
+    sessionsRestarted: '会话已重启，新配置已生效'
   },
 
   // 消息提示

@@ -16,6 +16,7 @@ export function useSessionPanel(props, emit) {
   const historySessions = ref([])
   const focusedSessionId = ref(null)
   const maxHistorySessions = ref(10)
+  const showSubagentSessions = ref(false)  // 是否显示子代理会话（agent-*）
 
   // New session dialog
   const showNewSessionDialog = ref(false)
@@ -31,11 +32,41 @@ export function useSessionPanel(props, emit) {
   // ========================================
 
   /**
-   * 限制显示的历史会话
+   * 判断是否为子代理会话
+   * @param {Object} session - 会话对象
+   * @returns {boolean}
+   */
+  const isSubagentSession = (session) => {
+    // 检查 session_uuid 是否匹配 agent-xxxxxxx 格式（子代理会话的 uuid 以 agent- 开头）
+    const uuid = session.session_uuid || ''
+    if (/^agent-[a-z0-9]+$/i.test(uuid)) {
+      return true
+    }
+    // 也检查会话名称（备用）
+    const name = session.name || session.title || ''
+    return /^agent-[a-z0-9]+$/i.test(name)
+  }
+
+  /**
+   * 限制显示的历史会话（可过滤子代理会话）
    */
   const displayedHistorySessions = computed(() => {
-    return historySessions.value.slice(0, maxHistorySessions.value)
+    let sessions = historySessions.value
+
+    // 过滤子代理会话
+    if (!showSubagentSessions.value) {
+      sessions = sessions.filter(s => !isSubagentSession(s))
+    }
+
+    return sessions.slice(0, maxHistorySessions.value)
   })
+
+  /**
+   * 切换显示/隐藏子代理会话
+   */
+  const toggleSubagentSessions = () => {
+    showSubagentSessions.value = !showSubagentSessions.value
+  }
 
   // ========================================
   // Session Loading
@@ -428,6 +459,7 @@ export function useSessionPanel(props, emit) {
     historySessions,
     focusedSessionId,
     maxHistorySessions,
+    showSubagentSessions,
     showNewSessionDialog,
     newSessionTitle,
     showRenameDialog,
@@ -455,6 +487,7 @@ export function useSessionPanel(props, emit) {
     updateHistorySessionTitle,
     formatSessionName,
     formatDate,
-    setupEventListeners
+    setupEventListeners,
+    toggleSubagentSessions
   }
 }

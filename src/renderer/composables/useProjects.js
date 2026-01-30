@@ -203,11 +203,17 @@ export function useProjects() {
   /**
    * 保存项目编辑
    * @param {Object} updates - 更新内容
+   * @returns {Object} { success: boolean, apiProfileChanged: boolean, hasRunningSessions: boolean, runningSessions: Array }
    */
   const saveProject = async (updates) => {
-    if (!editingProject.value) return
+    if (!editingProject.value) return { success: false }
 
     const projectId = editingProject.value.id
+    const oldApiProfileId = editingProject.value.api_profile_id
+    const newApiProfileId = updates.api_profile_id
+
+    // 检测 API 配置是否更改
+    const apiProfileChanged = oldApiProfileId !== newApiProfileId
 
     try {
       await invoke('updateProject', {
@@ -227,7 +233,23 @@ export function useProjects() {
 
       closeEditModal()
 
-      return { success: true }
+      // 如果 API 配置更改，检查是否有运行中的会话
+      let runningSessions = []
+      if (apiProfileChanged) {
+        try {
+          const allSessions = await invoke('listActiveSessions', true)
+          runningSessions = allSessions.filter(s => s.projectId === projectId)
+        } catch (err) {
+          console.error('Failed to check running sessions:', err)
+        }
+      }
+
+      return {
+        success: true,
+        apiProfileChanged,
+        hasRunningSessions: runningSessions.length > 0,
+        runningSessions
+      }
     } catch (err) {
       console.error('Failed to update project:', err)
       throw err

@@ -119,7 +119,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
@@ -132,6 +132,7 @@ import TerminalTab from './TerminalTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 
@@ -384,8 +385,52 @@ const handleContextAction = async ({ action, project }) => {
 
 const handleProjectSave = async (updates) => {
   try {
-    await saveProject(updates)
-    message.success(t('messages.projectUpdated'))
+    const result = await saveProject(updates)
+
+    if (result.success) {
+      message.success(t('messages.projectUpdated'))
+
+      // 如果 API 配置更改且有运行中的会话，提示用户重启
+      if (result.apiProfileChanged && result.hasRunningSessions) {
+        dialog.warning({
+          title: t('project.apiProfileChangedTitle') || 'API 配置已更改',
+          content: t('project.apiProfileChangedContent') || '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
+          positiveText: t('project.restartSessions') || '重启会话',
+          negativeText: t('common.later') || '稍后',
+          onPositiveClick: async () => {
+            // 关闭并重新创建会话
+            for (const session of result.runningSessions) {
+              try {
+                // 关闭现有会话
+                await window.electronAPI.closeActiveSession(session.id)
+
+                // 重新创建会话（使用相同的 resumeSessionId 恢复）
+                const newResult = await window.electronAPI.createActiveSession({
+                  projectId: session.projectId,
+                  projectPath: session.projectPath,
+                  projectName: session.projectName,
+                  title: session.title,
+                  apiProfileId: currentProject.value?.api_profile_id,
+                  resumeSessionId: session.resumeSessionId
+                })
+
+                if (newResult.success) {
+                  // 更新 Tab
+                  handleSessionCreated(newResult.session)
+                }
+              } catch (err) {
+                console.error('Failed to restart session:', err)
+              }
+            }
+            message.success(t('project.sessionsRestarted') || '会话已重启')
+            // 刷新左侧面板
+            if (leftPanelRef.value) {
+              leftPanelRef.value.loadActiveSessions()
+            }
+          }
+        })
+      }
+    }
   } catch (err) {
     message.error(t('messages.operationFailed'))
   }
