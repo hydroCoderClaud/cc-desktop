@@ -821,10 +821,11 @@ defineExpose({
 }
 
 .logo {
-  font-family: 'Crimson Pro', serif;
+  font-family: var(--font-logo);
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  color: var(--text-color);
 }
 
 .collapse-btn {

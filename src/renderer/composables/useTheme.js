@@ -9,11 +9,28 @@ import { claudeTheme, claudeDarkTheme } from '@theme/claude-theme'
 // ========== 配色方案定义 ==========
 
 /**
- * 5 套主题配色方案
+ * 6 套主题配色方案
  * 每套包含 light 和 dark 两种模式
  */
 const COLOR_SCHEMES = {
-  // Ember - 橙色（默认）
+  // Claude - 官方品牌色（赤陶/珊瑚色）
+  claude: {
+    name: 'Claude',
+    icon: '✦',
+    light: {
+      primary: '#DA7756',
+      primaryHover: '#C96A4B',
+      ghost: 'rgba(218, 119, 86, 0.08)',
+      ghostHover: 'rgba(218, 119, 86, 0.15)',
+    },
+    dark: {
+      primary: '#E08B6D',
+      primaryHover: '#DA7756',
+      ghost: 'rgba(224, 139, 109, 0.12)',
+      ghostHover: 'rgba(224, 139, 109, 0.22)',
+    }
+  },
+  // Ember - 橙色
   ember: {
     name: 'Ember',
     icon: '🔥',
@@ -121,7 +138,7 @@ const getInitialTheme = () => {
 
 // 全局主题状态（跨组件共享）
 const isDark = ref(getInitialTheme())
-const colorScheme = ref('ember') // 当前配色方案
+const colorScheme = ref('claude') // 当前配色方案（默认 Claude 官方色）
 const isInitialized = ref(false)
 
 // 同步 DOM 主题属性
@@ -305,12 +322,15 @@ export function useTheme() {
   const cssVars = computed(() => {
     // 等宽字体（终端 + 代码块统一使用）
     const fontMono = '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Monaco", "Ubuntu Mono", monospace'
+    // Logo 字体
+    const fontLogo = '"Crimson Pro", "Georgia", "Times New Roman", serif'
     const colors = currentColors.value
 
     if (isDark.value) {
       return {
         // 字体
         '--font-mono': fontMono,
+        '--font-logo': fontLogo,
         // 背景色
         '--bg-color': '#1a1a1a',
         '--bg-color-secondary': '#242424',
@@ -346,6 +366,7 @@ export function useTheme() {
     return {
       // 字体
       '--font-mono': fontMono,
+      '--font-logo': fontLogo,
       // 背景色
       '--bg-color': '#f5f5f0',
       '--bg-color-secondary': '#ffffff',

@@ -587,6 +587,9 @@ const openApiProfileManager = async () => {
   overflow: hidden;
   position: relative;
   background: var(--bg-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  margin: 0 8px 8px 0;
 }
 
 /* Empty State */
@@ -696,15 +699,15 @@ const openApiProfileManager = async () => {
 
 .panel-collapsed-strip .strip-icon {
   font-size: 14px;
-  color: var(--text-color-muted);
+  color: var(--primary-color);
   font-weight: bold;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.15s ease;
 }
 
 .panel-collapsed-strip:hover .strip-icon {
   opacity: 1;
-  color: var(--text-color);
+  color: var(--primary-color);
 }
 
 .panel-collapsed-left {
