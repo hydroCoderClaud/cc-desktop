@@ -172,12 +172,6 @@ const handleEdit = (provider) => {
 }
 
 const handleDelete = (providerId) => {
-  const provider = providers.value.find(p => p.id === providerId)
-  if (provider?.isBuiltIn) {
-    message.warning(t('providerManager.cannotDeleteBuiltIn'))
-    return
-  }
-
   dialog.warning({
     title: t('common.confirm'),
     content: t('providerManager.deleteConfirm'),

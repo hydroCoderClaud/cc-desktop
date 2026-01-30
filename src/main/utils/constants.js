@@ -24,12 +24,36 @@ const TIMEOUTS = {
 
 // Service Providers
 const SERVICE_PROVIDERS = {
-  official: { label: '官方 API', needsMapping: false },
-  proxy: { label: '中转服务', needsMapping: false },
-  zhipu: { label: '智谱AI', needsMapping: true },
-  minimax: { label: 'MiniMax', needsMapping: true },
-  qwen: { label: '阿里千问', needsMapping: true },
-  other: { label: '其他第三方', needsMapping: true }
+  official: {
+    label: '官方 API',
+    needsMapping: false,
+    baseUrl: 'https://api.anthropic.com'
+  },
+  proxy: {
+    label: '中转服务',
+    needsMapping: false,
+    baseUrl: ''
+  },
+  zhipu: {
+    label: '智谱AI',
+    needsMapping: true,
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4'
+  },
+  minimax: {
+    label: 'MiniMax',
+    needsMapping: true,
+    baseUrl: 'https://api.minimax.chat/v1'
+  },
+  qwen: {
+    label: '阿里千问',
+    needsMapping: true,
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  },
+  other: {
+    label: '其他第三方',
+    needsMapping: true,
+    baseUrl: ''
+  }
 };
 
 // Model Tiers

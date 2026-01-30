@@ -1,7 +1,7 @@
 /**
  * 服务商定义管理组合式函数
  */
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useIPC } from './useIPC'
 
 export function useProviders() {
@@ -10,20 +10,6 @@ export function useProviders() {
   const providers = ref([])
   const loading = ref(false)
   const error = ref(null)
-
-  /**
-   * 内置服务商
-   */
-  const builtInProviders = computed(() => {
-    return providers.value.filter(p => p.isBuiltIn)
-  })
-
-  /**
-   * 自定义服务商
-   */
-  const customProviders = computed(() => {
-    return providers.value.filter(p => !p.isBuiltIn)
-  })
 
   /**
    * 加载所有服务商
@@ -97,23 +83,21 @@ export function useProviders() {
   }
 
   /**
-   * 检查服务商是否可删除
+   * 检查服务商是否可删除（所有服务商都可删除）
    */
-  const canDelete = (provider) => {
-    return !provider.isBuiltIn
+  const canDelete = () => {
+    return true
   }
 
   /**
-   * 检查服务商是否可编辑（内置和自定义都可编辑）
+   * 检查服务商是否可编辑（所有服务商都可编辑）
    */
-  const canEdit = (provider) => {
+  const canEdit = () => {
     return true
   }
 
   return {
     providers,
-    builtInProviders,
-    customProviders,
     loading,
     error,
     loadProviders,

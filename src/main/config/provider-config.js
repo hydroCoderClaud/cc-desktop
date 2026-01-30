@@ -17,9 +17,8 @@ function getDefaultProviders() {
     id,
     name: SERVICE_PROVIDERS[id].label,
     needsMapping: SERVICE_PROVIDERS[id].needsMapping,
-    baseUrl: id === 'official' ? 'https://api.anthropic.com' : '',
-    defaultModelMapping: null,
-    isBuiltIn: true
+    baseUrl: SERVICE_PROVIDERS[id].baseUrl || '',
+    defaultModelMapping: null
   }))
 }
 
@@ -97,7 +96,6 @@ const providerConfigMixin = {
       needsMapping: definition.needsMapping !== false,
       baseUrl: definition.baseUrl || '',
       defaultModelMapping: definition.defaultModelMapping || null,
-      isBuiltIn: false,
       createdAt: new Date().toISOString()
     }
 
@@ -120,8 +118,8 @@ const providerConfigMixin = {
       return false
     }
 
-    // 不允许修改 ID 和 isBuiltIn 标记
-    const { id: newId, isBuiltIn, ...safeUpdates } = updates
+    // 不允许修改 ID
+    const { id: newId, ...safeUpdates } = updates
 
     // 特殊处理：official 和 proxy 的模型映射永久为 null
     if (OFFICIAL_PROVIDERS.includes(id)) {
@@ -149,11 +147,6 @@ const providerConfigMixin = {
     }
 
     const provider = this.config.serviceProviderDefinitions[index]
-
-    // 不允许删除内置服务商
-    if (provider.isBuiltIn) {
-      throw new Error('不能删除内置服务商定义')
-    }
 
     // 检查是否有 Profile 正在使用此服务商
     const profilesUsingProvider = this.config.apiProfiles?.filter(

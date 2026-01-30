@@ -4,12 +4,6 @@
       <div class="provider-title">
         <h3>{{ provider.name }}</h3>
         <n-space :size="8">
-          <n-tag v-if="provider.isBuiltIn" type="info" size="small">
-            {{ t('common.builtIn') }}
-          </n-tag>
-          <n-tag v-else type="success" size="small">
-            {{ t('common.custom') }}
-          </n-tag>
           <n-tag v-if="provider.needsMapping" type="warning" size="small">
             {{ t('providerManager.needsMapping') }}
           </n-tag>
@@ -45,7 +39,6 @@
         <n-button
           size="small"
           type="error"
-          :disabled="provider.isBuiltIn"
           @click="$emit('delete', provider.id)"
         >
           {{ t('common.delete') }}
