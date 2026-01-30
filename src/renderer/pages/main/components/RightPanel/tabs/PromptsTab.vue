@@ -2,6 +2,30 @@
   <div class="tab-container">
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.prompts') }}</span>
+      <!-- Scope Filter (moved to header) -->
+      <div class="scope-filter">
+        <n-button-group size="tiny">
+          <n-button
+            :type="currentScope === 'all' ? 'primary' : 'default'"
+            @click="setScope('all')"
+          >
+            {{ t('common.all') || '全部' }}
+          </n-button>
+          <n-button
+            :type="currentScope === 'global' ? 'primary' : 'default'"
+            @click="setScope('global')"
+          >
+            {{ t('rightPanel.mcp.global') }}
+          </n-button>
+          <n-button
+            v-if="currentProject"
+            :type="currentScope === 'project' ? 'primary' : 'default'"
+            @click="setScope('project', currentProject.id)"
+          >
+            {{ t('rightPanel.mcp.project') }}
+          </n-button>
+        </n-button-group>
+      </div>
       <div class="tab-actions">
         <button
           class="icon-btn favorite-filter-btn"
@@ -28,31 +52,6 @@
           <Icon name="search" :size="14" />
         </template>
       </n-input>
-
-      <!-- Scope Filter -->
-      <div class="scope-filter">
-        <n-button-group size="tiny">
-          <n-button
-            :type="currentScope === 'all' ? 'primary' : 'default'"
-            @click="setScope('all')"
-          >
-            {{ t('common.all') || '全部' }}
-          </n-button>
-          <n-button
-            :type="currentScope === 'global' ? 'primary' : 'default'"
-            @click="setScope('global')"
-          >
-            {{ t('rightPanel.mcp.global') }}
-          </n-button>
-          <n-button
-            v-if="currentProject"
-            :type="currentScope === 'project' ? 'primary' : 'default'"
-            @click="setScope('project', currentProject.id)"
-          >
-            {{ t('rightPanel.mcp.project') }}
-          </n-button>
-        </n-button-group>
-      </div>
 
       <!-- Tags Filter -->
       <div v-if="tags.length > 0" class="tags-filter">
@@ -569,12 +568,26 @@ defineExpose({
   justify-content: space-between;
   padding: 0 12px;
   height: 40px;
+  gap: 8px;
 }
 
 .tab-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
+  flex-shrink: 0;
+}
+
+.scope-filter {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.tab-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .tab-toolbar {
@@ -582,11 +595,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.scope-filter {
-  display: flex;
-  justify-content: center;
 }
 
 .tags-filter {
