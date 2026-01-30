@@ -4,6 +4,21 @@
       <div class="input-label-group">
         <span class="input-label">{{ t('rightPanel.quickInput.label') }}</span>
         <button
+          class="header-action-btn"
+          :disabled="!inputText.trim()"
+          :title="t('rightPanel.quickInput.addToQueue')"
+          @click="handleAddToQueue"
+        >
+          <Icon name="add" :size="14" />
+        </button>
+        <button
+          class="header-action-btn"
+          :title="t('rightPanel.quickInput.createPrompt')"
+          @click="handleCreatePrompt"
+        >
+          <Icon name="message" :size="14" />
+        </button>
+        <button
           v-if="inputText.trim()"
           class="clear-btn"
           :title="t('common.clear')"
@@ -14,42 +29,14 @@
       </div>
       <span class="input-hint">{{ t('rightPanel.quickInput.hint') }}</span>
     </div>
-    <div class="input-row">
-      <textarea
-        ref="textareaRef"
-        v-model="inputText"
-        class="input-field"
-        :placeholder="t('rightPanel.quickInput.placeholder')"
-        rows="4"
-        @keydown="handleKeydown"
-      />
-      <div class="input-actions">
-        <button
-          class="action-btn send-btn"
-          :disabled="!inputText.trim()"
-          :title="t('rightPanel.quickInput.send')"
-          @click="handleSendToTerminal"
-        >
-          <Icon name="play" :size="16" />
-        </button>
-        <button
-          class="action-btn"
-          :disabled="!inputText.trim()"
-          :title="t('rightPanel.quickInput.addToQueue')"
-          @click="handleAddToQueue"
-        >
-          <Icon name="add" :size="16" />
-        </button>
-        <button
-          class="action-btn create-prompt-btn"
-          :disabled="!inputText.trim()"
-          :title="t('rightPanel.quickInput.createPrompt')"
-          @click="handleCreatePrompt"
-        >
-          <Icon name="message" :size="16" />
-        </button>
-      </div>
-    </div>
+    <textarea
+      ref="textareaRef"
+      v-model="inputText"
+      class="input-field"
+      :placeholder="t('rightPanel.quickInput.placeholder')"
+      rows="4"
+      @keydown="handleKeydown"
+    />
   </div>
 </template>
 
@@ -100,8 +87,6 @@ const handleSendToTerminal = () => {
 // Create prompt from current input
 const handleCreatePrompt = () => {
   const text = inputText.value.trim()
-  if (!text) return
-
   emit('create-prompt', text)
   // Don't clear input - user might want to continue editing
 }
@@ -165,18 +150,37 @@ defineExpose({
   color: white;
 }
 
+.header-action-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.header-action-btn:hover:not(:disabled) {
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
+}
+
+.header-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .input-hint {
   font-size: 11px;
   color: var(--text-color-muted);
 }
 
-.input-row {
-  display: flex;
-  gap: 8px;
-}
-
 .input-field {
-  flex: 1;
+  width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -195,38 +199,5 @@ defineExpose({
 
 .input-field::placeholder {
   color: var(--text-color-muted);
-}
-
-.input-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.action-btn {
-  width: 32px;
-  height: 100%;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-color-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--text-color-muted);
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.action-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 </style>
