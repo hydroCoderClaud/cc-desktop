@@ -19,10 +19,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  isDark: {
-    type: Boolean,
-    default: false
-  },
   fontSize: {
     type: Number,
     default: 14

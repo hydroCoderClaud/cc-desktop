@@ -81,7 +81,6 @@
             :ref="el => setTerminalRef(tab.id, el)"
             :session-id="tab.sessionId"
             :visible="activeTabId === tab.id"
-            :is-dark="isDark"
             :font-size="terminalFontSize"
             :font-family="terminalFontFamily"
             :cursor-color="currentColors.primary"
@@ -551,13 +550,6 @@ const handleSendToTerminal = (command) => {
 // Theme toggle handler
 const handleToggleTheme = async () => {
   await toggleTheme()
-}
-
-// Open current project folder
-const openCurrentProjectFolder = async () => {
-  if (currentProject.value) {
-    await openFolder(currentProject.value)
-  }
 }
 
 // Open API Profile Manager
