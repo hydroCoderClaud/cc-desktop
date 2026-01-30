@@ -5,7 +5,7 @@
       <button
         class="add-btn"
         :title="t('rightPanel.quickCommands.add')"
-        @click="showAddModal = true"
+        @click="openAddModal"
       >
         +
       </button>
@@ -185,9 +185,9 @@ const toggleMoreDropdown = () => {
   showMoreDropdown.value = true
 }
 
-// Preset colors (9 个)
+// Preset colors (10 个)
 const presetColors = [
-  '#6366f1', // indigo
+  '#DA7756', // claude (default)
   '#8b5cf6', // violet
   '#ec4899', // pink
   '#ef4444', // red
@@ -195,6 +195,7 @@ const presetColors = [
   '#22c55e', // green
   '#14b8a6', // teal
   '#3b82f6', // blue
+  '#6366f1', // indigo
   '#64748b'  // gray
 ]
 
@@ -230,6 +231,12 @@ const loadCommands = async () => {
   } catch (error) {
     console.error('Failed to load quick commands:', error)
   }
+}
+
+// Open add modal with default color
+const openAddModal = () => {
+  formData.color = presetColors[0]
+  showAddModal.value = true
 }
 
 // Execute command
@@ -518,7 +525,7 @@ const vClickOutside = {
 .modal-content {
   background: var(--bg-color);
   border-radius: 8px;
-  width: 320px;
+  width: 330px;
   max-width: 90%;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
