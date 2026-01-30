@@ -710,6 +710,9 @@ export default {
     terminalFontSizeHint: 'Terminal font size (10-24)',
     terminalFontFamily: 'Font Family',
     terminalFontFamilyHint: 'Terminal font (must be installed)',
+    terminalBackground: 'Terminal Background',
+    terminalBackgroundDark: 'Dark',
+    terminalBackgroundLight: 'Light',
     saveSuccess: 'Settings saved'
   },
 

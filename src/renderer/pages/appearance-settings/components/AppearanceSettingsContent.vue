@@ -79,6 +79,13 @@
           </n-form-item>
         </n-grid-item>
       </n-grid>
+
+      <n-form-item :label="t('globalSettings.terminalBackground')">
+        <n-radio-group v-model:value="formData.terminalDarkBackground">
+          <n-radio :value="true">{{ t('globalSettings.terminalBackgroundDark') }}</n-radio>
+          <n-radio :value="false">{{ t('globalSettings.terminalBackgroundLight') }}</n-radio>
+        </n-radio-group>
+      </n-form-item>
     </n-card>
 
     <!-- Footer Buttons -->
@@ -93,7 +100,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, NRadioGroup, NRadio } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -109,7 +116,8 @@ const FONT_FALLBACK = '"SF Mono", Monaco, "HarmonyOS Sans SC", DengXian, "Micros
 // Default values
 const DEFAULTS = {
   terminalFontSize: 14,
-  terminalFontFamily: `"Ubuntu Mono", ${FONT_FALLBACK}`
+  terminalFontFamily: `"Ubuntu Mono", ${FONT_FALLBACK}`,
+  terminalDarkBackground: true
 }
 
 const formData = ref({
@@ -117,7 +125,8 @@ const formData = ref({
   locale: 'zh-CN',
   colorScheme: 'ember',
   terminalFontSize: DEFAULTS.terminalFontSize,
-  terminalFontFamily: DEFAULTS.terminalFontFamily
+  terminalFontFamily: DEFAULTS.terminalFontFamily,
+  terminalDarkBackground: DEFAULTS.terminalDarkBackground
 })
 
 // Terminal font family options
@@ -162,6 +171,15 @@ watch(() => formData.value.colorScheme, async (newScheme) => {
   await setColorScheme(newScheme)
 })
 
+// Watch for terminal background changes (即时生效)
+watch(() => formData.value.terminalDarkBackground, (newValue) => {
+  if (window.electronAPI?.broadcastSettings) {
+    window.electronAPI.broadcastSettings({
+      terminalDarkBackground: newValue
+    })
+  }
+})
+
 const loadSettings = async () => {
   try {
     formData.value.theme = isDark.value ? 'dark' : 'light'
@@ -171,6 +189,7 @@ const loadSettings = async () => {
     const terminalSettings = await invoke('getTerminalSettings')
     formData.value.terminalFontSize = terminalSettings?.fontSize || DEFAULTS.terminalFontSize
     formData.value.terminalFontFamily = terminalSettings?.fontFamily || DEFAULTS.terminalFontFamily
+    formData.value.terminalDarkBackground = terminalSettings?.darkBackground !== false
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -181,14 +200,16 @@ const handleSave = async () => {
   try {
     await invoke('updateTerminalSettings', {
       fontSize: formData.value.terminalFontSize,
-      fontFamily: formData.value.terminalFontFamily
+      fontFamily: formData.value.terminalFontFamily,
+      darkBackground: formData.value.terminalDarkBackground
     })
 
     // Broadcast settings change to other windows
     if (window.electronAPI?.broadcastSettings) {
       window.electronAPI.broadcastSettings({
         terminalFontSize: formData.value.terminalFontSize,
-        terminalFontFamily: formData.value.terminalFontFamily
+        terminalFontFamily: formData.value.terminalFontFamily,
+        terminalDarkBackground: formData.value.terminalDarkBackground
       })
     }
 
@@ -203,10 +224,12 @@ const handleReset = async () => {
   try {
     formData.value.terminalFontSize = DEFAULTS.terminalFontSize
     formData.value.terminalFontFamily = DEFAULTS.terminalFontFamily
+    formData.value.terminalDarkBackground = DEFAULTS.terminalDarkBackground
 
     await invoke('updateTerminalSettings', {
       fontSize: DEFAULTS.terminalFontSize,
-      fontFamily: DEFAULTS.terminalFontFamily
+      fontFamily: DEFAULTS.terminalFontFamily,
+      darkBackground: DEFAULTS.terminalDarkBackground
     })
 
     message.success(t('messages.saveSuccess'))

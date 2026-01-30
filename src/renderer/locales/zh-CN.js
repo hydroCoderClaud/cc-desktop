@@ -710,6 +710,9 @@ export default {
     terminalFontSizeHint: '终端显示的字体大小（10-24）',
     terminalFontFamily: '字体类型',
     terminalFontFamilyHint: '终端显示的字体（需系统已安装）',
+    terminalBackground: '终端背景',
+    terminalBackgroundDark: '深色',
+    terminalBackgroundLight: '浅色',
     saveSuccess: '设置已保存'
   },
 

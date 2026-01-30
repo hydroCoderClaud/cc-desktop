@@ -64,7 +64,8 @@ class ConfigManager {
         // 终端设置
         terminal: {
           fontSize: 14,
-          fontFamily: '"Ubuntu Mono", monospace'
+          fontFamily: '"Ubuntu Mono", monospace',
+          darkBackground: true
         },
 
         maxRecentProjects: 10,
@@ -340,7 +341,7 @@ class ConfigManager {
    * 获取终端设置
    */
   getTerminalSettings() {
-    return this.config.settings?.terminal || { fontSize: 14, fontFamily: '"Ubuntu Mono", monospace' };
+    return this.config.settings?.terminal || { fontSize: 14, fontFamily: '"Ubuntu Mono", monospace', darkBackground: true };
   }
 
   /**

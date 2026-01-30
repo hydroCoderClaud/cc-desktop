@@ -85,6 +85,7 @@
             :font-size="terminalFontSize"
             :font-family="terminalFontFamily"
             :cursor-color="currentColors.primary"
+            :dark-background="terminalDarkBackground"
             @ready="handleTerminalReady"
           />
         </div>
@@ -184,6 +185,7 @@ const rightPanelRef = ref(null)
 const terminalRefs = ref({})
 const terminalFontSize = ref(14)
 const terminalFontFamily = ref('"Ubuntu Mono", monospace')
+const terminalDarkBackground = ref(true)
 const terminalBusy = ref(false)
 const currentSessionUuid = ref('')
 
@@ -243,6 +245,7 @@ onMounted(async () => {
     const terminalSettings = await window.electronAPI.getTerminalSettings()
     terminalFontSize.value = terminalSettings?.fontSize || 14
     terminalFontFamily.value = terminalSettings?.fontFamily || 'Consolas, monospace'
+    terminalDarkBackground.value = terminalSettings?.darkBackground !== false
   } catch (err) {
     console.error('Failed to load terminal settings:', err)
   }
@@ -329,6 +332,9 @@ const setupSessionListeners = () => {
         }
         if (settings.terminalFontFamily !== undefined) {
           terminalFontFamily.value = settings.terminalFontFamily
+        }
+        if (settings.terminalDarkBackground !== undefined) {
+          terminalDarkBackground.value = settings.terminalDarkBackground
         }
       })
     )

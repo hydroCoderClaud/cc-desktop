@@ -52,16 +52,16 @@ const COLOR_SCHEMES = {
     name: 'Ocean',
     icon: '🌊',
     light: {
-      primary: '#0EA5E9',
-      primaryHover: '#0284C7',
-      ghost: 'rgba(14, 165, 233, 0.08)',
-      ghostHover: 'rgba(14, 165, 233, 0.15)',
+      primary: '#0369A1',
+      primaryHover: '#075985',
+      ghost: 'rgba(3, 105, 161, 0.08)',
+      ghostHover: 'rgba(3, 105, 161, 0.15)',
     },
     dark: {
-      primary: '#38BDF8',
-      primaryHover: '#0EA5E9',
-      ghost: 'rgba(56, 189, 248, 0.12)',
-      ghostHover: 'rgba(56, 189, 248, 0.22)',
+      primary: '#0284C7',
+      primaryHover: '#0369A1',
+      ghost: 'rgba(2, 132, 199, 0.12)',
+      ghostHover: 'rgba(2, 132, 199, 0.22)',
     }
   },
   // Forest - 绿色

@@ -1,6 +1,6 @@
 <template>
   <div ref="containerRef" class="terminal-tab" v-show="visible">
-    <div class="terminal-wrapper">
+    <div class="terminal-wrapper" :style="{ background: darkBackground ? '#0d0d0d' : '#f8f8f5' }">
       <div ref="terminalRef" class="terminal"></div>
     </div>
   </div>
@@ -34,6 +34,10 @@ const props = defineProps({
   cursorColor: {
     type: String,
     default: '#FF6B35'
+  },
+  darkBackground: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -52,16 +56,20 @@ let resizeObserver = null
 let resizeTimer = null
 let initialized = ref(false)
 
-// Get terminal theme
+// Get terminal theme (根据 darkBackground 设置)
 const getTerminalTheme = () => {
-  return props.isDark ? {
+  return props.darkBackground ? {
+    // 深色背景
     background: '#0d0d0d',
     foreground: '#e8e8e8',
-    cursor: props.cursorColor
+    cursor: props.cursorColor,
+    selectionBackground: 'rgba(255, 255, 255, 0.2)'
   } : {
-    background: '#1a1a1a',
-    foreground: '#ffffff',
-    cursor: props.cursorColor
+    // 浅色背景
+    background: '#f8f8f5',
+    foreground: '#2d2d2d',
+    cursor: props.cursorColor,
+    selectionBackground: 'rgba(0, 0, 0, 0.15)'
   }
 }
 
@@ -284,8 +292,8 @@ watch(() => props.visible, async (newVal) => {
   }
 })
 
-// Watch theme
-watch(() => props.isDark, () => {
+// Watch terminal background
+watch(() => props.darkBackground, () => {
   if (terminal) {
     terminal.options.theme = getTerminalTheme()
   }
