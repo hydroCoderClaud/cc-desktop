@@ -177,7 +177,10 @@ export const iconPaths = {
   letterS: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">S</text>',
   letterM: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">M</text>',
   letterA: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">A</text>',
-  letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>'
+  letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>',
+
+  // 面板控制
+  panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>'
 }
 
 // 图标名称列表（用于校验）

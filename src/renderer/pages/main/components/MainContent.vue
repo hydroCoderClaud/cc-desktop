@@ -4,10 +4,21 @@
     <div
       v-if="!showLeftPanel"
       class="panel-collapsed-strip panel-collapsed-left"
-      @click="showLeftPanel = true"
-      :title="t('panel.showLeft')"
     >
-      <span class="strip-icon">›</span>
+      <button
+        class="strip-toggle-btn"
+        @click.stop="toggleBothPanels"
+        :title="t('panel.toggleBoth')"
+      >
+        <Icon name="panelsCollapse" :size="12" />
+      </button>
+      <div
+        class="strip-expand"
+        @click="showLeftPanel = true"
+        :title="t('panel.showLeft')"
+      >
+        <span class="strip-icon">›</span>
+      </div>
     </div>
 
     <!-- Left Panel (Project Selector + Sessions) -->
@@ -26,16 +37,11 @@
       @session-closed="onSessionClosed"
       @terminal-created="onTerminalCreated"
       @collapse="showLeftPanel = false"
+      @toggle-both-panels="toggleBothPanels"
     />
 
     <!-- Main Content Area -->
     <div class="main-content">
-      <!-- Header -->
-      <div class="main-header">
-        <div class="session-name">{{ currentProject?.name || t('main.welcome') }}</div>
-        <div class="project-path">{{ currentProject?.path || t('main.pleaseSelectProject') }}</div>
-      </div>
-
       <!-- Tab Bar -->
       <TabBar
         :tabs="tabs"
@@ -207,6 +213,13 @@ watch(activeTabId, updateCurrentSessionUuid, { immediate: true })
 // Panel visibility
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)  // 默认显示右侧面板
+
+// 一键切换两侧面板
+const toggleBothPanels = () => {
+  const bothVisible = showLeftPanel.value && showRightPanel.value
+  showLeftPanel.value = !bothVisible
+  showRightPanel.value = !bothVisible
+}
 
 // Set terminal ref
 const setTerminalRef = (tabId, el) => {
@@ -534,6 +547,13 @@ const handleToggleTheme = async () => {
   await toggleTheme()
 }
 
+// Open current project folder
+const openCurrentProjectFolder = async () => {
+  if (currentProject.value) {
+    await openFolder(currentProject.value)
+  }
+}
+
 // Open API Profile Manager
 const openApiProfileManager = async () => {
   if (window.electronAPI) {
@@ -562,26 +582,6 @@ const openApiProfileManager = async () => {
   background: var(--bg-color);
 }
 
-.main-header {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 24px;
-  height: 60px;
-  background: var(--bg-color-secondary);
-}
-
-.session-name {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.project-path {
-  font-size: 13px;
-  color: var(--text-color-muted);
-  font-family: var(--font-mono);
-}
-
 .main-area {
   flex: 1;
   overflow: hidden;
@@ -589,7 +589,7 @@ const openApiProfileManager = async () => {
   background: var(--bg-color);
   border: 1px solid var(--primary-color);
   border-radius: 4px;
-  margin: 0 8px 8px 0;
+  margin-bottom: 8px;
 }
 
 /* Empty State */
@@ -682,18 +682,42 @@ const openApiProfileManager = async () => {
 
 /* Panel Collapsed Strip */
 .panel-collapsed-strip {
-  width: 12px;
+  width: 20px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   background: var(--bg-color-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
-.panel-collapsed-strip:hover {
+.strip-toggle-btn {
   width: 20px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all 0.15s ease;
+}
+
+.strip-toggle-btn:hover {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+.strip-expand {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.strip-expand:hover {
   background: var(--hover-bg);
 }
 
@@ -705,9 +729,8 @@ const openApiProfileManager = async () => {
   transition: opacity 0.15s ease;
 }
 
-.panel-collapsed-strip:hover .strip-icon {
+.strip-expand:hover .strip-icon {
   opacity: 1;
-  color: var(--primary-color);
 }
 
 .panel-collapsed-left {

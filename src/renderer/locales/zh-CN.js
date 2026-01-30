@@ -82,7 +82,8 @@ export default {
     showLeft: '显示左侧面板',
     hideLeft: '隐藏左侧面板',
     showRight: '显示右侧面板',
-    hideRight: '隐藏右侧面板'
+    hideRight: '隐藏右侧面板',
+    toggleBoth: '收缩/展开两侧面板'
   },
 
   // 右侧面板

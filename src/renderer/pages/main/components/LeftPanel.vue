@@ -3,9 +3,14 @@
     <!-- Header -->
     <div class="panel-header">
       <div class="logo">CC Desktop</div>
-      <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
-        <Icon name="chevronLeft" :size="14" />
-      </button>
+      <div class="header-actions">
+        <button class="collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
+          <Icon name="panelsCollapse" :size="14" />
+        </button>
+        <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
+          <Icon name="chevronLeft" :size="14" />
+        </button>
+      </div>
     </div>
 
     <!-- Project Selector -->
@@ -315,7 +320,8 @@ const emit = defineEmits([
   'session-selected',
   'session-closed',
   'terminal-created',
-  'collapse'
+  'collapse',
+  'toggle-both-panels'
 ])
 
 // Use session panel composable
@@ -826,6 +832,12 @@ defineExpose({
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-color);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .collapse-btn {

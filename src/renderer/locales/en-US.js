@@ -82,7 +82,8 @@ export default {
     showLeft: 'Show left panel',
     hideLeft: 'Hide left panel',
     showRight: 'Show right panel',
-    hideRight: 'Hide right panel'
+    hideRight: 'Hide right panel',
+    toggleBoth: 'Toggle both panels'
   },
 
   // Right Panel
