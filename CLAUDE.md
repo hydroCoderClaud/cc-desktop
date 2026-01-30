@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
+**当前版本**：1.5.3
+
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
 完全独立于 Web 版，代码量减少 60%（~1,200 行 vs ~3,000 行）。
@@ -180,6 +182,82 @@ installed_plugins.json → 读取 installPath → 扫描 skills/ 目录
 - 启用/禁用状态存储在 `~/.claude/settings.json` 的 `enabledPlugins` 字段
 - YAML 解析使用 `js-yaml` 库
 
+### 主题系统
+
+**6 套配色方案**（每套支持 light/dark 模式）：
+
+| 方案 | 主色 | 说明 |
+|------|------|------|
+| Claude | #DA7756 | 官方品牌色（赤陶/珊瑚色），**默认** |
+| Ember | #FF6B35 | 橙色 |
+| Ocean | #0EA5E9 | 蓝色 |
+| Forest | #10B981 | 绿色 |
+| Violet | #8B5CF6 | 紫色 |
+| Graphite | #6B7280 | 灰色 |
+
+**配置位置**：`src/renderer/composables/useTheme.js`
+
+**使用方式**：
+```javascript
+import { useTheme } from '@composables/useTheme'
+
+const { isDark, colorScheme, currentColors, toggleTheme, setColorScheme } = useTheme()
+
+// 切换深浅模式
+await toggleTheme()
+
+// 切换配色方案
+await setColorScheme('ocean')
+```
+
+**Naive UI 主题覆盖**（所有图标颜色跟随主题）：
+- Button、Input、Switch、Spin
+- Dialog（iconColorWarning）
+- Message（success/warning/error/info/loading 图标）
+- Notification（success/warning/error/info 图标）
+
+### 统一图标系统
+
+**位置**：`src/renderer/components/icons/`
+
+**设计规范**：
+- 基于 20x20 viewBox
+- stroke-based 设计（stroke-width: 1.5）
+- 60+ 个图标，覆盖操作、导航、文件、状态、功能等类别
+
+**使用方式**：
+```vue
+<Icon name="refresh" :size="20" />
+<Icon name="settings" :size="16" class="custom-class" />
+```
+
+**图标分类**：
+- 操作类：refresh, search, add, close, edit, delete, copy
+- 导航类：chevronDown/Up/Left/Right, externalLink
+- 文件类：folder, file, fileText
+- 终端类：terminal, play, stop, pause
+- 状态类：check, warning, info, error
+- 功能类：plugin, skill, hook, agent, mcp, prompt
+- 字母图标：letterS, letterM, letterA, letterH（用于 Tab 标识）
+
+### 服务商管理
+
+**设计原则**：所有服务商均可编辑/删除，无"内置"概念
+
+**预设服务商**（用户可自由修改）：
+| ID | 名称 | 默认 API URL |
+|----|------|-------------|
+| official | 官方 API | https://api.anthropic.com |
+| zhipu | 智谱AI | https://open.bigmodel.cn/api/paas/v4 |
+| minimax | MiniMax | https://api.minimax.chat/v1 |
+| qwen | 阿里千问 | https://dashscope.aliyuncs.com/compatible-mode/v1 |
+| proxy | 代理服务 | （用户填写） |
+| other | 其他 | （用户填写） |
+
+**配置位置**：
+- 后端：`src/main/config/provider-config.js`
+- 常量：`src/main/utils/constants.js`（SERVICE_PROVIDERS）
+
 ## 文件结构
 
 ```
@@ -311,6 +389,20 @@ this._safeSend('session:data', { sessionId, data })
 ```
 
 **注意**：Windows/Linux 关闭窗口会退出应用，所以这是 macOS 特定问题。
+
+---
+
+## 最近更新 (v1.5.3)
+
+1. **统一图标系统**：60+ 个 SVG 图标，统一使用 `<Icon>` 组件
+2. **多配色主题**：6 套配色方案，Claude 官方色为默认
+3. **服务商管理重构**：移除"内置"概念，用户可自由编辑删除所有服务商
+4. **Naive UI 主题统一**：Dialog/Message/Notification 图标颜色跟随主题
+5. **UI 细节优化**：
+   - Logo 使用独特的 Crimson Pro 衬线字体
+   - 主区域边框使用主题色
+   - 面板折叠箭头跟随主题色
+   - TabBar 背景与 header 保持一致
 
 ---
 
