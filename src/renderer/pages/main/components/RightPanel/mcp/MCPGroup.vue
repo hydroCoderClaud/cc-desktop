@@ -20,34 +20,32 @@
         v-for="server in servers"
         :key="server.name"
         class="server-item"
+        @click="$emit('click', server)"
       >
-        <div class="server-main" @click="$emit('click', server)">
-          <div class="server-header">
-            <span class="server-name">{{ server.name }}</span>
-            <span v-if="server.category && server.source === 'plugin'" class="plugin-badge">
-              {{ server.category }}
-            </span>
-          </div>
-          <div class="server-content">
-            <div v-if="server.config.type" class="server-type">
-              <span class="label">type:</span> {{ server.config.type }}
-            </div>
-            <div v-if="server.config.command" class="server-command">
-              <span class="label">command:</span>
-              <code>{{ server.config.command }} {{ (server.config.args || []).join(' ') }}</code>
-            </div>
-            <div v-if="server.config.url" class="server-url">
-              <span class="label">url:</span>
-              <code>{{ server.config.url }}</code>
-            </div>
-          </div>
+        <div class="server-header">
+          <span class="server-name">{{ server.name }}</span>
+          <span v-if="server.category && server.source === 'plugin'" class="plugin-badge">
+            {{ server.category }}
+          </span>
+          <span class="server-actions">
+            <button class="icon-btn inline" :title="t('common.copy')" @click.stop="$emit('copy', server)"><Icon name="copy" :size="14" /></button>
+            <button class="icon-btn inline" :title="t('common.edit')" @click.stop="$emit('edit', server)"><Icon name="edit" :size="14" /></button>
+            <button v-if="server.filePath" class="icon-btn inline" :title="t('rightPanel.mcp.openFile')" @click.stop="$emit('openFile', server)"><Icon name="externalLink" :size="14" /></button>
+            <button v-if="editable" class="icon-btn inline" :title="t('common.delete')" @click.stop="$emit('delete', server)"><Icon name="delete" :size="14" /></button>
+          </span>
         </div>
-
-        <div class="server-actions">
-          <button class="action-btn" :title="t('common.copy')" @click="$emit('copy', server)"><Icon name="copy" :size="14" /></button>
-          <button class="action-btn" :title="t('common.edit')" @click="$emit('edit', server)"><Icon name="edit" :size="14" /></button>
-          <button v-if="server.filePath" class="action-btn" :title="t('rightPanel.mcp.openFile')" @click="$emit('openFile', server)"><Icon name="externalLink" :size="14" /></button>
-          <button v-if="editable" class="action-btn danger" :title="t('common.delete')" @click="$emit('delete', server)"><Icon name="delete" :size="14" /></button>
+        <div class="server-content">
+          <div v-if="server.config.type" class="server-type">
+            <span class="label">type:</span> {{ server.config.type }}
+          </div>
+          <div v-if="server.config.command" class="server-command">
+            <span class="label">command:</span>
+            <code>{{ server.config.command }} {{ (server.config.args || []).join(' ') }}</code>
+          </div>
+          <div v-if="server.config.url" class="server-url">
+            <span class="label">url:</span>
+            <code>{{ server.config.url }}</code>
+          </div>
         </div>
       </div>
     </div>
@@ -127,12 +125,12 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
 .action-btn {
   width: 20px;
   height: 20px;
-  border: 1px solid var(--border-color);
+  border: none;
   background: transparent;
   cursor: pointer;
   border-radius: 4px;
   font-size: 12px;
-  color: var(--text-color-muted);
+  color: var(--text-color-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,13 +138,8 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
 }
 
 .action-btn:hover {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #fff;
-}
-
-.action-btn.danger:hover {
-  background: rgba(255, 77, 79, 0.1);
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
 }
 
 .group-items {
@@ -161,28 +154,17 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
 }
 
 .server-item {
-  display: flex;
-  align-items: stretch;
+  padding: 10px 12px;
   margin: 4px 0;
   border-radius: 6px;
   background: var(--bg-color-tertiary);
   border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.server-item:not(.readonly):hover {
-  border-color: var(--primary-color);
-}
-
-.server-main {
-  flex: 1;
-  padding: 10px 12px;
-  min-width: 0;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.server-main:hover {
-  background: var(--hover-bg);
+.server-item:hover {
+  border-color: var(--primary-color);
 }
 
 .server-header {
@@ -198,12 +180,18 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
   color: var(--text-color);
 }
 
-.readonly-badge {
-  font-size: 10px;
-  padding: 1px 4px;
-  background: var(--border-color);
-  border-radius: 2px;
-  color: var(--text-color-muted);
+.server-actions {
+  display: none;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.server-item:hover .server-actions {
+  display: flex;
+}
+
+.server-item:hover .icon-btn.inline {
+  opacity: 0.7;
 }
 
 .plugin-badge {
@@ -237,22 +225,5 @@ defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-color);
-}
-
-.server-actions {
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--border-color);
-}
-
-.server-actions .action-btn {
-  flex: 1;
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.server-actions .action-btn:last-child {
-  border-bottom: none;
 }
 </style>

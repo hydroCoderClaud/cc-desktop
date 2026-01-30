@@ -24,31 +24,29 @@
         :key="hook.id"
         class="hook-item"
         :class="{ editable: isEditable(hook) }"
+        @click="handleClick(hook)"
       >
-        <div class="hook-main" @click="handleClick(hook)">
-          <div class="hook-header">
-            <span class="hook-type-badge" :class="hook.type">{{ hook.type }}</span>
-            <span class="hook-event-badge">{{ hook.event }}</span>
+        <div class="hook-header">
+          <span class="hook-type-badge" :class="hook.type">{{ hook.type }}</span>
+          <span class="hook-event-badge">{{ hook.event }}</span>
+          <span v-if="isEditable(hook)" class="hook-actions">
+            <button class="icon-btn inline" :title="t('common.edit')" @click.stop="$emit('edit', hook)"><Icon name="edit" :size="14" /></button>
+            <button class="icon-btn inline" :title="t('common.copy')" @click.stop="$emit('copy', hook)"><Icon name="copy" :size="14" /></button>
+            <button v-if="hook.filePath" class="icon-btn inline" :title="t('rightPanel.hooks.openFile')" @click.stop="$emit('openFile', hook)"><Icon name="externalLink" :size="14" /></button>
+            <button v-if="isDeletable(hook)" class="icon-btn inline" :title="t('common.delete')" @click.stop="$emit('delete', hook)"><Icon name="delete" :size="14" /></button>
+          </span>
+        </div>
+        <div class="hook-content">
+          <div v-if="hook.matcher" class="hook-matcher">
+            <span class="label">matcher:</span> {{ hook.matcher }}
           </div>
-          <div class="hook-content">
-            <div v-if="hook.matcher" class="hook-matcher">
-              <span class="label">matcher:</span> {{ hook.matcher }}
-            </div>
-            <div class="hook-command">
-              {{ getHookContent(hook) }}
-            </div>
-          </div>
-          <div class="hook-meta">
-            <span class="hook-source">{{ hook.category || hook.source }}</span>
-            <span v-if="hook.source === 'plugin'" class="plugin-badge">{{ t('rightPanel.plugins.version') ? 'plugin' : 'plugin' }}</span>
+          <div class="hook-command">
+            {{ getHookContent(hook) }}
           </div>
         </div>
-
-        <div v-if="isEditable(hook)" class="hook-actions">
-          <button class="action-btn" :title="t('common.edit')" @click.stop="$emit('edit', hook)"><Icon name="edit" :size="14" /></button>
-          <button class="action-btn" :title="t('common.copy')" @click.stop="$emit('copy', hook)"><Icon name="copy" :size="14" /></button>
-          <button v-if="hook.filePath" class="action-btn" :title="t('rightPanel.hooks.openFile')" @click.stop="$emit('openFile', hook)"><Icon name="externalLink" :size="14" /></button>
-          <button v-if="isDeletable(hook)" class="action-btn danger" :title="t('common.delete')" @click.stop="$emit('delete', hook)"><Icon name="delete" :size="14" /></button>
+        <div class="hook-meta">
+          <span class="hook-source">{{ hook.category || hook.source }}</span>
+          <span v-if="hook.source === 'plugin'" class="plugin-badge">{{ t('rightPanel.plugins.version') ? 'plugin' : 'plugin' }}</span>
         </div>
       </div>
     </div>
@@ -153,12 +151,12 @@ const handleClick = (hook) => {
 .action-btn {
   width: 20px;
   height: 20px;
-  border: 1px solid var(--border-color);
+  border: none;
   background: transparent;
   cursor: pointer;
   border-radius: 4px;
   font-size: 12px;
-  color: var(--text-color-muted);
+  color: var(--text-color-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -166,13 +164,8 @@ const handleClick = (hook) => {
 }
 
 .action-btn:hover {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #fff;
-}
-
-.action-btn.danger:hover {
-  background: rgba(255, 77, 79, 0.1);
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
 }
 
 .group-items {
@@ -187,13 +180,12 @@ const handleClick = (hook) => {
 }
 
 .hook-item {
-  display: flex;
-  align-items: stretch;
+  padding: 10px 12px;
   margin: 4px 0;
   border-radius: 6px;
   background: var(--bg-color-tertiary);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  transition: all 0.15s ease;
 }
 
 .hook-item.editable {
@@ -204,16 +196,25 @@ const handleClick = (hook) => {
   border-color: var(--primary-color);
 }
 
-.hook-main {
-  flex: 1;
-  padding: 10px 12px;
-  min-width: 0;
-}
-
 .hook-header {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin-bottom: 6px;
+}
+
+.hook-actions {
+  display: none;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.hook-item:hover .hook-actions {
+  display: flex;
+}
+
+.hook-item:hover .icon-btn.inline {
+  opacity: 0.7;
 }
 
 .hook-type-badge {
@@ -287,22 +288,5 @@ const handleClick = (hook) => {
   background: var(--border-color);
   border-radius: 2px;
   font-size: 10px;
-}
-
-.hook-actions {
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--border-color);
-}
-
-.hook-actions .action-btn {
-  flex: 1;
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.hook-actions .action-btn:last-child {
-  border-bottom: none;
 }
 </style>

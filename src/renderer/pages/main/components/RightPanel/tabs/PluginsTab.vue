@@ -4,7 +4,7 @@
       <span class="tab-title">{{ t('rightPanel.tabs.plugins') }} ({{ plugins.length }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.plugins.openInstalledJson')" @click="handleOpenInstalledJson">
-          <Icon name="clipboard" :size="14" />
+          <Icon name="fileText" :size="14" />
         </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.openFolder')" @click="handleOpenFolder">
           <Icon name="folderOpen" :size="14" />
@@ -94,8 +94,8 @@
                     <span class="component-name" @click="handleInsertCommand(cmd)">/{{ cmd.name }}</span>
                     <span class="component-desc" @click="handleInsertCommand(cmd)">{{ cmd.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditCommand(cmd)"><Icon name="edit" :size="14" /></button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(cmd.filePath)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.edit')" @click.stop="handleEditCommand(cmd)"><Icon name="edit" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.openFile')" @click.stop="handleOpenFile(cmd.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -116,8 +116,8 @@
                     <span class="component-name" @click="handleInsertAgent(agent)">@{{ agent.name }}</span>
                     <span class="component-desc" @click="handleInsertAgent(agent)">{{ agent.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditAgent(agent)"><Icon name="edit" :size="14" /></button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(agent.filePath)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.edit')" @click.stop="handleEditAgent(agent)"><Icon name="edit" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.openFile')" @click.stop="handleOpenFile(agent.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -138,8 +138,8 @@
                     <span class="component-name" @click="handleInsertSkill(skill)">/{{ skill.name }}</span>
                     <span class="component-desc" @click="handleInsertSkill(skill)">{{ skill.description }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditSkill(skill)"><Icon name="edit" :size="14" /></button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(skill.filePath)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.edit')" @click.stop="handleEditSkill(skill)"><Icon name="edit" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.openFile')" @click.stop="handleOpenFile(skill.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -160,8 +160,8 @@
                     <span class="component-name">{{ hook.event }}</span>
                     <span class="component-desc">{{ hook.matcher ? `matcher: ${hook.matcher}` : hook.type }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditHook(hook)"><Icon name="edit" :size="14" /></button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(hook.filePath)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.edit')" @click.stop="handleEditHook(hook)"><Icon name="edit" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.openFile')" @click.stop="handleOpenFile(hook.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -182,8 +182,8 @@
                     <span class="component-name" @click="handleInsertMcp(mcp)">{{ mcp.name }}</span>
                     <span class="component-desc" @click="handleInsertMcp(mcp)">{{ mcp.type === 'http' ? mcp.url : mcp.command }}</span>
                     <div class="component-actions">
-                      <button class="action-btn" :title="t('common.edit')" @click.stop="handleEditMcp(mcp)"><Icon name="edit" :size="14" /></button>
-                      <button class="action-btn" :title="t('common.openFile')" @click.stop="handleOpenFile(mcp.filePath)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.edit')" @click.stop="handleEditMcp(mcp)"><Icon name="edit" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('common.openFile')" @click.stop="handleOpenFile(mcp.filePath)"><Icon name="externalLink" :size="14" /></button>
                     </div>
                   </div>
                 </div>
@@ -500,7 +500,6 @@ onMounted(() => {
   justify-content: space-between;
   height: 40px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .tab-title {
@@ -655,7 +654,6 @@ onMounted(() => {
 
 /* Plugin Details */
 .plugin-details {
-  border-top: 1px solid var(--border-color);
   padding: 8px 12px;
   background: var(--bg-color-secondary);
 }
@@ -723,10 +721,6 @@ onMounted(() => {
   background: var(--hover-bg);
 }
 
-.component-item.clickable:hover .component-actions {
-  opacity: 1;
-}
-
 .component-name {
   color: var(--primary-color);
   font-weight: 500;
@@ -744,28 +738,11 @@ onMounted(() => {
 .component-actions {
   display: flex;
   gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
   flex-shrink: 0;
 }
 
-.action-btn {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-
-.action-btn:hover {
-  background: var(--hover-bg);
+.component-item.clickable:hover .icon-btn.inline {
+  opacity: 0.7;
 }
 
 .no-components {

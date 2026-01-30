@@ -59,7 +59,6 @@
             <span class="group-icon"><Icon name="building" :size="14" /></span>
             <span class="group-name">{{ t('rightPanel.skills.officialSkills') }}</span>
             <span class="group-count">({{ filteredSkills.official.length }})</span>
-            <span class="group-badge plugin">{{ t('rightPanel.skills.plugin') }}</span>
           </div>
           <div v-if="expandedGroups.includes('official')" class="group-items">
             <div v-for="cat in groupedOfficialSkills" :key="cat.name" class="skill-category">
@@ -73,9 +72,9 @@
                   <div class="skill-row">
                     <span class="skill-name">{{ skill.id || skill.fullName }} <span class="skill-invoke">(/{{ skill.name || skill.fullName }})</span></span>
                     <span class="skill-actions-inline">
-                      <button class="item-btn copy" :title="t('rightPanel.skills.copySkill')" @click.stop="showCopyModal(skill)"><Icon name="copy" :size="14" /></button>
-                      <button class="item-btn edit" :title="t('rightPanel.skills.edit')" @click.stop="showEditModal(skill)"><Icon name="edit" :size="14" /></button>
-                      <button v-if="skill.filePath" class="item-btn" :title="t('rightPanel.skills.openFile')" @click.stop="handleOpenFile(skill)"><Icon name="externalLink" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('rightPanel.skills.copySkill')" @click.stop="showCopyModal(skill)"><Icon name="copy" :size="14" /></button>
+                      <button class="icon-btn inline" :title="t('rightPanel.skills.edit')" @click.stop="showEditModal(skill)"><Icon name="edit" :size="14" /></button>
+                      <button v-if="skill.filePath" class="icon-btn inline" :title="t('rightPanel.skills.openFile')" @click.stop="handleOpenFile(skill)"><Icon name="externalLink" :size="14" /></button>
                     </span>
                   </div>
                   <span class="skill-desc">{{ skill.description }}</span>
@@ -318,7 +317,7 @@ onMounted(loadSkills)
 
 <style scoped>
 .tab-container { display: flex; flex-direction: column; height: 100%; }
-.tab-header { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border-color); }
+.tab-header { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; }
 .tab-title { font-size: 14px; font-weight: 600; color: var(--text-color); }
 .tab-toolbar { margin-top: 12px; padding: 0 12px 12px 12px; }
 .tab-content { flex: 1; overflow-y: auto; }
@@ -336,7 +335,7 @@ onMounted(loadSkills)
 
 /* Official skills group styles */
 .skill-group { display: flex; flex-direction: column; }
-.group-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--text-color-muted); border-bottom: 1px solid var(--border-color); }
+.group-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--text-color-muted); }
 .group-header.clickable { cursor: pointer; transition: background 0.15s ease; }
 .group-header.clickable:hover { background: var(--hover-bg); }
 .group-toggle { font-size: 10px; width: 12px; }
@@ -361,18 +360,9 @@ onMounted(loadSkills)
 .skill-desc { font-size: 11px; color: var(--text-color-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* View button for official skills */
-.item-btn { width: 22px; height: 22px; border-radius: 4px; background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transition: all 0.15s ease; }
-.skill-item:hover .item-btn { opacity: 0.7; }
-.item-btn:hover { background: var(--hover-bg); opacity: 1 !important; }
-.item-btn.copy:hover { background: rgba(24, 144, 255, 0.15); }
-.item-btn.edit:hover { background: rgba(82, 196, 26, 0.15); }
 .skill-actions-inline { display: none; gap: 4px; }
 .skill-item:hover .skill-actions-inline { display: flex; }
-
-/* Group badge for official skills */
-.group-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
-.group-badge.readonly { background: rgba(114, 132, 154, 0.15); color: var(--text-color-muted); }
-.group-badge.plugin { background: rgba(24, 144, 255, 0.15); color: #1890ff; }
+.skill-item:hover .icon-btn.inline { opacity: 0.7; }
 
 .delete-warning { color: #e74c3c; font-size: 12px; margin-top: 8px; }
 

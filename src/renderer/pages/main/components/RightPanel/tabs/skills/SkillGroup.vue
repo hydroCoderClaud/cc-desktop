@@ -5,7 +5,6 @@
       <span class="group-icon" @click="$emit('toggle')"><Icon :name="icon" :size="14" /></span>
       <span class="group-name" @click="$emit('toggle')">{{ title }}</span>
       <span class="group-count" @click="$emit('toggle')">({{ skills.length }})</span>
-      <span v-if="editable" class="group-badge editable">{{ t('rightPanel.skills.editable') }}</span>
       <button v-if="editable" class="group-add-btn" :title="createTitle" @click.stop="$emit('create')"><Icon name="add" :size="12" /></button>
       <button v-if="editable" class="group-add-btn" :title="t('rightPanel.skills.openFolder')" @click.stop="$emit('open-folder')"><Icon name="folderOpen" :size="14" /></button>
     </div>
@@ -22,23 +21,23 @@
             <span class="skill-actions">
               <button
                 v-if="copy"
-                :class="['skill-action-btn', groupKey === 'project' ? 'promote' : 'copy']"
+                class="icon-btn inline"
                 :title="copyTitle"
                 @click.stop="copy(skill)"
               ><Icon name="copy" :size="14" /></button>
               <button
-                class="skill-action-btn"
+                class="icon-btn inline"
                 :title="t('rightPanel.skills.edit')"
                 @click.stop="$emit('edit', skill)"
               ><Icon name="edit" :size="14" /></button>
               <button
                 v-if="skill.filePath"
-                class="skill-action-btn"
+                class="icon-btn inline"
                 :title="t('rightPanel.skills.openFile')"
                 @click.stop="$emit('openFile', skill)"
               ><Icon name="externalLink" :size="14" /></button>
               <button
-                class="skill-action-btn delete"
+                class="icon-btn inline"
                 :title="t('rightPanel.skills.delete')"
                 @click.stop="$emit('delete', skill)"
               ><Icon name="delete" :size="14" /></button>
@@ -94,7 +93,6 @@ const createTitle = computed(() => {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-color-muted);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .group-header.clickable {
@@ -122,18 +120,6 @@ const createTitle = computed(() => {
 .group-count {
   font-weight: 400;
   opacity: 0.7;
-}
-
-.group-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.group-badge.editable {
-  background: rgba(82, 196, 26, 0.15);
-  color: #52c41a;
 }
 
 .group-add-btn {
@@ -204,36 +190,8 @@ const createTitle = computed(() => {
   display: flex;
 }
 
-.skill-action-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  opacity: 0.6;
-  transition: all 0.15s ease;
-}
-
-.skill-action-btn:hover {
-  opacity: 1;
-  background: var(--hover-bg);
-}
-
-.skill-action-btn.delete:hover {
-  background: rgba(231, 76, 60, 0.15);
-}
-
-.skill-action-btn.promote:hover {
-  background: rgba(82, 196, 26, 0.15);
-}
-
-.skill-action-btn.copy:hover {
-  background: rgba(24, 144, 255, 0.15);
+.skill-item:hover .icon-btn.inline {
+  opacity: 0.7;
 }
 
 .skill-desc {

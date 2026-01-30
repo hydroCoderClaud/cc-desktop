@@ -68,6 +68,15 @@
   color: var(--danger-color);
 }
 
+/* ========== 操作按钮 Hover 颜色变量 ========== */
+/* 统一定义，各组件引用这些变量 */
+:root {
+  --action-hover-copy: rgba(24, 144, 255, 0.15);      /* 蓝色 - 复制 */
+  --action-hover-edit: rgba(82, 196, 26, 0.15);       /* 绿色 - 编辑 */
+  --action-hover-external: rgba(114, 132, 154, 0.15); /* 灰色 - 打开文件 */
+  --action-hover-delete: rgba(231, 76, 60, 0.15);     /* 红色 - 删除 */
+}
+
 /* 尺寸变体 */
 .icon-btn.small {
   width: 24px;
@@ -93,11 +102,23 @@
   height: 12px;
 }
 
+/* 行内操作按钮（列表条目中的操作按钮，默认隐藏） */
+.icon-btn.inline {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  opacity: 0;
+}
+
+.icon-btn.inline svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* ========== 工具栏 ========== */
 
 .tab-toolbar {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
