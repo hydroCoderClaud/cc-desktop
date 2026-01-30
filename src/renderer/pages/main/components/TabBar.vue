@@ -126,7 +126,7 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 <style scoped>
 .tab-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   background: var(--bg-color-secondary);
   padding: 0 8px;
   height: 40px;
@@ -135,7 +135,7 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 
 .tabs-container {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 2px;
   flex: 1;
   overflow-x: auto;
