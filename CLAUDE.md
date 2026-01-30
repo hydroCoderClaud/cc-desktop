@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.5.3
+**当前版本**：1.5.4
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
@@ -392,7 +392,7 @@ this._safeSend('session:data', { sessionId, data })
 
 ---
 
-## 最近更新 (v1.5.3)
+## 最近更新 (v1.5.4)
 
 1. **统一图标系统**：60+ 个 SVG 图标，统一使用 `<Icon>` 组件
 2. **多配色主题**：6 套配色方案，Claude 官方色为默认
