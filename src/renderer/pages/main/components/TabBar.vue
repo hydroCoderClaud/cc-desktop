@@ -127,7 +127,7 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 .tab-bar {
   display: flex;
   align-items: center;
-  background: var(--bg-color);
+  background: var(--bg-color-secondary);
   padding: 0 8px;
   height: 40px;
   gap: 4px;
@@ -159,8 +159,6 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
   transition: all 0.2s;
   max-width: 180px;
   min-width: 100px;
-  position: relative;
-  top: 1px;
   color: var(--text-color);
 }
 

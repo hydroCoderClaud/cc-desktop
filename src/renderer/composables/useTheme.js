@@ -312,6 +312,25 @@ export function useTheme() {
       Spin: {
         ...baseTheme.Spin,
         color: colors.primary
+      },
+      Dialog: {
+        ...baseTheme.Dialog,
+        iconColorWarning: colors.primary
+      },
+      Message: {
+        ...baseTheme.Message,
+        iconColorSuccess: colors.primary,
+        iconColorWarning: colors.primary,
+        iconColorError: colors.primary,
+        iconColorInfo: colors.primary,
+        iconColorLoading: colors.primary
+      },
+      Notification: {
+        ...baseTheme.Notification,
+        iconColorSuccess: colors.primary,
+        iconColorWarning: colors.primary,
+        iconColorError: colors.primary,
+        iconColorInfo: colors.primary
       }
     }
   })
