@@ -1028,6 +1028,7 @@ defineExpose({
   border: none;
   border-radius: 4px;
   font-size: 12px;
+  color: var(--text-color-muted);
   cursor: pointer;
   opacity: 0.6;
   transition: all 0.2s;
@@ -1066,6 +1067,7 @@ defineExpose({
 .group-header .sync-btn:hover {
   opacity: 1;
   background: var(--hover-bg);
+  color: var(--primary-color);
 }
 
 .group-header .sync-btn:disabled {
@@ -1188,7 +1190,7 @@ defineExpose({
   background: transparent;
   border: none;
   font-size: 12px;
-  color: #cccccc;
+  color: var(--text-color-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1199,6 +1201,7 @@ defineExpose({
 
 .rename-btn:hover {
   background: var(--hover-bg);
+  color: var(--primary-color);
 }
 
 .close-btn:hover {

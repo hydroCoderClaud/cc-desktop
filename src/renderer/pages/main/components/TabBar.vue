@@ -8,7 +8,7 @@
         @click="$emit('select-tab', { id: 'welcome' })"
       >
         <span class="tab-icon"><Icon name="home" :size="14" /></span>
-        <span class="tab-name">欢迎</span>
+        <span class="tab-name">{{ t('main.welcome') }}</span>
       </div>
 
       <!-- Session Tabs -->
@@ -28,7 +28,7 @@
         <button
           class="tab-close"
           @click.stop="closeTab(tab)"
-          title="断开连接（后台继续运行）"
+          :title="t('common.disconnect')"
         >
           <Icon name="close" :size="12" />
         </button>
@@ -40,7 +40,7 @@
       v-if="showNewButton && currentProject"
       class="new-tab-btn"
       @click="$emit('new-tab')"
-      title="新建会话"
+      :title="t('session.newSession')"
     >
       <Icon name="add" :size="16" />
     </button>
@@ -50,6 +50,9 @@
 <script setup>
 import Icon from '@components/icons/Icon.vue'
 import { SessionStatus, SessionType } from '@composables/useSessionUtils'
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
 
 // Props
 const props = defineProps({

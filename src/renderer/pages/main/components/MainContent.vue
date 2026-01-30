@@ -638,14 +638,14 @@ const openApiProfileManager = async () => {
   gap: 12px;
   padding: 16px 20px;
   background: var(--warning-bg);
-  border: 1px solid #f4d03f;
+  border: 1px solid var(--primary-color);
   border-radius: 10px;
   margin-top: 32px;
   text-align: left;
 }
 
 .warning-icon {
-  color: #f39c12;
+  color: var(--primary-color);
   font-size: 20px;
   flex-shrink: 0;
 }
