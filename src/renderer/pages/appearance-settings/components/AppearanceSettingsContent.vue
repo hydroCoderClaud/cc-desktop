@@ -180,6 +180,15 @@ watch(() => formData.value.terminalDarkBackground, (newValue) => {
   }
 })
 
+// Watch for terminal font size changes (即时生效)
+watch(() => formData.value.terminalFontSize, (newValue) => {
+  if (window.electronAPI?.broadcastSettings) {
+    window.electronAPI.broadcastSettings({
+      terminalFontSize: newValue
+    })
+  }
+})
+
 const loadSettings = async () => {
   try {
     formData.value.theme = isDark.value ? 'dark' : 'light'
