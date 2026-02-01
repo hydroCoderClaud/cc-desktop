@@ -389,6 +389,9 @@ const projectMenuOptions = computed(() => [
   { label: t('project.edit'), key: 'edit', icon: renderMenuIcon('edit') },
   { label: t('session.sync'), key: 'syncSessions', icon: renderMenuIcon('sync') },
   { type: 'divider', key: 'd1' },
+  { label: t('project.openClaudeConfig'), key: 'openProjectConfig', icon: renderMenuIcon('fileText') },
+  { label: t('settingsMenu.claudeSettings'), key: 'openClaudeSettings', icon: renderMenuIcon('settings') },
+  { type: 'divider', key: 'd2' },
   { label: t('project.hide'), key: 'hide', icon: renderMenuIcon('eyeOff') }
 ])
 
@@ -421,7 +424,7 @@ const handleProjectChange = async (projectId) => {
 }
 
 // Handle project menu actions
-const handleProjectMenuSelect = (key) => {
+const handleProjectMenuSelect = async (key) => {
   if (!props.currentProject) return
 
   // 同步会话直接在本组件处理
@@ -436,11 +439,45 @@ const handleProjectMenuSelect = (key) => {
     return
   }
 
+  // 打开项目 Claude 配置目录
+  if (key === 'openProjectConfig') {
+    handleOpenProjectConfig()
+    return
+  }
+
+  // 打开 Claude 全局配置文件
+  if (key === 'openClaudeSettings') {
+    handleOpenClaudeSettings()
+    return
+  }
+
   emit('context-action', { action: key, project: props.currentProject })
 }
 
+// 打开项目 Claude 配置文件 (settings.local.json)
+const handleOpenProjectConfig = async () => {
+  if (!props.currentProject?.path) return
+
+  try {
+    const result = await window.electronAPI.getProjectConfigPath(props.currentProject.path)
+    // 检查是否返回错误对象
+    if (result && result.success === false) {
+      message.error(result.error || t('messages.operationFailed'))
+      return
+    }
+    // result 是文件路径字符串
+    const openResult = await window.electronAPI.openPath(result)
+    if (!openResult.success) {
+      message.error(openResult.error || t('messages.operationFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to open project config:', err)
+    message.error(t('messages.operationFailed'))
+  }
+}
+
 // Handle settings menu
-const handleSettingsSelect = (key) => {
+const handleSettingsSelect = async (key) => {
   if (!window.electronAPI) {
     console.error('Electron API not available')
     return
@@ -462,6 +499,20 @@ const handleSettingsSelect = (key) => {
     case 'session-history':
       window.electronAPI.openSessionManager()
       break
+  }
+}
+
+// 打开 Claude 全局配置文件
+const handleOpenClaudeSettings = async () => {
+  try {
+    const settingsPath = await window.electronAPI.getClaudeSettingsPath()
+    const result = await window.electronAPI.openPath(settingsPath)
+    if (!result.success) {
+      message.warning(t('settingsMenu.claudeSettingsNotFound') || 'Claude 配置文件不存在')
+    }
+  } catch (err) {
+    console.error('Failed to open Claude settings:', err)
+    message.error(t('messages.operationFailed'))
   }
 }
 

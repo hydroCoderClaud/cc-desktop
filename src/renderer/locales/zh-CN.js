@@ -621,7 +621,9 @@ export default {
     providerManager: '服务商管理',
     globalSettings: '全局设置',
     appearanceSettings: '外观设置',
-    sessionHistory: '会话查询'
+    sessionHistory: '会话查询',
+    claudeSettings: 'Claude 配置文件',
+    claudeSettingsNotFound: 'Claude 配置文件不存在'
   },
 
   // API 配置管理
@@ -906,6 +908,8 @@ export default {
     unpin: '取消置顶',
     edit: '编辑',
     openFolder: '打开所在目录',
+    openClaudeConfig: '项目配置文件',
+    claudeConfigNotFound: '项目 .claude 目录不存在',
     hide: '从面板移除',
     delete: '删除',
     openExisting: '打开已有项目',

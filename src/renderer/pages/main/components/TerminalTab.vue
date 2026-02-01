@@ -119,6 +119,8 @@ const initTerminal = async () => {
 
   // Handle user input
   terminal.onData(data => {
+    // 用户输入时滚动到底部，确保能看到输入行
+    terminal.scrollToBottom()
     if (window.electronAPI) {
       window.electronAPI.writeActiveSession({
         sessionId: props.sessionId,
@@ -184,6 +186,8 @@ const initTerminal = async () => {
 const write = (data) => {
   if (terminal) {
     terminal.write(data)
+    // 写入后自动滚动到底部，确保用户能看到最新内容
+    terminal.scrollToBottom()
   }
 }
 

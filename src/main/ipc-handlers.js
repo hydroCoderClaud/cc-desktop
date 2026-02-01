@@ -317,6 +317,55 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: false, error: 'Invalid URL' };
   });
 
+  // 用系统默认程序打开本地文件或目录
+  ipcMain.handle('shell:openPath', async (event, filePath) => {
+    if (!filePath) {
+      return { success: false, error: 'Path is required' };
+    }
+    try {
+      const result = await shell.openPath(filePath);
+      if (result) {
+        // openPath 返回空字符串表示成功，否则返回错误信息
+        return { success: false, error: result };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // 获取 Claude 配置文件路径
+  ipcMain.handle('claude:getSettingsPath', async () => {
+    const homedir = require('os').homedir();
+    const settingsPath = require('path').join(homedir, '.claude', 'settings.json');
+    return settingsPath;
+  });
+
+  // 获取项目 Claude 配置文件路径（settings.local.json），不存在则创建
+  ipcMain.handle('claude:getProjectConfigPath', async (event, projectPath) => {
+    if (!projectPath) {
+      return { success: false, error: 'Project path is required' };
+    }
+    const path = require('path');
+    const fs = require('fs');
+    const claudeDir = path.join(projectPath, '.claude');
+    const configFile = path.join(claudeDir, 'settings.local.json');
+
+    try {
+      // 确保 .claude 目录存在
+      if (!fs.existsSync(claudeDir)) {
+        fs.mkdirSync(claudeDir, { recursive: true });
+      }
+      // 确保 settings.local.json 文件存在
+      if (!fs.existsSync(configFile)) {
+        fs.writeFileSync(configFile, '{\n  \n}\n', 'utf-8');
+      }
+      return configFile;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // ========================================
   // 会话历史管理（数据库版）
   // ========================================

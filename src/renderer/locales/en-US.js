@@ -621,7 +621,9 @@ export default {
     providerManager: 'Provider Manager',
     globalSettings: 'Global Settings',
     appearanceSettings: 'Appearance',
-    sessionHistory: 'Session Browser'
+    sessionHistory: 'Session Browser',
+    claudeSettings: 'Claude Settings File',
+    claudeSettingsNotFound: 'Claude settings file not found'
   },
 
   // API Profile Manager
@@ -906,6 +908,8 @@ export default {
     unpin: 'Unpin',
     edit: 'Edit',
     openFolder: 'Open in Explorer',
+    openClaudeConfig: 'Project Config File',
+    claudeConfigNotFound: 'Project .claude directory not found',
     hide: 'Remove from panel',
     delete: 'Delete',
     openExisting: 'Open existing project',
