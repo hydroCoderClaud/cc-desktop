@@ -182,12 +182,24 @@ const initTerminal = async () => {
   emit('ready', { sessionId: props.sessionId })
 }
 
+// 检测用户是否在终端底部
+const isAtBottom = () => {
+  if (!terminal) return true
+  const buffer = terminal.buffer.active
+  // viewportY === baseY 表示视口在最底部
+  return buffer.viewportY === buffer.baseY
+}
+
 // Write data to terminal
 const write = (data) => {
   if (terminal) {
+    // 先检测用户是否在底部
+    const wasAtBottom = isAtBottom()
     terminal.write(data)
-    // 写入后自动滚动到底部，确保用户能看到最新内容
-    terminal.scrollToBottom()
+    // 仅当用户之前在底部时才自动滚动，避免打断用户查看历史
+    if (wasAtBottom) {
+      terminal.scrollToBottom()
+    }
   }
 }
 
