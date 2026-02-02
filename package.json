@@ -27,6 +27,7 @@
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
     "better-sqlite3": "^11.10.0",
+    "js-yaml": "^4.1.1",
     "marked": "^15.0.12",
     "naive-ui": "^2.43.2",
     "node-pty": "^1.0.0",
