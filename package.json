@@ -4,7 +4,7 @@
   "description": "CC Desktop - Claude Code CLI 桌面启动器",
   "main": "src/main/index.js",
   "author": "HydroCoder",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "postinstall": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3 && electron-rebuild -f -w node-pty -o node-pty",
     "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
@@ -48,8 +48,8 @@
     "vitest": "^2.1.8"
   },
   "build": {
-    "appId": "com.hydrocoder.claude-code-desktop",
-    "productName": "Claude Code Desktop",
+    "appId": "com.hydrocoder.cc-desktop",
+    "productName": "CC Desktop",
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "directories": {
       "output": "dist"
