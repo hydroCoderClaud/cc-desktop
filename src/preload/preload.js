@@ -21,8 +21,8 @@ try {
 try {
   const initialLocale = ipcRenderer.sendSync('locale:getSync');
   if (document.documentElement) {
-    document.documentElement.setAttribute('data-locale', initialLocale || 'zh-CN');
-    document.documentElement.setAttribute('lang', initialLocale === 'en-US' ? 'en' : 'zh-CN');
+    document.documentElement.setAttribute('data-locale', initialLocale || 'en-US');
+    document.documentElement.setAttribute('lang', initialLocale === 'zh-CN' ? 'zh' : 'en');
   }
 } catch (err) {
   console.warn('[Preload] Failed to get initial locale:', err.message);

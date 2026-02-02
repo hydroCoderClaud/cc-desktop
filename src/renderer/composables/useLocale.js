@@ -52,7 +52,7 @@ export function useLocale() {
 
     currentLocale.value = newLocale
     document.documentElement.setAttribute('data-locale', newLocale)
-    document.documentElement.setAttribute('lang', newLocale === 'en-US' ? 'en' : 'zh-CN')
+    document.documentElement.setAttribute('lang', newLocale === 'zh-CN' ? 'zh' : 'en')
 
     try {
       if (window.electronAPI) {
@@ -75,7 +75,7 @@ export function useLocale() {
           if (currentLocale.value !== settings.locale) {
             currentLocale.value = settings.locale
             document.documentElement.setAttribute('data-locale', settings.locale)
-            document.documentElement.setAttribute('lang', settings.locale === 'en-US' ? 'en' : 'zh-CN')
+            document.documentElement.setAttribute('lang', settings.locale === 'zh-CN' ? 'zh' : 'en')
           }
         }
       })

@@ -14,6 +14,6 @@ export const localeNames = {
   'en-US': 'English'
 }
 
-export const defaultLocale = 'zh-CN'
+export const defaultLocale = 'en-US'
 
 export { zhCN, enUS }
