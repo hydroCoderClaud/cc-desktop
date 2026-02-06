@@ -38,9 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
   getConfigPath: () => ipcRenderer.invoke('config:getPath'),
   
-  // Global Models and Timeout
-  getGlobalModels: () => ipcRenderer.invoke('config:getGlobalModels'),
-  updateGlobalModels: (globalModels) => ipcRenderer.invoke('config:updateGlobalModels', globalModels),
+  // Global Settings
   getServiceProviders: () => ipcRenderer.invoke('config:getServiceProviders'),
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
   updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),

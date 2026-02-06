@@ -80,14 +80,6 @@ describe('ConfigManager', () => {
       expect(config.settings.theme).toBe('light')
     })
 
-    it('应该有正确的默认全局模型', () => {
-      const config = configManager.getConfig()
-      expect(config.globalModels).toBeDefined()
-      expect(config.globalModels.opus).toBeDefined()
-      expect(config.globalModels.sonnet).toBeDefined()
-      expect(config.globalModels.haiku).toBeDefined()
-    })
-
     it('应该有正确的默认超时设置', () => {
       const config = configManager.getConfig()
       expect(config.timeout).toBeDefined()
@@ -151,30 +143,6 @@ describe('ConfigManager', () => {
 
       configManager.updateSettings({ locale: 'zh-CN' })
       expect(configManager.getConfig().settings.locale).toBe('zh-CN')
-    })
-  })
-
-  describe('全局模型配置', () => {
-    it('应该能获取全局模型', () => {
-      const models = configManager.getGlobalModels()
-      expect(models).toBeDefined()
-      expect(models.opus).toBeDefined()
-      expect(models.sonnet).toBeDefined()
-      expect(models.haiku).toBeDefined()
-    })
-
-    it('应该能更新全局模型', () => {
-      const newModels = {
-        opus: 'test-opus-model',
-        sonnet: 'test-sonnet-model',
-        haiku: 'test-haiku-model'
-      }
-      configManager.updateGlobalModels(newModels)
-
-      const models = configManager.getGlobalModels()
-      expect(models.opus).toBe('test-opus-model')
-      expect(models.sonnet).toBe('test-sonnet-model')
-      expect(models.haiku).toBe('test-haiku-model')
     })
   })
 

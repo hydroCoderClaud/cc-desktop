@@ -75,14 +75,6 @@ const MODEL_TIERS = {
   }
 };
 
-// Default Global Models (for official/proxy services)
-// 留空表示使用 CLI 默认模型，AI 助手侧会 fallback 到 latest 别名
-const DEFAULT_GLOBAL_MODELS = {
-  opus: '',
-  sonnet: '',
-  haiku: ''
-};
-
 // Model aliases for AI assistant API calls (短别名，无日期后缀)
 // 大版本更新时只需修改此处
 const LATEST_MODEL_ALIASES = {
@@ -104,7 +96,6 @@ module.exports = {
   TIMEOUTS,
   SERVICE_PROVIDERS,
   MODEL_TIERS,
-  DEFAULT_GLOBAL_MODELS,
   LATEST_MODEL_ALIASES,
   PROFILE_ICONS
 };

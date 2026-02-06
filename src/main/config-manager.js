@@ -7,7 +7,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { DEFAULT_GLOBAL_MODELS, TIMEOUTS } = require('./utils/constants');
+const { TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 
@@ -34,9 +34,6 @@ class ConfigManager {
 
       // 快捷命令（右侧面板）
       quickCommands: [],
-
-      // 全局模型配置（用于官方/中转服务）
-      globalModels: { ...DEFAULT_GLOBAL_MODELS },
 
       // 超时配置
       timeout: {
@@ -148,24 +145,6 @@ class ConfigManager {
    */
   getConfig() {
     return this.config;
-  }
-
-  /**
-   * 获取全局模型配置
-   */
-  getGlobalModels() {
-    return this.config.globalModels || { ...DEFAULT_GLOBAL_MODELS };
-  }
-
-  /**
-   * 更新全局模型配置
-   */
-  updateGlobalModels(models) {
-    this.config.globalModels = {
-      ...this.config.globalModels,
-      ...models
-    };
-    return this.save();
   }
 
   // 服务商管理方法由 providerConfigMixin 提供
@@ -581,9 +560,9 @@ class ConfigManager {
       migrated = true;
     }
 
-    // 6. 确保全局配置存在
-    if (config.globalModels === undefined) {
-      config.globalModels = { ...DEFAULT_GLOBAL_MODELS };
+    // 6. 清理已废弃的 globalModels 配置
+    if (config.globalModels !== undefined) {
+      delete config.globalModels;
       migrated = true;
     }
 

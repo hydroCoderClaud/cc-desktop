@@ -118,14 +118,6 @@ function setupConfigHandlers(ipcMain, configManager) {
   // 全局设置
   // ========================================
 
-  registerHandler('config:getGlobalModels', () => {
-    return configManager.getGlobalModels()
-  })
-
-  registerHandler('config:updateGlobalModels', (globalModels) => {
-    return configManager.updateGlobalModels(globalModels)
-  })
-
   registerHandler('config:getServiceProviders', () => {
     return configManager.getServiceProviders()
   })

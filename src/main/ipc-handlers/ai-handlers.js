@@ -33,9 +33,8 @@ function getAIConfig(configManager) {
     // 第三方服务：使用 profile 的模型映射
     model = profile.modelMapping[tier].trim()
   } else {
-    // 官方/中转服务：优先使用全局模型配置，留空则使用 latest 别名
-    const globalModels = configManager.getGlobalModels()
-    model = globalModels[tier]?.trim() || LATEST_MODEL_ALIASES[tier] || LATEST_MODEL_ALIASES.sonnet
+    // 官方/中转服务：使用 latest 别名
+    model = LATEST_MODEL_ALIASES[tier] || LATEST_MODEL_ALIASES.sonnet
   }
 
   return {

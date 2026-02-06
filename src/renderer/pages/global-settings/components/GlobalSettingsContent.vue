@@ -9,45 +9,6 @@
       </n-space>
     </div>
 
-    <!-- Global Models Section -->
-    <n-card :title="t('globalSettings.defaultModels')" class="settings-section">
-      <p class="settings-section-desc">{{ t('globalSettings.defaultModelsHint') }}</p>
-      <div class="model-inputs">
-        <div class="model-row">
-          <span class="label">{{ t('profileManager.opusModel') }}</span>
-          <n-input
-            v-model:value="formData.opus"
-            :placeholder="t('globalSettings.modelPlaceholder')"
-            class="model-input"
-            clearable
-          />
-          <n-button size="small" @click="useDefault('opus')">{{ t('globalSettings.clearModel') }}</n-button>
-        </div>
-
-        <div class="model-row">
-          <span class="label">{{ t('profileManager.sonnetModel') }}</span>
-          <n-input
-            v-model:value="formData.sonnet"
-            :placeholder="t('globalSettings.modelPlaceholder')"
-            class="model-input"
-            clearable
-          />
-          <n-button size="small" @click="useDefault('sonnet')">{{ t('globalSettings.clearModel') }}</n-button>
-        </div>
-
-        <div class="model-row">
-          <span class="label">{{ t('profileManager.haikuModel') }}</span>
-          <n-input
-            v-model:value="formData.haiku"
-            :placeholder="t('globalSettings.modelPlaceholder')"
-            class="model-input"
-            clearable
-          />
-          <n-button size="small" @click="useDefault('haiku')">{{ t('globalSettings.clearModel') }}</n-button>
-        </div>
-      </div>
-    </n-card>
-
     <!-- Timeout Settings Section -->
     <n-card :title="t('globalSettings.timeout')" class="settings-section">
       <n-grid :cols="2" :x-gap="24">
@@ -135,7 +96,6 @@ import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
-import Icon from '@components/icons/Icon.vue'
 
 const message = useMessage()
 const { invoke } = useIPC()
@@ -144,9 +104,6 @@ const { t, initLocale } = useLocale()
 
 // Default values
 const DEFAULTS = {
-  opus: '',
-  sonnet: '',
-  haiku: '',
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
@@ -155,9 +112,6 @@ const DEFAULTS = {
 }
 
 const formData = ref({
-  opus: '',
-  sonnet: '',
-  haiku: '',
   testTimeout: DEFAULTS.testTimeout,
   requestTimeout: DEFAULTS.requestTimeout,
   maxActiveSessions: DEFAULTS.maxActiveSessions,
@@ -173,14 +127,6 @@ onMounted(async () => {
 
 const loadSettings = async () => {
   try {
-    // Get global models
-    const globalModels = await invoke('getGlobalModels')
-    if (globalModels) {
-      formData.value.opus = globalModels.opus || ''
-      formData.value.sonnet = globalModels.sonnet || ''
-      formData.value.haiku = globalModels.haiku || ''
-    }
-
     // Get timeout settings
     const timeout = await invoke('getTimeout')
     if (timeout) {
@@ -207,14 +153,6 @@ const loadSettings = async () => {
 
 const handleSave = async () => {
   try {
-    // Save global models (empty = use latest version automatically)
-    const globalModels = {
-      opus: formData.value.opus.trim(),
-      sonnet: formData.value.sonnet.trim(),
-      haiku: formData.value.haiku.trim()
-    }
-    await invoke('updateGlobalModels', globalModels)
-
     // Save timeout (convert to ms)
     const timeout = {
       test: formData.value.testTimeout * 1000,
@@ -242,9 +180,6 @@ const handleSave = async () => {
 const handleReset = async () => {
   try {
     // Reset form to defaults
-    formData.value.opus = DEFAULTS.opus
-    formData.value.sonnet = DEFAULTS.sonnet
-    formData.value.haiku = DEFAULTS.haiku
     formData.value.testTimeout = DEFAULTS.testTimeout
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
@@ -252,11 +187,6 @@ const handleReset = async () => {
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
 
     // Save to backend
-    await invoke('updateGlobalModels', {
-      opus: DEFAULTS.opus,
-      sonnet: DEFAULTS.sonnet,
-      haiku: DEFAULTS.haiku
-    })
     await invoke('updateTimeout', {
       test: DEFAULTS.testTimeout * 1000,
       request: DEFAULTS.requestTimeout * 1000
@@ -272,10 +202,6 @@ const handleReset = async () => {
   }
 }
 
-const useDefault = (field) => {
-  formData.value[field] = DEFAULTS[field]
-}
-
 const handleClose = () => {
   window.close()
 }
@@ -283,32 +209,4 @@ const handleClose = () => {
 
 <style scoped>
 /* 组件特有样式 - 公共样式由 settings-common.css 提供 */
-.model-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.model-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.model-row .icon {
-  font-size: 20px;
-  width: 28px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.model-row .label {
-  min-width: 100px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.model-row .model-input {
-  flex: 1;
-}
 </style>
