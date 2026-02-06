@@ -5,6 +5,7 @@
 
 const { createIPCHandler } = require('../utils/ipc-utils')
 const { countTokens, countMessagesTokens, shouldCompact } = require('../utils/token-counter')
+const { LATEST_MODEL_ALIASES } = require('../utils/constants')
 
 // 默认值（会被配置覆盖）
 const DEFAULT_MAX_TOKENS = 200000
@@ -32,9 +33,9 @@ function getAIConfig(configManager) {
     // 第三方服务：使用 profile 的模型映射
     model = profile.modelMapping[tier].trim()
   } else {
-    // 官方/中转服务：使用全局模型配置
+    // 官方/中转服务：优先使用全局模型配置，留空则使用 latest 别名
     const globalModels = configManager.getGlobalModels()
-    model = globalModels[tier] || globalModels.sonnet || 'claude-sonnet-4-5-20250929'
+    model = globalModels[tier]?.trim() || LATEST_MODEL_ALIASES[tier] || LATEST_MODEL_ALIASES.sonnet
   }
 
   return {

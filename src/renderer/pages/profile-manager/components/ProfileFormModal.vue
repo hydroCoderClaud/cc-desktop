@@ -417,7 +417,7 @@ const handleTest = () => {
 }
 
 .model-mapping-section {
-  background: var(--bg-color-tertiary, #f8f9fa);
+  background: var(--bg-color-tertiary);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -425,13 +425,13 @@ const handleTest = () => {
 
 .mapping-hint {
   font-size: 12px;
-  color: #888;
+  opacity: 0.6;
   margin-bottom: 12px;
   line-height: 1.5;
 }
 
 .proxy-fields {
-  background: var(--bg-color-tertiary, #f8f9fa);
+  background: var(--bg-color-tertiary);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;

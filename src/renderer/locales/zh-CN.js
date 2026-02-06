@@ -698,7 +698,9 @@ export default {
     requestTimeout: '请求超时',
     requestTimeoutHint: '单位：毫秒',
     defaultModels: '默认模型',
-    defaultModelsHint: '各层级默认使用的模型',
+    defaultModelsHint: '仅影响 AI 助手面板，留空则自动使用最新版本，无需手动更新',
+    modelPlaceholder: '留空自动使用最新版本',
+    clearModel: '清空',
     sessionSettings: '会话设置',
     maxActiveSessions: '最大会话数',
     maxActiveSessionsHint: '同时运行的会话数量上限',
@@ -920,7 +922,9 @@ export default {
     apiProfileChangedTitle: 'API 配置已更改',
     apiProfileChangedContent: '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
     restartSessions: '重启会话',
-    sessionsRestarted: '会话已重启，新配置已生效'
+    sessionsRestarted: '会话已重启，新配置已生效',
+    apiProfileBlockedTitle: 'API 配置未修改',
+    apiProfileBlockedContent: '运行中的历史会话，不能修改 API 配置，可能会导致签名错误，无法持续！如需修改，请在启动新会话之前修改 API 配置！'
   },
 
   // 消息提示

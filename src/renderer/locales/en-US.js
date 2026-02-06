@@ -698,7 +698,9 @@ export default {
     requestTimeout: 'Request Timeout',
     requestTimeoutHint: 'In milliseconds',
     defaultModels: 'Default Models',
-    defaultModelsHint: 'Default models for each tier',
+    defaultModelsHint: 'Only affects AI Assistant panel. Leave empty to use the latest version automatically.',
+    modelPlaceholder: 'Empty = use latest version',
+    clearModel: 'Clear',
     sessionSettings: 'Session Settings',
     maxActiveSessions: 'Max Sessions',
     maxActiveSessionsHint: 'Maximum number of concurrent sessions',
@@ -920,7 +922,9 @@ export default {
     apiProfileChangedTitle: 'API Config Changed',
     apiProfileChangedContent: 'The new API config requires restarting sessions to take effect. Restart running sessions now?',
     restartSessions: 'Restart Sessions',
-    sessionsRestarted: 'Sessions restarted with new config'
+    sessionsRestarted: 'Sessions restarted with new config',
+    apiProfileBlockedTitle: 'API Config Not Modified',
+    apiProfileBlockedContent: 'Cannot modify API config for running sessions, as it may cause signature errors! Please modify API config before starting a new session.'
   },
 
   // Messages

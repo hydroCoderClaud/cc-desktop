@@ -17,30 +17,33 @@
           <span class="label">{{ t('profileManager.opusModel') }}</span>
           <n-input
             v-model:value="formData.opus"
-            :placeholder="t('common.default')"
+            :placeholder="t('globalSettings.modelPlaceholder')"
             class="model-input"
+            clearable
           />
-          <n-button size="small" @click="useDefault('opus')">{{ t('common.default') }}</n-button>
+          <n-button size="small" @click="useDefault('opus')">{{ t('globalSettings.clearModel') }}</n-button>
         </div>
 
         <div class="model-row">
           <span class="label">{{ t('profileManager.sonnetModel') }}</span>
           <n-input
             v-model:value="formData.sonnet"
-            :placeholder="t('common.default')"
+            :placeholder="t('globalSettings.modelPlaceholder')"
             class="model-input"
+            clearable
           />
-          <n-button size="small" @click="useDefault('sonnet')">{{ t('common.default') }}</n-button>
+          <n-button size="small" @click="useDefault('sonnet')">{{ t('globalSettings.clearModel') }}</n-button>
         </div>
 
         <div class="model-row">
           <span class="label">{{ t('profileManager.haikuModel') }}</span>
           <n-input
             v-model:value="formData.haiku"
-            :placeholder="t('common.default')"
+            :placeholder="t('globalSettings.modelPlaceholder')"
             class="model-input"
+            clearable
           />
-          <n-button size="small" @click="useDefault('haiku')">{{ t('common.default') }}</n-button>
+          <n-button size="small" @click="useDefault('haiku')">{{ t('globalSettings.clearModel') }}</n-button>
         </div>
       </div>
     </n-card>
@@ -141,9 +144,9 @@ const { t, initLocale } = useLocale()
 
 // Default values
 const DEFAULTS = {
-  opus: 'claude-opus-4-5-20251101',
-  sonnet: 'claude-sonnet-4-5-20250929',
-  haiku: 'claude-haiku-4-5-20251001',
+  opus: '',
+  sonnet: '',
+  haiku: '',
   testTimeout: 30,
   requestTimeout: 120,
   maxActiveSessions: 5,
@@ -204,11 +207,11 @@ const loadSettings = async () => {
 
 const handleSave = async () => {
   try {
-    // Save global models (use defaults for empty fields)
+    // Save global models (empty = use latest version automatically)
     const globalModels = {
-      opus: formData.value.opus.trim() || DEFAULTS.opus,
-      sonnet: formData.value.sonnet.trim() || DEFAULTS.sonnet,
-      haiku: formData.value.haiku.trim() || DEFAULTS.haiku
+      opus: formData.value.opus.trim(),
+      sonnet: formData.value.sonnet.trim(),
+      haiku: formData.value.haiku.trim()
     }
     await invoke('updateGlobalModels', globalModels)
 

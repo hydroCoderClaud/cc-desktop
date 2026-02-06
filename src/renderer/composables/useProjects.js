@@ -203,7 +203,7 @@ export function useProjects() {
   /**
    * 保存项目编辑
    * @param {Object} updates - 更新内容
-   * @returns {Object} { success: boolean, apiProfileChanged: boolean, hasRunningSessions: boolean, runningSessions: Array }
+   * @returns {Object} { success: boolean, apiProfileBlocked: boolean }
    */
   const saveProject = async (updates) => {
     if (!editingProject.value) return { success: false }
@@ -214,6 +214,29 @@ export function useProjects() {
 
     // 检测 API 配置是否更改
     const apiProfileChanged = oldApiProfileId !== newApiProfileId
+
+    // 如果 API 配置更改，先检查是否有运行中的会话
+    if (apiProfileChanged) {
+      try {
+        const allSessions = await invoke('listActiveSessions', true)
+        const runningSessions = allSessions.filter(s => s.projectId === projectId)
+        if (runningSessions.length > 0) {
+          // 有运行中的会话，阻止 API 配置变更，恢复为原值
+          updates = { ...updates, api_profile_id: oldApiProfileId }
+          // 仍然保存其他字段的变更
+          await invoke('updateProject', { projectId, updates })
+          await loadProjects()
+          if (currentProject.value?.id === projectId) {
+            const updated = projects.value.find(p => p.id === projectId)
+            if (updated) currentProject.value = updated
+          }
+          closeEditModal()
+          return { success: true, apiProfileBlocked: true }
+        }
+      } catch (err) {
+        console.error('Failed to check running sessions:', err)
+      }
+    }
 
     try {
       await invoke('updateProject', {
@@ -233,23 +256,7 @@ export function useProjects() {
 
       closeEditModal()
 
-      // 如果 API 配置更改，检查是否有运行中的会话
-      let runningSessions = []
-      if (apiProfileChanged) {
-        try {
-          const allSessions = await invoke('listActiveSessions', true)
-          runningSessions = allSessions.filter(s => s.projectId === projectId)
-        } catch (err) {
-          console.error('Failed to check running sessions:', err)
-        }
-      }
-
-      return {
-        success: true,
-        apiProfileChanged,
-        hasRunningSessions: runningSessions.length > 0,
-        runningSessions
-      }
+      return { success: true, apiProfileBlocked: false }
     } catch (err) {
       console.error('Failed to update project:', err)
       throw err

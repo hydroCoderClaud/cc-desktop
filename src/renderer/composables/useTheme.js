@@ -150,10 +150,96 @@ const syncDOMTheme = (dark) => {
   }
 }
 
+/**
+ * 构建 CSS 变量对象
+ * 提取为独立函数，供 cssVars computed 和 syncCSSVarsToRoot 共用
+ */
+const buildCSSVars = (dark, colors) => {
+  const fontMono = '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Monaco", "Ubuntu Mono", monospace'
+  const fontLogo = '"Crimson Pro", "Georgia", "Times New Roman", serif'
+
+  if (dark) {
+    return {
+      '--font-mono': fontMono,
+      '--font-logo': fontLogo,
+      '--bg-color': '#1a1a1a',
+      '--bg-color-secondary': '#242424',
+      '--bg-color-tertiary': '#2d2d2d',
+      '--text-color': '#e8e8e8',
+      '--text-color-secondary': '#d0d0d0',
+      '--text-color-muted': '#8c8c8c',
+      '--border-color': '#333333',
+      '--border-color-light': '#404040',
+      '--primary-color': colors.primary,
+      '--primary-color-hover': colors.primaryHover,
+      '--primary-ghost': colors.ghost,
+      '--primary-ghost-hover': colors.ghostHover,
+      '--danger-color': '#F87171',
+      '--success-color': '#34D399',
+      '--warning-color': '#FBBF24',
+      '--info-color': '#60A5FA',
+      '--shadow-color': 'rgba(0, 0, 0, 0.3)',
+      '--scrollbar-thumb': '#444444',
+      '--warning-bg': '#3a3a1a',
+      '--warning-text': '#f4d03f',
+      '--hover-bg': '#333333'
+    }
+  }
+  return {
+    '--font-mono': fontMono,
+    '--font-logo': fontLogo,
+    '--bg-color': '#f5f5f0',
+    '--bg-color-secondary': '#ffffff',
+    '--bg-color-tertiary': '#f8f8f5',
+    '--text-color': '#2d2d2d',
+    '--text-color-secondary': '#4a4a4a',
+    '--text-color-muted': '#8c8c8c',
+    '--border-color': '#e5e5e0',
+    '--border-color-light': '#e0e0e0',
+    '--primary-color': colors.primary,
+    '--primary-color-hover': colors.primaryHover,
+    '--primary-ghost': colors.ghost,
+    '--primary-ghost-hover': colors.ghostHover,
+    '--danger-color': '#DC2626',
+    '--success-color': '#2E9E5E',
+    '--warning-color': '#D97706',
+    '--info-color': '#2563EB',
+    '--shadow-color': 'rgba(0, 0, 0, 0.08)',
+    '--scrollbar-thumb': '#d0d0c8',
+    '--warning-bg': '#fef9e7',
+    '--warning-text': '#856404',
+    '--hover-bg': '#f0f0eb'
+  }
+}
+
+/**
+ * 将 CSS 变量同步到 :root (document.documentElement)
+ * 解决 n-modal 等 teleport 到 body 的组件无法访问 .app-container CSS 变量的问题
+ */
+const syncCSSVarsToRoot = () => {
+  if (typeof document === 'undefined') return
+  const scheme = COLOR_SCHEMES[colorScheme.value] || COLOR_SCHEMES.claude
+  const colors = isDark.value ? scheme.dark : scheme.light
+  const vars = buildCSSVars(isDark.value, colors)
+  const root = document.documentElement
+  for (const [key, value] of Object.entries(vars)) {
+    root.style.setProperty(key, value)
+  }
+}
+
 // 监听主题变化，自动同步 DOM
 watch(isDark, (dark) => {
   syncDOMTheme(dark)
+  syncCSSVarsToRoot()
 }, { immediate: false })
+
+// 监听配色方案变化，同步 CSS 变量
+watch(colorScheme, () => {
+  syncCSSVarsToRoot()
+})
+
+// 初始同步
+syncCSSVarsToRoot()
 
 /**
  * 主题管理 Hook
@@ -339,84 +425,7 @@ export function useTheme() {
    * 主题 CSS 变量（用于自定义样式）
    */
   const cssVars = computed(() => {
-    // 等宽字体（终端 + 代码块统一使用）
-    const fontMono = '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Monaco", "Ubuntu Mono", monospace'
-    // Logo 字体
-    const fontLogo = '"Crimson Pro", "Georgia", "Times New Roman", serif'
-    const colors = currentColors.value
-
-    if (isDark.value) {
-      return {
-        // 字体
-        '--font-mono': fontMono,
-        '--font-logo': fontLogo,
-        // 背景色
-        '--bg-color': '#1a1a1a',
-        '--bg-color-secondary': '#242424',
-        '--bg-color-tertiary': '#2d2d2d',
-        // 文字色
-        '--text-color': '#e8e8e8',
-        '--text-color-secondary': '#d0d0d0',
-        '--text-color-muted': '#8c8c8c',
-        // 边框色
-        '--border-color': '#333333',
-        '--border-color-light': '#404040',
-        // 主题色（动态）
-        '--primary-color': colors.primary,
-        '--primary-color-hover': colors.primaryHover,
-        '--primary-ghost': colors.ghost,
-        '--primary-ghost-hover': colors.ghostHover,
-        // 语义色
-        '--danger-color': '#F87171',
-        '--success-color': '#34D399',
-        '--warning-color': '#FBBF24',
-        '--info-color': '#60A5FA',
-        // 阴影
-        '--shadow-color': 'rgba(0, 0, 0, 0.3)',
-        // 滚动条
-        '--scrollbar-thumb': '#444444',
-        // 警告框
-        '--warning-bg': '#3a3a1a',
-        '--warning-text': '#f4d03f',
-        // 悬停
-        '--hover-bg': '#333333'
-      }
-    }
-    return {
-      // 字体
-      '--font-mono': fontMono,
-      '--font-logo': fontLogo,
-      // 背景色
-      '--bg-color': '#f5f5f0',
-      '--bg-color-secondary': '#ffffff',
-      '--bg-color-tertiary': '#f8f8f5',
-      // 文字色
-      '--text-color': '#2d2d2d',
-      '--text-color-secondary': '#4a4a4a',
-      '--text-color-muted': '#8c8c8c',
-      // 边框色
-      '--border-color': '#e5e5e0',
-      '--border-color-light': '#e0e0e0',
-      // 主题色（动态）
-      '--primary-color': colors.primary,
-      '--primary-color-hover': colors.primaryHover,
-      '--primary-ghost': colors.ghost,
-      '--primary-ghost-hover': colors.ghostHover,
-      // 语义色
-      '--danger-color': '#DC2626',
-      '--success-color': '#2E9E5E',
-      '--warning-color': '#D97706',
-      '--info-color': '#2563EB',
-      // 阴影
-      '--shadow-color': 'rgba(0, 0, 0, 0.08)',
-      // 滚动条
-      '--scrollbar-thumb': '#d0d0c8',
-      // 警告框
-      '--warning-bg': '#fef9e7',
-      '--warning-text': '#856404',
-      // 悬停
-      '--hover-bg': '#f0f0eb'
-    }
+    return buildCSSVars(isDark.value, currentColors.value)
   })
 
   return {

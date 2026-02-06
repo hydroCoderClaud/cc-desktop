@@ -408,47 +408,15 @@ const handleProjectSave = async (updates) => {
     const result = await saveProject(updates)
 
     if (result.success) {
-      message.success(t('messages.projectUpdated'))
-
-      // 如果 API 配置更改且有运行中的会话，提示用户重启
-      if (result.apiProfileChanged && result.hasRunningSessions) {
+      // 如果 API 配置变更被阻止（有运行中的会话），弹出提示
+      if (result.apiProfileBlocked) {
         dialog.warning({
-          title: t('project.apiProfileChangedTitle') || 'API 配置已更改',
-          content: t('project.apiProfileChangedContent') || '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
-          positiveText: t('project.restartSessions') || '重启会话',
-          negativeText: t('common.later') || '稍后',
-          onPositiveClick: async () => {
-            // 关闭并重新创建会话
-            for (const session of result.runningSessions) {
-              try {
-                // 关闭现有会话
-                await window.electronAPI.closeActiveSession(session.id)
-
-                // 重新创建会话（使用相同的 resumeSessionId 恢复）
-                const newResult = await window.electronAPI.createActiveSession({
-                  projectId: session.projectId,
-                  projectPath: session.projectPath,
-                  projectName: session.projectName,
-                  title: session.title,
-                  apiProfileId: currentProject.value?.api_profile_id,
-                  resumeSessionId: session.resumeSessionId
-                })
-
-                if (newResult.success) {
-                  // 更新 Tab
-                  handleSessionCreated(newResult.session)
-                }
-              } catch (err) {
-                console.error('Failed to restart session:', err)
-              }
-            }
-            message.success(t('project.sessionsRestarted') || '会话已重启')
-            // 刷新左侧面板
-            if (leftPanelRef.value) {
-              leftPanelRef.value.loadActiveSessions()
-            }
-          }
+          title: t('project.apiProfileBlockedTitle') || 'API 配置未修改',
+          content: t('project.apiProfileBlockedContent') || '运行中的历史会话，不能修改 API 配置，可能会导致签名错误，无法持续！如需修改，请在启动新会话之前修改 API 配置！',
+          positiveText: t('common.ok') || '知道了'
         })
+      } else {
+        message.success(t('messages.projectUpdated'))
       }
     }
   } catch (err) {
