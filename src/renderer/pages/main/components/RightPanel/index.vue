@@ -65,7 +65,7 @@ import HooksTab from './tabs/HooksTab.vue'
 import MCPTab from './tabs/MCPTab.vue'
 import AgentsTab from './tabs/AgentsTab.vue'
 import PromptsTab from './tabs/PromptsTab.vue'
-import AITab from './tabs/AITab.vue'
+// import AITab from './tabs/AITab.vue' // 暂时禁用
 
 const { t } = useLocale()
 
@@ -105,7 +105,7 @@ const tabs = computed(() => [
   { id: 'agents', icon: 'letterA', label: t('rightPanel.tabs.agents') },
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
-  { id: 'ai', icon: 'robot', label: t('rightPanel.tabs.ai') }
+  // { id: 'ai', icon: 'robot', label: t('rightPanel.tabs.ai') } // 暂时禁用
 ])
 
 // Tab components map (queue 使用 MessageQueue 直接渲染)
@@ -116,7 +116,7 @@ const tabComponents = {
   hooks: markRaw(HooksTab),
   mcp: markRaw(MCPTab),
   agents: markRaw(AgentsTab),
-  ai: markRaw(AITab)
+  // ai: markRaw(AITab) // 暂时禁用
 }
 
 // Active tab state

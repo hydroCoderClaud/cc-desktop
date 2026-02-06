@@ -80,7 +80,7 @@ defineEmits(['select', 'collapse'])
 .tab-buttons {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
