@@ -669,6 +669,7 @@ export default {
     providerId: '服务商 ID',
     providerIdHint: '唯一标识符，创建后不可修改',
     needsMapping: '需要模型映射',
+    needsMappingWarn: '（建议不要打开，使用自动即可）',
     needsMappingHint: '是否需要将 Claude 模型映射到其他模型名称',
     defaultBaseUrl: '默认接口地址',
     defaultModelMapping: '默认模型映射',

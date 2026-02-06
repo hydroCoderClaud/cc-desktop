@@ -669,6 +669,7 @@ export default {
     providerId: 'Provider ID',
     providerIdHint: 'Unique identifier, cannot be changed after creation',
     needsMapping: 'Needs Model Mapping',
+    needsMappingWarn: '(Not recommended, use auto mode)',
     needsMappingHint: 'Whether Claude models need to be mapped to other model names',
     defaultBaseUrl: 'Default Base URL',
     defaultModelMapping: 'Default Model Mapping',

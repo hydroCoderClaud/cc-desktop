@@ -26,16 +26,9 @@ function getAIConfig(configManager) {
     profile = configManager.getDefaultProfile()
   }
 
-  // 获取模型名：优先使用 profile.modelMapping，否则使用全局模型
+  // 获取模型名：始终使用 LATEST_MODEL_ALIASES（兼容 Anthropic 格式的第三方会自动映射）
   const tier = profile?.selectedModelTier || 'sonnet'
-  let model
-  if (profile?.modelMapping?.[tier]?.trim()) {
-    // 第三方服务：使用 profile 的模型映射
-    model = profile.modelMapping[tier].trim()
-  } else {
-    // 官方/中转服务：使用 latest 别名
-    model = LATEST_MODEL_ALIASES[tier] || LATEST_MODEL_ALIASES.sonnet
-  }
+  const model = LATEST_MODEL_ALIASES[tier] || LATEST_MODEL_ALIASES.sonnet
 
   return {
     profile,

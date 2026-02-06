@@ -63,6 +63,7 @@
           <n-space align="center">
             <n-switch v-model:value="formData.needsMapping" />
             <span>{{ t('providerManager.needsMapping') }}</span>
+            <span style="color: var(--text-color-muted); font-size: 12px;">{{ t('providerManager.needsMappingWarn') }}</span>
           </n-space>
         </n-form-item>
 
