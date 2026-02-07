@@ -106,7 +106,7 @@ const tabs = computed(() => [
   { id: 'agents', icon: 'letterA', label: t('rightPanel.tabs.agents') },
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
-  { id: 'settings', icon: 'settings', label: t('rightPanel.tabs.settings') },
+  { id: 'settings', icon: 'wrench', label: t('rightPanel.tabs.settings') },
   // { id: 'ai', icon: 'robot', label: t('rightPanel.tabs.ai') } // 暂时禁用
 ])
 
