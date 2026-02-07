@@ -99,7 +99,8 @@ export default {
       mcp: 'MCP',
       agents: 'Agents',
       prompts: '提示词',
-      ai: 'AI 助手'
+      ai: 'AI 助手',
+      settings: '设置'
     },
     // 快捷命令
     quickCommands: {
@@ -542,6 +543,63 @@ export default {
       noExportableAgents: '当前来源没有可导出的 Agent',
       // 查看插件
       viewPlugin: '查看插件 Agent'
+    },
+    // Claude Code 设置
+    settings: {
+      refresh: '刷新',
+      docs: '查看官方文档',
+      search: '搜索设置...',
+      empty: '暂无配置项',
+      emptyHint: '配置 Claude Code 的工具权限和环境变量',
+      openFile: '打开配置文件',
+      rawJson: '编辑原始 JSON',
+      // 权限
+      permissions: {
+        globalTitle: '全局权限',
+        projectTitle: '项目权限',
+        allow: '允许',
+        deny: '拒绝',
+        addRule: '添加权限规则',
+        editRule: '编辑权限规则',
+        type: '类型',
+        pattern: '匹配模式',
+        patternPlaceholder: '例如: Bash(git *), Read, Write(~/.config/*)',
+        patternHint: '工具名称，可选参数匹配模式。支持通配符 *',
+        confirmDelete: '确定删除此权限规则？',
+        deleteSuccess: '权限规则已删除',
+        saveSuccess: '权限规则已保存',
+        noRules: '暂无权限规则',
+        ruleExists: '规则已存在'
+      },
+      // 环境变量
+      env: {
+        globalTitle: '全局环境变量',
+        projectTitle: '项目环境变量',
+        addVar: '添加环境变量',
+        editVar: '编辑环境变量',
+        key: '变量名',
+        keyPlaceholder: '例如: NODE_ENV',
+        value: '值',
+        valuePlaceholder: '变量值',
+        confirmDelete: '确定删除环境变量 "{key}" ？',
+        deleteSuccess: '环境变量已删除',
+        saveSuccess: '环境变量已保存',
+        noVars: '暂无环境变量',
+        masked: '点击显示'
+      },
+      // 原始 JSON
+      rawJsonEditor: {
+        title: '原始 JSON 配置',
+        global: '全局',
+        project: '项目',
+        format: '格式化',
+        save: '保存',
+        warning: '编辑原始 JSON 可能影响其他标签页管理的设置（Hooks、插件等）',
+        invalidJson: 'JSON 格式无效',
+        saveSuccess: '设置已保存',
+        saveFailed: '保存设置失败',
+        noProject: '请先选择一个项目'
+      }
     },
     // 提示词
     prompts: {

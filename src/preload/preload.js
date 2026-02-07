@@ -244,6 +244,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteMcp: (params) => ipcRenderer.invoke('mcp:delete', params),
 
   // ========================================
+  // Claude Code Settings 管理 (permissions, env)
+  // ========================================
+  getClaudeSettings: (projectPath) => ipcRenderer.invoke('settings:getAll', projectPath),
+  getClaudePermissions: (params) => ipcRenderer.invoke('settings:getPermissions', params),
+  addClaudePermission: (params) => ipcRenderer.invoke('settings:addPermission', params),
+  updateClaudePermission: (params) => ipcRenderer.invoke('settings:updatePermission', params),
+  removeClaudePermission: (params) => ipcRenderer.invoke('settings:removePermission', params),
+  getClaudeEnv: (params) => ipcRenderer.invoke('settings:getEnv', params),
+  setClaudeEnv: (params) => ipcRenderer.invoke('settings:setEnv', params),
+  removeClaudeEnv: (params) => ipcRenderer.invoke('settings:removeEnv', params),
+  getClaudeSettingsRaw: (params) => ipcRenderer.invoke('settings:getRaw', params),
+  saveClaudeSettingsRaw: (params) => ipcRenderer.invoke('settings:saveRaw', params),
+
+  // ========================================
   // 文件操作
   // ========================================
   openFileInEditor: (filePath) => ipcRenderer.invoke('file:openInEditor', filePath),

@@ -99,7 +99,8 @@ export default {
       mcp: 'MCP',
       agents: 'Agents',
       prompts: 'Prompts',
-      ai: 'AI'
+      ai: 'AI',
+      settings: 'Settings'
     },
     // Quick Commands
     quickCommands: {
@@ -542,6 +543,60 @@ export default {
       noExportableAgents: 'No exportable agents in current source',
       // View plugin
       viewPlugin: 'View Plugin Agent'
+    },
+    // Claude Code Settings
+    settings: {
+      refresh: 'Refresh',
+      docs: 'View official documentation',
+      search: 'Search settings...',
+      empty: 'No settings configured',
+      emptyHint: 'Configure tool permissions and environment variables for Claude Code',
+      openFile: 'Open settings file',
+      rawJson: 'Edit raw JSON',
+      permissions: {
+        globalTitle: 'Global Permissions',
+        projectTitle: 'Project Permissions',
+        allow: 'Allow',
+        deny: 'Deny',
+        addRule: 'Add permission rule',
+        editRule: 'Edit permission rule',
+        type: 'Type',
+        pattern: 'Pattern',
+        patternPlaceholder: 'e.g., Bash(git *), Read, Write(~/.config/*)',
+        patternHint: 'Tool name with optional argument pattern. Supports wildcard *',
+        confirmDelete: 'Delete this permission rule?',
+        deleteSuccess: 'Permission rule deleted',
+        saveSuccess: 'Permission rule saved',
+        noRules: 'No permission rules',
+        ruleExists: 'Rule already exists'
+      },
+      env: {
+        globalTitle: 'Global Environment',
+        projectTitle: 'Project Environment',
+        addVar: 'Add environment variable',
+        editVar: 'Edit environment variable',
+        key: 'Variable name',
+        keyPlaceholder: 'e.g., NODE_ENV',
+        value: 'Value',
+        valuePlaceholder: 'Variable value',
+        confirmDelete: 'Delete environment variable "{key}"?',
+        deleteSuccess: 'Environment variable deleted',
+        saveSuccess: 'Environment variable saved',
+        noVars: 'No environment variables',
+        masked: 'Click to reveal'
+      },
+      rawJsonEditor: {
+        title: 'Raw Settings JSON',
+        global: 'Global',
+        project: 'Project',
+        format: 'Format',
+        save: 'Save',
+        warning: 'Editing raw JSON may affect settings managed by other tabs (Hooks, Plugins, etc.)',
+        invalidJson: 'Invalid JSON format',
+        saveSuccess: 'Settings saved',
+        saveFailed: 'Failed to save settings',
+        noProject: 'Please select a project first'
+      }
     },
     // Prompts
     prompts: {

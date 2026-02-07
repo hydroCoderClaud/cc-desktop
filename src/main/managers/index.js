@@ -7,10 +7,12 @@ const { SkillsManager } = require('./skills-manager')
 const { AgentsManager } = require('./agents')
 const { HooksManager } = require('./hooks-manager')
 const { McpManager } = require('./mcp-manager')
+const { SettingsManager } = require('./settings-manager')
 
 module.exports = {
   SkillsManager,
   AgentsManager,
   HooksManager,
-  McpManager
+  McpManager,
+  SettingsManager
 }
