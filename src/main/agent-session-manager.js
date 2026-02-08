@@ -477,10 +477,13 @@ class AgentSessionManager {
 
         // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
         if (msg.message?.usage) {
+          console.log('[AgentSession] assistant msg.message.usage:', JSON.stringify(msg.message.usage))
           this._safeSend('agent:usage', {
             sessionId: session.id,
             usage: msg.message.usage
           })
+        } else {
+          console.log('[AgentSession] assistant msg.message has NO usage field. Keys:', msg.message ? Object.keys(msg.message).join(',') : 'null')
         }
 
         // 存储助手消息和工具调用到历史
@@ -517,6 +520,8 @@ class AgentSessionManager {
 
       case 'result':
         // 查询完成
+        console.log('[AgentSession] result usage:', JSON.stringify(msg.usage))
+        console.log('[AgentSession] result modelUsage:', JSON.stringify(msg.modelUsage))
         session.totalCostUsd += msg.total_cost_usd || 0
         this._safeSend('agent:result', {
           sessionId: session.id,

@@ -32,6 +32,8 @@ export function useAgentChat(sessionId) {
   const isCompacting = ref(false)    // 是否正在压缩
   const slashCommands = ref([])     // SDK 提供的可用 slash 命令
   const activeModel = ref('')        // SDK 实际使用的模型名
+  const totalCostUsd = ref(0)        // 累计花费
+  const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
 
   // 用户手动切换模型时记录（syncFromInit 守卫防止 init 同步触发）
@@ -119,27 +121,82 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 发送消息
+   * 本地处理 slash 命令（不发送到 SDK）
+   * 这些命令在 CLI 中由 REPL 处理，SDK query() 不支持
+   * @returns {boolean} 是否已处理
    */
+  const handleLocalSlashCommand = (cmd) => {
+    const lower = cmd.toLowerCase()
+
+    if (lower === '/compact') {
+      compactConversation()
+      return true
+    }
+
+    if (lower === '/status') {
+      const lines = [
+        `Session: ${sessionId.substring(0, 8)}`,
+        `Model: ${activeModel.value || 'unknown'}`,
+        `Turns: ${numTurns.value}`,
+        `Messages: ${messages.value.length}`,
+        `Cost: $${totalCostUsd.value.toFixed(4)}`,
+        contextTokens.value > 0 ? `Context tokens: ${contextTokens.value.toLocaleString()}` : ''
+      ].filter(Boolean)
+      addAssistantMessage(lines.join('\n'))
+      return true
+    }
+
+    if (lower === '/cost') {
+      addAssistantMessage(`Total cost: $${totalCostUsd.value.toFixed(4)} USD`)
+      return true
+    }
+
+    if (lower === '/help') {
+      const lines = [
+        'Available commands:',
+        '  /compact - Compress conversation context',
+        '  /status  - Show session status',
+        '  /cost    - Show total cost',
+        '  /clear   - Clear message display',
+        '  /help    - Show this help'
+      ]
+      addAssistantMessage(lines.join('\n'))
+      return true
+    }
+
+    if (lower === '/clear') {
+      messages.value = []
+      currentStreamText.value = ''
+      return true
+    }
+
+    return false
+  }
+
   const sendMessage = async (text) => {
     if (!text.trim() || isStreaming.value) return
 
     const trimmed = text.trim()
 
-    // /compact 走专用方法
-    if (trimmed === '/compact') {
-      return compactConversation()
+    // 本地 slash 命令拦截
+    if (trimmed.startsWith('/')) {
+      addUserMessage(trimmed)
+      if (handleLocalSlashCommand(trimmed)) {
+        return
+      }
+      // 未识别的 slash 命令，照常发送给 SDK
     }
 
     error.value = null
     isRestored.value = false
-    addUserMessage(trimmed)
+    if (!trimmed.startsWith('/')) {
+      // 只有非 slash 命令才在这里添加用户消息（slash 命令已在上面添加）
+      addUserMessage(trimmed)
+    }
     isStreaming.value = true
     currentStreamText.value = ''
     startTimer()
 
-    // slash 命令自动限制 maxTurns=1
-    const isSlashCmd = trimmed.startsWith('/')
     const sendOptions = {
       sessionId,
       message: trimmed
@@ -147,9 +204,6 @@ export function useAgentChat(sessionId) {
     // 仅在用户手动切换过模型时才传 modelTier，否则使用配置文件默认
     if (modelOverride.value) {
       sendOptions.modelTier = modelOverride.value
-    }
-    if (isSlashCmd) {
-      sendOptions.maxTurns = 1
     }
 
     try {
@@ -267,6 +321,27 @@ export function useAgentChat(sessionId) {
     }
 
     const result = data.result
+
+    // 从 result.modelUsage 读取上下文 token 数
+    // Anthropic API 使用 prompt caching，实际上下文 = inputTokens + cacheCreationInputTokens + cacheReadInputTokens
+    if (result?.modelUsage) {
+      let totalInput = 0
+      for (const model of Object.values(result.modelUsage)) {
+        totalInput += (model.inputTokens || 0) + (model.cacheCreationInputTokens || 0) + (model.cacheReadInputTokens || 0)
+      }
+      if (totalInput > 0) {
+        contextTokens.value = totalInput
+      }
+    }
+
+    // 累计花费和轮数
+    if (result?.totalCostUsd) {
+      totalCostUsd.value += result.totalCostUsd
+    }
+    if (result?.numTurns) {
+      numTurns.value += result.numTurns
+    }
+
     if (result?.subtype?.startsWith('error')) {
       error.value = result.error || 'Unknown error'
     }
@@ -411,6 +486,8 @@ export function useAgentChat(sessionId) {
     isCompacting,
     slashCommands,
     activeModel,
+    totalCostUsd,
+    numTurns,
     loadMessages,
     sendMessage,
     cancelGeneration,
