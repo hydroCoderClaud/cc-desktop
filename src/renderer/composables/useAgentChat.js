@@ -215,13 +215,11 @@ export function useAgentChat(sessionId) {
 
     const sendOptions = {
       sessionId,
-      message: trimmed
-    }
-
-    // 首次发送时如果用户已选择模型，传递 modelTier
-    // （后续模型切换通过 setModel() 实时生效，不需要每次传）
-    if (!hasActiveSession && selectedModel.value !== 'sonnet') {
-      sendOptions.modelTier = selectedModel.value
+      message: trimmed,
+      // 每次都传当前选择的模型，确保：
+      // 1. 新建 query 时使用正确模型
+      // 2. push 到现有队列前自动 setModel()
+      modelTier: selectedModel.value
     }
 
     try {
@@ -394,6 +392,10 @@ export function useAgentChat(sessionId) {
       if (currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
+      }
+      // CLI 进程退出时重置标记，下次发消息会重建 query
+      if (data.cliExited) {
+        hasActiveSession = false
       }
     } else if (data.status === 'streaming') {
       isStreaming.value = true

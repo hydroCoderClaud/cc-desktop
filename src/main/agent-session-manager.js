@@ -340,6 +340,14 @@ class AgentSessionManager {
 
     // 已有持久 query → 直接 push 消息
     if (session.queryGenerator && session.messageQueue && !session.messageQueue.isDone) {
+      // push 前确保模型正确（防止 watch 中的 setModel 静默失败）
+      if (modelTier) {
+        try {
+          await session.queryGenerator.setModel(modelTier)
+        } catch (e) {
+          console.warn(`[AgentSession] setModel before push failed: ${e.message}`)
+        }
+      }
       console.log(`[AgentSession] Pushing message to existing queue for session ${sessionId}`)
       session.messageQueue.push(sdkUserMessage)
       return
@@ -441,7 +449,8 @@ class AgentSessionManager {
 
       this._safeSend('agent:statusChange', {
         sessionId: session.id,
-        status: session.status
+        status: session.status,
+        cliExited: true  // 标记 CLI 进程已退出，前端需要重置 hasActiveSession
       })
     }
   }
