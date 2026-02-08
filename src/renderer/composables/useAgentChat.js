@@ -203,6 +203,22 @@ export function useAgentChat(sessionId) {
   }
 
   /**
+   * 处理状态变化事件（取消、完成等）
+   */
+  const handleStatusChange = (data) => {
+    if (data.sessionId !== sessionId) return
+
+    if (data.status === 'idle' || data.status === 'error') {
+      isStreaming.value = false
+      // flush 未完成的流式文本
+      if (currentStreamText.value) {
+        addAssistantMessage(currentStreamText.value)
+        currentStreamText.value = ''
+      }
+    }
+  }
+
+  /**
    * 处理工具进度事件
    */
   const handleToolProgress = (data) => {
@@ -234,6 +250,9 @@ export function useAgentChat(sessionId) {
     }
     if (window.electronAPI.onAgentToolProgress) {
       cleanupFns.push(window.electronAPI.onAgentToolProgress(handleToolProgress))
+    }
+    if (window.electronAPI.onAgentStatusChange) {
+      cleanupFns.push(window.electronAPI.onAgentStatusChange(handleStatusChange))
     }
   }
 

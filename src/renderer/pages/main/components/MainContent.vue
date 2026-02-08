@@ -218,6 +218,10 @@ const developerTabs = computed(() => allTabs.value.filter(t => t.type !== 'agent
 const agentTabs = computed(() => allTabs.value.filter(t => t.type === 'agent-chat'))
 const hasAgentTabs = computed(() => agentTabs.value.length > 0)
 
+// 各模式最后的 activeTabId，切换模式时保存/恢复
+let lastDeveloperTabId = 'welcome'
+let lastAgentTabId = 'welcome'
+
 // Refs
 const leftPanelRef = ref(null)
 const rightPanelRef = ref(null)
@@ -494,7 +498,11 @@ const handleSelectTab = (tab) => {
 }
 
 const handleCloseTab = async (tab) => {
-  await closeTab(tab)
+  if (tab.type === 'agent-chat') {
+    closeAgentTab(tab)
+  } else {
+    await closeTab(tab)
+  }
 }
 
 // ========================================
@@ -556,10 +564,27 @@ const handleSendToTerminal = (command) => {
   })
 }
 
-// Mode changed handler
+// Mode changed handler：保存当前模式的 tabId，恢复目标模式的 tabId
 const handleModeChanged = (mode) => {
-  // 切换模式时回到欢迎页，避免模式内容错位
-  activeTabId.value = 'welcome'
+  if (mode === 'developer') {
+    // 切到开发者模式：保存 agent tab，恢复 developer tab
+    lastAgentTabId = activeTabId.value
+    activeTabId.value = lastDeveloperTabId
+    // 验证恢复的 tab 是否仍存在
+    if (lastDeveloperTabId !== 'welcome' && !tabs.value.find(t => t.id === lastDeveloperTabId)) {
+      const lastDev = developerTabs.value[developerTabs.value.length - 1]
+      activeTabId.value = lastDev ? lastDev.id : 'welcome'
+    }
+  } else {
+    // 切到 agent 模式：保存 developer tab，恢复 agent tab
+    lastDeveloperTabId = activeTabId.value
+    activeTabId.value = lastAgentTabId
+    // 验证恢复的 tab 是否仍存在
+    if (lastAgentTabId !== 'welcome' && !tabs.value.find(t => t.id === lastAgentTabId)) {
+      const lastAgent = agentTabs.value[agentTabs.value.length - 1]
+      activeTabId.value = lastAgent ? lastAgent.id : 'welcome'
+    }
+  }
 }
 
 // ========================================
