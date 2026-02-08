@@ -1039,6 +1039,7 @@ export default {
     modelBalanced: 'Balanced',
     modelPowerful: 'Powerful',
     modelFast: 'Fast',
+    modelSwitched: 'Switched to {model}',
     contextTokensHint: 'Current context token usage',
     compactHint: 'Compact context (reduce token usage)',
     slashTitle: 'Available Commands',

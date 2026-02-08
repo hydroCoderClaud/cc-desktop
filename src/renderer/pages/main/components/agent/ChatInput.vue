@@ -1,6 +1,6 @@
 <template>
   <div class="chat-input-area">
-    <!-- 工具栏：模型选择 + token + compact -->
+    <!-- 工具栏：模型选择 + token -->
     <div class="input-toolbar">
       <div class="toolbar-left">
         <div class="model-selector" @click="toggleModelDropdown" ref="selectorRef">
@@ -28,18 +28,12 @@
       </div>
 
       <div class="toolbar-right">
+        <Transition name="hint-fade">
+          <span v-if="modelSwitchHint" class="model-hint">{{ modelSwitchHint }}</span>
+        </Transition>
         <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
           {{ formatTokens(contextTokens) }}
         </span>
-        <button
-          class="compact-btn"
-          :disabled="isStreaming || isCompacting || contextTokens === 0"
-          :title="t('agent.compactHint')"
-          @click="$emit('compact')"
-        >
-          <Icon v-if="isCompacting" name="refresh" :size="13" class="spinning" />
-          <Icon v-else name="compress" :size="13" />
-        </button>
       </div>
     </div>
 
@@ -115,10 +109,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  isCompacting: {
-    type: Boolean,
-    default: false
-  },
   disabled: {
     type: Boolean,
     default: false
@@ -141,7 +131,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'compact', 'update:modelValue'])
+const emit = defineEmits(['send', 'cancel', 'update:modelValue'])
 
 // ============================
 // Token 格式化
@@ -173,9 +163,20 @@ const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
 }
 
+const modelSwitchHint = ref('')
+let hintTimer = null
+
 const selectModel = (value) => {
   emit('update:modelValue', value)
   showDropdown.value = false
+
+  // 显示切换提示
+  const found = modelOptions.find(m => m.value === value)
+  if (found) {
+    modelSwitchHint.value = t('agent.modelSwitched', { model: found.label })
+    clearTimeout(hintTimer)
+    hintTimer = setTimeout(() => { modelSwitchHint.value = '' }, 2000)
+  }
 }
 
 // ============================
@@ -352,6 +353,17 @@ defineExpose({ focus })
   gap: 6px;
 }
 
+.model-hint {
+  font-size: 11px;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.hint-fade-enter-active { transition: opacity 0.2s; }
+.hint-fade-leave-active { transition: opacity 0.5s; }
+.hint-fade-enter-from,
+.hint-fade-leave-to { opacity: 0; }
+
 .token-count {
   font-size: 11px;
   color: var(--text-color-muted);
@@ -359,38 +371,6 @@ defineExpose({ focus })
   user-select: none;
 }
 
-.compact-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  color: var(--text-color-secondary);
-  transition: all 0.15s;
-}
-
-.compact-btn:hover:not(:disabled) {
-  background: var(--primary-ghost-hover);
-  color: var(--primary-color);
-}
-
-.compact-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.compact-btn .spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 .model-selector {
   display: flex;
