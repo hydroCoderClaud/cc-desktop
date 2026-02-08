@@ -27,6 +27,8 @@ export function useAgentChat(sessionId) {
   const sessionInfo = ref(null)
   const selectedModel = ref('sonnet')
   const streamingElapsed = ref(0)
+  const contextTokens = ref(0)      // 上下文 token 数量
+  const isCompacting = ref(false)    // 是否正在压缩
   let streamingTimer = null
 
   // 清理函数列表
@@ -204,6 +206,7 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
 
     isStreaming.value = false
+    isCompacting.value = false
     stopTimer()
 
     // 如果还有未 flush 的流式文本
@@ -215,6 +218,12 @@ export function useAgentChat(sessionId) {
     const result = data.result
     if (result?.subtype?.startsWith('error')) {
       error.value = result.error || 'Unknown error'
+    }
+
+    // 提取 token 用量（input_tokens 近似当前上下文大小）
+    if (result?.usage) {
+      const usage = result.usage
+      contextTokens.value = usage.inputTokens || usage.input_tokens || 0
     }
   }
 
@@ -242,6 +251,34 @@ export function useAgentChat(sessionId) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
+    }
+  }
+
+  /**
+   * 处理上下文压缩完成事件
+   */
+  const handleCompacted = (data) => {
+    if (data.sessionId !== sessionId) return
+    isCompacting.value = false
+    // compact_boundary 返回压缩前的 token 数，压缩后会在下次 result 中更新
+    console.log(`[useAgentChat] Compacted: preTokens=${data.preTokens}, trigger=${data.trigger}`)
+  }
+
+  /**
+   * 压缩上下文
+   */
+  const compactConversation = async () => {
+    if (isStreaming.value || isCompacting.value) return
+
+    error.value = null
+    isCompacting.value = true
+
+    try {
+      await window.electronAPI.compactAgentConversation(sessionId)
+    } catch (err) {
+      console.error('[useAgentChat] compact error:', err)
+      error.value = err.message || 'Compact failed'
+      isCompacting.value = false
     }
   }
 
@@ -281,6 +318,9 @@ export function useAgentChat(sessionId) {
     if (window.electronAPI.onAgentStatusChange) {
       cleanupFns.push(window.electronAPI.onAgentStatusChange(handleStatusChange))
     }
+    if (window.electronAPI.onAgentCompacted) {
+      cleanupFns.push(window.electronAPI.onAgentCompacted(handleCompacted))
+    }
   }
 
   /**
@@ -304,9 +344,12 @@ export function useAgentChat(sessionId) {
     sessionInfo,
     selectedModel,
     streamingElapsed,
+    contextTokens,
+    isCompacting,
     loadMessages,
     sendMessage,
     cancelGeneration,
+    compactConversation,
     setupListeners,
     cleanup
   }

@@ -1,29 +1,48 @@
 <template>
   <div class="chat-input-area">
-    <!-- 工具栏：模型选择 -->
+    <!-- 工具栏：模型选择 + token + compact -->
     <div class="input-toolbar">
-      <div class="model-selector" @click="toggleModelDropdown" ref="selectorRef">
-        <Icon name="robot" :size="14" class="model-icon" />
-        <span class="model-label">{{ modelDisplayName }}</span>
-        <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showDropdown }" />
+      <div class="toolbar-left">
+        <div class="model-selector" @click="toggleModelDropdown" ref="selectorRef">
+          <Icon name="robot" :size="14" class="model-icon" />
+          <span class="model-label">{{ modelDisplayName }}</span>
+          <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showDropdown }" />
+        </div>
+
+        <!-- 下拉菜单 -->
+        <Transition name="dropdown">
+          <div v-if="showDropdown" class="model-dropdown">
+            <div
+              v-for="m in modelOptions"
+              :key="m.value"
+              class="model-option"
+              :class="{ active: modelValue === m.value }"
+              @click="selectModel(m.value)"
+            >
+              <span class="option-name">{{ m.label }}</span>
+              <span class="option-desc">{{ m.desc }}</span>
+              <Icon v-if="modelValue === m.value" name="check" :size="14" class="check-icon" />
+            </div>
+          </div>
+        </Transition>
       </div>
 
-      <!-- 下拉菜单 -->
-      <Transition name="dropdown">
-        <div v-if="showDropdown" class="model-dropdown">
-          <div
-            v-for="m in modelOptions"
-            :key="m.value"
-            class="model-option"
-            :class="{ active: modelValue === m.value }"
-            @click="selectModel(m.value)"
-          >
-            <span class="option-name">{{ m.label }}</span>
-            <span class="option-desc">{{ m.desc }}</span>
-            <Icon v-if="modelValue === m.value" name="check" :size="14" class="check-icon" />
-          </div>
-        </div>
-      </Transition>
+      <div class="toolbar-right">
+        <!-- Token 计数 -->
+        <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
+          {{ formatTokens(contextTokens) }}
+        </span>
+        <!-- 压缩按钮 -->
+        <button
+          class="compact-btn"
+          :disabled="isStreaming || isCompacting || contextTokens === 0"
+          :title="t('agent.compactHint')"
+          @click="$emit('compact')"
+        >
+          <Icon v-if="isCompacting" name="refresh" :size="13" class="spinning" />
+          <Icon v-else name="compress" :size="13" />
+        </button>
+      </div>
     </div>
 
     <!-- 输入区域 -->
@@ -71,6 +90,10 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  isCompacting: {
+    type: Boolean,
+    default: false
+  },
   disabled: {
     type: Boolean,
     default: false
@@ -82,10 +105,21 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: 'sonnet'
+  },
+  contextTokens: {
+    type: Number,
+    default: 0
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'update:modelValue'])
+const emit = defineEmits(['send', 'cancel', 'compact', 'update:modelValue'])
+
+// 格式化 token 数量
+const formatTokens = (n) => {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
+  return `${n}`
+}
 
 const modelOptions = [
   { value: 'sonnet', label: 'Sonnet', desc: t('agent.modelBalanced') },
@@ -174,8 +208,61 @@ defineExpose({ focus })
 .input-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 6px;
   position: relative;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.token-count {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.compact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-color-secondary);
+  transition: all 0.15s;
+}
+
+.compact-btn:hover:not(:disabled) {
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
+}
+
+.compact-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.compact-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .model-selector {

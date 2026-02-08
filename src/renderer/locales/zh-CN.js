@@ -1041,6 +1041,8 @@ export default {
     restoredHint: '历史会话 · 发送消息继续对话',
     modelBalanced: '均衡',
     modelPowerful: '强力',
-    modelFast: '快速'
+    modelFast: '快速',
+    contextTokensHint: '当前上下文 Token 用量',
+    compactHint: '压缩上下文（减少 Token 用量）'
   }
 }

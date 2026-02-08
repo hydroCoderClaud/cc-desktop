@@ -107,6 +107,27 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     return agentSessionManager.getMessages(sessionId)
   })
 
+  // 压缩会话上下文
+  ipcMain.handle('agent:compact', async (event, sessionId) => {
+    try {
+      agentSessionManager.compactConversation(sessionId).catch(err => {
+        console.error('[IPC] agent:compact async error:', err)
+        event.sender.send('agent:error', {
+          sessionId,
+          error: err.message || 'Compact failed'
+        })
+        event.sender.send('agent:statusChange', {
+          sessionId,
+          status: 'idle'
+        })
+      })
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:compact error:', err)
+      return { error: err.message }
+    }
+  })
+
   // 物理删除对话
   ipcMain.handle('agent:deleteConversation', async (event, sessionId) => {
     try {

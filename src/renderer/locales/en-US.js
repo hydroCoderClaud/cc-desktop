@@ -1038,6 +1038,8 @@ export default {
     restoredHint: 'History session · Send a message to continue',
     modelBalanced: 'Balanced',
     modelPowerful: 'Powerful',
-    modelFast: 'Fast'
+    modelFast: 'Fast',
+    contextTokensHint: 'Current context token usage',
+    compactHint: 'Compact context (reduce token usage)'
   }
 }

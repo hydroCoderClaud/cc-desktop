@@ -441,6 +441,13 @@ class AgentSessionManager {
               console.error('[AgentSession] Failed to update sdk_session_id:', err)
             }
           }
+        } else if (msg.subtype === 'compact_boundary') {
+          // 上下文压缩完成
+          this._safeSend('agent:compacted', {
+            sessionId: session.id,
+            preTokens: msg.compact_metadata?.pre_tokens || 0,
+            trigger: msg.compact_metadata?.trigger || 'manual'
+          })
         } else if (msg.subtype === 'status') {
           this._safeSend('agent:systemStatus', {
             sessionId: session.id,
@@ -506,7 +513,8 @@ class AgentSessionManager {
             totalCostUsd: msg.total_cost_usd,
             numTurns: msg.num_turns,
             durationMs: msg.duration_ms,
-            usage: msg.usage
+            usage: msg.usage,
+            modelUsage: msg.modelUsage
           }
         })
 
@@ -753,6 +761,78 @@ class AgentSessionManager {
 
     console.log(`[AgentSession] Deleted session ${sessionId}`)
     return { success: true }
+  }
+
+  /**
+   * 压缩会话上下文（发送 /compact 命令）
+   */
+  async compactConversation(sessionId) {
+    let session = this.sessions.get(sessionId)
+
+    if (!session) {
+      this.reopen(sessionId)
+      session = this.sessions.get(sessionId)
+    }
+    if (!session) {
+      throw new Error(`Agent session ${sessionId} not found`)
+    }
+    if (!session.sdkSessionId) {
+      throw new Error('No active SDK session to compact')
+    }
+    if (session.status === AgentStatus.STREAMING) {
+      throw new Error('Session is currently streaming')
+    }
+
+    const queryFn = await this._loadSDK()
+
+    session.status = AgentStatus.STREAMING
+    session.abortController = new AbortController()
+
+    this._safeSend('agent:statusChange', {
+      sessionId: session.id,
+      status: AgentStatus.STREAMING
+    })
+
+    try {
+      const env = this._buildEnvVars()
+      const options = {
+        cwd: session.cwd,
+        permissionMode: 'acceptEdits',
+        settingSources: ['user'],
+        maxTurns: 1,
+        resume: session.sdkSessionId,
+        abortController: session.abortController,
+        env
+      }
+
+      const generator = queryFn({ prompt: '/compact', options })
+
+      for await (const msg of generator) {
+        if (session.abortController?.signal.aborted) break
+        await this._processMessage(session, msg)
+      }
+
+      session.status = AgentStatus.IDLE
+    } catch (error) {
+      if (error.name === 'AbortError' || session.abortController?.signal.aborted) {
+        session.status = AgentStatus.IDLE
+      } else {
+        console.error(`[AgentSession] Compact error for session ${sessionId}:`, error)
+        session.status = AgentStatus.ERROR
+        this._safeSend('agent:error', {
+          sessionId: session.id,
+          error: error.message || 'Compact failed'
+        })
+      }
+    }
+
+    session.abortController = null
+    session.queryInstance = null
+
+    this._safeSend('agent:statusChange', {
+      sessionId: session.id,
+      status: session.status
+    })
   }
 
   /**

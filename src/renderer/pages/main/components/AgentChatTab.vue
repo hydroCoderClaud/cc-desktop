@@ -52,11 +52,14 @@
     <ChatInput
       ref="chatInputRef"
       :is-streaming="isStreaming"
+      :is-compacting="isCompacting"
       :disabled="false"
       :placeholder="t('agent.inputPlaceholder')"
+      :context-tokens="contextTokens"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
+      @compact="compactConversation"
     />
   </div>
 </template>
@@ -95,9 +98,12 @@ const {
   error,
   selectedModel,
   streamingElapsed,
+  contextTokens,
+  isCompacting,
   loadMessages,
   sendMessage,
   cancelGeneration,
+  compactConversation,
   setupListeners,
   cleanup
 } = useAgentChat(props.sessionId)
