@@ -512,6 +512,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendAgentMessage: ({ sessionId, message }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message }),
   cancelAgentGeneration: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
   closeAgentSession: (sessionId) => ipcRenderer.invoke('agent:close', sessionId),
+  reopenAgentSession: (sessionId) => ipcRenderer.invoke('agent:reopen', sessionId),
   getAgentSession: (sessionId) => ipcRenderer.invoke('agent:get', sessionId),
   listAgentSessions: () => ipcRenderer.invoke('agent:list'),
   renameAgentSession: ({ sessionId, title }) => ipcRenderer.invoke('agent:rename', { sessionId, title }),

@@ -244,8 +244,57 @@ class AgentSessionManager {
   /**
    * 发送消息到 Agent 会话
    */
+  /**
+   * 从数据库恢复会话到内存（关闭后重新打开、重启后恢复）
+   * @returns {Object|null} 恢复后的会话 JSON，或 null
+   */
+  reopen(sessionId) {
+    // 已在内存中，直接返回
+    const existing = this.sessions.get(sessionId)
+    if (existing) return existing.toJSON()
+
+    if (!this.sessionDatabase) return null
+
+    const row = this.sessionDatabase.getAgentConversation(sessionId)
+    if (!row) return null
+
+    const session = new AgentSession({
+      id: row.session_id,
+      type: row.type,
+      title: row.title || '',
+      cwd: row.cwd
+    })
+
+    // 恢复关键状态
+    session.sdkSessionId = row.sdk_session_id || null
+    session.cwdAuto = !!row.cwd_auto
+    session.dbConversationId = row.id
+    session.messageCount = row.message_count || 0
+    session.totalCostUsd = row.total_cost_usd || 0
+    session.createdAt = row.created_at ? new Date(row.created_at) : new Date()
+
+    // 放回内存 Map
+    this.sessions.set(session.id, session)
+
+    // 更新 DB 状态为 idle（重新激活）
+    try {
+      this.sessionDatabase.updateAgentConversation(sessionId, { status: AgentStatus.IDLE })
+    } catch (err) {
+      console.error('[AgentSession] Failed to update status on reopen:', err)
+    }
+
+    console.log(`[AgentSession] Reopened session ${sessionId} from DB (sdkSessionId: ${session.sdkSessionId || 'none'})`)
+    return session.toJSON()
+  }
+
   async sendMessage(sessionId, userMessage) {
-    const session = this.sessions.get(sessionId)
+    let session = this.sessions.get(sessionId)
+
+    // 内存中不存在，尝试自动恢复（兜底）
+    if (!session) {
+      this.reopen(sessionId)
+      session = this.sessions.get(sessionId)
+    }
     if (!session) {
       throw new Error(`Agent session ${sessionId} not found`)
     }
@@ -281,6 +330,7 @@ class AgentSessionManager {
       const options = {
         cwd: session.cwd,
         permissionMode: 'acceptEdits',
+        settingSources: ['user'],
         includePartialMessages: true,
         abortController: session.abortController,
         env: this._buildEnvVars()

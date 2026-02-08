@@ -334,7 +334,18 @@ const handleAgentCreated = (session) => {
   emit('agent-created', session)
 }
 
-const handleAgentSelected = (conv) => {
+const handleAgentSelected = async (conv) => {
+  // 非活跃会话（closed / 重启后的历史）先恢复到后端内存
+  if (conv.status === 'closed' || conv.status === undefined) {
+    try {
+      const result = await window.electronAPI.reopenAgentSession(conv.id)
+      if (result && !result.error) {
+        conv.status = result.status || 'idle'
+      }
+    } catch (err) {
+      console.error('[LeftPanel] reopen agent session error:', err)
+    }
+  }
   activeAgentSessionId.value = conv.id
   emit('agent-selected', conv)
 }

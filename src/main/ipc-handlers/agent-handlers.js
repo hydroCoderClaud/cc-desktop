@@ -33,6 +33,15 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       // 不等待完成，让流式消息通过 IPC 事件推送
       agentSessionManager.sendMessage(sessionId, message).catch(err => {
         console.error('[IPC] agent:sendMessage async error:', err)
+        // 推送错误到前端，避免静默失败
+        event.sender.send('agent:error', {
+          sessionId,
+          error: err.message || 'Unknown error'
+        })
+        event.sender.send('agent:statusChange', {
+          sessionId,
+          status: 'idle'
+        })
       })
       return { success: true }
     } catch (err) {
@@ -48,6 +57,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       return { success: true }
     } catch (err) {
       console.error('[IPC] agent:cancel error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 恢复会话（从 DB 重新加载到内存）
+  ipcMain.handle('agent:reopen', async (event, sessionId) => {
+    try {
+      return agentSessionManager.reopen(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:reopen error:', err)
       return { error: err.message }
     }
   })
