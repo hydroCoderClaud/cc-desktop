@@ -681,24 +681,26 @@ class AgentSessionManager {
   }
 
   /**
-   * 获取会话消息历史（内存优先，不存在则查 DB）
+   * 获取会话消息历史（内存有消息则用内存，否则查 DB）
    */
   getMessages(sessionId) {
-    // 1. 内存中的活跃会话
+    // 1. 内存中有消息，直接返回
     const session = this.sessions.get(sessionId)
-    if (session) {
+    if (session && session.messages.length > 0) {
       return session.messages
     }
 
-    // 2. 从 DB 查询历史消息
+    // 2. 从 DB 查询（内存无消息 或 session 不在内存）
     if (this.sessionDatabase) {
       try {
         const conv = this.sessionDatabase.getAgentConversation(sessionId)
-        if (!conv) return []
+        if (!conv) return session ? session.messages : []
 
         const dbMessages = this.sessionDatabase.getAgentMessagesByConversationId(conv.id)
+        if (dbMessages.length === 0) return session ? session.messages : []
+
         // 转换 snake_case → camelCase
-        return dbMessages.map(row => ({
+        const messages = dbMessages.map(row => ({
           id: row.msg_id,
           role: row.role,
           content: row.content || undefined,
@@ -707,6 +709,13 @@ class AgentSessionManager {
           output: row.tool_output ? JSON.parse(row.tool_output) : undefined,
           timestamp: row.timestamp
         }))
+
+        // 如果 session 在内存，把 DB 消息回填到内存（后续新消息会追加）
+        if (session) {
+          session.messages = messages
+        }
+
+        return messages
       } catch (err) {
         console.error('[AgentSession] Failed to load messages from DB:', err)
       }
