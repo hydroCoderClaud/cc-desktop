@@ -1,6 +1,11 @@
 /**
  * Agent 对话状态管理组合式函数
  * 管理单个 Agent 对话的消息、流式状态等
+ *
+ * Streaming Input 模式：
+ * - CLI 进程常驻，通过 MessageQueue 推送消息
+ * - 模型切换使用 setModel() 实时生效
+ * - 取消使用 interrupt() 不杀进程
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 
@@ -26,7 +31,6 @@ export function useAgentChat(sessionId) {
   const error = ref(null)
   const sessionInfo = ref(null)
   const selectedModel = ref('sonnet')
-  const modelOverride = ref(null)  // 用户手动切换后的模型，null=使用配置默认
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
@@ -36,14 +40,26 @@ export function useAgentChat(sessionId) {
   const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
 
-  // 用户手动切换模型时记录（syncFromInit 守卫防止 init 同步触发）
+  // 模型切换标记：防止 init 同步触发 watch
   let syncFromInit = false
-  watch(selectedModel, (newVal) => {
+  // 是否已有活跃的 streaming 连接（CLI 进程在跑）
+  let hasActiveSession = false
+
+  // 用户手动切换模型时，通过 setAgentModel 实时生效
+  watch(selectedModel, async (newVal) => {
     if (syncFromInit) {
       syncFromInit = false
       return
     }
-    modelOverride.value = newVal
+    // 有活跃连接时，使用 setModel() 实时切换
+    if (hasActiveSession && window.electronAPI?.setAgentModel) {
+      try {
+        await window.electronAPI.setAgentModel(sessionId, newVal)
+        console.log(`[useAgentChat] Model switched to ${newVal} via setModel()`)
+      } catch (err) {
+        console.warn('[useAgentChat] setModel failed (will use on next query):', err.message)
+      }
+    }
   })
 
   // 清理函数列表
@@ -122,7 +138,8 @@ export function useAgentChat(sessionId) {
 
   /**
    * 本地处理 slash 命令（不发送到 SDK）
-   * 这些命令在 CLI 中由 REPL 处理，SDK query() 不支持
+   * /compact 走 IPC compactConversation
+   * /status, /cost, /help, /clear 前端本地处理
    * @returns {boolean} 是否已处理
    */
   const handleLocalSlashCommand = (cmd) => {
@@ -190,7 +207,6 @@ export function useAgentChat(sessionId) {
     error.value = null
     isRestored.value = false
     if (!trimmed.startsWith('/')) {
-      // 只有非 slash 命令才在这里添加用户消息（slash 命令已在上面添加）
       addUserMessage(trimmed)
     }
     isStreaming.value = true
@@ -201,9 +217,11 @@ export function useAgentChat(sessionId) {
       sessionId,
       message: trimmed
     }
-    // 仅在用户手动切换过模型时才传 modelTier，否则使用配置文件默认
-    if (modelOverride.value) {
-      sendOptions.modelTier = modelOverride.value
+
+    // 首次发送时如果用户已选择模型，传递 modelTier
+    // （后续模型切换通过 setModel() 实时生效，不需要每次传）
+    if (!hasActiveSession && selectedModel.value !== 'sonnet') {
+      sendOptions.modelTier = selectedModel.value
     }
 
     try {
@@ -217,7 +235,7 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 取消生成
+   * 取消生成（使用 interrupt，不杀 CLI 进程）
    */
   const cancelGeneration = async () => {
     try {
@@ -232,19 +250,20 @@ export function useAgentChat(sessionId) {
    */
   const handleInit = (data) => {
     if (data.sessionId !== sessionId) return
+
+    hasActiveSession = true
+
     if (data.slashCommands && Array.isArray(data.slashCommands)) {
       slashCommands.value = data.slashCommands
     }
     if (data.model) {
       activeModel.value = data.model
       // 未手动切换过时，根据 SDK 返回的模型名同步下拉菜单
-      if (!modelOverride.value) {
-        syncFromInit = true
-        const modelLower = data.model.toLowerCase()
-        if (modelLower.includes('opus')) selectedModel.value = 'opus'
-        else if (modelLower.includes('haiku')) selectedModel.value = 'haiku'
-        else selectedModel.value = 'sonnet'
-      }
+      syncFromInit = true
+      const modelLower = data.model.toLowerCase()
+      if (modelLower.includes('opus')) selectedModel.value = 'opus'
+      else if (modelLower.includes('haiku')) selectedModel.value = 'haiku'
+      else selectedModel.value = 'sonnet'
     }
   }
 
@@ -257,8 +276,6 @@ export function useAgentChat(sessionId) {
 
     if (!msg) return
 
-    // SDK assistant message 包含完整的 BetaMessage
-    // 内容可能是 text、tool_use 等
     if (msg.message && msg.message.content) {
       const blocks = msg.message.content
       for (const block of blocks) {
@@ -280,14 +297,12 @@ export function useAgentChat(sessionId) {
 
     if (!event) return
 
-    // content_block_delta 包含增量文本
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
         currentStreamText.value += event.delta.text
       }
     }
 
-    // content_block_stop 表示当前块完成
     if (event.type === 'content_block_stop') {
       if (currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
@@ -295,7 +310,6 @@ export function useAgentChat(sessionId) {
       }
     }
 
-    // message_stop 表示整个消息完成
     if (event.type === 'message_stop') {
       if (currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
@@ -305,16 +319,16 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 处理结果事件
+   * 处理结果事件（一轮对话结束，CLI 仍在运行）
    */
   const handleResult = (data) => {
     if (data.sessionId !== sessionId) return
 
-    isStreaming.value = false
+    // result 表示一轮完成，状态由 statusChange 统一管理
     isCompacting.value = false
     stopTimer()
 
-    // 如果还有未 flush 的流式文本
+    // flush 未完成的流式文本
     if (currentStreamText.value) {
       addAssistantMessage(currentStreamText.value)
       currentStreamText.value = ''
@@ -323,7 +337,6 @@ export function useAgentChat(sessionId) {
     const result = data.result
 
     // 从 result.modelUsage 读取上下文 token 数
-    // Anthropic API 使用 prompt caching，实际上下文 = inputTokens + cacheCreationInputTokens + cacheReadInputTokens
     if (result?.modelUsage) {
       let totalInput = 0
       for (const model of Object.values(result.modelUsage)) {
@@ -354,7 +367,6 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
     const usage = data.usage
     if (usage) {
-      // input_tokens ≈ 当前会话上下文大小
       contextTokens.value = usage.input_tokens || usage.inputTokens || 0
     }
   }
@@ -370,7 +382,7 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 处理状态变化事件（取消、完成等）
+   * 处理状态变化事件（统一管理 streaming/idle 状态）
    */
   const handleStatusChange = (data) => {
     if (data.sessionId !== sessionId) return
@@ -383,6 +395,8 @@ export function useAgentChat(sessionId) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
+    } else if (data.status === 'streaming') {
+      isStreaming.value = true
     }
   }
 
@@ -392,7 +406,6 @@ export function useAgentChat(sessionId) {
   const handleCompacted = (data) => {
     if (data.sessionId !== sessionId) return
     isCompacting.value = false
-    // compact_boundary 返回压缩前的 token 数，压缩后会在下次 result 中更新
     console.log(`[useAgentChat] Compacted: preTokens=${data.preTokens}, trigger=${data.trigger}`)
   }
 
@@ -419,7 +432,6 @@ export function useAgentChat(sessionId) {
    */
   const handleToolProgress = (data) => {
     if (data.sessionId !== sessionId) return
-    // 更新最后一条工具消息的输出
     const lastToolMsg = [...messages.value].reverse().find(m => m.role === MessageRole.TOOL && !m.output)
     if (lastToolMsg && data.content) {
       lastToolMsg.output = data.content

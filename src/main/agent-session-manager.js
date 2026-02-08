@@ -16,6 +16,7 @@ const { v4: uuidv4 } = require('uuid')
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
+const { MessageQueue } = require('./utils/message-queue')
 
 /**
  * Agent 会话状态
@@ -49,7 +50,11 @@ class AgentSession {
     this.cwdAuto = !options.cwd     // 是否自动分配
     this.createdAt = new Date()
     this.abortController = null     // 用于取消生成
-    this.queryInstance = null       // 当前 Query 实例引用
+    this.queryInstance = null       // 当前 Query 实例引用（旧模式，保留兼容）
+    this.messageQueue = null        // MessageQueue 实例（streaming input 模式）
+    this.queryGenerator = null      // Query 生成器（常驻 CLI 进程）
+    this.outputLoopPromise = null   // _runOutputLoop 的 Promise
+    this.initResult = null          // SDKControlInitializeResponse 缓存
     this.messageCount = 0
     this.totalCostUsd = 0
     this.messages = []              // 消息历史存储（内存）
@@ -67,7 +72,8 @@ class AgentSession {
       cwdAuto: this.cwdAuto,
       createdAt: this.createdAt.toISOString(),
       messageCount: this.messageCount,
-      totalCostUsd: this.totalCostUsd
+      totalCostUsd: this.totalCostUsd,
+      isStreamingActive: !!this.queryGenerator
     }
   }
 }
@@ -242,9 +248,6 @@ class AgentSessionManager {
   }
 
   /**
-   * 发送消息到 Agent 会话
-   */
-  /**
    * 从数据库恢复会话到内存（关闭后重新打开、重启后恢复）
    * @returns {Object|null} 恢复后的会话 JSON，或 null
    */
@@ -287,6 +290,12 @@ class AgentSessionManager {
     return session.toJSON()
   }
 
+  /**
+   * 发送消息到 Agent 会话（Streaming Input 模式）
+   *
+   * 第一条消息：创建 MessageQueue + 持久 query + 后台输出循环
+   * 后续消息：直接 push 到现有 MessageQueue
+   */
   async sendMessage(sessionId, userMessage, { modelTier, maxTurns } = {}) {
     let session = this.sessions.get(sessionId)
 
@@ -303,9 +312,6 @@ class AgentSessionManager {
       throw new Error(`Agent session ${sessionId} is already streaming`)
     }
 
-    // 加载 SDK
-    const queryFn = await this._loadSDK()
-
     // 存储用户消息到历史
     this._storeMessage(session, {
       id: `msg-${Date.now()}`,
@@ -316,7 +322,6 @@ class AgentSessionManager {
 
     // 设置状态
     session.status = AgentStatus.STREAMING
-    session.abortController = new AbortController()
     session.messageCount++
 
     // 通知前端状态变化
@@ -325,75 +330,120 @@ class AgentSessionManager {
       status: AgentStatus.STREAMING
     })
 
+    // 构建 SDKUserMessage
+    const sdkUserMessage = {
+      type: 'user',
+      message: { role: 'user', content: userMessage },
+      parent_tool_use_id: null,
+      session_id: session.sdkSessionId || session.id
+    }
+
+    // 已有持久 query → 直接 push 消息
+    if (session.queryGenerator && session.messageQueue && !session.messageQueue.isDone) {
+      console.log(`[AgentSession] Pushing message to existing queue for session ${sessionId}`)
+      session.messageQueue.push(sdkUserMessage)
+      return
+    }
+
+    // 首次消息（或 CLI 进程已退出）→ 创建新的持久 query
+    console.log(`[AgentSession] Creating new streaming query for session ${sessionId}`)
+
     try {
-      // 构建 query 选项
+      const queryFn = await this._loadSDK()
       const env = this._buildEnvVars()
 
+      // 创建 MessageQueue
+      const messageQueue = new MessageQueue()
+      session.messageQueue = messageQueue
+
+      // 构建 query 选项
       const options = {
         cwd: session.cwd,
         permissionMode: 'acceptEdits',
         settingSources: ['user'],
         includePartialMessages: true,
-        abortController: session.abortController,
         env
       }
 
-      // 用户选择了模型，通过 SDK model 参数传递
+      // 首次创建时如果有模型偏好，通过 options.model 传递
       if (modelTier) {
         options.model = modelTier
       }
 
-      // slash 命令限制 turns
       if (maxTurns) {
         options.maxTurns = maxTurns
       }
 
-      // 多轮对话：resume 上一次的 sessionId
+      // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
       if (session.sdkSessionId) {
         options.resume = session.sdkSessionId
       }
 
-      // 调用 SDK query
-      const generator = queryFn({ prompt: userMessage, options })
-      session.queryInstance = generator
+      // 创建持久 query（AsyncIterable 模式）
+      const generator = queryFn({ prompt: messageQueue, options })
+      session.queryGenerator = generator
 
-      // 遍历流式输出
-      for await (const msg of generator) {
-        // 检查是否已取消
-        if (session.abortController?.signal.aborted) {
-          break
-        }
+      // push 第一条消息
+      messageQueue.push(sdkUserMessage)
 
+      // 启动后台输出循环
+      session.outputLoopPromise = this._runOutputLoop(session)
+
+    } catch (error) {
+      console.error(`[AgentSession] Failed to create streaming query for session ${sessionId}:`, error)
+      session.status = AgentStatus.ERROR
+      session.queryGenerator = null
+      session.messageQueue = null
+
+      this._safeSend('agent:error', {
+        sessionId: session.id,
+        error: error.message || 'Failed to start session'
+      })
+      this._safeSend('agent:statusChange', {
+        sessionId: session.id,
+        status: session.status
+      })
+    }
+  }
+
+  /**
+   * 后台输出循环 — 持续遍历 SDK 输出消息
+   * 生成器正常结束 = CLI 进程退出
+   */
+  async _runOutputLoop(session) {
+    try {
+      for await (const msg of session.queryGenerator) {
         await this._processMessage(session, msg)
       }
 
-      // 正常完成
+      // 生成器正常结束（CLI 进程退出）
+      console.log(`[AgentSession] Output loop ended normally for session ${session.id}`)
       session.status = AgentStatus.IDLE
-      session.queryInstance = null
 
     } catch (error) {
-      if (error.name === 'AbortError' || session.abortController?.signal.aborted) {
-        // 用户取消
-        console.log(`[AgentSession] Session ${sessionId} cancelled by user`)
+      if (error.name === 'AbortError') {
+        console.log(`[AgentSession] Output loop aborted for session ${session.id}`)
         session.status = AgentStatus.IDLE
       } else {
-        // 真正的错误
-        console.error(`[AgentSession] Query error for session ${sessionId}:`, error)
+        console.error(`[AgentSession] Output loop error for session ${session.id}:`, error)
         session.status = AgentStatus.ERROR
 
         this._safeSend('agent:error', {
           sessionId: session.id,
-          error: error.message || 'Unknown error'
+          error: error.message || 'Session error'
         })
       }
-      session.queryInstance = null
-    }
+    } finally {
+      // 清理引用
+      session.queryGenerator = null
+      session.messageQueue = null
+      session.outputLoopPromise = null
 
-    // 通知前端最终状态
-    this._safeSend('agent:statusChange', {
-      sessionId: session.id,
-      status: session.status
-    })
+      this._safeSend('agent:statusChange', {
+        sessionId: session.id,
+        status: session.status
+      })
+    }
   }
 
   /**
@@ -519,10 +569,13 @@ class AgentSessionManager {
         break
 
       case 'result':
-        // 查询完成
-        console.log('[AgentSession] result usage:', JSON.stringify(msg.usage))
+        // 一轮对话完成（streaming input 模式下 CLI 仍在运行）
         console.log('[AgentSession] result modelUsage:', JSON.stringify(msg.modelUsage))
         session.totalCostUsd += msg.total_cost_usd || 0
+
+        // 设置为 IDLE（等待下一条消息），但不关闭 generator
+        session.status = AgentStatus.IDLE
+
         this._safeSend('agent:result', {
           sessionId: session.id,
           result: {
@@ -535,6 +588,12 @@ class AgentSessionManager {
             usage: msg.usage,
             modelUsage: msg.modelUsage
           }
+        })
+
+        // 通知前端状态回到 IDLE
+        this._safeSend('agent:statusChange', {
+          sessionId: session.id,
+          status: AgentStatus.IDLE
         })
 
         // 更新 DB 中的统计信息
@@ -569,39 +628,57 @@ class AgentSessionManager {
   }
 
   /**
-   * 取消当前生成
+   * 取消当前生成（使用 interrupt，不杀 CLI 进程）
    */
-  cancel(sessionId) {
+  async cancel(sessionId) {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
-    if (session.abortController) {
-      session.abortController.abort()
-      session.abortController = null
-    }
-
-    if (session.queryInstance) {
+    // Streaming input 模式：使用 interrupt() 中断当前生成
+    if (session.queryGenerator) {
       try {
-        session.queryInstance.close()
+        await session.queryGenerator.interrupt()
+        console.log(`[AgentSession] Interrupted session ${sessionId}`)
       } catch (e) {
-        // ignore
+        console.warn(`[AgentSession] interrupt() failed for ${sessionId}, falling back to close:`, e.message)
+        // fallback: close() 杀掉 CLI 进程
+        try { session.queryGenerator.close() } catch {}
+        session.queryGenerator = null
+        if (session.messageQueue) {
+          session.messageQueue.end()
+          session.messageQueue = null
+        }
       }
-      session.queryInstance = null
     }
 
     session.status = AgentStatus.IDLE
-    console.log(`[AgentSession] Cancelled session ${sessionId}`)
+
+    this._safeSend('agent:statusChange', {
+      sessionId: session.id,
+      status: AgentStatus.IDLE
+    })
   }
 
   /**
-   * 关闭会话（软关闭：DB 标记 closed，内存移除）
+   * 关闭会话（终止持久 CLI 进程 + DB 标记 closed + 内存移除）
    */
   close(sessionId) {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
-    // 取消正在进行的查询
-    this.cancel(sessionId)
+    // 结束 MessageQueue（让 SDK 的 for-await 正常退出）
+    if (session.messageQueue) {
+      session.messageQueue.end()
+      session.messageQueue = null
+    }
+
+    // 关闭 generator（杀 CLI 进程）
+    if (session.queryGenerator) {
+      try { session.queryGenerator.close() } catch {}
+      session.queryGenerator = null
+    }
+
+    session.outputLoopPromise = null
 
     // DB 软关闭
     if (this.sessionDatabase) {
@@ -759,13 +836,19 @@ class AgentSessionManager {
   }
 
   /**
-   * 物理删除对话（内存 + DB）
+   * 物理删除对话（终止 CLI + 内存 + DB）
    */
   deleteConversation(sessionId) {
     // 从内存移除（如果存在）
     const session = this.sessions.get(sessionId)
     if (session) {
-      this.cancel(sessionId)
+      // 终止持久 CLI 进程
+      if (session.messageQueue) {
+        session.messageQueue.end()
+      }
+      if (session.queryGenerator) {
+        try { session.queryGenerator.close() } catch {}
+      }
       this.sessions.delete(sessionId)
     }
 
@@ -783,7 +866,9 @@ class AgentSessionManager {
   }
 
   /**
-   * 压缩会话上下文（发送 /compact 命令）
+   * 压缩会话上下文
+   * Streaming input 模式：直接 push /compact 消息到现有 queue
+   * 无持久会话时：通过 sendMessage 发送（会创建新 query）
    */
   async compactConversation(sessionId) {
     let session = this.sessions.get(sessionId)
@@ -795,63 +880,32 @@ class AgentSessionManager {
     if (!session) {
       throw new Error(`Agent session ${sessionId} not found`)
     }
-    if (!session.sdkSessionId) {
-      throw new Error('No active SDK session to compact')
-    }
     if (session.status === AgentStatus.STREAMING) {
       throw new Error('Session is currently streaming')
     }
 
-    const queryFn = await this._loadSDK()
+    // 有持久 query → 直接 push /compact 命令
+    if (session.queryGenerator && session.messageQueue && !session.messageQueue.isDone) {
+      session.status = AgentStatus.STREAMING
+      this._safeSend('agent:statusChange', {
+        sessionId: session.id,
+        status: AgentStatus.STREAMING
+      })
 
-    session.status = AgentStatus.STREAMING
-    session.abortController = new AbortController()
-
-    this._safeSend('agent:statusChange', {
-      sessionId: session.id,
-      status: AgentStatus.STREAMING
-    })
-
-    try {
-      const env = this._buildEnvVars()
-      const options = {
-        cwd: session.cwd,
-        permissionMode: 'acceptEdits',
-        settingSources: ['user'],
-        maxTurns: 1,
-        resume: session.sdkSessionId,
-        abortController: session.abortController,
-        env
-      }
-
-      const generator = queryFn({ prompt: '/compact', options })
-
-      for await (const msg of generator) {
-        if (session.abortController?.signal.aborted) break
-        await this._processMessage(session, msg)
-      }
-
-      session.status = AgentStatus.IDLE
-    } catch (error) {
-      if (error.name === 'AbortError' || session.abortController?.signal.aborted) {
-        session.status = AgentStatus.IDLE
-      } else {
-        console.error(`[AgentSession] Compact error for session ${sessionId}:`, error)
-        session.status = AgentStatus.ERROR
-        this._safeSend('agent:error', {
-          sessionId: session.id,
-          error: error.message || 'Compact failed'
-        })
-      }
+      session.messageQueue.push({
+        type: 'user',
+        message: { role: 'user', content: '/compact' },
+        parent_tool_use_id: null,
+        session_id: session.sdkSessionId || session.id
+      })
+      return
     }
 
-    session.abortController = null
-    session.queryInstance = null
-
-    this._safeSend('agent:statusChange', {
-      sessionId: session.id,
-      status: session.status
-    })
+    // 无持久 query（CLI 已退出）→ 通过 sendMessage 发送
+    if (!session.sdkSessionId) {
+      throw new Error('No active SDK session to compact')
+    }
+    await this.sendMessage(sessionId, '/compact', { maxTurns: 1 })
   }
 
   /**
@@ -882,6 +936,75 @@ class AgentSessionManager {
       console.error('[AgentSession] Failed to list output files:', err)
       return []
     }
+  }
+
+  // ============= Streaming Input 控制方法 =============
+
+  /**
+   * 获取持久 query generator（需要会话有活跃的 streaming 连接）
+   */
+  _getGenerator(sessionId) {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Agent session ${sessionId} not found`)
+    if (!session.queryGenerator) throw new Error('No active streaming session (CLI not running)')
+    return session.queryGenerator
+  }
+
+  /**
+   * 切换模型（实时生效，无需重启 CLI）
+   */
+  async setModel(sessionId, model) {
+    const generator = this._getGenerator(sessionId)
+    await generator.setModel(model || undefined)
+    console.log(`[AgentSession] Model set to ${model || 'default'} for session ${sessionId}`)
+  }
+
+  /**
+   * 获取支持的模型列表
+   */
+  async getSupportedModels(sessionId) {
+    const generator = this._getGenerator(sessionId)
+    return await generator.supportedModels()
+  }
+
+  /**
+   * 获取支持的 slash 命令列表
+   */
+  async getSupportedCommands(sessionId) {
+    const generator = this._getGenerator(sessionId)
+    return await generator.supportedCommands()
+  }
+
+  /**
+   * 获取账户信息
+   */
+  async getAccountInfo(sessionId) {
+    const generator = this._getGenerator(sessionId)
+    return await generator.accountInfo()
+  }
+
+  /**
+   * 获取 MCP 服务器状态
+   */
+  async getMcpServerStatus(sessionId) {
+    const generator = this._getGenerator(sessionId)
+    return await generator.mcpServerStatus()
+  }
+
+  /**
+   * 获取完整初始化结果（命令、模型、账户、输出样式）
+   */
+  async getInitResult(sessionId) {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Agent session ${sessionId} not found`)
+
+    // 缓存
+    if (session.initResult) return session.initResult
+
+    if (!session.queryGenerator) throw new Error('No active streaming session')
+    const result = await session.queryGenerator.initializationResult()
+    session.initResult = result
+    return result
   }
 }
 

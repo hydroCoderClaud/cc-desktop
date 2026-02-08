@@ -50,10 +50,10 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
-  // 取消生成
+  // 取消生成（使用 interrupt，不杀 CLI 进程）
   ipcMain.handle('agent:cancel', async (event, sessionId) => {
     try {
-      agentSessionManager.cancel(sessionId)
+      await agentSessionManager.cancel(sessionId)
       return { success: true }
     } catch (err) {
       console.error('[IPC] agent:cancel error:', err)
@@ -134,6 +134,71 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       return agentSessionManager.deleteConversation(sessionId)
     } catch (err) {
       console.error('[IPC] agent:deleteConversation error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // ========================================
+  // Streaming Input 控制方法
+  // ========================================
+
+  // 切换模型（实时生效）
+  ipcMain.handle('agent:setModel', async (event, { sessionId, model }) => {
+    try {
+      await agentSessionManager.setModel(sessionId, model)
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:setModel error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 获取支持的模型列表
+  ipcMain.handle('agent:getSupportedModels', async (event, sessionId) => {
+    try {
+      return await agentSessionManager.getSupportedModels(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getSupportedModels error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 获取支持的 slash 命令列表
+  ipcMain.handle('agent:getSupportedCommands', async (event, sessionId) => {
+    try {
+      return await agentSessionManager.getSupportedCommands(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getSupportedCommands error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 获取账户信息
+  ipcMain.handle('agent:getAccountInfo', async (event, sessionId) => {
+    try {
+      return await agentSessionManager.getAccountInfo(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getAccountInfo error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 获取 MCP 服务器状态
+  ipcMain.handle('agent:getMcpServerStatus', async (event, sessionId) => {
+    try {
+      return await agentSessionManager.getMcpServerStatus(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getMcpServerStatus error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 获取完整初始化结果
+  ipcMain.handle('agent:getInitResult', async (event, sessionId) => {
+    try {
+      return await agentSessionManager.getInitResult(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getInitResult error:', err)
       return { error: err.message }
     }
   })

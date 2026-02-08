@@ -522,6 +522,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
   compactAgentConversation: (sessionId) => ipcRenderer.invoke('agent:compact', sessionId),
 
+  // Streaming Input 控制方法
+  setAgentModel: (sessionId, model) => ipcRenderer.invoke('agent:setModel', { sessionId, model }),
+  getAgentSupportedModels: (sessionId) => ipcRenderer.invoke('agent:getSupportedModels', sessionId),
+  getAgentSupportedCommands: (sessionId) => ipcRenderer.invoke('agent:getSupportedCommands', sessionId),
+  getAgentAccountInfo: (sessionId) => ipcRenderer.invoke('agent:getAccountInfo', sessionId),
+  getAgentMcpServerStatus: (sessionId) => ipcRenderer.invoke('agent:getMcpServerStatus', sessionId),
+  getAgentInitResult: (sessionId) => ipcRenderer.invoke('agent:getInitResult', sessionId),
+
   // 成果目录
   getAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:getOutputDir', sessionId),
   openAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:openOutputDir', sessionId),
