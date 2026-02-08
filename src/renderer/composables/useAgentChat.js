@@ -298,6 +298,11 @@ export function useAgentChat(sessionId) {
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
         currentStreamText.value += event.delta.text
+        // 新一轮流式文本到达，重新激活（处理 Agent 多轮场景）
+        if (!isStreaming.value) {
+          isStreaming.value = true
+          startTimer()
+        }
       }
     }
 
@@ -313,6 +318,10 @@ export function useAgentChat(sessionId) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
+      // 文字输出完毕，立即停止计时器和流式状态
+      // 如果 Agent 继续下一轮（工具调用等），新的流式文本到达时会重新激活
+      isStreaming.value = false
+      stopTimer()
     }
   }
 
