@@ -2,7 +2,7 @@
  * Agent 对话状态管理组合式函数
  * 管理单个 Agent 对话的消息、流式状态等
  */
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 
 /**
  * Agent 消息角色
@@ -26,12 +26,23 @@ export function useAgentChat(sessionId) {
   const error = ref(null)
   const sessionInfo = ref(null)
   const selectedModel = ref('sonnet')
+  const modelOverride = ref(null)  // 用户手动切换后的模型，null=使用配置默认
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
   const slashCommands = ref([])     // SDK 提供的可用 slash 命令
   const activeModel = ref('')        // SDK 实际使用的模型名
   let streamingTimer = null
+
+  // 用户手动切换模型时记录（syncFromInit 守卫防止 init 同步触发）
+  let syncFromInit = false
+  watch(selectedModel, (newVal) => {
+    if (syncFromInit) {
+      syncFromInit = false
+      return
+    }
+    modelOverride.value = newVal
+  })
 
   // 清理函数列表
   const cleanupFns = []
@@ -131,8 +142,11 @@ export function useAgentChat(sessionId) {
     const isSlashCmd = trimmed.startsWith('/')
     const sendOptions = {
       sessionId,
-      message: trimmed,
-      modelTier: selectedModel.value
+      message: trimmed
+    }
+    // 仅在用户手动切换过模型时才传 modelTier，否则使用配置文件默认
+    if (modelOverride.value) {
+      sendOptions.modelTier = modelOverride.value
     }
     if (isSlashCmd) {
       sendOptions.maxTurns = 1
@@ -169,6 +183,14 @@ export function useAgentChat(sessionId) {
     }
     if (data.model) {
       activeModel.value = data.model
+      // 未手动切换过时，根据 SDK 返回的模型名同步下拉菜单
+      if (!modelOverride.value) {
+        syncFromInit = true
+        const modelLower = data.model.toLowerCase()
+        if (modelLower.includes('opus')) selectedModel.value = 'opus'
+        else if (modelLower.includes('haiku')) selectedModel.value = 'haiku'
+        else selectedModel.value = 'sonnet'
+      }
     }
   }
 
