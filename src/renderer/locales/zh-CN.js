@@ -1037,6 +1037,7 @@ export default {
     hintAnalyze: '帮我分析一组数据',
     chat: '对话',
     specialized: '专用',
-    lightapp: '轻应用'
+    lightapp: '轻应用',
+    restoredHint: '历史会话 · 发送消息继续对话'
   }
 }

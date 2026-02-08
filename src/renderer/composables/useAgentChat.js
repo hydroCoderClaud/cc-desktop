@@ -21,6 +21,7 @@ export const MessageRole = {
 export function useAgentChat(sessionId) {
   const messages = ref([])
   const isStreaming = ref(false)
+  const isRestored = ref(false)
   const currentStreamText = ref('')
   const error = ref(null)
   const sessionInfo = ref(null)
@@ -38,6 +39,7 @@ export function useAgentChat(sessionId) {
       const history = await window.electronAPI.getAgentMessages(sessionId)
       if (Array.isArray(history) && history.length > 0) {
         messages.value = history
+        isRestored.value = true
       }
     } catch (err) {
       console.error('[useAgentChat] loadMessages error:', err)
@@ -90,6 +92,7 @@ export function useAgentChat(sessionId) {
     if (!text.trim() || isStreaming.value) return
 
     error.value = null
+    isRestored.value = false
     addUserMessage(text)
     isStreaming.value = true
     currentStreamText.value = ''
@@ -270,6 +273,7 @@ export function useAgentChat(sessionId) {
   return {
     messages,
     isStreaming,
+    isRestored,
     currentStreamText,
     error,
     sessionInfo,

@@ -24,6 +24,13 @@
         <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" />
       </template>
 
+      <!-- 历史会话恢复提示 -->
+      <div v-if="isRestored && messages.length > 0" class="restored-divider">
+        <span class="restored-line"></span>
+        <span class="restored-text">{{ t('agent.restoredHint') }}</span>
+        <span class="restored-line"></span>
+      </div>
+
       <!-- 流式输出指示器 -->
       <StreamingIndicator
         :visible="isStreaming"
@@ -81,6 +88,7 @@ const emit = defineEmits(['ready'])
 const {
   messages,
   isStreaming,
+  isRestored,
   currentStreamText,
   error,
   loadMessages,
@@ -218,6 +226,27 @@ defineExpose({
 .hint-icon {
   color: var(--primary-color);
   flex-shrink: 0;
+}
+
+/* Restored Divider */
+.restored-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  margin: 8px 0;
+}
+
+.restored-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.restored-text {
+  font-size: 12px;
+  color: var(--text-color-muted);
+  white-space: nowrap;
 }
 
 .error-banner {

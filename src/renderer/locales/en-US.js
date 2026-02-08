@@ -1034,6 +1034,7 @@ export default {
     hintAnalyze: 'Help me analyze some data',
     chat: 'Chat',
     specialized: 'Specialized',
-    lightapp: 'Light App'
+    lightapp: 'Light App',
+    restoredHint: 'History session · Send a message to continue'
   }
 }
