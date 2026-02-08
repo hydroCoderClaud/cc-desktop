@@ -25,6 +25,9 @@ export function useAgentChat(sessionId) {
   const currentStreamText = ref('')
   const error = ref(null)
   const sessionInfo = ref(null)
+  const selectedModel = ref('sonnet')
+  const streamingElapsed = ref(0)
+  let streamingTimer = null
 
   // 清理函数列表
   const cleanupFns = []
@@ -85,6 +88,21 @@ export function useAgentChat(sessionId) {
     })
   }
 
+  // 计时器控制
+  const startTimer = () => {
+    streamingElapsed.value = 0
+    streamingTimer = setInterval(() => {
+      streamingElapsed.value++
+    }, 1000)
+  }
+
+  const stopTimer = () => {
+    if (streamingTimer) {
+      clearInterval(streamingTimer)
+      streamingTimer = null
+    }
+  }
+
   /**
    * 发送消息
    */
@@ -96,16 +114,19 @@ export function useAgentChat(sessionId) {
     addUserMessage(text)
     isStreaming.value = true
     currentStreamText.value = ''
+    startTimer()
 
     try {
       await window.electronAPI.sendAgentMessage({
         sessionId,
-        message: text
+        message: text,
+        modelTier: selectedModel.value
       })
     } catch (err) {
       console.error('[useAgentChat] sendMessage error:', err)
       error.value = err.message || 'Failed to send message'
       isStreaming.value = false
+      stopTimer()
     }
   }
 
@@ -183,6 +204,7 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
 
     isStreaming.value = false
+    stopTimer()
 
     // 如果还有未 flush 的流式文本
     if (currentStreamText.value) {
@@ -202,6 +224,7 @@ export function useAgentChat(sessionId) {
   const handleError = (data) => {
     if (data.sessionId !== sessionId) return
     isStreaming.value = false
+    stopTimer()
     error.value = data.error || 'Unknown error'
   }
 
@@ -213,6 +236,7 @@ export function useAgentChat(sessionId) {
 
     if (data.status === 'idle' || data.status === 'error') {
       isStreaming.value = false
+      stopTimer()
       // flush 未完成的流式文本
       if (currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
@@ -263,6 +287,7 @@ export function useAgentChat(sessionId) {
    * 清理监听器
    */
   const cleanup = () => {
+    stopTimer()
     cleanupFns.forEach(fn => fn && fn())
     cleanupFns.length = 0
   }
@@ -277,6 +302,8 @@ export function useAgentChat(sessionId) {
     currentStreamText,
     error,
     sessionInfo,
+    selectedModel,
+    streamingElapsed,
     loadMessages,
     sendMessage,
     cancelGeneration,

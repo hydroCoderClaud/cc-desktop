@@ -287,7 +287,7 @@ class AgentSessionManager {
     return session.toJSON()
   }
 
-  async sendMessage(sessionId, userMessage) {
+  async sendMessage(sessionId, userMessage, { modelTier } = {}) {
     let session = this.sessions.get(sessionId)
 
     // 内存中不存在，尝试自动恢复（兜底）
@@ -327,13 +327,20 @@ class AgentSessionManager {
 
     try {
       // 构建 query 选项
+      const env = this._buildEnvVars()
+
+      // 用户选择了模型 tier，覆盖默认模型
+      if (modelTier) {
+        env.ANTHROPIC_MODEL = modelTier
+      }
+
       const options = {
         cwd: session.cwd,
         permissionMode: 'acceptEdits',
         settingSources: ['user'],
         includePartialMessages: true,
         abortController: session.abortController,
-        env: this._buildEnvVars()
+        env
       }
 
       // 多轮对话：resume 上一次的 sessionId

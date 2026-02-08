@@ -9,6 +9,7 @@
         <span></span>
         <span></span>
         <span></span>
+        <span v-if="elapsed > 0" class="elapsed-time">{{ elapsed }}s</span>
       </div>
     </div>
   </div>
@@ -26,6 +27,10 @@ const props = defineProps({
   text: {
     type: String,
     default: ''
+  },
+  elapsed: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -110,5 +115,17 @@ const renderedText = computed(() => {
 @keyframes dotPulse {
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
   40% { opacity: 1; transform: scale(1); }
+}
+
+.elapsed-time {
+  width: auto !important;
+  height: auto !important;
+  background: none !important;
+  border-radius: 0 !important;
+  animation: none !important;
+  font-size: 11px;
+  color: var(--text-color-muted);
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

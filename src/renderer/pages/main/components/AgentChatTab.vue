@@ -35,6 +35,7 @@
       <StreamingIndicator
         :visible="isStreaming"
         :text="currentStreamText"
+        :elapsed="streamingElapsed"
       />
 
       <!-- 错误提示 -->
@@ -53,6 +54,7 @@
       :is-streaming="isStreaming"
       :disabled="false"
       :placeholder="t('agent.inputPlaceholder')"
+      v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
     />
@@ -91,6 +93,8 @@ const {
   isRestored,
   currentStreamText,
   error,
+  selectedModel,
+  streamingElapsed,
   loadMessages,
   sendMessage,
   cancelGeneration,

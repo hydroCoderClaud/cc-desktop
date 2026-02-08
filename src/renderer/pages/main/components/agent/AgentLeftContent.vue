@@ -371,30 +371,26 @@ defineExpose({
 .action-btn {
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  background: transparent;
   border: none;
-  color: var(--text-color-muted);
+  background: transparent;
   cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-color-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
-.action-btn.rename-btn:hover {
-  background: var(--primary-color);
-  color: white;
-}
-
-.action-btn.close-btn:hover {
-  background: var(--text-color-muted);
-  color: white;
+.action-btn:hover {
+  background: var(--primary-ghost-hover);
+  color: var(--primary-color);
 }
 
 .action-btn.delete-btn:hover {
-  background: #ff4d4f;
-  color: white;
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
 }
 
 .empty-hint {

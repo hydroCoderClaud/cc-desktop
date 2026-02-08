@@ -1035,6 +1035,9 @@ export default {
     chat: 'Chat',
     specialized: 'Specialized',
     lightapp: 'Light App',
-    restoredHint: 'History session · Send a message to continue'
+    restoredHint: 'History session · Send a message to continue',
+    modelBalanced: 'Balanced',
+    modelPowerful: 'Powerful',
+    modelFast: 'Fast'
   }
 }
