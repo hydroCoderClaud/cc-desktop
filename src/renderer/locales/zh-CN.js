@@ -55,7 +55,9 @@ export default {
     copyFailed: '复制失败',
     openFailed: '打开失败',
     openFile: '打开文件',
-    all: '全部'
+    all: '全部',
+    rename: '重命名',
+    today: '今天'
   },
 
   // 主页面

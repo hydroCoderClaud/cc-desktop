@@ -88,6 +88,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     return agentSessionManager.getMessages(sessionId)
   })
 
+  // 物理删除对话
+  ipcMain.handle('agent:deleteConversation', async (event, sessionId) => {
+    try {
+      return agentSessionManager.deleteConversation(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:deleteConversation error:', err)
+      return { error: err.message }
+    }
+  })
+
   // ========================================
   // 成果目录
   // ========================================

@@ -19,16 +19,34 @@
           v-for="conv in groupedConversations.today"
           :key="conv.id"
           class="conversation-item"
-          :class="{ active: activeSessionId === conv.id }"
+          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
           @click="$emit('select', conv)"
+          @dblclick="startRename(conv)"
         >
           <div class="conv-info">
             <Icon name="chat" :size="12" class="conv-icon" />
-            <span class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <input
+              v-if="editingId === conv.id"
+              class="rename-input"
+              :value="editTitle"
+              @input="editTitle = $event.target.value"
+              @keydown.enter="saveRename"
+              @keydown.escape="cancelRename"
+              @blur="saveRename"
+              @click.stop
+              ref="renameInputRef"
+            />
+            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
           </div>
           <div class="conv-actions">
-            <button class="action-btn" @click.stop="$emit('close', conv)" :title="t('common.close')">
+            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
+              <Icon name="edit" :size="12" />
+            </button>
+            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
               <Icon name="close" :size="12" />
+            </button>
+            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
+              <Icon name="delete" :size="12" />
             </button>
           </div>
         </div>
@@ -43,16 +61,34 @@
           v-for="conv in groupedConversations.yesterday"
           :key="conv.id"
           class="conversation-item"
-          :class="{ active: activeSessionId === conv.id }"
+          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
           @click="$emit('select', conv)"
+          @dblclick="startRename(conv)"
         >
           <div class="conv-info">
             <Icon name="chat" :size="12" class="conv-icon" />
-            <span class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <input
+              v-if="editingId === conv.id"
+              class="rename-input"
+              :value="editTitle"
+              @input="editTitle = $event.target.value"
+              @keydown.enter="saveRename"
+              @keydown.escape="cancelRename"
+              @blur="saveRename"
+              @click.stop
+              ref="renameInputRef"
+            />
+            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
           </div>
           <div class="conv-actions">
-            <button class="action-btn" @click.stop="$emit('close', conv)" :title="t('common.close')">
+            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
+              <Icon name="edit" :size="12" />
+            </button>
+            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
               <Icon name="close" :size="12" />
+            </button>
+            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
+              <Icon name="delete" :size="12" />
             </button>
           </div>
         </div>
@@ -67,16 +103,34 @@
           v-for="conv in groupedConversations.older"
           :key="conv.id"
           class="conversation-item"
-          :class="{ active: activeSessionId === conv.id }"
+          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
           @click="$emit('select', conv)"
+          @dblclick="startRename(conv)"
         >
           <div class="conv-info">
             <Icon name="chat" :size="12" class="conv-icon" />
-            <span class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <input
+              v-if="editingId === conv.id"
+              class="rename-input"
+              :value="editTitle"
+              @input="editTitle = $event.target.value"
+              @keydown.enter="saveRename"
+              @keydown.escape="cancelRename"
+              @blur="saveRename"
+              @click.stop
+              ref="renameInputRef"
+            />
+            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
           </div>
           <div class="conv-actions">
-            <button class="action-btn" @click.stop="$emit('close', conv)" :title="t('common.close')">
+            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
+              <Icon name="edit" :size="12" />
+            </button>
+            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
               <Icon name="close" :size="12" />
+            </button>
+            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
+              <Icon name="delete" :size="12" />
             </button>
           </div>
         </div>
@@ -92,7 +146,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
@@ -114,8 +168,15 @@ const {
   groupedConversations,
   loadConversations,
   createConversation,
-  closeConversation
+  closeConversation,
+  deleteConversation,
+  renameConversation
 } = useAgentPanel()
+
+// 重命名状态
+const editingId = ref(null)
+const editTitle = ref('')
+const renameInputRef = ref(null)
 
 const handleNewConversation = async () => {
   const session = await createConversation({ type: 'chat' })
@@ -124,14 +185,57 @@ const handleNewConversation = async () => {
   }
 }
 
+const startRename = (conv) => {
+  editingId.value = conv.id
+  editTitle.value = conv.title || ''
+  nextTick(() => {
+    // ref 可能是数组（v-for 中的 ref）
+    const input = Array.isArray(renameInputRef.value) ? renameInputRef.value[0] : renameInputRef.value
+    if (input) input.focus()
+  })
+}
+
+const saveRename = async () => {
+  if (editingId.value && editTitle.value.trim()) {
+    await renameConversation(editingId.value, editTitle.value.trim())
+  }
+  editingId.value = null
+  editTitle.value = ''
+}
+
+const cancelRename = () => {
+  editingId.value = null
+  editTitle.value = ''
+}
+
+const handleDelete = async (conv) => {
+  await deleteConversation(conv.id)
+}
+
+// 监听重命名事件（从后端推送）
+let cleanupRenamed = null
 onMounted(() => {
   loadConversations()
+
+  if (window.electronAPI?.onAgentRenamed) {
+    cleanupRenamed = window.electronAPI.onAgentRenamed((data) => {
+      const conv = conversations.value.find(c => c.id === data.sessionId)
+      if (conv) {
+        conv.title = data.title
+      }
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (cleanupRenamed) cleanupRenamed()
 })
 
 defineExpose({
   loadConversations,
   createConversation,
-  closeConversation
+  closeConversation,
+  deleteConversation
 })
 </script>
 
@@ -212,6 +316,14 @@ defineExpose({
   border: 1px solid var(--primary-color);
 }
 
+.conversation-item.closed {
+  opacity: 0.55;
+}
+
+.conversation-item.closed .conv-icon {
+  color: var(--text-color-muted);
+}
+
 .conv-info {
   display: flex;
   align-items: center;
@@ -233,8 +345,21 @@ defineExpose({
   white-space: nowrap;
 }
 
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+}
+
 .conv-actions {
   display: flex;
+  gap: 2px;
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -257,7 +382,17 @@ defineExpose({
   transition: all 0.15s;
 }
 
-.action-btn:hover {
+.action-btn.rename-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.action-btn.close-btn:hover {
+  background: var(--text-color-muted);
+  color: white;
+}
+
+.action-btn.delete-btn:hover {
   background: #ff4d4f;
   color: white;
 }

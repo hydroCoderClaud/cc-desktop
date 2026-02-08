@@ -55,7 +55,9 @@ export default {
     copyFailed: 'Copy failed',
     openFailed: 'Failed to open',
     openFile: 'Open File',
-    all: 'All'
+    all: 'All',
+    rename: 'Rename',
+    today: 'Today'
   },
 
   // Main Page

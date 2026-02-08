@@ -52,7 +52,8 @@ class AgentSession {
     this.queryInstance = null       // 当前 Query 实例引用
     this.messageCount = 0
     this.totalCostUsd = 0
-    this.messages = []  // 消息历史存储
+    this.messages = []              // 消息历史存储（内存）
+    this.dbConversationId = null    // 数据库中的 conversation id
   }
 
   toJSON() {
@@ -82,6 +83,26 @@ class AgentSessionManager {
     // SDK query 函数（延迟加载，ESM）
     this._queryFn = null
     this._sdkLoading = null
+
+    // 数据库引用（通过 setSessionDatabase 注入）
+    this.sessionDatabase = null
+  }
+
+  /**
+   * 注入数据库实例
+   */
+  setSessionDatabase(db) {
+    this.sessionDatabase = db
+
+    // 启动时将之前未正常关闭的会话标记为 closed
+    if (db) {
+      try {
+        db.closeAllActiveAgentConversations()
+        console.log('[AgentSession] Marked all active conversations as closed on startup')
+      } catch (err) {
+        console.error('[AgentSession] Failed to close active conversations:', err)
+      }
+    }
   }
 
   /**
@@ -199,8 +220,24 @@ class AgentSessionManager {
     }
 
     this.sessions.set(session.id, session)
-    console.log(`[AgentSession] Created session ${session.id}, type: ${session.type}, cwd: ${session.cwd}`)
 
+    // 写入数据库
+    if (this.sessionDatabase) {
+      try {
+        const dbRecord = this.sessionDatabase.createAgentConversation({
+          sessionId: session.id,
+          type: session.type,
+          title: session.title,
+          cwd: session.cwd,
+          cwdAuto: session.cwdAuto
+        })
+        session.dbConversationId = dbRecord.id
+      } catch (err) {
+        console.error('[AgentSession] Failed to create DB record:', err)
+      }
+    }
+
+    console.log(`[AgentSession] Created session ${session.id}, type: ${session.type}, cwd: ${session.cwd}`)
     return session.toJSON()
   }
 
@@ -298,10 +335,27 @@ class AgentSessionManager {
   }
 
   /**
-   * 存储消息到会话历史
+   * 存储消息到会话历史（内存 + DB）
    */
   _storeMessage(session, msg) {
     session.messages.push(msg)
+
+    // 写入数据库
+    if (this.sessionDatabase && session.dbConversationId) {
+      try {
+        this.sessionDatabase.insertAgentMessage(session.dbConversationId, {
+          msgId: msg.id,
+          role: msg.role,
+          content: msg.content || null,
+          toolName: msg.toolName || null,
+          toolInput: msg.input || null,
+          toolOutput: msg.output || null,
+          timestamp: msg.timestamp
+        })
+      } catch (err) {
+        console.error('[AgentSession] Failed to insert message to DB:', err)
+      }
+    }
   }
 
   /**
@@ -319,6 +373,17 @@ class AgentSessionManager {
             tools: msg.tools,
             model: msg.model
           })
+
+          // 更新 DB 中的 sdk_session_id
+          if (this.sessionDatabase) {
+            try {
+              this.sessionDatabase.updateAgentConversation(session.id, {
+                sdkSessionId: msg.session_id
+              })
+            } catch (err) {
+              console.error('[AgentSession] Failed to update sdk_session_id:', err)
+            }
+          }
         } else if (msg.subtype === 'status') {
           this._safeSend('agent:systemStatus', {
             sessionId: session.id,
@@ -387,6 +452,18 @@ class AgentSessionManager {
             usage: msg.usage
           }
         })
+
+        // 更新 DB 中的统计信息
+        if (this.sessionDatabase) {
+          try {
+            this.sessionDatabase.updateAgentConversation(session.id, {
+              totalCostUsd: session.totalCostUsd,
+              messageCount: session.messageCount
+            })
+          } catch (err) {
+            console.error('[AgentSession] Failed to update result stats:', err)
+          }
+        }
         break
 
       case 'tool_progress':
@@ -433,7 +510,7 @@ class AgentSessionManager {
   }
 
   /**
-   * 关闭会话
+   * 关闭会话（软关闭：DB 标记 closed，内存移除）
    */
   close(sessionId) {
     const session = this.sessions.get(sessionId)
@@ -442,7 +519,16 @@ class AgentSessionManager {
     // 取消正在进行的查询
     this.cancel(sessionId)
 
-    // 从 Map 移除
+    // DB 软关闭
+    if (this.sessionDatabase) {
+      try {
+        this.sessionDatabase.closeAgentConversation(sessionId)
+      } catch (err) {
+        console.error('[AgentSession] Failed to close in DB:', err)
+      }
+    }
+
+    // 从内存 Map 移除
     this.sessions.delete(sessionId)
     console.log(`[AgentSession] Closed session ${sessionId}`)
   }
@@ -465,37 +551,142 @@ class AgentSessionManager {
   }
 
   /**
-   * 获取所有会话列表
+   * 获取所有会话列表（合并内存活跃 + DB 历史，去重）
    */
   list() {
+    // 1. 内存中的活跃会话
+    const activeIds = new Set()
     const result = []
+
     for (const session of this.sessions.values()) {
       result.push(session.toJSON())
+      activeIds.add(session.id)
     }
+
+    // 2. 从 DB 加载历史会话（非 closed 的也在内存中，这里主要取 closed 的历史）
+    if (this.sessionDatabase) {
+      try {
+        const dbConversations = this.sessionDatabase.listAllAgentConversations({ limit: 100 })
+        for (const row of dbConversations) {
+          if (activeIds.has(row.session_id)) continue  // 去重
+          result.push({
+            id: row.session_id,
+            type: row.type,
+            status: row.status,
+            sdkSessionId: row.sdk_session_id,
+            title: row.title || '',
+            cwd: row.cwd,
+            cwdAuto: !!row.cwd_auto,
+            createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+            messageCount: row.message_count || 0,
+            totalCostUsd: row.total_cost_usd || 0
+          })
+        }
+      } catch (err) {
+        console.error('[AgentSession] Failed to load DB conversations:', err)
+      }
+    }
+
+    // 按 createdAt 降序排序
+    result.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return tb - ta
+    })
+
     return result
   }
 
   /**
-   * 重命名会话
+   * 重命名会话（同步内存 + DB + 通知前端）
    */
   rename(sessionId, newTitle) {
     const session = this.sessions.get(sessionId)
     if (!session) {
-      throw new Error(`Agent session ${sessionId} not found`)
+      // 尝试只更新 DB（历史会话可能不在内存中）
+      if (this.sessionDatabase) {
+        this.sessionDatabase.updateAgentConversationTitle(sessionId, newTitle)
+      }
+      this._safeSend('agent:renamed', { sessionId, title: newTitle })
+      return { id: sessionId, title: newTitle }
     }
 
+    // 更新内存
     session.title = newTitle
+
+    // 更新 DB
+    if (this.sessionDatabase) {
+      try {
+        this.sessionDatabase.updateAgentConversationTitle(sessionId, newTitle)
+      } catch (err) {
+        console.error('[AgentSession] Failed to update title in DB:', err)
+      }
+    }
+
+    // 通知前端
+    this._safeSend('agent:renamed', { sessionId, title: newTitle })
+
     console.log(`[AgentSession] Renamed session ${sessionId} to: ${newTitle}`)
     return session.toJSON()
   }
 
   /**
-   * 获取会话消息历史
+   * 获取会话消息历史（内存优先，不存在则查 DB）
    */
   getMessages(sessionId) {
+    // 1. 内存中的活跃会话
     const session = this.sessions.get(sessionId)
-    if (!session) return []
-    return session.messages
+    if (session) {
+      return session.messages
+    }
+
+    // 2. 从 DB 查询历史消息
+    if (this.sessionDatabase) {
+      try {
+        const conv = this.sessionDatabase.getAgentConversation(sessionId)
+        if (!conv) return []
+
+        const dbMessages = this.sessionDatabase.getAgentMessagesByConversationId(conv.id)
+        // 转换 snake_case → camelCase
+        return dbMessages.map(row => ({
+          id: row.msg_id,
+          role: row.role,
+          content: row.content || undefined,
+          toolName: row.tool_name || undefined,
+          input: row.tool_input ? JSON.parse(row.tool_input) : undefined,
+          output: row.tool_output ? JSON.parse(row.tool_output) : undefined,
+          timestamp: row.timestamp
+        }))
+      } catch (err) {
+        console.error('[AgentSession] Failed to load messages from DB:', err)
+      }
+    }
+
+    return []
+  }
+
+  /**
+   * 物理删除对话（内存 + DB）
+   */
+  deleteConversation(sessionId) {
+    // 从内存移除（如果存在）
+    const session = this.sessions.get(sessionId)
+    if (session) {
+      this.cancel(sessionId)
+      this.sessions.delete(sessionId)
+    }
+
+    // 从 DB 删除
+    if (this.sessionDatabase) {
+      try {
+        this.sessionDatabase.deleteAgentConversation(sessionId)
+      } catch (err) {
+        console.error('[AgentSession] Failed to delete from DB:', err)
+      }
+    }
+
+    console.log(`[AgentSession] Deleted session ${sessionId}`)
+    return { success: true }
   }
 
   /**

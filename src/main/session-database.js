@@ -25,7 +25,8 @@ const {
   withTagOperations,
   withFavoriteOperations,
   withPromptOperations,
-  withQueueOperations
+  withQueueOperations,
+  withAgentOperations
 } = require('./database')
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
@@ -409,6 +410,46 @@ class SessionDatabaseBase {
     // Indexes
     // ========================================
 
+    // ========================================
+    // Agent Tables
+    // ========================================
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT UNIQUE NOT NULL,
+        type TEXT NOT NULL DEFAULT 'chat',
+        status TEXT NOT NULL DEFAULT 'idle',
+        sdk_session_id TEXT,
+        title TEXT DEFAULT '',
+        cwd TEXT,
+        cwd_auto INTEGER DEFAULT 1,
+        message_count INTEGER DEFAULT 0,
+        total_cost_usd REAL DEFAULT 0,
+        created_at INTEGER,
+        updated_at INTEGER
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id INTEGER NOT NULL,
+        msg_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT,
+        tool_name TEXT,
+        tool_input TEXT,
+        tool_output TEXT,
+        timestamp INTEGER NOT NULL,
+        FOREIGN KEY (conversation_id) REFERENCES agent_conversations(id) ON DELETE CASCADE
+      )
+    `)
+
+    // ========================================
+    // Indexes
+    // ========================================
+
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
       CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
@@ -418,6 +459,10 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_prompts_project ON prompts(project_id);
       CREATE INDEX IF NOT EXISTS idx_queue_session ON session_message_queue(session_uuid);
       CREATE INDEX IF NOT EXISTS idx_queue_pending ON session_message_queue(session_uuid, is_executed);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_status ON agent_conversations(status);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_updated ON agent_conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_agent_msg_conv ON agent_messages(conversation_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_msg_timestamp ON agent_messages(timestamp);
     `)
 
     console.log('[SessionDB] Tables and indexes created')
@@ -447,25 +492,31 @@ class SessionDatabaseBase {
     const messageCount = this.db.prepare('SELECT COUNT(*) as count FROM messages').get()
     const favoriteCount = this.db.prepare('SELECT COUNT(*) as count FROM favorites').get()
     const tagCount = this.db.prepare('SELECT COUNT(*) as count FROM tags').get()
+    const agentConvCount = this.db.prepare('SELECT COUNT(*) as count FROM agent_conversations').get()
+    const agentMsgCount = this.db.prepare('SELECT COUNT(*) as count FROM agent_messages').get()
 
     return {
       projects: projectCount?.count || 0,
       sessions: sessionCount?.count || 0,
       messages: messageCount?.count || 0,
       favorites: favoriteCount?.count || 0,
-      tags: tagCount?.count || 0
+      tags: tagCount?.count || 0,
+      agentConversations: agentConvCount?.count || 0,
+      agentMessages: agentMsgCount?.count || 0
     }
   }
 }
 
 // 应用所有 mixin，构建完整的 SessionDatabase 类
-const SessionDatabase = withQueueOperations(
-  withPromptOperations(
-    withFavoriteOperations(
-      withTagOperations(
-        withMessageOperations(
-          withSessionOperations(
-            withProjectOperations(SessionDatabaseBase)
+const SessionDatabase = withAgentOperations(
+  withQueueOperations(
+    withPromptOperations(
+      withFavoriteOperations(
+        withTagOperations(
+          withMessageOperations(
+            withSessionOperations(
+              withProjectOperations(SessionDatabaseBase)
+            )
           )
         )
       )

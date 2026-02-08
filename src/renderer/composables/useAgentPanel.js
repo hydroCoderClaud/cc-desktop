@@ -9,7 +9,7 @@ export function useAgentPanel() {
   const loading = ref(false)
 
   /**
-   * 加载对话列表
+   * 加载对话列表（后端已合并活跃+历史）
    */
   const loadConversations = async () => {
     if (!window.electronAPI) return
@@ -55,19 +55,37 @@ export function useAgentPanel() {
   }
 
   /**
-   * 关闭对话
+   * 关闭对话（软关闭，标记为 closed）
    */
   const closeConversation = async (sessionId) => {
     if (!window.electronAPI) return
 
     try {
       await window.electronAPI.closeAgentSession(sessionId)
+      // 更新列表中的状态
+      const conv = conversations.value.find(c => c.id === sessionId)
+      if (conv) {
+        conv.status = 'closed'
+      }
+    } catch (err) {
+      console.error('[useAgentPanel] closeConversation error:', err)
+    }
+  }
+
+  /**
+   * 物理删除对话
+   */
+  const deleteConversation = async (sessionId) => {
+    if (!window.electronAPI) return
+
+    try {
+      await window.electronAPI.deleteAgentConversation(sessionId)
       const index = conversations.value.findIndex(c => c.id === sessionId)
       if (index !== -1) {
         conversations.value.splice(index, 1)
       }
     } catch (err) {
-      console.error('[useAgentPanel] closeConversation error:', err)
+      console.error('[useAgentPanel] deleteConversation error:', err)
     }
   }
 
@@ -123,6 +141,7 @@ export function useAgentPanel() {
     loadConversations,
     createConversation,
     closeConversation,
+    deleteConversation,
     renameConversation
   }
 }

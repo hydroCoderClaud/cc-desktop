@@ -518,6 +518,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 消息历史
   getAgentMessages: (sessionId) => ipcRenderer.invoke('agent:getMessages', sessionId),
+  deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
 
   // 成果目录
   getAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:getOutputDir', sessionId),
@@ -564,6 +565,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('agent:systemStatus', listener);
     return () => ipcRenderer.removeListener('agent:systemStatus', listener);
+  },
+  onAgentRenamed: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:renamed', listener);
+    return () => ipcRenderer.removeListener('agent:renamed', listener);
   }
 });
 
