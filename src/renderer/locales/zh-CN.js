@@ -1043,6 +1043,13 @@ export default {
     modelPowerful: '强力',
     modelFast: '快速',
     contextTokensHint: '当前上下文 Token 用量',
-    compactHint: '压缩上下文（减少 Token 用量）'
+    compactHint: '压缩上下文（减少 Token 用量）',
+    slashTitle: '可用命令',
+    slashNoMatch: '无匹配命令',
+    cmdCompact: '压缩上下文，减少 Token 用量',
+    cmdCost: '查看本次对话费用与 Token 用量',
+    cmdStatus: '查看当前会话状态',
+    cmdHelp: '显示帮助信息',
+    cmdClear: '清除对话历史'
   }
 }

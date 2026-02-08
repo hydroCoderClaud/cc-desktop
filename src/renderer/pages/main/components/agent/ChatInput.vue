@@ -9,7 +9,7 @@
           <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showDropdown }" />
         </div>
 
-        <!-- 下拉菜单 -->
+        <!-- 模型下拉菜单 -->
         <Transition name="dropdown">
           <div v-if="showDropdown" class="model-dropdown">
             <div
@@ -28,11 +28,9 @@
       </div>
 
       <div class="toolbar-right">
-        <!-- Token 计数 -->
         <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
           {{ formatTokens(contextTokens) }}
         </span>
-        <!-- 压缩按钮 -->
         <button
           class="compact-btn"
           :disabled="isStreaming || isCompacting || contextTokens === 0"
@@ -46,7 +44,34 @@
     </div>
 
     <!-- 输入区域 -->
-    <div class="input-wrapper">
+    <div class="input-wrapper" ref="inputWrapperRef">
+      <!-- Slash 命令面板 -->
+      <Transition name="slash-panel">
+        <div v-if="showSlashPanel" class="slash-panel">
+          <div class="slash-panel-header">
+            <Icon name="zap" :size="12" />
+            <span>{{ t('agent.slashTitle') }}</span>
+          </div>
+          <div
+            v-for="(cmd, index) in filteredCommands"
+            :key="cmd.name"
+            class="slash-item"
+            :class="{ active: slashActiveIndex === index }"
+            @click="selectSlashCommand(cmd)"
+            @mouseenter="slashActiveIndex = index"
+          >
+            <Icon :name="cmd.icon" :size="14" class="slash-item-icon" />
+            <div class="slash-item-info">
+              <span class="slash-item-name">{{ cmd.name }}</span>
+              <span class="slash-item-desc">{{ cmd.desc }}</span>
+            </div>
+          </div>
+          <div v-if="filteredCommands.length === 0" class="slash-empty">
+            {{ t('agent.slashNoMatch') }}
+          </div>
+        </div>
+      </Transition>
+
       <textarea
         ref="textareaRef"
         v-model="inputText"
@@ -54,7 +79,7 @@
         :disabled="disabled"
         class="chat-textarea"
         rows="1"
-        @input="autoResize"
+        @input="handleInput"
         @keydown="handleKeyDown"
       />
       <button
@@ -79,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -109,18 +134,27 @@ const props = defineProps({
   contextTokens: {
     type: Number,
     default: 0
+  },
+  slashCommands: {
+    type: Array,
+    default: () => []
   }
 })
 
 const emit = defineEmits(['send', 'cancel', 'compact', 'update:modelValue'])
 
-// 格式化 token 数量
+// ============================
+// Token 格式化
+// ============================
 const formatTokens = (n) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
   return `${n}`
 }
 
+// ============================
+// 模型选择
+// ============================
 const modelOptions = [
   { value: 'sonnet', label: 'Sonnet', desc: t('agent.modelBalanced') },
   { value: 'opus', label: 'Opus', desc: t('agent.modelPowerful') },
@@ -144,24 +178,55 @@ const selectModel = (value) => {
   showDropdown.value = false
 }
 
-// 点击外部关闭下拉
-const handleClickOutside = (e) => {
-  if (selectorRef.value && !selectorRef.value.contains(e.target)) {
-    showDropdown.value = false
-  }
+// ============================
+// Slash 命令面板
+// ============================
+
+// 内置命令描述（带图标和中文说明）
+const builtinCommands = computed(() => [
+  { name: '/compact', icon: 'compress', desc: t('agent.cmdCompact') },
+  { name: '/cost', icon: 'info', desc: t('agent.cmdCost') },
+  { name: '/status', icon: 'terminal', desc: t('agent.cmdStatus') },
+  { name: '/help', icon: 'info', desc: t('agent.cmdHelp') },
+  { name: '/clear', icon: 'close', desc: t('agent.cmdClear') }
+])
+
+// 合并内置 + SDK 动态命令（去重，SDK 的排后面）
+const allCommands = computed(() => {
+  const builtinNames = new Set(builtinCommands.value.map(c => c.name))
+  const extra = (props.slashCommands || [])
+    .filter(name => !builtinNames.has(name))
+    .map(name => ({ name, icon: 'zap', desc: '' }))
+  return [...builtinCommands.value, ...extra]
+})
+
+const showSlashPanel = ref(false)
+const slashActiveIndex = ref(0)
+const slashFilter = ref('')
+
+const filteredCommands = computed(() => {
+  if (!slashFilter.value) return allCommands.value
+  const q = slashFilter.value.toLowerCase()
+  return allCommands.value.filter(c => c.name.toLowerCase().includes(q))
+})
+
+// 监听 filteredCommands 变化，重置索引
+watch(filteredCommands, () => {
+  slashActiveIndex.value = 0
+})
+
+const selectSlashCommand = (cmd) => {
+  inputText.value = cmd.name
+  showSlashPanel.value = false
+  handleSend()
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  focus()
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
-
+// ============================
+// 输入与发送
+// ============================
 const inputText = ref('')
 const textareaRef = ref(null)
+const inputWrapperRef = ref(null)
 
 const autoResize = () => {
   nextTick(() => {
@@ -173,8 +238,48 @@ const autoResize = () => {
   })
 }
 
+const handleInput = () => {
+  autoResize()
+
+  // 检测 slash 命令
+  const text = inputText.value
+  if (text.startsWith('/') && !text.includes(' ')) {
+    showSlashPanel.value = true
+    slashFilter.value = text
+  } else {
+    showSlashPanel.value = false
+    slashFilter.value = ''
+  }
+}
+
 const handleKeyDown = (event) => {
-  // Enter 发送，Shift+Enter 换行
+  // Slash 面板激活时的键盘导航
+  if (showSlashPanel.value) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      slashActiveIndex.value = Math.min(slashActiveIndex.value + 1, filteredCommands.value.length - 1)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      slashActiveIndex.value = Math.max(slashActiveIndex.value - 1, 0)
+      return
+    }
+    if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
+      if (filteredCommands.value.length > 0) {
+        event.preventDefault()
+        selectSlashCommand(filteredCommands.value[slashActiveIndex.value])
+        return
+      }
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      showSlashPanel.value = false
+      return
+    }
+  }
+
+  // 普通模式：Enter 发送，Shift+Enter 换行
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     handleSend()
@@ -185,10 +290,32 @@ const handleSend = () => {
   const text = inputText.value.trim()
   if (!text || props.disabled || props.isStreaming) return
 
+  showSlashPanel.value = false
   emit('send', text)
   inputText.value = ''
   nextTick(autoResize)
 }
+
+// ============================
+// 点击外部关闭
+// ============================
+const handleClickOutside = (e) => {
+  if (selectorRef.value && !selectorRef.value.contains(e.target)) {
+    showDropdown.value = false
+  }
+  if (inputWrapperRef.value && !inputWrapperRef.value.contains(e.target)) {
+    showSlashPanel.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  focus()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const focus = () => {
   textareaRef.value?.focus()
@@ -299,7 +426,7 @@ defineExpose({ focus })
   transform: rotate(180deg);
 }
 
-/* Dropdown */
+/* Model Dropdown */
 .model-dropdown {
   position: absolute;
   bottom: 100%;
@@ -371,10 +498,100 @@ defineExpose({ focus })
   border-radius: 12px;
   padding: 8px 12px;
   transition: border-color 0.2s;
+  position: relative;
 }
 
 .input-wrapper:focus-within {
   border-color: var(--primary-color);
+}
+
+/* Slash Command Panel */
+.slash-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.slash-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.slash-item:hover,
+.slash-item.active {
+  background: var(--hover-bg);
+}
+
+.slash-item-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.slash-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.slash-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.slash-item-desc {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slash-empty {
+  padding: 12px 10px;
+  font-size: 12px;
+  color: var(--text-color-muted);
+  text-align: center;
+}
+
+/* Slash panel transition */
+.slash-panel-enter-active,
+.slash-panel-leave-active {
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.slash-panel-enter-from,
+.slash-panel-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .chat-textarea {

@@ -509,7 +509,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 生命周期
   createAgentSession: (options) => ipcRenderer.invoke('agent:create', options),
-  sendAgentMessage: ({ sessionId, message, modelTier }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message, modelTier }),
+  sendAgentMessage: ({ sessionId, message, modelTier, maxTurns }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message, modelTier, maxTurns }),
   cancelAgentGeneration: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
   closeAgentSession: (sessionId) => ipcRenderer.invoke('agent:close', sessionId),
   reopenAgentSession: (sessionId) => ipcRenderer.invoke('agent:reopen', sessionId),

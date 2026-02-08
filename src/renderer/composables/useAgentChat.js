@@ -29,6 +29,7 @@ export function useAgentChat(sessionId) {
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
+  const slashCommands = ref([])     // SDK 提供的可用 slash 命令
   let streamingTimer = null
 
   // 清理函数列表
@@ -111,19 +112,33 @@ export function useAgentChat(sessionId) {
   const sendMessage = async (text) => {
     if (!text.trim() || isStreaming.value) return
 
+    const trimmed = text.trim()
+
+    // /compact 走专用方法
+    if (trimmed === '/compact') {
+      return compactConversation()
+    }
+
     error.value = null
     isRestored.value = false
-    addUserMessage(text)
+    addUserMessage(trimmed)
     isStreaming.value = true
     currentStreamText.value = ''
     startTimer()
 
+    // slash 命令自动限制 maxTurns=1
+    const isSlashCmd = trimmed.startsWith('/')
+    const sendOptions = {
+      sessionId,
+      message: trimmed,
+      modelTier: selectedModel.value
+    }
+    if (isSlashCmd) {
+      sendOptions.maxTurns = 1
+    }
+
     try {
-      await window.electronAPI.sendAgentMessage({
-        sessionId,
-        message: text,
-        modelTier: selectedModel.value
-      })
+      await window.electronAPI.sendAgentMessage(sendOptions)
     } catch (err) {
       console.error('[useAgentChat] sendMessage error:', err)
       error.value = err.message || 'Failed to send message'
@@ -140,6 +155,16 @@ export function useAgentChat(sessionId) {
       await window.electronAPI.cancelAgentGeneration(sessionId)
     } catch (err) {
       console.error('[useAgentChat] cancel error:', err)
+    }
+  }
+
+  /**
+   * 处理 init 事件（获取可用 slash 命令等）
+   */
+  const handleInit = (data) => {
+    if (data.sessionId !== sessionId) return
+    if (data.slashCommands && Array.isArray(data.slashCommands)) {
+      slashCommands.value = data.slashCommands
     }
   }
 
@@ -300,6 +325,9 @@ export function useAgentChat(sessionId) {
   const setupListeners = () => {
     if (!window.electronAPI) return
 
+    if (window.electronAPI.onAgentInit) {
+      cleanupFns.push(window.electronAPI.onAgentInit(handleInit))
+    }
     if (window.electronAPI.onAgentMessage) {
       cleanupFns.push(window.electronAPI.onAgentMessage(handleMessage))
     }
@@ -346,6 +374,7 @@ export function useAgentChat(sessionId) {
     streamingElapsed,
     contextTokens,
     isCompacting,
+    slashCommands,
     loadMessages,
     sendMessage,
     cancelGeneration,

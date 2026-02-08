@@ -287,7 +287,7 @@ class AgentSessionManager {
     return session.toJSON()
   }
 
-  async sendMessage(sessionId, userMessage, { modelTier } = {}) {
+  async sendMessage(sessionId, userMessage, { modelTier, maxTurns } = {}) {
     let session = this.sessions.get(sessionId)
 
     // 内存中不存在，尝试自动恢复（兜底）
@@ -341,6 +341,11 @@ class AgentSessionManager {
         includePartialMessages: true,
         abortController: session.abortController,
         env
+      }
+
+      // slash 命令限制 turns
+      if (maxTurns) {
+        options.maxTurns = maxTurns
       }
 
       // 多轮对话：resume 上一次的 sessionId
@@ -428,7 +433,8 @@ class AgentSessionManager {
             sessionId: session.id,
             sdkSessionId: msg.session_id,
             tools: msg.tools,
-            model: msg.model
+            model: msg.model,
+            slashCommands: msg.slash_commands || []
           })
 
           // 更新 DB 中的 sdk_session_id

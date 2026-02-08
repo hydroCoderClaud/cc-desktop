@@ -28,10 +28,10 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   })
 
   // 发送消息（异步，流式推送结果）
-  ipcMain.handle('agent:sendMessage', async (event, { sessionId, message, modelTier }) => {
+  ipcMain.handle('agent:sendMessage', async (event, { sessionId, message, modelTier, maxTurns }) => {
     try {
       // 不等待完成，让流式消息通过 IPC 事件推送
-      agentSessionManager.sendMessage(sessionId, message, { modelTier }).catch(err => {
+      agentSessionManager.sendMessage(sessionId, message, { modelTier, maxTurns }).catch(err => {
         console.error('[IPC] agent:sendMessage async error:', err)
         // 推送错误到前端，避免静默失败
         event.sender.send('agent:error', {

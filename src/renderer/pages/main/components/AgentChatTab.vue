@@ -56,6 +56,7 @@
       :disabled="false"
       :placeholder="t('agent.inputPlaceholder')"
       :context-tokens="contextTokens"
+      :slash-commands="slashCommands"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
@@ -100,6 +101,7 @@ const {
   streamingElapsed,
   contextTokens,
   isCompacting,
+  slashCommands,
   loadMessages,
   sendMessage,
   cancelGeneration,

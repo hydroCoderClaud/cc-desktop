@@ -1040,6 +1040,13 @@ export default {
     modelPowerful: 'Powerful',
     modelFast: 'Fast',
     contextTokensHint: 'Current context token usage',
-    compactHint: 'Compact context (reduce token usage)'
+    compactHint: 'Compact context (reduce token usage)',
+    slashTitle: 'Available Commands',
+    slashNoMatch: 'No matching commands',
+    cmdCompact: 'Compact context to reduce token usage',
+    cmdCost: 'View conversation cost and token usage',
+    cmdStatus: 'View current session status',
+    cmdHelp: 'Show help information',
+    cmdClear: 'Clear conversation history'
   }
 }
