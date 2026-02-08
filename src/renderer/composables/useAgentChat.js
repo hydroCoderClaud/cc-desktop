@@ -334,16 +334,9 @@ export function useAgentChat(sessionId) {
 
     const result = data.result
 
-    // 从 result.modelUsage 读取上下文 token 数
-    if (result?.modelUsage) {
-      let totalInput = 0
-      for (const model of Object.values(result.modelUsage)) {
-        totalInput += (model.inputTokens || 0) + (model.cacheCreationInputTokens || 0) + (model.cacheReadInputTokens || 0)
-      }
-      if (totalInput > 0) {
-        contextTokens.value = totalInput
-      }
-    }
+    // 注意：result.modelUsage 是一轮中所有 API 调用的累计值，
+    // 不代表真实上下文大小，不用于 contextTokens。
+    // 上下文大小由 handleUsage（单次 API 调用的 usage）更新。
 
     // 累计花费和轮数
     if (result?.totalCostUsd) {
@@ -365,7 +358,15 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
     const usage = data.usage
     if (usage) {
-      contextTokens.value = usage.input_tokens || usage.inputTokens || 0
+      // 真实上下文大小 = input_tokens + 缓存创建 + 缓存读取
+      // 三者互斥，总和 = 实际发送到 API 的 token 数
+      const input = usage.input_tokens || usage.inputTokens || 0
+      const cacheCreation = usage.cache_creation_input_tokens || usage.cacheCreationInputTokens || 0
+      const cacheRead = usage.cache_read_input_tokens || usage.cacheReadInputTokens || 0
+      const total = input + cacheCreation + cacheRead
+      if (total > 0) {
+        contextTokens.value = total
+      }
     }
   }
 
