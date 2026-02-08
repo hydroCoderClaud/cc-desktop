@@ -30,6 +30,7 @@ export function useAgentChat(sessionId) {
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
   const slashCommands = ref([])     // SDK 提供的可用 slash 命令
+  const activeModel = ref('')        // SDK 实际使用的模型名
   let streamingTimer = null
 
   // 清理函数列表
@@ -165,6 +166,9 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
     if (data.slashCommands && Array.isArray(data.slashCommands)) {
       slashCommands.value = data.slashCommands
+    }
+    if (data.model) {
+      activeModel.value = data.model
     }
   }
 
@@ -375,6 +379,7 @@ export function useAgentChat(sessionId) {
     contextTokens,
     isCompacting,
     slashCommands,
+    activeModel,
     loadMessages,
     sendMessage,
     cancelGeneration,

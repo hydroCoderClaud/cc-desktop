@@ -329,11 +329,6 @@ class AgentSessionManager {
       // 构建 query 选项
       const env = this._buildEnvVars()
 
-      // 用户选择了模型 tier，覆盖默认模型
-      if (modelTier) {
-        env.ANTHROPIC_MODEL = modelTier
-      }
-
       const options = {
         cwd: session.cwd,
         permissionMode: 'acceptEdits',
@@ -341,6 +336,11 @@ class AgentSessionManager {
         includePartialMessages: true,
         abortController: session.abortController,
         env
+      }
+
+      // 用户选择了模型，通过 SDK model 参数传递
+      if (modelTier) {
+        options.model = modelTier
       }
 
       // slash 命令限制 turns

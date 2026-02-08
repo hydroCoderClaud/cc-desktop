@@ -128,6 +128,10 @@ const props = defineProps({
   slashCommands: {
     type: Array,
     default: () => []
+  },
+  activeModel: {
+    type: String,
+    default: ''
   }
 })
 
@@ -169,15 +173,16 @@ let hintTimer = null
 const selectModel = (value) => {
   emit('update:modelValue', value)
   showDropdown.value = false
-
-  // 显示切换提示
-  const found = modelOptions.find(m => m.value === value)
-  if (found) {
-    modelSwitchHint.value = t('agent.modelSwitched', { model: found.label })
-    clearTimeout(hintTimer)
-    hintTimer = setTimeout(() => { modelSwitchHint.value = '' }, 2000)
-  }
 }
+
+// SDK init 返回实际模型名时，显示确认提示
+watch(() => props.activeModel, (newModel) => {
+  if (newModel) {
+    modelSwitchHint.value = t('agent.modelConfirmed', { model: newModel })
+    clearTimeout(hintTimer)
+    hintTimer = setTimeout(() => { modelSwitchHint.value = '' }, 3000)
+  }
+})
 
 // ============================
 // Slash 命令面板

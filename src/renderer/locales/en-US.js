@@ -1040,6 +1040,7 @@ export default {
     modelPowerful: 'Powerful',
     modelFast: 'Fast',
     modelSwitched: 'Switched to {model}',
+    modelConfirmed: 'Active model: {model}',
     contextTokensHint: 'Current context token usage',
     compactHint: 'Compact context (reduce token usage)',
     slashTitle: 'Available Commands',

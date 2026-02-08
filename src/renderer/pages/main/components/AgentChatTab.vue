@@ -56,6 +56,7 @@
       :placeholder="t('agent.inputPlaceholder')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
+      :active-model="activeModel"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
@@ -100,6 +101,7 @@ const {
   contextTokens,
   isCompacting,
   slashCommands,
+  activeModel,
   loadMessages,
   sendMessage,
   cancelGeneration,

@@ -1043,6 +1043,7 @@ export default {
     modelPowerful: '强力',
     modelFast: '快速',
     modelSwitched: '已切换到 {model}',
+    modelConfirmed: '当前模型: {model}',
     contextTokensHint: '当前上下文 Token 用量',
     compactHint: '压缩上下文（减少 Token 用量）',
     slashTitle: '可用命令',
