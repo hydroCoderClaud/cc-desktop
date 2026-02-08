@@ -19,6 +19,8 @@
  * | modelMapping.opus           | ANTHROPIC_DEFAULT_OPUS_MODEL            |
  * | modelMapping.sonnet         | ANTHROPIC_DEFAULT_SONNET_MODEL          |
  * | modelMapping.haiku          | ANTHROPIC_DEFAULT_HAIKU_MODEL           |
+ * | useProxy + httpsProxy       | HTTPS_PROXY                             |
+ * | useProxy + httpProxy        | HTTP_PROXY                              |
  *
  * authType 说明：
  * - 'api_key' (默认) → ANTHROPIC_API_KEY（官方 API 标准）
@@ -78,6 +80,18 @@ function buildClaudeEnvVars(profile) {
     }
     if (mapping.haiku && mapping.haiku.trim()) {
       envVars.ANTHROPIC_DEFAULT_HAIKU_MODEL = mapping.haiku.trim()
+    }
+  }
+
+  // 代理设置
+  if (profile.useProxy) {
+    if (profile.httpsProxy && profile.httpsProxy.trim()) {
+      envVars.HTTPS_PROXY = profile.httpsProxy.trim()
+      envVars.https_proxy = profile.httpsProxy.trim()
+    }
+    if (profile.httpProxy && profile.httpProxy.trim()) {
+      envVars.HTTP_PROXY = profile.httpProxy.trim()
+      envVars.http_proxy = profile.httpProxy.trim()
     }
   }
 
