@@ -8,6 +8,7 @@ const path = require('path');
 const ConfigManager = require('./config-manager');
 const TerminalManager = require('./terminal-manager');
 const { ActiveSessionManager } = require('./active-session-manager');
+const { AgentSessionManager } = require('./agent-session-manager');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -15,6 +16,7 @@ let mainWindow = null;
 let configManager = null;
 let terminalManager = null;
 let activeSessionManager = null;
+let agentSessionManager = null;
 
 /**
  * 获取主题背景色
@@ -85,6 +87,10 @@ function createWindow() {
     // 清理所有活动会话
     if (activeSessionManager) {
       activeSessionManager.closeAll();
+    }
+    // 清理所有 Agent 会话
+    if (agentSessionManager) {
+      agentSessionManager.closeAll();
     }
     mainWindow = null;
   });
@@ -164,8 +170,11 @@ app.whenReady().then(async () => {
   // 初始化活动会话管理器（新的多会话管理）
   activeSessionManager = new ActiveSessionManager(mainWindow, configManager);
 
+  // 初始化 Agent 会话管理器
+  agentSessionManager = new AgentSessionManager(mainWindow, configManager);
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager);
 
   // macOS 特定行为
   app.on('activate', () => {
@@ -178,6 +187,9 @@ app.whenReady().then(async () => {
       }
       if (activeSessionManager) {
         activeSessionManager.mainWindow = mainWindow;
+      }
+      if (agentSessionManager) {
+        agentSessionManager.mainWindow = mainWindow;
       }
     }
   });
@@ -205,6 +217,11 @@ app.on('will-quit', () => {
   // 清理所有活动会话
   if (activeSessionManager) {
     activeSessionManager.closeAll();
+  }
+
+  // 清理所有 Agent 会话
+  if (agentSessionManager) {
+    agentSessionManager.closeAll();
   }
 });
 

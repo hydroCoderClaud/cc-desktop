@@ -262,6 +262,70 @@ export function useTabManagement() {
   }
 
   /**
+   * 确保 Agent 对话有对应的 Tab（如果没有则创建）
+   * @param {Object} agentSession - Agent 会话对象 { id, type, title, status }
+   * @returns {Object} Tab 对象
+   */
+  const ensureAgentTab = (agentSession) => {
+    const tabId = `agent-${agentSession.id}`
+
+    // 先在 allTabs 中查找
+    const existingTab = allTabs.value.find(t => t.id === tabId)
+    if (existingTab) {
+      activeTabId.value = existingTab.id
+
+      // 如果不在 tabs 中，添加回去
+      if (!tabs.value.find(t => t.id === existingTab.id)) {
+        tabs.value.push(existingTab)
+      }
+
+      return existingTab
+    }
+
+    // 创建新 agent tab
+    const newTab = {
+      id: tabId,
+      sessionId: agentSession.id,
+      type: 'agent-chat',
+      title: agentSession.title || 'Agent Chat',
+      status: agentSession.status || 'idle'
+    }
+
+    tabs.value.push(newTab)
+    allTabs.value.push(newTab)
+    activeTabId.value = newTab.id
+
+    return newTab
+  }
+
+  /**
+   * 关闭 Agent Tab
+   * @param {Object} tab - Agent Tab 对象
+   */
+  const closeAgentTab = async (tab) => {
+    // 从 tabs 中移除
+    const index = tabs.value.findIndex(t => t.id === tab.id)
+    if (index !== -1) {
+      tabs.value.splice(index, 1)
+    }
+
+    // 从 allTabs 中也移除（Agent 不需要保持后台缓冲区）
+    const allIndex = allTabs.value.findIndex(t => t.id === tab.id)
+    if (allIndex !== -1) {
+      allTabs.value.splice(allIndex, 1)
+    }
+
+    // 如果关闭的是当前活动 tab，切换到其他 tab
+    if (activeTabId.value === tab.id) {
+      if (tabs.value.length > 0) {
+        activeTabId.value = tabs.value[tabs.value.length - 1].id
+      } else {
+        activeTabId.value = 'welcome'
+      }
+    }
+  }
+
+  /**
    * 切换到欢迎页
    */
   const goToWelcome = () => {
@@ -291,6 +355,8 @@ export function useTabManagement() {
     // Methods
     addSessionTab,
     ensureSessionTab,
+    ensureAgentTab,
+    closeAgentTab,
     selectTab,
     closeTab,
     closeTabBySessionId,

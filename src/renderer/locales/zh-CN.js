@@ -1005,5 +1005,30 @@ export default {
     terminalExited: '终端进程已退出',
     terminalError: '终端错误',
     noActiveTerminal: '请先打开一个终端会话'
+  },
+
+  // 模式切换
+  mode: {
+    developerMode: '开发者模式',
+    agentMode: 'Agent 模式',
+    switchToAgent: '切换到 Agent 模式',
+    switchToDeveloper: '切换到开发者模式',
+    agentWelcome: '开始与 AI Agent 对话，无需代码知识即可完成各种任务。'
+  },
+
+  // Agent 功能
+  agent: {
+    newConversation: '新建对话',
+    conversations: '对话列表',
+    noConversations: '暂无对话',
+    send: '发送',
+    stopGeneration: '停止生成',
+    thinking: '正在思考...',
+    inputPlaceholder: '请输入您想说的话... (Enter 发送，Shift+Enter 换行)',
+    outputDir: '输出目录',
+    openOutputDir: '打开输出目录',
+    chat: '对话',
+    specialized: '专用',
+    lightapp: '轻应用'
   }
 }

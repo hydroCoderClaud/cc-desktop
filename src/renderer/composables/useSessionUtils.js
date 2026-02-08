@@ -18,7 +18,8 @@ export const SessionStatus = {
  */
 export const SessionType = {
   SESSION: 'session',    // Claude 会话
-  TERMINAL: 'terminal'   // 纯终端
+  TERMINAL: 'terminal',  // 纯终端
+  AGENT_CHAT: 'agent-chat'  // Agent 对话
 }
 
 /**

@@ -13,52 +13,66 @@
       </div>
     </div>
 
-    <!-- Project Selector -->
-    <div class="project-section">
-      <div class="section-header">
-        <span>{{ t('main.projects') }}</span>
-        <button class="open-project-btn" @click="$emit('open-project')" :title="t('project.openExisting')">
-          <Icon name="folderOpen" :size="14" />
+    <!-- ========== Developer Mode Content ========== -->
+    <template v-if="isDeveloperMode">
+      <!-- Project Selector -->
+      <div class="project-section">
+        <div class="section-header">
+          <span>{{ t('main.projects') }}</span>
+          <button class="open-project-btn" @click="$emit('open-project')" :title="t('project.openExisting')">
+            <Icon name="folderOpen" :size="14" />
+          </button>
+        </div>
+
+        <div class="project-selector-row">
+          <n-select
+            v-model:value="selectedProjectId"
+            :options="projectOptions"
+            :placeholder="t('main.selectProject')"
+            clearable
+            filterable
+            class="project-dropdown"
+            @update:value="handleProjectChange"
+          />
+          <n-dropdown
+            v-if="selectedProjectId"
+            trigger="click"
+            :options="projectMenuOptions"
+            @select="handleProjectMenuSelect"
+            placement="bottom-end"
+          >
+            <button class="project-settings-btn" :title="t('main.projectSettings')">
+              <Icon name="settings" :size="14" />
+            </button>
+          </n-dropdown>
+        </div>
+      </div>
+
+      <!-- New Session Button (固定不滚动) -->
+      <div class="new-session-area" v-if="currentProject && currentProject.pathValid">
+        <button class="new-session-btn" @click="handleNewSession">
+          <span class="icon">+</span>
+          <span>{{ t('session.newSession') }}</span>
+        </button>
+        <button class="open-terminal-btn" @click="handleOpenTerminal" :title="t('terminal.openTerminal')">
+          <Icon name="terminal" :size="14" />
         </button>
       </div>
+    </template>
 
-      <div class="project-selector-row">
-        <n-select
-          v-model:value="selectedProjectId"
-          :options="projectOptions"
-          :placeholder="t('main.selectProject')"
-          clearable
-          filterable
-          class="project-dropdown"
-          @update:value="handleProjectChange"
-        />
-        <n-dropdown
-          v-if="selectedProjectId"
-          trigger="click"
-          :options="projectMenuOptions"
-          @select="handleProjectMenuSelect"
-          placement="bottom-end"
-        >
-          <button class="project-settings-btn" :title="t('main.projectSettings')">
-            <Icon name="settings" :size="14" />
-          </button>
-        </n-dropdown>
-      </div>
-    </div>
+    <!-- ========== Agent Mode Content ========== -->
+    <template v-else>
+      <AgentLeftContent
+        ref="agentLeftContentRef"
+        :active-session-id="activeAgentSessionId"
+        @created="handleAgentCreated"
+        @select="handleAgentSelected"
+        @close="handleAgentClosed"
+      />
+    </template>
 
-    <!-- New Session Button (固定不滚动) -->
-    <div class="new-session-area" v-if="currentProject && currentProject.pathValid">
-      <button class="new-session-btn" @click="handleNewSession">
-        <span class="icon">+</span>
-        <span>{{ t('session.newSession') }}</span>
-      </button>
-      <button class="open-terminal-btn" @click="handleOpenTerminal" :title="t('terminal.openTerminal')">
-        <Icon name="terminal" :size="14" />
-      </button>
-    </div>
-
-    <!-- Session Area (滚动区域) -->
-    <div class="session-section">
+    <!-- Session Area (滚动区域) - 仅开发者模式 -->
+    <div class="session-section" v-if="isDeveloperMode">
       <!-- Active Sessions -->
       <div class="sessions-group" v-if="activeSessions.length > 0">
         <div class="group-header">
@@ -195,6 +209,14 @@
         <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
           <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
         </button>
+
+        <button
+          class="mode-toggle-btn"
+          @click="handleToggleMode"
+          :title="isDeveloperMode ? t('mode.switchToAgent') : t('mode.switchToDeveloper')"
+        >
+          <Icon :name="isDeveloperMode ? 'terminal' : 'robot'" :size="18" />
+        </button>
       </div>
     </div>
 
@@ -281,17 +303,50 @@ import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NI
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
+import { useAppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
+import AgentLeftContent from './agent/AgentLeftContent.vue'
 
 const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale, setLocale } = useLocale()
+const { isDeveloperMode, isAgentMode, toggleMode } = useAppMode()
 
 // 切换语言
 const toggleLocale = () => {
   const newLocale = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
   setLocale(newLocale)
+}
+
+// 切换应用模式
+const handleToggleMode = async () => {
+  await toggleMode()
+  emit('mode-changed', isDeveloperMode.value ? 'developer' : 'agent')
+}
+
+// ========================================
+// Agent 模式事件处理
+// ========================================
+
+const handleAgentCreated = (session) => {
+  activeAgentSessionId.value = session.id
+  emit('agent-created', session)
+}
+
+const handleAgentSelected = (conv) => {
+  activeAgentSessionId.value = conv.id
+  emit('agent-selected', conv)
+}
+
+const handleAgentClosed = async (conv) => {
+  if (agentLeftContentRef.value) {
+    await agentLeftContentRef.value.closeConversation(conv.id)
+  }
+  if (activeAgentSessionId.value === conv.id) {
+    activeAgentSessionId.value = null
+  }
+  emit('agent-closed', conv)
 }
 
 // Props
@@ -321,7 +376,11 @@ const emit = defineEmits([
   'session-closed',
   'terminal-created',
   'collapse',
-  'toggle-both-panels'
+  'toggle-both-panels',
+  'mode-changed',
+  'agent-created',
+  'agent-selected',
+  'agent-closed'
 ])
 
 // Use session panel composable
@@ -360,6 +419,8 @@ const {
 // Local state
 const selectedProjectId = ref(null)
 const isSyncing = ref(false)
+const agentLeftContentRef = ref(null)
+const activeAgentSessionId = ref(null)
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
@@ -1349,6 +1410,35 @@ defineExpose({
 .theme-toggle-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
+}
+
+.mode-toggle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 18px;
+  color: var(--primary-color);
+}
+
+.mode-toggle-btn:hover {
+  transform: scale(1.05);
+  border-color: var(--primary-color);
+  background: var(--hover-bg);
+}
+
+/* Agent mode button */
+.agent-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Dialog Footer */

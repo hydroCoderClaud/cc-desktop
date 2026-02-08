@@ -69,6 +69,16 @@ class ConfigManager {
         maxActiveSessions: 5,  // 最大同时运行的会话数
         maxHistorySessions: 10,  // 左侧面板历史会话最大显示条数
 
+        // 应用模式
+        appMode: 'developer',  // 'developer' | 'agent'
+
+        // Agent 模式配置
+        agent: {
+          outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
+          maxAgentSessions: 5,         // 最大并发 Agent 会话数
+          defaultAgentType: 'chat'     // 默认 Agent 类型
+        },
+
         // AI 助手配置（模型从选择的 API Profile 中获取）
         aiAssistant: {
           profileId: null,  // 使用的 API Profile ID，null 表示使用默认

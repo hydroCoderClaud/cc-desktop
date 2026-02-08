@@ -38,6 +38,10 @@
       @terminal-created="onTerminalCreated"
       @collapse="showLeftPanel = false"
       @toggle-both-panels="toggleBothPanels"
+      @mode-changed="handleModeChanged"
+      @agent-created="handleAgentCreated"
+      @agent-selected="handleAgentSelected"
+      @agent-closed="handleAgentClosed"
     />
 
     <!-- Main Content Area -->
@@ -54,40 +58,66 @@
 
       <!-- Main Area -->
       <div class="main-area">
-        <!-- Welcome Page -->
-        <div v-show="activeTabId === 'welcome'" class="empty-state">
-          <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
+        <!-- Developer Mode Content -->
+        <template v-if="isDeveloperMode">
+          <!-- Welcome Page -->
+          <div v-show="activeTabId === 'welcome'" class="empty-state">
+            <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
 
-          <div class="welcome-message">
-            <h2>{{ t('main.welcome') }}</h2>
-            <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
-            <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
-            <p v-else v-html="t('session.newSessionHint')"></p>
-          </div>
+            <div class="welcome-message">
+              <h2>{{ t('main.welcome') }}</h2>
+              <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
+              <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
+              <p v-else v-html="t('session.newSessionHint')"></p>
+            </div>
 
-          <div class="warning-box">
-            <div class="warning-icon"><Icon name="warning" :size="20" /></div>
-            <div class="warning-text">
-              {{ t('main.warningText') }}
+            <div class="warning-box">
+              <div class="warning-icon"><Icon name="warning" :size="20" /></div>
+              <div class="warning-text">
+                {{ t('main.warningText') }}
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Terminal Tabs Container -->
-        <div v-show="activeTabId !== 'welcome'" class="terminal-container">
-          <TerminalTab
-            v-for="tab in allTabs"
-            :key="tab.id"
-            :ref="el => setTerminalRef(tab.id, el)"
-            :session-id="tab.sessionId"
-            :visible="activeTabId === tab.id"
-            :font-size="terminalFontSize"
-            :font-family="terminalFontFamily"
-            :cursor-color="currentColors.primary"
-            :dark-background="terminalDarkBackground"
-            @ready="handleTerminalReady"
-          />
-        </div>
+          <!-- Terminal Tabs Container -->
+          <div v-show="activeTabId !== 'welcome'" class="terminal-container">
+            <TerminalTab
+              v-for="tab in developerTabs"
+              :key="tab.id"
+              :ref="el => setTerminalRef(tab.id, el)"
+              :session-id="tab.sessionId"
+              :visible="activeTabId === tab.id"
+              :font-size="terminalFontSize"
+              :font-family="terminalFontFamily"
+              :cursor-color="currentColors.primary"
+              :dark-background="terminalDarkBackground"
+              @ready="handleTerminalReady"
+            />
+          </div>
+        </template>
+
+        <!-- Agent Mode Content -->
+        <template v-else>
+          <!-- Agent Welcome -->
+          <div v-show="!hasAgentTabs" class="empty-state">
+            <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
+            <div class="welcome-message">
+              <h2>{{ t('mode.agentMode') }}</h2>
+              <p>{{ t('mode.agentWelcome') }}</p>
+            </div>
+          </div>
+
+          <!-- Agent Chat Tabs Container -->
+          <div v-show="hasAgentTabs" class="agent-container">
+            <AgentChatTab
+              v-for="tab in agentTabs"
+              :key="tab.id"
+              :session-id="tab.sessionId"
+              :visible="activeTabId === tab.id"
+              @ready="handleAgentTabReady"
+            />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -131,11 +161,13 @@ import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
+import { useAppMode } from '@composables/useAppMode'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import RightPanel from './RightPanel/index.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
+import AgentChatTab from './AgentChatTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
 
@@ -143,6 +175,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
 const { t, initLocale } = useLocale()
+const { isDeveloperMode, isAgentMode, initMode } = useAppMode()
 
 // Use composables
 const {
@@ -175,8 +208,15 @@ const {
   handleSessionClosed,
   updateTabStatus,
   updateTabTitle,
-  findTabBySessionId
+  findTabBySessionId,
+  ensureAgentTab,
+  closeAgentTab
 } = useTabManagement()
+
+// Computed: 按模式过滤 Tabs
+const developerTabs = computed(() => allTabs.value.filter(t => t.type !== 'agent-chat'))
+const agentTabs = computed(() => allTabs.value.filter(t => t.type === 'agent-chat'))
+const hasAgentTabs = computed(() => agentTabs.value.length > 0)
 
 // Refs
 const leftPanelRef = ref(null)
@@ -234,6 +274,7 @@ const setTerminalRef = (tabId, el) => {
 // Initialize
 onMounted(async () => {
   await initLocale()
+  await initMode()
   await loadProjects()
   selectFirstProject()
   setupSessionListeners()
@@ -515,6 +556,41 @@ const handleSendToTerminal = (command) => {
   })
 }
 
+// Mode changed handler
+const handleModeChanged = (mode) => {
+  // 切换模式时回到欢迎页，避免模式内容错位
+  activeTabId.value = 'welcome'
+}
+
+// ========================================
+// Agent event handlers
+// ========================================
+
+const handleAgentCreated = (session) => {
+  const tab = ensureAgentTab(session)
+  if (tab) {
+    activeTabId.value = tab.id
+  }
+}
+
+const handleAgentSelected = (conv) => {
+  const tab = ensureAgentTab(conv)
+  if (tab) {
+    activeTabId.value = tab.id
+  }
+}
+
+const handleAgentClosed = (conv) => {
+  const tab = allTabs.value.find(t => t.id === `agent-${conv.id}`)
+  if (tab) {
+    closeAgentTab(tab)
+  }
+}
+
+const handleAgentTabReady = ({ sessionId }) => {
+  // Agent tab 就绪
+}
+
 // Theme toggle handler
 const handleToggleTheme = async () => {
   await toggleTheme()
@@ -630,6 +706,18 @@ const openApiProfileManager = async () => {
   right: 0;
   bottom: 0;
   overflow: hidden !important;
+}
+
+/* Agent Container */
+.agent-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar */

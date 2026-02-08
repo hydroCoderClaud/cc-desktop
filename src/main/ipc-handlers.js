@@ -28,6 +28,7 @@ const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
 const aiHandlersMod = safeRequire('./ipc-handlers/ai-handlers', 'ai-handlers');
 const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
+const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -38,6 +39,7 @@ const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const setupAIHandlers = aiHandlersMod?.setupAIHandlers;
 const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
+const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -58,7 +60,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager) {
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -560,6 +562,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (activeSessionManager) {
     setupActiveSessionHandlers(ipcMain, activeSessionManager);
+  }
+
+  // ========================================
+  // Agent 会话管理
+  // ========================================
+  if (agentSessionManager && setupAgentHandlers) {
+    setupAgentHandlers(ipcMain, agentSessionManager);
   }
 }
 

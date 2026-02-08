@@ -110,6 +110,22 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
     }
   }
 
+  // Agent 对话图标
+  if (type === SessionType.AGENT_CHAT) {
+    switch (status) {
+      case SessionStatus.RUNNING:
+        return 'robot'
+      case SessionStatus.STARTING:
+        return 'clock'
+      case SessionStatus.EXITED:
+        return 'stop'
+      case SessionStatus.ERROR:
+        return 'xCircle'
+      default:
+        return 'robot'
+    }
+  }
+
   // Claude 会话图标
   switch (status) {
     case SessionStatus.RUNNING:

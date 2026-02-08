@@ -1002,5 +1002,30 @@ export default {
     terminalExited: 'Terminal process exited',
     terminalError: 'Terminal error',
     noActiveTerminal: 'Please open a terminal session first'
+  },
+
+  // Mode switching
+  mode: {
+    developerMode: 'Developer Mode',
+    agentMode: 'Agent Mode',
+    switchToAgent: 'Switch to Agent Mode',
+    switchToDeveloper: 'Switch to Developer Mode',
+    agentWelcome: 'Start conversations with AI Agent to accomplish various tasks without coding knowledge.'
+  },
+
+  // Agent features
+  agent: {
+    newConversation: 'New Conversation',
+    conversations: 'Conversations',
+    noConversations: 'No conversations yet',
+    send: 'Send',
+    stopGeneration: 'Stop Generation',
+    thinking: 'Thinking...',
+    inputPlaceholder: 'Type your message... (Enter to send, Shift+Enter for new line)',
+    outputDir: 'Output Directory',
+    openOutputDir: 'Open Output Directory',
+    chat: 'Chat',
+    specialized: 'Specialized',
+    lightapp: 'Light App'
   }
 }

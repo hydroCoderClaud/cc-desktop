@@ -502,6 +502,68 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('session:fileChanged', listener);
     return () => ipcRenderer.removeListener('session:fileChanged', listener);
+  },
+
+  // ========================================
+  // Agent 会话管理
+  // ========================================
+  // 生命周期
+  createAgentSession: (options) => ipcRenderer.invoke('agent:create', options),
+  sendAgentMessage: ({ sessionId, message }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message }),
+  cancelAgentGeneration: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
+  closeAgentSession: (sessionId) => ipcRenderer.invoke('agent:close', sessionId),
+  getAgentSession: (sessionId) => ipcRenderer.invoke('agent:get', sessionId),
+  listAgentSessions: () => ipcRenderer.invoke('agent:list'),
+  renameAgentSession: ({ sessionId, title }) => ipcRenderer.invoke('agent:rename', { sessionId, title }),
+
+  // 消息历史
+  getAgentMessages: (sessionId) => ipcRenderer.invoke('agent:getMessages', sessionId),
+
+  // 成果目录
+  getAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:getOutputDir', sessionId),
+  openAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:openOutputDir', sessionId),
+  listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
+
+  // Agent 事件监听（main → renderer 推送）
+  onAgentInit: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:init', listener);
+    return () => ipcRenderer.removeListener('agent:init', listener);
+  },
+  onAgentMessage: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:message', listener);
+    return () => ipcRenderer.removeListener('agent:message', listener);
+  },
+  onAgentStream: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:stream', listener);
+    return () => ipcRenderer.removeListener('agent:stream', listener);
+  },
+  onAgentResult: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:result', listener);
+    return () => ipcRenderer.removeListener('agent:result', listener);
+  },
+  onAgentError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:error', listener);
+    return () => ipcRenderer.removeListener('agent:error', listener);
+  },
+  onAgentStatusChange: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:statusChange', listener);
+    return () => ipcRenderer.removeListener('agent:statusChange', listener);
+  },
+  onAgentToolProgress: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:toolProgress', listener);
+    return () => ipcRenderer.removeListener('agent:toolProgress', listener);
+  },
+  onAgentSystemStatus: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:systemStatus', listener);
+    return () => ipcRenderer.removeListener('agent:systemStatus', listener);
   }
 });
 
