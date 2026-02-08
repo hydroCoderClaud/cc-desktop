@@ -475,6 +475,14 @@ class AgentSessionManager {
           message: assistantData
         })
 
+        // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
+        if (msg.message?.usage) {
+          this._safeSend('agent:usage', {
+            sessionId: session.id,
+            usage: msg.message.usage
+          })
+        }
+
         // 存储助手消息和工具调用到历史
         const blocks = msg.message?.content || []
         for (const block of blocks) {

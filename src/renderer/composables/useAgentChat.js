@@ -270,11 +270,17 @@ export function useAgentChat(sessionId) {
     if (result?.subtype?.startsWith('error')) {
       error.value = result.error || 'Unknown error'
     }
+  }
 
-    // 提取 token 用量（input_tokens 近似当前上下文大小）
-    if (result?.usage) {
-      const usage = result.usage
-      contextTokens.value = usage.inputTokens || usage.input_tokens || 0
+  /**
+   * 处理 usage 事件（assistant 消息级别的 token 用量）
+   */
+  const handleUsage = (data) => {
+    if (data.sessionId !== sessionId) return
+    const usage = data.usage
+    if (usage) {
+      // input_tokens ≈ 当前会话上下文大小
+      contextTokens.value = usage.input_tokens || usage.inputTokens || 0
     }
   }
 
@@ -374,6 +380,9 @@ export function useAgentChat(sessionId) {
     }
     if (window.electronAPI.onAgentCompacted) {
       cleanupFns.push(window.electronAPI.onAgentCompacted(handleCompacted))
+    }
+    if (window.electronAPI.onAgentUsage) {
+      cleanupFns.push(window.electronAPI.onAgentUsage(handleUsage))
     }
   }
 

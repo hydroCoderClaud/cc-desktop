@@ -28,11 +28,9 @@
       </div>
 
       <div class="toolbar-right">
-        <Transition name="hint-fade">
-          <span v-if="modelSwitchHint" class="model-hint">{{ modelSwitchHint }}</span>
-        </Transition>
+        <span v-if="activeModel" class="active-model" :title="activeModel">{{ activeModel }}</span>
         <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
-          {{ formatTokens(contextTokens) }}
+          {{ formatTokens(contextTokens) }} tokens
         </span>
       </div>
     </div>
@@ -167,22 +165,10 @@ const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
 }
 
-const modelSwitchHint = ref('')
-let hintTimer = null
-
 const selectModel = (value) => {
   emit('update:modelValue', value)
   showDropdown.value = false
 }
-
-// SDK init 返回实际模型名时，显示确认提示
-watch(() => props.activeModel, (newModel) => {
-  if (newModel) {
-    modelSwitchHint.value = t('agent.modelConfirmed', { model: newModel })
-    clearTimeout(hintTimer)
-    hintTimer = setTimeout(() => { modelSwitchHint.value = '' }, 3000)
-  }
-})
 
 // ============================
 // Slash 命令面板
@@ -358,16 +344,14 @@ defineExpose({ focus })
   gap: 6px;
 }
 
-.model-hint {
+.active-model {
   font-size: 11px;
-  color: var(--primary-color);
+  color: var(--text-color-muted);
   white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-.hint-fade-enter-active { transition: opacity 0.2s; }
-.hint-fade-leave-active { transition: opacity 0.5s; }
-.hint-fade-enter-from,
-.hint-fade-leave-to { opacity: 0; }
 
 .token-count {
   font-size: 11px;

@@ -577,6 +577,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('agent:compacted', listener);
     return () => ipcRenderer.removeListener('agent:compacted', listener);
+  },
+  onAgentUsage: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('agent:usage', listener);
+    return () => ipcRenderer.removeListener('agent:usage', listener);
   }
 });
 
