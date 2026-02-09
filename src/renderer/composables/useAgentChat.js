@@ -69,6 +69,8 @@ export function useAgentChat(sessionId) {
    */
   const loadMessages = async () => {
     if (!window.electronAPI?.getAgentMessages) return
+    // 已有消息时跳过（避免 tab 切换导致的重复加载覆盖运行时状态）
+    if (messages.value.length > 0) return
 
     try {
       const history = await window.electronAPI.getAgentMessages(sessionId)

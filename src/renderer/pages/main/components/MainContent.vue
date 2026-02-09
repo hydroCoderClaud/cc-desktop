@@ -58,8 +58,8 @@
 
       <!-- Main Area -->
       <div class="main-area">
-        <!-- Developer Mode Content -->
-        <template v-if="isDeveloperMode">
+        <!-- Developer Mode Content (v-show 保持组件活跃，避免终端 buffer 丢失) -->
+        <div v-show="isDeveloperMode" class="mode-content">
           <!-- Welcome Page -->
           <div v-show="activeTabId === 'welcome'" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
@@ -94,10 +94,10 @@
               @ready="handleTerminalReady"
             />
           </div>
-        </template>
+        </div>
 
-        <!-- Agent Mode Content -->
-        <template v-else>
+        <!-- Agent Mode Content (v-show 保持组件活跃，避免 IPC 监听丢失和重复加载) -->
+        <div v-show="!isDeveloperMode" class="mode-content">
           <!-- Agent Welcome -->
           <div v-show="!hasAgentTabs" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
@@ -117,7 +117,7 @@
               @ready="handleAgentTabReady"
             />
           </div>
-        </template>
+        </div>
       </div>
     </div>
 
@@ -721,6 +721,15 @@ const openApiProfileManager = async () => {
   font-size: 13px;
   line-height: 1.6;
   color: var(--warning-text);
+}
+
+/* Mode Content Wrapper (v-show 切换，保持子组件活跃) */
+.mode-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 /* Terminal Container */
