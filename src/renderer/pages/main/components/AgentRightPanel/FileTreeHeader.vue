@@ -7,6 +7,14 @@
     <div class="header-actions">
       <button
         class="header-btn"
+        :class="{ 'is-active': showHidden }"
+        :title="showHidden ? t('agent.files.hideHidden') : t('agent.files.showHidden')"
+        @click="$emit('toggle-hidden')"
+      >
+        <Icon :name="showHidden ? 'eye' : 'eyeOff'" :size="14" />
+      </button>
+      <button
+        class="header-btn"
         :title="t('agent.files.openExplorer')"
         @click="$emit('open-explorer')"
       >
@@ -37,10 +45,11 @@ import Icon from '@components/icons/Icon.vue'
 const { t } = useLocale()
 
 defineProps({
-  cwd: { type: String, default: '' }
+  cwd: { type: String, default: '' },
+  showHidden: { type: Boolean, default: false }
 })
 
-defineEmits(['open-explorer', 'refresh', 'collapse'])
+defineEmits(['open-explorer', 'refresh', 'collapse', 'toggle-hidden'])
 
 const shortenPath = (p) => {
   if (!p) return ''
@@ -108,6 +117,10 @@ const shortenPath = (p) => {
 
 .header-btn:hover {
   background: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+.header-btn.is-active {
   color: var(--primary-color);
 }
 </style>

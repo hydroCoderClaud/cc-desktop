@@ -5,8 +5,10 @@
       <!-- Header -->
       <FileTreeHeader
         :cwd="agentFiles.cwd.value"
+        :show-hidden="agentFiles.showHidden.value"
         @open-explorer="agentFiles.openInExplorer()"
         @refresh="agentFiles.refresh()"
+        @toggle-hidden="agentFiles.toggleShowHidden()"
         @collapse="$emit('collapse')"
       />
 

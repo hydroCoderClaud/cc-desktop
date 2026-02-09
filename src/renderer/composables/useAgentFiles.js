@@ -41,6 +41,9 @@ export function useAgentFiles() {
   const loading = ref(false)
   const previewLoading = ref(false)
 
+  // 显示隐藏文件（.claude, CLAUDE.md 等）
+  const showHidden = ref(false)
+
   // 错误信息
   const error = ref('')
 
@@ -66,7 +69,8 @@ export function useAgentFiles() {
     try {
       const result = await window.electronAPI.listAgentDir({
         sessionId: sessionId.value,
-        relativePath
+        relativePath,
+        showHidden: showHidden.value
       })
 
       if (result.error) {
@@ -148,6 +152,19 @@ export function useAgentFiles() {
   }
 
   /**
+   * 切换显示隐藏文件
+   */
+  const toggleShowHidden = async () => {
+    showHidden.value = !showHidden.value
+    // 清缓存并重载，因为过滤规则变了
+    dirCache.clear()
+    expandedDirs.clear()
+    selectedFile.value = null
+    filePreview.value = null
+    await loadDir('')
+  }
+
+  /**
    * 刷新（清缓存重载）
    */
   const refresh = async () => {
@@ -204,11 +221,13 @@ export function useAgentFiles() {
     previewLoading,
     error,
 
+    showHidden,
     loadDir,
     toggleDir,
     getDirEntries,
     selectFile,
     closePreview,
+    toggleShowHidden,
     refresh,
     openInExplorer,
     setSessionId,

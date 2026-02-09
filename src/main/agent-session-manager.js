@@ -34,7 +34,12 @@ const AgentStatus = {
 /**
  * 文件浏览相关常量（模块级，避免每次调用重建）
  */
-const HIDDEN_DIRS = new Set(['.git', 'node_modules', '__pycache__', '.next', '.nuxt', 'dist', '.cache', '.vscode', '.idea'])
+const HIDDEN_DIRS = new Set([
+  '.git', '.claude', '.svn', '.hg',
+  'node_modules', '__pycache__', '.next', '.nuxt', 'dist', '.cache',
+  '.vscode', '.idea', '.vs', '.fleet'
+])
+const HIDDEN_FILES = new Set(['CLAUDE.md', '.claudeignore', '.gitignore', '.DS_Store', 'Thumbs.db'])
 
 const TEXT_EXTS = new Set([
   '.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte',
@@ -1133,7 +1138,7 @@ class AgentSessionManager {
    * @param {string} relativePath 相对于 cwd 的路径，空字符串表示根目录
    * @returns {Promise<{ entries: Array, cwd: string }>}
    */
-  async listDir(sessionId, relativePath = '') {
+  async listDir(sessionId, relativePath = '', showHidden = false) {
     const cwd = this._resolveCwd(sessionId)
     if (!cwd) return { entries: [], cwd: null }
 
@@ -1148,8 +1153,11 @@ class AgentSessionManager {
       const entries = []
 
       for (const dirent of dirents) {
-        // 过滤常见大目录和隐藏目录
-        if (HIDDEN_DIRS.has(dirent.name)) continue
+        // 过滤系统目录和文件（showHidden 关闭时）
+        if (!showHidden) {
+          if (dirent.isDirectory() && HIDDEN_DIRS.has(dirent.name)) continue
+          if (!dirent.isDirectory() && HIDDEN_FILES.has(dirent.name)) continue
+        }
 
         const entryRelPath = relativePath ? path.join(relativePath, dirent.name) : dirent.name
         let size = 0

@@ -232,9 +232,9 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // ========================================
 
   // 列出目录内容（支持子目录）
-  ipcMain.handle('agent:listDir', async (event, { sessionId, relativePath }) => {
+  ipcMain.handle('agent:listDir', async (event, { sessionId, relativePath, showHidden }) => {
     try {
-      return agentSessionManager.listDir(sessionId, relativePath || '')
+      return agentSessionManager.listDir(sessionId, relativePath || '', !!showHidden)
     } catch (err) {
       console.error('[IPC] agent:listDir error:', err)
       return { entries: [], error: err.message }

@@ -1073,6 +1073,8 @@ export default {
       title: '工作目录',
       openExplorer: '在资源管理器中打开',
       refresh: '刷新',
+      showHidden: '显示系统文件（.claude, CLAUDE.md 等）',
+      hideHidden: '隐藏系统文件',
       emptyDir: '目录为空',
       noSession: '选择一个对话以查看文件',
       tooLarge: '文件过大，无法预览',

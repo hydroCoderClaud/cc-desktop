@@ -1070,6 +1070,8 @@ export default {
       title: 'Working Directory',
       openExplorer: 'Open in Explorer',
       refresh: 'Refresh',
+      showHidden: 'Show system files (.claude, CLAUDE.md, etc.)',
+      hideHidden: 'Hide system files',
       emptyDir: 'Directory is empty',
       noSession: 'Select a conversation to view files',
       tooLarge: 'File too large to preview',

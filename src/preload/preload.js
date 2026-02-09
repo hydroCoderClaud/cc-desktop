@@ -536,8 +536,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
 
   // 文件浏览（AgentRightPanel）
-  listAgentDir: ({ sessionId, relativePath }) =>
-    ipcRenderer.invoke('agent:listDir', { sessionId, relativePath }),
+  listAgentDir: ({ sessionId, relativePath, showHidden }) =>
+    ipcRenderer.invoke('agent:listDir', { sessionId, relativePath, showHidden }),
   readAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:readFile', { sessionId, relativePath }),
 
