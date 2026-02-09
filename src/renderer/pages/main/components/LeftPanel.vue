@@ -926,6 +926,7 @@ defineExpose({
   loadActiveSessions,
   loadHistorySessions: () => loadHistorySessions(props.currentProject),
   focusedSessionId,
+  activeAgentSessionId,
   handleNewSession
 })
 </script>

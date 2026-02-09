@@ -48,7 +48,7 @@
     <div class="main-content">
       <!-- Tab Bar -->
       <TabBar
-        :tabs="tabs"
+        :tabs="currentModeTabs"
         :active-tab-id="activeTabId"
         :current-project="currentProject"
         :show-new-button="false"
@@ -213,14 +213,42 @@ const {
   closeAgentTab
 } = useTabManagement()
 
-// Computed: 按模式过滤 Tabs
+// Computed: 按模式过滤
 const developerTabs = computed(() => allTabs.value.filter(t => t.type !== 'agent-chat'))
 const agentTabs = computed(() => allTabs.value.filter(t => t.type === 'agent-chat'))
 const hasAgentTabs = computed(() => agentTabs.value.length > 0)
 
+// TabBar 只显示当前模式的 tabs（隔离两种模式，防止跨模式误操作）
+const currentModeTabs = computed(() => {
+  return isDeveloperMode.value
+    ? tabs.value.filter(t => t.type !== 'agent-chat')
+    : tabs.value.filter(t => t.type === 'agent-chat')
+})
+
 // 各模式最后的 activeTabId，切换模式时保存/恢复
 let lastDeveloperTabId = 'welcome'
 let lastAgentTabId = 'welcome'
+
+/**
+ * 确保 activeTabId 指向当前模式内的 tab
+ * 所有可能改变 activeTabId 的操作后调用（关闭 tab、切换模式、会话关闭等）
+ */
+const ensureActiveTabInCurrentMode = () => {
+  if (activeTabId.value === 'welcome') return
+  const tab = allTabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) {
+    activeTabId.value = 'welcome'
+    return
+  }
+  const isAgentTab = tab.type === 'agent-chat'
+  if (isDeveloperMode.value && isAgentTab) {
+    const devTabs = tabs.value.filter(t => t.type !== 'agent-chat')
+    activeTabId.value = devTabs.length > 0 ? devTabs[devTabs.length - 1].id : 'welcome'
+  } else if (!isDeveloperMode.value && !isAgentTab) {
+    const agTabs = tabs.value.filter(t => t.type === 'agent-chat')
+    activeTabId.value = agTabs.length > 0 ? agTabs[agTabs.length - 1].id : 'welcome'
+  }
+}
 
 // Refs
 const leftPanelRef = ref(null)
@@ -482,10 +510,6 @@ const handleSelectTab = (tab) => {
           currentProject.value = targetProject
         }
       }
-      // 同步左侧面板的选中状态
-      if (leftPanelRef.value?.focusedSessionId !== undefined) {
-        leftPanelRef.value.focusedSessionId = tab.sessionId
-      }
     },
     onTerminalFocus: (focusedTab) => {
       nextTick(() => {
@@ -495,6 +519,18 @@ const handleSelectTab = (tab) => {
       })
     }
   })
+
+  // 同步左侧面板焦点（按 tab 类型区分）
+  if (tab.id === 'welcome') return
+  if (tab.type === 'agent-chat') {
+    if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
+      leftPanelRef.value.activeAgentSessionId = tab.sessionId
+    }
+  } else {
+    if (leftPanelRef.value?.focusedSessionId !== undefined) {
+      leftPanelRef.value.focusedSessionId = tab.sessionId
+    }
+  }
 }
 
 const handleCloseTab = async (tab) => {
@@ -503,6 +539,8 @@ const handleCloseTab = async (tab) => {
   } else {
     await closeTab(tab)
   }
+  // closeTab/closeAgentTab 的 fallback 从混合 tabs 选，可能选到跨模式 tab
+  ensureActiveTabInCurrentMode()
 }
 
 // ========================================
@@ -528,6 +566,7 @@ const handleSessionSelected = (session) => {
 
 const onSessionClosed = (session) => {
   handleSessionClosed(session)
+  ensureActiveTabInCurrentMode()
 }
 
 // 终端创建事件（纯终端，不启动 claude）
@@ -567,24 +606,14 @@ const handleSendToTerminal = (command) => {
 // Mode changed handler：保存当前模式的 tabId，恢复目标模式的 tabId
 const handleModeChanged = (mode) => {
   if (mode === 'developer') {
-    // 切到开发者模式：保存 agent tab，恢复 developer tab
     lastAgentTabId = activeTabId.value
     activeTabId.value = lastDeveloperTabId
-    // 验证恢复的 tab 是否仍存在
-    if (lastDeveloperTabId !== 'welcome' && !tabs.value.find(t => t.id === lastDeveloperTabId)) {
-      const lastDev = developerTabs.value[developerTabs.value.length - 1]
-      activeTabId.value = lastDev ? lastDev.id : 'welcome'
-    }
   } else {
-    // 切到 agent 模式：保存 developer tab，恢复 agent tab
     lastDeveloperTabId = activeTabId.value
     activeTabId.value = lastAgentTabId
-    // 验证恢复的 tab 是否仍存在
-    if (lastAgentTabId !== 'welcome' && !tabs.value.find(t => t.id === lastAgentTabId)) {
-      const lastAgent = agentTabs.value[agentTabs.value.length - 1]
-      activeTabId.value = lastAgent ? lastAgent.id : 'welcome'
-    }
   }
+  // 统一校验：saved tab 可能已被关闭，自动 fallback
+  ensureActiveTabInCurrentMode()
 }
 
 // ========================================
@@ -609,6 +638,7 @@ const handleAgentClosed = (conv) => {
   const tab = allTabs.value.find(t => t.id === `agent-${conv.id}`)
   if (tab) {
     closeAgentTab(tab)
+    ensureActiveTabInCurrentMode()
   }
 }
 
