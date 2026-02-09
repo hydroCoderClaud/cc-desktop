@@ -99,7 +99,7 @@
         <!-- Agent Mode Content (v-show 保持组件活跃，避免 IPC 监听丢失和重复加载) -->
         <div v-show="!isDeveloperMode" class="mode-content">
           <!-- Agent Welcome -->
-          <div v-show="!hasAgentTabs" class="empty-state">
+          <div v-show="!hasAgentTabs || activeTabId === 'welcome'" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
             <div class="welcome-message">
               <h2>{{ t('mode.agentMode') }}</h2>
@@ -108,7 +108,7 @@
           </div>
 
           <!-- Agent Chat Tabs Container -->
-          <div v-show="hasAgentTabs" class="agent-container">
+          <div v-show="hasAgentTabs && activeTabId !== 'welcome'" class="agent-container">
             <AgentChatTab
               v-for="tab in agentTabs"
               :key="tab.id"
