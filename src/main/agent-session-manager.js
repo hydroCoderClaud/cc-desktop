@@ -373,7 +373,7 @@ class AgentSessionManager {
         env
       }
 
-      // 首次创建时如果有模型偏好，通过 options.model 传递
+      // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       if (modelTier) {
         options.model = modelTier
       }

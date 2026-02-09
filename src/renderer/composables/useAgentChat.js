@@ -30,7 +30,7 @@ export function useAgentChat(sessionId) {
   const currentStreamText = ref('')
   const error = ref(null)
   const sessionInfo = ref(null)
-  const selectedModel = ref('sonnet')
+  const selectedModel = ref('sonnet')  // 默认值，initDefaultModel() 会从配置覆盖
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
@@ -298,11 +298,6 @@ export function useAgentChat(sessionId) {
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
         currentStreamText.value += event.delta.text
-        // 新一轮流式文本到达，重新激活（处理 Agent 多轮场景）
-        if (!isStreaming.value) {
-          isStreaming.value = true
-          startTimer()
-        }
       }
     }
 
@@ -318,10 +313,8 @@ export function useAgentChat(sessionId) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
-      // 文字输出完毕，立即停止计时器和流式状态
-      // 如果 Agent 继续下一轮（工具调用等），新的流式文本到达时会重新激活
-      isStreaming.value = false
-      stopTimer()
+      // 注意：不在此处停止 isStreaming
+      // Agent 可能继续下一轮（工具调用、思考等），由 statusChange/result 统一管理状态
     }
   }
 
@@ -486,6 +479,25 @@ export function useAgentChat(sessionId) {
   }
 
   /**
+   * 从配置读取默认模型，覆盖硬编码的 'sonnet'
+   */
+  const initDefaultModel = async () => {
+    try {
+      if (!window.electronAPI?.getConfig) return
+      const config = await window.electronAPI.getConfig()
+      if (config?.apiProfiles && config.defaultProfileId) {
+        const profile = config.apiProfiles.find(p => p.id === config.defaultProfileId)
+        if (profile?.selectedModelTier) {
+          syncFromInit = true
+          selectedModel.value = profile.selectedModelTier
+        }
+      }
+    } catch (err) {
+      console.warn('[useAgentChat] Failed to load default model from config:', err)
+    }
+  }
+
+  /**
    * 清理监听器
    */
   const cleanup = () => {
@@ -517,6 +529,7 @@ export function useAgentChat(sessionId) {
     cancelGeneration,
     compactConversation,
     setupListeners,
+    initDefaultModel,
     cleanup
   }
 }

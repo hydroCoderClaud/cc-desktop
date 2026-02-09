@@ -107,6 +107,7 @@ const {
   cancelGeneration,
   compactConversation,
   setupListeners,
+  initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId)
 
@@ -149,6 +150,7 @@ const handleCancel = async () => {
 
 onMounted(async () => {
   setupListeners()
+  await initDefaultModel()  // 从配置读取默认模型
   await loadMessages()  // 加载历史消息
   scrollToBottom()
   emit('ready', { sessionId: props.sessionId })
