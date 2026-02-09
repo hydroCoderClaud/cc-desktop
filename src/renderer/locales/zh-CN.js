@@ -1066,6 +1066,19 @@ export default {
     workingDirectoryPlaceholder: '未选择，将使用默认目录',
     recentProjects: '最近项目',
     browseFolder: '浏览...',
-    create: '创建'
+    create: '创建',
+
+    // 文件浏览面板
+    files: {
+      title: '工作目录',
+      openExplorer: '在资源管理器中打开',
+      refresh: '刷新',
+      emptyDir: '目录为空',
+      noSession: '选择一个对话以查看文件',
+      tooLarge: '文件过大，无法预览',
+      cannotPreview: '无法预览此文件类型',
+      errorLoading: '加载目录失败',
+      errorReading: '读取文件失败'
+    }
   }
 }

@@ -535,6 +535,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openAgentOutputDir: (sessionId) => ipcRenderer.invoke('agent:openOutputDir', sessionId),
   listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
 
+  // 文件浏览（AgentRightPanel）
+  listAgentDir: ({ sessionId, relativePath }) =>
+    ipcRenderer.invoke('agent:listDir', { sessionId, relativePath }),
+  readAgentFile: ({ sessionId, relativePath }) =>
+    ipcRenderer.invoke('agent:readFile', { sessionId, relativePath }),
+
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册
   ...Object.fromEntries(

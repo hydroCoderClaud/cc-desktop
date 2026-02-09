@@ -1062,6 +1062,168 @@ class AgentSessionManager {
     }
   }
 
+  /**
+   * 获取会话 cwd（内存优先，DB 兜底）
+   */
+  _resolveCwd(sessionId) {
+    const session = this.sessions.get(sessionId)
+    if (session?.cwd) return session.cwd
+
+    // DB 兜底
+    if (this.sessionDatabase) {
+      const row = this.sessionDatabase.getAgentConversation(sessionId)
+      if (row?.cwd) return row.cwd
+    }
+    return null
+  }
+
+  /**
+   * 路径遍历安全校验
+   */
+  _safePath(cwd, relativePath) {
+    const resolvedCwd = path.resolve(cwd)
+    const target = path.resolve(cwd, relativePath)
+    if (!target.startsWith(resolvedCwd)) {
+      throw new Error('Path traversal detected')
+    }
+    return target
+  }
+
+  /**
+   * 列出目录内容（支持子目录）
+   * @param {string} sessionId 会话 ID
+   * @param {string} relativePath 相对于 cwd 的路径，空字符串表示根目录
+   * @returns {{ entries: Array, cwd: string }}
+   */
+  listDir(sessionId, relativePath = '') {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { entries: [], cwd: null }
+
+    try {
+      const targetDir = this._safePath(cwd, relativePath)
+      if (!fs.existsSync(targetDir)) return { entries: [], cwd }
+
+      const stat = fs.statSync(targetDir)
+      if (!stat.isDirectory()) return { entries: [], cwd }
+
+      const dirents = fs.readdirSync(targetDir, { withFileTypes: true })
+      const entries = dirents.map(dirent => {
+        const entryRelPath = relativePath ? path.join(relativePath, dirent.name) : dirent.name
+        let size = 0
+        let mtime = null
+        try {
+          const entryPath = path.join(targetDir, dirent.name)
+          const s = fs.statSync(entryPath)
+          size = s.size
+          mtime = s.mtime.toISOString()
+        } catch {}
+        return {
+          name: dirent.name,
+          isDirectory: dirent.isDirectory(),
+          size,
+          mtime,
+          relativePath: entryRelPath
+        }
+      })
+
+      // 排序：目录在前，再按名称字母序
+      entries.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+        return a.name.localeCompare(b.name)
+      })
+
+      return { entries, cwd }
+    } catch (err) {
+      console.error('[AgentSession] listDir error:', err.message)
+      return { entries: [], cwd, error: err.message }
+    }
+  }
+
+  /**
+   * 读取文件内容（用于预览）
+   * @param {string} sessionId 会话 ID
+   * @param {string} relativePath 相对于 cwd 的文件路径
+   * @returns {{ name, size, mtime, ext, type, content?, language?, tooLarge? }}
+   */
+  readFile(sessionId, relativePath) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { error: 'No working directory' }
+
+    try {
+      const filePath = this._safePath(cwd, relativePath)
+      if (!fs.existsSync(filePath)) return { error: 'File not found' }
+
+      const stat = fs.statSync(filePath)
+      if (stat.isDirectory()) return { error: 'Is a directory' }
+
+      const ext = path.extname(filePath).toLowerCase()
+      const name = path.basename(filePath)
+      const base = { name, size: stat.size, mtime: stat.mtime.toISOString(), ext }
+
+      // 文本类扩展名
+      const textExts = new Set([
+        '.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte',
+        '.py', '.rb', '.go', '.rs', '.java', '.kt', '.c', '.cpp', '.h', '.hpp', '.cs',
+        '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
+        '.md', '.txt', '.log', '.csv', '.tsv',
+        '.html', '.htm', '.css', '.scss', '.less', '.sass',
+        '.xml', '.svg',
+        '.sh', '.bash', '.zsh', '.fish', '.bat', '.cmd', '.ps1',
+        '.sql', '.graphql', '.gql',
+        '.env', '.gitignore', '.dockerignore', '.editorconfig',
+        '.lock', '.prisma', '.proto'
+      ])
+
+      // 图片类扩展名
+      const imageExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp'])
+
+      // 语言映射（用于代码高亮提示）
+      const langMap = {
+        '.js': 'javascript', '.ts': 'typescript', '.jsx': 'jsx', '.tsx': 'tsx',
+        '.vue': 'vue', '.py': 'python', '.rb': 'ruby', '.go': 'go', '.rs': 'rust',
+        '.java': 'java', '.kt': 'kotlin', '.c': 'c', '.cpp': 'cpp', '.h': 'c', '.cs': 'csharp',
+        '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.toml': 'toml',
+        '.md': 'markdown', '.txt': 'text', '.log': 'text',
+        '.html': 'html', '.htm': 'html', '.css': 'css', '.scss': 'scss',
+        '.xml': 'xml', '.sql': 'sql', '.sh': 'bash', '.bat': 'batch',
+        '.graphql': 'graphql', '.proto': 'protobuf'
+      }
+
+      if (textExts.has(ext) || name.startsWith('.')) {
+        // 文本文件，上限 512KB
+        const MAX_TEXT_SIZE = 512 * 1024
+        if (stat.size > MAX_TEXT_SIZE) {
+          return { ...base, type: 'text', tooLarge: true, language: langMap[ext] || 'text' }
+        }
+        const content = fs.readFileSync(filePath, 'utf-8')
+        return { ...base, type: 'text', content, language: langMap[ext] || 'text' }
+      }
+
+      if (imageExts.has(ext)) {
+        // 图片文件，上限 2MB
+        const MAX_IMG_SIZE = 2 * 1024 * 1024
+        if (stat.size > MAX_IMG_SIZE) {
+          return { ...base, type: 'image', tooLarge: true }
+        }
+        // SVG 当文本处理
+        if (ext === '.svg') {
+          const content = fs.readFileSync(filePath, 'utf-8')
+          return { ...base, type: 'image', content: `data:image/svg+xml;base64,${Buffer.from(content).toString('base64')}` }
+        }
+        const mimeMap = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.bmp': 'image/bmp' }
+        const mime = mimeMap[ext] || 'application/octet-stream'
+        const content = `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`
+        return { ...base, type: 'image', content }
+      }
+
+      // 其他二进制文件
+      return { ...base, type: 'binary' }
+    } catch (err) {
+      console.error('[AgentSession] readFile error:', err.message)
+      return { error: err.message }
+    }
+  }
+
   // ============= Streaming Input 控制方法 =============
 
   /**

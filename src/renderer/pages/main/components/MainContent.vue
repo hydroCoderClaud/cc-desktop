@@ -121,16 +121,23 @@
       </div>
     </div>
 
-    <!-- Right Panel -->
-    <RightPanel
-      v-if="showRightPanel"
-      ref="rightPanelRef"
-      :current-project="currentProject"
-      :terminal-busy="terminalBusy"
-      :current-session-uuid="currentSessionUuid"
-      @collapse="showRightPanel = false"
-      @send-to-terminal="handleSendToTerminal"
-    />
+    <!-- Right Panel: Developer 模式用配置面板，Agent 模式用文件浏览面板 -->
+    <template v-if="showRightPanel">
+      <RightPanel
+        v-if="isDeveloperMode"
+        ref="rightPanelRef"
+        :current-project="currentProject"
+        :terminal-busy="terminalBusy"
+        :current-session-uuid="currentSessionUuid"
+        @collapse="showRightPanel = false"
+        @send-to-terminal="handleSendToTerminal"
+      />
+      <AgentRightPanel
+        v-else
+        :session-id="activeAgentSessionId"
+        @collapse="showRightPanel = false"
+      />
+    </template>
 
     <!-- Right Panel Collapsed Strip -->
     <div
@@ -165,6 +172,7 @@ import { useAppMode } from '@composables/useAppMode'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import RightPanel from './RightPanel/index.vue'
+import AgentRightPanel from './AgentRightPanel/index.vue'
 import TabBar from './TabBar.vue'
 import TerminalTab from './TerminalTab.vue'
 import AgentChatTab from './AgentChatTab.vue'
@@ -223,6 +231,13 @@ const currentModeTabs = computed(() => {
   return isDeveloperMode.value
     ? tabs.value.filter(t => t.type !== 'agent-chat')
     : tabs.value.filter(t => t.type === 'agent-chat')
+})
+
+// Agent 模式下当前活动会话的 sessionId（用于 AgentRightPanel）
+const activeAgentSessionId = computed(() => {
+  if (isDeveloperMode.value || activeTabId.value === 'welcome') return null
+  const tab = allTabs.value.find(t => t.id === activeTabId.value)
+  return (tab?.type === 'agent-chat') ? tab.sessionId : null
 })
 
 // 各模式最后的 activeTabId，切换模式时保存/恢复

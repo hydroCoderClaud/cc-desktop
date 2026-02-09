@@ -1063,6 +1063,19 @@ export default {
     workingDirectoryPlaceholder: 'Not selected, will use default directory',
     recentProjects: 'Recent Projects',
     browseFolder: 'Browse...',
-    create: 'Create'
+    create: 'Create',
+
+    // File browser panel
+    files: {
+      title: 'Working Directory',
+      openExplorer: 'Open in Explorer',
+      refresh: 'Refresh',
+      emptyDir: 'Directory is empty',
+      noSession: 'Select a conversation to view files',
+      tooLarge: 'File too large to preview',
+      cannotPreview: 'Cannot preview this file type',
+      errorLoading: 'Failed to load directory',
+      errorReading: 'Failed to read file'
+    }
   }
 }

@@ -227,6 +227,30 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     return agentSessionManager.listOutputFiles(sessionId)
   })
 
+  // ========================================
+  // 文件浏览（AgentRightPanel 使用）
+  // ========================================
+
+  // 列出目录内容（支持子目录）
+  ipcMain.handle('agent:listDir', async (event, { sessionId, relativePath }) => {
+    try {
+      return agentSessionManager.listDir(sessionId, relativePath || '')
+    } catch (err) {
+      console.error('[IPC] agent:listDir error:', err)
+      return { entries: [], error: err.message }
+    }
+  })
+
+  // 读取文件内容（用于预览）
+  ipcMain.handle('agent:readFile', async (event, { sessionId, relativePath }) => {
+    try {
+      return agentSessionManager.readFile(sessionId, relativePath)
+    } catch (err) {
+      console.error('[IPC] agent:readFile error:', err)
+      return { error: err.message }
+    }
+  })
+
   console.log('[IPC] Agent handlers registered')
 }
 
