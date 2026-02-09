@@ -17,6 +17,7 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 const { MessageQueue } = require('./utils/message-queue')
+const { safeSend } = require('./utils/safe-send')
 
 /**
  * Agent 会话状态
@@ -49,8 +50,6 @@ class AgentSession {
     this.cwd = options.cwd || null  // 工作目录
     this.cwdAuto = !options.cwd     // 是否自动分配
     this.createdAt = new Date()
-    this.abortController = null     // 用于取消生成
-    this.queryInstance = null       // 当前 Query 实例引用（旧模式，保留兼容）
     this.messageQueue = null        // MessageQueue 实例（streaming input 模式）
     this.queryGenerator = null      // Query 生成器（常驻 CLI 进程）
     this.outputLoopPromise = null   // _runOutputLoop 的 Promise
@@ -135,21 +134,10 @@ class AgentSessionManager {
   }
 
   /**
-   * 安全地发送消息到渲染进程
+   * 安全地发送消息到渲染进程（委托给共享工具函数）
    */
   _safeSend(channel, data) {
-    try {
-      if (this.mainWindow && !this.mainWindow.isDestroyed() &&
-          this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
-        this.mainWindow.webContents.send(channel, data)
-        return true
-      }
-      console.warn(`[AgentSession] Cannot send to ${channel}: window destroyed`)
-      return false
-    } catch (error) {
-      console.error(`[AgentSession] Failed to send to ${channel}:`, error)
-      return false
-    }
+    return safeSend(this.mainWindow, channel, data)
   }
 
   /**
@@ -184,30 +172,17 @@ class AgentSessionManager {
    * 构建 SDK 环境变量
    */
   _buildEnvVars() {
-    const { buildClaudeEnvVars } = require('./utils/env-builder')
+    const { buildProcessEnv } = require('./utils/env-builder')
+    const profile = this.configManager.getDefaultProfile()
 
-    // 获取默认 API Profile
-    let profile = this.configManager.getDefaultProfile()
-
-    // 构建基础环境
-    const baseEnv = { ...process.env }
-    delete baseEnv.ANTHROPIC_API_KEY
-    delete baseEnv.ANTHROPIC_AUTH_TOKEN
-
-    // 构建 Claude 环境变量
-    const claudeEnvVars = buildClaudeEnvVars(profile)
-
-    // 合并
-    const env = { ...baseEnv, ...claudeEnvVars }
-
-    // 清理空值
-    for (const key of Object.keys(env)) {
-      if (env[key] === '') {
-        delete env[key]
-      }
+    // 额外环境变量
+    const extraVars = {}
+    const autocompactPct = this.configManager.getAutocompactPctOverride()
+    if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
+      extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
     }
 
-    return env
+    return buildProcessEnv(profile, extraVars)
   }
 
   /**
@@ -536,13 +511,10 @@ class AgentSessionManager {
 
         // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
         if (msg.message?.usage) {
-          console.log('[AgentSession] assistant msg.message.usage:', JSON.stringify(msg.message.usage))
           this._safeSend('agent:usage', {
             sessionId: session.id,
             usage: msg.message.usage
           })
-        } else {
-          console.log('[AgentSession] assistant msg.message has NO usage field. Keys:', msg.message ? Object.keys(msg.message).join(',') : 'null')
         }
 
         // 存储助手消息和工具调用到历史
@@ -579,7 +551,6 @@ class AgentSessionManager {
 
       case 'result':
         // 一轮对话完成（streaming input 模式下 CLI 仍在运行）
-        console.log('[AgentSession] result modelUsage:', JSON.stringify(msg.modelUsage))
         session.totalCostUsd += msg.total_cost_usd || 0
 
         // 设置为 IDLE（等待下一条消息），但不关闭 generator
@@ -671,7 +642,7 @@ class AgentSessionManager {
   /**
    * 关闭会话（终止持久 CLI 进程 + DB 标记 closed + 内存移除）
    */
-  close(sessionId) {
+  async close(sessionId) {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
@@ -687,7 +658,16 @@ class AgentSessionManager {
       session.queryGenerator = null
     }
 
-    session.outputLoopPromise = null
+    // 等待输出循环结束，避免后续引用已清理的资源
+    if (session.outputLoopPromise) {
+      try {
+        await Promise.race([
+          session.outputLoopPromise,
+          new Promise(resolve => setTimeout(resolve, 3000))  // 最多等 3 秒
+        ])
+      } catch {}
+      session.outputLoopPromise = null
+    }
 
     // DB 软关闭
     if (this.sessionDatabase) {
@@ -706,9 +686,9 @@ class AgentSessionManager {
   /**
    * 关闭所有会话
    */
-  closeAll() {
+  async closeAll() {
     for (const sessionId of [...this.sessions.keys()]) {
-      this.close(sessionId)
+      await this.close(sessionId)
     }
   }
 

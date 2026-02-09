@@ -98,4 +98,31 @@ function buildClaudeEnvVars(profile) {
   return envVars
 }
 
-module.exports = { buildClaudeEnvVars }
+/**
+ * 构建完整的子进程环境变量
+ * 统一 AgentSessionManager 和 ActiveSessionManager 的环境构建逻辑：
+ *   复制 process.env → 清除认证变量 → 合并 Claude 环境变量 → 合并额外变量 → 清理空值
+ *
+ * @param {Object} profile - API Profile 对象
+ * @param {Object} [extraVars={}] - 额外环境变量（如 TERM、CLAUDE_AUTOCOMPACT_PCT_OVERRIDE）
+ * @returns {Object} 完整的环境变量对象
+ */
+function buildProcessEnv(profile, extraVars = {}) {
+  const baseEnv = { ...process.env }
+  delete baseEnv.ANTHROPIC_API_KEY
+  delete baseEnv.ANTHROPIC_AUTH_TOKEN
+
+  const claudeEnvVars = buildClaudeEnvVars(profile)
+  const env = { ...baseEnv, ...claudeEnvVars, ...extraVars }
+
+  // 清理空值
+  for (const key of Object.keys(env)) {
+    if (env[key] === '') {
+      delete env[key]
+    }
+  }
+
+  return env
+}
+
+module.exports = { buildClaudeEnvVars, buildProcessEnv }

@@ -11,7 +11,8 @@
 const { v4: uuidv4 } = require('uuid')
 const pty = require('node-pty')
 const os = require('os')
-const { buildClaudeEnvVars } = require('./utils/env-builder')
+const { buildProcessEnv } = require('./utils/env-builder')
+const { safeSend } = require('./utils/safe-send')
 
 /**
  * 活动会话状态
@@ -89,23 +90,10 @@ class ActiveSessionManager {
   }
 
   /**
-   * 安全地发送消息到渲染进程
-   * @param {string} channel - IPC 频道
-   * @param {any} data - 数据
-   * @returns {boolean} 是否发送成功
+   * 安全地发送消息到渲染进程（委托给共享工具函数）
    */
   _safeSend(channel, data) {
-    try {
-      if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
-        this.mainWindow.webContents.send(channel, data)
-        return true
-      }
-      console.warn(`[ActiveSession] Cannot send to ${channel}: window or webContents destroyed`)
-      return false
-    } catch (error) {
-      console.error(`[ActiveSession] Failed to send to ${channel}:`, error)
-      return false
-    }
+    return safeSend(this.mainWindow, channel, data)
   }
 
   /**
@@ -212,40 +200,16 @@ class ActiveSessionManager {
       }
     }
 
-    // 构建子进程环境变量
-    // 1. 复制系统环境，但先清除认证相关变量（避免继承冲突）
-    const baseEnv = { ...process.env }
-    delete baseEnv.ANTHROPIC_API_KEY
-    delete baseEnv.ANTHROPIC_AUTH_TOKEN
-
-    // 2. 构建我们的环境变量
-    const claudeEnvVars = buildClaudeEnvVars(profile)
-
-    // 3. 添加全局设置中的环境变量
+    // 构建子进程环境变量（使用共享的 buildProcessEnv）
+    const extraVars = { TERM: 'xterm-256color' }
     const autocompactPct = this.configManager.getAutocompactPctOverride()
     if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
-      claudeEnvVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
+      extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
     }
-
-    // 4. 合并（我们的设置覆盖基础环境）
-    const envVars = { ...baseEnv, TERM: 'xterm-256color', ...claudeEnvVars }
-
-    // 5. 清理空字符串
-    for (const key of Object.keys(envVars)) {
-      if (envVars[key] === '') {
-        delete envVars[key]
-      }
-    }
+    const envVars = buildProcessEnv(profile, extraVars)
 
     // 调试日志
     console.log(`[ActiveSession] Auth vars: API_KEY=${envVars.ANTHROPIC_API_KEY ? 'SET' : 'UNSET'}, AUTH_TOKEN=${envVars.ANTHROPIC_AUTH_TOKEN ? 'SET' : 'UNSET'}`)
-
-    // 打印设置的环境变量（不打印敏感值）
-    if (Object.keys(claudeEnvVars).length > 0) {
-      console.log(`[ActiveSession] Set env vars: ${Object.keys(claudeEnvVars).join(', ')}`)
-    } else {
-      console.log(`[ActiveSession] No API Profile configured`)
-    }
 
     console.log(`[ActiveSession] Starting terminal for session ${sessionId} in: ${session.projectPath}`)
 

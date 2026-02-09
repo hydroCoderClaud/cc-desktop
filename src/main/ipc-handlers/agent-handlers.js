@@ -33,12 +33,12 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       // 不等待完成，让流式消息通过 IPC 事件推送
       agentSessionManager.sendMessage(sessionId, message, { modelTier, maxTurns }).catch(err => {
         console.error('[IPC] agent:sendMessage async error:', err)
-        // 推送错误到前端，避免静默失败
-        event.sender.send('agent:error', {
+        // 推送错误到前端，使用 _safeSend 防止窗口已销毁时报错
+        agentSessionManager._safeSend('agent:error', {
           sessionId,
           error: err.message || 'Unknown error'
         })
-        event.sender.send('agent:statusChange', {
+        agentSessionManager._safeSend('agent:statusChange', {
           sessionId,
           status: 'idle'
         })
@@ -112,11 +112,11 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     try {
       agentSessionManager.compactConversation(sessionId).catch(err => {
         console.error('[IPC] agent:compact async error:', err)
-        event.sender.send('agent:error', {
+        agentSessionManager._safeSend('agent:error', {
           sessionId,
           error: err.message || 'Compact failed'
         })
-        event.sender.send('agent:statusChange', {
+        agentSessionManager._safeSend('agent:statusChange', {
           sessionId,
           status: 'idle'
         })

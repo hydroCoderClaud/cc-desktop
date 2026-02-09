@@ -7,7 +7,7 @@
  * - 模型切换使用 setModel() 实时生效
  * - 取消使用 interrupt() 不杀进程
  */
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 
 /**
  * Agent 消息角色
@@ -29,7 +29,6 @@ export function useAgentChat(sessionId) {
   const isRestored = ref(false)
   const currentStreamText = ref('')
   const error = ref(null)
-  const sessionInfo = ref(null)
   const selectedModel = ref('sonnet')  // 默认值，initDefaultModel() 会从配置覆盖
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
@@ -515,7 +514,6 @@ export function useAgentChat(sessionId) {
     isRestored,
     currentStreamText,
     error,
-    sessionInfo,
     selectedModel,
     streamingElapsed,
     contextTokens,

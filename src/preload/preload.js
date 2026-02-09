@@ -536,61 +536,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
 
   // Agent 事件监听（main → renderer 推送）
-  onAgentInit: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:init', listener);
-    return () => ipcRenderer.removeListener('agent:init', listener);
-  },
-  onAgentMessage: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:message', listener);
-    return () => ipcRenderer.removeListener('agent:message', listener);
-  },
-  onAgentStream: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:stream', listener);
-    return () => ipcRenderer.removeListener('agent:stream', listener);
-  },
-  onAgentResult: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:result', listener);
-    return () => ipcRenderer.removeListener('agent:result', listener);
-  },
-  onAgentError: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:error', listener);
-    return () => ipcRenderer.removeListener('agent:error', listener);
-  },
-  onAgentStatusChange: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:statusChange', listener);
-    return () => ipcRenderer.removeListener('agent:statusChange', listener);
-  },
-  onAgentToolProgress: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:toolProgress', listener);
-    return () => ipcRenderer.removeListener('agent:toolProgress', listener);
-  },
-  onAgentSystemStatus: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:systemStatus', listener);
-    return () => ipcRenderer.removeListener('agent:systemStatus', listener);
-  },
-  onAgentRenamed: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:renamed', listener);
-    return () => ipcRenderer.removeListener('agent:renamed', listener);
-  },
-  onAgentCompacted: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:compacted', listener);
-    return () => ipcRenderer.removeListener('agent:compacted', listener);
-  },
-  onAgentUsage: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('agent:usage', listener);
-    return () => ipcRenderer.removeListener('agent:usage', listener);
-  }
+  // 使用工厂模式精简重复的监听器注册
+  ...Object.fromEntries(
+    [
+      ['onAgentInit', 'agent:init'],
+      ['onAgentMessage', 'agent:message'],
+      ['onAgentStream', 'agent:stream'],
+      ['onAgentResult', 'agent:result'],
+      ['onAgentError', 'agent:error'],
+      ['onAgentStatusChange', 'agent:statusChange'],
+      ['onAgentToolProgress', 'agent:toolProgress'],
+      ['onAgentSystemStatus', 'agent:systemStatus'],
+      ['onAgentRenamed', 'agent:renamed'],
+      ['onAgentCompacted', 'agent:compacted'],
+      ['onAgentUsage', 'agent:usage']
+    ].map(([apiName, channel]) => [
+      apiName,
+      (callback) => {
+        const listener = (event, data) => callback(data);
+        ipcRenderer.on(channel, listener);
+        return () => ipcRenderer.removeListener(channel, listener);
+      }
+    ])
+  )
 });
 
 console.log('[Preload] ElectronAPI exposed to renderer successfully');
