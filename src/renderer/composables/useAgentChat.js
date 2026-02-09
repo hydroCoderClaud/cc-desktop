@@ -124,6 +124,7 @@ export function useAgentChat(sessionId) {
 
   // 计时器控制
   const startTimer = () => {
+    if (streamingTimer) clearInterval(streamingTimer)
     streamingElapsed.value = 0
     streamingTimer = setInterval(() => {
       streamingElapsed.value++
@@ -403,6 +404,7 @@ export function useAgentChat(sessionId) {
       }
     } else if (data.status === 'streaming') {
       isStreaming.value = true
+      startTimer()
     }
   }
 
@@ -476,6 +478,13 @@ export function useAgentChat(sessionId) {
     }
     if (window.electronAPI.onAgentUsage) {
       cleanupFns.push(window.electronAPI.onAgentUsage(handleUsage))
+    }
+    // macOS: 窗口重建后所有 Agent 会话已关闭，重置前端状态
+    if (window.electronAPI.onAgentAllSessionsClosed) {
+      cleanupFns.push(window.electronAPI.onAgentAllSessionsClosed(() => {
+        isStreaming.value = false
+        hasActiveSession.value = false
+      }))
     }
   }
 

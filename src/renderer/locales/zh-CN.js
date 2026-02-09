@@ -1052,6 +1052,12 @@ export default {
     cmdCost: '查看本次对话费用与 Token 用量',
     cmdStatus: '查看当前会话状态',
     cmdHelp: '显示帮助信息',
-    cmdClear: '清除对话历史'
+    cmdClear: '清除对话历史',
+    apiChangedTitle: 'API 配置已变更',
+    apiChangedOriginal: '此会话创建时使用的 API',
+    apiChangedCurrent: '当前默认 API',
+    apiChangedHint: '不同服务商的模型对历史上下文格式可能不兼容，建议新建会话。',
+    continueReopen: '继续恢复',
+    createNew: '新建会话'
   }
 }

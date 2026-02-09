@@ -340,6 +340,26 @@ const handleAgentSelected = async (conv) => {
     try {
       const result = await window.electronAPI.reopenAgentSession(conv.id)
       if (result && !result.error) {
+        // API Profile 变化提醒
+        if (result.apiChanged) {
+          dialog.warning({
+            title: t('agent.apiChangedTitle'),
+            content: `${t('agent.apiChangedOriginal')}：${result.originalApiBaseUrl}\n${t('agent.apiChangedCurrent')}：${result.currentApiBaseUrl}\n\n${t('agent.apiChangedHint')}`,
+            positiveText: t('agent.continueReopen'),
+            negativeText: t('agent.createNew'),
+            onPositiveClick: () => {
+              conv.status = result.status || 'idle'
+              activeAgentSessionId.value = conv.id
+              emit('agent-selected', conv)
+            },
+            onNegativeClick: () => {
+              if (agentLeftContentRef.value) {
+                agentLeftContentRef.value.createConversation()
+              }
+            }
+          })
+          return  // 不更新 conv.status，点 X 关闭后再次点击仍会触发提醒
+        }
         conv.status = result.status || 'idle'
       }
     } catch (err) {

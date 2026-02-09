@@ -18,12 +18,12 @@ function withAgentOperations(BaseClass) {
     /**
      * 创建 Agent 对话记录
      */
-    createAgentConversation({ sessionId, type, title, cwd, cwdAuto }) {
+    createAgentConversation({ sessionId, type, title, cwd, cwdAuto, apiProfileId, apiBaseUrl }) {
       const now = Date.now()
       const result = this.db.prepare(`
-        INSERT INTO agent_conversations (session_id, type, title, cwd, cwd_auto, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(sessionId, type || 'chat', title || '', cwd || null, cwdAuto ? 1 : 0, now, now)
+        INSERT INTO agent_conversations (session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(sessionId, type || 'chat', title || '', cwd || null, cwdAuto ? 1 : 0, apiProfileId || null, apiBaseUrl || null, now, now)
 
       return {
         id: result.lastInsertRowid,
@@ -33,6 +33,8 @@ function withAgentOperations(BaseClass) {
         title: title || '',
         cwd,
         cwdAuto: !!cwdAuto,
+        apiProfileId: apiProfileId || null,
+        apiBaseUrl: apiBaseUrl || null,
         createdAt: now,
         updatedAt: now
       }

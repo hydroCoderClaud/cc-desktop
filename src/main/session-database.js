@@ -136,6 +136,22 @@ class SessionDatabaseBase {
       }
     }
 
+    // agent_conversations 表迁移：添加 API Profile 追踪字段
+    const agentConvInfo = this.db.prepare("PRAGMA table_info(agent_conversations)").all()
+    const agentConvColumns = agentConvInfo.map(col => col.name)
+
+    const agentConvNewColumns = [
+      { name: 'api_profile_id', type: 'TEXT' },
+      { name: 'api_base_url', type: 'TEXT' }
+    ]
+
+    for (const col of agentConvNewColumns) {
+      if (!agentConvColumns.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: agent_conversations.${col.name}`)
+        this.db.exec(`ALTER TABLE agent_conversations ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
     // 迁移：将唯一约束从 path 改为 encoded_path
     // 检查 projects 表的 SQL 定义，判断是否需要重建
     const tableInfo = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='projects'").get()

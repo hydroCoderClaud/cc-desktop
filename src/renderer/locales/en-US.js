@@ -1049,6 +1049,12 @@ export default {
     cmdCost: 'View conversation cost and token usage',
     cmdStatus: 'View current session status',
     cmdHelp: 'Show help information',
-    cmdClear: 'Clear conversation history'
+    cmdClear: 'Clear conversation history',
+    apiChangedTitle: 'API Configuration Changed',
+    apiChangedOriginal: 'API used when this session was created',
+    apiChangedCurrent: 'Current default API',
+    apiChangedHint: 'Different providers may have incompatible context formats. It is recommended to create a new session.',
+    continueReopen: 'Continue Anyway',
+    createNew: 'New Session'
   }
 }

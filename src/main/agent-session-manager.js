@@ -58,6 +58,8 @@ class AgentSession {
     this.totalCostUsd = 0
     this.messages = []              // 消息历史存储（内存）
     this.dbConversationId = null    // 数据库中的 conversation id
+    this.apiProfileId = options.apiProfileId || null   // 创建时的 API Profile ID
+    this.apiBaseUrl = options.apiBaseUrl || null        // 创建时的 API baseUrl 快照
   }
 
   toJSON() {
@@ -72,7 +74,9 @@ class AgentSession {
       createdAt: this.createdAt.toISOString(),
       messageCount: this.messageCount,
       totalCostUsd: this.totalCostUsd,
-      isStreamingActive: !!this.queryGenerator
+      isStreamingActive: !!this.queryGenerator,
+      apiProfileId: this.apiProfileId,
+      apiBaseUrl: this.apiBaseUrl
     }
   }
 }
@@ -182,6 +186,27 @@ class AgentSessionManager {
       extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
     }
 
+    // 终端类型（CLI 需要知道终端能力，与 active-session-manager 保持一致）
+    extraVars.TERM = 'xterm-256color'
+
+    // macOS/Linux: 确保 SHELL 变量有效（参照 terminal-manager.js 的 shell 选择逻辑）
+    if (process.platform !== 'win32') {
+      let shell = process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash')
+      try {
+        fs.accessSync(shell, fs.constants.X_OK)
+      } catch {
+        const alternatives = ['/bin/zsh', '/bin/bash', '/bin/sh']
+        for (const alt of alternatives) {
+          try {
+            fs.accessSync(alt, fs.constants.X_OK)
+            shell = alt
+            break
+          } catch { continue }
+        }
+      }
+      extraVars.SHELL = shell
+    }
+
     return buildProcessEnv(profile, extraVars)
   }
 
@@ -189,10 +214,15 @@ class AgentSessionManager {
    * 创建新会话
    */
   create(options = {}) {
+    // 获取当前默认 API Profile 信息
+    const profile = this.configManager.getDefaultProfile()
+
     const session = new AgentSession({
       type: options.type,
       title: options.title,
-      cwd: options.cwd
+      cwd: options.cwd,
+      apiProfileId: profile?.id || null,
+      apiBaseUrl: profile?.baseUrl || null
     })
 
     // 自动分配工作目录
@@ -210,7 +240,9 @@ class AgentSessionManager {
           type: session.type,
           title: session.title,
           cwd: session.cwd,
-          cwdAuto: session.cwdAuto
+          cwdAuto: session.cwdAuto,
+          apiProfileId: profile?.id || null,
+          apiBaseUrl: profile?.baseUrl || null
         })
         session.dbConversationId = dbRecord.id
       } catch (err) {
@@ -227,42 +259,65 @@ class AgentSessionManager {
    * @returns {Object|null} 恢复后的会话 JSON，或 null
    */
   reopen(sessionId) {
-    // 已在内存中，直接返回
-    const existing = this.sessions.get(sessionId)
-    if (existing) return existing.toJSON()
+    let session = this.sessions.get(sessionId)
 
-    if (!this.sessionDatabase) return null
+    if (!session) {
+      // 不在内存中，从 DB 恢复
+      if (!this.sessionDatabase) return null
 
-    const row = this.sessionDatabase.getAgentConversation(sessionId)
-    if (!row) return null
+      const row = this.sessionDatabase.getAgentConversation(sessionId)
+      if (!row) return null
 
-    const session = new AgentSession({
-      id: row.session_id,
-      type: row.type,
-      title: row.title || '',
-      cwd: row.cwd
-    })
+      session = new AgentSession({
+        id: row.session_id,
+        type: row.type,
+        title: row.title || '',
+        cwd: row.cwd
+      })
 
-    // 恢复关键状态
-    session.sdkSessionId = row.sdk_session_id || null
-    session.cwdAuto = !!row.cwd_auto
-    session.dbConversationId = row.id
-    session.messageCount = row.message_count || 0
-    session.totalCostUsd = row.total_cost_usd || 0
-    session.createdAt = row.created_at ? new Date(row.created_at) : new Date()
+      // 恢复关键状态
+      session.sdkSessionId = row.sdk_session_id || null
+      session.cwdAuto = !!row.cwd_auto
+      session.dbConversationId = row.id
+      session.messageCount = row.message_count || 0
+      session.totalCostUsd = row.total_cost_usd || 0
+      session.createdAt = row.created_at ? new Date(row.created_at) : new Date()
+      session.apiProfileId = row.api_profile_id || null
+      session.apiBaseUrl = row.api_base_url || null
 
-    // 放回内存 Map
-    this.sessions.set(session.id, session)
+      // 放回内存 Map
+      this.sessions.set(session.id, session)
 
-    // 更新 DB 状态为 idle（重新激活）
-    try {
-      this.sessionDatabase.updateAgentConversation(sessionId, { status: AgentStatus.IDLE })
-    } catch (err) {
-      console.error('[AgentSession] Failed to update status on reopen:', err)
+      // 更新 DB 状态为 idle（重新激活）
+      try {
+        this.sessionDatabase.updateAgentConversation(sessionId, { status: AgentStatus.IDLE })
+      } catch (err) {
+        console.error('[AgentSession] Failed to update status on reopen:', err)
+      }
+
+      console.log(`[AgentSession] Reopened session ${sessionId} from DB (sdkSessionId: ${session.sdkSessionId || 'none'})`)
     }
 
-    console.log(`[AgentSession] Reopened session ${sessionId} from DB (sdkSessionId: ${session.sdkSessionId || 'none'})`)
-    return session.toJSON()
+    // 检测 API Profile 是否变化（无论是从内存还是 DB 恢复，都要检测）
+    const currentProfile = this.configManager.getDefaultProfile()
+    const result = session.toJSON()
+
+    // 优先用 baseUrl 比较（精确）；旧会话无 baseUrl 时退化为 profileId 比较
+    if (session.apiBaseUrl) {
+      if (currentProfile?.baseUrl !== session.apiBaseUrl) {
+        result.apiChanged = true
+        result.originalApiBaseUrl = session.apiBaseUrl
+        result.currentApiBaseUrl = currentProfile?.baseUrl || ''
+      }
+    } else if (session.apiProfileId) {
+      if (currentProfile?.id !== session.apiProfileId) {
+        result.apiChanged = true
+        result.originalApiBaseUrl = `Profile: ${session.apiProfileId}`
+        result.currentApiBaseUrl = currentProfile?.baseUrl || `Profile: ${currentProfile?.id || 'unknown'}`
+      }
+    }
+
+    return result
   }
 
   /**
@@ -483,6 +538,7 @@ class AgentSessionManager {
           }
         } else if (msg.subtype === 'compact_boundary') {
           // 上下文压缩完成
+          console.log(`[AgentSession] Compact completed for session ${session.id}, pre_tokens=${msg.compact_metadata?.pre_tokens}, trigger=${msg.compact_metadata?.trigger}`)
           this._safeSend('agent:compacted', {
             sessionId: session.id,
             preTokens: msg.compact_metadata?.pre_tokens || 0,
@@ -684,12 +740,47 @@ class AgentSessionManager {
   }
 
   /**
-   * 关闭所有会话
+   * 关闭所有会话（异步，逐个等待）
    */
   async closeAll() {
     for (const sessionId of [...this.sessions.keys()]) {
       await this.close(sessionId)
     }
+  }
+
+  /**
+   * 同步关闭所有会话（用于 closed / will-quit 等无法 await 的事件）
+   * 直接杀 CLI 进程 + DB 软关闭 + 清内存，不等待 outputLoopPromise
+   */
+  closeAllSync() {
+    for (const [sessionId, session] of this.sessions) {
+      // 异常关闭 MessageQueue（清空缓冲区 + 结束）
+      if (session.messageQueue) {
+        session.messageQueue.abort()
+        session.messageQueue = null
+      }
+      // 同步 close generator（杀 CLI 进程）
+      if (session.queryGenerator) {
+        try { session.queryGenerator.close() } catch {}
+        session.queryGenerator = null
+      }
+      // DB 软关闭（better-sqlite3 是同步的）
+      if (this.sessionDatabase) {
+        try { this.sessionDatabase.closeAgentConversation(sessionId) } catch {}
+      }
+      // 清理内存引用
+      session.outputLoopPromise = null
+    }
+    this.sessions.clear()
+    console.log('[AgentSession] All sessions closed synchronously')
+  }
+
+  /**
+   * 通知前端所有 Agent 会话已关闭
+   * macOS: 窗口重建后调用，让前端刷新 Agent 会话列表并重置状态
+   */
+  notifyAllSessionsClosed() {
+    this._safeSend('agent:allSessionsClosed', {})
   }
 
   /**
@@ -729,7 +820,9 @@ class AgentSessionManager {
             cwdAuto: !!row.cwd_auto,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             messageCount: row.message_count || 0,
-            totalCostUsd: row.total_cost_usd || 0
+            totalCostUsd: row.total_cost_usd || 0,
+            apiProfileId: row.api_profile_id || null,
+            apiBaseUrl: row.api_base_url || null
           })
         }
       } catch (err) {
@@ -881,6 +974,7 @@ class AgentSessionManager {
         status: AgentStatus.STREAMING
       })
 
+      console.log(`[AgentSession] Pushing /compact to messageQueue for session ${sessionId}`)
       session.messageQueue.push({
         type: 'user',
         message: { role: 'user', content: '/compact' },
