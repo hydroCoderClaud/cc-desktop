@@ -549,7 +549,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ['onAgentSystemStatus', 'agent:systemStatus'],
       ['onAgentRenamed', 'agent:renamed'],
       ['onAgentCompacted', 'agent:compacted'],
-      ['onAgentUsage', 'agent:usage']
+      ['onAgentUsage', 'agent:usage'],
+      ['onAgentAllSessionsClosed', 'agent:allSessionsClosed']
     ].map(([apiName, channel]) => [
       apiName,
       (callback) => {

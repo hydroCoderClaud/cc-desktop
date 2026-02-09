@@ -124,17 +124,28 @@ const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 
 // 自动滚动到底部
-const scrollToBottom = () => {
+const scrollToBottom = (instant = false) => {
   nextTick(() => {
     if (scrollAnchor.value) {
-      scrollAnchor.value.scrollIntoView({ behavior: 'smooth' })
+      scrollAnchor.value.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
     }
   })
 }
 
-// 监听消息变化，自动滚动
-watch([messages, currentStreamText], () => {
+// 新消息添加 → 平滑滚动
+watch(messages, () => {
   scrollToBottom()
+})
+
+// 流式文本变化 → 节流滚动（高频场景，每 100ms 最多触发一次）
+let lastScrollTime = 0
+const SCROLL_THROTTLE_MS = 100
+watch(currentStreamText, () => {
+  const now = Date.now()
+  if (now - lastScrollTime >= SCROLL_THROTTLE_MS) {
+    lastScrollTime = now
+    scrollToBottom(true)
+  }
 })
 
 // 发送消息

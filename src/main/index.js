@@ -19,6 +19,24 @@ let activeSessionManager = null;
 let agentSessionManager = null;
 
 /**
+ * 统一清理函数（幂等，可多次调用）
+ * 被 closed / will-quit / SIGTERM / uncaughtException 等多个路径共用
+ */
+let cleanupDone = false;
+function cleanupAllSessions() {
+  if (cleanupDone) return;
+  cleanupDone = true;
+  try {
+    if (terminalManager) terminalManager.kill();
+    if (activeSessionManager) activeSessionManager.closeAll(false);
+    if (agentSessionManager) agentSessionManager.closeAllSync();
+    console.log('[Main] All sessions cleaned up');
+  } catch (e) {
+    console.error('[Main] Cleanup error:', e);
+  }
+}
+
+/**
  * 获取主题背景色
  */
 function getThemeBackgroundColor() {
@@ -80,18 +98,7 @@ function createWindow() {
 
   // 窗口关闭事件
   mainWindow.on('closed', () => {
-    // 清理终端进程
-    if (terminalManager) {
-      terminalManager.kill();
-    }
-    // 清理所有活动会话
-    if (activeSessionManager) {
-      activeSessionManager.closeAll();
-    }
-    // 清理所有 Agent 会话
-    if (agentSessionManager) {
-      agentSessionManager.closeAll();
-    }
+    cleanupAllSessions();
     mainWindow = null;
   });
 
@@ -179,6 +186,8 @@ app.whenReady().then(async () => {
   // macOS 特定行为
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
+      // macOS 重建窗口时重置清理标志，让新一轮 closed 事件可以再次触发清理
+      cleanupDone = false;
       createWindow();
 
       // 更新所有 manager 的 mainWindow 引用
@@ -190,6 +199,8 @@ app.whenReady().then(async () => {
       }
       if (agentSessionManager) {
         agentSessionManager.mainWindow = mainWindow;
+        // macOS: CLI 进程在 closed 事件中已被 closeAllSync 清理，通知前端刷新状态
+        agentSessionManager.notifyAllSessionsClosed();
       }
     }
   });
@@ -209,27 +220,27 @@ app.on('window-all-closed', () => {
  * 应用即将退出事件
  */
 app.on('will-quit', () => {
-  // 清理终端进程
-  if (terminalManager) {
-    terminalManager.kill();
-  }
-
-  // 清理所有活动会话
-  if (activeSessionManager) {
-    activeSessionManager.closeAll();
-  }
-
-  // 清理所有 Agent 会话
-  if (agentSessionManager) {
-    agentSessionManager.closeAll();
-  }
+  cleanupAllSessions();
 });
 
 /**
- * 异常处理
+ * 信号处理（SIGTERM / SIGINT）
+ * Windows 上 SIGINT 来自 Ctrl+C；SIGTERM 来自 taskkill
+ */
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    console.log(`[Main] Received ${signal}, cleaning up...`);
+    cleanupAllSessions();
+    app.quit();
+  });
+}
+
+/**
+ * 异常处理 — 尽力清理后退出
  */
 process.on('uncaughtException', (error) => {
   console.error('[Main] Uncaught exception:', error);
+  cleanupAllSessions();
 });
 
 process.on('unhandledRejection', (reason, promise) => {

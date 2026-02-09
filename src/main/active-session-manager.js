@@ -13,6 +13,7 @@ const pty = require('node-pty')
 const os = require('os')
 const { buildProcessEnv } = require('./utils/env-builder')
 const { safeSend } = require('./utils/safe-send')
+const { killProcessTree } = require('./utils/process-tree-kill')
 
 /**
  * 活动会话状态
@@ -400,7 +401,11 @@ class ActiveSessionManager {
   _forceKill(session) {
     try {
       if (session.pty) {
-        console.log(`[ActiveSession] Force killing session ${session.id}...`)
+        const pid = session.pty.pid || session.pid
+        console.log(`[ActiveSession] Force killing session ${session.id} (PID: ${pid})...`)
+        // Windows: 先杀进程树（shell 内的 claude code 等子进程）
+        killProcessTree(pid)
+        // 再走 node-pty 自身清理
         session.pty.kill()
       }
     } catch (error) {

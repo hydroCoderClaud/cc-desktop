@@ -6,6 +6,7 @@
 const pty = require('node-pty');
 const os = require('os');
 const fs = require('fs');
+const { killProcessTree } = require('./utils/process-tree-kill');
 
 class TerminalManager {
   constructor(mainWindow, configManager) {
@@ -194,12 +195,18 @@ class TerminalManager {
   kill() {
     if (this.pty) {
       try {
-        console.log('[Terminal] Killing process...');
+        const pid = this.pty.pid;
+        console.log(`[Terminal] Killing process (PID: ${pid})...`);
+        // Windows: 先杀进程树（包括 shell 内启动的 claude code 等子进程）
+        killProcessTree(pid);
+        // 再走 node-pty 自身的清理
         this.pty.kill();
         this.pty = null;
         this.currentProject = null;
       } catch (error) {
         console.error('[Terminal] Kill failed:', error);
+        this.pty = null;
+        this.currentProject = null;
       }
     }
   }

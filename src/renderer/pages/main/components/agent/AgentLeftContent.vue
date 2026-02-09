@@ -10,97 +10,12 @@
 
     <!-- 对话列表 -->
     <div class="conversation-list">
-      <!-- 今天 -->
-      <template v-if="groupedConversations.today.length > 0">
+      <template v-for="group in conversationGroups" :key="group.key">
         <div class="group-header">
-          <span>{{ t('common.today') || '今天' }}</span>
+          <span>{{ group.label }}</span>
         </div>
         <div
-          v-for="conv in groupedConversations.today"
-          :key="conv.id"
-          class="conversation-item"
-          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
-          @click="$emit('select', conv)"
-          @dblclick="startRename(conv)"
-        >
-          <div class="conv-info">
-            <Icon name="chat" :size="12" class="conv-icon" />
-            <input
-              v-if="editingId === conv.id"
-              class="rename-input"
-              :value="editTitle"
-              @input="editTitle = $event.target.value"
-              @keydown.enter="saveRename"
-              @keydown.escape="cancelRename"
-              @blur="saveRename"
-              @click.stop
-              ref="renameInputRef"
-            />
-            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-          </div>
-          <div class="conv-actions">
-            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
-              <Icon name="edit" :size="12" />
-            </button>
-            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
-              <Icon name="close" :size="12" />
-            </button>
-            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
-              <Icon name="delete" :size="12" />
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- 昨天 -->
-      <template v-if="groupedConversations.yesterday.length > 0">
-        <div class="group-header">
-          <span>{{ t('common.yesterday') }}</span>
-        </div>
-        <div
-          v-for="conv in groupedConversations.yesterday"
-          :key="conv.id"
-          class="conversation-item"
-          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
-          @click="$emit('select', conv)"
-          @dblclick="startRename(conv)"
-        >
-          <div class="conv-info">
-            <Icon name="chat" :size="12" class="conv-icon" />
-            <input
-              v-if="editingId === conv.id"
-              class="rename-input"
-              :value="editTitle"
-              @input="editTitle = $event.target.value"
-              @keydown.enter="saveRename"
-              @keydown.escape="cancelRename"
-              @blur="saveRename"
-              @click.stop
-              ref="renameInputRef"
-            />
-            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-          </div>
-          <div class="conv-actions">
-            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
-              <Icon name="edit" :size="12" />
-            </button>
-            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
-              <Icon name="close" :size="12" />
-            </button>
-            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
-              <Icon name="delete" :size="12" />
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- 更早 -->
-      <template v-if="groupedConversations.older.length > 0">
-        <div class="group-header">
-          <span>{{ t('session.older') || '更早' }}</span>
-        </div>
-        <div
-          v-for="conv in groupedConversations.older"
+          v-for="conv in group.items"
           :key="conv.id"
           class="conversation-item"
           :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
@@ -146,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
@@ -174,6 +89,22 @@ const {
   deleteConversation,
   renameConversation
 } = useAgentPanel()
+
+// 按时间分组的对话列表（消除模板重复）
+const conversationGroups = computed(() => {
+  const groups = []
+  const g = groupedConversations.value
+  if (g.today.length > 0) {
+    groups.push({ key: 'today', label: t('common.today') || '今天', items: g.today })
+  }
+  if (g.yesterday.length > 0) {
+    groups.push({ key: 'yesterday', label: t('common.yesterday'), items: g.yesterday })
+  }
+  if (g.older.length > 0) {
+    groups.push({ key: 'older', label: t('session.older') || '更早', items: g.older })
+  }
+  return groups
+})
 
 // 重命名状态
 const editingId = ref(null)

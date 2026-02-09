@@ -45,6 +45,19 @@ class MessageQueue {
   }
 
   /**
+   * 异常关闭队列：清空缓冲区并结束。
+   * 用于进程清理场景（closeAllSync），语义上表示非正常结束。
+   */
+  abort() {
+    this._done = true
+    if (this._resolve) {
+      this._resolve({ value: undefined, done: true })
+      this._resolve = null
+    }
+    this._queue.length = 0
+  }
+
+  /**
    * 队列是否已结束
    */
   get isDone() {

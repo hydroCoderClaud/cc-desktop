@@ -18,6 +18,8 @@ const os = require('os')
 const fs = require('fs')
 const { MessageQueue } = require('./utils/message-queue')
 const { safeSend } = require('./utils/safe-send')
+const { spawn: cpSpawn } = require('child_process')
+const { killProcessTree } = require('./utils/process-tree-kill')
 
 /**
  * Agent 会话状态
@@ -54,6 +56,7 @@ class AgentSession {
     this.queryGenerator = null      // Query 生成器（常驻 CLI 进程）
     this.outputLoopPromise = null   // _runOutputLoop 的 Promise
     this.initResult = null          // SDKControlInitializeResponse 缓存
+    this.cliPid = null              // SDK 启动的 CLI 子进程 PID（用于 Windows 进程树 kill）
     this.messageCount = 0
     this.totalCostUsd = 0
     this.messages = []              // 消息历史存储（内存）
@@ -401,7 +404,18 @@ class AgentSessionManager {
         permissionMode: 'acceptEdits',
         settingSources: ['user'],
         includePartialMessages: true,
-        env
+        env,
+        // 包装 spawn 以捕获 CLI 子进程 PID（Windows 进程树 kill 需要）
+        spawnClaudeCodeProcess: (spawnOpts) => {
+          const proc = cpSpawn(spawnOpts.command, spawnOpts.args, {
+            cwd: spawnOpts.cwd,
+            env: spawnOpts.env,
+            stdio: ['pipe', 'pipe', 'pipe']
+          })
+          session.cliPid = proc.pid || null
+          console.log(`[AgentSession] CLI process spawned, PID: ${session.cliPid}`)
+          return proc
+        }
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
@@ -477,6 +491,7 @@ class AgentSessionManager {
       session.queryGenerator = null
       session.messageQueue = null
       session.outputLoopPromise = null
+      session.cliPid = null
 
       this._safeSend('agent:statusChange', {
         sessionId: session.id,
@@ -679,8 +694,10 @@ class AgentSessionManager {
       } catch (e) {
         console.warn(`[AgentSession] interrupt() failed for ${sessionId}, falling back to close:`, e.message)
         // fallback: close() 杀掉 CLI 进程
+        killProcessTree(session.cliPid)
         try { session.queryGenerator.close() } catch {}
         session.queryGenerator = null
+        session.cliPid = null
         if (session.messageQueue) {
           session.messageQueue.end()
           session.messageQueue = null
@@ -711,8 +728,10 @@ class AgentSessionManager {
 
     // 关闭 generator（杀 CLI 进程）
     if (session.queryGenerator) {
+      killProcessTree(session.cliPid)
       try { session.queryGenerator.close() } catch {}
       session.queryGenerator = null
+      session.cliPid = null
     }
 
     // 等待输出循环结束，避免后续引用已清理的资源
@@ -754,6 +773,8 @@ class AgentSessionManager {
    * 直接杀 CLI 进程 + DB 软关闭 + 清内存，不等待 outputLoopPromise
    */
   closeAllSync() {
+    const count = this.sessions.size
+    if (count === 0) return
     for (const [sessionId, session] of this.sessions) {
       // 异常关闭 MessageQueue（清空缓冲区 + 结束）
       if (session.messageQueue) {
@@ -761,10 +782,16 @@ class AgentSessionManager {
         session.messageQueue = null
       }
       // 同步 close generator（杀 CLI 进程）
+      killProcessTree(session.cliPid)
       if (session.queryGenerator) {
-        try { session.queryGenerator.close() } catch {}
+        try {
+          session.queryGenerator.close()
+        } catch (e) {
+          console.warn(`[AgentSession] close() failed for ${sessionId}:`, e.message)
+        }
         session.queryGenerator = null
       }
+      session.cliPid = null
       // DB 软关闭（better-sqlite3 是同步的）
       if (this.sessionDatabase) {
         try { this.sessionDatabase.closeAgentConversation(sessionId) } catch {}
@@ -773,7 +800,7 @@ class AgentSessionManager {
       session.outputLoopPromise = null
     }
     this.sessions.clear()
-    console.log('[AgentSession] All sessions closed synchronously')
+    console.log(`[AgentSession] ${count} session(s) closed synchronously`)
   }
 
   /**
@@ -929,9 +956,11 @@ class AgentSessionManager {
       if (session.messageQueue) {
         session.messageQueue.end()
       }
+      killProcessTree(session.cliPid)
       if (session.queryGenerator) {
         try { session.queryGenerator.close() } catch {}
       }
+      session.cliPid = null
 
       // 等待输出循环结束，避免 finally 块发送 stale 事件
       if (session.outputLoopPromise) {

@@ -60,16 +60,15 @@
       </div>
     </template>
 
-    <!-- ========== Agent Mode Content ========== -->
-    <template v-else>
-      <AgentLeftContent
-        ref="agentLeftContentRef"
-        :active-session-id="activeAgentSessionId"
-        @created="handleAgentCreated"
-        @select="handleAgentSelected"
-        @close="handleAgentClosed"
-      />
-    </template>
+    <!-- ========== Agent Mode Content (v-show 避免切换模式时 remount) ========== -->
+    <AgentLeftContent
+      v-show="!isDeveloperMode"
+      ref="agentLeftContentRef"
+      :active-session-id="activeAgentSessionId"
+      @created="handleAgentCreated"
+      @select="handleAgentSelected"
+      @close="handleAgentClosed"
+    />
 
     <!-- Session Area (滚动区域) - 仅开发者模式 -->
     <div class="session-section" v-if="isDeveloperMode">
