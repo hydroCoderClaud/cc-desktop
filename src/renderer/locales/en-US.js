@@ -1055,6 +1055,8 @@ export default {
     apiChangedCurrent: 'Current default API',
     apiChangedHint: 'Different providers may have incompatible context formats. It is recommended to create a new session.',
     continueReopen: 'Continue Anyway',
-    createNew: 'New Session'
+    createNew: 'New Session',
+    deleteConfirmTitle: 'Delete Conversation',
+    deleteConfirmContent: 'Are you sure you want to permanently delete this conversation and all messages? This action cannot be undone.'
   }
 }

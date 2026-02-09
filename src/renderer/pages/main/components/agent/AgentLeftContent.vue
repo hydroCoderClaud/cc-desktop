@@ -147,11 +147,13 @@
 
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+const dialog = useDialog()
 
 const props = defineProps({
   activeSessionId: {
@@ -208,8 +210,16 @@ const cancelRename = () => {
   editTitle.value = ''
 }
 
-const handleDelete = async (conv) => {
-  await deleteConversation(conv.id)
+const handleDelete = (conv) => {
+  dialog.warning({
+    title: t('agent.deleteConfirmTitle'),
+    content: t('agent.deleteConfirmContent'),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      await deleteConversation(conv.id)
+    }
+  })
 }
 
 // 监听重命名事件（从后端推送）

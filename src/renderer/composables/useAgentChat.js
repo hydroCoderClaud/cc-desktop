@@ -38,6 +38,7 @@ export function useAgentChat(sessionId) {
   const totalCostUsd = ref(0)        // 累计花费
   const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
+  let currentBlockType = null  // 当前流式 content block 的类型（text / tool_use 等）
 
   // 模型切换标记：防止 init 同步触发 watch
   let syncFromInit = false
@@ -88,7 +89,7 @@ export function useAgentChat(sessionId) {
    */
   const addUserMessage = (text) => {
     messages.value.push({
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: MessageRole.USER,
       content: text,
       timestamp: Date.now()
@@ -273,17 +274,14 @@ export function useAgentChat(sessionId) {
   const handleMessage = (data) => {
     if (data.sessionId !== sessionId) return
     const msg = data.message
-
     if (!msg) return
 
-    if (msg.message && msg.message.content) {
-      const blocks = msg.message.content
-      for (const block of blocks) {
-        if (block.type === 'text') {
-          addAssistantMessage(block.text)
-        } else if (block.type === 'tool_use') {
-          addToolMessage(block.name, block.input, null)
-        }
+    // msg.content 是完整 assistant 消息的 content 块数组
+    // text 块已由 handleStream 流式处理并添加，这里只处理 tool_use 等非流式块
+    const blocks = msg.content || []
+    for (const block of blocks) {
+      if (block.type === 'tool_use') {
+        addToolMessage(block.name, block.input, null)
       }
     }
   }
@@ -297,6 +295,11 @@ export function useAgentChat(sessionId) {
 
     if (!event) return
 
+    // 记录当前 block 类型（区分 text / tool_use 等）
+    if (event.type === 'content_block_start') {
+      currentBlockType = event.content_block?.type || null
+    }
+
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
         currentStreamText.value += event.delta.text
@@ -304,10 +307,12 @@ export function useAgentChat(sessionId) {
     }
 
     if (event.type === 'content_block_stop') {
-      if (currentStreamText.value) {
+      // 仅在 text block 结束时 flush 累积文本，避免 tool_use block stop 误触发
+      if (currentBlockType === 'text' && currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
+      currentBlockType = null
     }
 
     if (event.type === 'message_stop') {
@@ -315,6 +320,7 @@ export function useAgentChat(sessionId) {
         addAssistantMessage(currentStreamText.value)
         currentStreamText.value = ''
       }
+      currentBlockType = null
       // 注意：不在此处停止 isStreaming
       // Agent 可能继续下一轮（工具调用、思考等），由 statusChange/result 统一管理状态
     }
@@ -483,7 +489,7 @@ export function useAgentChat(sessionId) {
     if (window.electronAPI.onAgentAllSessionsClosed) {
       cleanupFns.push(window.electronAPI.onAgentAllSessionsClosed(() => {
         isStreaming.value = false
-        hasActiveSession.value = false
+        hasActiveSession = false
       }))
     }
   }

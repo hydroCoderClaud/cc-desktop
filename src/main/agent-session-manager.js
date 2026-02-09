@@ -129,6 +129,7 @@ class AgentSessionManager {
         console.log('[AgentSession] SDK loaded successfully')
         return this._queryFn
       } catch (error) {
+        this._sdkLoading = null  // 重置，允许下次重试
         console.error('[AgentSession] Failed to load SDK:', error)
         throw error
       }
@@ -344,7 +345,7 @@ class AgentSessionManager {
 
     // 存储用户消息到历史
     this._storeMessage(session, {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: 'user',
       content: userMessage,
       timestamp: Date.now()
@@ -920,7 +921,7 @@ class AgentSessionManager {
   /**
    * 物理删除对话（终止 CLI + 内存 + DB）
    */
-  deleteConversation(sessionId) {
+  async deleteConversation(sessionId) {
     // 从内存移除（如果存在）
     const session = this.sessions.get(sessionId)
     if (session) {
@@ -931,6 +932,17 @@ class AgentSessionManager {
       if (session.queryGenerator) {
         try { session.queryGenerator.close() } catch {}
       }
+
+      // 等待输出循环结束，避免 finally 块发送 stale 事件
+      if (session.outputLoopPromise) {
+        try {
+          await Promise.race([
+            session.outputLoopPromise,
+            new Promise(resolve => setTimeout(resolve, 3000))
+          ])
+        } catch {}
+      }
+
       this.sessions.delete(sessionId)
     }
 

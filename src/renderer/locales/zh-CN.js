@@ -1058,6 +1058,8 @@ export default {
     apiChangedCurrent: '当前默认 API',
     apiChangedHint: '不同服务商的模型对历史上下文格式可能不兼容，建议新建会话。',
     continueReopen: '继续恢复',
-    createNew: '新建会话'
+    createNew: '新建会话',
+    deleteConfirmTitle: '删除对话',
+    deleteConfirmContent: '确定要永久删除此对话及所有消息吗？此操作不可恢复。'
   }
 }

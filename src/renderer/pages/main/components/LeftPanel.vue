@@ -342,19 +342,28 @@ const handleAgentSelected = async (conv) => {
       if (result && !result.error) {
         // API Profile 变化提醒
         if (result.apiChanged) {
+          let dialogHandled = false
           dialog.warning({
             title: t('agent.apiChangedTitle'),
             content: `${t('agent.apiChangedOriginal')}：${result.originalApiBaseUrl}\n${t('agent.apiChangedCurrent')}：${result.currentApiBaseUrl}\n\n${t('agent.apiChangedHint')}`,
             positiveText: t('agent.continueReopen'),
             negativeText: t('agent.createNew'),
             onPositiveClick: () => {
+              dialogHandled = true
               conv.status = result.status || 'idle'
               activeAgentSessionId.value = conv.id
               emit('agent-selected', conv)
             },
             onNegativeClick: () => {
+              dialogHandled = true
               if (agentLeftContentRef.value) {
                 agentLeftContentRef.value.createConversation()
+              }
+            },
+            onAfterLeave: () => {
+              // 点 X 关闭：关闭后端 session，保持前后端状态一致
+              if (!dialogHandled) {
+                window.electronAPI.closeAgentSession(conv.id).catch(() => {})
               }
             }
           })
