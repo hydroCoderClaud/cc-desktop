@@ -251,6 +251,20 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 用系统默认应用打开文件
+  ipcMain.handle('agent:openFile', async (event, { sessionId, relativePath }) => {
+    try {
+      const fullPath = agentSessionManager.resolveFilePath(sessionId, relativePath)
+      if (!fullPath) return { success: false, error: 'Cannot resolve path' }
+      const result = await shell.openPath(fullPath)
+      // shell.openPath 返回空字符串表示成功，否则返回错误信息
+      return result ? { success: false, error: result } : { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:openFile error:', err)
+      return { success: false, error: 'Failed to open file' }
+    }
+  })
+
   console.log('[IPC] Agent handlers registered')
 }
 

@@ -144,6 +144,17 @@ export function useAgentFiles() {
   }
 
   /**
+   * 用系统默认应用打开文件
+   */
+  const openFile = async (filePath) => {
+    if (!sessionId.value || !filePath) return
+    await window.electronAPI.openAgentFile({
+      sessionId: sessionId.value,
+      relativePath: filePath
+    })
+  }
+
+  /**
    * 关闭预览
    */
   const closePreview = () => {
@@ -226,6 +237,7 @@ export function useAgentFiles() {
     toggleDir,
     getDirEntries,
     selectFile,
+    openFile,
     closePreview,
     toggleShowHidden,
     refresh,

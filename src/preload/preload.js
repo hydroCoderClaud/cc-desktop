@@ -540,6 +540,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:listDir', { sessionId, relativePath, showHidden }),
   readAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:readFile', { sessionId, relativePath }),
+  openAgentFile: ({ sessionId, relativePath }) =>
+    ipcRenderer.invoke('agent:openFile', { sessionId, relativePath }),
 
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册

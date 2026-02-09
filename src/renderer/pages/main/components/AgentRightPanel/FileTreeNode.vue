@@ -9,6 +9,7 @@
       }"
       :style="{ paddingLeft: depth * 16 + 8 + 'px' }"
       @click="handleClick"
+      @dblclick="handleDblClick"
     >
       <!-- 展开/折叠箭头（目录） -->
       <span v-if="entry.isDirectory" class="node-arrow">
@@ -44,6 +45,7 @@
           :get-dir-entries="getDirEntries"
           @toggle-dir="$emit('toggle-dir', $event)"
           @select-file="$emit('select-file', $event)"
+          @open-file="$emit('open-file', $event)"
         />
         <div v-if="children.length === 0" class="empty-dir" :style="{ paddingLeft: (depth + 1) * 16 + 8 + 'px' }">
           <span class="empty-text">{{ t('agent.files.emptyDir') }}</span>
@@ -73,7 +75,7 @@ const props = defineProps({
   getDirEntries: { type: Function, required: true }
 })
 
-const emit = defineEmits(['toggle-dir', 'select-file'])
+const emit = defineEmits(['toggle-dir', 'select-file', 'open-file'])
 
 const isExpanded = computed(() => props.expandedDirs.has(props.entry.relativePath))
 const isSelected = computed(() => !props.entry.isDirectory && props.selectedFile === props.entry.relativePath)
@@ -84,6 +86,12 @@ const handleClick = () => {
     emit('toggle-dir', props.entry.relativePath)
   } else {
     emit('select-file', props.entry.relativePath)
+  }
+}
+
+const handleDblClick = () => {
+  if (!props.entry.isDirectory) {
+    emit('open-file', props.entry.relativePath)
   }
 }
 </script>

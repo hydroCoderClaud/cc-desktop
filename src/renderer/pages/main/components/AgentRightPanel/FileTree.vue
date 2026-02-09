@@ -11,6 +11,7 @@
         :get-dir-entries="getDirEntries"
         @toggle-dir="$emit('toggle-dir', $event)"
         @select-file="$emit('select-file', $event)"
+        @open-file="$emit('open-file', $event)"
       />
     </template>
     <div v-else-if="!loading" class="empty-tree">
@@ -34,7 +35,7 @@ defineProps({
   loading: { type: Boolean, default: false }
 })
 
-defineEmits(['toggle-dir', 'select-file'])
+defineEmits(['toggle-dir', 'select-file', 'open-file'])
 
 const treeRef = ref(null)
 </script>

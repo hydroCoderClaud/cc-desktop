@@ -37,6 +37,7 @@
             :loading="agentFiles.loading.value"
             @toggle-dir="agentFiles.toggleDir($event)"
             @select-file="agentFiles.selectFile($event)"
+            @open-file="agentFiles.openFile($event)"
           />
 
           <!-- File Preview -->

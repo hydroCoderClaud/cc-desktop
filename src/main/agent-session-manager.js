@@ -1133,6 +1133,22 @@ class AgentSessionManager {
   }
 
   /**
+   * 解析文件完整路径（供外部打开使用）
+   * @param {string} sessionId
+   * @param {string} relativePath
+   * @returns {string|null} 完整路径，失败返回 null
+   */
+  resolveFilePath(sessionId, relativePath) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd || !relativePath) return null
+    try {
+      return this._safePath(cwd, relativePath)
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * 列出目录内容（支持子目录，异步避免阻塞主进程）
    * @param {string} sessionId 会话 ID
    * @param {string} relativePath 相对于 cwd 的路径，空字符串表示根目录
