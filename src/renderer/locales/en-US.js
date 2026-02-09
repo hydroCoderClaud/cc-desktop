@@ -1057,6 +1057,12 @@ export default {
     continueReopen: 'Continue Anyway',
     createNew: 'New Session',
     deleteConfirmTitle: 'Delete Conversation',
-    deleteConfirmContent: 'Are you sure you want to permanently delete this conversation and all messages? This action cannot be undone.'
+    deleteConfirmContent: 'Are you sure you want to permanently delete this conversation and all messages? This action cannot be undone.',
+    newConversationTitle: 'New Agent Conversation',
+    workingDirectory: 'Working Directory',
+    workingDirectoryPlaceholder: 'Not selected, will use default directory',
+    recentProjects: 'Recent Projects',
+    browseFolder: 'Browse...',
+    create: 'Create'
   }
 }

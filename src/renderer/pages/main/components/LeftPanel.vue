@@ -68,6 +68,15 @@
       @created="handleAgentCreated"
       @select="handleAgentSelected"
       @close="handleAgentClosed"
+      @new-conversation-request="showNewConvModal = true"
+    />
+
+    <!-- Agent 新建对话 Modal -->
+    <AgentNewConversationModal
+      :show="showNewConvModal"
+      :projects="props.projects"
+      @update:show="showNewConvModal = $event"
+      @create="handleNewConvCreate"
     />
 
     <!-- Session Area (滚动区域) - 仅开发者模式 -->
@@ -305,6 +314,7 @@ import { useSessionPanel } from '@composables/useSessionPanel'
 import { useAppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
+import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -331,6 +341,19 @@ const handleToggleMode = async () => {
 const handleAgentCreated = (session) => {
   activeAgentSessionId.value = session.id
   emit('agent-created', session)
+}
+
+const handleNewConvCreate = async ({ cwd }) => {
+  showNewConvModal.value = false
+  if (agentLeftContentRef.value) {
+    const session = await agentLeftContentRef.value.createConversation({
+      type: 'chat',
+      cwd: cwd || null
+    })
+    if (session) {
+      handleAgentCreated(session)
+    }
+  }
 }
 
 const handleAgentSelected = async (conv) => {
@@ -460,6 +483,7 @@ const selectedProjectId = ref(null)
 const isSyncing = ref(false)
 const agentLeftContentRef = ref(null)
 const activeAgentSessionId = ref(null)
+const showNewConvModal = ref(false)
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)

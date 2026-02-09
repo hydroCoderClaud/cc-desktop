@@ -4,11 +4,13 @@
  */
 import { ref, computed } from 'vue'
 import { useIPC } from './useIPC'
+import { useLocale } from './useLocale'
 import { createTabFromSession, findTabBySessionId } from './useSessionUtils'
 import { isValidSession } from './useValidation'
 
 export function useTabManagement() {
   const { invoke } = useIPC()
+  const { t } = useLocale()
 
   // State
   const tabs = ref([])  // TabBar 中显示的 tabs（用户可见的）
@@ -272,6 +274,10 @@ export function useTabManagement() {
     // 先在 allTabs 中查找
     const existingTab = allTabs.value.find(t => t.id === tabId)
     if (existingTab) {
+      // 同步标题（对话可能已被重命名）
+      if (agentSession.title) {
+        existingTab.title = agentSession.title
+      }
       activeTabId.value = existingTab.id
 
       // 如果不在 tabs 中，添加回去
@@ -287,7 +293,7 @@ export function useTabManagement() {
       id: tabId,
       sessionId: agentSession.id,
       type: 'agent-chat',
-      title: agentSession.title || 'Agent Chat',
+      title: agentSession.title || t('agent.chat'),
       status: agentSession.status || 'idle'
     }
 

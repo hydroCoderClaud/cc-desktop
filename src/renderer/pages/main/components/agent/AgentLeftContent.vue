@@ -77,7 +77,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'close', 'created'])
+const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request'])
 
 const {
   conversations,
@@ -111,11 +111,8 @@ const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
 
-const handleNewConversation = async () => {
-  const session = await createConversation({ type: 'chat' })
-  if (session) {
-    emit('created', session)
-  }
+const handleNewConversation = () => {
+  emit('new-conversation-request')
 }
 
 const startRename = (conv) => {

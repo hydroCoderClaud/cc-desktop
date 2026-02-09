@@ -1060,6 +1060,12 @@ export default {
     continueReopen: '继续恢复',
     createNew: '新建会话',
     deleteConfirmTitle: '删除对话',
-    deleteConfirmContent: '确定要永久删除此对话及所有消息吗？此操作不可恢复。'
+    deleteConfirmContent: '确定要永久删除此对话及所有消息吗？此操作不可恢复。',
+    newConversationTitle: '新建 Agent 对话',
+    workingDirectory: '工作目录',
+    workingDirectoryPlaceholder: '未选择，将使用默认目录',
+    recentProjects: '最近项目',
+    browseFolder: '浏览...',
+    create: '创建'
   }
 }

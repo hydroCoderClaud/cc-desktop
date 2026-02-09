@@ -395,6 +395,17 @@ const setupSessionListeners = () => {
     })
   )
 
+  // 监听 Agent 会话重命名 → 同步更新 Tab 标题
+  if (window.electronAPI.onAgentRenamed) {
+    cleanupFns.push(
+      window.electronAPI.onAgentRenamed((data) => {
+        if (data?.sessionId && data?.title) {
+          updateTabTitle(data.sessionId, data.title)
+        }
+      })
+    )
+  }
+
   // 监听设置变化（终端字体大小、字体类型等）
   if (window.electronAPI.onSettingsChanged) {
     cleanupFns.push(
