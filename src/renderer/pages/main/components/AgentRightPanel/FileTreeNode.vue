@@ -27,24 +27,30 @@
       <span class="node-name" :title="entry.name">{{ entry.name }}</span>
 
       <!-- 文件大小（仅文件） -->
-      <span v-if="!entry.isDirectory" class="node-size">{{ formatSize(entry.size) }}</span>
+      <span v-if="!entry.isDirectory" class="node-size">{{ formatFileSize(entry.size) }}</span>
     </div>
 
-    <!-- 子节点（展开时递归） -->
+    <!-- 子节点（展开时递归，限制最大深度） -->
     <template v-if="entry.isDirectory && isExpanded">
-      <FileTreeNode
-        v-for="child in children"
-        :key="child.relativePath"
-        :entry="child"
-        :depth="depth + 1"
-        :expanded-dirs="expandedDirs"
-        :selected-file="selectedFile"
-        :get-dir-entries="getDirEntries"
-        @toggle-dir="$emit('toggle-dir', $event)"
-        @select-file="$emit('select-file', $event)"
-      />
-      <div v-if="children.length === 0" class="empty-dir" :style="{ paddingLeft: (depth + 1) * 16 + 8 + 'px' }">
-        <span class="empty-text">{{ t('agent.files.emptyDir') }}</span>
+      <template v-if="depth < maxDepth">
+        <FileTreeNode
+          v-for="child in children"
+          :key="child.relativePath"
+          :entry="child"
+          :depth="depth + 1"
+          :max-depth="maxDepth"
+          :expanded-dirs="expandedDirs"
+          :selected-file="selectedFile"
+          :get-dir-entries="getDirEntries"
+          @toggle-dir="$emit('toggle-dir', $event)"
+          @select-file="$emit('select-file', $event)"
+        />
+        <div v-if="children.length === 0" class="empty-dir" :style="{ paddingLeft: (depth + 1) * 16 + 8 + 'px' }">
+          <span class="empty-text">{{ t('agent.files.emptyDir') }}</span>
+        </div>
+      </template>
+      <div v-else class="empty-dir" :style="{ paddingLeft: (depth + 1) * 16 + 8 + 'px' }">
+        <span class="empty-text">...</span>
       </div>
     </template>
   </div>
@@ -53,6 +59,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { formatFileSize } from '@composables/useAgentFiles'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
@@ -60,6 +67,7 @@ const { t } = useLocale()
 const props = defineProps({
   entry: { type: Object, required: true },
   depth: { type: Number, default: 0 },
+  maxDepth: { type: Number, default: 10 },
   expandedDirs: { type: Set, required: true },
   selectedFile: { type: String, default: null },
   getDirEntries: { type: Function, required: true }
@@ -77,13 +85,6 @@ const handleClick = () => {
   } else {
     emit('select-file', props.entry.relativePath)
   }
-}
-
-const formatSize = (bytes) => {
-  if (!bytes || bytes === 0) return ''
-  if (bytes < 1024) return bytes + 'B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
 }
 </script>
 

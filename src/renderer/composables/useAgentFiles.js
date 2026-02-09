@@ -3,7 +3,17 @@
  * 管理当前 Agent 会话的工作目录文件树和文件预览
  */
 
-import { ref, watch, reactive } from 'vue'
+import { ref, reactive } from 'vue'
+
+/**
+ * 格式化文件大小
+ */
+export function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return ''
+  if (bytes < 1024) return bytes + 'B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
+}
 
 export function useAgentFiles() {
   // 当前会话 ID

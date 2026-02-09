@@ -25,7 +25,7 @@
       <div v-else-if="preview?.tooLarge" class="preview-placeholder">
         <Icon name="fileText" :size="24" />
         <span>{{ t('agent.files.tooLarge') }}</span>
-        <span class="preview-meta">{{ formatSize(preview.size) }}</span>
+        <span class="preview-meta">{{ formatFileSize(preview.size) }}</span>
       </div>
 
       <!-- Text -->
@@ -42,7 +42,7 @@
       <div v-else-if="preview?.type === 'binary'" class="preview-placeholder">
         <Icon name="fileText" :size="24" />
         <span>{{ t('agent.files.cannotPreview') }}</span>
-        <span class="preview-meta">{{ preview.ext }} · {{ formatSize(preview.size) }}</span>
+        <span class="preview-meta">{{ preview.ext }} · {{ formatFileSize(preview.size) }}</span>
       </div>
     </div>
   </div>
@@ -50,6 +50,7 @@
 
 <script setup>
 import { useLocale } from '@composables/useLocale'
+import { formatFileSize } from '@composables/useAgentFiles'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
@@ -60,13 +61,6 @@ defineProps({
 })
 
 defineEmits(['close'])
-
-const formatSize = (bytes) => {
-  if (!bytes || bytes === 0) return '0B'
-  if (bytes < 1024) return bytes + 'B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
-}
 </script>
 
 <style scoped>
