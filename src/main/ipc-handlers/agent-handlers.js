@@ -6,6 +6,7 @@
  */
 
 const { shell } = require('electron')
+const fs = require('fs')
 
 function setupAgentHandlers(ipcMain, agentSessionManager) {
   if (!agentSessionManager) {
@@ -256,6 +257,7 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     try {
       const fullPath = agentSessionManager.resolveFilePath(sessionId, relativePath)
       if (!fullPath) return { success: false, error: 'Cannot resolve path' }
+      if (!fs.existsSync(fullPath)) return { success: false, error: 'File not found' }
       const result = await shell.openPath(fullPath)
       // shell.openPath 返回空字符串表示成功，否则返回错误信息
       return result ? { success: false, error: result } : { success: true }

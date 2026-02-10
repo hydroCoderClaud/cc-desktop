@@ -203,6 +203,7 @@ export function useAgentFiles() {
     dirCache.clear()
     selectedFile.value = null
     filePreview.value = null
+    showHidden.value = false
     cwd.value = ''
     error.value = ''
     loading.value = false

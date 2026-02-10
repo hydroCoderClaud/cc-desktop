@@ -67,6 +67,9 @@ const LANG_MAP = {
   '.graphql': 'graphql', '.proto': 'protobuf'
 }
 
+const MAX_TEXT_SIZE = 512 * 1024    // 文本预览上限 512KB
+const MAX_IMG_SIZE = 2 * 1024 * 1024 // 图片预览上限 2MB
+
 const MIME_MAP = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.bmp': 'image/bmp'
@@ -1229,7 +1232,6 @@ class AgentSessionManager {
 
       // SVG 作为图片处理（优先于 textExts 检查）
       if (ext === '.svg') {
-        const MAX_IMG_SIZE = 2 * 1024 * 1024
         if (stat.size > MAX_IMG_SIZE) {
           return { ...base, type: 'image', tooLarge: true }
         }
@@ -1238,8 +1240,7 @@ class AgentSessionManager {
       }
 
       if (TEXT_EXTS.has(ext) || (name.startsWith('.') && !ext)) {
-        // 文本文件（含无扩展名的 dotfiles），上限 512KB
-        const MAX_TEXT_SIZE = 512 * 1024
+        // 文本文件（含无扩展名的 dotfiles）
         if (stat.size > MAX_TEXT_SIZE) {
           return { ...base, type: 'text', tooLarge: true, language: LANG_MAP[ext] || 'text' }
         }
@@ -1253,7 +1254,6 @@ class AgentSessionManager {
       }
 
       if (IMAGE_EXTS.has(ext)) {
-        const MAX_IMG_SIZE = 2 * 1024 * 1024
         if (stat.size > MAX_IMG_SIZE) {
           return { ...base, type: 'image', tooLarge: true }
         }

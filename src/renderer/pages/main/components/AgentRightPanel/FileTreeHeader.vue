@@ -53,9 +53,10 @@ defineEmits(['open-explorer', 'refresh', 'collapse', 'toggle-hidden'])
 
 const shortenPath = (p) => {
   if (!p) return ''
-  // 显示最后两级目录
-  const parts = p.replace(/\\/g, '/').split('/')
-  if (parts.length <= 3) return p
+  // 统一为 / 分隔符，显示最后两级目录
+  const normalized = p.replace(/\\/g, '/')
+  const parts = normalized.split('/')
+  if (parts.length <= 3) return normalized
   return '.../' + parts.slice(-2).join('/')
 }
 </script>
