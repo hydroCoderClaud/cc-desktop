@@ -32,7 +32,7 @@ const renderedContent = computed(() => {
   let text = props.message.content || ''
 
   // 转义 HTML
-  text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
   // 代码块 — 提取保护，避免内部被链接正则误匹配
   const codeBlocks = []
