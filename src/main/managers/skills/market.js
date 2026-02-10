@@ -6,7 +6,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, classifyHttpError } = require('../../utils/http-client')
+const { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 
 const MARKET_META_FILE = '.market-meta.json'
 
@@ -53,6 +53,10 @@ const skillsMarketMixin = {
       return { success: false, error: '参数不完整' }
     }
 
+    if (!isValidMarketId(skill.id)) {
+      return { success: false, error: `非法的 Skill ID: "${skill.id}"` }
+    }
+
     const baseUrl = registryUrl.replace(/\/+$/, '')
     const tempDir = path.join(os.tmpdir(), `skill-market-${Date.now()}`)
 
@@ -65,6 +69,9 @@ const skillsMarketMixin = {
       // 2. 下载所有文件
       const files = skill.files || ['SKILL.md']
       for (const filename of files) {
+        if (!isSafeFilename(filename)) {
+          return { success: false, error: `非法的文件名: "${filename}"` }
+        }
         const fileUrl = `${baseUrl}/skills/${skill.id}/${filename}`
         console.log(`[SkillsManager] Downloading: ${fileUrl}`)
         const content = await httpGet(fileUrl)
@@ -156,7 +163,7 @@ const skillsMarketMixin = {
       const updates = []
       for (const local of installed) {
         const remote = indexResult.data.skills.find(s => s.id === local.skillId)
-        if (remote && remote.version && local.version && remote.version !== local.version) {
+        if (remote && isNewerVersion(remote.version, local.version)) {
           updates.push({
             skillId: local.skillId,
             localVersion: local.version,

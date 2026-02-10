@@ -7,7 +7,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { httpGet, classifyHttpError } = require('../../utils/http-client')
+const { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 
 const MARKET_META_DIR = '.market-meta'
 
@@ -22,11 +22,18 @@ const agentsMarketMixin = {
       return { success: false, error: '参数不完整' }
     }
 
+    if (!isValidMarketId(agent.id)) {
+      return { success: false, error: `非法的 Agent ID: "${agent.id}"` }
+    }
+
     const baseUrl = registryUrl.replace(/\/+$/, '')
 
     try {
       // 1. 下载 agent .md 文件
       const file = agent.file || `${agent.id}.md`
+      if (!isSafeFilename(file)) {
+        return { success: false, error: `非法的文件名: "${file}"` }
+      }
       const fileUrl = `${baseUrl}/agents/${file}`
       console.log(`[AgentsManager] Downloading: ${fileUrl}`)
       const content = await httpGet(fileUrl)
@@ -125,7 +132,7 @@ const agentsMarketMixin = {
       const updates = []
       for (const local of installed) {
         const remote = remoteAgents.find(a => a.id === local.agentId)
-        if (remote && remote.version && local.version && remote.version !== local.version) {
+        if (remote && isNewerVersion(remote.version, local.version)) {
           updates.push({
             agentId: local.agentId,
             localVersion: local.version,
@@ -176,6 +183,22 @@ const agentsMarketMixin = {
     fs.mkdirSync(metaDir, { recursive: true })
     const metaPath = path.join(metaDir, `${agentId}.json`)
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+  },
+
+  /**
+   * 删除 agent 市场元数据
+   * @param {string} agentId
+   */
+  _deleteAgentMarketMeta(agentId) {
+    try {
+      const metaPath = path.join(this.userAgentsDir, MARKET_META_DIR, `${agentId}.json`)
+      if (fs.existsSync(metaPath)) {
+        fs.unlinkSync(metaPath)
+        console.log(`[AgentsManager] Removed market meta for: ${agentId}`)
+      }
+    } catch (e) {
+      console.warn(`[AgentsManager] Failed to remove market meta for ${agentId}:`, e.message)
+    }
   }
 }
 

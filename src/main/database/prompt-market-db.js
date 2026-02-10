@@ -62,10 +62,9 @@ function withPromptMarketOperations(BaseClass) {
         ).get(marketId)
 
         if (existing) {
-          // 删除关联的 prompt
-          this.db.prepare('DELETE FROM prompts WHERE id = ?').run(existing.local_prompt_id)
-          // 删除市场元数据（可能已被 CASCADE 删除，但安全起见再删一次）
+          // 先删除市场元数据，再删除关联的 prompt（顺序安全，不依赖 CASCADE）
           this.db.prepare('DELETE FROM market_installed_prompts WHERE market_id = ?').run(marketId)
+          this.db.prepare('DELETE FROM prompts WHERE id = ?').run(existing.local_prompt_id)
         }
 
         // 重新安装

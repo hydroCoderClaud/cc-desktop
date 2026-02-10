@@ -1,14 +1,35 @@
 # TODO - 项目状态
 
 > 📅 最后更新：2026-02-10
-> 📦 当前版本：v1.6.1
-> ✅ 状态：Agent 模式完善 + 文件树交互优化
+> 📦 当前版本：v1.6.2
+> ✅ 状态：统一组件市场 + 代码审查修复
 
 ---
 
 ## ✅ 已完成的核心功能
 
-### v1.6.x - Agent 模式重大更新
+### v1.6.2 - 市场代码审查修复 + 文件树增强
+- [x] 文件树扩展过滤（Python venv/.venv/.conda、Node.js .npm/.yarn、构建产物 build/target 等）
+- [x] 修复删除 Agent 时未清理 market-meta 元数据
+- [x] 修复删除 Prompt 时市场元数据残留
+- [x] 修复版本对比逻辑（改用 semver 比较，降版本不再误显示为可更新）
+- [x] HTTP 客户端安全加固（重定向次数限制、响应大小限制、路径穿越校验）
+- [x] 市场安装 ID 格式校验（防御路径穿越）
+- [x] 代理配置缓存优化（避免每次请求都读磁盘）
+- [x] prompt-handlers 代码重构（提取公共下载逻辑）
+- [x] 修复覆盖安装对话框 title/content 重复
+- [x] Agent 重命名时同步 market-meta
+
+### v1.6.1 - 统一组件市场
+- [x] 统一组件市场（Skills + Prompts + Agents 三合一）
+- [x] 共享 HTTP 客户端模块（http-client.js）
+- [x] Agents 市场功能（安装、更新、sidecar 元数据）
+- [x] Prompts 市场功能（SQLite 存储、market_installed_prompts 表）
+- [x] 统一市场 Modal（ComponentMarketModal + MarketList）
+- [x] 配置迁移 skillsMarket → market
+- [x] 市场徽章（Agents/Prompts 列表中标识市场来源）
+
+### v1.6.0 - Agent 模式重大更新
 - [x] 双模式架构（Terminal 模式 + Agent 模式）
 - [x] Agent 会话管理（创建、删除、重命名）
 - [x] 工作目录文件浏览与预览
@@ -16,6 +37,13 @@
 - [x] API Profile 关联与切换提醒
 - [x] 双击文件外部打开
 - [x] 聊天区链接/路径点击打开
+
+### v1.5.x - 提示词管理
+- [x] 提示词 CRUD（创建、编辑、删除）
+- [x] 提示词标签系统（分类筛选）
+- [x] 提示词收藏与使用计数
+- [x] 全局/项目级 scope 支持
+- [x] 填入输入框快捷操作
 
 ### v1.4.0 - Agents 管理模块
 - [x] 三级分类（项目级、全局级、插件级）

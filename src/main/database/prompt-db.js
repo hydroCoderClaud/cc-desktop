@@ -164,6 +164,8 @@ function withPromptOperations(BaseClass) {
      * Delete a prompt
      */
     deletePrompt(promptId) {
+      // 先删除市场元数据（防御性：不依赖 CASCADE）
+      this.db.prepare('DELETE FROM market_installed_prompts WHERE local_prompt_id = ?').run(promptId)
       this.db.prepare('DELETE FROM prompts WHERE id = ?').run(promptId)
       return { success: true }
     }

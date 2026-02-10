@@ -646,6 +646,7 @@ export default {
       category: '分类',
       categoryPlaceholder: '分类（可选）',
       deleteConfirm: '确定删除提示词 "{name}" 吗？',
+      insertToInput: '填入输入框',
       // 市场
       marketBadge: '市场'
     },
@@ -829,6 +830,7 @@ export default {
     installFailed: '安装失败: {error}',
     updateSuccess: '{name} 更新成功',
     updateFailed: '更新失败: {error}',
+    confirmOverwriteTitle: '确认覆盖',
     confirmOverwrite: '"{id}" 已存在，是否覆盖安装？',
     networkError: '网络错误，请检查连接',
     noRegistry: '未配置组件仓库',

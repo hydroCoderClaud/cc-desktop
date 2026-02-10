@@ -110,6 +110,12 @@ const agentsCrudMixin = {
       }
 
       fs.unlinkSync(agentPath)
+
+      // 清理市场元数据（如果存在）
+      if (source === 'user') {
+        this._deleteAgentMarketMeta(agentId)
+      }
+
       console.log(`[AgentsManager] Deleted agent: ${agentId} (${source})`)
       return { success: true }
     } catch (err) {
@@ -295,6 +301,15 @@ const agentsCrudMixin = {
 
       // 重命名文件
       fs.renameSync(oldPath, newPath)
+
+      // 同步重命名市场元数据（如果存在）
+      if (source === 'user') {
+        const oldMeta = this._readAgentMarketMeta(oldAgentId)
+        if (oldMeta) {
+          this._writeAgentMarketMeta(newAgentId, oldMeta)
+          this._deleteAgentMarketMeta(oldAgentId)
+        }
+      }
 
       console.log(`[AgentsManager] Renamed agent: ${oldAgentId} → ${newAgentId} (${source})`)
       return { success: true }

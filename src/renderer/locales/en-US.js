@@ -643,6 +643,7 @@ export default {
       category: 'Category',
       categoryPlaceholder: 'Category (optional)',
       deleteConfirm: 'Delete prompt "{name}"?',
+      insertToInput: 'Insert to input',
       // Market
       marketBadge: 'Market'
     },
@@ -826,6 +827,7 @@ export default {
     installFailed: 'Install failed: {error}',
     updateSuccess: '{name} updated successfully',
     updateFailed: 'Update failed: {error}',
+    confirmOverwriteTitle: 'Confirm Overwrite',
     confirmOverwrite: '"{id}" already exists. Overwrite?',
     networkError: 'Network error, please check connection',
     noRegistry: 'No component registry configured',

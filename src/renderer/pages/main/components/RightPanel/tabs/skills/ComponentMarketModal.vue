@@ -216,7 +216,7 @@ const handleInstallSkill = async (skill) => {
       emit('installed')
     } else if (result.conflict) {
       dialog.warning({
-        title: t('market.confirmOverwrite', { id: skill.id }),
+        title: t('market.confirmOverwriteTitle'),
         content: t('market.confirmOverwrite', { id: skill.id }),
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),
@@ -290,7 +290,7 @@ const handleInstallPrompt = async (prompt) => {
       emit('installed')
     } else if (result.conflict) {
       dialog.warning({
-        title: t('market.confirmOverwrite', { id: prompt.id }),
+        title: t('market.confirmOverwriteTitle'),
         content: t('market.confirmOverwrite', { id: prompt.id }),
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),
@@ -364,7 +364,7 @@ const handleInstallAgent = async (agent) => {
       emit('installed')
     } else if (result.conflict) {
       dialog.warning({
-        title: t('market.confirmOverwrite', { id: agent.id }),
+        title: t('market.confirmOverwriteTitle'),
         content: t('market.confirmOverwrite', { id: agent.id }),
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),

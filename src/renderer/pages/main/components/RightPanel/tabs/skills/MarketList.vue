@@ -123,12 +123,25 @@ const props = defineProps({
 
 defineEmits(['update:search-text', 'fetch', 'install', 'update-item'])
 
+// 简单 semver 比较：remote > local
+const isNewer = (remote, local) => {
+  if (!remote || !local) return false
+  const r = remote.split('.').map(Number)
+  const l = local.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const rv = r[i] || 0
+    const lv = l[i] || 0
+    if (rv > lv) return true
+    if (rv < lv) return false
+  }
+  return false
+}
+
 const getItemStatus = (item) => {
   const meta = props.installedMap.get(item.id)
   if (!meta) return 'not_installed'
-  // Compare version from meta (could be .version or .marketVersion)
   const installedVersion = meta.version || meta.marketVersion
-  if (installedVersion && installedVersion !== item.version) return 'updatable'
+  if (isNewer(item.version, installedVersion)) return 'updatable'
   return 'installed'
 }
 </script>

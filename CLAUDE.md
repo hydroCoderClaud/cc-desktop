@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.1
+**当前版本**：1.6.2
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
@@ -414,6 +414,12 @@ this._safeSend('session:data', { sessionId, data })
 ```
 
 **注意**：Windows/Linux 关闭窗口会退出应用，所以这是 macOS 特定问题。
+
+---
+
+## 注意事项
+
+- 修改组件市场相关规范（Skills/Prompts/Agents 的文件格式、目录结构、index.json Schema、下载路径等）时，**必须同步更新** `C:\workspace\develop\HydroCoder\hydroSkills\CLAUDE.md` 中的对应描述，保持文档与代码一致。
 
 ---
 

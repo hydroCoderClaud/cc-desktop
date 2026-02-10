@@ -35,10 +35,22 @@ const AgentStatus = {
  * 文件浏览相关常量（模块级，避免每次调用重建）
  */
 const HIDDEN_DIRS = new Set([
+  // 版本控制
   '.git', '.claude', '.svn', '.hg',
-  'node_modules', '__pycache__', '.next', '.nuxt', 'dist', '.cache',
-  '.vscode', '.idea', '.vs', '.fleet'
+  // Node.js / 前端
+  'node_modules', '.next', '.nuxt', 'dist', '.cache',
+  '.npm', '.yarn', '.pnpm-store', 'bower_components',
+  // Python 虚拟环境 & 工具
+  'venv', '.venv', '.env', 'virtualenv',
+  '.conda', '__pycache__', '.mypy_cache', '.pytest_cache',
+  '.tox', '.eggs',
+  // IDE
+  '.vscode', '.idea', '.vs', '.fleet',
+  // 构建产物
+  '.gradle', 'target', 'build', '.terraform'
 ])
+// 后缀匹配模式（用于 .egg-info 等目录）
+const HIDDEN_DIR_SUFFIXES = ['.egg-info']
 const HIDDEN_FILES = new Set(['CLAUDE.md', '.claudeignore', '.gitignore', '.DS_Store', 'Thumbs.db'])
 
 const TEXT_EXTS = new Set([
@@ -1174,7 +1186,10 @@ class AgentSessionManager {
       for (const dirent of dirents) {
         // 过滤系统目录和文件（showHidden 关闭时）
         if (!showHidden) {
-          if (dirent.isDirectory() && HIDDEN_DIRS.has(dirent.name)) continue
+          if (dirent.isDirectory() && (
+            HIDDEN_DIRS.has(dirent.name) ||
+            HIDDEN_DIR_SUFFIXES.some(s => dirent.name.endsWith(s))
+          )) continue
           if (!dirent.isDirectory() && HIDDEN_FILES.has(dirent.name)) continue
         }
 

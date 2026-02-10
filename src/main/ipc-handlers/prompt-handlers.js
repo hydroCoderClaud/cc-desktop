@@ -3,7 +3,7 @@
  */
 
 const { ipcMain } = require('electron')
-const { httpGet, classifyHttpError } = require('../utils/http-client')
+const { httpGet, classifyHttpError, isValidMarketId, isSafeFilename } = require('../utils/http-client')
 
 /**
  * Register prompt-related IPC handlers
@@ -188,73 +188,66 @@ function registerPromptHandlers(sessionDB) {
   // ========================================
 
   /**
-   * 安装市场 Prompt
-   * IPC 层负责 HTTP 下载 .md 内容，再传给 DB 层安装
+   * 下载市场 Prompt 内容（公共逻辑）
    */
-  ipcMain.handle('prompts:market:install', async (event, { registryUrl, prompt }) => {
-    try {
-      if (!registryUrl || !prompt || !prompt.id) {
-        return { success: false, error: '参数不完整' }
-      }
+  async function _downloadPromptContent(registryUrl, prompt) {
+    if (!registryUrl || !prompt || !prompt.id) {
+      return { success: false, error: '参数不完整' }
+    }
 
-      const baseUrl = registryUrl.replace(/\/+$/, '')
-      const file = prompt.file || `${prompt.id}.md`
-      const fileUrl = `${baseUrl}/prompts/${file}`
+    if (!isValidMarketId(prompt.id)) {
+      return { success: false, error: `非法的 Prompt ID: "${prompt.id}"` }
+    }
 
-      console.log(`[IPC] prompts:market:install downloading: ${fileUrl}`)
-      const content = await httpGet(fileUrl)
+    const baseUrl = registryUrl.replace(/\/+$/, '')
+    const file = prompt.file || `${prompt.id}.md`
 
-      if (!content || content.trim().length === 0) {
-        return { success: false, error: 'Prompt 文件内容为空' }
-      }
+    if (!isSafeFilename(file)) {
+      return { success: false, error: `非法的文件名: "${file}"` }
+    }
+    const fileUrl = `${baseUrl}/prompts/${file}`
 
-      return sessionDB.installMarketPrompt({
+    console.log(`[IPC] prompts:market downloading: ${fileUrl}`)
+    const content = await httpGet(fileUrl)
+
+    if (!content || content.trim().length === 0) {
+      return { success: false, error: 'Prompt 文件内容为空' }
+    }
+
+    return {
+      success: true,
+      params: {
         marketId: prompt.id,
         registryUrl: baseUrl,
         version: prompt.version || '0.0.0',
         name: prompt.name || prompt.id,
         content: content.trim()
-      })
+      }
+    }
+  }
+
+  ipcMain.handle('prompts:market:install', async (event, { registryUrl, prompt }) => {
+    try {
+      const dl = await _downloadPromptContent(registryUrl, prompt)
+      if (!dl.success) return dl
+      return sessionDB.installMarketPrompt(dl.params)
     } catch (err) {
       console.error('[IPC] prompts:market:install error:', err)
       return { success: false, error: classifyHttpError(err) }
     }
   })
 
-  /**
-   * 强制覆盖安装市场 Prompt
-   */
   ipcMain.handle('prompts:market:installForce', async (event, { registryUrl, prompt }) => {
     try {
-      if (!registryUrl || !prompt || !prompt.id) {
-        return { success: false, error: '参数不完整' }
-      }
-
-      const baseUrl = registryUrl.replace(/\/+$/, '')
-      const file = prompt.file || `${prompt.id}.md`
-      const fileUrl = `${baseUrl}/prompts/${file}`
-
-      const content = await httpGet(fileUrl)
-      if (!content || content.trim().length === 0) {
-        return { success: false, error: 'Prompt 文件内容为空' }
-      }
-
-      return sessionDB.installMarketPromptForce({
-        marketId: prompt.id,
-        registryUrl: baseUrl,
-        version: prompt.version || '0.0.0',
-        name: prompt.name || prompt.id,
-        content: content.trim()
-      })
+      const dl = await _downloadPromptContent(registryUrl, prompt)
+      if (!dl.success) return dl
+      return sessionDB.installMarketPromptForce(dl.params)
     } catch (err) {
       console.error('[IPC] prompts:market:installForce error:', err)
       return { success: false, error: classifyHttpError(err) }
     }
   })
 
-  /**
-   * 获取已安装的市场 Prompts
-   */
   ipcMain.handle('prompts:market:installed', async () => {
     try {
       return sessionDB.getMarketInstalledPrompts()
@@ -264,31 +257,11 @@ function registerPromptHandlers(sessionDB) {
     }
   })
 
-  /**
-   * 更新市场 Prompt（删除旧的 → 重新安装）
-   */
   ipcMain.handle('prompts:market:update', async (event, { registryUrl, prompt }) => {
     try {
-      if (!registryUrl || !prompt || !prompt.id) {
-        return { success: false, error: '参数不完整' }
-      }
-
-      const baseUrl = registryUrl.replace(/\/+$/, '')
-      const file = prompt.file || `${prompt.id}.md`
-      const fileUrl = `${baseUrl}/prompts/${file}`
-
-      const content = await httpGet(fileUrl)
-      if (!content || content.trim().length === 0) {
-        return { success: false, error: 'Prompt 文件内容为空' }
-      }
-
-      return sessionDB.installMarketPromptForce({
-        marketId: prompt.id,
-        registryUrl: baseUrl,
-        version: prompt.version || '0.0.0',
-        name: prompt.name || prompt.id,
-        content: content.trim()
-      })
+      const dl = await _downloadPromptContent(registryUrl, prompt)
+      if (!dl.success) return dl
+      return sessionDB.installMarketPromptForce(dl.params)
     } catch (err) {
       console.error('[IPC] prompts:market:update error:', err)
       return { success: false, error: classifyHttpError(err) }
