@@ -55,13 +55,29 @@ claude code
 
 ### 配置 API Key
 
-1. 点击右上角的 ⚙ 图标（即将支持）
-2. 在设置对话框中输入您的 Anthropic API Key
-3. API Key 会自动传递给 Claude Code CLI
+1. 点击右上角的 ⚙ 图标
+2. 在设置面板中选择 "API Profiles" 标签
+3. 点击"添加 Profile"，输入您的 API Key 和配置
+4. API Key 会自动传递给 Claude Code CLI
 
-当前临时方案：手动编辑配置文件
-- 位置：`%APPDATA%\claude-code-desktop\config.json`
-- 设置：`settings.anthropicApiKey` 字段
+**配置文件位置**：
+- Windows: `%APPDATA%\claude-code-desktop\config.json`
+- macOS/Linux: `~/.config/claude-code-desktop/config.json`
+
+**配置结构**（参考）：
+```json
+{
+  "apiProfiles": [
+    {
+      "id": "uuid",
+      "name": "My API Key",
+      "authToken": "sk-ant-your-key-here",
+      "baseUrl": "https://api.anthropic.com",
+      "isDefault": true
+    }
+  ]
+}
+```
 
 ### 移除项目
 
@@ -106,14 +122,29 @@ npm rebuild node-pty
 **原因**：未配置或配置错误
 
 **解决**：
-编辑 `%APPDATA%\claude-code-desktop\config.json`：
-```json
-{
-  "settings": {
-    "anthropicApiKey": "sk-ant-your-key-here"
-  }
-}
-```
+1. 方式 1：通过 UI 配置（推荐）
+   - 打开应用，点击右上角 ⚙ 图标
+   - 在 "API Profiles" 标签中添加或编辑配置
+
+2. 方式 2：手动编辑配置文件
+   - 位置：`%APPDATA%\claude-code-desktop\config.json` (Windows)
+   - 或：`~/.config/claude-code-desktop/config.json` (macOS/Linux)
+   - 配置格式：
+   ```json
+   {
+     "apiProfiles": [
+       {
+         "id": "generated-uuid",
+         "name": "Default API",
+         "authToken": "sk-ant-your-key-here",
+         "authType": "api_key",
+         "baseUrl": "https://api.anthropic.com",
+         "isDefault": true
+       }
+     ],
+     "defaultProfileId": "generated-uuid"
+   }
+   ```
 
 ---
 

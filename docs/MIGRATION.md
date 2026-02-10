@@ -89,9 +89,19 @@ npm install
       "pinned": false
     }
   ],
+  "apiProfiles": [
+    {
+      "id": "profile-uuid",
+      "name": "Default API",
+      "authToken": "",
+      "authType": "api_key",
+      "baseUrl": "https://api.anthropic.com",
+      "isDefault": true
+    }
+  ],
+  "defaultProfileId": "profile-uuid",
   "settings": {
     "theme": "light",
-    "anthropicApiKey": "",
     "terminal": {
       "fontSize": 14,
       "fontFamily": "Consolas, monospace"
@@ -113,6 +123,7 @@ const oldPath = path.join(process.env.APPDATA, 'claude-code-desktop', 'data', 'p
 const oldData = JSON.parse(fs.readFileSync(oldPath, 'utf-8'));
 
 // 转换为新格式
+const profileId = uuidv4();
 const newConfig = {
   recentProjects: oldData.projects.map(p => ({
     id: uuidv4(),
@@ -122,9 +133,22 @@ const newConfig = {
     icon: '📁',
     pinned: false
   })),
+  apiProfiles: [
+    {
+      id: profileId,
+      name: 'Default API',
+      authToken: '',  // 需要手动填写
+      authType: 'api_key',
+      baseUrl: 'https://api.anthropic.com',
+      selectedModelTier: 'sonnet',
+      isDefault: true,
+      createdAt: new Date().toISOString(),
+      lastUsed: new Date().toISOString()
+    }
+  ],
+  defaultProfileId: profileId,
   settings: {
     theme: 'light',
-    anthropicApiKey: '',
     terminal: {
       fontSize: 14,
       fontFamily: 'Consolas, monospace'
@@ -146,14 +170,35 @@ node migrate.js
 
 ### 4. 配置 API Key
 
+**方式 1：通过 UI 配置（推荐）**
+1. 启动应用
+2. 点击右上角 ⚙ 图标
+3. 在 "API Profiles" 标签中添加配置
+
+**方式 2：手动编辑配置文件**
+
 编辑 `%APPDATA%\claude-code-desktop\config.json`:
 ```json
 {
-  "settings": {
-    "anthropicApiKey": "sk-ant-your-api-key-here"
-  }
+  "apiProfiles": [
+    {
+      "id": "your-profile-id",
+      "name": "My API Key",
+      "authToken": "sk-ant-your-api-key-here",
+      "authType": "api_key",
+      "baseUrl": "https://api.anthropic.com",
+      "selectedModelTier": "sonnet",
+      "isDefault": true
+    }
+  ],
+  "defaultProfileId": "your-profile-id"
 }
 ```
+
+**注意**：
+- v1.6.0+ 版本使用 API Profile 系统
+- 旧版本的 `settings.anthropicApiKey` 字段已废弃
+- 首次运行时会自动迁移旧配置到 API Profiles
 
 ### 5. 启动新版本
 

@@ -7,6 +7,7 @@ const pty = require('node-pty');
 const os = require('os');
 const fs = require('fs');
 const { killProcessTree } = require('./utils/process-tree-kill');
+const { buildProcessEnv } = require('./utils/env-builder');
 
 class TerminalManager {
   constructor(mainWindow, configManager) {
@@ -42,8 +43,6 @@ class TerminalManager {
   start(projectPath) {
     // 先关闭旧进程
     this.kill();
-
-    const config = this.configManager.getConfig();
 
     // 跨平台 shell 选择：优先使用系统默认 shell
     const platform = os.platform();
@@ -89,6 +88,13 @@ class TerminalManager {
     console.log(`[Terminal] SHELL env: ${process.env.SHELL}`);
     console.log(`[Terminal] Working directory: ${projectPath}`);
 
+    // 获取默认 API Profile 并构建环境变量
+    const profile = this.configManager.getDefaultProfile();
+    const env = buildProcessEnv(profile, {
+      TERM: 'xterm-256color',
+      PATH: process.env.PATH
+    });
+
     try {
       // 创建 PTY 进程
       this.pty = pty.spawn(shell, shellArgs, {
@@ -96,26 +102,7 @@ class TerminalManager {
         cols: 80,
         rows: 24,
         cwd: projectPath,
-        env: {
-          ...process.env,
-          // 清除所有可能的认证变量，避免冲突
-          ANTHROPIC_API_KEY: undefined,
-          ANTHROPIC_API_TOKEN: undefined,
-          ANTHROPIC_AUTH_TOKEN: undefined,
-          CLAUDE_AI_TOKEN: undefined,
-          // 根据配置设置正确的认证方式（二选一）
-          ...(config.settings.anthropicApiKey ? {
-            ANTHROPIC_API_KEY: config.settings.anthropicApiKey
-          } : {}),
-          ...(config.settings.anthropicApiToken ? {
-            ANTHROPIC_API_TOKEN: config.settings.anthropicApiToken
-          } : {}),
-          ...(config.settings.claudeApiKey ? {
-            ANTHROPIC_API_KEY: config.settings.claudeApiKey
-          } : {}),
-          TERM: 'xterm-256color',
-          PATH: process.env.PATH // 确保 PATH 正确传递
-        }
+        env
       });
 
       this.currentProject = projectPath;

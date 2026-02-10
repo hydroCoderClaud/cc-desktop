@@ -86,9 +86,18 @@ Electron 应用
       pinned: false
     }
   ],
+  apiProfiles: [
+    {
+      id: "profile-uuid",
+      name: "Default API",
+      authToken: "sk-ant-...",
+      baseUrl: "https://api.anthropic.com",
+      isDefault: true
+    }
+  ],
+  defaultProfileId: "profile-uuid",
   settings: {
     theme: "light",
-    anthropicApiKey: "sk-ant-...",
     terminal: { fontSize: 14, fontFamily: "Consolas" },
     maxRecentProjects: 10
   }

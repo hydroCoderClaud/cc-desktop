@@ -49,20 +49,6 @@ class ConfigManager {
       settings: {
         theme: 'light',
 
-        // 旧版 API 配置（兼容性，将在首次加载时迁移到 apiProfiles）
-        api: {
-          authToken: '',
-          baseUrl: 'https://api.anthropic.com',
-          model: 'claude-sonnet-4-5-20250929',
-          useProxy: false,
-          httpsProxy: '',
-          httpProxy: ''
-        },
-
-        // 旧版兼容（已废弃）
-        claudeApiKey: '',
-        anthropicApiKey: '',
-
         // 终端设置
         terminal: {
           fontSize: 14,
@@ -678,12 +664,14 @@ class ConfigManager {
     config.apiProfiles = [defaultProfile];
     config.defaultProfileId = defaultProfile.id;  // 改为 defaultProfileId
 
-    // 清理旧配置（可选，保留以便降级）
-    // delete config.settings.api;
-    // delete config.settings.anthropicApiKey;
-    // delete config.settings.claudeApiKey;
+    // 自动清理旧配置（迁移后保持配置文件干净）
+    delete config.settings.api;
+    delete config.settings.anthropicApiKey;
+    delete config.settings.claudeApiKey;
+    delete config.settings.anthropicApiToken;
 
     console.log('[ConfigManager] Migration completed. Created default profile:', defaultProfile.id);
+    console.log('[ConfigManager] Cleaned up legacy API config fields');
 
     return config;
   }

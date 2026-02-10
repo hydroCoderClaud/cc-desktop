@@ -2,6 +2,33 @@
 
 ---
 
+## v1.6.3 - 2026-02-11
+
+### 修复 (Bug Fixes)
+
+**终端环境变量处理优化**
+- 修复 terminal-manager.js 环境变量注入问题
+- 使用统一的 `buildProcessEnv` 函数，避免环境变量污染
+- 解决 `undefined` 被传递为字符串的 bug
+
+**配置系统清理**
+- 自动迁移并删除废弃的 API 配置字段
+- 新安装不产生废弃字段，配置文件更简洁
+- 迁移后自动清理 `settings.api`、`settings.anthropicApiKey` 等旧字段
+
+### 文档 (Documentation)
+
+- 更新 QUICKSTART.md：API Key 配置说明改为 API Profiles
+- 更新 ARCHITECTURE.md：配置示例使用新结构
+- 更新 MIGRATION.md：迁移脚本和说明更新
+
+### 破坏性变更 (Breaking Changes)
+
+- **不支持降级到 v1.5.x**：API 配置结构已变更
+- 旧版本 `settings.anthropicApiKey` 等字段在迁移后会被自动删除
+
+---
+
 ## v1.4.0 - 2026-01-25
 
 ### Agents 管理模块完成
