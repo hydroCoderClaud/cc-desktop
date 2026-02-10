@@ -34,7 +34,7 @@ export const iconPaths = {
   folderOpen: '<path d="M4 4h4l2 2h7a1 1 0 0 1 1 1v2H3V5a1 1 0 0 1 1-1z"/><path d="M2 9h16l-2 8H4L2 9z"/>',
   file: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
   // 文件+文字：打开文本文件
-  fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/><path d="M7 9h6M7 12h6M7 15h4"/>',
+  fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
 
   // 终端类
   terminal: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>',
