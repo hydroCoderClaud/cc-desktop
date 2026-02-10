@@ -20,6 +20,7 @@ const { agentsUtilsMixin } = require('./utils')
 const { agentsCrudMixin } = require('./crud')
 const { agentsImportMixin } = require('./import')
 const { agentsExportMixin } = require('./export')
+const { agentsMarketMixin } = require('./market')
 
 class AgentsManager extends ComponentScanner {
   constructor() {
@@ -34,5 +35,6 @@ Object.assign(AgentsManager.prototype, agentsUtilsMixin)
 Object.assign(AgentsManager.prototype, agentsCrudMixin)
 Object.assign(AgentsManager.prototype, agentsImportMixin)
 Object.assign(AgentsManager.prototype, agentsExportMixin)
+Object.assign(AgentsManager.prototype, agentsMarketMixin)
 
 module.exports = { AgentsManager }

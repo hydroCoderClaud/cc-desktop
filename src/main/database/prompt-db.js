@@ -52,7 +52,11 @@ function withPromptOperations(BaseClass) {
      * Get prompt by ID with tags
      */
     getPromptById(promptId) {
-      const prompt = this.db.prepare('SELECT * FROM prompts WHERE id = ?').get(promptId)
+      const prompt = this.db.prepare(`
+        SELECT p.*, mip.market_id FROM prompts p
+        LEFT JOIN market_installed_prompts mip ON mip.local_prompt_id = p.id
+        WHERE p.id = ?
+      `).get(promptId)
       if (prompt) {
         prompt.tags = this.getPromptTags(promptId)
       }
@@ -70,7 +74,8 @@ function withPromptOperations(BaseClass) {
       const { scope = 'all', projectId = null, tagIds = [] } = options
 
       let sql = `
-        SELECT DISTINCT p.* FROM prompts p
+        SELECT DISTINCT p.*, mip.market_id FROM prompts p
+        LEFT JOIN market_installed_prompts mip ON mip.local_prompt_id = p.id
       `
       const params = []
       const conditions = []

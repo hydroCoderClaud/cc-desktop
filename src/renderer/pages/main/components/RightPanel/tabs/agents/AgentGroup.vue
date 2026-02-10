@@ -21,6 +21,7 @@
             <span class="agent-name">
               {{ agent.id }}
               <span v-if="agent.name && agent.name !== agent.id" class="agent-name-suffix">(/{{ agent.name }})</span>
+              <span v-if="agent.marketSource" class="market-badge">{{ t('rightPanel.agents.marketBadge') }}</span>
             </span>
             <span class="agent-actions">
               <button
@@ -222,5 +223,16 @@ const createTitle = computed(() => {
   font-size: 12px;
   color: var(--text-color-muted);
   opacity: 0.7;
+}
+
+.agent-name .market-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: var(--primary-color);
+  color: #fff;
+  font-weight: 500;
+  vertical-align: middle;
 }
 </style>

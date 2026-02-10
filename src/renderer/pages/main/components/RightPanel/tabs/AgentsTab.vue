@@ -13,6 +13,7 @@
           <template #prefix><Icon name="search" :size="14" /></template>
         </n-input>
         <n-button-group size="small">
+          <n-button @click="showMarketModal" :title="t('market.title')"><Icon name="store" :size="16" /></n-button>
           <n-button @click="showImportModal" :title="t('rightPanel.agents.import')"><Icon name="import" :size="16" /></n-button>
           <n-button @click="showExportModal" :title="t('rightPanel.agents.export')"><Icon name="export" :size="16" /></n-button>
         </n-button-group>
@@ -132,6 +133,9 @@
       :agents="agents"
       :current-project="currentProject"
     />
+
+    <!-- 市场 Modal -->
+    <ComponentMarketModal v-model="marketModalVisible" default-tab="agents" @installed="loadAgents" />
   </div>
 </template>
 
@@ -146,6 +150,7 @@ import AgentEditModal from './agents/AgentEditModal.vue'
 import AgentCopyModal from './agents/AgentCopyModal.vue'
 import AgentExportModal from './agents/AgentExportModal.vue'
 import AgentImportModal from './agents/AgentImportModal.vue'
+import ComponentMarketModal from './skills/ComponentMarketModal.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -178,6 +183,9 @@ const importModalVisible = ref(false)
 
 // Export Modal State
 const exportModalVisible = ref(false)
+
+// Market Modal State
+const marketModalVisible = ref(false)
 
 // Computed
 const totalCount = computed(() => agents.value.user.length + agents.value.project.length + agents.value.plugin.length)
@@ -296,6 +304,11 @@ const showImportModal = () => {
 // Export Modal
 const showExportModal = () => {
   exportModalVisible.value = true
+}
+
+// Market Modal
+const showMarketModal = () => {
+  marketModalVisible.value = true
 }
 
 // Load Agents

@@ -315,7 +315,29 @@ export default {
       shadowedByGlobalTitle: '全局已存在同名技能',
       shadowedByGlobalDesc: '以下技能在全局已存在同名版本，导入到项目后将不会生效（全局技能优先级更高）：',
       willShadowProjectTitle: '项目存在同名技能',
-      willShadowProjectDesc: '以下技能在当前项目已存在同名版本，导入到全局后，项目版本将被覆盖（全局技能优先级更高）：'
+      willShadowProjectDesc: '以下技能在当前项目已存在同名版本，导入到全局后，项目版本将被覆盖（全局技能优先级更高）：',
+      // 市场
+      market: {
+        title: 'Skills 市场',
+        fetching: '获取中...',
+        fetchError: '获取注册表失败',
+        empty: '注册表中没有可用的技能',
+        search: '搜索技能...',
+        install: '安装',
+        installing: '安装中...',
+        installed: '已安装',
+        update: '更新',
+        updating: '更新中...',
+        updateAvailable: '可更新至 v{version}',
+        installSuccess: '{name} 安装成功',
+        installFailed: '安装失败: {error}',
+        updateSuccess: '{name} 更新成功',
+        updateFailed: '更新失败: {error}',
+        confirmOverwrite: '技能 "{id}" 已存在，是否覆盖安装？',
+        networkError: '网络错误，请检查连接',
+        noRegistry: '未配置技能仓库',
+        marketBadge: '市场',
+      }
     },
     // Hooks
     hooks: {
@@ -544,7 +566,9 @@ export default {
       exportFailed: '导出失败',
       noExportableAgents: '当前来源没有可导出的 Agent',
       // 查看插件
-      viewPlugin: '查看插件 Agent'
+      viewPlugin: '查看插件 Agent',
+      // 市场
+      marketBadge: '市场'
     },
     // Claude Code 设置
     settings: {
@@ -621,7 +645,9 @@ export default {
       scope: '作用域',
       category: '分类',
       categoryPlaceholder: '分类（可选）',
-      deleteConfirm: '确定删除提示词 "{name}" 吗？'
+      deleteConfirm: '确定删除提示词 "{name}" 吗？',
+      // 市场
+      marketBadge: '市场'
     },
     // AI 助手
     ai: {
@@ -774,7 +800,42 @@ export default {
     terminalBackground: '终端背景',
     terminalBackgroundDark: '深色',
     terminalBackgroundLight: '浅色',
+    market: '组件市场',
+    marketUrl: '仓库地址',
+    marketUrlPlaceholder: '输入组件仓库的 Raw URL',
+    marketUrlHint: '支持 GitHub/GitLab Raw URL，如 https://raw.githubusercontent.com/user/repo/main',
     saveSuccess: '设置已保存'
+  },
+
+  // 统一组件市场
+  market: {
+    title: '组件市场',
+    tabs: {
+      skills: 'Skills',
+      prompts: '提示词',
+      agents: 'Agents'
+    },
+    fetching: '获取中...',
+    fetchError: '获取注册表失败',
+    empty: '暂无可用组件',
+    search: '搜索...',
+    install: '安装',
+    installing: '安装中...',
+    installed: '已安装',
+    update: '更新',
+    updating: '更新中...',
+    updateAvailable: '可更新至 v{version}',
+    installSuccess: '{name} 安装成功',
+    installFailed: '安装失败: {error}',
+    updateSuccess: '{name} 更新成功',
+    updateFailed: '更新失败: {error}',
+    confirmOverwrite: '"{id}" 已存在，是否覆盖安装？',
+    networkError: '网络错误，请检查连接',
+    noRegistry: '未配置组件仓库',
+    marketBadge: '市场',
+    version: 'v{version}',
+    author: '作者: {author}',
+    noDescription: '无描述'
   },
 
   // 会话相关

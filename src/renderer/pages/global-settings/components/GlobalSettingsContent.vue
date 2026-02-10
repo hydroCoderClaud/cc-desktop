@@ -80,6 +80,18 @@
       </n-grid>
     </n-card>
 
+    <!-- Component Market Section -->
+    <n-card :title="t('globalSettings.market')" class="settings-section">
+      <n-form-item :label="t('globalSettings.marketUrl')">
+        <n-input
+          v-model:value="formData.skillsMarketUrl"
+          :placeholder="t('globalSettings.marketUrlPlaceholder')"
+          clearable
+        />
+        <template #feedback>{{ t('globalSettings.marketUrlHint') }}</template>
+      </n-form-item>
+    </n-card>
+
     <!-- Footer Buttons -->
     <div class="settings-footer">
       <n-space>
@@ -108,7 +120,8 @@ const DEFAULTS = {
   requestTimeout: 120,
   maxActiveSessions: 5,
   maxHistorySessions: 10,
-  autocompactPctOverride: null  // null 表示使用 Claude Code 默认值
+  autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
+  skillsMarketUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main'
 }
 
 const formData = ref({
@@ -116,7 +129,8 @@ const formData = ref({
   requestTimeout: DEFAULTS.requestTimeout,
   maxActiveSessions: DEFAULTS.maxActiveSessions,
   maxHistorySessions: DEFAULTS.maxHistorySessions,
-  autocompactPctOverride: DEFAULTS.autocompactPctOverride
+  autocompactPctOverride: DEFAULTS.autocompactPctOverride,
+  skillsMarketUrl: DEFAULTS.skillsMarketUrl
 })
 
 onMounted(async () => {
@@ -145,6 +159,10 @@ const loadSettings = async () => {
     // Get autocompact pct override
     const autocompactPct = await invoke('getAutocompactPctOverride')
     formData.value.autocompactPctOverride = autocompactPct
+
+    // Get skills market config
+    const marketConfig = await invoke('getMarketConfig')
+    formData.value.skillsMarketUrl = marketConfig?.registryUrl || DEFAULTS.skillsMarketUrl
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -169,6 +187,9 @@ const handleSave = async () => {
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
+    // Save skills market config
+    await invoke('updateMarketConfig', { registryUrl: formData.value.skillsMarketUrl || '' })
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -185,6 +206,7 @@ const handleReset = async () => {
     formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
+    formData.value.skillsMarketUrl = DEFAULTS.skillsMarketUrl
 
     // Save to backend
     await invoke('updateTimeout', {
@@ -194,6 +216,7 @@ const handleReset = async () => {
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
+    await invoke('updateMarketConfig', { registryUrl: DEFAULTS.skillsMarketUrl })
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

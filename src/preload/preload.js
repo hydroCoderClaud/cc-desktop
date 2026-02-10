@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Global Settings
   getServiceProviders: () => ipcRenderer.invoke('config:getServiceProviders'),
+  getMarketConfig: () => ipcRenderer.invoke('config:getMarketConfig'),
+  updateMarketConfig: (config) => ipcRenderer.invoke('config:updateMarketConfig', config),
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
   updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),
 
@@ -196,6 +198,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportSkill: (params) => ipcRenderer.invoke('skills:export', params),
   exportSkillsBatch: (params) => ipcRenderer.invoke('skills:exportBatch', params),
 
+  // Skills 市场
+  fetchMarketIndex: (registryUrl) => ipcRenderer.invoke('skills:market:fetchIndex', registryUrl),
+  installMarketSkill: (params) => ipcRenderer.invoke('skills:market:install', params),
+  installMarketSkillForce: (params) => ipcRenderer.invoke('skills:market:installForce', params),
+  checkMarketUpdates: (registryUrl) => ipcRenderer.invoke('skills:market:checkUpdates', registryUrl),
+  updateMarketSkill: (params) => ipcRenderer.invoke('skills:market:update', params),
+  listMarketInstalled: () => ipcRenderer.invoke('skills:market:installed'),
+
   // ========================================
   // Agents 管理 (三级: 用户全局/项目级/插件)
   // ========================================
@@ -216,6 +226,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importAgents: (params) => ipcRenderer.invoke('agents:import', params),
   exportAgent: (params) => ipcRenderer.invoke('agents:export', params),
   exportAgentsBatch: (params) => ipcRenderer.invoke('agents:exportBatch', params),
+
+  // Agents 市场
+  installMarketAgent: (params) => ipcRenderer.invoke('agents:market:install', params),
+  installMarketAgentForce: (params) => ipcRenderer.invoke('agents:market:installForce', params),
+  listMarketInstalledAgents: () => ipcRenderer.invoke('agents:market:installed'),
+  checkAgentMarketUpdates: (params) => ipcRenderer.invoke('agents:market:checkUpdates', params),
+  updateMarketAgent: (params) => ipcRenderer.invoke('agents:market:update', params),
 
   // ========================================
   // Hooks 管理 (来自 settings.json、插件和项目级，自动执行)
@@ -341,6 +358,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePrompt: (promptId) => ipcRenderer.invoke('prompts:delete', promptId),
   incrementPromptUsage: (promptId) => ipcRenderer.invoke('prompts:incrementUsage', promptId),
   togglePromptFavorite: (promptId) => ipcRenderer.invoke('prompts:toggleFavorite', promptId),
+
+  // 提示词市场
+  installMarketPrompt: (params) => ipcRenderer.invoke('prompts:market:install', params),
+  installMarketPromptForce: (params) => ipcRenderer.invoke('prompts:market:installForce', params),
+  listMarketInstalledPrompts: () => ipcRenderer.invoke('prompts:market:installed'),
+  updateMarketPrompt: (params) => ipcRenderer.invoke('prompts:market:update', params),
 
   // 提示词标签
   listPromptTags: () => ipcRenderer.invoke('promptTags:list'),

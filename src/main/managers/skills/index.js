@@ -18,6 +18,7 @@ const { skillsUtilsMixin } = require('./utils')
 const { skillsCrudMixin } = require('./crud')
 const { skillsImportMixin } = require('./import')
 const { skillsExportMixin } = require('./export')
+const { skillsMarketMixin } = require('./market')
 
 class SkillsManager extends ComponentScanner {
   constructor() {
@@ -32,5 +33,6 @@ Object.assign(SkillsManager.prototype, skillsUtilsMixin)
 Object.assign(SkillsManager.prototype, skillsCrudMixin)
 Object.assign(SkillsManager.prototype, skillsImportMixin)
 Object.assign(SkillsManager.prototype, skillsExportMixin)
+Object.assign(SkillsManager.prototype, skillsMarketMixin)
 
 module.exports = { SkillsManager }

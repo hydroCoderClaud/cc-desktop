@@ -41,6 +41,11 @@ class ConfigManager {
         request: TIMEOUTS.API_REQUEST   // 实际请求超时
       },
 
+      // 组件市场配置（Skills / Agents / Prompts）
+      market: {
+        registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
+      },
+
       settings: {
         theme: 'light',
 
@@ -118,6 +123,13 @@ class ConfigManager {
         
         // 迁移 Profile 结构（category/model → serviceProvider/selectedModelTier）
         migratedConfig = this.migrateProfileStructure(migratedConfig);
+
+        // 迁移 skillsMarket → market
+        if (migratedConfig.skillsMarket && !migratedConfig.market) {
+          migratedConfig.market = migratedConfig.skillsMarket;
+          delete migratedConfig.skillsMarket;
+          console.log('[ConfigManager] Migrated skillsMarket → market');
+        }
         
         // 如果发生了迁移，保存新配置
         if (migratedConfig !== mergedConfig) {
@@ -158,6 +170,24 @@ class ConfigManager {
   }
 
   // 服务商管理方法由 providerConfigMixin 提供
+
+  /**
+   * 获取组件市场配置
+   */
+  getMarketConfig() {
+    return this.config.market || { registryUrl: '' };
+  }
+
+  /**
+   * 更新组件市场配置
+   */
+  updateMarketConfig(marketConfig) {
+    this.config.market = {
+      ...this.config.market,
+      ...marketConfig
+    };
+    return this.save();
+  }
 
   /**
    * 获取超时配置

@@ -26,7 +26,8 @@ const {
   withFavoriteOperations,
   withPromptOperations,
   withQueueOperations,
-  withAgentOperations
+  withAgentOperations,
+  withPromptMarketOperations
 } = require('./database')
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
@@ -385,6 +386,19 @@ class SessionDatabaseBase {
       )
     `)
 
+    // Market installed prompts (关联 prompts 表)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS market_installed_prompts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        market_id TEXT NOT NULL UNIQUE,
+        local_prompt_id INTEGER NOT NULL,
+        registry_url TEXT NOT NULL,
+        version TEXT NOT NULL DEFAULT '0.0.0',
+        installed_at INTEGER NOT NULL,
+        FOREIGN KEY (local_prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
+      )
+    `)
+
     // Prompt tags definition table (separate from session tags)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS prompt_tags (
@@ -524,14 +538,16 @@ class SessionDatabaseBase {
 }
 
 // 应用所有 mixin，构建完整的 SessionDatabase 类
-const SessionDatabase = withAgentOperations(
-  withQueueOperations(
-    withPromptOperations(
-      withFavoriteOperations(
-        withTagOperations(
-          withMessageOperations(
-            withSessionOperations(
-              withProjectOperations(SessionDatabaseBase)
+const SessionDatabase = withPromptMarketOperations(
+  withAgentOperations(
+    withQueueOperations(
+      withPromptOperations(
+        withFavoriteOperations(
+          withTagOperations(
+            withMessageOperations(
+              withSessionOperations(
+                withProjectOperations(SessionDatabaseBase)
+              )
             )
           )
         )

@@ -12,6 +12,7 @@ const { withFavoriteOperations } = require('./favorite-db')
 const { withPromptOperations } = require('./prompt-db')
 const { withQueueOperations } = require('./queue-db')
 const { withAgentOperations } = require('./agent-db')
+const { withPromptMarketOperations } = require('./prompt-market-db')
 
 module.exports = {
   withProjectOperations,
@@ -21,5 +22,6 @@ module.exports = {
   withFavoriteOperations,
   withPromptOperations,
   withQueueOperations,
-  withAgentOperations
+  withAgentOperations,
+  withPromptMarketOperations
 }

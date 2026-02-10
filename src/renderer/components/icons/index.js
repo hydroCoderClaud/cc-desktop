@@ -16,6 +16,9 @@ export const iconPaths = {
   delete: '<path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/>',
   copy: '<rect x="6" y="6" width="11" height="11" rx="1"/><path d="M3 14V4a1 1 0 0 1 1-1h10"/>',
 
+  // 市场/商店
+  store: '<path d="M3 7l1.5-4h11L17 7"/><path d="M3 7h14v1a2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2V7z"/><path d="M4 10v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-6"/>',
+
   // 导入导出
   import: '<path d="M10 3v10m0 0l-3-3m3 3l3-3"/><path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/>',
   export: '<path d="M10 13V3m0 0L7 6m3-3l3 3"/><path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/>',

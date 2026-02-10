@@ -16,11 +16,20 @@ const agentsCrudMixin = {
    */
   async getUserAgents() {
     const agents = this.scanMarkdownFiles(this.userAgentsDir)
-    return agents.map(agent => this._mapAgentToItem(agent, {
-      source: 'user',
-      editable: true,
-      category: '自定义全局'
-    }))
+    return agents.map(agent => {
+      const item = this._mapAgentToItem(agent, {
+        source: 'user',
+        editable: true,
+        category: '自定义全局'
+      })
+      // 附加市场元数据
+      const meta = this._readAgentMarketMeta(agent.name)
+      if (meta) {
+        item.marketSource = true
+        item.marketVersion = meta.version
+      }
+      return item
+    })
   },
 
   /**

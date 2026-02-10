@@ -13,6 +13,7 @@
           <template #prefix><Icon name="search" :size="14" /></template>
         </n-input>
         <n-button-group size="small">
+          <n-button @click="showMarketModal" :title="t('market.title')"><Icon name="store" :size="16" /></n-button>
           <n-button @click="showImportModal" :title="t('rightPanel.skills.import')"><Icon name="import" :size="16" /></n-button>
           <n-button @click="showExportModal" :title="t('rightPanel.skills.export')"><Icon name="export" :size="16" /></n-button>
         </n-button-group>
@@ -122,6 +123,9 @@
       @imported="loadSkills"
     />
 
+    <!-- 市场 Modal -->
+    <ComponentMarketModal v-model="marketModalVisible" default-tab="skills" @installed="loadSkills" />
+
     <!-- 导出 Modal -->
     <SkillExportModal
       v-model="exportModalVisible"
@@ -141,6 +145,7 @@ import SkillEditModal from './skills/SkillEditModal.vue'
 import SkillCopyModal from './skills/SkillCopyModal.vue'
 import SkillExportModal from './skills/SkillExportModal.vue'
 import SkillImportModal from './skills/SkillImportModal.vue'
+import ComponentMarketModal from './skills/ComponentMarketModal.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -173,6 +178,9 @@ const importModalVisible = ref(false)
 
 // Export Modal State
 const exportModalVisible = ref(false)
+
+// Market Modal State
+const marketModalVisible = ref(false)
 
 // Computed
 const totalCount = computed(() => skills.value.official.length + skills.value.user.length + skills.value.project.length)
@@ -288,6 +296,11 @@ const showImportModal = () => {
 // Export Modal
 const showExportModal = () => {
   exportModalVisible.value = true
+}
+
+// Market Modal
+const showMarketModal = () => {
+  marketModalVisible.value = true
 }
 
 // Load Skills

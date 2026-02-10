@@ -3,6 +3,7 @@
  */
 
 const { ipcMain } = require('electron')
+const { httpGet, classifyHttpError } = require('../utils/http-client')
 
 /**
  * Register prompt-related IPC handlers
@@ -179,6 +180,118 @@ function registerPromptHandlers(sessionDB) {
     } catch (error) {
       console.error('[IPC] prompts:removeTag error:', error)
       throw error
+    }
+  })
+
+  // ========================================
+  // Prompts 市场 IPC Handlers
+  // ========================================
+
+  /**
+   * 安装市场 Prompt
+   * IPC 层负责 HTTP 下载 .md 内容，再传给 DB 层安装
+   */
+  ipcMain.handle('prompts:market:install', async (event, { registryUrl, prompt }) => {
+    try {
+      if (!registryUrl || !prompt || !prompt.id) {
+        return { success: false, error: '参数不完整' }
+      }
+
+      const baseUrl = registryUrl.replace(/\/+$/, '')
+      const file = prompt.file || `${prompt.id}.md`
+      const fileUrl = `${baseUrl}/prompts/${file}`
+
+      console.log(`[IPC] prompts:market:install downloading: ${fileUrl}`)
+      const content = await httpGet(fileUrl)
+
+      if (!content || content.trim().length === 0) {
+        return { success: false, error: 'Prompt 文件内容为空' }
+      }
+
+      return sessionDB.installMarketPrompt({
+        marketId: prompt.id,
+        registryUrl: baseUrl,
+        version: prompt.version || '0.0.0',
+        name: prompt.name || prompt.id,
+        content: content.trim()
+      })
+    } catch (err) {
+      console.error('[IPC] prompts:market:install error:', err)
+      return { success: false, error: classifyHttpError(err) }
+    }
+  })
+
+  /**
+   * 强制覆盖安装市场 Prompt
+   */
+  ipcMain.handle('prompts:market:installForce', async (event, { registryUrl, prompt }) => {
+    try {
+      if (!registryUrl || !prompt || !prompt.id) {
+        return { success: false, error: '参数不完整' }
+      }
+
+      const baseUrl = registryUrl.replace(/\/+$/, '')
+      const file = prompt.file || `${prompt.id}.md`
+      const fileUrl = `${baseUrl}/prompts/${file}`
+
+      const content = await httpGet(fileUrl)
+      if (!content || content.trim().length === 0) {
+        return { success: false, error: 'Prompt 文件内容为空' }
+      }
+
+      return sessionDB.installMarketPromptForce({
+        marketId: prompt.id,
+        registryUrl: baseUrl,
+        version: prompt.version || '0.0.0',
+        name: prompt.name || prompt.id,
+        content: content.trim()
+      })
+    } catch (err) {
+      console.error('[IPC] prompts:market:installForce error:', err)
+      return { success: false, error: classifyHttpError(err) }
+    }
+  })
+
+  /**
+   * 获取已安装的市场 Prompts
+   */
+  ipcMain.handle('prompts:market:installed', async () => {
+    try {
+      return sessionDB.getMarketInstalledPrompts()
+    } catch (err) {
+      console.error('[IPC] prompts:market:installed error:', err)
+      return []
+    }
+  })
+
+  /**
+   * 更新市场 Prompt（删除旧的 → 重新安装）
+   */
+  ipcMain.handle('prompts:market:update', async (event, { registryUrl, prompt }) => {
+    try {
+      if (!registryUrl || !prompt || !prompt.id) {
+        return { success: false, error: '参数不完整' }
+      }
+
+      const baseUrl = registryUrl.replace(/\/+$/, '')
+      const file = prompt.file || `${prompt.id}.md`
+      const fileUrl = `${baseUrl}/prompts/${file}`
+
+      const content = await httpGet(fileUrl)
+      if (!content || content.trim().length === 0) {
+        return { success: false, error: 'Prompt 文件内容为空' }
+      }
+
+      return sessionDB.installMarketPromptForce({
+        marketId: prompt.id,
+        registryUrl: baseUrl,
+        version: prompt.version || '0.0.0',
+        name: prompt.name || prompt.id,
+        content: content.trim()
+      })
+    } catch (err) {
+      console.error('[IPC] prompts:market:update error:', err)
+      return { success: false, error: classifyHttpError(err) }
     }
   })
 }

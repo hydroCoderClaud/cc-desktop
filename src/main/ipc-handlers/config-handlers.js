@@ -122,6 +122,15 @@ function setupConfigHandlers(ipcMain, configManager) {
     return configManager.getServiceProviders()
   })
 
+  // 组件市场配置
+  registerHandler('config:getMarketConfig', () => {
+    return configManager.getMarketConfig()
+  })
+
+  registerHandler('config:updateMarketConfig', (marketConfig) => {
+    return configManager.updateMarketConfig(marketConfig)
+  })
+
   registerHandler('config:getTimeout', () => {
     return configManager.getTimeout()
   })

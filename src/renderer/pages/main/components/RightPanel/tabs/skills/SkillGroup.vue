@@ -17,7 +17,10 @@
           @click="$emit('click-skill', skill)"
         >
           <div class="skill-row">
-            <span class="skill-name">{{ skill.id }} <span class="skill-invoke">(/{{ skill.name || skill.id }})</span></span>
+            <span class="skill-name">
+              {{ skill.id }} <span class="skill-invoke">(/{{ skill.name || skill.id }})</span>
+              <span v-if="skill.marketSource" class="market-badge">{{ t('rightPanel.skills.market.marketBadge') }}</span>
+            </span>
             <span class="skill-actions">
               <button
                 v-if="copy"
@@ -179,6 +182,17 @@ const createTitle = computed(() => {
 .skill-name .skill-invoke {
   color: var(--primary-color);
   font-weight: 400;
+}
+
+.skill-name .market-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: var(--primary-color);
+  color: #fff;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 .skill-actions {

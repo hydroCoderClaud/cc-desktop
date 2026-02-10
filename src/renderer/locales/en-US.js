@@ -315,7 +315,29 @@ export default {
       shadowedByGlobalTitle: 'Same name exists in global skills',
       shadowedByGlobalDesc: 'The following skills have global versions with the same name. After importing to project, they will not take effect (global skills have higher priority):',
       willShadowProjectTitle: 'Same name exists in project skills',
-      willShadowProjectDesc: 'The following skills have project versions with the same name. After importing to global, the project versions will be overridden (global skills have higher priority):'
+      willShadowProjectDesc: 'The following skills have project versions with the same name. After importing to global, the project versions will be overridden (global skills have higher priority):',
+      // Market
+      market: {
+        title: 'Skills Market',
+        fetching: 'Fetching...',
+        fetchError: 'Failed to fetch registry',
+        empty: 'No skills available in the registry',
+        search: 'Search skills...',
+        install: 'Install',
+        installing: 'Installing...',
+        installed: 'Installed',
+        update: 'Update',
+        updating: 'Updating...',
+        updateAvailable: 'Update to v{version}',
+        installSuccess: '{name} installed successfully',
+        installFailed: 'Install failed: {error}',
+        updateSuccess: '{name} updated successfully',
+        updateFailed: 'Update failed: {error}',
+        confirmOverwrite: 'Skill "{id}" already exists. Overwrite?',
+        networkError: 'Network error, please check your connection',
+        noRegistry: 'Skills registry not configured',
+        marketBadge: 'Market',
+      }
     },
     // Hooks
     hooks: {
@@ -544,7 +566,9 @@ export default {
       exportFailed: 'Export failed',
       noExportableAgents: 'No exportable agents in current source',
       // View plugin
-      viewPlugin: 'View Plugin Agent'
+      viewPlugin: 'View Plugin Agent',
+      // Market
+      marketBadge: 'Market'
     },
     // Claude Code Settings
     settings: {
@@ -618,7 +642,9 @@ export default {
       scope: 'Scope',
       category: 'Category',
       categoryPlaceholder: 'Category (optional)',
-      deleteConfirm: 'Delete prompt "{name}"?'
+      deleteConfirm: 'Delete prompt "{name}"?',
+      // Market
+      marketBadge: 'Market'
     },
     // AI Assistant
     ai: {
@@ -771,7 +797,42 @@ export default {
     terminalBackground: 'Terminal Background',
     terminalBackgroundDark: 'Dark',
     terminalBackgroundLight: 'Light',
+    market: 'Component Market',
+    marketUrl: 'Registry URL',
+    marketUrlPlaceholder: 'Enter component registry Raw URL',
+    marketUrlHint: 'Supports GitHub/GitLab Raw URL, e.g. https://raw.githubusercontent.com/user/repo/main',
     saveSuccess: 'Settings saved'
+  },
+
+  // Unified component market
+  market: {
+    title: 'Component Market',
+    tabs: {
+      skills: 'Skills',
+      prompts: 'Prompts',
+      agents: 'Agents'
+    },
+    fetching: 'Fetching...',
+    fetchError: 'Failed to fetch registry',
+    empty: 'No components available',
+    search: 'Search...',
+    install: 'Install',
+    installing: 'Installing...',
+    installed: 'Installed',
+    update: 'Update',
+    updating: 'Updating...',
+    updateAvailable: 'Update to v{version}',
+    installSuccess: '{name} installed successfully',
+    installFailed: 'Install failed: {error}',
+    updateSuccess: '{name} updated successfully',
+    updateFailed: 'Update failed: {error}',
+    confirmOverwrite: '"{id}" already exists. Overwrite?',
+    networkError: 'Network error, please check connection',
+    noRegistry: 'No component registry configured',
+    marketBadge: 'Market',
+    version: 'v{version}',
+    author: 'Author: {author}',
+    noDescription: 'No description'
   },
 
   // Session related

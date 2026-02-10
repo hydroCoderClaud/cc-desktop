@@ -35,6 +35,9 @@
         >
           <Icon :name="showFavoritesOnly ? 'starFilled' : 'star'" :size="14" />
         </button>
+        <button class="icon-btn" :title="t('market.title')" @click="showMarketModal">
+          <Icon name="store" :size="14" />
+        </button>
         <button class="icon-btn" :title="t('rightPanel.prompts.add')" @click="handleAdd">
           <Icon name="add" :size="14" />
         </button>
@@ -133,7 +136,7 @@
         >
           <div class="prompt-main" @click="handleInsert(prompt)">
             <div class="prompt-header">
-              <span class="prompt-name">{{ prompt.name }}</span>
+              <span class="prompt-name">{{ prompt.name }} <span v-if="prompt.market_id" class="market-badge">{{ t('rightPanel.prompts.marketBadge') }}</span></span>
               <span class="prompt-scope" :class="prompt.scope">
                 <Icon :name="prompt.scope === 'global' ? 'user' : 'folder'" :size="12" />
               </span>
@@ -250,6 +253,9 @@
       </template>
     </n-modal>
 
+    <!-- 市场 Modal -->
+    <ComponentMarketModal v-model="marketModalVisible" default-tab="prompts" @installed="loadPrompts" />
+
     <!-- Tag Manager Modal -->
     <n-modal
       v-model:show="showTagManager"
@@ -317,6 +323,7 @@ import { useLocale } from '@composables/useLocale'
 import { usePrompts } from '@composables/usePrompts'
 import { TAG_COLORS, DEFAULT_TAG_COLOR, MAX_VISIBLE_TAGS } from '@composables/constants'
 import Icon from '@components/icons/Icon.vue'
+import ComponentMarketModal from './skills/ComponentMarketModal.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -349,6 +356,10 @@ const {
   setScope,
   toggleFavoritesFilter
 } = usePrompts()
+
+// Market modal
+const marketModalVisible = ref(false)
+const showMarketModal = () => { marketModalVisible.value = true }
 
 // Local state
 const showModal = ref(false)
@@ -763,6 +774,17 @@ defineExpose({
   font-size: 13px;
   font-weight: 500;
   color: var(--text-color);
+}
+
+.prompt-name .market-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: var(--primary-color);
+  color: #fff;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 .prompt-scope {

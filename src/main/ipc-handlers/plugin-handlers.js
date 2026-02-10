@@ -293,6 +293,85 @@ function setupPluginHandlers(ipcMain) {
   })
 
   // ========================================
+  // Skills 市场 IPC Handlers
+  // ========================================
+
+  // 获取注册表索引
+  ipcMain.handle('skills:market:fetchIndex', async (event, registryUrl) => {
+    try {
+      if (!registryUrl || typeof registryUrl !== 'string') {
+        return { success: false, error: 'Invalid registry URL' }
+      }
+      return await skillsManager.fetchRegistryIndex(registryUrl)
+    } catch (err) {
+      console.error('[IPC] skills:market:fetchIndex error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 安装市场 Skill
+  ipcMain.handle('skills:market:install', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.installMarketSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:market:install error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 强制覆盖安装市场 Skill
+  ipcMain.handle('skills:market:installForce', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.installMarketSkillForce(params)
+    } catch (err) {
+      console.error('[IPC] skills:market:installForce error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 检查市场 Skills 更新
+  ipcMain.handle('skills:market:checkUpdates', async (event, registryUrl) => {
+    try {
+      if (!registryUrl || typeof registryUrl !== 'string') {
+        return { success: false, error: 'Invalid registry URL' }
+      }
+      return await skillsManager.checkMarketUpdates(registryUrl)
+    } catch (err) {
+      console.error('[IPC] skills:market:checkUpdates error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新市场 Skill
+  ipcMain.handle('skills:market:update', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await skillsManager.updateMarketSkill(params)
+    } catch (err) {
+      console.error('[IPC] skills:market:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取已安装的市场 Skills
+  ipcMain.handle('skills:market:installed', async () => {
+    try {
+      return skillsManager.getMarketInstalledSkills()
+    } catch (err) {
+      console.error('[IPC] skills:market:installed error:', err)
+      return []
+    }
+  })
+
+  // ========================================
   // Agents Manager IPC Handlers
   // ========================================
 
@@ -513,6 +592,69 @@ function setupPluginHandlers(ipcMain) {
     } catch (err) {
       console.error('[IPC] agents:exportBatch error:', err)
       return { success: false, error: String(err.message || err) }
+    }
+  })
+
+  // ========================================
+  // Agents 市场 IPC Handlers
+  // ========================================
+
+  // 安装市场 Agent
+  ipcMain.handle('agents:market:install', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.installMarketAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:market:install error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 强制覆盖安装市场 Agent
+  ipcMain.handle('agents:market:installForce', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.installMarketAgentForce(params)
+    } catch (err) {
+      console.error('[IPC] agents:market:installForce error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取已安装的市场 Agents
+  ipcMain.handle('agents:market:installed', async () => {
+    try {
+      return agentsManager.getMarketInstalledAgents()
+    } catch (err) {
+      console.error('[IPC] agents:market:installed error:', err)
+      return []
+    }
+  })
+
+  // 检查市场 Agents 更新
+  ipcMain.handle('agents:market:checkUpdates', async (event, { registryUrl, remoteAgents }) => {
+    try {
+      return await agentsManager.checkAgentMarketUpdates(registryUrl, remoteAgents)
+    } catch (err) {
+      console.error('[IPC] agents:market:checkUpdates error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新市场 Agent
+  ipcMain.handle('agents:market:update', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await agentsManager.updateMarketAgent(params)
+    } catch (err) {
+      console.error('[IPC] agents:market:update error:', err)
+      return { success: false, error: err.message }
     }
   })
 

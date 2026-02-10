@@ -40,11 +40,20 @@ const skillsCrudMixin = {
    */
   async getUserSkills() {
     const skills = this.scanSkillDirectories(this.userSkillsDir)
-    return skills.map(skill => this._mapSkillToItem(skill, {
-      source: 'user',
-      editable: true,
-      category: '自定义全局'
-    }))
+    return skills.map(skill => {
+      const item = this._mapSkillToItem(skill, {
+        source: 'user',
+        editable: true,
+        category: '自定义全局'
+      })
+      // 附加市场元数据
+      const meta = this._readMarketMeta(skill.id)
+      if (meta) {
+        item.marketSource = true
+        item.marketVersion = meta.version
+      }
+      return item
+    })
   },
 
   /**
