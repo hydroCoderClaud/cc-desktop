@@ -10,7 +10,7 @@ Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Cod
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
-完全独立于 Web 版，代码量减少 60%（~1,200 行 vs ~3,000 行）。
+**双模式架构**：Terminal 模式（PTY 直连 CLI）+ Agent 模式（Streaming HTTP API 对话）
 
 ## 开发命令
 
@@ -42,18 +42,21 @@ npm run rebuild:sqlite
 ```
 Electron 应用
 ├── Main Process (Node.js)
-│   ├── index.js           # 入口，创建窗口
-│   ├── config-manager.js  # 配置管理
-│   ├── terminal-manager.js # PTY 进程
-│   ├── plugin-manager.js  # 插件管理
-│   └── ipc-handlers/      # IPC 处理器
+│   ├── index.js                  # 入口，创建窗口
+│   ├── config-manager.js         # 配置管理
+│   ├── terminal-manager.js       # PTY 进程（Terminal 模式）
+│   ├── agent-session-manager.js  # Agent 会话管理（Agent 模式）
+│   ├── active-session-manager.js # 活动会话管理
+│   ├── plugin-manager.js         # 插件管理
+│   ├── database/                 # SQLite 数据库模块
+│   └── ipc-handlers/             # IPC 处理器
 │
 ├── Preload (Security Bridge)
-│   └── preload.js         # contextBridge API
+│   └── preload.js                # contextBridge API
 │
 └── Renderer (Browser)
-    ├── pages/main/        # 主页面 (Vue 3)
-    └── composables/       # 可复用逻辑
+    ├── pages/main/               # 主页面 (Vue 3)
+    └── composables/              # 可复用逻辑（20+ 模块）
 ```
 
 ### 设计原则
@@ -66,14 +69,21 @@ Electron 应用
 
 ### 数据流
 
+**Terminal 模式**：
 ```
-用户点击项目 → selectProject()
-用户点击连接 → connectToProject()
+用户点击项目 → selectProject() → connectToProject()
 IPC: terminal:start → TerminalManager.start()
   ├── kill() 旧进程
   ├── spawn() 新 shell (cwd: projectPath)
   └── 注入 ANTHROPIC_API_KEY
 PTY.onData → IPC:terminal:data → xterm.write()
+```
+
+**Agent 模式**：
+```
+用户发送消息 → agent:sendMessage → AgentSessionManager.sendMessage()
+  └── Streaming HTTP → Claude Code CLI API
+响应流 → agent:stream → 前端逐块渲染
 ```
 
 ## 核心模式
@@ -93,7 +103,7 @@ window.electronAPI.onTerminalData((data) => terminal.write(data));
 
 ### 添加新 IPC Handler
 
-1. 在 `src/main/ipc-handlers.js` 或 `src/main/ipc-handlers/` 定义
+1. 在 `src/main/ipc-handlers/` 目录下对应模块中定义
 2. 在 `src/preload/preload.js` 通过 contextBridge 暴露
 3. 渲染进程通过 `window.electronAPI.*` 调用
 
@@ -223,7 +233,7 @@ await setColorScheme('ocean')
 **设计规范**：
 - 基于 20x20 viewBox
 - stroke-based 设计（stroke-width: 1.5）
-- 60+ 个图标，覆盖操作、导航、文件、状态、功能等类别
+- 90+ 个图标，覆盖操作、导航、文件、状态、功能等类别
 
 **使用方式**：
 ```vue
@@ -263,35 +273,50 @@ await setColorScheme('ocean')
 ```
 src/
 ├── main/
-│   ├── index.js              # 应用入口
-│   ├── config-manager.js     # 配置管理
-│   ├── terminal-manager.js   # PTY 管理
-│   ├── plugin-manager.js     # 插件管理
-│   ├── session-manager.js    # SQLite 会话历史
-│   ├── ipc-handlers/         # 模块化 IPC
+│   ├── index.js                  # 应用入口
+│   ├── config-manager.js         # 配置管理
+│   ├── terminal-manager.js       # PTY 管理（Terminal 模式）
+│   ├── agent-session-manager.js  # Agent 会话管理（Agent 模式）
+│   ├── active-session-manager.js # 活动会话管理
+│   ├── plugin-manager.js         # 插件管理
+│   ├── database/                 # SQLite 数据库模块
+│   │   ├── agent-db.js           # Agent 会话/消息存储
+│   │   ├── session-db.js         # Terminal 会话存储
+│   │   ├── project-db.js         # 项目存储
+│   │   └── ...                   # favorite/prompt/tag/queue 等
+│   ├── ipc-handlers/             # 模块化 IPC
+│   │   ├── agent-handlers.js     # Agent 模式 IPC
 │   │   ├── plugin-handlers.js
 │   │   ├── ai-handlers.js
 │   │   └── ...
 │   ├── managers/
-│   │   ├── skills/           # Skills 管理（mixin 模式）
-│   │   ├── agents/           # Agents 管理（mixin 模式）
-│   │   ├── hooks-manager.js  # Hooks 管理
-│   │   └── mcp-manager.js    # MCP 管理
-│   ├── config/               # ConfigManager mixins
+│   │   ├── skills/               # Skills 管理（mixin 模式）
+│   │   ├── agents/               # Agents 管理（mixin 模式）
+│   │   ├── hooks-manager.js      # Hooks 管理
+│   │   ├── mcp-manager.js        # MCP 管理
+│   │   └── settings-manager.js   # Settings 管理
+│   ├── config/                   # ConfigManager mixins
 │   └── utils/
 │
 ├── preload/
-│   └── preload.js            # contextBridge API
+│   └── preload.js                # contextBridge API
 │
 └── renderer/
-    ├── pages/main/components/RightPanel/
-    │   ├── tabs/             # 8 个标签页
-    │   ├── skills/           # Skills 组件
-    │   ├── agents/           # Agents 组件
-    │   ├── hooks/            # Hooks 组件
-    │   └── mcp/              # MCP 组件
-    ├── composables/          # 可复用逻辑（含共享常量）
-    └── locales/              # 国际化
+    ├── pages/main/components/
+    │   ├── RightPanel/           # Developer 模式右侧面板
+    │   │   ├── tabs/             # 8 个标签页
+    │   │   ├── skills/           # Skills 组件
+    │   │   ├── agents/           # Agents 组件
+    │   │   ├── hooks/            # Hooks 组件
+    │   │   ├── mcp/              # MCP 组件
+    │   │   └── settings/         # Settings 组件
+    │   └── AgentRightPanel/      # Agent 模式右侧面板
+    │       ├── FileTree.vue      # 文件树
+    │       ├── FileTreeNode.vue  # 文件树节点（递归）
+    │       ├── FilePreview.vue   # 文件预览
+    │       └── FileTreeHeader.vue
+    ├── composables/              # 可复用逻辑（20+ 模块）
+    └── locales/                  # 国际化
 ```
 
 ## 安全模型
@@ -389,20 +414,6 @@ this._safeSend('session:data', { sessionId, data })
 ```
 
 **注意**：Windows/Linux 关闭窗口会退出应用，所以这是 macOS 特定问题。
-
----
-
-## 最近更新 (v1.5.5)
-
-1. **统一图标系统**：60+ 个 SVG 图标，统一使用 `<Icon>` 组件
-2. **多配色主题**：6 套配色方案，Claude 官方色为默认
-3. **服务商管理重构**：移除"内置"概念，用户可自由编辑删除所有服务商
-4. **Naive UI 主题统一**：Dialog/Message/Notification 图标颜色跟随主题
-5. **UI 细节优化**：
-   - Logo 使用独特的 Crimson Pro 衬线字体
-   - 主区域边框使用主题色
-   - 面板折叠箭头跟随主题色
-   - TabBar 背景与 header 保持一致
 
 ---
 
