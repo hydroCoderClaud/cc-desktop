@@ -29,6 +29,7 @@ const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-han
 const aiHandlersMod = safeRequire('./ipc-handlers/ai-handlers', 'ai-handlers');
 const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
 const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-handlers');
+const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 'capability-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -40,6 +41,7 @@ const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const setupAIHandlers = aiHandlersMod?.setupAIHandlers;
 const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
 const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
+const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -60,7 +62,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager) {
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -572,6 +574,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (agentSessionManager && setupAgentHandlers) {
     setupAgentHandlers(ipcMain, agentSessionManager);
+  }
+
+  // ========================================
+  // 能力管理（Agent 模式）
+  // ========================================
+  if (capabilityManager && setupCapabilityHandlers) {
+    setupCapabilityHandlers(ipcMain, capabilityManager);
   }
 }
 

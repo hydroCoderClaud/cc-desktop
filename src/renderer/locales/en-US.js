@@ -1179,6 +1179,22 @@ export default {
       cannotPreview: 'Cannot preview this file type',
       errorLoading: 'Failed to load directory',
       errorReading: 'Failed to read file'
-    }
+    },
+
+    // Capability management
+    capabilities: 'Capabilities',
+    capabilityManagement: 'Capability Management',
+    refreshCapabilities: 'Refresh capabilities',
+    capabilityInstalling: 'Installing components...',
+    capabilityEnabled: 'Enabled',
+    capabilityDisabled: 'Disabled',
+    capabilityInstallFailed: 'Some components failed to install',
+    capabilityFetchFailed: 'Failed to fetch capabilities',
+    noCapabilities: 'No capabilities available',
+    componentInstalled: 'Installed',
+    componentNotInstalled: 'Not installed',
+    componentSkipped: 'Skipped',
+    componentFailed: 'Failed',
+    allComponentsInstalled: 'All components ready'
   }
 }

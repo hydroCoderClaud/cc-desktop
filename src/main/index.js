@@ -9,6 +9,7 @@ const ConfigManager = require('./config-manager');
 const TerminalManager = require('./terminal-manager');
 const { ActiveSessionManager } = require('./active-session-manager');
 const { AgentSessionManager } = require('./agent-session-manager');
+const { CapabilityManager } = require('./managers/capability-manager');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -17,6 +18,7 @@ let configManager = null;
 let terminalManager = null;
 let activeSessionManager = null;
 let agentSessionManager = null;
+let capabilityManager = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -184,8 +186,16 @@ app.whenReady().then(async () => {
   activeSessionManager.setPeerManager(agentSessionManager)
   agentSessionManager.setPeerManager(activeSessionManager)
 
+  // 初始化能力管理器（Agent 模式）
+  const { PluginCli } = require('./managers/plugin-cli')
+  const { SkillsManager, AgentsManager } = require('./managers')
+  const pluginCli = new PluginCli()
+  const skillsManager = new SkillsManager()
+  const agentsManager = new AgentsManager()
+  capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager)
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager);
 
   // macOS 特定行为
   app.on('activate', () => {

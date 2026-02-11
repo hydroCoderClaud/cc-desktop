@@ -576,6 +576,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:openFile', { sessionId, relativePath }),
 
+  // 能力管理（Agent 模式）
+  fetchCapabilities: () => ipcRenderer.invoke('capabilities:fetch'),
+  getCapabilityState: () => ipcRenderer.invoke('capabilities:getState'),
+  enableCapability: (id, capability) => ipcRenderer.invoke('capabilities:enable', id, capability),
+  disableCapability: (id) => ipcRenderer.invoke('capabilities:disable', id),
+
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册
   ...Object.fromEntries(

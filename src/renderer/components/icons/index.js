@@ -64,6 +64,7 @@ export const iconPaths = {
   sliders: '<path d="M4 6h4M12 6h4M4 10h8M16 10h0M4 14h2M10 14h6"/><circle cx="10" cy="6" r="2"/><circle cx="14" cy="10" r="2"/><circle cx="8" cy="14" r="2"/>',
 
   // 功能类
+  lightning: '<path d="M11 2L4 12h5l-1 6 7-10h-5l1-6z"/>',
   plugin: '<path d="M9 2v3M15 2v3M9 15v3M15 15v3"/><rect x="5" y="5" width="14" height="10" rx="2"/>',
   skill: '<path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3-4.9-2.6L5.1 17l.9-5.3-4-3.9 5.5-.8L10 2z"/>',
   hook: '<path d="M10 2v6a4 4 0 0 0 4 4h4"/><path d="M14 8l4 4-4 4"/>',

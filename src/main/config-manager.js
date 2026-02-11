@@ -67,7 +67,8 @@ class ConfigManager {
         agent: {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
-          defaultAgentType: 'chat'     // 默认 Agent 类型
+          defaultAgentType: 'chat',    // 默认 Agent 类型
+          capabilities: {}             // { [capabilityId]: { enabled: boolean } }
         },
 
         // AI 助手配置（模型从选择的 API Profile 中获取）

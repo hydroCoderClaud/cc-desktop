@@ -79,6 +79,12 @@
       @create="handleNewConvCreate"
     />
 
+    <!-- 能力管理 Modal（仅 Agent 模式） -->
+    <CapabilityModal
+      v-if="!isDeveloperMode"
+      v-model:show="showCapabilityModal"
+    />
+
     <!-- Session Area (滚动区域) - 仅开发者模式 -->
     <div class="session-section" v-if="isDeveloperMode">
       <!-- Active Sessions -->
@@ -210,6 +216,15 @@
           </button>
         </n-dropdown>
 
+        <button
+          v-if="!isDeveloperMode"
+          class="capability-btn"
+          @click="showCapabilityModal = true"
+          :title="t('agent.capabilities')"
+        >
+          <Icon name="lightning" :size="18" />
+        </button>
+
         <button class="locale-toggle-btn" @click="toggleLocale" :title="locale === 'zh-CN' ? 'English' : '中文'">
           <span>{{ locale === 'zh-CN' ? 'EN' : '中' }}</span>
         </button>
@@ -315,6 +330,7 @@ import { useAppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
 import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
+import CapabilityModal from './agent/CapabilityModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -484,6 +500,7 @@ const isSyncing = ref(false)
 const agentLeftContentRef = ref(null)
 const activeAgentSessionId = ref(null)
 const showNewConvModal = ref(false)
+const showCapabilityModal = ref(false)
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
@@ -1476,6 +1493,27 @@ defineExpose({
 .theme-toggle-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
+}
+
+.capability-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-color-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 18px;
+  color: var(--primary-color);
+}
+
+.capability-btn:hover {
+  transform: scale(1.05);
+  border-color: var(--primary-color);
+  background: var(--hover-bg);
 }
 
 .mode-toggle-btn {

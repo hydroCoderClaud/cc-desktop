@@ -1182,6 +1182,22 @@ export default {
       cannotPreview: '无法预览此文件类型',
       errorLoading: '加载目录失败',
       errorReading: '读取文件失败'
-    }
+    },
+
+    // 能力管理
+    capabilities: '能力',
+    capabilityManagement: '能力管理',
+    refreshCapabilities: '刷新能力清单',
+    capabilityInstalling: '安装组件中…',
+    capabilityEnabled: '已启用',
+    capabilityDisabled: '已禁用',
+    capabilityInstallFailed: '部分组件安装失败',
+    capabilityFetchFailed: '获取能力清单失败',
+    noCapabilities: '暂无可用能力',
+    componentInstalled: '已安装',
+    componentNotInstalled: '未安装',
+    componentSkipped: '已跳过',
+    componentFailed: '安装失败',
+    allComponentsInstalled: '所有组件已就绪'
   }
 }
