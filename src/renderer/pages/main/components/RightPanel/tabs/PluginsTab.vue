@@ -3,6 +3,9 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.plugins') }} ({{ plugins.length }})</span>
       <div class="tab-actions">
+        <button class="icon-btn" :title="t('rightPanel.plugins.market')" @click="marketModalVisible = true">
+          <Icon name="store" :size="14" />
+        </button>
         <button class="icon-btn" :title="t('rightPanel.plugins.openInstalledJson')" @click="handleOpenInstalledJson">
           <Icon name="fileText" :size="14" />
         </button>
@@ -70,7 +73,15 @@
               @click.stop
               @update:value="(val) => handleToggle(plugin, val)"
             />
-            <span class="expand-arrow"><Icon :name="expandedPlugins.has(plugin.id) ? 'chevronDown' : 'chevronRight'" :size="10" /></span>
+            <button
+              class="icon-btn inline uninstall-btn"
+              :title="t('rightPanel.plugins.uninstall')"
+              :disabled="uninstallingSet.has(plugin.id)"
+              @click.stop="handleUninstall(plugin)"
+            >
+              <Icon v-if="uninstallingSet.has(plugin.id)" name="clock" :size="12" class="spinning" />
+              <Icon v-else name="delete" :size="12" />
+            </button>
           </div>
 
           <!-- Plugin Details (展开后显示) -->
@@ -245,12 +256,15 @@
       :command="editingCommand"
       @saved="handleRefresh"
     />
+
+    <!-- Plugin Market Modal -->
+    <PluginMarketModal v-model="marketModalVisible" @installed="loadPlugins" />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { NInput, NSwitch, useMessage } from 'naive-ui'
+import { NInput, NSwitch, useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useIPC } from '@composables/useIPC'
 import Icon from '@components/icons/Icon.vue'
@@ -259,10 +273,12 @@ import AgentEditModal from './agents/AgentEditModal.vue'
 import HookEditModal from '../hooks/HookEditModal.vue'
 import MCPEditModal from '../mcp/MCPEditModal.vue'
 import CommandEditModal from './commands/CommandEditModal.vue'
+import PluginMarketModal from './plugins/PluginMarketModal.vue'
 
 const { t } = useLocale()
 const { invoke } = useIPC()
 const message = useMessage()
+const dialog = useDialog()
 
 const emit = defineEmits(['insert-to-input', 'send-command'])
 
@@ -274,6 +290,8 @@ const expandedPlugins = ref(new Set())
 const pluginDetails = reactive({})
 const loadingDetails = reactive({})
 const expandedSections = reactive({})
+const marketModalVisible = ref(false)
+const uninstallingSet = ref(new Set())
 
 // Edit Modal States
 const showSkillModal = ref(false)
@@ -348,12 +366,44 @@ const handleToggle = async (plugin, enabled) => {
   }
 }
 
+const handleUninstall = (plugin) => {
+  dialog.warning({
+    title: t('rightPanel.plugins.deleteConfirm'),
+    content: t('rightPanel.plugins.uninstallConfirm', { name: plugin.name }),
+    positiveText: t('rightPanel.plugins.uninstall'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      const newSet = new Set(uninstallingSet.value)
+      newSet.add(plugin.id)
+      uninstallingSet.value = newSet
+      try {
+        const result = await invoke('pluginCliUninstall', plugin.id)
+        if (result.success) {
+          message.success(t('rightPanel.plugins.uninstallSuccess'))
+          await loadPlugins()
+        } else {
+          message.error(result.error || t('rightPanel.plugins.uninstallFailed'))
+        }
+      } catch (err) {
+        console.error('Failed to uninstall plugin:', err)
+        message.error(t('rightPanel.plugins.uninstallFailed'))
+      } finally {
+        const updated = new Set(uninstallingSet.value)
+        updated.delete(plugin.id)
+        uninstallingSet.value = updated
+      }
+    }
+  })
+}
+
 const toggleExpand = async (plugin) => {
   const pluginId = plugin.id
   if (expandedPlugins.value.has(pluginId)) {
-    expandedPlugins.value.delete(pluginId)
+    const next = new Set(expandedPlugins.value)
+    next.delete(pluginId)
+    expandedPlugins.value = next
   } else {
-    expandedPlugins.value.add(pluginId)
+    expandedPlugins.value = new Set([...expandedPlugins.value, pluginId])
     // 加载详情
     if (!pluginDetails[pluginId]) {
       await loadPluginDetails(pluginId)
@@ -646,12 +696,6 @@ onMounted(() => {
   border-radius: 3px;
 }
 
-.expand-arrow {
-  font-size: 10px;
-  color: var(--text-color-muted);
-  margin-left: 4px;
-}
-
 /* Plugin Details */
 .plugin-details {
   padding: 8px 12px;
@@ -750,5 +794,23 @@ onMounted(() => {
   color: var(--text-color-muted);
   font-size: 12px;
   padding: 12px;
+}
+
+.uninstall-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.plugin-header:hover .uninstall-btn {
+  opacity: 0.6;
+}
+
+.uninstall-btn:hover {
+  opacity: 1 !important;
+  color: var(--error-color, #e53935);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }
 </style>

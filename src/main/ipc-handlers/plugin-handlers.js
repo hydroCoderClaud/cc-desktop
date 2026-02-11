@@ -11,10 +11,12 @@ const {
   McpManager,
   SettingsManager
 } = require('../managers')
+const { PluginCli } = require('../managers/plugin-cli')
 const { shell } = require('electron')
 
 function setupPluginHandlers(ipcMain) {
   const pluginManager = new PluginManager()
+  const pluginCli = new PluginCli()
   const skillsManager = new SkillsManager()
   const agentsManager = new AgentsManager()
   const hooksManager = new HooksManager()
@@ -85,6 +87,100 @@ function setupPluginHandlers(ipcMain) {
       return { success: !result, error: result || undefined }
     } catch (err) {
       console.error('[IPC] plugins:openSettingsJson error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // ========================================
+  // Plugin CLI Handlers (install/uninstall/update)
+  // ========================================
+
+  // 获取已安装 + 可用插件列表
+  ipcMain.handle('plugins:cli:listAvailable', async () => {
+    return await pluginCli.listAvailable()
+  })
+
+  // 安装插件
+  ipcMain.handle('plugins:cli:install', async (event, pluginId) => {
+    try {
+      if (!pluginId || typeof pluginId !== 'string') {
+        return { success: false, error: 'Invalid plugin ID' }
+      }
+      return await pluginCli.install(pluginId)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:install error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 卸载插件
+  ipcMain.handle('plugins:cli:uninstall', async (event, pluginId) => {
+    try {
+      if (!pluginId || typeof pluginId !== 'string') {
+        return { success: false, error: 'Invalid plugin ID' }
+      }
+      return await pluginCli.uninstall(pluginId)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:uninstall error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新插件
+  ipcMain.handle('plugins:cli:update', async (event, pluginId) => {
+    try {
+      if (!pluginId || typeof pluginId !== 'string') {
+        return { success: false, error: 'Invalid plugin ID' }
+      }
+      return await pluginCli.update(pluginId)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 获取市场列表
+  ipcMain.handle('plugins:cli:listMarketplaces', async () => {
+    try {
+      return await pluginCli.listMarketplaces()
+    } catch (err) {
+      console.error('[IPC] plugins:cli:listMarketplaces error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 添加市场源
+  ipcMain.handle('plugins:cli:addMarketplace', async (event, source) => {
+    try {
+      if (!source || typeof source !== 'string') {
+        return { success: false, error: 'Invalid marketplace source' }
+      }
+      return await pluginCli.addMarketplace(source)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:addMarketplace error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 移除市场源
+  ipcMain.handle('plugins:cli:removeMarketplace', async (event, name) => {
+    try {
+      if (!name || typeof name !== 'string') {
+        return { success: false, error: 'Invalid marketplace name' }
+      }
+      return await pluginCli.removeMarketplace(name)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:removeMarketplace error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新市场索引
+  ipcMain.handle('plugins:cli:updateMarketplace', async (event, name) => {
+    try {
+      return await pluginCli.updateMarketplace(name || undefined)
+    } catch (err) {
+      console.error('[IPC] plugins:cli:updateMarketplace error:', err)
       return { success: false, error: err.message }
     }
   })
@@ -189,36 +285,37 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
+  // 打开组件文件夹（通用 helper）
+  const openComponentFolder = async (source, projectPath, subdir) => {
+    const os = require('os')
+    const path = require('path')
+    const fs = require('fs')
+    let folderPath
+
+    if (source === 'user') {
+      folderPath = path.join(os.homedir(), '.claude', subdir)
+    } else if (source === 'project' && projectPath) {
+      folderPath = path.join(projectPath, '.claude', subdir)
+    } else {
+      return { success: false, error: 'Invalid source' }
+    }
+
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true })
+    }
+
+    const result = await shell.openPath(folderPath)
+    if (result) {
+      return { success: false, error: result }
+    }
+    return { success: true }
+  }
+
   // 打开 Skills 文件夹
   ipcMain.handle('skills:openFolder', async (event, params) => {
     try {
       const { source, projectPath } = params || {}
-      let folderPath
-
-      if (source === 'user') {
-        // ~/.claude/skills/
-        const os = require('os')
-        const path = require('path')
-        folderPath = path.join(os.homedir(), '.claude', 'skills')
-      } else if (source === 'project' && projectPath) {
-        // {project}/.claude/skills/
-        const path = require('path')
-        folderPath = path.join(projectPath, '.claude', 'skills')
-      } else {
-        return { success: false, error: 'Invalid source' }
-      }
-
-      // 确保目录存在
-      const fs = require('fs')
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true })
-      }
-
-      const result = await shell.openPath(folderPath)
-      if (result) {
-        return { success: false, error: result }
-      }
-      return { success: true }
+      return await openComponentFolder(source, projectPath, 'skills')
     } catch (err) {
       console.error('[IPC] skills:openFolder error:', err)
       return { success: false, error: err.message }
@@ -498,30 +595,7 @@ function setupPluginHandlers(ipcMain) {
   ipcMain.handle('agents:openFolder', async (event, params) => {
     try {
       const { source, projectPath } = params || {}
-      let folderPath
-
-      if (source === 'user') {
-        const os = require('os')
-        const path = require('path')
-        folderPath = path.join(os.homedir(), '.claude', 'agents')
-      } else if (source === 'project' && projectPath) {
-        const path = require('path')
-        folderPath = path.join(projectPath, '.claude', 'agents')
-      } else {
-        return { success: false, error: 'Invalid source' }
-      }
-
-      // 确保目录存在
-      const fs = require('fs')
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true })
-      }
-
-      const result = await shell.openPath(folderPath)
-      if (result) {
-        return { success: false, error: result }
-      }
-      return { success: true }
+      return await openComponentFolder(source, projectPath, 'agents')
     } catch (err) {
       console.error('[IPC] agents:openFolder error:', err)
       return { success: false, error: err.message }

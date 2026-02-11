@@ -3,7 +3,8 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.agents') }} ({{ totalCount }})</span>
       <div class="tab-actions">
-        <button class="icon-btn" :title="t('rightPanel.agents.refresh')" @click="loadAgents"><Icon name="refresh" :size="16" /></button>
+        <button class="icon-btn" :title="t('market.title')" @click="showMarketModal"><Icon name="store" :size="14" /></button>
+        <button class="icon-btn" :title="t('rightPanel.agents.refresh')" @click="loadAgents"><Icon name="refresh" :size="14" /></button>
       </div>
     </div>
 
@@ -13,7 +14,6 @@
           <template #prefix><Icon name="search" :size="14" /></template>
         </n-input>
         <n-button-group size="small">
-          <n-button @click="showMarketModal" :title="t('market.title')"><Icon name="store" :size="16" /></n-button>
           <n-button @click="showImportModal" :title="t('rightPanel.agents.import')"><Icon name="import" :size="16" /></n-button>
           <n-button @click="showExportModal" :title="t('rightPanel.agents.export')"><Icon name="export" :size="16" /></n-button>
         </n-button-group>

@@ -27,6 +27,24 @@
         </n-button-group>
       </div>
       <div class="tab-actions">
+        <button class="icon-btn" :title="t('market.title')" @click="showMarketModal">
+          <Icon name="store" :size="14" />
+        </button>
+      </div>
+    </div>
+
+    <div class="tab-toolbar">
+      <div class="search-row">
+        <n-input
+          v-model:value="searchQuery"
+          :placeholder="t('rightPanel.prompts.search')"
+          size="small"
+          clearable
+        >
+          <template #prefix>
+            <Icon name="search" :size="14" />
+          </template>
+        </n-input>
         <button
           class="icon-btn favorite-filter-btn"
           :class="{ active: showFavoritesOnly }"
@@ -35,26 +53,10 @@
         >
           <Icon :name="showFavoritesOnly ? 'starFilled' : 'star'" :size="14" />
         </button>
-        <button class="icon-btn" :title="t('market.title')" @click="showMarketModal">
-          <Icon name="store" :size="14" />
-        </button>
         <button class="icon-btn" :title="t('rightPanel.prompts.add')" @click="handleAdd">
           <Icon name="add" :size="14" />
         </button>
       </div>
-    </div>
-
-    <div class="tab-toolbar">
-      <n-input
-        v-model:value="searchQuery"
-        :placeholder="t('rightPanel.prompts.search')"
-        size="small"
-        clearable
-      >
-        <template #prefix>
-          <Icon name="search" :size="14" />
-        </template>
-      </n-input>
 
       <!-- Tags Filter -->
       <div v-if="tags.length > 0" class="tags-filter">
@@ -606,6 +608,16 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-row .n-input {
+  flex: 1;
 }
 
 .tags-filter {

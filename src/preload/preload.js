@@ -179,6 +179,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openInstalledPluginsJson: () => ipcRenderer.invoke('plugins:openInstalledJson'),
   openSettingsJson: () => ipcRenderer.invoke('plugins:openSettingsJson'),
 
+  // Plugin CLI (install/uninstall/update)
+  pluginCliListAvailable: () => ipcRenderer.invoke('plugins:cli:listAvailable'),
+  pluginCliInstall: (pluginId) => ipcRenderer.invoke('plugins:cli:install', pluginId),
+  pluginCliUninstall: (pluginId) => ipcRenderer.invoke('plugins:cli:uninstall', pluginId),
+  pluginCliUpdate: (pluginId) => ipcRenderer.invoke('plugins:cli:update', pluginId),
+  pluginCliListMarketplaces: () => ipcRenderer.invoke('plugins:cli:listMarketplaces'),
+  pluginCliAddMarketplace: (source) => ipcRenderer.invoke('plugins:cli:addMarketplace', source),
+  pluginCliRemoveMarketplace: (name) => ipcRenderer.invoke('plugins:cli:removeMarketplace', name),
+  pluginCliUpdateMarketplace: (name) => ipcRenderer.invoke('plugins:cli:updateMarketplace', name),
+
   // ========================================
   // Skills 管理 (来自插件和项目级)
   // ========================================
