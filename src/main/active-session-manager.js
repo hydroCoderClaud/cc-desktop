@@ -98,6 +98,29 @@ class ActiveSessionManager {
   }
 
   /**
+   * 注入对端 Manager 引用（用于跨模式会话占用检查）
+   */
+  setPeerManager(agentSessionManager) {
+    this.peerManager = agentSessionManager
+  }
+
+  /**
+   * 检查指定 CLI 会话 UUID 是否正在本 Manager 中活跃
+   * @param {string} cliSessionUuid - Claude Code CLI 的会话 UUID
+   * @returns {boolean}
+   */
+  isCliSessionActive(cliSessionUuid) {
+    if (!cliSessionUuid) return false
+    for (const session of this.sessions.values()) {
+      // 只有正在运行或启动中才算占用（exited/error 不算）
+      const isActive = session.resumeSessionId === cliSessionUuid &&
+        (session.status === SessionStatus.RUNNING || session.status === SessionStatus.STARTING)
+      if (isActive) return true
+    }
+    return false
+  }
+
+  /**
    * 设置会话数据库（延迟注入）
    */
   setSessionDatabase(sessionDatabase) {

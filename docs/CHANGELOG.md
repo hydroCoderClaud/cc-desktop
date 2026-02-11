@@ -2,6 +2,24 @@
 
 ---
 
+## v1.6.31 - 2026-02-11
+
+### 新增 (Features)
+
+**跨模式会话占用控制**
+- Agent 模式与 Terminal 模式互斥同一 CLI 会话，防止并发写入导致数据丢失
+- Peer Manager 模式：`ActiveSessionManager` 与 `AgentSessionManager` 互相持有引用
+- 通过 `isCliSessionActive(cliSessionUuid)` 方法检查对端是否正在使用该会话
+- Terminal 模式恢复会话前检查 Agent 模式占用状态
+- Agent 模式发送消息前检查 Terminal 模式占用状态
+- 前端友好错误提示：`SESSION_IN_USE_BY_AGENT` / `SESSION_IN_USE_BY_TERMINAL`
+
+### 改进 (Improvements)
+
+- 恢复会话提示优化：增加"首条消息响应需要耐心等待"提示文案
+
+---
+
 ## v1.6.3 - 2026-02-11
 
 ### 修复 (Bug Fixes)

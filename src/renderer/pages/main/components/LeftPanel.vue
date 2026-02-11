@@ -805,6 +805,8 @@ const handleOpenHistorySession = async (session) => {
       emit('session-created', result.session)
       message.success(t('session.resumeSuccess') || '会话已恢复')
     }
+  } else if (result.error === 'SESSION_IN_USE_BY_AGENT') {
+    message.warning(t('session.sessionInUseByAgent'))
   } else if (result.error === 'maxSessionsReached') {
     message.warning(t('session.maxSessionsReached', { max: result.maxSessions }))
   } else if (result.error === 'pendingSessionClosed') {

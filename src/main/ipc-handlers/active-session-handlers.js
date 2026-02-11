@@ -35,6 +35,14 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
       }
     }
 
+    // 跨模式占用检查：恢复会话时检查是否被 Agent 模式占用
+    if (options.resumeSessionId && activeSessionManager.peerManager?.isCliSessionActive(options.resumeSessionId)) {
+      return {
+        success: false,
+        error: 'SESSION_IN_USE_BY_AGENT'
+      }
+    }
+
     // 纯终端不受会话数量限制；Claude 会话需要检查限制
     if (options.type !== 'terminal') {
       const runningCount = activeSessionManager.getRunningCount()

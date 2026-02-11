@@ -180,6 +180,10 @@ app.whenReady().then(async () => {
   // 初始化 Agent 会话管理器
   agentSessionManager = new AgentSessionManager(mainWindow, configManager);
 
+  // 互相注入引用（跨模式会话占用检查）
+  activeSessionManager.setPeerManager(agentSessionManager)
+  agentSessionManager.setPeerManager(activeSessionManager)
+
   // 设置 IPC 处理器
   setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager);
 

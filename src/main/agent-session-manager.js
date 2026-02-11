@@ -158,6 +158,29 @@ class AgentSessionManager {
   }
 
   /**
+   * 注入对端 Manager 引用（用于跨模式会话占用检查）
+   */
+  setPeerManager(activeSessionManager) {
+    this.peerManager = activeSessionManager
+  }
+
+  /**
+   * 检查指定 CLI 会话 UUID 是否正在本 Manager 中活跃
+   * @param {string} cliSessionUuid - Claude Code CLI 的会话 UUID
+   * @returns {boolean}
+   */
+  isCliSessionActive(cliSessionUuid) {
+    if (!cliSessionUuid) return false
+    for (const session of this.sessions.values()) {
+      // 只有正在流式输出或空闲（有活跃 CLI 进程）才算占用
+      const isActive = session.sdkSessionId === cliSessionUuid &&
+        (session.status === AgentStatus.STREAMING || (session.status === AgentStatus.IDLE && session.queryGenerator))
+      if (isActive) return true
+    }
+    return false
+  }
+
+  /**
    * 注入数据库实例
    */
   setSessionDatabase(db) {
@@ -486,6 +509,10 @@ class AgentSessionManager {
 
       // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
       if (session.sdkSessionId) {
+        // 跨模式占用检查：该 CLI 会话是否正在 Terminal 模式中使用
+        if (this.peerManager?.isCliSessionActive(session.sdkSessionId)) {
+          throw new Error('SESSION_IN_USE_BY_TERMINAL')
+        }
         options.resume = session.sdkSessionId
       }
 

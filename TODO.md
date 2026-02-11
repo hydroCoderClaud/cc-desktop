@@ -1,12 +1,20 @@
 # TODO - 项目状态
 
-> 📅 最后更新：2026-02-10
-> 📦 当前版本：v1.6.2
-> ✅ 状态：统一组件市场 + 代码审查修复
+> 📅 最后更新：2026-02-11
+> 📦 当前版本：v1.6.31
+> ✅ 状态：跨模式会话占用控制
 
 ---
 
 ## ✅ 已完成的核心功能
+
+### v1.6.31 - 跨模式会话占用控制
+- [x] 跨模式会话占用检查（Agent 模式与 Terminal 模式互斥同一 CLI 会话）
+- [x] Peer Manager 模式（两个 Manager 互相持有引用，通过 isCliSessionActive() 检查）
+- [x] 前后端错误提示（SESSION_IN_USE_BY_AGENT / SESSION_IN_USE_BY_TERMINAL）
+- [x] 恢复会话提示优化（首条消息响应需要耐心等待）
+
+### v1.6.3 - 终端环境变量处理优化 & 配置系统清理
 
 ### v1.6.2 - 市场代码审查修复 + 文件树增强
 - [x] 文件树扩展过滤（Python venv/.venv/.conda、Node.js .npm/.yarn、构建产物 build/target 等）

@@ -383,11 +383,17 @@ export function useAgentChat(sessionId) {
   /**
    * 处理错误事件
    */
+  // 错误码 → 友好提示映射
+  const ERROR_MESSAGES = {
+    'SESSION_IN_USE_BY_TERMINAL': '该会话正在终端模式中使用，请先关闭对应终端'
+  }
+
   const handleError = (data) => {
     if (data.sessionId !== sessionId) return
     isStreaming.value = false
     stopTimer()
-    error.value = data.error || 'Unknown error'
+    const rawError = data.error || 'Unknown error'
+    error.value = ERROR_MESSAGES[rawError] || rawError
   }
 
   /**
