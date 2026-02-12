@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.32
+**当前版本**：1.6.33
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
@@ -48,7 +48,15 @@ Electron 应用
 │   ├── agent-session-manager.js  # Agent 会话管理（Agent 模式）
 │   ├── active-session-manager.js # 活动会话管理
 │   ├── plugin-manager.js         # 插件管理
+│   ├── component-scanner.js      # 组件扫描基础类
 │   ├── database/                 # SQLite 数据库模块
+│   ├── managers/                 # 功能管理器
+│   │   ├── capability-manager.js # Agent 能力管理（v1.1 一能力一组件）
+│   │   ├── skills-manager.js     # Skills 管理
+│   │   ├── plugin-cli.js         # 插件 CLI 操作
+│   │   ├── hooks-manager.js      # Hooks 管理
+│   │   ├── mcp-manager.js        # MCP 管理
+│   │   └── settings-manager.js   # Settings 管理
 │   └── ipc-handlers/             # IPC 处理器
 │
 ├── Preload (Security Bridge)
@@ -169,6 +177,37 @@ const ensureSessionTab = (session) => {
 }
 ```
 
+### Agent 能力管理（Capability Manager）
+
+**数据模型 v1.1**：一能力一组件 — 每个 capability 直接对应一个 skill/agent/plugin
+
+```json
+{
+  "version": "1.1",
+  "capabilities": [
+    {
+      "id": "my-code-review",
+      "name": "代码审查",
+      "description": "AI 驱动的代码审查",
+      "type": "skill",
+      "componentId": "my-code-review",
+      "category": "code-review"
+    }
+  ]
+}
+```
+
+**清单来源**：`{registryUrl}/agent-capabilities.json`（远程拉取）
+
+**安装状态检测**：
+- **skill**：`~/.claude/skills/{id}/SKILL.md` 存在 → installed；`.disabled` 后缀 → disabled
+- **agent**：`~/.claude/agents/{id}.md` 存在 → installed；`.disabled` 后缀 → disabled
+- **plugin**：`installed_plugins.json` 有记录 → installed；`settings.json` 的 `enabledPlugins[id] === false` → disabled
+
+**UI 操作**：下载安装 / 更新（重新下载） / 卸载 / 启用-禁用开关
+
+**核心文件**：`src/main/managers/capability-manager.js`
+
 ### Plugin/Skills 加载机制
 
 **唯一数据源**：`~/.claude/plugins/installed_plugins.json`
@@ -279,6 +318,7 @@ src/
 │   ├── agent-session-manager.js  # Agent 会话管理（Agent 模式）
 │   ├── active-session-manager.js # 活动会话管理
 │   ├── plugin-manager.js         # 插件管理
+│   ├── component-scanner.js      # 组件扫描基础类（skills/agents/plugins）
 │   ├── database/                 # SQLite 数据库模块
 │   │   ├── agent-db.js           # Agent 会话/消息存储
 │   │   ├── session-db.js         # Terminal 会话存储
@@ -286,12 +326,16 @@ src/
 │   │   └── ...                   # favorite/prompt/tag/queue 等
 │   ├── ipc-handlers/             # 模块化 IPC
 │   │   ├── agent-handlers.js     # Agent 模式 IPC
+│   │   ├── capability-handlers.js # 能力管理 IPC
 │   │   ├── plugin-handlers.js
 │   │   ├── ai-handlers.js
 │   │   └── ...
 │   ├── managers/
-│   │   ├── skills/               # Skills 管理（mixin 模式）
-│   │   ├── agents/               # Agents 管理（mixin 模式）
+│   │   ├── capability-manager.js # Agent 能力管理（v1.1 一能力一组件）
+│   │   ├── skills-manager.js     # Skills 管理
+│   │   ├── skills/               # Skills 管理 mixin
+│   │   ├── agents/               # Agents 管理 mixin
+│   │   ├── plugin-cli.js         # 插件 CLI 操作（install/uninstall）
 │   │   ├── hooks-manager.js      # Hooks 管理
 │   │   ├── mcp-manager.js        # MCP 管理
 │   │   └── settings-manager.js   # Settings 管理
@@ -303,20 +347,23 @@ src/
 │
 └── renderer/
     ├── pages/main/components/
+    │   ├── agent/                # Agent 模式 UI 组件
+    │   │   ├── AgentLeftContent.vue    # 对话列表（左侧面板）
+    │   │   ├── CapabilityModal.vue     # 能力管理弹窗
+    │   │   ├── ChatInput.vue          # 聊天输入框
+    │   │   ├── MessageBubble.vue      # 消息气泡
+    │   │   ├── ToolCallCard.vue       # 工具调用卡片
+    │   │   └── StreamingIndicator.vue # 流式输出指示器
+    │   ├── AgentChatTab.vue      # Agent 对话 Tab
     │   ├── RightPanel/           # Developer 模式右侧面板
-    │   │   ├── tabs/             # 8 个标签页
-    │   │   ├── skills/           # Skills 组件
-    │   │   ├── agents/           # Agents 组件
-    │   │   ├── hooks/            # Hooks 组件
-    │   │   ├── mcp/              # MCP 组件
-    │   │   └── settings/         # Settings 组件
+    │   │   └── tabs/             # 9 个标签页（Skills/Agents/Hooks/MCP/Plugins/Settings/AI/Prompts/Commands）
     │   └── AgentRightPanel/      # Agent 模式右侧面板
     │       ├── FileTree.vue      # 文件树
     │       ├── FileTreeNode.vue  # 文件树节点（递归）
     │       ├── FilePreview.vue   # 文件预览
     │       └── FileTreeHeader.vue
-    ├── composables/              # 可复用逻辑（20+ 模块）
-    └── locales/                  # 国际化
+    ├── composables/              # 可复用逻辑（21 个模块）
+    └── locales/                  # 国际化（zh-CN / en-US）
 ```
 
 ## 安全模型

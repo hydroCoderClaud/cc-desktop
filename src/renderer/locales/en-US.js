@@ -57,7 +57,8 @@ export default {
     openFile: 'Open File',
     all: 'All',
     rename: 'Rename',
-    today: 'Today'
+    today: 'Today',
+    older: 'Older'
   },
 
   // Main Page

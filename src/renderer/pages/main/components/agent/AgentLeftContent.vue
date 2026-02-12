@@ -95,13 +95,13 @@ const conversationGroups = computed(() => {
   const groups = []
   const g = groupedConversations.value
   if (g.today.length > 0) {
-    groups.push({ key: 'today', label: t('common.today') || '今天', items: g.today })
+    groups.push({ key: 'today', label: t('common.today'), items: g.today })
   }
   if (g.yesterday.length > 0) {
     groups.push({ key: 'yesterday', label: t('common.yesterday'), items: g.yesterday })
   }
   if (g.older.length > 0) {
-    groups.push({ key: 'older', label: t('session.older') || '更早', items: g.older })
+    groups.push({ key: 'older', label: t('common.older'), items: g.older })
   }
   return groups
 })
