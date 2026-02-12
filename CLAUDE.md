@@ -206,6 +206,13 @@ const ensureSessionTab = (session) => {
 
 **UI 操作**：下载安装 / 更新（重新下载） / 卸载 / 启用-禁用开关
 
+**能力快捷调用**（ChatInput ⚡ 下拉）：
+- 位于聊天输入框工具栏，点击 ⚡ 图标弹出已启用能力列表
+- skill 类型 → 发送 `/{componentId}`；agent 类型 → 发送 `@{componentId}`
+- plugin 类型自动展开为其内部 skill/agent 子组件（通过 `getPluginDetails` API）
+- 颜色区分：蓝色 = skill，紫色 = agent；带 i18n 类型标签
+- 首次打开时懒加载，与模型选择下拉互斥
+
 **核心文件**：`src/main/managers/capability-manager.js`
 
 ### Plugin/Skills 加载机制
@@ -349,8 +356,9 @@ src/
     ├── pages/main/components/
     │   ├── agent/                # Agent 模式 UI 组件
     │   │   ├── AgentLeftContent.vue    # 对话列表（左侧面板）
+    │   │   ├── AgentNewConversationModal.vue # 新建对话弹窗（含目录存在性校验）
     │   │   ├── CapabilityModal.vue     # 能力管理弹窗
-    │   │   ├── ChatInput.vue          # 聊天输入框
+    │   │   ├── ChatInput.vue          # 聊天输入框（含能力快捷调用 ⚡）
     │   │   ├── MessageBubble.vue      # 消息气泡
     │   │   ├── ToolCallCard.vue       # 工具调用卡片
     │   │   └── StreamingIndicator.vue # 流式输出指示器

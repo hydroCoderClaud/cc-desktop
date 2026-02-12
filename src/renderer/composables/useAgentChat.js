@@ -212,6 +212,14 @@ export function useAgentChat(sessionId) {
     if (!trimmed.startsWith('/')) {
       addUserMessage(trimmed)
     }
+
+    // 第一条用户消息 → 自动设为对话标题（截取前10个字符）
+    const userMessages = messages.value.filter(m => m.role === MessageRole.USER)
+    if (userMessages.length === 1 && !trimmed.startsWith('/') && !trimmed.startsWith('@')) {
+      const autoTitle = trimmed.length > 10 ? trimmed.slice(0, 10) + '…' : trimmed
+      window.electronAPI?.renameAgentSession?.({ sessionId, title: autoTitle }).catch(() => {})
+    }
+
     isStreaming.value = true
     currentStreamText.value = ''
     startTimer()
