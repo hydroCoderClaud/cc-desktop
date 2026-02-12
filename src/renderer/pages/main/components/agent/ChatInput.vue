@@ -25,6 +25,37 @@
             </div>
           </div>
         </Transition>
+
+        <!-- 能力快捷使用 -->
+        <div class="cap-quick-access" ref="capSelectorRef">
+          <div
+            class="cap-trigger"
+            :class="{ active: showCapDropdown }"
+            :title="t('agent.capabilityManagement')"
+            @click="toggleCapDropdown"
+          >
+            <Icon name="zap" :size="13" class="cap-zap-icon" />
+          </div>
+          <Transition name="dropdown">
+            <div v-if="showCapDropdown" class="cap-dropdown">
+              <div v-if="capLoading" class="cap-loading">{{ t('common.loading') }}...</div>
+              <template v-else>
+                <div
+                  v-for="cap in capList"
+                  :key="cap.id"
+                  class="cap-item"
+                  @click="useCapability(cap)"
+                >
+                  <span class="cap-type-dot" :class="'dot-' + cap.type"></span>
+                  <span class="cap-type-label" :class="'label-' + cap.type">{{ cap.type === 'agent' ? t('agent.capTypeAgent') : t('agent.capTypeSkill') }}</span>
+                  <span class="cap-item-name">{{ cap.name }}</span>
+                  <span class="cap-item-desc">{{ cap.description }}</span>
+                </div>
+                <div v-if="capList.length === 0" class="cap-empty">{{ t('agent.noCapabilities') }}</div>
+              </template>
+            </div>
+          </Transition>
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -163,11 +194,99 @@ const selectorRef = ref(null)
 
 const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
+  showCapDropdown.value = false
 }
 
 const selectModel = (value) => {
   emit('update:modelValue', value)
   showDropdown.value = false
+}
+
+// ============================
+// 能力快捷使用
+// ============================
+const showCapDropdown = ref(false)
+const capSelectorRef = ref(null)
+const capList = ref([])
+const capLoading = ref(false)
+const capLoaded = ref(false)
+
+const toggleCapDropdown = () => {
+  showCapDropdown.value = !showCapDropdown.value
+  showDropdown.value = false
+  if (showCapDropdown.value && !capLoaded.value) {
+    loadCapabilities()
+  }
+}
+
+const loadCapabilities = async () => {
+  if (!window.electronAPI?.fetchCapabilities) return
+  capLoading.value = true
+  try {
+    const result = await window.electronAPI.fetchCapabilities()
+    if (!result.success) return
+
+    const items = []
+    const pluginsToExpand = []
+
+    for (const cap of result.capabilities) {
+      if (!cap.installed || cap.disabled) continue
+
+      if (cap.type === 'skill' || cap.type === 'agent') {
+        items.push({
+          id: cap.componentId || cap.id,
+          name: cap.name,
+          description: cap.description || '',
+          type: cap.type
+        })
+      } else if (cap.type === 'plugin') {
+        pluginsToExpand.push(cap)
+      }
+    }
+
+    // 展开 plugin 内部的 skill/agent 子组件
+    if (pluginsToExpand.length > 0 && window.electronAPI.getPluginDetails) {
+      const details = await Promise.all(
+        pluginsToExpand.map(cap =>
+          window.electronAPI.getPluginDetails(cap.componentId).catch(() => null)
+        )
+      )
+      for (let i = 0; i < details.length; i++) {
+        const detail = details[i]
+        if (!detail?.components) continue
+        const pluginShort = pluginsToExpand[i].componentId.split('@')[0]
+        for (const s of (detail.components.skills || [])) {
+          items.push({
+            id: `${pluginShort}:${s.id}`,
+            name: s.name || s.id,
+            description: s.description || '',
+            type: 'skill'
+          })
+        }
+        for (const a of (detail.components.agents || [])) {
+          items.push({
+            id: `${pluginShort}:${a.name}`,
+            name: a.name,
+            description: a.description || '',
+            type: 'agent'
+          })
+        }
+      }
+    }
+
+    capList.value = items
+  } catch (err) {
+    console.error('[ChatInput] loadCapabilities error:', err)
+  } finally {
+    capLoading.value = false
+    capLoaded.value = true
+  }
+}
+
+const useCapability = (cap) => {
+  showCapDropdown.value = false
+  const prefix = cap.type === 'agent' ? '@' : '/'
+  emit('send', `${prefix}${cap.id}`)
 }
 
 // ============================
@@ -294,6 +413,9 @@ const handleSend = () => {
 const handleClickOutside = (e) => {
   if (selectorRef.value && !selectorRef.value.contains(e.target)) {
     showDropdown.value = false
+  }
+  if (capSelectorRef.value && !capSelectorRef.value.contains(e.target)) {
+    showCapDropdown.value = false
   }
   if (inputWrapperRef.value && !inputWrapperRef.value.contains(e.target)) {
     showSlashPanel.value = false
@@ -455,6 +577,133 @@ defineExpose({ focus })
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(4px);
+}
+
+/* Capability Quick Access */
+.cap-quick-access {
+  position: relative;
+  margin-left: 4px;
+}
+
+.cap-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.cap-trigger:hover,
+.cap-trigger.active {
+  background: var(--hover-bg);
+}
+
+.cap-zap-icon {
+  color: var(--text-color-muted);
+  transition: color 0.2s;
+}
+
+.cap-trigger:hover .cap-zap-icon,
+.cap-trigger.active .cap-zap-icon {
+  color: var(--primary-color);
+}
+
+.cap-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+}
+
+.cap-loading {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-color-muted);
+}
+
+.cap-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cap-item:hover {
+  background: var(--hover-bg);
+}
+
+.cap-type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cap-type-dot.dot-skill {
+  background: #1890ff;
+}
+
+.cap-type-dot.dot-agent {
+  background: #722ed1;
+}
+
+.cap-type-dot.dot-plugin {
+  background: #52c41a;
+}
+
+.cap-type-label {
+  font-size: 10px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.cap-type-label.label-skill {
+  color: #1890ff;
+}
+
+.cap-type-label.label-agent {
+  color: #722ed1;
+}
+
+.cap-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cap-item-desc {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cap-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-color-muted);
 }
 
 /* Input wrapper */

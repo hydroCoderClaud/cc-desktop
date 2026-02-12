@@ -1195,6 +1195,8 @@ export default {
     capabilityInstallFailed: '安装失败',
     capabilityFetchFailed: '获取能力清单失败',
     noCapabilities: '暂无可用能力',
+    capTypeSkill: '技能',
+    capTypeAgent: '代理',
     capDownload: '下载',
     capUpdate: '更新',
     capUninstall: '卸载',

@@ -31,7 +31,7 @@
     </div>
 
     <!-- 最近项目列表 -->
-    <div class="projects-section" v-if="projects && projects.length > 0">
+    <div class="projects-section" v-if="validProjects.length > 0">
       <div class="section-label">{{ t('agent.recentProjects') }}</div>
       <div class="project-list">
         <div
@@ -79,16 +79,33 @@ const props = defineProps({
 const emit = defineEmits(['update:show', 'create'])
 
 const selectedCwd = ref(null)
+const validProjects = ref([])
 
 // 最多显示 8 个最近项目
 const displayProjects = computed(() => {
-  return props.projects.slice(0, 8)
+  return validProjects.value.slice(0, 8)
 })
 
-// 每次打开时重置选择
-watch(() => props.show, (newVal) => {
+// 每次打开时重置选择并检查目录存在性
+watch(() => props.show, async (newVal) => {
   if (newVal) {
     selectedCwd.value = null
+    // 检查每个项目目录是否存在，过滤掉不存在的
+    if (window.electronAPI?.checkPath && props.projects.length > 0) {
+      const checks = await Promise.all(
+        props.projects.map(async (p) => {
+          try {
+            const result = await window.electronAPI.checkPath(p.path)
+            return result.valid ? p : null
+          } catch {
+            return null
+          }
+        })
+      )
+      validProjects.value = checks.filter(Boolean)
+    } else {
+      validProjects.value = [...props.projects]
+    }
   }
 })
 

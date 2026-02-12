@@ -1192,6 +1192,8 @@ export default {
     capabilityInstallFailed: 'Install failed',
     capabilityFetchFailed: 'Failed to fetch capabilities',
     noCapabilities: 'No capabilities available',
+    capTypeSkill: 'Skill',
+    capTypeAgent: 'Agent',
     capDownload: 'Download',
     capUpdate: 'Update',
     capUninstall: 'Uninstall',

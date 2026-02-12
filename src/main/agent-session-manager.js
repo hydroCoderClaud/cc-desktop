@@ -35,8 +35,8 @@ const AgentStatus = {
  * 文件浏览相关常量（模块级，避免每次调用重建）
  */
 const HIDDEN_DIRS = new Set([
-  // 版本控制
-  '.git', '.claude', '.svn', '.hg',
+  // 版本控制 & 工具配置
+  '.git', '.claude', '.svn', '.hg', '.qoder', '.serena',
   // Node.js / 前端
   'node_modules', '.next', '.nuxt', 'dist', '.cache',
   '.npm', '.yarn', '.pnpm-store', 'bower_components',
