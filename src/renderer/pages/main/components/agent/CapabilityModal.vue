@@ -68,7 +68,7 @@
                   type="primary"
                   :loading="installingId === cap.id"
                   :disabled="busyId !== null && busyId !== cap.id"
-                  @click="handleInstall(cap)"
+                  @click="handleAction(cap, 'install')"
                 >
                   {{ t('agent.capDownload') }}
                 </n-button>
@@ -78,7 +78,7 @@
                     size="tiny"
                     :loading="installingId === cap.id && installingAction === 'update'"
                     :disabled="busyId !== null && busyId !== cap.id"
-                    @click="handleUpdate(cap)"
+                    @click="handleAction(cap, 'update')"
                   >
                     {{ t('agent.capUpdate') }}
                   </n-button>
@@ -88,7 +88,7 @@
                     ghost
                     :loading="installingId === cap.id && installingAction === 'uninstall'"
                     :disabled="busyId !== null && busyId !== cap.id"
-                    @click="handleUninstall(cap)"
+                    @click="handleAction(cap, 'uninstall')"
                   >
                     {{ t('agent.capUninstall') }}
                   </n-button>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { NModal, NSpin, NSwitch, NButton, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -167,99 +167,45 @@ const loadCapabilities = async () => {
   }
 }
 
-// 下载安装（首次）
-const handleInstall = async (cap) => {
-  installingId.value = cap.id
-  installingAction.value = 'install'
-  try {
-    const plainCap = JSON.parse(JSON.stringify(cap))
-    const result = await window.electronAPI.installCapability(cap.id, plainCap)
+const toPlain = (obj) => JSON.parse(JSON.stringify(obj))
 
+const ACTION_CONFIG = {
+  install:   { api: 'installCapability',   successMsg: 'agent.capInstallSuccess',   failMsg: 'agent.capabilityInstallFailed', onSuccess: (cap) => { cap.installed = true; cap.disabled = false } },
+  update:    { api: 'installCapability',   successMsg: 'agent.capUpdateSuccess',    failMsg: 'agent.capabilityInstallFailed', onSuccess: (cap) => { cap.disabled = false } },
+  uninstall: { api: 'uninstallCapability', successMsg: 'agent.capUninstallSuccess', failMsg: 'agent.capUninstallFailed',      onSuccess: (cap) => { cap.installed = false; cap.disabled = false } },
+}
+
+const handleAction = async (cap, action) => {
+  const config = ACTION_CONFIG[action]
+  installingId.value = cap.id
+  installingAction.value = action
+  try {
+    const result = await window.electronAPI[config.api](cap.id, toPlain(cap))
     if (result.success) {
-      cap.installed = true
-      cap.disabled = false
-      message.success(t('agent.capInstallSuccess'))
+      config.onSuccess(cap)
+      message.success(t(config.successMsg))
     } else {
-      message.error(result.error || t('agent.capabilityInstallFailed'))
+      message.error(result.error || t(config.failMsg))
     }
   } catch (err) {
-    console.error('[CapabilityModal] install error:', err)
-    message.error(err.message || t('agent.capabilityInstallFailed'))
+    console.error(`[CapabilityModal] ${action} error:`, err)
+    message.error(err.message || t(config.failMsg))
   } finally {
     installingId.value = null
     installingAction.value = null
   }
 }
 
-// 更新（重新下载覆盖）
-const handleUpdate = async (cap) => {
-  installingId.value = cap.id
-  installingAction.value = 'update'
-  try {
-    const plainCap = JSON.parse(JSON.stringify(cap))
-    const result = await window.electronAPI.installCapability(cap.id, plainCap)
-
-    if (result.success) {
-      cap.disabled = false
-      message.success(t('agent.capUpdateSuccess'))
-    } else {
-      message.error(result.error || t('agent.capabilityInstallFailed'))
-    }
-  } catch (err) {
-    console.error('[CapabilityModal] update error:', err)
-    message.error(err.message || t('agent.capabilityInstallFailed'))
-  } finally {
-    installingId.value = null
-    installingAction.value = null
-  }
-}
-
-// 卸载
-const handleUninstall = async (cap) => {
-  installingId.value = cap.id
-  installingAction.value = 'uninstall'
-  try {
-    const plainCap = JSON.parse(JSON.stringify(cap))
-    const result = await window.electronAPI.uninstallCapability(cap.id, plainCap)
-
-    if (result.success) {
-      cap.installed = false
-      cap.disabled = false
-      message.success(t('agent.capUninstallSuccess'))
-    } else {
-      message.error(result.error || t('agent.capUninstallFailed'))
-    }
-  } catch (err) {
-    console.error('[CapabilityModal] uninstall error:', err)
-    message.error(err.message || t('agent.capUninstallFailed'))
-  } finally {
-    installingId.value = null
-    installingAction.value = null
-  }
-}
-
-// 启闭切换（仅对已安装组件有效）
 const handleToggle = async (cap, enabled) => {
   togglingId.value = cap.id
   try {
-    const plainCap = JSON.parse(JSON.stringify(cap))
-
-    if (enabled) {
-      const result = await window.electronAPI.enableCapability(cap.id, plainCap)
-      if (result.success) {
-        cap.disabled = false
-        message.success(t('agent.capabilityEnabled'))
-      } else {
-        message.error(result.error || t('agent.capabilityInstallFailed'))
-      }
+    const api = enabled ? 'enableCapability' : 'disableCapability'
+    const result = await window.electronAPI[api](cap.id, toPlain(cap))
+    if (result.success) {
+      cap.disabled = !enabled
+      message[enabled ? 'success' : 'info'](t(enabled ? 'agent.capabilityEnabled' : 'agent.capabilityDisabled'))
     } else {
-      const result = await window.electronAPI.disableCapability(cap.id, plainCap)
-      if (result.success) {
-        cap.disabled = true
-        message.info(t('agent.capabilityDisabled'))
-      } else {
-        message.error(result.error || t('agent.capabilityInstallFailed'))
-      }
+      message.error(result.error || t('agent.capabilityInstallFailed'))
     }
   } catch (err) {
     console.error('[CapabilityModal] toggle error:', err)
@@ -269,18 +215,9 @@ const handleToggle = async (cap, enabled) => {
   }
 }
 
-// 弹窗打开时加载
 watch(() => props.show, (val) => {
-  if (val) {
-    loadCapabilities()
-  }
-})
-
-onMounted(() => {
-  if (props.show) {
-    loadCapabilities()
-  }
-})
+  if (val) loadCapabilities()
+}, { immediate: true })
 </script>
 
 <style scoped>

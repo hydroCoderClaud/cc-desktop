@@ -30,6 +30,7 @@ class CapabilityManager {
     this.agentsDir = path.join(this.claudeDir, 'agents')
     this.pluginsDir = path.join(this.claudeDir, 'plugins')
     this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
+    this.settingsPath = path.join(this.claudeDir, 'settings.json')
   }
 
   /**
@@ -195,9 +196,8 @@ class CapabilityManager {
    */
   _checkPluginDisabled(pluginId) {
     try {
-      const settingsPath = path.join(this.claudeDir, 'settings.json')
-      if (!fs.existsSync(settingsPath)) return false
-      const content = fs.readFileSync(settingsPath, 'utf-8')
+      if (!fs.existsSync(this.settingsPath)) return false
+      const content = fs.readFileSync(this.settingsPath, 'utf-8')
       const settings = JSON.parse(content)
       const enabledPlugins = settings.enabledPlugins || {}
       return enabledPlugins[pluginId] === false
@@ -213,11 +213,10 @@ class CapabilityManager {
    * @param {boolean} enabled - true=启用, false=禁用
    */
   _setPluginEnabled(pluginId, enabled) {
-    const settingsPath = path.join(this.claudeDir, 'settings.json')
     let settings = {}
     try {
-      if (fs.existsSync(settingsPath)) {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'))
+      if (fs.existsSync(this.settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
       }
     } catch (err) {
       console.warn('[CapabilityManager] _setPluginEnabled: failed to read settings, using empty:', err.message)
@@ -226,17 +225,16 @@ class CapabilityManager {
       settings.enabledPlugins = {}
     }
     settings.enabledPlugins[pluginId] = enabled
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+    fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
     console.log(`[CapabilityManager] Set plugin ${pluginId} enabled: ${enabled}`)
   }
 
   /**
    * 安装能力：从 registry 下载组件，安装后默认启用
-   * @param {string} capabilityId - 能力 ID
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
    * @returns {{ success: boolean, error?: string }}
    */
-  async installCapability(capabilityId, capability) {
+  async installCapability(capability) {
     const { type, componentId } = capability
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl?.replace(/\/+$/, '')
@@ -297,11 +295,10 @@ class CapabilityManager {
 
   /**
    * 卸载能力：删除组件文件（无论启用还是禁用状态）
-   * @param {string} capabilityId - 能力 ID
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
    * @returns {{ success: boolean, error?: string }}
    */
-  async uninstallCapability(capabilityId, capability) {
+  async uninstallCapability(capability) {
     const { type, componentId } = capability
     try {
       switch (type) {
@@ -340,11 +337,10 @@ class CapabilityManager {
 
   /**
    * 启用能力：恢复已禁用组件
-   * @param {string} capabilityId - 能力 ID
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
    * @returns {{ success: boolean, error?: string }}
    */
-  async enableCapability(capabilityId, capability) {
+  async enableCapability(capability) {
     const { type, componentId } = capability
     const installStatus = this.checkComponentInstalled(type, componentId)
 
@@ -369,11 +365,10 @@ class CapabilityManager {
 
   /**
    * 禁用能力：将组件文件重命名为 .disabled
-   * @param {string} capabilityId - 能力 ID
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
    * @returns {{ success: boolean, error?: string }}
    */
-  async disableCapability(capabilityId, capability) {
+  async disableCapability(capability) {
     const { type, componentId } = capability
     try {
       await this._disableComponent(type, componentId)

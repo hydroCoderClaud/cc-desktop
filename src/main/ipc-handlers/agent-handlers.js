@@ -75,7 +75,7 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // 关闭会话
   ipcMain.handle('agent:close', async (event, sessionId) => {
     try {
-      agentSessionManager.close(sessionId)
+      await agentSessionManager.close(sessionId)
       return { success: true }
     } catch (err) {
       console.error('[IPC] agent:close error:', err)
