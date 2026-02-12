@@ -59,6 +59,7 @@ const agentsUtilsMixin = {
       agentPath: agent.filePath,
       category,
       invocationType: 'auto', // Agents 自动触发
+      disabled: agent.disabled || false,
       ...extraFields
     }
   },

@@ -14,6 +14,7 @@
           v-for="agent in agents"
           :key="`${groupKey}-${agent.id || agent.name}`"
           class="agent-item"
+          :class="{ disabled: agent.disabled }"
           @click="$emit('click-agent', agent)"
         >
           <div class="agent-row">
@@ -21,9 +22,16 @@
             <span class="agent-name">
               {{ agent.id }}
               <span v-if="agent.name && agent.name !== agent.id" class="agent-name-suffix">(/{{ agent.name }})</span>
-              <span v-if="agent.marketSource" class="market-badge">{{ t('rightPanel.agents.marketBadge') }}</span>
+              <span v-if="agent.marketSource && !agent.disabled" class="market-badge">{{ t('rightPanel.agents.marketBadge') }}</span>
             </span>
-            <span class="agent-actions">
+            <n-switch
+              v-if="toggleable"
+              size="small"
+              :value="!agent.disabled"
+              @update:value="(val) => $emit('toggle-disabled', agent, !val)"
+              @click.stop
+            />
+            <span v-if="!agent.disabled" class="agent-actions">
               <button
                 v-if="copy"
                 class="icon-btn inline"
@@ -58,6 +66,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { NSwitch } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { getAgentColor } from '@composables/constants'
 import Icon from '@components/icons/Icon.vue'
@@ -70,13 +79,14 @@ const props = defineProps({
   title: { type: String, required: true },
   icon: { type: String, default: 'folder' },
   editable: { type: Boolean, default: false },
+  toggleable: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
   emptyText: { type: String, default: '' },
   copy: { type: Function, default: null },
   copyTitle: { type: String, default: '' }
 })
 
-defineEmits(['toggle', 'create', 'open-folder', 'click-agent', 'edit', 'delete', 'openFile'])
+defineEmits(['toggle', 'create', 'open-folder', 'click-agent', 'edit', 'delete', 'openFile', 'toggle-disabled'])
 
 const createTitle = computed(() => {
   return props.groupKey === 'project'
@@ -163,6 +173,12 @@ const createTitle = computed(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease;
+}
+
+.agent-item.disabled .agent-name,
+.agent-item.disabled .agent-desc,
+.agent-item.disabled .agent-color {
+  opacity: 0.5;
 }
 
 .agent-item:hover {

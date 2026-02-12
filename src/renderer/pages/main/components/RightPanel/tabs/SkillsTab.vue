@@ -45,11 +45,11 @@
 
         <!-- 自定义全局 Skills -->
         <SkillGroup group-key="user" :skills="filteredSkills.user"
-          :title="t('rightPanel.skills.userSkills')" icon="user" :editable="true"
+          :title="t('rightPanel.skills.userSkills')" icon="user" :editable="true" :toggleable="true"
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openSkillsFolder('user')"
           @click-skill="handleSkillClick" @edit="showEditModal" @delete="showDeleteModal"
-          @openFile="handleOpenFile"
+          @openFile="handleOpenFile" @toggle-disabled="handleToggleDisabled"
           :copy="showCopyModal" :copy-title="t('rightPanel.skills.copySkill')"
           :empty-text="t('rightPanel.skills.noUserSkills')" />
 
@@ -257,13 +257,6 @@ const showEditModal = (skill) => {
   editModalVisible.value = true
 }
 
-// 查看官方技能（只读模式）
-const showViewModal = (skill) => {
-  editSkill.value = skill
-  editSource.value = skill.source
-  editModalVisible.value = true
-}
-
 // Delete Modal
 const showDeleteModal = (skill) => { deleteTarget.value = skill; deleteModalVisible.value = true }
 
@@ -301,6 +294,21 @@ const showExportModal = () => {
 // Market Modal
 const showMarketModal = () => {
   marketModalVisible.value = true
+}
+
+// Toggle Disabled
+const handleToggleDisabled = async (skill, disabled) => {
+  try {
+    const result = await window.electronAPI.toggleComponentDisabled('skill', skill.id, disabled)
+    if (result.success) {
+      await loadSkills()
+    } else {
+      message.error(result.error || t('common.operationFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to toggle skill disabled:', err)
+    message.error(err.message)
+  }
 }
 
 // Load Skills

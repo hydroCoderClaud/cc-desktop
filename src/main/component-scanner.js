@@ -108,11 +108,17 @@ class ComponentScanner {
     try {
       const files = fs.readdirSync(dirPath)
       for (const file of files) {
-        if (!file.endsWith('.md')) continue
-        const name = file.replace('.md', '')
-        const filePath = path.join(dirPath, file)
-        const frontmatter = this._parseYamlFrontmatter(filePath)
-        results.push({ name, filePath, frontmatter })
+        if (file.endsWith('.md')) {
+          const name = file.replace('.md', '')
+          const filePath = path.join(dirPath, file)
+          const frontmatter = this._parseYamlFrontmatter(filePath)
+          results.push({ name, filePath, frontmatter, disabled: false })
+        } else if (file.endsWith('.md.disabled')) {
+          const name = file.replace('.md.disabled', '')
+          const filePath = path.join(dirPath, file)
+          const frontmatter = this._parseYamlFrontmatter(filePath)
+          results.push({ name, filePath, frontmatter, disabled: true })
+        }
       }
     } catch (err) {
       console.error(`[ComponentScanner] Failed to scan directory ${dirPath}:`, err)
@@ -140,15 +146,34 @@ class ComponentScanner {
         if (!fs.existsSync(skillMdPath)) {
           skillMdPath = path.join(skillDir, 'skill.md')
         }
-        if (!fs.existsSync(skillMdPath)) continue
 
-        const frontmatter = this._parseYamlFrontmatter(skillMdPath)
-        results.push({
-          id: item.name,  // 目录名作为 ID
-          skillPath: skillDir,
-          filePath: skillMdPath,  // SKILL.md 文件路径
-          frontmatter
-        })
+        if (fs.existsSync(skillMdPath)) {
+          const frontmatter = this._parseYamlFrontmatter(skillMdPath)
+          results.push({
+            id: item.name,
+            skillPath: skillDir,
+            filePath: skillMdPath,
+            frontmatter,
+            disabled: false
+          })
+          continue
+        }
+
+        // 检查 .disabled 文件
+        let disabledPath = path.join(skillDir, 'SKILL.md.disabled')
+        if (!fs.existsSync(disabledPath)) {
+          disabledPath = path.join(skillDir, 'skill.md.disabled')
+        }
+        if (fs.existsSync(disabledPath)) {
+          const frontmatter = this._parseYamlFrontmatter(disabledPath)
+          results.push({
+            id: item.name,
+            skillPath: skillDir,
+            filePath: disabledPath,
+            frontmatter,
+            disabled: true
+          })
+        }
       }
     } catch (err) {
       console.error(`[ComponentScanner] Failed to scan skill directories ${dirPath}:`, err)

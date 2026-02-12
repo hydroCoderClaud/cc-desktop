@@ -124,7 +124,7 @@
     <!-- Right Panel: Developer 模式用配置面板，Agent 模式用文件浏览面板 -->
     <template v-if="showRightPanel">
       <RightPanel
-        v-if="isDeveloperMode"
+        v-show="isDeveloperMode"
         ref="rightPanelRef"
         :current-project="currentProject"
         :terminal-busy="terminalBusy"
@@ -133,7 +133,7 @@
         @send-to-terminal="handleSendToTerminal"
       />
       <AgentRightPanel
-        v-else
+        v-show="!isDeveloperMode"
         :session-id="activeAgentSessionId"
         @collapse="showRightPanel = false"
       />

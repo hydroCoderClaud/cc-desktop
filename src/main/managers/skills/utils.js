@@ -53,6 +53,7 @@ const skillsUtilsMixin = {
       skillPath: skill.skillPath,
       filePath: skill.filePath,  // SKILL.md 文件路径
       category,
+      disabled: skill.disabled || false,
       ...extraFields
     }
   },

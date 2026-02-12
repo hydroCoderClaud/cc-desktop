@@ -45,11 +45,11 @@
 
         <!-- 自定义全局 Agents -->
         <AgentGroup group-key="user" :agents="filteredAgents.user"
-          :title="t('rightPanel.agents.userAgents')" icon="user" :editable="true"
+          :title="t('rightPanel.agents.userAgents')" icon="user" :editable="true" :toggleable="true"
           :expanded="expandedGroups.includes('user')" @toggle="toggleGroup('user')"
           @create="showCreateModal('user')" @open-folder="openAgentsFolder('user')"
           @click-agent="handleAgentClick" @edit="showEditModal" @delete="showDeleteModal"
-          @openFile="handleOpenFile"
+          @openFile="handleOpenFile" @toggle-disabled="handleToggleDisabled"
           :copy="showCopyModal" :copy-title="t('rightPanel.agents.copyAgent')"
           :empty-text="t('rightPanel.agents.noUserAgents')" />
 
@@ -265,13 +265,6 @@ const showEditModal = (agent) => {
   editModalVisible.value = true
 }
 
-// 查看插件代理（只读模式）
-const showViewModal = (agent) => {
-  editAgent.value = agent
-  editSource.value = agent.source
-  editModalVisible.value = true
-}
-
 // Delete Modal
 const showDeleteModal = (agent) => { deleteTarget.value = agent; deleteModalVisible.value = true }
 
@@ -309,6 +302,21 @@ const showExportModal = () => {
 // Market Modal
 const showMarketModal = () => {
   marketModalVisible.value = true
+}
+
+// Toggle Disabled
+const handleToggleDisabled = async (agent, disabled) => {
+  try {
+    const result = await window.electronAPI.toggleComponentDisabled('agent', agent.id, disabled)
+    if (result.success) {
+      await loadAgents()
+    } else {
+      message.error(result.error || t('common.operationFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to toggle agent disabled:', err)
+    message.error(err.message)
+  }
 }
 
 // Load Agents

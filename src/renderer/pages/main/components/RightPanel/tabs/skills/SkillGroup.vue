@@ -14,14 +14,22 @@
           v-for="skill in skills"
           :key="`${groupKey}-${skill.id}`"
           class="skill-item"
+          :class="{ disabled: skill.disabled }"
           @click="$emit('click-skill', skill)"
         >
           <div class="skill-row">
             <span class="skill-name">
               {{ skill.id }} <span class="skill-invoke">(/{{ skill.name || skill.id }})</span>
-              <span v-if="skill.marketSource" class="market-badge">{{ t('rightPanel.skills.market.marketBadge') }}</span>
+              <span v-if="skill.marketSource && !skill.disabled" class="market-badge">{{ t('rightPanel.skills.market.marketBadge') }}</span>
             </span>
-            <span class="skill-actions">
+            <n-switch
+              v-if="toggleable"
+              size="small"
+              :value="!skill.disabled"
+              @update:value="(val) => $emit('toggle-disabled', skill, !val)"
+              @click.stop
+            />
+            <span v-if="!skill.disabled" class="skill-actions">
               <button
                 v-if="copy"
                 class="icon-btn inline"
@@ -56,6 +64,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { NSwitch } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -67,13 +76,14 @@ const props = defineProps({
   title: { type: String, required: true },
   icon: { type: String, default: 'folder' },
   editable: { type: Boolean, default: false },
+  toggleable: { type: Boolean, default: false },
   expanded: { type: Boolean, default: false },
   emptyText: { type: String, default: '' },
   copy: { type: Function, default: null },
   copyTitle: { type: String, default: '' }
 })
 
-defineEmits(['toggle', 'create', 'open-folder', 'click-skill', 'edit', 'delete', 'openFile'])
+defineEmits(['toggle', 'create', 'open-folder', 'click-skill', 'edit', 'delete', 'openFile', 'toggle-disabled'])
 
 const createTitle = computed(() => {
   return props.groupKey === 'project'
@@ -160,6 +170,11 @@ const createTitle = computed(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease;
+}
+
+.skill-item.disabled .skill-name,
+.skill-item.disabled .skill-desc {
+  opacity: 0.5;
 }
 
 .skill-item:hover {

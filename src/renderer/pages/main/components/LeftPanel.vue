@@ -210,36 +210,37 @@
           @select="handleSettingsSelect"
           placement="top-start"
         >
-          <button class="settings-btn">
+          <button class="settings-btn" :title="t('main.settingsMenu')">
             <Icon name="settings" :size="16" class="icon" />
-            <span class="text">{{ t('main.settingsMenu') }}</span>
           </button>
         </n-dropdown>
 
-        <button
-          v-if="!isDeveloperMode"
-          class="capability-btn"
-          @click="showCapabilityModal = true"
-          :title="t('agent.capabilities')"
-        >
-          <Icon name="lightning" :size="18" />
-        </button>
+        <div class="footer-right">
+          <button
+            v-if="!isDeveloperMode"
+            class="capability-btn"
+            @click="showCapabilityModal = true"
+            :title="t('agent.capabilities')"
+          >
+            <Icon name="lightning" :size="18" />
+          </button>
 
-        <button class="locale-toggle-btn" @click="toggleLocale" :title="locale === 'zh-CN' ? 'English' : '中文'">
-          <span>{{ locale === 'zh-CN' ? 'EN' : '中' }}</span>
-        </button>
+          <button class="locale-toggle-btn" @click="toggleLocale" :title="locale === 'zh-CN' ? 'English' : '中文'">
+            <span>{{ locale === 'zh-CN' ? 'EN' : '中' }}</span>
+          </button>
 
-        <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
-          <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
-        </button>
+          <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
+            <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
+          </button>
 
-        <button
-          class="mode-toggle-btn"
-          @click="handleToggleMode"
-          :title="isDeveloperMode ? t('mode.switchToAgent') : t('mode.switchToDeveloper')"
-        >
-          <Icon :name="isDeveloperMode ? 'terminal' : 'robot'" :size="18" />
-        </button>
+          <button
+            class="mode-toggle-btn"
+            @click="handleToggleMode"
+            :title="isDeveloperMode ? t('mode.switchToAgent') : t('mode.switchToDeveloper')"
+          >
+            <Icon :name="isDeveloperMode ? 'terminal' : 'robot'" :size="18" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1434,24 +1435,29 @@ defineExpose({
   gap: 8px;
 }
 
-.settings-btn {
-  flex: 1;
+.footer-right {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+}
+
+.settings-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   background: var(--bg-color-tertiary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
   color: var(--text-color);
 }
 
 .settings-btn:hover {
-  background: var(--hover-bg);
+  transform: scale(1.05);
   border-color: var(--primary-color);
 }
 

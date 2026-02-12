@@ -578,9 +578,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 能力管理（Agent 模式）
   fetchCapabilities: () => ipcRenderer.invoke('capabilities:fetch'),
-  getCapabilityState: () => ipcRenderer.invoke('capabilities:getState'),
+  installCapability: (id, capability) => ipcRenderer.invoke('capabilities:install', id, capability),
+  uninstallCapability: (id, capability) => ipcRenderer.invoke('capabilities:uninstall', id, capability),
   enableCapability: (id, capability) => ipcRenderer.invoke('capabilities:enable', id, capability),
-  disableCapability: (id) => ipcRenderer.invoke('capabilities:disable', id),
+  disableCapability: (id, capability) => ipcRenderer.invoke('capabilities:disable', id, capability),
+  toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
 
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册

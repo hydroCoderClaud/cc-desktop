@@ -1185,16 +1185,30 @@ export default {
     capabilities: 'Capabilities',
     capabilityManagement: 'Capability Management',
     refreshCapabilities: 'Refresh capabilities',
-    capabilityInstalling: 'Installing components...',
+    capabilityInstalling: 'Installing...',
     capabilityEnabled: 'Enabled',
     capabilityDisabled: 'Disabled',
-    capabilityInstallFailed: 'Some components failed to install',
+    capabilityInstallFailed: 'Install failed',
     capabilityFetchFailed: 'Failed to fetch capabilities',
     noCapabilities: 'No capabilities available',
-    componentInstalled: 'Installed',
-    componentNotInstalled: 'Not installed',
-    componentSkipped: 'Skipped',
-    componentFailed: 'Failed',
-    allComponentsInstalled: 'All components ready'
+    capDownload: 'Download',
+    capUpdate: 'Update',
+    capUninstall: 'Uninstall',
+    capInstallSuccess: 'Installed successfully',
+    capUpdateSuccess: 'Updated successfully',
+    capUninstallSuccess: 'Uninstalled successfully',
+    capUninstallFailed: 'Uninstall failed',
+
+    // Capability categories
+    category: {
+      'code-review': 'Code Review',
+      'test-automation': 'Test Automation',
+      'git-workflow': 'Git Workflow',
+      'code-intelligence': 'Code Intelligence',
+      'code-quality': 'Code Quality',
+      'documentation': 'Documentation',
+      'developer-tools': 'Developer Tools',
+      'other': 'Other'
+    }
   }
 }

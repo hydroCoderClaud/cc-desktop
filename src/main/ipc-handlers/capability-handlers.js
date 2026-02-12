@@ -19,38 +19,67 @@ function setupCapabilityHandlers(ipcMain, capabilityManager) {
     }
   })
 
-  // 获取本地能力状态
-  ipcMain.handle('capabilities:getState', async () => {
+  // 安装能力（从 registry 下载组件）
+  ipcMain.handle('capabilities:install', async (event, id, capability) => {
     try {
-      return capabilityManager.getState()
+      if (!id || !capability) {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await capabilityManager.installCapability(id, capability)
     } catch (err) {
-      console.error('[IPC] capabilities:getState error:', err)
-      return {}
+      console.error('[IPC] capabilities:install error:', err)
+      return { success: false, error: err.message }
     }
   })
 
-  // 启用能力（安装缺失组件）
+  // 卸载能力（删除组件文件）
+  ipcMain.handle('capabilities:uninstall', async (event, id, capability) => {
+    try {
+      if (!id || !capability) {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await capabilityManager.uninstallCapability(id, capability)
+    } catch (err) {
+      console.error('[IPC] capabilities:uninstall error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 启用能力（恢复已禁用组件）
   ipcMain.handle('capabilities:enable', async (event, id, capability) => {
     try {
       if (!id || !capability) {
-        return { success: false, results: [], errors: ['Invalid parameters'] }
+        return { success: false, error: 'Invalid parameters' }
       }
       return await capabilityManager.enableCapability(id, capability)
     } catch (err) {
       console.error('[IPC] capabilities:enable error:', err)
-      return { success: false, results: [], errors: [err.message] }
+      return { success: false, error: err.message }
     }
   })
 
-  // 禁用能力（仅标记状态）
-  ipcMain.handle('capabilities:disable', async (event, id) => {
+  // 禁用能力（重命名组件文件）
+  ipcMain.handle('capabilities:disable', async (event, id, capability) => {
     try {
-      if (!id) {
-        return { success: false, error: 'Invalid capability ID' }
+      if (!id || !capability) {
+        return { success: false, error: 'Invalid parameters' }
       }
-      return await capabilityManager.disableCapability(id)
+      return await capabilityManager.disableCapability(id, capability)
     } catch (err) {
       console.error('[IPC] capabilities:disable error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 切换单个组件的禁用状态（Developer 模式）
+  ipcMain.handle('capabilities:toggleComponent', async (event, type, id, disabled) => {
+    try {
+      if (!type || !id) {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return capabilityManager.toggleComponentDisabled(type, id, disabled)
+    } catch (err) {
+      console.error('[IPC] capabilities:toggleComponent error:', err)
       return { success: false, error: err.message }
     }
   })

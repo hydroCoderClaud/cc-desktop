@@ -1191,13 +1191,27 @@ export default {
     capabilityInstalling: '安装组件中…',
     capabilityEnabled: '已启用',
     capabilityDisabled: '已禁用',
-    capabilityInstallFailed: '部分组件安装失败',
+    capabilityInstallFailed: '安装失败',
     capabilityFetchFailed: '获取能力清单失败',
     noCapabilities: '暂无可用能力',
-    componentInstalled: '已安装',
-    componentNotInstalled: '未安装',
-    componentSkipped: '已跳过',
-    componentFailed: '安装失败',
-    allComponentsInstalled: '所有组件已就绪'
+    capDownload: '下载',
+    capUpdate: '更新',
+    capUninstall: '卸载',
+    capInstallSuccess: '安装成功',
+    capUpdateSuccess: '更新成功',
+    capUninstallSuccess: '卸载成功',
+    capUninstallFailed: '卸载失败',
+
+    // 能力分类
+    category: {
+      'code-review': '代码审查',
+      'test-automation': '自动化测试',
+      'git-workflow': 'Git 工作流',
+      'code-intelligence': '代码智能',
+      'code-quality': '代码质量',
+      'documentation': '文档技能',
+      'developer-tools': '开发者工具',
+      'other': '其他'
+    }
   }
 }
