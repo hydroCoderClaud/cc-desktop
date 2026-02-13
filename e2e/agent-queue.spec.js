@@ -22,9 +22,9 @@ test.afterEach(async () => {
 
 test.describe('队列基础功能', () => {
   test('应该能添加消息到队列', async () => {
-    // 1. 切换到 Agent 模式
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    // 1. 切换到 Agent 模式（点击模式切换图标按钮）
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
 
     // 2. 创建新对话
     await window.click('button:has-text("新建对话")')
@@ -54,8 +54,8 @@ test.describe('队列基础功能', () => {
 
   test('应该能自动消费队列', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
@@ -83,8 +83,8 @@ test.describe('队列基础功能', () => {
 test.describe('中断功能', () => {
   test('点击停止应该显示"输出已中断"', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
@@ -108,8 +108,8 @@ test.describe('中断功能', () => {
 
   test('中断后队列不应该自动消费', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
@@ -139,8 +139,8 @@ test.describe('中断功能', () => {
 test.describe('队列持久化', () => {
   test('关闭并重新打开会话，队列应该还在', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
@@ -177,8 +177,8 @@ test.describe('队列持久化', () => {
 test.describe('UI 交互', () => {
   test('点击队列项编辑时面板不应该关闭', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
@@ -209,8 +209,8 @@ test.describe('UI 交互', () => {
 
   test('点击删除按钮时面板不应该关闭', async () => {
     // 1. 切换到 Agent 模式并创建对话
-    await window.click('text=Agent 模式')
-    await window.waitForTimeout(500)
+    await window.click('.mode-toggle-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("新建对话")')
     await window.waitForTimeout(500)
     await window.click('button:has-text("创建")')
