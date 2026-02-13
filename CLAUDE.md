@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.33
+**当前版本**：1.6.35
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
@@ -32,7 +32,7 @@ npm run rebuild:sqlite
 
 **开发提示**：
 - F12 切换 DevTools
-- 配置文件：`%APPDATA%/claude-code-desktop/config.json` (Windows) 或 `~/.config/claude-code-desktop/config.json` (Linux/macOS)
+- 配置文件：`%APPDATA%/cc-desktop/config.json` (Windows) 或 `~/.config/cc-desktop/config.json` (Linux/macOS)
 - 测试文件位于 `tests/` 目录，使用 Vitest 框架
 
 ## 架构

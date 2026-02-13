@@ -2,6 +2,38 @@
 
 ---
 
+## v1.6.35 - 2026-02-14
+
+### 修复 (Bug Fixes)
+
+**代码回退与数据保护**
+- 回退失败的应用重命名修改（HydroCoder Desktop → CC Desktop）
+- 回退数据迁移逻辑，避免数据丢失风险
+- 移除 `page-title.js` 工具文件和相关导入
+- 修复子页面 `main.js` 中被破坏的 import 语法
+
+### 改进 (Improvements)
+
+**i18n 优化保留**
+- 保留"智能体模式"中文翻译（`agentMode: '智能体模式'`）
+- 保留 Agent 模式欢迎界面改进（使用指南、"恢复"历史对话）
+- 保留开发者模式欢迎界面标题优化
+- 保留 i18n 键冲突修复（`main.developerWelcome` 独立于 `main.welcome`）
+
+### 文档 (Documentation)
+
+- 更新 CLAUDE.md：配置文件路径更正为 `cc-desktop` 目录
+- 更新版本号至 v1.6.35
+- 数据目录明确保持在 `%APPDATA%/cc-desktop/` 不变
+
+### 重要说明
+
+- **数据目录**：`cc-desktop`（不再迁移）
+- **显示名称**：CC Desktop
+- **保留改进**：智能体模式翻译、欢迎界面优化等 i18n 改进
+
+---
+
 ## v1.6.34 - 2026-02-13
 
 ### 新增 (Features)
