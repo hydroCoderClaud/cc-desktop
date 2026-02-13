@@ -1131,7 +1131,7 @@ export default {
     stopGeneration: '停止生成',
     outputInterrupted: '输出已中断',
     thinking: '正在思考...',
-    inputPlaceholder: '请输入您想说的话... (Enter 发送，Shift+Enter 换行)',
+    inputPlaceholder: '输入消息并 Enter 发送，聊天区域输出中会自动加入队列后自动发送...',
     inputPlaceholderDisabled: '请输入您想说的话...(聊天区域停止输出时按Enter发送，Shift+Enter换行)',
     inputPlaceholderQueued: '输入消息并 Enter 加入队列，输出结束后自动发送...',
     queueHint: '{count} 条消息排队中',
