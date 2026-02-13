@@ -107,6 +107,7 @@ const {
   isCompacting,
   slashCommands,
   activeModel,
+  isInterrupting,  // 中断标志，用于阻止队列自动消费
   loadMessages,
   sendMessage,
   cancelGeneration,
@@ -234,6 +235,11 @@ const tryAutoConsumeQueue = () => {
 // --- 消息队列自动发送：流式正常结束后自动消费队列 ---
 const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {
+    // CRITICAL: 用户中断时不自动消费，避免立即发送下一条
+    if (isInterrupting.value) {
+      console.log('[AgentChatTab] 🛑 User interrupted, skip auto-consume')
+      return
+    }
     // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
     if (error.value) return
     tryAutoConsumeQueue()

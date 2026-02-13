@@ -44,8 +44,8 @@ export function useAgentChat(sessionId) {
   let syncFromInit = false
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   let hasActiveSession = false
-  // 用户是否主动取消了生成（用于抑制 "Unknown error" 提示）
-  let isUserCancelling = false
+  // 用户是否主动取消了生成（用于抑制队列自动消费和错误显示）
+  const isInterrupting = ref(false)
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
   watch(selectedModel, async (newVal) => {
@@ -211,7 +211,7 @@ export function useAgentChat(sessionId) {
 
     error.value = null
     isRestored.value = false
-    isUserCancelling = false  // 重置取消标志，允许下次错误显示
+    isInterrupting.value = false  // 重置中断标志，允许正常队列消费
     if (!trimmed.startsWith('/')) {
       addUserMessage(trimmed)
     }
@@ -251,12 +251,13 @@ export function useAgentChat(sessionId) {
    */
   const cancelGeneration = async () => {
     try {
-      // 标记为用户主动取消，避免显示 "Unknown error"
-      isUserCancelling = true
+      // CRITICAL: 先设置中断标志，阻止队列自动消费
+      isInterrupting.value = true
+      console.log('[useAgentChat] 🛑 User interrupting, blocking auto-consume')
       await window.electronAPI.cancelAgentGeneration(sessionId)
     } catch (err) {
       console.error('[useAgentChat] cancel error:', err)
-      isUserCancelling = false  // 取消失败，重置标志
+      isInterrupting.value = false  // 取消失败，重置标志
     }
   }
 
@@ -372,10 +373,11 @@ export function useAgentChat(sessionId) {
 
     // 检查是否是错误结果
     if (result?.subtype?.startsWith('error')) {
-      // 如果是用户主动取消，不显示错误（CLI interrupt 会返回 error subtype）
-      if (isUserCancelling) {
-        console.log('[useAgentChat] User cancelled, suppressing error display')
-        isUserCancelling = false  // 重置标志
+      // 如果是用户主动中断，显示友好消息而不是错误
+      if (isInterrupting.value) {
+        console.log('[useAgentChat] 🛑 User interrupted, showing friendly message')
+        error.value = '输出已中断'  // 友好提示，不是错误
+        isInterrupting.value = false  // 重置标志，允许下次正常队列消费
       } else {
         // 真正的错误，显示错误消息
         error.value = result.error || result.result || 'Unknown error'
@@ -567,6 +569,7 @@ export function useAgentChat(sessionId) {
     activeModel,
     totalCostUsd,
     numTurns,
+    isInterrupting,  // 暴露中断标志供父组件检查
     loadMessages,
     sendMessage,
     cancelGeneration,
