@@ -1128,7 +1128,7 @@ export default {
     stopGeneration: 'Stop Generation',
     outputInterrupted: 'Output Interrupted',
     thinking: 'Thinking...',
-    inputPlaceholder: 'Type your message and press Enter to send. Auto-queues during AI output... (Shift+Enter = new line)',
+    inputPlaceholder: 'Type your message and press Enter to send; Auto-queues and sends in order during AI output... (Shift+Enter = new line)',
     inputPlaceholderDisabled: 'Type your message and press Enter when AI stops outputting... (Shift+Enter = new line)',
     inputPlaceholderQueued: 'Type and press Enter to queue, auto-sends when output finishes...',
     queueHint: '{count} message(s) queued',
