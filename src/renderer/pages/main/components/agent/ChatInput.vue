@@ -155,12 +155,12 @@
                 <span
                   v-else
                   class="queue-item-text"
-                  @click="startEdit(msg)"
+                  @click.stop="startEdit(msg)"
                 >
                   {{ msg.text }}
                 </span>
 
-                <button class="queue-item-del" @click="removeFromQueue(idx)" :title="t('common.delete')">
+                <button class="queue-item-del" @click.stop="removeFromQueue(idx)" :title="t('common.delete')">
                   <Icon name="close" :size="12" />
                 </button>
               </div>
