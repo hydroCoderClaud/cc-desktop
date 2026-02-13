@@ -348,13 +348,29 @@ onMounted(async () => {
   emit('ready', { sessionId: props.sessionId })
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
   }
   window.removeEventListener('focus', onWindowFocus)
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
+
+  // 组件卸载时立即保存队列（清除防抖，避免数据丢失）
   if (saveQueueTimer) clearTimeout(saveQueueTimer)
+  const currentQueue = chatInputRef.value?.messageQueue?.value
+  if (currentQueue && currentQueue.length > 0) {
+    try {
+      const plainQueue = JSON.parse(JSON.stringify(currentQueue))
+      await window.electronAPI?.saveAgentQueue({
+        sessionId: props.sessionId,
+        queue: plainQueue
+      })
+      console.log('[AgentChatTab] 💾 Saved queue on unmount:', plainQueue.length, 'messages')
+    } catch (err) {
+      console.error('[AgentChatTab] ❌ Failed to save queue on unmount:', err)
+    }
+  }
+
   if (queueWatchStop) queueWatchStop()  // 停止队列监听
   cleanup()
 })
