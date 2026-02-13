@@ -27,10 +27,10 @@ test.describe('队列基础功能', () => {
     await window.waitForTimeout(1000)
 
     // 2. 创建新对话
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
 
-    // 3. 填写对话信息并创建
+    // 3. 填写对话信息并创建（点击弹窗中的"创建"按钮）
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -56,8 +56,8 @@ test.describe('队列基础功能', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -85,8 +85,8 @@ test.describe('中断功能', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -110,8 +110,8 @@ test.describe('中断功能', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -141,8 +141,8 @@ test.describe('队列持久化', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -179,8 +179,8 @@ test.describe('UI 交互', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
@@ -211,8 +211,8 @@ test.describe('UI 交互', () => {
     // 1. 切换到 Agent 模式并创建对话
     await window.click('.mode-toggle-btn')
     await window.waitForTimeout(1000)
-    await window.click('button:has-text("新建对话")')
-    await window.waitForTimeout(500)
+    await window.click('.new-session-btn')
+    await window.waitForTimeout(1000)
     await window.click('button:has-text("创建")')
     await window.waitForTimeout(1000)
 
