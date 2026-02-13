@@ -118,6 +118,10 @@ export function useAgentPanel() {
       if (index !== -1) {
         conversations.value.splice(index, 1)
       }
+
+      // CRITICAL: 清理关闭标记，防止内存泄露
+      closedSessionIds.delete(sessionId)
+      console.log('[useAgentPanel] 🗑️ Removed closed mark for deleted session:', sessionId)
     } catch (err) {
       console.error('[useAgentPanel] deleteConversation error:', err)
     }

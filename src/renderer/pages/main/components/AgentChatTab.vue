@@ -71,7 +71,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
-import { isSessionClosed } from '@composables/useAgentPanel'
+import { isSessionClosed, unmarkSessionClosed } from '@composables/useAgentPanel'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
@@ -211,27 +211,32 @@ const handleCancel = async () => {
 // --- 卸载标志：防止在组件卸载过程中触发消息发送 ---
 let isUnmounting = false
 
+// --- 队列自动消费：提取公共逻辑避免重复 ---
+const tryAutoConsumeQueue = () => {
+  // CRITICAL: 如果会话已关闭，不发送新消息（避免会话重启）
+  if (isSessionClosed(props.sessionId)) {
+    console.log('[AgentChatTab] 🚫 Skip auto-send - session is closed')
+    return
+  }
+  // 如果组件正在卸载，不发送新消息（避免会话重启）
+  if (isUnmounting) {
+    console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
+    return
+  }
+  nextTick(async () => {
+    const next = chatInputRef.value?.dequeue()
+    if (next) {
+      await handleSend(next)
+    }
+  })
+}
+
 // --- 消息队列自动发送：流式正常结束后自动消费队列 ---
 const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {
     // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
     if (error.value) return
-    // CRITICAL: 如果会话已关闭，不发送新消息（避免会话重启）
-    if (isSessionClosed(props.sessionId)) {
-      console.log('[AgentChatTab] 🚫 Skip auto-send - session is closed')
-      return
-    }
-    // 如果组件正在卸载，不发送新消息（避免会话重启）
-    if (isUnmounting) {
-      console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
-      return
-    }
-    nextTick(async () => {
-      const next = chatInputRef.value?.dequeue()
-      if (next) {
-        await handleSend(next)
-      }
-    })
+    tryAutoConsumeQueue()
   }
 })
 
@@ -239,22 +244,7 @@ const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
 const queueEnabledWatchStop = watch(queueEnabled, (enabled, wasEnabled) => {
   // 从 false → true，且不在流式输出中，且队列有消息
   if (!wasEnabled && enabled && !isStreaming.value) {
-    // CRITICAL: 如果会话已关闭，不发送新消息（避免会话重启）
-    if (isSessionClosed(props.sessionId)) {
-      console.log('[AgentChatTab] 🚫 Skip auto-send - session is closed')
-      return
-    }
-    // 如果组件正在卸载，不发送新消息（避免会话重启）
-    if (isUnmounting) {
-      console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
-      return
-    }
-    nextTick(async () => {
-      const next = chatInputRef.value?.dequeue()
-      if (next) {
-        await handleSend(next)
-      }
-    })
+    tryAutoConsumeQueue()
   }
 })
 
@@ -353,6 +343,9 @@ onMounted(async () => {
       // defineExpose 自动解包，messageQueue 直接是数组，替换整个数组
       chatInputRef.value.messageQueue.splice(0, chatInputRef.value.messageQueue.length, ...result.queue)
       console.log('[AgentChatTab] ✅ Restored queue:', result.queue.length, 'messages', result.queue)
+
+      // CRITICAL: 清除关闭标记，允许队列自动消费
+      unmarkSessionClosed(props.sessionId)
     } else {
       console.log('[AgentChatTab] ⏭️ No queue to restore, reasons:', {
         hasResult: !!result,
@@ -373,7 +366,7 @@ onMounted(async () => {
 })
 
 // 在组件卸载前保存队列（此时子组件还存在）
-onBeforeUnmount(() => {
+onBeforeUnmount(async () => {
   console.log('[AgentChatTab] 🚪 Component before unmount, sessionId:', props.sessionId)
 
   // CRITICAL: 立即设置卸载标志，防止任何异步操作触发消息发送
@@ -412,8 +405,8 @@ onBeforeUnmount(() => {
     console.log('[AgentChatTab] 💾 Saving queue on beforeUnmount...')
     try {
       const plainQueue = JSON.parse(JSON.stringify(currentQueue))
-      // 同步保存，确保卸载前完成
-      window.electronAPI?.saveAgentQueue({
+      // CRITICAL: 使用 await 确保保存完成后再卸载
+      await window.electronAPI?.saveAgentQueue({
         sessionId: props.sessionId,
         queue: plainQueue
       })
