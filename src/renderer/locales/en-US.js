@@ -69,7 +69,7 @@ export default {
     noProjects: 'No projects yet',
     noProjectsHint: 'Click "+ Add Project" to start',
     selectProject: 'Select project',
-    welcome: 'Welcome',
+    welcome: 'Developer Mode',
     pleaseSelectProject: 'Please select a project',
     localMode: 'Local Mode',
     desktopUser: 'Desktop User',
