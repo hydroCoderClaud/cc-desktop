@@ -2,8 +2,8 @@
  * Agent 队列功能 E2E 测试
  * 测试消息队列的完整功能
  */
-import { test, expect } from '@playwright/test'
-import { launchElectronApp, closeElectronApp } from './helpers/electron.js'
+const { test, expect } = require('@playwright/test')
+const { launchElectronApp, closeElectronApp } = require('./helpers/electron')
 
 let app, window
 

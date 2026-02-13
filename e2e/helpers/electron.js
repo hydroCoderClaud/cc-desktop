@@ -1,18 +1,14 @@
 /**
  * Electron 应用启动辅助工具
  */
-import { _electron as electron } from 'playwright'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const { _electron: electron } = require('playwright')
+const path = require('path')
 
 /**
  * 启动 Electron 应用
  * @returns {Promise<{app, window}>}
  */
-export async function launchElectronApp() {
+async function launchElectronApp() {
   const electronPath = path.join(__dirname, '../../node_modules/.bin/electron')
   const appPath = path.join(__dirname, '../../src/main/index.js')
 
@@ -36,6 +32,11 @@ export async function launchElectronApp() {
  * 关闭 Electron 应用
  * @param {Object} app - Electron 应用实例
  */
-export async function closeElectronApp(app) {
+async function closeElectronApp(app) {
   await app.close()
+}
+
+module.exports = {
+  launchElectronApp,
+  closeElectronApp
 }

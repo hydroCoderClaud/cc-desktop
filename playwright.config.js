@@ -2,9 +2,9 @@
  * Playwright E2E 测试配置
  * 用于 Electron 应用的自动化测试
  */
-import { defineConfig } from '@playwright/test'
+const { defineConfig } = require('@playwright/test')
 
-export default defineConfig({
+module.exports = defineConfig({
   testDir: './e2e',
   timeout: 60000, // 每个测试 60 秒超时
   retries: 0, // 不重试，失败就失败
