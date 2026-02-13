@@ -240,16 +240,22 @@ let queueWatchStop = null
 
 const startQueuePersistence = () => {
   if (queueWatchStop) return  // 避免重复监听
+  if (!chatInputRef.value?.messageQueue) {
+    console.error('[AgentChatTab] ❌ Cannot start queue persistence: chatInputRef or messageQueue not ready')
+    return
+  }
 
   console.log('[AgentChatTab] 🚀 Starting queue persistence watch for session:', props.sessionId)
 
+  // 直接 watch messageQueue ref 对象，而不是它的 value
   queueWatchStop = watch(
-    () => chatInputRef.value?.messageQueue?.value || [],
+    () => chatInputRef.value?.messageQueue?.value,
     (newQueue, oldQueue) => {
       console.log('[AgentChatTab] 📝 Queue changed:', {
         oldLength: oldQueue?.length || 0,
         newLength: newQueue?.length || 0,
-        sessionId: props.sessionId
+        sessionId: props.sessionId,
+        queue: newQueue
       })
 
       // 防抖保存（避免高频变化时频繁写入数据库）
@@ -271,7 +277,7 @@ const startQueuePersistence = () => {
         }
       }, 300)
     },
-    { deep: true }
+    { deep: true, immediate: false }
   )
 }
 
@@ -296,16 +302,26 @@ onMounted(async () => {
   await initDefaultModel()  // 从配置读取默认模型
   await loadMessages()  // 加载历史消息
 
-  // 恢复持久化队列
+  // 恢复持久化队列（需要等待 chatInputRef 准备好）
+  await nextTick()  // 确保 ChatInput 组件已渲染
+
   try {
     const result = await window.electronAPI?.getAgentQueue(props.sessionId)
-    console.log('[AgentChatTab] Loading queue for session:', props.sessionId, result)
+    console.log('[AgentChatTab] 📖 Loading queue for session:', props.sessionId, result)
+    console.log('[AgentChatTab] 🔍 chatInputRef.value:', chatInputRef.value)
+    console.log('[AgentChatTab] 🔍 chatInputRef.value?.messageQueue:', chatInputRef.value?.messageQueue)
+
     if (result?.success && result.queue?.length > 0 && chatInputRef.value) {
       // messageQueue 是 ref，需要赋值给 .value
       chatInputRef.value.messageQueue.value = result.queue
       console.log('[AgentChatTab] ✅ Restored queue:', result.queue.length, 'messages', result.queue)
     } else {
-      console.log('[AgentChatTab] No queue to restore or chatInputRef not ready')
+      console.log('[AgentChatTab] ⏭️ No queue to restore, reasons:', {
+        hasResult: !!result,
+        success: result?.success,
+        queueLength: result?.queue?.length,
+        hasChatInputRef: !!chatInputRef.value
+      })
     }
   } catch (err) {
     console.error('[AgentChatTab] ❌ Failed to load queue:', err)
