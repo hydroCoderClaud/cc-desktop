@@ -202,10 +202,10 @@ const handleSend = async (text) => {
   scrollToBottom(false, true)
 }
 
-// 取消生成（同时清空队列）
+// 取消生成（只停止当前输出，保留队列）
 const handleCancel = async () => {
-  chatInputRef.value?.clearQueue()
   await cancelGeneration()
+  // 注意：不清空队列！队列面板有独立的"清空全部"按钮供用户使用
 }
 
 // --- 卸载标志：防止在组件卸载过程中触发消息发送 ---
