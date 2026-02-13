@@ -4,6 +4,37 @@
  */
 import { ref, computed } from 'vue'
 
+// 模块级别的已关闭会话集合（跨组件共享）
+// 用于在队列自动消费前检查会话是否已关闭
+const closedSessionIds = new Set()
+
+/**
+ * 检查会话是否已关闭
+ * @param {string} sessionId
+ * @returns {boolean}
+ */
+export function isSessionClosed(sessionId) {
+  return closedSessionIds.has(sessionId)
+}
+
+/**
+ * 标记会话为已关闭（供内部使用）
+ * @param {string} sessionId
+ */
+function markSessionClosed(sessionId) {
+  closedSessionIds.add(sessionId)
+  console.log('[useAgentPanel] 🚫 Marked session as closed:', sessionId)
+}
+
+/**
+ * 移除会话的关闭标记（供重新打开使用）
+ * @param {string} sessionId
+ */
+export function unmarkSessionClosed(sessionId) {
+  closedSessionIds.delete(sessionId)
+  console.log('[useAgentPanel] ✅ Unmarked session as closed:', sessionId)
+}
+
 export function useAgentPanel() {
   const conversations = ref([])
   const loading = ref(false)
@@ -59,6 +90,9 @@ export function useAgentPanel() {
    */
   const closeConversation = async (sessionId) => {
     if (!window.electronAPI) return
+
+    // CRITICAL: 立即标记会话为已关闭，阻止队列自动消费
+    markSessionClosed(sessionId)
 
     try {
       await window.electronAPI.closeAgentSession(sessionId)

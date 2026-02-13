@@ -71,6 +71,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
+import { isSessionClosed } from '@composables/useAgentPanel'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
@@ -215,6 +216,11 @@ const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {
     // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
     if (error.value) return
+    // CRITICAL: 如果会话已关闭，不发送新消息（避免会话重启）
+    if (isSessionClosed(props.sessionId)) {
+      console.log('[AgentChatTab] 🚫 Skip auto-send - session is closed')
+      return
+    }
     // 如果组件正在卸载，不发送新消息（避免会话重启）
     if (isUnmounting) {
       console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
@@ -233,6 +239,11 @@ const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
 const queueEnabledWatchStop = watch(queueEnabled, (enabled, wasEnabled) => {
   // 从 false → true，且不在流式输出中，且队列有消息
   if (!wasEnabled && enabled && !isStreaming.value) {
+    // CRITICAL: 如果会话已关闭，不发送新消息（避免会话重启）
+    if (isSessionClosed(props.sessionId)) {
+      console.log('[AgentChatTab] 🚫 Skip auto-send - session is closed')
+      return
+    }
     // 如果组件正在卸载，不发送新消息（避免会话重启）
     if (isUnmounting) {
       console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
