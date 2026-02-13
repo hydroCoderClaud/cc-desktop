@@ -246,11 +246,11 @@ const startQueuePersistence = () => {
   }
 
   console.log('[AgentChatTab] 🚀 Starting queue persistence watch for session:', props.sessionId)
-  console.log('[AgentChatTab] 🔍 Initial queue state:', chatInputRef.value.messageQueue.value)
+  console.log('[AgentChatTab] 🔍 Initial queue state:', chatInputRef.value.messageQueue)
 
-  // watch ref 的 value（数组内容），需要 deep: true
+  // defineExpose 会自动解包 ref，所以 messageQueue 直接就是数组
   queueWatchStop = watch(
-    () => chatInputRef.value.messageQueue.value,
+    () => chatInputRef.value.messageQueue,
     (newQueue, oldQueue) => {
       console.log('[AgentChatTab] 📝 Queue changed:', {
         oldLength: oldQueue?.length || 0,
@@ -321,8 +321,8 @@ onMounted(async () => {
     console.log('[AgentChatTab] 🔍 chatInputRef.value?.messageQueue:', chatInputRef.value?.messageQueue)
 
     if (result?.success && result.queue?.length > 0 && chatInputRef.value) {
-      // messageQueue 是 ref，需要赋值给 .value
-      chatInputRef.value.messageQueue.value = result.queue
+      // defineExpose 自动解包，messageQueue 直接是数组，替换整个数组
+      chatInputRef.value.messageQueue.splice(0, chatInputRef.value.messageQueue.length, ...result.queue)
       console.log('[AgentChatTab] ✅ Restored queue:', result.queue.length, 'messages', result.queue)
     } else {
       console.log('[AgentChatTab] ⏭️ No queue to restore, reasons:', {
@@ -361,11 +361,11 @@ onUnmounted(async () => {
   console.log('[AgentChatTab] 🔍 Checking queue before unmount:', {
     hasChatInputRef: !!chatInputRef.value,
     hasMessageQueue: !!chatInputRef.value?.messageQueue,
-    queueValue: chatInputRef.value?.messageQueue?.value,
-    queueLength: chatInputRef.value?.messageQueue?.value?.length
+    queueValue: chatInputRef.value?.messageQueue,
+    queueLength: chatInputRef.value?.messageQueue?.length
   })
 
-  const currentQueue = chatInputRef.value?.messageQueue?.value
+  const currentQueue = chatInputRef.value?.messageQueue
   if (currentQueue && currentQueue.length > 0) {
     console.log('[AgentChatTab] 💾 Saving queue on unmount...')
     try {
