@@ -246,41 +246,36 @@ const startQueuePersistence = () => {
   }
 
   console.log('[AgentChatTab] 🚀 Starting queue persistence watch for session:', props.sessionId)
+  console.log('[AgentChatTab] 🔍 Initial queue state:', chatInputRef.value.messageQueue.value)
 
-  // 直接 watch messageQueue ref 对象，而不是它的 value
+  // watch ref 的 value（数组内容），需要 deep: true
   queueWatchStop = watch(
-    () => chatInputRef.value?.messageQueue?.value,
+    () => chatInputRef.value.messageQueue.value,
     (newQueue, oldQueue) => {
+      console.log('[AgentChatTab] 📝 Queue changed:', {
+        oldLength: oldQueue?.length || 0,
+        newLength: newQueue?.length || 0,
+        sessionId: props.sessionId,
+        newQueue
+      })
+
       // 忽略 undefined 值（组件卸载时触发）
       if (newQueue === undefined) {
         console.log('[AgentChatTab] ⏭️ Skip save - queue is undefined (component unmounting?)')
         return
       }
 
-      console.log('[AgentChatTab] 📝 Queue changed:', {
-        oldLength: oldQueue?.length || 0,
-        newLength: newQueue?.length || 0,
-        sessionId: props.sessionId,
-        queue: newQueue
-      })
-
       // 防抖保存（避免高频变化时频繁写入数据库）
       if (saveQueueTimer) clearTimeout(saveQueueTimer)
       saveQueueTimer = setTimeout(async () => {
-        // 再次检查（防抖期间可能已卸载）
-        if (!chatInputRef.value?.messageQueue?.value) {
-          console.log('[AgentChatTab] ⏭️ Skip save - chatInputRef or queue no longer available')
-          return
-        }
-
-        const currentQueue = chatInputRef.value.messageQueue.value
-        if (!currentQueue || currentQueue.length === 0) {
+        // 使用闭包中的 newQueue，避免引用失效
+        if (!newQueue || newQueue.length === 0) {
           console.log('[AgentChatTab] ⏭️ Skip save - empty queue')
           return
         }
 
         try {
-          const plainQueue = JSON.parse(JSON.stringify(currentQueue))  // 深拷贝避免 Proxy
+          const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
           await window.electronAPI?.saveAgentQueue({
             sessionId: props.sessionId,
             queue: plainQueue
@@ -291,7 +286,7 @@ const startQueuePersistence = () => {
         }
       }, 300)
     },
-    { deep: true, immediate: false }
+    { deep: true }  // 必须 deep: true 才能追踪数组内部变化
   )
 }
 
@@ -349,6 +344,8 @@ onMounted(async () => {
 })
 
 onUnmounted(async () => {
+  console.log('[AgentChatTab] 🚪 Component unmounting, sessionId:', props.sessionId)
+
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
   }
@@ -356,19 +353,33 @@ onUnmounted(async () => {
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
 
   // 组件卸载时立即保存队列（清除防抖，避免数据丢失）
-  if (saveQueueTimer) clearTimeout(saveQueueTimer)
+  if (saveQueueTimer) {
+    console.log('[AgentChatTab] ⏱️ Clearing pending save timer')
+    clearTimeout(saveQueueTimer)
+  }
+
+  console.log('[AgentChatTab] 🔍 Checking queue before unmount:', {
+    hasChatInputRef: !!chatInputRef.value,
+    hasMessageQueue: !!chatInputRef.value?.messageQueue,
+    queueValue: chatInputRef.value?.messageQueue?.value,
+    queueLength: chatInputRef.value?.messageQueue?.value?.length
+  })
+
   const currentQueue = chatInputRef.value?.messageQueue?.value
   if (currentQueue && currentQueue.length > 0) {
+    console.log('[AgentChatTab] 💾 Saving queue on unmount...')
     try {
       const plainQueue = JSON.parse(JSON.stringify(currentQueue))
       await window.electronAPI?.saveAgentQueue({
         sessionId: props.sessionId,
         queue: plainQueue
       })
-      console.log('[AgentChatTab] 💾 Saved queue on unmount:', plainQueue.length, 'messages')
+      console.log('[AgentChatTab] ✅ Saved queue on unmount:', plainQueue.length, 'messages')
     } catch (err) {
       console.error('[AgentChatTab] ❌ Failed to save queue on unmount:', err)
     }
+  } else {
+    console.log('[AgentChatTab] ⏭️ No queue to save on unmount')
   }
 
   if (queueWatchStop) queueWatchStop()  // 停止队列监听
