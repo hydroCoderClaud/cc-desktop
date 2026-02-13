@@ -1116,7 +1116,7 @@ export default {
     agentMode: 'Agent Mode',
     switchToAgent: 'Switch to Agent Mode',
     switchToDeveloper: 'Switch to Developer Mode',
-    agentWelcome: 'Start conversations with AI Agent to accomplish various tasks without coding knowledge. Please click "New Conversation" or continue with a previous conversation.'
+    agentWelcome: 'Start conversations with AI Agent to accomplish various tasks without coding knowledge. Please click "New Conversation" or resume a previous conversation.'
   },
 
   // Agent features

@@ -1119,7 +1119,7 @@ export default {
     agentMode: 'Agent 模式',
     switchToAgent: '切换到 Agent 模式',
     switchToDeveloper: '切换到开发者模式',
-    agentWelcome: '开始与 AI Agent 对话，无需代码知识即可完成各种任务。请点击新建对话或者回复历史对话'
+    agentWelcome: '开始与 AI Agent 对话，无需代码知识即可完成各种任务。请点击新建对话或者恢复历史对话'
   },
 
   // Agent 功能
