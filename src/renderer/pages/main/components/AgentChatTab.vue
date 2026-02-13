@@ -54,11 +54,7 @@
       :is-streaming="isStreaming"
       :disabled="false"
       :queue-enabled="queueEnabled"
-      :placeholder="
-        !queueEnabled
-          ? t('agent.inputPlaceholderDisabled')
-          : (isStreaming ? t('agent.inputPlaceholderQueued') : t('agent.inputPlaceholder'))
-      "
+      :placeholder="queueEnabled ? t('agent.inputPlaceholder') : t('agent.inputPlaceholderDisabled')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
       :active-model="activeModel"
