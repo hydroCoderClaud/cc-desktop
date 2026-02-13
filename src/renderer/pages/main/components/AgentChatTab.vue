@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
@@ -371,16 +371,11 @@ onMounted(async () => {
   emit('ready', { sessionId: props.sessionId })
 })
 
-onUnmounted(async () => {
-  console.log('[AgentChatTab] 🚪 Component unmounting, sessionId:', props.sessionId)
+// 在组件卸载前保存队列（此时子组件还存在）
+onBeforeUnmount(() => {
+  console.log('[AgentChatTab] 🚪 Component before unmount, sessionId:', props.sessionId)
 
-  if (messagesListRef.value) {
-    messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
-  }
-  window.removeEventListener('focus', onWindowFocus)
-  if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
-
-  // 组件卸载时立即保存队列（清除防抖，避免数据丢失）
+  // 清除防抖，立即保存队列
   if (saveQueueTimer) {
     console.log('[AgentChatTab] ⏱️ Clearing pending save timer')
     clearTimeout(saveQueueTimer)
@@ -395,21 +390,31 @@ onUnmounted(async () => {
 
   const currentQueue = chatInputRef.value?.messageQueue
   if (currentQueue && currentQueue.length > 0) {
-    console.log('[AgentChatTab] 💾 Saving queue on unmount...')
+    console.log('[AgentChatTab] 💾 Saving queue on beforeUnmount...')
     try {
       const plainQueue = JSON.parse(JSON.stringify(currentQueue))
-      await window.electronAPI?.saveAgentQueue({
+      // 同步保存，确保卸载前完成
+      window.electronAPI?.saveAgentQueue({
         sessionId: props.sessionId,
         queue: plainQueue
       })
-      console.log('[AgentChatTab] ✅ Saved queue on unmount:', plainQueue.length, 'messages')
+      console.log('[AgentChatTab] ✅ Saved queue on beforeUnmount:', plainQueue.length, 'messages')
     } catch (err) {
-      console.error('[AgentChatTab] ❌ Failed to save queue on unmount:', err)
+      console.error('[AgentChatTab] ❌ Failed to save queue on beforeUnmount:', err)
     }
   } else {
-    console.log('[AgentChatTab] ⏭️ No queue to save on unmount')
+    console.log('[AgentChatTab] ⏭️ No queue to save on beforeUnmount')
   }
+})
 
+onUnmounted(() => {
+  console.log('[AgentChatTab] 🗑️ Component unmounted, sessionId:', props.sessionId)
+
+  if (messagesListRef.value) {
+    messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
+  }
+  window.removeEventListener('focus', onWindowFocus)
+  if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
   if (queueWatchStop) queueWatchStop()  // 停止队列监听
   cleanup()
 })
