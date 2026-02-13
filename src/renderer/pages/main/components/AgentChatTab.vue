@@ -234,29 +234,6 @@ watch(queueEnabled, (enabled, wasEnabled) => {
   }
 })
 
-// --- Tab 切换时立即保存队列（防止防抖未完成导致数据丢失）---
-watch(() => props.visible, (visible, wasVisible) => {
-  // 从显示切换到隐藏时，立即保存队列
-  if (wasVisible && !visible) {
-    console.log('[AgentChatTab] 👁️ Tab becoming hidden, saving queue...')
-    if (saveQueueTimer) clearTimeout(saveQueueTimer)
-
-    const currentQueue = chatInputRef.value?.messageQueue
-    if (currentQueue && currentQueue.length > 0) {
-      // 立即保存，不等防抖
-      const plainQueue = JSON.parse(JSON.stringify(currentQueue))
-      window.electronAPI?.saveAgentQueue({
-        sessionId: props.sessionId,
-        queue: plainQueue
-      }).then(() => {
-        console.log('[AgentChatTab] ✅ Saved queue on hide:', plainQueue.length, 'messages')
-      }).catch(err => {
-        console.error('[AgentChatTab] ❌ Failed to save queue on hide:', err)
-      })
-    }
-  }
-})
-
 // --- 队列持久化：监听队列变化自动保存 ---
 let saveQueueTimer = null
 let queueWatchStop = null
