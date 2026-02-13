@@ -886,7 +886,7 @@ export default {
     sessionTitle: '会话标题',
     sessionTitlePlaceholder: '输入会话标题（可选）',
     maxSessionsReached: '会话达到最大数量（{max}），请终止现有某会话后再新建',
-    sessionInUseByAgent: '该会话正在 Agent 模式中使用，请先关闭对应 Agent 会话',
+    sessionInUseByAgent: '该会话正在智能体模式中使用，请先关闭对应智能体会话',
     sessionInUseByTerminal: '该会话正在终端模式中使用，请先关闭对应终端',
     resumeSuccess: '历史会话已恢复',
     running: '运行中',
@@ -1117,10 +1117,10 @@ export default {
   // 模式切换
   mode: {
     developerMode: '开发者模式',
-    agentMode: 'Agent 模式',
-    switchToAgent: '切换到 Agent 模式',
+    agentMode: '智能体模式',
+    switchToAgent: '切换到智能体模式',
     switchToDeveloper: '切换到开发者模式',
-    agentWelcome: '开始与 AI Agent 对话，无需代码知识即可完成各种任务。请点击新建对话或者恢复历史对话'
+    agentWelcome: '开始与 AI 智能体对话，无需代码知识即可完成各种任务。请点击新建对话或者恢复历史对话'
   },
 
   // Agent 功能
@@ -1174,7 +1174,7 @@ export default {
     createNew: '新建会话',
     deleteConfirmTitle: '删除对话',
     deleteConfirmContent: '确定要永久删除此对话及所有消息吗？此操作不可恢复。',
-    newConversationTitle: '新建 Agent 对话',
+    newConversationTitle: '新建智能体对话',
     workingDirectory: '工作目录',
     workingDirectoryPlaceholder: '未选择，将使用默认目录',
     recentProjects: '最近项目',
