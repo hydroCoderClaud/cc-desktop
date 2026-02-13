@@ -555,6 +555,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
   compactAgentConversation: (sessionId) => ipcRenderer.invoke('agent:compact', sessionId),
 
+  // 队列持久化
+  saveAgentQueue: ({ sessionId, queue }) => ipcRenderer.invoke('agent:saveQueue', { sessionId, queue }),
+  getAgentQueue: (sessionId) => ipcRenderer.invoke('agent:getQueue', sessionId),
+
   // Streaming Input 控制方法
   setAgentModel: (sessionId, model) => ipcRenderer.invoke('agent:setModel', { sessionId, model }),
   getAgentSupportedModels: (sessionId) => ipcRenderer.invoke('agent:getSupportedModels', sessionId),

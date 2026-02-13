@@ -127,6 +127,39 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
+     * 保存队列消息（持久化）
+     * @param {string} sessionId - 会话 ID
+     * @param {Array} queue - 队列消息数组 [{ id, text }, ...]
+     */
+    saveAgentQueue(sessionId, queue) {
+      const queueJSON = JSON.stringify(queue || [])
+      this.db.prepare(`
+        UPDATE agent_conversations
+        SET queued_messages = ?, updated_at = ?
+        WHERE session_id = ?
+      `).run(queueJSON, Date.now(), sessionId)
+    }
+
+    /**
+     * 读取队列消息
+     * @param {string} sessionId - 会话 ID
+     * @returns {Array} 队列消息数组
+     */
+    getAgentQueue(sessionId) {
+      const row = this.db.prepare(
+        'SELECT queued_messages FROM agent_conversations WHERE session_id = ?'
+      ).get(sessionId)
+
+      if (!row || !row.queued_messages) return []
+
+      try {
+        return JSON.parse(row.queued_messages)
+      } catch {
+        return []
+      }
+    }
+
+    /**
      * 标记所有非 closed 状态的对话为 closed（应用启动时清理）
      */
     closeAllActiveAgentConversations() {

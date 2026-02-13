@@ -267,6 +267,32 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // ========================================
+  // 队列持久化
+  // ========================================
+
+  // 保存队列消息
+  ipcMain.handle('agent:saveQueue', async (event, { sessionId, queue }) => {
+    try {
+      agentSessionManager.db.saveAgentQueue(sessionId, queue)
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:saveQueue error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 读取队列消息
+  ipcMain.handle('agent:getQueue', async (event, sessionId) => {
+    try {
+      const queue = agentSessionManager.db.getAgentQueue(sessionId)
+      return { success: true, queue }
+    } catch (err) {
+      console.error('[IPC] agent:getQueue error:', err)
+      return { success: false, error: err.message, queue: [] }
+    }
+  })
+
   console.log('[IPC] Agent handlers registered')
 }
 

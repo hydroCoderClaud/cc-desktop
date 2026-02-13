@@ -77,6 +77,13 @@
             <template #feedback>{{ t('globalSettings.autocompactPctOverrideHint') }}</template>
           </n-form-item>
         </n-grid-item>
+
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.messageQueue')">
+            <n-switch v-model:value="formData.messageQueue" @update:value="handleQueueToggle" />
+            <template #feedback>{{ t('globalSettings.messageQueueHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
       </n-grid>
     </n-card>
 
@@ -121,7 +128,8 @@ const DEFAULTS = {
   maxActiveSessions: 5,
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
-  skillsMarketUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main'
+  skillsMarketUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
+  messageQueue: true
 }
 
 const formData = ref({
@@ -130,7 +138,8 @@ const formData = ref({
   maxActiveSessions: DEFAULTS.maxActiveSessions,
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
-  skillsMarketUrl: DEFAULTS.skillsMarketUrl
+  skillsMarketUrl: DEFAULTS.skillsMarketUrl,
+  messageQueue: DEFAULTS.messageQueue
 })
 
 onMounted(async () => {
@@ -163,9 +172,30 @@ const loadSettings = async () => {
     // Get skills market config
     const marketConfig = await invoke('getMarketConfig')
     formData.value.skillsMarketUrl = marketConfig?.registryUrl || DEFAULTS.skillsMarketUrl
+
+    // Get message queue setting
+    const config = await invoke('getConfig')
+    if (config?.settings?.agent?.messageQueue !== undefined) {
+      formData.value.messageQueue = config.settings.agent.messageQueue
+    }
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
+  }
+}
+
+// 队列开关实时生效（不依赖保存按钮）
+const handleQueueToggle = async (enabled) => {
+  try {
+    const config = await invoke('getConfig')
+    if (config?.settings?.agent) {
+      config.settings.agent.messageQueue = enabled
+      // 深拷贝避免 Vue Proxy 序列化问题
+      await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
+    }
+  } catch (err) {
+    console.error('Failed to save queue setting:', err)
+    message.error(t('messages.saveFailed') + ': ' + err.message)
   }
 }
 
@@ -190,6 +220,8 @@ const handleSave = async () => {
     // Save skills market config
     await invoke('updateMarketConfig', { registryUrl: formData.value.skillsMarketUrl || '' })
 
+    // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -207,6 +239,7 @@ const handleReset = async () => {
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.skillsMarketUrl = DEFAULTS.skillsMarketUrl
+    formData.value.messageQueue = DEFAULTS.messageQueue
 
     // Save to backend
     await invoke('updateTimeout', {
@@ -217,6 +250,8 @@ const handleReset = async () => {
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
     await invoke('updateMarketConfig', { registryUrl: DEFAULTS.skillsMarketUrl })
+
+    // 注意：消息队列设置已在 handleQueueToggle 中实时保存（通过 v-model 触发），这里不再重复保存
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

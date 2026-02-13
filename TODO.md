@@ -1,12 +1,38 @@
 # TODO - 项目状态
 
-> 📅 最后更新：2026-02-11
-> 📦 当前版本：v1.6.31
-> ✅ 状态：跨模式会话占用控制
+> 📅 最后更新：2026-02-13
+> 📦 当前版本：v1.6.34
+> ✅ 状态：Agent 模式消息队列持久化
+
+---
+
+## 🔮 重大规划
+
+### AI 动态编程能力（规划中）
+
+**目标**：AI 在 Agent 模式下可自主创建、修改、删除应用模块，变更即时生效。
+
+**规划文档**：[`docs/plans/2026-02-13-ai-dynamic-programming.md`](docs/plans/2026-02-13-ai-dynamic-programming.md)
+
+**分阶段路径**：
+- [ ] **Phase 1** — 配置级（Skills/Agents/Hooks/Prompts 动态 CRUD + 热加载 + 回滚）
+- [ ] **Phase 2** — 扩展级（MCP Servers/Plugins 动态管理 + 确认流程）
+- [ ] **Phase 3** — 代码级（IPC Handlers/Vue 组件，沙箱 + 审批，远期实验性）
+
+**关键设计**：四级安全分层（自由区 → 确认区 → 审批区 → 禁止区）
 
 ---
 
 ## ✅ 已完成的核心功能
+
+### v1.6.34 - Agent 模式消息队列持久化
+- [x] 消息队列自动保存到数据库（防抖 300ms，避免高频写入）
+- [x] 重新打开对话时自动恢复队列
+- [x] 队列开关全局配置（`settings.agent.messageQueue`）
+- [x] 队列自动消费机制（流式结束后、开关切换时）
+- [x] Vue Proxy 兼容处理（深拷贝避免 IPC 传输错误）
+- [x] 数据库字段：`agent_conversations.queued_messages TEXT DEFAULT '[]'`
+- [x] IPC 接口：`agent:saveQueue` / `agent:getQueue`
 
 ### v1.6.31 - 跨模式会话占用控制
 - [x] 跨模式会话占用检查（Agent 模式与 Terminal 模式互斥同一 CLI 会话）

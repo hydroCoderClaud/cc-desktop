@@ -11,6 +11,7 @@ import {
   NInput,
   NInputNumber,
   NSelect,
+  NSwitch,
   NDivider,
   NGrid,
   NGridItem
@@ -32,6 +33,7 @@ const naive = create({
     NInput,
     NInputNumber,
     NSelect,
+    NSwitch,
     NDivider,
     NGrid,
     NGridItem

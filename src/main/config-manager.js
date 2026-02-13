@@ -21,6 +21,9 @@ class ConfigManager {
     this.userDataPath = options.userDataPath || app.getPath('userData');
     this.configPath = path.join(this.userDataPath, 'config.json');
 
+    // 写锁：确保配置文件写入串行化，避免并发写入竞态
+    this.saveQueue = Promise.resolve();
+
     // 默认配置
     this.defaultConfig = {
       recentProjects: [],
@@ -67,7 +70,8 @@ class ConfigManager {
         agent: {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
-          defaultAgentType: 'chat'     // 默认 Agent 类型
+          defaultAgentType: 'chat',    // 默认 Agent 类型
+          messageQueue: true           // 消息队列：流式输出期间允许排队发送
         },
 
         // AI 助手配置（模型从选择的 API Profile 中获取）
@@ -135,17 +139,24 @@ class ConfigManager {
   }
 
   /**
-   * 保存配置到文件
+   * 保存配置到文件（串行化写入，避免并发竞态）
    */
   save(config = this.config) {
-    try {
-      fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
-      this.config = config;
-      return true;
-    } catch (error) {
-      console.error('Failed to save config:', error);
+    // 将写操作加入队列，确保串行执行
+    this.saveQueue = this.saveQueue.then(() => {
+      try {
+        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
+        this.config = config;
+        return true;
+      } catch (error) {
+        console.error('Failed to save config:', error);
+        return false;
+      }
+    }).catch(err => {
+      console.error('Save queue error:', err);
       return false;
-    }
+    });
+    return this.saveQueue;
   }
 
   /**

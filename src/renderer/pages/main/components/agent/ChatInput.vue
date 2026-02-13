@@ -56,6 +56,16 @@
             </div>
           </Transition>
         </div>
+
+        <!-- 队列开关 -->
+        <div
+          class="queue-toggle"
+          :class="{ enabled: queueEnabled }"
+          :title="queueEnabled ? t('agent.queueToggleOn') : t('agent.queueToggleOff')"
+          @click="$emit('update:queueEnabled', !queueEnabled)"
+        >
+          <Icon name="queue" :size="13" class="queue-toggle-icon" />
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -105,6 +115,63 @@
         @input="handleInput"
         @keydown="handleKeyDown"
       />
+      <!-- 队列徽章（独立显示，只要有消息就显示，不管队列是否启用） -->
+      <div v-if="messageQueue.length > 0" class="queue-wrapper" ref="queueWrapperRef">
+        <span class="queue-badge" @click="showQueuePanel = !showQueuePanel">
+          {{ messageQueue.length }}
+        </span>
+        <Transition name="dropdown">
+          <div v-if="showQueuePanel" class="queue-panel">
+            <div class="queue-panel-header">
+              <span>{{ t('agent.queueTitle') }}</span>
+              <span class="queue-panel-count">{{ messageQueue.length }}</span>
+            </div>
+            <div class="queue-panel-list">
+              <div
+                v-for="(msg, idx) in messageQueue"
+                :key="msg.id"
+                class="queue-item"
+                :class="{ editing: editingId === msg.id, dragging: draggingId === msg.id }"
+                draggable="true"
+                @dragstart="handleDragStart(idx, $event)"
+                @dragover.prevent="handleDragOver(idx, $event)"
+                @drop="handleDrop(idx, $event)"
+                @dragend="handleDragEnd"
+              >
+                <Icon name="menu" :size="14" class="queue-item-drag-handle" />
+                <span class="queue-item-index">{{ idx + 1 }}</span>
+
+                <!-- 编辑模式 -->
+                <input
+                  v-if="editingId === msg.id"
+                  v-model="editingText"
+                  class="queue-item-input"
+                  @keydown.enter="saveEdit(idx)"
+                  @keydown.esc="cancelEdit"
+                  @blur="saveEdit(idx)"
+                  ref="editInputRef"
+                />
+                <!-- 查看模式 -->
+                <span
+                  v-else
+                  class="queue-item-text"
+                  @click="startEdit(msg)"
+                >
+                  {{ msg.text }}
+                </span>
+
+                <button class="queue-item-del" @click="removeFromQueue(idx)" :title="t('common.delete')">
+                  <Icon name="close" :size="12" />
+                </button>
+              </div>
+            </div>
+            <button v-if="messageQueue.length > 1" class="queue-clear-btn" @click="clearQueue(); showQueuePanel = false">
+              {{ t('agent.queueClearAll') }}
+            </button>
+          </div>
+        </Transition>
+      </div>
+      <!-- 停止/发送按钮 -->
       <button
         v-if="isStreaming"
         class="stop-btn"
@@ -161,10 +228,14 @@ const props = defineProps({
   activeModel: {
     type: String,
     default: ''
+  },
+  queueEnabled: {
+    type: Boolean,
+    default: true
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'update:modelValue'])
+const emit = defineEmits(['send', 'cancel', 'update:modelValue', 'update:queueEnabled', 'enqueue'])
 
 // ============================
 // Token 格式化
@@ -285,8 +356,16 @@ const loadCapabilities = async () => {
 
 const useCapability = (cap) => {
   showCapDropdown.value = false
+  if (props.isStreaming && !props.queueEnabled) return
   const prefix = cap.type === 'agent' ? '@' : '/'
-  emit('send', `${prefix}${cap.id}`)
+  const text = `${prefix}${cap.id}`
+  if (props.isStreaming) {
+    if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
+    messageQueue.value.push({ id: ++queueIdCounter, text })
+    emit('enqueue', text)
+  } else {
+    emit('send', text)
+  }
 }
 
 // ============================
@@ -397,12 +476,114 @@ const handleKeyDown = (event) => {
   }
 }
 
+// 消息队列（流式输出期间暂存）
+const messageQueue = ref([])
+const showQueuePanel = ref(false)
+const queueWrapperRef = ref(null)
+const MAX_QUEUE_SIZE = 10
+let queueIdCounter = 0
+
+const clearQueue = () => {
+  messageQueue.value = []
+  showQueuePanel.value = false
+}
+
+const dequeue = () => {
+  if (messageQueue.value.length === 0) return null
+  const item = messageQueue.value.shift()
+  if (messageQueue.value.length === 0) {
+    showQueuePanel.value = false
+  }
+  return item.text
+}
+
+const removeFromQueue = (index) => {
+  messageQueue.value.splice(index, 1)
+  if (messageQueue.value.length === 0) {
+    showQueuePanel.value = false
+  }
+}
+
+// ============================
+// 队列项编辑
+// ============================
+const editingId = ref(null)
+const editingText = ref('')
+const editInputRef = ref(null)
+
+const startEdit = (msg) => {
+  editingId.value = msg.id
+  editingText.value = msg.text
+  nextTick(() => {
+    if (editInputRef.value) {
+      editInputRef.value.focus()
+      editInputRef.value.select()
+    }
+  })
+}
+
+const saveEdit = (index) => {
+  if (editingId.value === null) return
+  const text = editingText.value.trim()
+  if (text) {
+    messageQueue.value[index].text = text
+  }
+  editingId.value = null
+  editingText.value = ''
+}
+
+const cancelEdit = () => {
+  editingId.value = null
+  editingText.value = ''
+}
+
+// ============================
+// 队列拖拽排序
+// ============================
+const draggingId = ref(null)
+let dragStartIndex = null
+
+const handleDragStart = (index, event) => {
+  draggingId.value = messageQueue.value[index].id
+  dragStartIndex = index
+  event.dataTransfer.effectAllowed = 'move'
+}
+
+const handleDragOver = (index, event) => {
+  event.dataTransfer.dropEffect = 'move'
+}
+
+const handleDrop = (dropIndex, event) => {
+  event.preventDefault()
+  if (dragStartIndex === null || dragStartIndex === dropIndex) return
+
+  const item = messageQueue.value.splice(dragStartIndex, 1)[0]
+  messageQueue.value.splice(dropIndex, 0, item)
+
+  dragStartIndex = null
+}
+
+const handleDragEnd = () => {
+  draggingId.value = null
+  dragStartIndex = null
+}
+
 const handleSend = () => {
   const text = inputText.value.trim()
-  if (!text || props.disabled || props.isStreaming) return
+  if (!text || props.disabled) return
+  // 队列关闭时，流式输出中禁止发送
+  if (props.isStreaming && !props.queueEnabled) return
 
   showSlashPanel.value = false
-  emit('send', text)
+
+  if (props.isStreaming) {
+    // 流式输出中 → 加入队列（上限 MAX_QUEUE_SIZE 条）
+    if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
+    messageQueue.value.push({ id: ++queueIdCounter, text })
+    emit('enqueue', text)
+  } else {
+    emit('send', text)
+  }
   inputText.value = ''
   nextTick(autoResize)
 }
@@ -420,6 +601,9 @@ const handleClickOutside = (e) => {
   if (inputWrapperRef.value && !inputWrapperRef.value.contains(e.target)) {
     showSlashPanel.value = false
   }
+  if (queueWrapperRef.value && !queueWrapperRef.value.contains(e.target)) {
+    showQueuePanel.value = false
+  }
 }
 
 onMounted(() => {
@@ -435,7 +619,7 @@ const focus = () => {
   textareaRef.value?.focus()
 }
 
-defineExpose({ focus })
+defineExpose({ focus, messageQueue, dequeue, clearQueue })
 </script>
 
 <style scoped>
@@ -577,6 +761,33 @@ defineExpose({ focus })
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(4px);
+}
+
+/* Queue Toggle */
+.queue-toggle {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+  margin-left: 4px;
+}
+
+.queue-toggle:hover {
+  background: var(--hover-bg);
+}
+
+.queue-toggle-icon {
+  color: var(--text-color-muted);
+  opacity: 0.4;
+  transition: all 0.2s;
+}
+
+.queue-toggle.enabled .queue-toggle-icon {
+  color: var(--primary-color);
+  opacity: 1;
 }
 
 /* Capability Quick Access */
@@ -859,6 +1070,204 @@ defineExpose({ focus })
 .send-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.queue-wrapper {
+  position: relative;
+}
+
+.queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.queue-badge:hover {
+  background: var(--primary-color-hover, var(--primary-color));
+  transform: scale(1.1);
+}
+
+/* 队列面板 */
+.queue-panel {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 280px;
+  max-width: 380px;
+  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+}
+
+.queue-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.queue-panel-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--primary-color);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.queue-panel-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  transition: background 0.1s;
+  cursor: grab;
+}
+
+.queue-item:hover {
+  background: var(--hover-bg);
+}
+
+.queue-item.editing {
+  background: var(--hover-bg);
+}
+
+.queue-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.queue-item-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--border-color);
+  color: var(--text-color-muted);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.queue-item-drag-handle {
+  color: var(--text-color-muted);
+  opacity: 0.3;
+  flex-shrink: 0;
+  cursor: grab;
+  transition: opacity 0.2s;
+}
+
+.queue-item:hover .queue-item-drag-handle {
+  opacity: 0.6;
+}
+
+.queue-item-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.queue-item-text:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.queue-item-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-color);
+  background: var(--bg-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  padding: 3px 6px;
+  outline: none;
+  font-family: inherit;
+}
+
+.queue-item-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.queue-item:hover .queue-item-del {
+  opacity: 1;
+}
+
+.queue-item-del:hover {
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+}
+
+.queue-clear-btn {
+  margin-top: 4px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #ff4d4f;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.queue-clear-btn:hover {
+  background: rgba(255, 77, 79, 0.08);
 }
 
 .stop-btn {

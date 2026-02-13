@@ -53,19 +53,22 @@
       ref="chatInputRef"
       :is-streaming="isStreaming"
       :disabled="false"
-      :placeholder="t('agent.inputPlaceholder')"
+      :queue-enabled="queueEnabled"
+      :placeholder="isStreaming && queueEnabled ? t('agent.inputPlaceholderQueued') : t('agent.inputPlaceholder')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
       :active-model="activeModel"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
+      @update:queue-enabled="handleToggleQueue"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
 import MessageBubble from './agent/MessageBubble.vue'
@@ -75,6 +78,7 @@ import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+const message = useMessage()
 
 const props = defineProps({
   sessionId: {
@@ -111,6 +115,32 @@ const {
   cleanup
 } = useAgentChat(props.sessionId)
 
+// 消息队列开关（从配置读取）
+const queueEnabled = ref(true)
+const loadQueueSetting = async () => {
+  try {
+    const config = await window.electronAPI?.getConfig()
+    if (config?.settings?.agent?.messageQueue !== undefined) {
+      queueEnabled.value = config.settings.agent.messageQueue
+    }
+  } catch {}
+}
+
+// 工具栏切换队列开关 — 同时持久化到配置
+const handleToggleQueue = async (enabled) => {
+  queueEnabled.value = enabled
+  try {
+    const config = await window.electronAPI?.getConfig()
+    if (config?.settings?.agent) {
+      config.settings.agent.messageQueue = enabled
+      await window.electronAPI?.saveConfig(JSON.parse(JSON.stringify(config)))
+    }
+  } catch (err) {
+    console.error('Failed to save queue setting:', err)
+    message.error(t('messages.saveFailed') + ': ' + err.message)
+  }
+}
+
 // 欢迎引导提示词
 const welcomeHints = computed(() => [
   t('agent.hintTranslate'),
@@ -123,16 +153,32 @@ const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 
-// 自动滚动到底部
-const scrollToBottom = (instant = false) => {
+// --- 智能滚动：用户手动上滚时暂停自动滚动 ---
+const userAtBottom = ref(true)
+const BOTTOM_THRESHOLD = 60 // 距底部 60px 以内视为"在底部"
+
+const checkIfAtBottom = () => {
+  const el = messagesListRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD
+}
+
+const onMessagesScroll = () => {
+  userAtBottom.value = checkIfAtBottom()
+}
+
+// 自动滚动到底部（仅在用户处于底部时触发，force=true 可强制滚动）
+const scrollToBottom = (instant = false, force = false) => {
+  if (!force && !userAtBottom.value) return
   nextTick(() => {
     if (scrollAnchor.value) {
       scrollAnchor.value.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
     }
+    userAtBottom.value = true
   })
 }
 
-// 新消息添加 → 平滑滚动
+// 新消息添加 → 仅在用户处于底部时平滑滚动
 watch(messages, () => {
   scrollToBottom()
 })
@@ -141,6 +187,7 @@ watch(messages, () => {
 let lastScrollTime = 0
 const SCROLL_THROTTLE_MS = 100
 watch(currentStreamText, () => {
+  if (!userAtBottom.value) return
   const now = Date.now()
   if (now - lastScrollTime >= SCROLL_THROTTLE_MS) {
     lastScrollTime = now
@@ -148,26 +195,109 @@ watch(currentStreamText, () => {
   }
 })
 
-// 发送消息
+// 发送消息 → 强制回到底部
 const handleSend = async (text) => {
   await sendMessage(text)
-  scrollToBottom()
+  scrollToBottom(false, true)
 }
 
-// 取消生成
+// 取消生成（同时清空队列）
 const handleCancel = async () => {
+  chatInputRef.value?.clearQueue()
   await cancelGeneration()
+}
+
+// --- 消息队列自动发送：流式正常结束后自动消费队列 ---
+watch(isStreaming, (streaming, wasStreaming) => {
+  if (wasStreaming && !streaming && queueEnabled.value) {
+    // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
+    if (error.value) return
+    nextTick(async () => {
+      const next = chatInputRef.value?.dequeue()
+      if (next) {
+        await handleSend(next)
+      }
+    })
+  }
+})
+
+// --- 队列开关：从关闭切换到启用时，自动消费队列 ---
+watch(queueEnabled, (enabled, wasEnabled) => {
+  // 从 false → true，且不在流式输出中，且队列有消息
+  if (!wasEnabled && enabled && !isStreaming.value) {
+    nextTick(async () => {
+      const next = chatInputRef.value?.dequeue()
+      if (next) {
+        await handleSend(next)
+      }
+    })
+  }
+})
+
+// --- 队列持久化：监听队列变化自动保存 ---
+let saveQueueTimer = null
+watch(() => chatInputRef.value?.messageQueue.value, (newQueue) => {
+  // 防抖保存（避免高频变化时频繁写入数据库）
+  if (saveQueueTimer) clearTimeout(saveQueueTimer)
+  saveQueueTimer = setTimeout(async () => {
+    if (!newQueue) return
+    try {
+      const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
+      await window.electronAPI?.saveAgentQueue({
+        sessionId: props.sessionId,
+        queue: plainQueue
+      })
+      console.log('[AgentChatTab] Saved queue:', plainQueue.length, 'messages')
+    } catch (err) {
+      console.error('Failed to save queue:', err)
+    }
+  }, 300)
+}, { deep: true })
+
+// 窗口获焦时重新读取队列开关（同步全局设置页面的修改）
+// 添加 500ms 防抖，避免频繁切换窗口时重复读取
+let focusDebounceTimer = null
+const onWindowFocus = () => {
+  if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
+  focusDebounceTimer = setTimeout(() => {
+    loadQueueSetting()
+  }, 500)
 }
 
 onMounted(async () => {
   setupListeners()
+  // 绑定滚动事件检测用户手动滚动
+  if (messagesListRef.value) {
+    messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
+  }
+  window.addEventListener('focus', onWindowFocus)
+  await loadQueueSetting()
   await initDefaultModel()  // 从配置读取默认模型
   await loadMessages()  // 加载历史消息
-  scrollToBottom()
+
+  // 恢复持久化队列
+  try {
+    const result = await window.electronAPI?.getAgentQueue(props.sessionId)
+    if (result?.success && result.queue?.length > 0 && chatInputRef.value) {
+      // messageQueue 是 ref，需要赋值给 .value
+      chatInputRef.value.messageQueue.value = result.queue
+      console.log('[AgentChatTab] Restored queue:', result.queue.length, 'messages')
+    }
+  } catch (err) {
+    console.error('Failed to load queue:', err)
+  }
+
+  scrollToBottom(true, true)
   emit('ready', { sessionId: props.sessionId })
 })
 
 onUnmounted(() => {
+  if (messagesListRef.value) {
+    messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
+  }
+  window.removeEventListener('focus', onWindowFocus)
+  if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
+  if (saveQueueTimer) clearTimeout(saveQueueTimer)
   cleanup()
 })
 

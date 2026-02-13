@@ -143,7 +143,8 @@ class SessionDatabaseBase {
 
     const agentConvNewColumns = [
       { name: 'api_profile_id', type: 'TEXT' },
-      { name: 'api_base_url', type: 'TEXT' }
+      { name: 'api_base_url', type: 'TEXT' },
+      { name: 'queued_messages', type: "TEXT DEFAULT '[]'" }  // 存储队列消息（JSON 数组）
     ]
 
     for (const col of agentConvNewColumns) {
@@ -456,6 +457,9 @@ class SessionDatabaseBase {
         cwd_auto INTEGER DEFAULT 1,
         message_count INTEGER DEFAULT 0,
         total_cost_usd REAL DEFAULT 0,
+        api_profile_id TEXT,
+        api_base_url TEXT,
+        queued_messages TEXT DEFAULT '[]',
         created_at INTEGER,
         updated_at INTEGER
       )
