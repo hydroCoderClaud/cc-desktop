@@ -287,14 +287,10 @@ const startQueuePersistence = () => {
       // 防抖保存（避免高频变化时频繁写入数据库）
       if (saveQueueTimer) clearTimeout(saveQueueTimer)
       saveQueueTimer = setTimeout(async () => {
-        // 使用闭包中的 newQueue，避免引用失效
-        if (!newQueue || newQueue.length === 0) {
-          console.log('[AgentChatTab] ⏭️ Skip save - empty queue')
-          return
-        }
-
+        // CRITICAL: 即使队列为空也要保存，确保数据库与前端状态同步
+        // 用户点击停止清空队列时，必须清空数据库中的队列，否则重新打开会话时队列又出现
         try {
-          const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
+          const plainQueue = newQueue ? JSON.parse(JSON.stringify(newQueue)) : []  // 深拷贝避免 Proxy
           await window.electronAPI?.saveAgentQueue({
             sessionId: props.sessionId,
             queue: plainQueue

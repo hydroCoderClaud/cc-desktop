@@ -44,6 +44,8 @@ export function useAgentChat(sessionId) {
   let syncFromInit = false
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   let hasActiveSession = false
+  // 用户是否主动取消了生成（用于抑制 "Unknown error" 提示）
+  let isUserCancelling = false
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
   watch(selectedModel, async (newVal) => {
@@ -209,6 +211,7 @@ export function useAgentChat(sessionId) {
 
     error.value = null
     isRestored.value = false
+    isUserCancelling = false  // 重置取消标志，允许下次错误显示
     if (!trimmed.startsWith('/')) {
       addUserMessage(trimmed)
     }
@@ -248,9 +251,12 @@ export function useAgentChat(sessionId) {
    */
   const cancelGeneration = async () => {
     try {
+      // 标记为用户主动取消，避免显示 "Unknown error"
+      isUserCancelling = true
       await window.electronAPI.cancelAgentGeneration(sessionId)
     } catch (err) {
       console.error('[useAgentChat] cancel error:', err)
+      isUserCancelling = false  // 取消失败，重置标志
     }
   }
 
@@ -364,8 +370,16 @@ export function useAgentChat(sessionId) {
       numTurns.value += result.numTurns
     }
 
+    // 检查是否是错误结果
     if (result?.subtype?.startsWith('error')) {
-      error.value = result.error || 'Unknown error'
+      // 如果是用户主动取消，不显示错误（CLI interrupt 会返回 error subtype）
+      if (isUserCancelling) {
+        console.log('[useAgentChat] User cancelled, suppressing error display')
+        isUserCancelling = false  // 重置标志
+      } else {
+        // 真正的错误，显示错误消息
+        error.value = result.error || result.result || 'Unknown error'
+      }
     }
   }
 
