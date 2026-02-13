@@ -1,113 +1,69 @@
 # Page snapshot
 
 ```yaml
-- generic [ref=e5]:
-  - generic [ref=e6]:
-    - generic [ref=e7]:
-      - generic [ref=e8]: CC Desktop
-      - generic [ref=e9]:
-        - button "Toggle both panels" [ref=e10] [cursor=pointer]:
-          - img [ref=e11]
-        - button "Hide left panel" [ref=e14] [cursor=pointer]:
-          - img [ref=e15]
-    - generic [ref=e17]:
-      - generic [ref=e18]:
-        - generic [ref=e19]: Projects
-        - button "Open existing project" [ref=e20] [cursor=pointer]:
-          - img [ref=e21]
-      - generic [ref=e27] [cursor=pointer]:
-        - textbox [ref=e28]
-        - generic:
-          - generic: Select project
-        - img "loading" [ref=e29]:
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: CC Desktop
+        - generic [ref=e9]:
+          - button "Toggle both panels" [ref=e10] [cursor=pointer]:
+            - img [ref=e11]
+          - button "Hide left panel" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+      - generic [ref=e17]:
+        - button "+ New Conversation" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: +
+          - generic [ref=e21]: New Conversation
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - generic [ref=e30]: No conversations yet
+      - generic [ref=e32]:
+        - button "Settings" [ref=e33] [cursor=pointer]:
           - img [ref=e34]
-    - generic [ref=e37]: Please select a project
-    - generic [ref=e39]:
-      - button "Settings" [ref=e40] [cursor=pointer]:
-        - img [ref=e41]
-      - generic [ref=e44]:
-        - button "中" [ref=e45] [cursor=pointer]:
-          - generic [ref=e46]: 中
-        - button "Switch to dark" [ref=e47] [cursor=pointer]:
-          - img [ref=e48]
-        - button "Switch to Agent Mode" [ref=e50] [cursor=pointer]:
-          - img [ref=e51]
-  - generic [ref=e54]:
-    - generic [ref=e57] [cursor=pointer]:
-      - img [ref=e59]
-      - generic [ref=e62]: Welcome
-    - generic [ref=e65]:
-      - img [ref=e67]
-      - generic [ref=e73]:
-        - heading "Welcome" [level=2] [ref=e74]
-        - paragraph [ref=e75]: Please select a project
+        - generic [ref=e37]:
+          - button "Capabilities" [ref=e38] [cursor=pointer]:
+            - img [ref=e39]
+          - button "中" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: 中
+          - button "Switch to dark" [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+          - button "Switch to Developer Mode" [ref=e46] [cursor=pointer]:
+            - img [ref=e47]
+    - generic [ref=e53]:
+      - generic [ref=e56] [cursor=pointer]:
+        - img [ref=e58]
+        - generic [ref=e61]: Welcome
+      - generic [ref=e64]:
+        - img [ref=e66]
+        - generic [ref=e72]:
+          - heading "Agent Mode" [level=2] [ref=e73]
+          - paragraph [ref=e74]: Start conversations with AI Agent to accomplish various tasks without coding knowledge.
+    - generic [ref=e75]:
       - generic [ref=e76]:
-        - img [ref=e78]
-        - generic [ref=e80]: CC Desktop will access files in the selected project folder. Make sure you trust the project directory.
-  - generic [ref=e81]:
-    - generic [ref=e82]:
-      - button "Hide right panel" [ref=e83] [cursor=pointer]:
-        - img [ref=e84]
-      - generic [ref=e86]:
-        - button "Prompts" [ref=e87] [cursor=pointer]:
-          - img [ref=e88]
-        - button "Queue" [ref=e91] [cursor=pointer]:
-          - img [ref=e92]
-        - button "Skills" [ref=e94] [cursor=pointer]:
-          - img [ref=e95]:
-            - generic [ref=e96]: S
-        - button "MCP" [ref=e97] [cursor=pointer]:
-          - img [ref=e98]:
-            - generic [ref=e99]: M
-        - button "Agents" [ref=e100] [cursor=pointer]:
-          - img [ref=e101]:
-            - generic [ref=e102]: A
-        - button "Hooks" [ref=e103] [cursor=pointer]:
-          - img [ref=e104]:
-            - generic [ref=e105]: H
-        - button "Plugins" [ref=e106] [cursor=pointer]:
-          - img [ref=e107]
-        - button "Settings" [ref=e110] [cursor=pointer]:
-          - img [ref=e111]
-    - generic [ref=e115]:
-      - generic [ref=e116]:
-        - generic [ref=e117]: Prompts
-        - group [ref=e119]:
-          - button "All" [ref=e120] [cursor=pointer]:
-            - generic [ref=e121]: All
-          - button "Global" [ref=e122] [cursor=pointer]:
-            - generic [ref=e123]: Global
-        - button "Component Market" [ref=e125] [cursor=pointer]:
-          - img [ref=e126]
-      - generic [ref=e130]:
-        - generic [ref=e132]:
-          - img [ref=e134]
-          - generic [ref=e137]:
-            - textbox "Search prompts..." [ref=e138]
-            - generic:
-              - generic: Search prompts...
-        - button "Show favorites only" [ref=e141] [cursor=pointer]:
-          - img [ref=e142]
-        - button "Add Prompt" [ref=e144] [cursor=pointer]:
-          - img [ref=e145]
-      - generic [ref=e148]:
-        - img [ref=e150]
-        - generic [ref=e152]: No prompts yet
-        - generic [ref=e153]: Create prompt templates for quick access
-        - button "Create your first prompt" [ref=e154] [cursor=pointer]
-    - generic [ref=e155]:
-      - generic [ref=e156]:
-        - generic [ref=e157]: Quick Commands
-        - button "+" [ref=e158] [cursor=pointer]
-      - generic [ref=e159]: Click + to add commands
-    - generic [ref=e160]:
-      - generic [ref=e161]:
-        - generic [ref=e162]:
-          - generic [ref=e163]: Quick Input
-          - button "Add to Queue" [disabled] [ref=e164]:
-            - img [ref=e165]
-          - button "Create Prompt" [ref=e167] [cursor=pointer]:
-            - img [ref=e168]
-        - generic [ref=e170]: Enter to input, Enter again to run
-      - textbox "Enter command or prompt..." [ref=e171]
+        - generic [ref=e77]: Working Directory
+        - button "Collapse" [ref=e78] [cursor=pointer]:
+          - img [ref=e79]
+      - generic [ref=e81]:
+        - img [ref=e82]
+        - generic [ref=e84]: Select a conversation to view files
+  - dialog [ref=e86]:
+    - heading "New Agent Conversation close" [ref=e87]:
+      - heading "New Agent Conversation" [ref=e88]
+      - button "close" [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+    - generic [ref=e95]:
+      - generic [ref=e96]: Working Directory
+      - generic [ref=e97]:
+        - generic [ref=e100] [cursor=pointer]:
+          - textbox "Not selected, will use default directory" [active] [ref=e101]
+          - generic:
+            - generic: Not selected, will use default directory
+        - button "Browse..." [ref=e102] [cursor=pointer]:
+          - img [ref=e104]
+    - generic [ref=e106]:
+      - button "Cancel" [ref=e107] [cursor=pointer]:
+        - generic [ref=e108]: Cancel
+      - button "Create" [ref=e109] [cursor=pointer]:
+        - generic [ref=e110]: Create
 ```

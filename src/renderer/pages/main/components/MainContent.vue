@@ -65,7 +65,7 @@
             <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
 
             <div class="welcome-message">
-              <h2>{{ t('main.welcome') }}</h2>
+              <h2>{{ t('main.developerWelcome') }}</h2>
               <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
               <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
               <p v-else v-html="t('session.newSessionHint')"></p>

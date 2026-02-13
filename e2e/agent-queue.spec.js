@@ -30,9 +30,10 @@ test.describe('队列基础功能', () => {
     await window.click('.new-session-btn')
     await window.waitForTimeout(1000)
 
-    // 3. 填写对话信息并创建（点击弹窗中的"创建"按钮）
-    await window.click('button:has-text("创建")')
-    await window.waitForTimeout(1000)
+    // 3. 直接点击"创建"（不选目录，允许为空）
+    // 使用更精确的选择器，确保点击弹窗 footer 中的主要按钮
+    await window.locator('.n-card__footer button.n-button--primary-type').click()
+    await window.waitForTimeout(1500)
 
     // 4. 发送第一条消息（会开始输出）
     const input = await window.locator('textarea[placeholder*="请输入"]')

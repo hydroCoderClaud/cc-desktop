@@ -30,7 +30,7 @@
           - generic [ref=e46]: 中
         - button "Switch to dark" [ref=e47] [cursor=pointer]:
           - img [ref=e48]
-        - button "Switch to Agent Mode" [ref=e50] [cursor=pointer]:
+        - button "Switch to Agent Mode" [active] [ref=e50] [cursor=pointer]:
           - img [ref=e51]
   - generic [ref=e54]:
     - generic [ref=e57] [cursor=pointer]:
