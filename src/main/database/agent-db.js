@@ -133,11 +133,13 @@ function withAgentOperations(BaseClass) {
      */
     saveAgentQueue(sessionId, queue) {
       const queueJSON = JSON.stringify(queue || [])
-      this.db.prepare(`
+      console.log('[AgentDB] 💾 Saving queue for session:', sessionId, 'items:', queue?.length || 0)
+      const result = this.db.prepare(`
         UPDATE agent_conversations
         SET queued_messages = ?, updated_at = ?
         WHERE session_id = ?
       `).run(queueJSON, Date.now(), sessionId)
+      console.log('[AgentDB] ✅ Queue saved, affected rows:', result.changes)
     }
 
     /**
@@ -146,15 +148,22 @@ function withAgentOperations(BaseClass) {
      * @returns {Array} 队列消息数组
      */
     getAgentQueue(sessionId) {
+      console.log('[AgentDB] 📖 Loading queue for session:', sessionId)
       const row = this.db.prepare(
         'SELECT queued_messages FROM agent_conversations WHERE session_id = ?'
       ).get(sessionId)
 
-      if (!row || !row.queued_messages) return []
+      if (!row || !row.queued_messages) {
+        console.log('[AgentDB] ⏭️ No queue data found')
+        return []
+      }
 
       try {
-        return JSON.parse(row.queued_messages)
-      } catch {
+        const queue = JSON.parse(row.queued_messages)
+        console.log('[AgentDB] ✅ Queue loaded:', queue.length, 'messages')
+        return queue
+      } catch (err) {
+        console.error('[AgentDB] ❌ Failed to parse queue JSON:', err)
         return []
       }
     }

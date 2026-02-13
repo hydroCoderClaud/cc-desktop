@@ -236,23 +236,44 @@ watch(queueEnabled, (enabled, wasEnabled) => {
 
 // --- 队列持久化：监听队列变化自动保存 ---
 let saveQueueTimer = null
-watch(() => chatInputRef.value?.messageQueue.value, (newQueue) => {
-  // 防抖保存（避免高频变化时频繁写入数据库）
-  if (saveQueueTimer) clearTimeout(saveQueueTimer)
-  saveQueueTimer = setTimeout(async () => {
-    if (!newQueue) return
-    try {
-      const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
-      await window.electronAPI?.saveAgentQueue({
-        sessionId: props.sessionId,
-        queue: plainQueue
+let queueWatchStop = null
+
+const startQueuePersistence = () => {
+  if (queueWatchStop) return  // 避免重复监听
+
+  console.log('[AgentChatTab] 🚀 Starting queue persistence watch for session:', props.sessionId)
+
+  queueWatchStop = watch(
+    () => chatInputRef.value?.messageQueue?.value || [],
+    (newQueue, oldQueue) => {
+      console.log('[AgentChatTab] 📝 Queue changed:', {
+        oldLength: oldQueue?.length || 0,
+        newLength: newQueue?.length || 0,
+        sessionId: props.sessionId
       })
-      console.log('[AgentChatTab] Saved queue:', plainQueue.length, 'messages')
-    } catch (err) {
-      console.error('Failed to save queue:', err)
-    }
-  }, 300)
-}, { deep: true })
+
+      // 防抖保存（避免高频变化时频繁写入数据库）
+      if (saveQueueTimer) clearTimeout(saveQueueTimer)
+      saveQueueTimer = setTimeout(async () => {
+        if (!newQueue || newQueue.length === 0) {
+          console.log('[AgentChatTab] ⏭️ Skip save - empty queue')
+          return
+        }
+        try {
+          const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
+          await window.electronAPI?.saveAgentQueue({
+            sessionId: props.sessionId,
+            queue: plainQueue
+          })
+          console.log('[AgentChatTab] ✅ Saved queue:', plainQueue.length, 'messages', plainQueue)
+        } catch (err) {
+          console.error('[AgentChatTab] ❌ Failed to save queue:', err)
+        }
+      }, 300)
+    },
+    { deep: true }
+  )
+}
 
 // 窗口获焦时重新读取队列开关（同步全局设置页面的修改）
 // 添加 500ms 防抖，避免频繁切换窗口时重复读取
@@ -278,14 +299,20 @@ onMounted(async () => {
   // 恢复持久化队列
   try {
     const result = await window.electronAPI?.getAgentQueue(props.sessionId)
+    console.log('[AgentChatTab] Loading queue for session:', props.sessionId, result)
     if (result?.success && result.queue?.length > 0 && chatInputRef.value) {
       // messageQueue 是 ref，需要赋值给 .value
       chatInputRef.value.messageQueue.value = result.queue
-      console.log('[AgentChatTab] Restored queue:', result.queue.length, 'messages')
+      console.log('[AgentChatTab] ✅ Restored queue:', result.queue.length, 'messages', result.queue)
+    } else {
+      console.log('[AgentChatTab] No queue to restore or chatInputRef not ready')
     }
   } catch (err) {
-    console.error('Failed to load queue:', err)
+    console.error('[AgentChatTab] ❌ Failed to load queue:', err)
   }
+
+  // 启动队列持久化监听（必须在 chatInputRef 有值后）
+  startQueuePersistence()
 
   scrollToBottom(true, true)
   emit('ready', { sessionId: props.sessionId })
@@ -298,6 +325,7 @@ onUnmounted(() => {
   window.removeEventListener('focus', onWindowFocus)
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
   if (saveQueueTimer) clearTimeout(saveQueueTimer)
+  if (queueWatchStop) queueWatchStop()  // 停止队列监听
   cleanup()
 })
 
