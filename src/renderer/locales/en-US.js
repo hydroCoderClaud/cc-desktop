@@ -1126,6 +1126,7 @@ export default {
     noConversations: 'No conversations yet',
     send: 'Send',
     stopGeneration: 'Stop Generation',
+    outputInterrupted: 'Output Interrupted',
     thinking: 'Thinking...',
     inputPlaceholder: 'Type your message... (Enter to send, Shift+Enter for new line)',
     inputPlaceholderQueued: 'Type and press Enter to queue, auto-sends when output finishes...',

@@ -8,6 +8,7 @@
  * - 取消使用 interrupt() 不杀进程
  */
 import { ref, watch, onUnmounted } from 'vue'
+import { useLocale } from './useLocale'
 
 /**
  * Agent 消息角色
@@ -24,6 +25,8 @@ export const MessageRole = {
  * @param {string} sessionId - Agent 会话 ID
  */
 export function useAgentChat(sessionId) {
+  const { t } = useLocale()
+
   const messages = ref([])
   const isStreaming = ref(false)
   const isRestored = ref(false)
@@ -376,7 +379,7 @@ export function useAgentChat(sessionId) {
       // 如果是用户主动中断，显示友好消息而不是错误
       if (isInterrupting.value) {
         console.log('[useAgentChat] 🛑 User interrupted, showing friendly message')
-        error.value = '输出已中断'  // 友好提示，不是错误
+        error.value = t('agent.outputInterrupted')  // 友好提示，不是错误
         isInterrupting.value = false  // 重置标志，允许下次正常队列消费
       } else {
         // 真正的错误，显示错误消息
