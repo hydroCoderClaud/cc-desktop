@@ -1129,6 +1129,7 @@ export default {
     outputInterrupted: 'Output Interrupted',
     thinking: 'Thinking...',
     inputPlaceholder: 'Type your message... (Enter to send, Shift+Enter for new line)',
+    inputPlaceholderDisabled: 'Type your message... (Press Enter to send when chat stops, Shift+Enter for new line)',
     inputPlaceholderQueued: 'Type and press Enter to queue, auto-sends when output finishes...',
     queueHint: '{count} message(s) queued',
     queueTitle: 'Message Queue',
