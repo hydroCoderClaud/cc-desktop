@@ -208,7 +208,7 @@ const handleCancel = async () => {
 }
 
 // --- 消息队列自动发送：流式正常结束后自动消费队列 ---
-watch(isStreaming, (streaming, wasStreaming) => {
+const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {
     // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
     if (error.value) return
@@ -222,7 +222,7 @@ watch(isStreaming, (streaming, wasStreaming) => {
 })
 
 // --- 队列开关：从关闭切换到启用时，自动消费队列 ---
-watch(queueEnabled, (enabled, wasEnabled) => {
+const queueEnabledWatchStop = watch(queueEnabled, (enabled, wasEnabled) => {
   // 从 false → true，且不在流式输出中，且队列有消息
   if (!wasEnabled && enabled && !isStreaming.value) {
     nextTick(async () => {
@@ -352,6 +352,20 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   console.log('[AgentChatTab] 🚪 Component before unmount, sessionId:', props.sessionId)
 
+  // 立即停止所有 watch，防止卸载过程中触发异步操作
+  if (queueWatchStop) {
+    console.log('[AgentChatTab] 🛑 Stopping queue persistence watch')
+    queueWatchStop()
+  }
+  if (streamingWatchStop) {
+    console.log('[AgentChatTab] 🛑 Stopping streaming watch (auto-consume)')
+    streamingWatchStop()
+  }
+  if (queueEnabledWatchStop) {
+    console.log('[AgentChatTab] 🛑 Stopping queue enabled watch')
+    queueEnabledWatchStop()
+  }
+
   // 清除防抖，立即保存队列
   if (saveQueueTimer) {
     console.log('[AgentChatTab] ⏱️ Clearing pending save timer')
@@ -392,7 +406,7 @@ onUnmounted(() => {
   }
   window.removeEventListener('focus', onWindowFocus)
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
-  if (queueWatchStop) queueWatchStop()  // 停止队列监听
+  // watch 已在 onBeforeUnmount 中停止，无需重复
   cleanup()
 })
 
