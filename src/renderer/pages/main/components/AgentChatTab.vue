@@ -207,11 +207,19 @@ const handleCancel = async () => {
   await cancelGeneration()
 }
 
+// --- 卸载标志：防止在组件卸载过程中触发消息发送 ---
+let isUnmounting = false
+
 // --- 消息队列自动发送：流式正常结束后自动消费队列 ---
 const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {
     // 流式刚结束 — 如果有错误，暂停队列消费，避免连环出错
     if (error.value) return
+    // 如果组件正在卸载，不发送新消息（避免会话重启）
+    if (isUnmounting) {
+      console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
+      return
+    }
     nextTick(async () => {
       const next = chatInputRef.value?.dequeue()
       if (next) {
@@ -225,6 +233,11 @@ const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {
 const queueEnabledWatchStop = watch(queueEnabled, (enabled, wasEnabled) => {
   // 从 false → true，且不在流式输出中，且队列有消息
   if (!wasEnabled && enabled && !isStreaming.value) {
+    // 如果组件正在卸载，不发送新消息（避免会话重启）
+    if (isUnmounting) {
+      console.log('[AgentChatTab] 🚫 Skip auto-send - component is unmounting')
+      return
+    }
     nextTick(async () => {
       const next = chatInputRef.value?.dequeue()
       if (next) {
@@ -351,6 +364,10 @@ onMounted(async () => {
 // 在组件卸载前保存队列（此时子组件还存在）
 onBeforeUnmount(() => {
   console.log('[AgentChatTab] 🚪 Component before unmount, sessionId:', props.sessionId)
+
+  // CRITICAL: 立即设置卸载标志，防止任何异步操作触发消息发送
+  isUnmounting = true
+  console.log('[AgentChatTab] 🚫 Set isUnmounting = true, blocking all message sends')
 
   // 立即停止所有 watch，防止卸载过程中触发异步操作
   if (queueWatchStop) {
