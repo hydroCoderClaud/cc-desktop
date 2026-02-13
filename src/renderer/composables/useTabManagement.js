@@ -7,6 +7,7 @@ import { useIPC } from './useIPC'
 import { useLocale } from './useLocale'
 import { createTabFromSession, findTabBySessionId } from './useSessionUtils'
 import { isValidSession } from './useValidation'
+import { unmarkSessionClosed } from './useAgentPanel'
 
 export function useTabManagement() {
   const { invoke } = useIPC()
@@ -54,6 +55,9 @@ export function useTabManagement() {
    * @returns {Object} Tab 对象
    */
   const ensureSessionTab = (session) => {
+    // CRITICAL: 重新打开会话时，清除关闭标记（恢复队列自动消费）
+    unmarkSessionClosed(session.id)
+
     // 先在 allTabs 中查找（保持终端缓冲区的 tabs）
     const existingTab = findTabBySessionId(allTabs.value, session.id)
     if (existingTab) {
@@ -269,6 +273,9 @@ export function useTabManagement() {
    * @returns {Object} Tab 对象
    */
   const ensureAgentTab = (agentSession) => {
+    // CRITICAL: 重新打开会话时，清除关闭标记（恢复队列自动消费）
+    unmarkSessionClosed(agentSession.id)
+
     const tabId = `agent-${agentSession.id}`
 
     // 先在 allTabs 中查找
