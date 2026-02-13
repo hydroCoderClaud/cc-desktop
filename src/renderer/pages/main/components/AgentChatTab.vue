@@ -251,6 +251,12 @@ const startQueuePersistence = () => {
   queueWatchStop = watch(
     () => chatInputRef.value?.messageQueue?.value,
     (newQueue, oldQueue) => {
+      // 忽略 undefined 值（组件卸载时触发）
+      if (newQueue === undefined) {
+        console.log('[AgentChatTab] ⏭️ Skip save - queue is undefined (component unmounting?)')
+        return
+      }
+
       console.log('[AgentChatTab] 📝 Queue changed:', {
         oldLength: oldQueue?.length || 0,
         newLength: newQueue?.length || 0,
@@ -261,12 +267,20 @@ const startQueuePersistence = () => {
       // 防抖保存（避免高频变化时频繁写入数据库）
       if (saveQueueTimer) clearTimeout(saveQueueTimer)
       saveQueueTimer = setTimeout(async () => {
-        if (!newQueue || newQueue.length === 0) {
+        // 再次检查（防抖期间可能已卸载）
+        if (!chatInputRef.value?.messageQueue?.value) {
+          console.log('[AgentChatTab] ⏭️ Skip save - chatInputRef or queue no longer available')
+          return
+        }
+
+        const currentQueue = chatInputRef.value.messageQueue.value
+        if (!currentQueue || currentQueue.length === 0) {
           console.log('[AgentChatTab] ⏭️ Skip save - empty queue')
           return
         }
+
         try {
-          const plainQueue = JSON.parse(JSON.stringify(newQueue))  // 深拷贝避免 Proxy
+          const plainQueue = JSON.parse(JSON.stringify(currentQueue))  // 深拷贝避免 Proxy
           await window.electronAPI?.saveAgentQueue({
             sessionId: props.sessionId,
             queue: plainQueue
