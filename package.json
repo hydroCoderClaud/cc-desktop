@@ -21,7 +21,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.37",
@@ -37,12 +41,14 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
+    "@playwright/test": "^1.58.2",
     "@vitejs/plugin-vue": "^5.2.4",
     "@vitest/coverage-v8": "^2.1.8",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "playwright": "^1.58.2",
     "vite": "^5.4.21",
     "vite-plugin-electron": "^0.28.8",
     "vite-plugin-electron-renderer": "^0.14.6",
