@@ -250,8 +250,13 @@ const startQueuePersistence = () => {
 
   // defineExpose 会自动解包 ref，所以 messageQueue 直接就是数组
   queueWatchStop = watch(
-    () => chatInputRef.value.messageQueue,
+    () => chatInputRef.value?.messageQueue,  // 添加可选链，防止组件卸载时报错
     (newQueue, oldQueue) => {
+      // 组件卸载时 chatInputRef.value 可能为 null，直接忽略
+      if (!chatInputRef.value) {
+        return
+      }
+
       console.log('[AgentChatTab] 📝 Queue changed:', {
         oldLength: oldQueue?.length || 0,
         newLength: newQueue?.length || 0,
