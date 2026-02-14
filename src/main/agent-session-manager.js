@@ -23,6 +23,7 @@ const { spawn: cpSpawn } = require('child_process')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const { AgentStatus, AgentType } = require('./utils/agent-constants')
 const AgentFileManager = require('./managers/agent-file-manager')
+const AgentQueryManager = require('./managers/agent-query-manager')
 
 /**
  * 单个 Agent 会话
@@ -86,6 +87,9 @@ class AgentSessionManager {
 
     // 文件操作管理器（依赖注入）
     this.fileManager = new AgentFileManager(this)
+
+    // Query 控制管理器（依赖注入）
+    this.queryManager = new AgentQueryManager(this)
   }
 
   /**
@@ -1235,73 +1239,30 @@ class AgentSessionManager {
     return this.fileManager.deleteFile(sessionId, relativePath)
   }
 
-  // ============= Streaming Input 控制方法 =============
+  // ============= Query 控制委托（委托给 queryManager） =============
 
-  /**
-   * 获取持久 query generator（需要会话有活跃的 streaming 连接）
-   */
-  _getGenerator(sessionId) {
-    const session = this.sessions.get(sessionId)
-    if (!session) throw new Error(`Agent session ${sessionId} not found`)
-    if (!session.queryGenerator) throw new Error('No active streaming session (CLI not running)')
-    return session.queryGenerator
-  }
-
-  /**
-   * 切换模型（实时生效，无需重启 CLI）
-   */
   async setModel(sessionId, model) {
-    const generator = this._getGenerator(sessionId)
-    await generator.setModel(model || undefined)
-    console.log(`[AgentSession] Model set to ${model || 'default'} for session ${sessionId}`)
+    return this.queryManager.setModel(sessionId, model)
   }
 
-  /**
-   * 获取支持的模型列表
-   */
   async getSupportedModels(sessionId) {
-    const generator = this._getGenerator(sessionId)
-    return await generator.supportedModels()
+    return this.queryManager.getSupportedModels(sessionId)
   }
 
-  /**
-   * 获取支持的 slash 命令列表
-   */
   async getSupportedCommands(sessionId) {
-    const generator = this._getGenerator(sessionId)
-    return await generator.supportedCommands()
+    return this.queryManager.getSupportedCommands(sessionId)
   }
 
-  /**
-   * 获取账户信息
-   */
   async getAccountInfo(sessionId) {
-    const generator = this._getGenerator(sessionId)
-    return await generator.accountInfo()
+    return this.queryManager.getAccountInfo(sessionId)
   }
 
-  /**
-   * 获取 MCP 服务器状态
-   */
   async getMcpServerStatus(sessionId) {
-    const generator = this._getGenerator(sessionId)
-    return await generator.mcpServerStatus()
+    return this.queryManager.getMcpServerStatus(sessionId)
   }
 
-  /**
-   * 获取完整初始化结果（命令、模型、账户、输出样式）
-   */
   async getInitResult(sessionId) {
-    const session = this.sessions.get(sessionId)
-    if (!session) throw new Error(`Agent session ${sessionId} not found`)
-
-    // 缓存
-    if (session.initResult) return session.initResult
-
-    if (!session.queryGenerator) throw new Error('No active streaming session')
-    const result = await session.queryGenerator.initializationResult()
-    session.initResult = result
-    return result
+    return this.queryManager.getInitResult(sessionId)
   }
 }
 
