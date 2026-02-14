@@ -2,6 +2,38 @@
 
 ---
 
+## v1.6.39 - 2026-02-15
+
+### 新功能 (Features)
+
+**视频预览**
+- 右侧面板支持 MP4/WebM/MOV/AVI/MKV/OGG 视频文件播放
+- 通过 IPC 读取为 base64 data URL（避免 file:// CSP 限制）
+- 自动播放、滚轮调节音量、双击全屏
+- 视频信息栏显示分辨率、时长、文件大小
+- CSP 策略添加 `media-src 'self' data:`
+
+### 修复 (Bug Fixes)
+
+**能力管理**
+- http-client 添加 Cache-Control 头，解决 CDN 缓存导致能力清单不更新
+- CapabilityModal 分类名支持多语言（categoryName 按 locale 取值）
+- ChatInput ⚡ 能力列表每次打开都刷新，不再一次性缓存
+
+**消息交互**
+- MessageBubble 单行代码块中的路径/URL 可点击预览
+- 路径正则排除 slash 命令（`/compact` 等不再误识别为路径）
+
+**Agent 文件操作**
+- readAbsolutePath 支持相对路径和 `~/` 路径解析
+- 修复 `_resolveCwd` 调用路径（fileManager 重构遗留）
+
+**代码质量**
+- 视频 MIME 映射和大小限制常量提取到 agent-constants.js，消除 3 处重复定义
+- agent-handlers 视频大小限制独立为 50MB（不被通用 10MB 拦截）
+
+---
+
 ## v1.6.38 - 2026-02-14
 
 ### 重构 (Refactor)
