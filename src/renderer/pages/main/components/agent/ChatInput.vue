@@ -339,7 +339,7 @@ const capLoaded = ref(false)
 const toggleCapDropdown = () => {
   showCapDropdown.value = !showCapDropdown.value
   showDropdown.value = false
-  if (showCapDropdown.value && !capLoaded.value) {
+  if (showCapDropdown.value) {
     loadCapabilities()
   }
 }

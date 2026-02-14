@@ -31,7 +31,7 @@
       </template>
 
       <!-- 历史会话恢复提示 -->
-      <div v-if="isRestored && messages.length > 0" class="restored-divider">
+      <div v-if="isRestored && !isStreaming && messages.length > 0" class="restored-divider">
         <span class="restored-line"></span>
         <span class="restored-text">{{ t('agent.restoredHint') }}</span>
         <span class="restored-line"></span>

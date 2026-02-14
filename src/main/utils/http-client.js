@@ -41,7 +41,9 @@ function httpGet(url, _redirectCount = 0) {
       path: parsedUrl.pathname + parsedUrl.search,
       method: 'GET',
       headers: {
-        'User-Agent': 'CC-Desktop-Market/1.0'
+        'User-Agent': 'CC-Desktop-Market/1.0',
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache'
       },
       timeout: HTTP_TIMEOUT
     }

@@ -113,8 +113,23 @@ const renderedContent = computed(() => {
   text = text.replace(/\n/g, '<br>')
 
   // 步骤4：还原代码块（转义后再插入）
+  // 单行代码块如果整行是路径/URL，注入可点击链接
   text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => {
     const { lang, code } = codeBlocks[i]
+    const trimmed = code.trim()
+    // 单行且匹配路径/URL 模式
+    if (!trimmed.includes('\n')) {
+      let linkType = ''
+      if (/^https?:\/\//.test(trimmed)) {
+        linkType = 'url'
+      } else if (/^[A-Z]:\\/.test(trimmed) || /^\//.test(trimmed) || /^\.\.?\//.test(trimmed) || /^~\//.test(trimmed)) {
+        linkType = 'path'
+      }
+      if (linkType) {
+        const escaped = escapeHtml(trimmed)
+        return `<pre><code><a class="clickable-link" data-link-type="${linkType}" data-href="${escaped}" title="单击预览 · Ctrl+单击打开">${escaped}</a></code></pre>`
+      }
+    }
     return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
   })
 

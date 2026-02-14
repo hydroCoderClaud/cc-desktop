@@ -82,7 +82,8 @@ export function useAgentChat(sessionId) {
       const history = await window.electronAPI.getAgentMessages(sessionId)
       if (Array.isArray(history) && history.length > 0) {
         messages.value = history
-        isRestored.value = true
+        // 仍在 streaming 时不标记为历史会话
+        isRestored.value = !isStreaming.value
       }
     } catch (err) {
       console.error('[useAgentChat] loadMessages error:', err)

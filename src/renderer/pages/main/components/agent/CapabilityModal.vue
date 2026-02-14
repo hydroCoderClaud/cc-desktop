@@ -45,7 +45,7 @@
       >
         <div class="category-header">
           <Icon :name="group.icon || 'lightning'" :size="16" class="category-icon" />
-          <span class="category-name">{{ t('agent.category.' + group.category) || group.category }}</span>
+          <span class="category-name">{{ getCategoryLabel(group) }}</span>
           <span class="category-count">{{ group.items.length }}</span>
         </div>
         <div class="category-items">
@@ -115,7 +115,7 @@ import { NModal, NSpin, NSwitch, NButton, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
-const { t } = useLocale()
+const { t, locale } = useLocale()
 const message = useMessage()
 
 const props = defineProps({
@@ -140,12 +140,22 @@ const groupedCapabilities = computed(() => {
   for (const cap of capabilities.value) {
     const cat = cap.category || 'other'
     if (!groups[cat]) {
-      groups[cat] = { category: cat, icon: cap.icon, items: [] }
+      groups[cat] = { category: cat, categoryName: cap.categoryName, icon: cap.icon, items: [] }
     }
     groups[cat].items.push(cap)
   }
   return Object.values(groups)
 })
+
+// 根据当前语言获取分类显示名
+const getCategoryLabel = (group) => {
+  const names = group.categoryName
+  if (names && typeof names === 'object') {
+    return names[locale.value] || names['zh-CN'] || group.category
+  }
+  // 兼容旧格式：categoryName 为字符串或不存在
+  return names || group.category
+}
 
 const loadCapabilities = async () => {
   loading.value = true

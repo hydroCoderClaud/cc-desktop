@@ -281,9 +281,20 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // 读取任意绝对路径的文件（用于聊天消息中的文件链接预览）
   ipcMain.handle('agent:readAbsolutePath', async (event, { filePath, sessionId, confirmed = false }) => {
     try {
-      // 安全检查：确保是绝对路径
+      // 相对路径 / ~ 路径：基于会话 cwd 解析为绝对路径
       if (!path.isAbsolute(filePath)) {
-        return { error: 'Only absolute paths are allowed' }
+        if (filePath.startsWith('~/') || filePath === '~') {
+          filePath = path.join(require('os').homedir(), filePath.slice(2))
+        } else if (sessionId) {
+          const cwd = agentSessionManager.fileManager._resolveCwd(sessionId)
+          if (cwd) {
+            filePath = path.resolve(cwd, filePath)
+          } else {
+            return { error: 'Cannot resolve relative path: no working directory' }
+          }
+        } else {
+          return { error: 'Cannot resolve relative path: no session context' }
+        }
       }
 
       // 检查文件是否存在
@@ -293,7 +304,7 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
 
       // 安全检查：检查是否在 cwd 内（方案 C：用户确认）
       if (sessionId && !confirmed) {
-        const cwd = agentSessionManager._resolveCwd(sessionId)
+        const cwd = agentSessionManager.fileManager._resolveCwd(sessionId)
         if (cwd) {
           // 规范化路径（解析符号链接，防止绕过）
           const realFilePath = fs.realpathSync(filePath)
