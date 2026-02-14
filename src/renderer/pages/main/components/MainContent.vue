@@ -813,10 +813,30 @@ const handlePreviewLink = (linkData) => {
 }
 
 // 处理文件路径预览请求
-const handlePreviewPath = async (filePath) => {
+const handlePreviewPath = async (filePath, confirmed = false) => {
   // 请求后端读取文件（使用绝对路径读取）
   try {
-    const fileData = await window.electronAPI.readAbsolutePath(filePath)
+    const sessionId = activeAgentSessionId.value
+    const fileData = await window.electronAPI.readAbsolutePath({
+      filePath,
+      sessionId,
+      confirmed
+    })
+
+    // 检查是否需要用户确认（安全检查：文件在工作目录外）
+    if (fileData.requiresConfirmation) {
+      dialog.warning({
+        title: t('common.warning'),
+        content: fileData.message,
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: async () => {
+          // 用户确认后，再次调用并传递 confirmed=true
+          await handlePreviewPath(filePath, true)
+        }
+      })
+      return
+    }
 
     // 检查错误
     if (fileData.error) {

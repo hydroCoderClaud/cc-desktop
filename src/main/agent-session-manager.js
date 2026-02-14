@@ -1479,23 +1479,22 @@ class AgentSessionManager {
       const parentDir = this._safePath(cwd, parentPath)
       const targetPath = path.join(parentDir, name)
 
-      // 检查是否已存在
-      try {
-        await fsp.access(targetPath)
-        return { error: 'File or folder already exists' }
-      } catch {
-        // 不存在，可以创建
-      }
-
+      // 使用原子操作创建文件/目录（避免 TOCTOU 竞态条件）
       if (isDirectory) {
+        // mkdir 的 recursive: false 在目录存在时会抛出 EEXIST
         await fsp.mkdir(targetPath, { recursive: false })
       } else {
-        await fsp.writeFile(targetPath, '', 'utf-8')
+        // wx 标志确保文件不存在时才创建，存在时抛出 EEXIST
+        await fsp.writeFile(targetPath, '', { encoding: 'utf-8', flag: 'wx' })
       }
 
       return { success: true }
     } catch (err) {
       console.error('[AgentSession] createFile error:', err.message)
+      // 友好的错误消息
+      if (err.code === 'EEXIST') {
+        return { error: 'File or folder already exists' }
+      }
       return { error: 'Failed to create: ' + err.message }
     }
   }

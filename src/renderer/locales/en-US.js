@@ -1232,7 +1232,12 @@ export default {
       renameFailed: 'Failed to rename',
       deleteConfirm: 'Confirm delete',
       deleteSuccess: 'Deleted successfully',
-      deleteFailed: 'Failed to delete'
+      deleteFailed: 'Failed to delete',
+      // File name validation errors
+      reservedName: 'File name cannot use reserved system names (e.g. CON, PRN, AUX)',
+      invalidChars: 'File name contains invalid characters (< > : " / \\ | ? *)',
+      noPathSeparator: 'File name cannot contain path separators (/ or \\)',
+      invalidEnding: 'File name cannot end with a dot or space'
     },
 
     // Capability management

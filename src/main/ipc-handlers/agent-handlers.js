@@ -279,7 +279,7 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   })
 
   // 读取任意绝对路径的文件（用于聊天消息中的文件链接预览）
-  ipcMain.handle('agent:readAbsolutePath', async (event, { filePath }) => {
+  ipcMain.handle('agent:readAbsolutePath', async (event, { filePath, sessionId, confirmed = false }) => {
     try {
       // 安全检查：确保是绝对路径
       if (!path.isAbsolute(filePath)) {
@@ -289,6 +289,30 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
         return { error: 'File not found' }
+      }
+
+      // 安全检查：检查是否在 cwd 内（方案 C：用户确认）
+      if (sessionId && !confirmed) {
+        const cwd = agentSessionManager._resolveCwd(sessionId)
+        if (cwd) {
+          // 规范化路径（解析符号链接，防止绕过）
+          const realFilePath = fs.realpathSync(filePath)
+          const realCwd = fs.realpathSync(cwd)
+
+          // 检查文件是否在 cwd 内
+          const relativePath = path.relative(realCwd, realFilePath)
+          const isOutsideCwd = relativePath.startsWith('..') || path.isAbsolute(relativePath)
+
+          if (isOutsideCwd) {
+            // 文件在 cwd 外，需要用户确认
+            return {
+              requiresConfirmation: true,
+              filePath: realFilePath,
+              cwd: realCwd,
+              message: `文件位于工作目录之外。是否允许访问？\n\n文件: ${realFilePath}\n工作目录: ${realCwd}`
+            }
+          }
+        }
       }
 
       const stats = fs.statSync(filePath)

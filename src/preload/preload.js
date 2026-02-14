@@ -581,8 +581,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:saveFile', { sessionId, relativePath, content }),
   openAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:openFile', { sessionId, relativePath }),
-  readAbsolutePath: (filePath) =>
-    ipcRenderer.invoke('agent:readAbsolutePath', { filePath }),
+  readAbsolutePath: ({ filePath, sessionId, confirmed }) =>
+    ipcRenderer.invoke('agent:readAbsolutePath', { filePath, sessionId, confirmed }),
   createAgentFile: ({ sessionId, parentPath, name, isDirectory }) =>
     ipcRenderer.invoke('agent:createFile', { sessionId, parentPath, name, isDirectory }),
   renameAgentFile: ({ sessionId, oldPath, newName }) =>

@@ -44,6 +44,18 @@ const emit = defineEmits(['preview-image', 'preview-link', 'preview-path'])
 const bodyRef = ref(null)
 
 /**
+ * HTML 转义函数
+ */
+const escapeHtml = (str) => {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
+/**
  * 简单的 Markdown 渲染（代码块、加粗、斜体、链接、路径）
  */
 const renderedContent = computed(() => {
@@ -54,22 +66,22 @@ const renderedContent = computed(() => {
     return ''
   }
 
-  // 转义 HTML
-  text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-  // 代码块 — 提取保护，避免内部被链接正则误匹配
+  // 步骤1：提取代码块（保存原始未转义内容）
   const codeBlocks = []
   text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    codeBlocks.push(`<pre><code class="lang-${lang}">${code}</code></pre>`)
+    codeBlocks.push({ lang, code })
     return `\x00CB${codeBlocks.length - 1}\x00`
   })
 
-  // 行内代码 — 同样保护
+  // 步骤2：提取行内代码（保存原始未转义内容）
   const inlineCodes = []
   text = text.replace(/`([^`]+)`/g, (_, code) => {
-    inlineCodes.push(`<code>${code}</code>`)
+    inlineCodes.push(code)
     return `\x00IC${inlineCodes.length - 1}\x00`
   })
+
+  // 步骤3：转义剩余的文本（这时代码已被占位符替换）
+  text = escapeHtml(text)
 
   // 加粗
   text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -100,23 +112,26 @@ const renderedContent = computed(() => {
   // 换行
   text = text.replace(/\n/g, '<br>')
 
-  // 还原代码块（代码块内不做链接检测）
-  text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => codeBlocks[i])
+  // 步骤4：还原代码块（转义后再插入）
+  text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => {
+    const { lang, code } = codeBlocks[i]
+    return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
+  })
 
-  // 还原行内代码 — 如果内容是 URL/路径，注入可点击链接
+  // 步骤5：还原行内代码 — 如果内容是 URL/路径，注入可点击链接
   text = text.replace(/\x00IC(\d+)\x00/g, (_, i) => {
-    const code = inlineCodes[i] // '<code>...</code>'
-    const inner = code.slice(6, -7) // 提取 <code> 和 </code> 之间的内容
+    const code = inlineCodes[i]
     let linkType = ''
-    if (/^https?:\/\//.test(inner)) {
+    if (/^https?:\/\//.test(code)) {
       linkType = 'url'
-    } else if (/^[A-Z]:\\/.test(inner) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(inner) || /^\.\.?\//.test(inner) || /^~\//.test(inner)) {
+    } else if (/^[A-Z]:\\/.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?\//.test(code) || /^~\//.test(code)) {
       linkType = 'path'
     }
     if (linkType) {
-      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${inner}" title="单击预览 · Ctrl+单击打开">${inner}</a></code>`
+      const escapedCode = escapeHtml(code)
+      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${escapedCode}" title="单击预览 · Ctrl+单击打开">${escapedCode}</a></code>`
     }
-    return code
+    return `<code>${escapeHtml(code)}</code>`
   })
 
   return text

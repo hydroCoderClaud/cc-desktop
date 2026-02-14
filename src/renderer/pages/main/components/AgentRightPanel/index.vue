@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, watch, h } from 'vue'
+import { ref, watch, h, onMounted, onUnmounted } from 'vue'
 import { useDialog, useMessage, NInput } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentFiles } from '@composables/useAgentFiles'
@@ -143,10 +143,47 @@ const handleClickOutside = () => {
   contextMenuRef.value?.hide()
 }
 
-// 监听全局点击，关闭右键菜单
-if (typeof window !== 'undefined') {
+// 生命周期：注册和清理事件监听器
+onMounted(() => {
   window.addEventListener('click', handleClickOutside)
   window.addEventListener('contextmenu', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('contextmenu', handleClickOutside)
+})
+
+// 文件名验证函数
+const validateFileName = (name) => {
+  // Windows 保留名
+  const reserved = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4',
+    'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4',
+    'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
+
+  const upperName = name.toUpperCase()
+  // 检查保留名（包括带扩展名的，如 CON.txt）
+  const baseName = upperName.split('.')[0]
+  if (reserved.includes(baseName)) {
+    return t('agent.files.reservedName')
+  }
+
+  // 非法字符检查（Windows 和 Unix 通用）
+  if (/[<>:"/\\|?*\x00-\x1F]/.test(name)) {
+    return t('agent.files.invalidChars')
+  }
+
+  // 路径分隔符
+  if (name.includes('/') || name.includes('\\')) {
+    return t('agent.files.noPathSeparator')
+  }
+
+  // 不能以点或空格结尾（Windows 限制）
+  if (/[.\s]$/.test(name)) {
+    return t('agent.files.invalidEnding')
+  }
+
+  return null
 }
 
 // 处理菜单操作
@@ -183,6 +220,13 @@ const handleNewFile = async (target) => {
 
     if (!fileName) {
       message.warning(t('agent.files.fileNameRequired'))
+      return false
+    }
+
+    // 验证文件名
+    const validationError = validateFileName(fileName)
+    if (validationError) {
+      message.warning(validationError)
       return false
     }
 
@@ -234,6 +278,13 @@ const handleNewFolder = async (target) => {
 
     if (!folderName) {
       message.warning(t('agent.files.folderNameRequired'))
+      return false
+    }
+
+    // 验证文件夹名
+    const validationError = validateFileName(folderName)
+    if (validationError) {
+      message.warning(validationError)
       return false
     }
 
@@ -291,6 +342,13 @@ const handleRename = async (target) => {
     if (newName === target.name) {
       if (dialogInstance) dialogInstance.destroy()
       return
+    }
+
+    // 验证新名称
+    const validationError = validateFileName(newName)
+    if (validationError) {
+      message.warning(validationError)
+      return false
     }
 
     try {
