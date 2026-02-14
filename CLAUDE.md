@@ -6,7 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.36
+**当前版本**：1.6.38
+
+**版本号管理规范**：
+- 格式：`主版本.次版本.修订号`（如 1.6.38）
+- **升级规则**：每次发布只递进后两位（修订号），如 1.6.38 → 1.6.39
+- 不随意升级主版本号或次版本号，除非有重大架构变更或破坏性更新
+- 版本号需同步更新：`package.json`、`CLAUDE.md`、`docs/CHANGELOG.md`
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 

@@ -2,6 +2,54 @@
 
 ---
 
+## v1.6.38 - 2026-02-14
+
+### 重构 (Refactor)
+
+**Agent 会话管理器模块化重构**
+- **三阶段渐进式拆分**：将 `agent-session-manager.js` 从 1651 行减少到 1274 行（-377 行，-22.8%）
+  - Phase 1: 提取常量模块 `utils/agent-constants.js` (102 行)
+  - Phase 2: 提取文件操作模块 `managers/agent-file-manager.js` (355 行)
+  - Phase 3: 提取 Query 控制模块 `managers/agent-query-manager.js` (105 行)
+- **设计模式**：依赖注入 + 委托模式，保持公共 API 稳定
+- **架构优势**：
+  - ✅ 职责单一，边界清晰
+  - ✅ 独立模块易于单元测试
+  - ✅ 便于未来功能扩展
+
+### 修复 (Bug Fixes)
+
+**Agent 文件操作错误处理**
+- **修复同名文件创建误报成功问题**：后端返回 `{ error }` 但前端未检查，导致显示"创建成功"
+- **国际化错误消息**：添加 3 个 i18n 翻译 key
+  - `agent.files.fileAlreadyExists` - 文件或文件夹已存在
+  - `agent.files.targetNameExists` - 目标名称已存在
+  - `agent.files.fileNotFound` - 文件或文件夹不存在
+- **统一错误显示**：使用 `mapErrorMessage()` 映射后端英文错误到本地化文本
+- **影响范围**：创建文件、创建文件夹、重命名、删除
+
+### 文档 (Documentation)
+
+**CLAUDE.md 完善**
+- 更新架构图：添加 3 个新模块说明
+- 新增实战案例章节：完整记录 agent-session-manager 重构过程
+  - 三阶段拆分表格
+  - 新增模块架构说明
+  - 核心设计模式示例
+  - 重构收益与关键经验
+- 更新合理设计示例：使用实际重构方案和行数
+
+### Git 提交记录
+
+- `0cf2ff6` - refactor: 提取常量模块 — Phase 1
+- `8f94b95` - refactor: 提取文件操作模块 — Phase 2
+- `3e94d3f` - refactor: 提取 Query 控制模块 — Phase 3
+- `22885ff` - fix: Agent 文件操作错误处理
+- `e303305` - i18n: 文件操作错误消息国际化
+- `f77dc17` - docs: 更新 CLAUDE.md
+
+---
+
 ## v1.6.37 - 2026-02-14
 
 ### 新增 (Features)
