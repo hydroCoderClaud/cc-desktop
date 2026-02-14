@@ -70,6 +70,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       enableRemoteModule: false,
+      webviewTag: true,  // 启用 webview 标签（用于右侧面板 URL 预览）
     },
   });
 

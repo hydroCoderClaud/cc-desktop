@@ -2,6 +2,161 @@
 
 ---
 
+## v1.6.37 - 2026-02-14
+
+### 新增 (Features)
+
+**Agent 模式右侧面板增强（webview 预览方案）**
+- **可拖动调整面板宽度**：主内容区域和右侧面板之间添加拖动分隔条
+  - 默认比例 2:1（聊天 66.7%，面板 33.3%）
+  - 拖动范围限制：20% ~ 50%
+  - 宽度配置持久化（保存到 `config.json` 的 `ui.rightPanelWidth`）
+  - 鼠标悬停分隔条高亮提示
+  - Developer 模式和 Agent 模式共用配置
+
+- **图片预览增强**：
+  - 工具栏：放大、缩小、重置缩放、下载
+  - 鼠标滚轮缩放支持（步长 0.1，范围 0.25x ~ 5x）
+  - 图片信息显示（宽 × 高，文件大小）
+  - 图标优化：缩小按钮使用 `-` 图标（语义更准确）
+
+- **HTML 文件预览**：
+  - 检测 `.html` / `.htm` 文件并用 iframe 渲染
+  - 安全沙箱（sandbox="allow-scripts allow-same-origin"）
+  - 刷新按钮支持重新加载
+
+- **聊天消息图片点击预览**：
+  - 点击聊天区域的图片 → 右侧面板预览
+  - 自动展开右侧面板（如果折叠）
+  - 支持缩放、下载等所有图片预览功能
+
+- **超链接点击预览（webview 方案）**：
+  - **单击预览 · 双击打开**交互模式
+  - URL 链接（http/https）→ **webview 预览网页**（✅ 支持所有网站）
+  - 文件路径链接（本地路径）→ 读取并预览文件
+  - 支持路径类型：Windows 路径、Unix 路径、相对路径、~ 路径
+  - 提示文本：`单击预览 · 双击打开`
+  - **技术升级**：使用 Electron webview 标签，绕过 X-Frame-Options 限制
+
+- **预览功能优化**：
+  - ESC 键快速关闭预览
+  - 加载状态优化（50ms 延迟提供视觉反馈）
+  - 预览切换时自动重置缩放状态
+
+### 技术细节 (Technical Details)
+
+**webview 安全配置**：
+- 主进程启用 `webviewTag: true`
+- webview 安全参数：
+  - `nodeintegration="false"` - 禁用 Node.js API
+  - `partition="persist:webview-preview"` - 独立会话隔离
+  - `disablewebsecurity="false"` - 保持安全策略
+  - `allowpopups="false"` - 禁止弹窗
+- 优势：可以预览所有网站（百度、Google、GitHub 等）
+- 风险控制：进程隔离 + 沙箱配置，安全性等同于 Chrome 浏览器
+
+**事件传递链路**：
+```
+MessageBubble (@click / @preview-image / @preview-link / @preview-path)
+  ↓ emit
+AgentChatTab
+  ↓ emit
+MainContent (handlePreviewImage / handlePreviewLink / handlePreviewPath)
+  ↓ 调用方法
+AgentRightPanel.previewImage()
+  ↓
+FilePreview 显示
+```
+
+**配置持久化**：
+- 右侧面板宽度保存到 `config.json` → `ui.rightPanelWidth`
+- 应用启动时自动加载上次保存的宽度
+
+**修改文件**：
+- `src/main/index.js` - 启用 webviewTag
+- `MainContent.vue` - 添加拖动分隔条 + 事件处理
+- `AgentRightPanel/index.vue` - 动态宽度 + previewImage 方法
+- `RightPanel/index.vue` - 移除固定宽度
+- `FilePreview.vue` - 图片工具栏 + HTML iframe + **webview 预览** + ESC 键监听
+- `MessageBubble.vue` - 图片/链接点击事件
+- `AgentChatTab.vue` - 事件传递
+- `agent-session-manager.js` - HTML 文件类型检测
+- `zh-CN.js` / `en-US.js` - 新增 5 个翻译键
+
+### 重要说明 (Important Notes)
+
+**webview 使用说明**：
+- webview 是 Electron 特有的标签，用于嵌入外部网页
+- 优点：可以预览任何网站，不受 X-Frame-Options 限制
+- 安全性：通过正确的沙箱配置，安全性等同于浏览器
+- 注意事项：Electron 官方标记为 "legacy"，长期可能需要迁移到 BrowserView
+- 当前决策：功能性优先，未来 2-3 年内如需迁移会提供升级方案
+
+---
+
+## v1.6.36 - 2026-02-14
+
+### 新增 (Features)
+
+**Agent 模式图片识别功能**
+- 支持多模态消息，可发送图片给 AI 分析（基于 Claude API Vision）
+- 三种输入方式：截屏粘贴（Ctrl+V / Cmd+V）、复制粘贴、文件上传
+- 三种消息类型：纯文字、纯图片、图片+文字混合
+- 图片预览：输入框显示 80x80 缩略图，可删除
+- 消息气泡显示：聊天区域显示 200x200 图片缩略图
+- 多图支持：最多 4 张图片/消息
+- 大小检测：5MB 限制，超过显示警告
+- 格式支持：PNG、JPEG、GIF、WebP
+- 队列限制：流式输出时发送图片会提示等待（设计决策）
+
+**新增文件**：
+- `src/renderer/utils/image-utils.js` - 图片处理工具（7 个函数）
+- `docs/IMAGE-RECOGNITION-FEATURE.md` - 功能实现文档
+
+**修改文件**：
+- `src/renderer/pages/main/components/agent/ChatInput.vue` - 输入和预览 UI
+- `src/renderer/pages/main/components/agent/MessageBubble.vue` - 消息气泡显示图片
+- `src/renderer/composables/useAgentChat.js` - 支持多种消息格式
+- `src/main/agent-session-manager.js` - 后端多模态支持
+- `src/renderer/locales/zh-CN.js` / `en-US.js` - 新增 5 个翻译键
+- `src/renderer/components/icons/index.js` - 新增 image 图标
+
+### 技术细节 (Technical Details)
+
+**消息格式兼容**：
+- 纯文本消息：保持字符串格式（向后兼容）
+- 带图片消息：对象格式 `{ text, images: [{ base64, mediaType, ... }] }`
+- `useAgentChat.js` 自动检测类型并处理
+
+**问题修复**：
+- 修复消息格式兼容性问题（字符串 vs 对象）
+- 修复 `text.trim()` 类型错误
+- 修复纯图片消息验证逻辑
+- 实现图片在消息气泡中的显示
+
+**Claude API Vision 集成**：
+```javascript
+content: [
+  { type: 'text', text: '这是什么图片？' },
+  {
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/png',
+      data: 'iVBORw0KGgo...'
+    }
+  }
+]
+```
+
+### 文档 (Documentation)
+
+- 新增 `docs/IMAGE-RECOGNITION-FEATURE.md` - 完整实现文档
+- 更新 `CLAUDE.md` - 添加图片识别功能说明
+- 更新文件结构索引
+
+---
+
 ## v1.6.35 - 2026-02-14
 
 ### 修复 (Bug Fixes)

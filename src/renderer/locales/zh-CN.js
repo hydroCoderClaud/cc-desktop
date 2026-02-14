@@ -57,6 +57,10 @@ export default {
     openFile: '打开文件',
     all: '全部',
     rename: '重命名',
+    create: '创建',
+    confirmDelete: '确认删除',
+    folder: '文件夹',
+    file: '文件',
     today: '今天',
     older: '更早'
   },
@@ -87,7 +91,8 @@ export default {
     hideLeft: '隐藏左侧面板',
     showRight: '显示右侧面板',
     hideRight: '隐藏右侧面板',
-    toggleBoth: '收缩/展开两侧面板'
+    toggleBoth: '收缩/展开两侧面板',
+    dragToResize: '拖动调整面板宽度'
   },
 
   // 右侧面板
@@ -1181,6 +1186,14 @@ export default {
     browseFolder: '浏览...',
     create: '创建',
 
+    // 图片识别
+    uploadImage: '上传图片',
+    clearInput: '清空输入（Ctrl+L）',
+    imageUploadTitle: '图片上传',
+    imageLimitReached: '最多只能上传 {max} 张图片',
+    imageTooLarge: '图片过大（超过 5MB），发送时可能失败',
+    imageQueueNotSupported: '带图片的消息暂不支持加入队列，请等待当前输出完成后发送',
+
     // 文件浏览面板
     files: {
       title: '工作目录',
@@ -1193,7 +1206,36 @@ export default {
       tooLarge: '文件过大，无法预览',
       cannotPreview: '无法预览此文件类型',
       errorLoading: '加载目录失败',
-      errorReading: '读取文件失败'
+      errorReading: '读取文件失败',
+      zoomIn: '放大',
+      zoomOut: '缩小',
+      resetZoom: '重置缩放',
+      download: '下载',
+      openExternal: '在浏览器中打开',
+      openInDefaultApp: '在默认应用中打开',
+      showToolbar: '显示工具栏',
+      hideToolbar: '隐藏工具栏',
+      webviewTips: 'Ctrl + 放大 · Ctrl - 缩小 · Ctrl 0 恢复',
+      textTips: 'Ctrl+S 保存',
+      save: '保存',
+      unsaved: '未保存',
+      saved: '已保存',
+      // 右键菜单
+      newFile: '新建文件',
+      newFolder: '新建文件夹',
+      fileNamePlaceholder: '文件名（如 README.md）',
+      folderNamePlaceholder: '文件夹名',
+      newNamePlaceholder: '新名称',
+      fileNameRequired: '请输入文件名',
+      folderNameRequired: '请输入文件夹名',
+      nameRequired: '请输入名称',
+      createSuccess: '创建成功',
+      createFailed: '创建失败',
+      renameSuccess: '重命名成功',
+      renameFailed: '重命名失败',
+      deleteConfirm: '确定删除',
+      deleteSuccess: '删除成功',
+      deleteFailed: '删除失败'
     },
 
     // 能力管理

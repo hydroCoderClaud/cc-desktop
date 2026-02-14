@@ -187,8 +187,8 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   background: var(--bg-color-secondary);
-  width: 320px;
   flex-shrink: 0;
+  border: none;
 }
 
 .panel-content {

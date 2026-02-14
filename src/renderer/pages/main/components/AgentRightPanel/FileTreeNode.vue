@@ -8,8 +8,9 @@
         'is-selected': isSelected
       }"
       :style="{ paddingLeft: depth * 16 + 8 + 'px' }"
-      @click="handleClick"
+      @click="handleClick($event)"
       @dblclick="handleDblClick"
+      @contextmenu="handleContextMenu($event)"
     >
       <!-- 展开/折叠箭头（目录） -->
       <span v-if="entry.isDirectory" class="node-arrow">
@@ -46,6 +47,8 @@
           @toggle-dir="$emit('toggle-dir', $event)"
           @select-file="$emit('select-file', $event)"
           @open-file="$emit('open-file', $event)"
+          @insert-path="$emit('insert-path', $event)"
+          @context-menu="$emit('context-menu', $event)"
         />
         <div v-if="children.length === 0" class="empty-dir" :style="{ paddingLeft: (depth + 1) * 16 + 8 + 'px' }">
           <span class="empty-text">{{ t('agent.files.emptyDir') }}</span>
@@ -75,17 +78,23 @@ const props = defineProps({
   getDirEntries: { type: Function, required: true }
 })
 
-const emit = defineEmits(['toggle-dir', 'select-file', 'open-file'])
+const emit = defineEmits(['toggle-dir', 'select-file', 'open-file', 'insert-path', 'context-menu'])
 
 const isExpanded = computed(() => props.expandedDirs.has(props.entry.relativePath))
 const isSelected = computed(() => !props.entry.isDirectory && props.selectedFile === props.entry.relativePath)
 const children = computed(() => props.getDirEntries(props.entry.relativePath))
 
-const handleClick = () => {
+const handleClick = (event) => {
   if (props.entry.isDirectory) {
     emit('toggle-dir', props.entry.relativePath)
   } else {
-    emit('select-file', props.entry.relativePath)
+    // Ctrl+点击（Windows/Linux）或 Cmd+点击（Mac）：插入路径到输入框
+    if (event.ctrlKey || event.metaKey) {
+      emit('insert-path', props.entry.relativePath)
+    } else {
+      // 普通点击：预览文件
+      emit('select-file', props.entry.relativePath)
+    }
   }
 }
 
@@ -93,6 +102,12 @@ const handleDblClick = () => {
   if (!props.entry.isDirectory) {
     emit('open-file', props.entry.relativePath)
   }
+}
+
+const handleContextMenu = (event) => {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('context-menu', { x: event.clientX, y: event.clientY, entry: props.entry })
 }
 </script>
 

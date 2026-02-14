@@ -577,8 +577,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:listDir', { sessionId, relativePath, showHidden }),
   readAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:readFile', { sessionId, relativePath }),
+  saveAgentFile: ({ sessionId, relativePath, content }) =>
+    ipcRenderer.invoke('agent:saveFile', { sessionId, relativePath, content }),
   openAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:openFile', { sessionId, relativePath }),
+  readAbsolutePath: (filePath) =>
+    ipcRenderer.invoke('agent:readAbsolutePath', { filePath }),
+  createAgentFile: ({ sessionId, parentPath, name, isDirectory }) =>
+    ipcRenderer.invoke('agent:createFile', { sessionId, parentPath, name, isDirectory }),
+  renameAgentFile: ({ sessionId, oldPath, newName }) =>
+    ipcRenderer.invoke('agent:renameFile', { sessionId, oldPath, newName }),
+  deleteAgentFile: ({ sessionId, path }) =>
+    ipcRenderer.invoke('agent:deleteFile', { sessionId, path }),
 
   // 能力管理（Agent 模式）
   fetchCapabilities: () => ipcRenderer.invoke('capabilities:fetch'),

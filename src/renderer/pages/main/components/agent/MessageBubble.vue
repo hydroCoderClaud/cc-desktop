@@ -4,6 +4,22 @@
       <Icon :name="message.role === 'user' ? 'user' : 'robot'" :size="16" />
     </div>
     <div class="bubble-content">
+      <!-- 图片区域（如果消息包含图片） -->
+      <div v-if="message.images && message.images.length > 0" class="bubble-images">
+        <div
+          v-for="(img, index) in message.images"
+          :key="index"
+          class="bubble-image-item"
+          @click="handleImageClick(img)"
+        >
+          <img
+            :src="`data:${img.mediaType};base64,${img.base64}`"
+            :alt="`Image ${index + 1}`"
+            class="bubble-image"
+          />
+        </div>
+      </div>
+      <!-- 文字内容（过滤掉 [图片] 占位符） -->
       <div class="bubble-body" ref="bodyRef" v-html="renderedContent" @click="handleLinkClick"></div>
       <div class="bubble-meta" v-if="message.timestamp">
         {{ formatTime(message.timestamp) }}
@@ -23,6 +39,8 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['preview-image', 'preview-link', 'preview-path'])
+
 const bodyRef = ref(null)
 
 /**
@@ -30,6 +48,11 @@ const bodyRef = ref(null)
  */
 const renderedContent = computed(() => {
   let text = props.message.content || ''
+
+  // 如果有图片且内容只是 [图片] 占位符，不显示文字
+  if (props.message.images && props.message.images.length > 0 && text === '[图片]') {
+    return ''
+  }
 
   // 转义 HTML
   text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -56,23 +79,23 @@ const renderedContent = computed(() => {
 
   // URL 链接（http:// 或 https://）
   text = text.replace(/(https?:\/\/[^\s<>&"')\]]+)/g,
-    '<a class="clickable-link" data-link-type="url" data-href="$1" title="点击打开链接">$1</a>')
+    '<a class="clickable-link" data-link-type="url" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // Windows 绝对路径（C:\... D:\...）
   text = text.replace(/([A-Z]):(\\[^\s<>&"',:*?]+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1:$2" title="点击打开文件">$1:$2</a>')
+    '<a class="clickable-link" data-link-type="path" data-href="$1:$2" title="单击预览 · Ctrl+单击打开">$1:$2</a>')
 
   // Unix 绝对路径（/home/... /usr/... /tmp/... 等）
   text = text.replace(/(\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)[^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="点击打开文件">$1</a>')
+    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // 相对路径（./... 或 ../...）
   text = text.replace(/(\.\.?\/[^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="点击打开文件">$1</a>')
+    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // ~ 路径（~/...）
   text = text.replace(/(~\/[^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="点击打开文件">$1</a>')
+    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // 换行
   text = text.replace(/\n/g, '<br>')
@@ -91,8 +114,7 @@ const renderedContent = computed(() => {
       linkType = 'path'
     }
     if (linkType) {
-      const tip = linkType === 'url' ? '点击打开链接' : '点击打开文件'
-      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${inner}" title="${tip}">${inner}</a></code>`
+      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${inner}" title="单击预览 · Ctrl+单击打开">${inner}</a></code>`
     }
     return code
   })
@@ -101,7 +123,7 @@ const renderedContent = computed(() => {
 })
 
 /**
- * 单击事件委托：打开链接/路径
+ * 点击事件委托：普通点击预览，Ctrl+点击外部打开
  */
 const handleLinkClick = async (e) => {
   const link = e.target.closest('.clickable-link')
@@ -114,16 +136,47 @@ const handleLinkClick = async (e) => {
 
   if (!href) return
 
-  if (type === 'url') {
-    await window.electronAPI.openExternal(href)
-  } else if (type === 'path') {
-    await window.electronAPI.openPath(href)
+  // Ctrl/Cmd+点击：在外部打开
+  if (e.ctrlKey || e.metaKey) {
+    if (type === 'url') {
+      await window.electronAPI.openExternal(href)
+    } else if (type === 'path') {
+      await window.electronAPI.openPath(href)
+    }
+  }
+  // 普通点击：预览
+  else {
+    if (type === 'url') {
+      // URL 链接：用 iframe 预览
+      emit('preview-link', {
+        type: 'url',
+        name: href,
+        url: href
+      })
+    } else if (type === 'path') {
+      // 文件路径：请求后端读取文件并预览（文件）或打开（目录）
+      emit('preview-path', href)
+    }
   }
 }
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * 点击图片处理 - 在右侧面板预览
+ */
+const handleImageClick = (img) => {
+  // 发射事件到父组件，传递图片数据
+  emit('preview-image', {
+    type: 'image',
+    name: img.fileName || 'image.png',
+    content: `data:${img.mediaType};base64,${img.base64}`,
+    size: img.base64 ? Math.round((img.base64.length * 3) / 4) : 0, // base64 大小估算
+    ext: `.${img.mediaType?.split('/')[1] || 'png'}`
+  })
 }
 </script>
 
@@ -247,5 +300,40 @@ const formatTime = (timestamp) => {
 
 .message-bubble.user .bubble-meta {
   text-align: right;
+}
+
+/* 图片显示区域 */
+.bubble-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bubble-image-item {
+  max-width: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--bg-color-tertiary);
+}
+
+.bubble-image-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bubble-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 200px;
+  object-fit: cover;
+}
+
+/* 用户消息的图片样式 */
+.message-bubble.user .bubble-images {
+  justify-content: flex-end;
 }
 </style>

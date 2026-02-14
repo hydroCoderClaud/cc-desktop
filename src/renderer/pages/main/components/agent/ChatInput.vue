@@ -66,6 +66,32 @@
         >
           <Icon name="queue" :size="13" class="queue-toggle-icon" />
         </div>
+
+        <!-- 图片上传按钮 -->
+        <div
+          class="image-upload-btn"
+          :title="t('agent.uploadImage')"
+          @click="triggerImageUpload"
+        >
+          <Icon name="image" :size="13" />
+        </div>
+        <input
+          ref="imageInputRef"
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          multiple
+          style="display: none"
+          @change="handleImageUpload"
+        />
+
+        <!-- 清空按钮 -->
+        <div
+          class="clear-input-btn"
+          :title="t('agent.clearInput')"
+          @click="handleClear"
+        >
+          <Icon name="delete" :size="13" />
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -73,6 +99,25 @@
         <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
           {{ formatTokens(contextTokens) }} tokens
         </span>
+      </div>
+    </div>
+
+    <!-- 图片预览区域 -->
+    <div v-if="attachedImages.length > 0" class="image-preview-area">
+      <div
+        v-for="(img, index) in attachedImages"
+        :key="img.id"
+        class="image-preview-item"
+        :class="{ warning: img.warning }"
+      >
+        <img :src="`data:${img.mediaType};base64,${img.base64}`" class="preview-thumbnail" />
+        <button class="preview-remove-btn" @click="removeImage(index)" :title="t('common.delete')">
+          <Icon name="close" :size="12" />
+        </button>
+        <div class="preview-size">{{ img.sizeText }}</div>
+        <div v-if="img.warning" class="preview-warning" :title="t('agent.imageTooLarge')">
+          <Icon name="warning" :size="12" />
+        </div>
       </div>
     </div>
 
@@ -114,6 +159,7 @@
         rows="1"
         @input="handleInput"
         @keydown="handleKeyDown"
+        @paste="handlePaste"
       />
       <!-- 队列徽章（独立显示，只要有消息就显示，不管队列是否启用） -->
       <div v-if="messageQueue.length > 0" class="queue-wrapper" ref="queueWrapperRef">
@@ -183,7 +229,7 @@
       <button
         v-else
         class="send-btn"
-        :disabled="!inputText.trim() || disabled"
+        :disabled="(!inputText.trim() && attachedImages.length === 0) || disabled"
         @click="handleSend"
         :title="t('agent.send')"
       >
@@ -197,6 +243,14 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import {
+  readFileAsBase64,
+  getImageMediaType,
+  getBase64Size,
+  isImageTooLarge,
+  formatFileSize,
+  isSupportedImageType
+} from '@/utils/image-utils'
 
 const { t } = useLocale()
 
@@ -474,6 +528,12 @@ const handleKeyDown = (event) => {
     event.preventDefault()
     handleSend()
   }
+
+  // Ctrl+L: 清空输入框
+  if ((event.ctrlKey || event.metaKey) && event.key === 'l') {
+    event.preventDefault()
+    handleClear()
+  }
 }
 
 // 消息队列（流式输出期间暂存）
@@ -568,23 +628,142 @@ const handleDragEnd = () => {
   dragStartIndex = null
 }
 
+// ============================
+// 图片上传与处理
+// ============================
+const attachedImages = ref([])
+const imageInputRef = ref(null)
+let imageIdCounter = 0
+const MAX_IMAGE_SIZE_MB = 5
+const MAX_IMAGES = 4  // 最多4张图片
+
+const triggerImageUpload = () => {
+  if (props.disabled) return
+  imageInputRef.value?.click()
+}
+
+const handleImageUpload = async (event) => {
+  const files = Array.from(event.target.files)
+  await processImages(files)
+  // 清空 input，允许重复选择相同文件
+  event.target.value = ''
+}
+
+const handlePaste = async (event) => {
+  const items = Array.from(event.clipboardData.items)
+  const imageItems = items.filter(item => item.type.startsWith('image/'))
+
+  if (imageItems.length > 0) {
+    event.preventDefault()  // 阻止默认粘贴行为
+    const files = await Promise.all(
+      imageItems.map(item => item.getAsFile())
+    ).then(files => files.filter(f => f !== null))
+
+    await processImages(files)
+  }
+}
+
+const processImages = async (files) => {
+  if (files.length === 0) return
+
+  // 检查数量限制
+  const remaining = MAX_IMAGES - attachedImages.value.length
+  if (remaining <= 0) {
+    window.electronAPI?.showNotification({
+      title: t('agent.imageUploadTitle'),
+      body: t('agent.imageLimitReached', { max: MAX_IMAGES })
+    })
+    return
+  }
+
+  const filesToProcess = files.slice(0, remaining)
+
+  for (const file of filesToProcess) {
+    // 检查文件类型
+    if (!isSupportedImageType(file)) {
+      console.warn(`Unsupported image type: ${file.type}`)
+      continue
+    }
+
+    try {
+      const base64 = await readFileAsBase64(file)
+      const mediaType = getImageMediaType(file)
+      const sizeBytes = getBase64Size(base64)
+      const warning = isImageTooLarge(base64, MAX_IMAGE_SIZE_MB)
+
+      attachedImages.value.push({
+        id: ++imageIdCounter,
+        base64,
+        mediaType,
+        sizeBytes,
+        sizeText: formatFileSize(sizeBytes),
+        warning,
+        fileName: file.name || 'image'
+      })
+    } catch (error) {
+      console.error('Failed to process image:', error)
+    }
+  }
+}
+
+const removeImage = (index) => {
+  attachedImages.value.splice(index, 1)
+}
+
+const handleClear = () => {
+  inputText.value = ''
+  attachedImages.value = []
+  nextTick(autoResize)
+}
+
 const handleSend = () => {
   const text = inputText.value.trim()
-  if (!text || props.disabled) return
+  // 有文本或有图片才能发送
+  if ((!text && attachedImages.value.length === 0) || props.disabled) return
   // 队列关闭时，流式输出中禁止发送
   if (props.isStreaming && !props.queueEnabled) return
 
   showSlashPanel.value = false
 
+  // 构建消息对象
+  const message = {
+    text,
+    images: attachedImages.value.map(img => ({
+      base64: img.base64,
+      mediaType: img.mediaType,
+      sizeBytes: img.sizeBytes,
+      warning: img.warning
+    }))
+  }
+
   if (props.isStreaming) {
     // 流式输出中 → 加入队列（上限 MAX_QUEUE_SIZE 条）
+    // 注意：队列暂不支持图片，仅支持文本
     if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
+    if (attachedImages.value.length > 0) {
+      // 有图片时，不允许加入队列，提示用户等待
+      window.electronAPI?.showNotification({
+        title: t('agent.queueTitle'),
+        body: t('agent.imageQueueNotSupported')
+      })
+      return
+    }
     messageQueue.value.push({ id: ++queueIdCounter, text })
     emit('enqueue', text)
   } else {
-    emit('send', text)
+    // 根据是否有图片决定发送格式
+    if (attachedImages.value.length > 0) {
+      // 有图片：发送对象格式
+      emit('send', message)
+    } else {
+      // 无图片：发送纯文本（兼容旧代码）
+      emit('send', text)
+    }
   }
+
+  // 清空输入和图片
   inputText.value = ''
+  attachedImages.value = []
   nextTick(autoResize)
 }
 
@@ -619,7 +798,31 @@ const focus = () => {
   textareaRef.value?.focus()
 }
 
-defineExpose({ focus, messageQueue, dequeue, clearQueue })
+// 插入文本到输入框（光标位置或末尾）
+const insertText = (text) => {
+  const textarea = textareaRef.value
+  if (!textarea) {
+    // 如果 textarea 未挂载，直接追加到末尾
+    inputText.value += text
+    return
+  }
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const value = inputText.value
+
+  // 插入到光标位置
+  inputText.value = value.substring(0, start) + text + value.substring(end)
+
+  // 恢复光标位置（光标移动到插入文本后）
+  nextTick(() => {
+    const newPosition = start + text.length
+    textarea.setSelectionRange(newPosition, newPosition)
+    textarea.focus()
+  })
+}
+
+defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText })
 </script>
 
 <style scoped>
@@ -1277,5 +1480,131 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue })
 
 .stop-btn:hover {
   background: #ff7875;
+}
+
+/* ==================== 图片上传按钮 ==================== */
+.image-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-color-muted);
+  transition: all 0.15s;
+  background: transparent;
+}
+
+.image-upload-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+/* ==================== 清空按钮 ==================== */
+.clear-input-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-color-muted);
+  transition: all 0.15s;
+  background: transparent;
+  margin-left: 4px;
+}
+
+.clear-input-btn:hover {
+  background: var(--hover-bg);
+  color: var(--error-color, #e53e3e);
+}
+
+/* ==================== 图片预览区域 ==================== */
+.image-preview-area {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  transition: all 0.2s;
+}
+
+.image-preview-item.warning {
+  border-color: #ff9800;
+}
+
+.image-preview-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.preview-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.image-preview-item:hover .preview-remove-btn {
+  opacity: 1;
+}
+
+.preview-remove-btn:hover {
+  background: rgba(255, 77, 79, 0.9);
+}
+
+.preview-size {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.preview-warning {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff9800;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

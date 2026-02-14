@@ -92,13 +92,20 @@ export function useAgentChat(sessionId) {
   /**
    * 添加用户消息
    */
-  const addUserMessage = (text) => {
-    messages.value.push({
+  const addUserMessage = (text, images = null) => {
+    const message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: MessageRole.USER,
       content: text,
       timestamp: Date.now()
-    })
+    }
+
+    // 如果有图片，附加到消息对象
+    if (images && images.length > 0) {
+      message.images = images
+    }
+
+    messages.value.push(message)
   }
 
   /**
@@ -199,12 +206,27 @@ export function useAgentChat(sessionId) {
   }
 
   const sendMessage = async (text) => {
-    if (!text.trim() || isStreaming.value) return
+    // 支持两种格式：字符串（纯文本）和对象（带图片）
+    let textContent = ''
+    let originalMessage = null
+    let hasImages = false
 
-    const trimmed = text.trim()
+    if (typeof text === 'string') {
+      textContent = text
+      originalMessage = text
+    } else if (text && typeof text === 'object') {
+      textContent = text.text || ''
+      originalMessage = text
+      hasImages = text.images && text.images.length > 0
+    }
 
-    // 本地 slash 命令拦截
-    if (trimmed.startsWith('/')) {
+    // 必须有文本内容或图片
+    if ((!textContent.trim() && !hasImages) || isStreaming.value) return
+
+    const trimmed = textContent.trim()
+
+    // 本地 slash 命令拦截（仅对纯文本消息）
+    if (trimmed && trimmed.startsWith('/')) {
       addUserMessage(trimmed)
       if (handleLocalSlashCommand(trimmed)) {
         return
@@ -215,15 +237,24 @@ export function useAgentChat(sessionId) {
     error.value = null
     isRestored.value = false
     isInterrupting.value = false  // 重置中断标志，允许正常队列消费
-    if (!trimmed.startsWith('/')) {
-      addUserMessage(trimmed)
+
+    // 添加用户消息到界面
+    if (trimmed && !trimmed.startsWith('/')) {
+      // 有文字内容，传递图片数据（如果有）
+      addUserMessage(trimmed, hasImages ? originalMessage.images : null)
+    } else if (hasImages && !trimmed) {
+      // 只有图片，没有文字，显示 [图片] 但附加图片数据
+      addUserMessage('[图片]', originalMessage.images)
     }
 
     // 第一条用户消息 → 自动设为对话标题（截取前10个字符）
     const userMessages = messages.value.filter(m => m.role === MessageRole.USER)
-    if (userMessages.length === 1 && !trimmed.startsWith('/') && !trimmed.startsWith('@')) {
+    if (userMessages.length === 1 && trimmed && !trimmed.startsWith('/') && !trimmed.startsWith('@')) {
       const autoTitle = trimmed.length > 10 ? trimmed.slice(0, 10) + '…' : trimmed
       window.electronAPI?.renameAgentSession?.({ sessionId, title: autoTitle }).catch(() => {})
+    } else if (userMessages.length === 1 && hasImages && !trimmed) {
+      // 第一条消息是纯图片，标题设为 [图片]
+      window.electronAPI?.renameAgentSession?.({ sessionId, title: '[图片]' }).catch(() => {})
     }
 
     isStreaming.value = true
@@ -232,7 +263,7 @@ export function useAgentChat(sessionId) {
 
     const sendOptions = {
       sessionId,
-      message: trimmed,
+      message: originalMessage,  // 发送原始消息（可能包含图片）
       // 每次都传当前选择的模型，确保：
       // 1. 新建 query 时使用正确模型
       // 2. push 到现有队列前自动 setModel()

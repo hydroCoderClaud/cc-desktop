@@ -135,7 +135,12 @@ export function useAgentFiles() {
         sessionId: sessionId.value,
         relativePath: filePath
       })
-      filePreview.value = result
+      // 添加 sessionId 和 relativePath 到预览数据（用于保存文件）
+      filePreview.value = {
+        ...result,
+        sessionId: sessionId.value,
+        relativePath: filePath
+      }
     } catch (err) {
       filePreview.value = { error: err.message || 'Failed to read file' }
     } finally {
@@ -179,11 +184,17 @@ export function useAgentFiles() {
    * 刷新（清缓存重载）
    */
   const refresh = async () => {
+    // 保存当前预览的文件路径
+    const currentPreviewFile = selectedFile.value
+
     dirCache.clear()
     expandedDirs.clear()
-    selectedFile.value = null
-    filePreview.value = null
     await loadDir('')
+
+    // 如果之前有预览文件，刷新后重新加载预览
+    if (currentPreviewFile) {
+      await selectFile(currentPreviewFile)
+    }
   }
 
   /**

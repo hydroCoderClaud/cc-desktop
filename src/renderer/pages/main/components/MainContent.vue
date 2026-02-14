@@ -112,20 +112,33 @@
             <AgentChatTab
               v-for="tab in agentTabs"
               :key="tab.id"
+              :ref="el => { if (el) agentChatTabRefs[tab.id] = el }"
               :session-id="tab.sessionId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
+              @preview-image="handlePreviewImage"
+              @preview-link="handlePreviewLink"
+              @preview-path="handlePreviewPath"
             />
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Resize Handle -->
+    <div
+      v-if="showRightPanel"
+      class="resize-handle"
+      @mousedown="startResize"
+      :title="t('panel.dragToResize')"
+    />
+
     <!-- Right Panel: Developer 模式用配置面板，Agent 模式用文件浏览面板 -->
     <template v-if="showRightPanel">
       <RightPanel
         v-show="isDeveloperMode"
         ref="rightPanelRef"
+        :style="{ width: rightPanelWidth }"
         :current-project="currentProject"
         :terminal-busy="terminalBusy"
         :current-session-uuid="currentSessionUuid"
@@ -134,8 +147,11 @@
       />
       <AgentRightPanel
         v-show="!isDeveloperMode"
+        ref="agentRightPanelRef"
+        :style="{ width: rightPanelWidth }"
         :session-id="activeAgentSessionId"
         @collapse="showRightPanel = false"
+        @insert-path="handleInsertPath"
       />
     </template>
 
@@ -268,6 +284,8 @@ const ensureActiveTabInCurrentMode = () => {
 // Refs
 const leftPanelRef = ref(null)
 const rightPanelRef = ref(null)
+const agentRightPanelRef = ref(null)
+const agentChatTabRefs = ref({})
 const terminalRefs = ref({})
 const terminalFontSize = ref(14)
 const terminalFontFamily = ref('"Ubuntu Mono", monospace')
@@ -309,6 +327,85 @@ const toggleBothPanels = () => {
   showRightPanel.value = !bothVisible
 }
 
+// ========================================
+// Right Panel Resize
+// ========================================
+const rightPanelWidth = ref('33.3%')  // 默认 33.3%（2:1 比例）
+const isResizing = ref(false)
+const startX = ref(0)
+const startWidth = ref(0)
+
+// 加载保存的宽度配置
+const loadRightPanelWidth = async () => {
+  try {
+    const config = await window.electronAPI.getConfig()
+    const savedWidth = config?.ui?.rightPanelWidth
+    if (savedWidth) {
+      rightPanelWidth.value = savedWidth
+    }
+  } catch (err) {
+    console.error('Failed to load right panel width:', err)
+  }
+}
+
+// 保存宽度配置
+const saveRightPanelWidth = async (width) => {
+  try {
+    await window.electronAPI.updateConfig({
+      ui: { rightPanelWidth: width }
+    })
+  } catch (err) {
+    console.error('Failed to save right panel width:', err)
+  }
+}
+
+// 开始拖动
+const startResize = (e) => {
+  isResizing.value = true
+  startX.value = e.clientX
+
+  // 获取当前宽度（百分比转像素）
+  const containerWidth = document.querySelector('.app-container').offsetWidth
+  const currentPercent = parseFloat(rightPanelWidth.value)
+  startWidth.value = (containerWidth * currentPercent) / 100
+
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+// 拖动中
+const handleResize = (e) => {
+  if (!isResizing.value) return
+
+  const containerWidth = document.querySelector('.app-container').offsetWidth
+  const deltaX = startX.value - e.clientX  // 向左拖动为正，向右拖动为负
+  const newWidth = startWidth.value + deltaX
+
+  // 转换为百分比
+  let newPercent = (newWidth / containerWidth) * 100
+
+  // 限制范围：20% ~ 50%
+  newPercent = Math.max(20, Math.min(50, newPercent))
+
+  rightPanelWidth.value = `${newPercent.toFixed(1)}%`
+}
+
+// 停止拖动
+const stopResize = async () => {
+  if (!isResizing.value) return
+
+  isResizing.value = false
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+
+  // 保存配置
+  await saveRightPanelWidth(rightPanelWidth.value)
+}
+
 // Set terminal ref
 const setTerminalRef = (tabId, el) => {
   if (el) {
@@ -325,6 +422,7 @@ onMounted(async () => {
   await loadProjects()
   selectFirstProject()
   setupSessionListeners()
+  loadRightPanelWidth()  // 加载右侧面板宽度配置
   window.addEventListener('keydown', handleKeyDown)
 
   // Load terminal settings
@@ -672,6 +770,83 @@ const handleAgentTabReady = ({ sessionId }) => {
   // Agent tab 就绪
 }
 
+// 处理路径插入请求（Ctrl+点击文件）
+const handleInsertPath = (relativePath) => {
+  if (!activeTabId.value) return
+
+  // 获取当前活动的 AgentChatTab 引用
+  const activeTabRef = agentChatTabRefs.value[activeTabId.value]
+  if (!activeTabRef || !activeTabRef.insertText) return
+
+  // 插入路径到输入框
+  activeTabRef.insertText(relativePath)
+}
+
+// 处理图片预览请求
+const handlePreviewImage = (previewData) => {
+  // 确保右侧面板可见
+  if (!showRightPanel.value) {
+    showRightPanel.value = true
+  }
+
+  // 调用 AgentRightPanel 的预览方法
+  nextTick(() => {
+    if (agentRightPanelRef.value && agentRightPanelRef.value.previewImage) {
+      agentRightPanelRef.value.previewImage(previewData)
+    }
+  })
+}
+
+// 处理链接预览请求（URL）
+const handlePreviewLink = (linkData) => {
+  // 确保右侧面板可见
+  if (!showRightPanel.value) {
+    showRightPanel.value = true
+  }
+
+  // 调用 AgentRightPanel 的预览方法
+  nextTick(() => {
+    if (agentRightPanelRef.value && agentRightPanelRef.value.previewImage) {
+      agentRightPanelRef.value.previewImage(linkData)
+    }
+  })
+}
+
+// 处理文件路径预览请求
+const handlePreviewPath = async (filePath) => {
+  // 请求后端读取文件（使用绝对路径读取）
+  try {
+    const fileData = await window.electronAPI.readAbsolutePath(filePath)
+
+    // 检查错误
+    if (fileData.error) {
+      message.error(fileData.error)
+      return
+    }
+
+    // 如果是目录，直接打开文件夹
+    if (fileData.type === 'directory') {
+      await window.electronAPI.openPath(filePath)
+      return
+    }
+
+    // 如果是文件，确保右侧面板可见并预览
+    if (!showRightPanel.value) {
+      showRightPanel.value = true
+    }
+
+    // 调用 AgentRightPanel 的预览方法
+    nextTick(() => {
+      if (agentRightPanelRef.value && agentRightPanelRef.value.previewImage) {
+        agentRightPanelRef.value.previewImage(fileData)
+      }
+    })
+  } catch (err) {
+    console.error('Failed to preview file:', err)
+    message.error(t('agent.files.errorLoading'))
+  }
+}
+
 // Theme toggle handler
 const handleToggleTheme = async () => {
   await toggleTheme()
@@ -883,5 +1058,24 @@ const openApiProfileManager = async () => {
 
 .panel-collapsed-right {
   border-left: 1px solid var(--border-color);
+}
+
+/* Resize Handle */
+.resize-handle {
+  width: 1px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  bottom: 0;
+  /* 扩大点击区域，方便拖动 */
 }
 </style>

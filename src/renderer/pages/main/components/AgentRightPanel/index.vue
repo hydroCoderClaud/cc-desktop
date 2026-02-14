@@ -38,6 +38,8 @@
             @toggle-dir="agentFiles.toggleDir($event)"
             @select-file="agentFiles.selectFile($event)"
             @open-file="agentFiles.openFile($event)"
+            @insert-path="handleInsertPath"
+            @context-menu="handleContextMenu"
           />
 
           <!-- File Preview -->
@@ -69,42 +71,304 @@
         <span>{{ t('agent.files.noSession') }}</span>
       </div>
     </template>
+
+    <!-- 右键菜单 -->
+    <FileTreeContextMenu ref="contextMenuRef" @action="handleMenuAction" />
   </div>
 </template>
 
 <script setup>
-import { watch } from 'vue'
+import { ref, watch, h } from 'vue'
+import { useDialog, useMessage, NInput } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentFiles } from '@composables/useAgentFiles'
 import Icon from '@components/icons/Icon.vue'
 import FileTreeHeader from './FileTreeHeader.vue'
 import FileTree from './FileTree.vue'
 import FilePreview from './FilePreview.vue'
+import FileTreeContextMenu from './FileTreeContextMenu.vue'
 
 const { t } = useLocale()
+const dialog = useDialog()
+const message = useMessage()
 const agentFiles = useAgentFiles()
+const contextMenuRef = ref(null)
 
 const props = defineProps({
   sessionId: { type: String, default: null }
 })
 
-defineEmits(['collapse'])
+const emit = defineEmits(['collapse', 'insert-path'])
 
 // watch sessionId 变化自动重置并加载
 watch(() => props.sessionId, (newId) => {
   agentFiles.setSessionId(newId)
 }, { immediate: true })
+
+// 暴露预览方法给父组件调用
+const previewImage = (previewData) => {
+  // 设置加载状态
+  agentFiles.previewLoading.value = true
+  agentFiles.selectedFile.value = previewData.name
+
+  // 模拟异步加载（给用户视觉反馈）
+  setTimeout(() => {
+    agentFiles.filePreview.value = previewData
+    agentFiles.previewLoading.value = false
+  }, 50)
+}
+
+// 处理路径插入：拼接完整路径
+const handleInsertPath = (relativePath) => {
+  const cwd = agentFiles.cwd.value
+  if (!cwd || !relativePath) return
+
+  // 判断路径分隔符（Windows 使用 \，Unix 使用 /）
+  const separator = cwd.includes('\\') ? '\\' : '/'
+
+  // 拼接完整路径
+  const fullPath = cwd + separator + relativePath.replace(/\//g, separator)
+
+  // emit 完整路径
+  emit('insert-path', fullPath)
+}
+
+// 处理右键菜单
+const handleContextMenu = ({ x, y, entry }) => {
+  contextMenuRef.value?.show(x, y, entry)
+}
+
+// 关闭右键菜单（点击外部）
+const handleClickOutside = () => {
+  contextMenuRef.value?.hide()
+}
+
+// 监听全局点击，关闭右键菜单
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', handleClickOutside)
+  window.addEventListener('contextmenu', handleClickOutside)
+}
+
+// 处理菜单操作
+const handleMenuAction = async ({ action, target }) => {
+  const sessionId = props.sessionId
+  if (!sessionId) return
+
+  switch (action) {
+    case 'newFile':
+      await handleNewFile(target)
+      break
+    case 'newFolder':
+      await handleNewFolder(target)
+      break
+    case 'rename':
+      await handleRename(target)
+      break
+    case 'delete':
+      await handleDelete(target)
+      break
+  }
+}
+
+// 创建新文件
+const handleNewFile = async (target) => {
+  const sessionId = props.sessionId
+  const parentPath = target?.relativePath || ''
+
+  let inputValue = ref('')
+  let dialogInstance = null
+
+  const handleCreate = async () => {
+    const fileName = inputValue.value.trim()
+
+    if (!fileName) {
+      message.warning(t('agent.files.fileNameRequired'))
+      return false
+    }
+
+    try {
+      await window.electronAPI.createAgentFile({
+        sessionId,
+        parentPath,
+        name: fileName,
+        isDirectory: false
+      })
+      message.success(t('agent.files.createSuccess'))
+      agentFiles.refresh()
+      if (dialogInstance) dialogInstance.destroy()
+    } catch (err) {
+      message.error(t('agent.files.createFailed') + ': ' + err.message)
+    }
+  }
+
+  dialogInstance = dialog.create({
+    title: t('agent.files.newFile'),
+    content: () => h(NInput, {
+      value: inputValue.value,
+      onUpdateValue: (v) => { inputValue.value = v },
+      placeholder: t('agent.files.fileNamePlaceholder'),
+      autofocus: true,
+      onKeydown: (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          handleCreate()
+        }
+      }
+    }),
+    positiveText: t('common.create'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: handleCreate
+  })
+}
+
+// 创建新文件夹
+const handleNewFolder = async (target) => {
+  const sessionId = props.sessionId
+  const parentPath = target?.relativePath || ''
+
+  let inputValue = ref('')
+  let dialogInstance = null
+
+  const handleCreate = async () => {
+    const folderName = inputValue.value.trim()
+
+    if (!folderName) {
+      message.warning(t('agent.files.folderNameRequired'))
+      return false
+    }
+
+    try {
+      await window.electronAPI.createAgentFile({
+        sessionId,
+        parentPath,
+        name: folderName,
+        isDirectory: true
+      })
+      message.success(t('agent.files.createSuccess'))
+      agentFiles.refresh()
+      if (dialogInstance) dialogInstance.destroy()
+    } catch (err) {
+      message.error(t('agent.files.createFailed') + ': ' + err.message)
+    }
+  }
+
+  dialogInstance = dialog.create({
+    title: t('agent.files.newFolder'),
+    content: () => h(NInput, {
+      value: inputValue.value,
+      onUpdateValue: (v) => { inputValue.value = v },
+      placeholder: t('agent.files.folderNamePlaceholder'),
+      autofocus: true,
+      onKeydown: (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          handleCreate()
+        }
+      }
+    }),
+    positiveText: t('common.create'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: handleCreate
+  })
+}
+
+// 重命名
+const handleRename = async (target) => {
+  if (!target) return
+
+  const sessionId = props.sessionId
+  let inputValue = ref(target.name)
+  let dialogInstance = null
+
+  const handleConfirm = async () => {
+    const newName = inputValue.value.trim()
+
+    if (!newName) {
+      message.warning(t('agent.files.nameRequired'))
+      return false
+    }
+
+    if (newName === target.name) {
+      if (dialogInstance) dialogInstance.destroy()
+      return
+    }
+
+    try {
+      await window.electronAPI.renameAgentFile({
+        sessionId,
+        oldPath: target.relativePath,
+        newName
+      })
+      message.success(t('agent.files.renameSuccess'))
+      agentFiles.refresh()
+      if (dialogInstance) dialogInstance.destroy()
+    } catch (err) {
+      message.error(t('agent.files.renameFailed') + ': ' + err.message)
+    }
+  }
+
+  dialogInstance = dialog.create({
+    title: t('common.rename'),
+    content: () => h(NInput, {
+      value: inputValue.value,
+      onUpdateValue: (v) => { inputValue.value = v },
+      placeholder: t('agent.files.newNamePlaceholder'),
+      autofocus: true,
+      selectOnFocus: true,
+      onKeydown: (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          handleConfirm()
+        }
+      }
+    }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: handleConfirm
+  })
+}
+
+// 删除
+const handleDelete = async (target) => {
+  if (!target) return
+
+  const sessionId = props.sessionId
+  const typeName = target.isDirectory ? t('common.folder') : t('common.file')
+
+  dialog.warning({
+    title: t('common.confirmDelete'),
+    content: `${t('agent.files.deleteConfirm')} ${typeName} "${target.name}"？`,
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await window.electronAPI.deleteAgentFile({
+          sessionId,
+          path: target.relativePath
+        })
+        message.success(t('agent.files.deleteSuccess'))
+        agentFiles.refresh()
+      } catch (err) {
+        message.error(t('agent.files.deleteFailed') + ': ' + err.message)
+      }
+    }
+  })
+}
+
+// 使用 defineExpose 暴露方法
+defineExpose({
+  previewImage
+})
 </script>
 
 <style scoped>
 .agent-right-panel {
-  width: 280px;
-  min-width: 220px;
   display: flex;
   flex-direction: column;
   background: var(--bg-color);
-  border-left: 1px solid var(--border-color);
   overflow: hidden;
+  flex-shrink: 0;
+  border: none;
 }
 
 .panel-body {

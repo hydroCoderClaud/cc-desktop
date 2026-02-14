@@ -19,7 +19,13 @@
 
       <template v-for="msg in messages" :key="msg.id">
         <!-- 用户/助手消息 -->
-        <MessageBubble v-if="msg.role === 'user' || msg.role === 'assistant'" :message="msg" />
+        <MessageBubble
+          v-if="msg.role === 'user' || msg.role === 'assistant'"
+          :message="msg"
+          @preview-image="$emit('preview-image', $event)"
+          @preview-link="$emit('preview-link', $event)"
+          @preview-path="$emit('preview-path', $event)"
+        />
         <!-- 工具调用 -->
         <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" />
       </template>
@@ -92,7 +98,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['ready'])
+const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path'])
 
 // 使用 Agent 对话 composable
 const {
@@ -434,7 +440,8 @@ onUnmounted(() => {
 })
 
 defineExpose({
-  focus: () => chatInputRef.value?.focus()
+  focus: () => chatInputRef.value?.focus(),
+  insertText: (text) => chatInputRef.value?.insertText(text)
 })
 </script>
 

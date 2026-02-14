@@ -426,13 +426,73 @@ class AgentSessionManager {
       throw new Error(`Agent session ${sessionId} is already streaming`)
     }
 
-    // 存储用户消息到历史
-    this._storeMessage(session, {
+    // 处理多模态消息（兼容旧格式）
+    let messageContent
+    let displayContent  // 用于存储到数据库的可读内容
+    let imageData = null  // 图片数据（用于保存到数据库）
+
+    if (typeof userMessage === 'string') {
+      // 兼容旧格式：纯文本
+      messageContent = userMessage
+      displayContent = userMessage
+    } else if (userMessage && typeof userMessage === 'object') {
+      // 新格式：{ text, images: [{base64, mediaType}] }
+      const { text = '', images = [] } = userMessage
+
+      if (images.length > 0) {
+        // 多模态消息：文本 + 图片
+        messageContent = []
+
+        // 添加文本（如果有）
+        if (text) {
+          messageContent.push({ type: 'text', text })
+        }
+
+        // 添加图片
+        for (const img of images) {
+          messageContent.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: img.mediaType,
+              data: img.base64
+            }
+          })
+        }
+
+        // 存储到数据库的显示内容
+        displayContent = text || '[图片]'
+        if (images.length > 1) {
+          displayContent += ` (${images.length}张图片)`
+        } else if (images.length === 1 && !text) {
+          displayContent = '[图片]'
+        }
+
+        // 保存图片数据到数据库
+        imageData = images
+      } else {
+        // 只有文本
+        messageContent = text
+        displayContent = text
+      }
+    } else {
+      throw new Error('Invalid message format')
+    }
+
+    // 存储用户消息到历史（包含图片数据）
+    const userMsgToStore = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: 'user',
-      content: userMessage,
+      content: displayContent,  // 存储简化的可读内容
       timestamp: Date.now()
-    })
+    }
+
+    // 如果有图片，添加到消息对象
+    if (imageData && imageData.length > 0) {
+      userMsgToStore.images = imageData
+    }
+
+    this._storeMessage(session, userMsgToStore)
 
     // 设置状态
     session.status = AgentStatus.STREAMING
@@ -447,7 +507,7 @@ class AgentSessionManager {
     // 构建 SDKUserMessage
     const sdkUserMessage = {
       type: 'user',
-      message: { role: 'user', content: userMessage },
+      message: { role: 'user', content: messageContent },
       parent_tool_use_id: null,
       session_id: session.sdkSessionId || session.id
     }
@@ -594,10 +654,25 @@ class AgentSessionManager {
     // 写入数据库
     if (this.sessionDatabase && session.dbConversationId) {
       try {
+        let contentToSave = msg.content
+
+        // 如果消息包含图片，将 content 和 images 合并为对象保存
+        if (msg.images && msg.images.length > 0) {
+          contentToSave = {
+            text: msg.content || '',
+            images: msg.images
+          }
+        }
+
+        // 序列化 content（如果是对象/数组，转为 JSON 字符串）
+        if (contentToSave && typeof contentToSave === 'object') {
+          contentToSave = JSON.stringify(contentToSave)
+        }
+
         this.sessionDatabase.insertAgentMessage(session.dbConversationId, {
           msgId: msg.id,
           role: msg.role,
-          content: msg.content || null,
+          content: contentToSave || null,
           toolName: msg.toolName || null,
           toolInput: msg.input || null,
           toolOutput: msg.output || null,
@@ -1005,15 +1080,47 @@ class AgentSessionManager {
         if (dbMessages.length === 0) return session ? session.messages : []
 
         // 转换 snake_case → camelCase
-        const messages = dbMessages.map(row => ({
-          id: row.msg_id,
-          role: row.role,
-          content: row.content || undefined,
-          toolName: row.tool_name || undefined,
-          input: row.tool_input ? JSON.parse(row.tool_input) : undefined,
-          output: row.tool_output ? JSON.parse(row.tool_output) : undefined,
-          timestamp: row.timestamp
-        }))
+        const messages = dbMessages.map(row => {
+          // 反序列化 content（如果是 JSON 字符串，解析为对象/数组）
+          let content = row.content || undefined
+          let images = undefined
+
+          if (content && typeof content === 'string') {
+            // 检测是否为 JSON 字符串（以 { 或 [ 开头）
+            const trimmed = content.trim()
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              try {
+                const parsed = JSON.parse(content)
+                // 如果是图片消息格式 { text, images }，拆分为 content 和 images
+                if (parsed && typeof parsed === 'object' && 'images' in parsed) {
+                  content = parsed.text || ''
+                  images = parsed.images
+                } else {
+                  content = parsed
+                }
+              } catch {
+                // 解析失败，保持原字符串
+              }
+            }
+          }
+
+          const message = {
+            id: row.msg_id,
+            role: row.role,
+            content,
+            toolName: row.tool_name || undefined,
+            input: row.tool_input ? JSON.parse(row.tool_input) : undefined,
+            output: row.tool_output ? JSON.parse(row.tool_output) : undefined,
+            timestamp: row.timestamp
+          }
+
+          // 如果有图片，添加到消息对象
+          if (images && images.length > 0) {
+            message.images = images
+          }
+
+          return message
+        })
 
         // 如果 session 在内存，把 DB 消息回填到内存（后续新消息会追加）
         if (session) {
@@ -1275,20 +1382,33 @@ class AgentSessionManager {
       // SVG 作为图片处理（优先于 textExts 检查）
       if (ext === '.svg') {
         if (stat.size > MAX_IMG_SIZE) {
-          return { ...base, type: 'image', tooLarge: true }
+          return { ...base, type: 'image', tooLarge: true, filePath }
         }
         const content = await fsp.readFile(filePath, 'utf-8')
-        return { ...base, type: 'image', content: `data:image/svg+xml;base64,${Buffer.from(content).toString('base64')}` }
+        return { ...base, type: 'image', content: `data:image/svg+xml;base64,${Buffer.from(content).toString('base64')}`, filePath }
+      }
+
+      // HTML 文件特殊处理（用于 iframe 渲染）
+      if (ext === '.html' || ext === '.htm') {
+        if (stat.size > MAX_TEXT_SIZE) {
+          return { ...base, type: 'html', tooLarge: true, filePath }
+        }
+        try {
+          const content = await fsp.readFile(filePath, 'utf-8')
+          return { ...base, type: 'html', content, filePath }
+        } catch {
+          return { ...base, type: 'binary' }
+        }
       }
 
       if (TEXT_EXTS.has(ext) || (name.startsWith('.') && !ext)) {
         // 文本文件（含无扩展名的 dotfiles）
         if (stat.size > MAX_TEXT_SIZE) {
-          return { ...base, type: 'text', tooLarge: true, language: LANG_MAP[ext] || 'text' }
+          return { ...base, type: 'text', tooLarge: true, language: LANG_MAP[ext] || 'text', filePath }
         }
         try {
           const content = await fsp.readFile(filePath, 'utf-8')
-          return { ...base, type: 'text', content, language: LANG_MAP[ext] || 'text' }
+          return { ...base, type: 'text', content, language: LANG_MAP[ext] || 'text', filePath }
         } catch {
           // UTF-8 解码失败（如二进制 dotfile），退化为 binary
           return { ...base, type: 'binary' }
@@ -1297,12 +1417,12 @@ class AgentSessionManager {
 
       if (IMAGE_EXTS.has(ext)) {
         if (stat.size > MAX_IMG_SIZE) {
-          return { ...base, type: 'image', tooLarge: true }
+          return { ...base, type: 'image', tooLarge: true, filePath }
         }
         const mime = MIME_MAP[ext] || 'application/octet-stream'
         const buf = await fsp.readFile(filePath)
         const content = `data:${mime};base64,${buf.toString('base64')}`
-        return { ...base, type: 'image', content }
+        return { ...base, type: 'image', content, filePath }
       }
 
       // 其他二进制文件
@@ -1310,6 +1430,147 @@ class AgentSessionManager {
     } catch (err) {
       console.error('[AgentSession] readFile error:', err.message)
       return { error: 'Failed to read file' }
+    }
+  }
+
+  /**
+   * 保存文件内容
+   * @param {string} sessionId - 会话 ID
+   * @param {string} relativePath - 相对路径
+   * @param {string} content - 文件内容
+   * @returns {object} { success: true } 或 { error: string }
+   */
+  async saveFile(sessionId, relativePath, content) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { error: 'No working directory' }
+
+    try {
+      const filePath = this._safePath(cwd, relativePath)
+
+      // 检查文件是否存在
+      try {
+        await fsp.access(filePath)
+      } catch {
+        return { error: 'File not found' }
+      }
+
+      // 写入文件
+      await fsp.writeFile(filePath, content, 'utf-8')
+      return { success: true }
+    } catch (err) {
+      console.error('[AgentSession] saveFile error:', err.message)
+      return { error: 'Failed to save file' }
+    }
+  }
+
+  /**
+   * 创建文件或文件夹
+   * @param {string} sessionId - 会话 ID
+   * @param {string} parentPath - 父目录相对路径（空字符串表示根目录）
+   * @param {string} name - 文件/文件夹名称
+   * @param {boolean} isDirectory - 是否为文件夹
+   * @returns {object} { success: true } 或 { error: string }
+   */
+  async createFile(sessionId, parentPath, name, isDirectory) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { error: 'No working directory' }
+
+    try {
+      const parentDir = this._safePath(cwd, parentPath)
+      const targetPath = path.join(parentDir, name)
+
+      // 检查是否已存在
+      try {
+        await fsp.access(targetPath)
+        return { error: 'File or folder already exists' }
+      } catch {
+        // 不存在，可以创建
+      }
+
+      if (isDirectory) {
+        await fsp.mkdir(targetPath, { recursive: false })
+      } else {
+        await fsp.writeFile(targetPath, '', 'utf-8')
+      }
+
+      return { success: true }
+    } catch (err) {
+      console.error('[AgentSession] createFile error:', err.message)
+      return { error: 'Failed to create: ' + err.message }
+    }
+  }
+
+  /**
+   * 重命名文件或文件夹
+   * @param {string} sessionId - 会话 ID
+   * @param {string} oldPath - 旧路径（相对路径）
+   * @param {string} newName - 新名称（不含路径）
+   * @returns {object} { success: true } 或 { error: string }
+   */
+  async renameFile(sessionId, oldPath, newName) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { error: 'No working directory' }
+
+    try {
+      const oldFullPath = this._safePath(cwd, oldPath)
+      const dir = path.dirname(oldFullPath)
+      const newFullPath = path.join(dir, newName)
+
+      // 检查旧文件是否存在
+      try {
+        await fsp.access(oldFullPath)
+      } catch {
+        return { error: 'File or folder not found' }
+      }
+
+      // 检查新名称是否已存在
+      try {
+        await fsp.access(newFullPath)
+        return { error: 'Target name already exists' }
+      } catch {
+        // 不存在，可以重命名
+      }
+
+      await fsp.rename(oldFullPath, newFullPath)
+      return { success: true }
+    } catch (err) {
+      console.error('[AgentSession] renameFile error:', err.message)
+      return { error: 'Failed to rename: ' + err.message }
+    }
+  }
+
+  /**
+   * 删除文件或文件夹
+   * @param {string} sessionId - 会话 ID
+   * @param {string} relativePath - 相对路径
+   * @returns {object} { success: true } 或 { error: string }
+   */
+  async deleteFile(sessionId, relativePath) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { error: 'No working directory' }
+
+    try {
+      const targetPath = this._safePath(cwd, relativePath)
+
+      // 检查是否存在
+      let stat
+      try {
+        stat = await fsp.stat(targetPath)
+      } catch {
+        return { error: 'File or folder not found' }
+      }
+
+      // 删除
+      if (stat.isDirectory()) {
+        await fsp.rm(targetPath, { recursive: true, force: true })
+      } else {
+        await fsp.unlink(targetPath)
+      }
+
+      return { success: true }
+    } catch (err) {
+      console.error('[AgentSession] deleteFile error:', err.message)
+      return { error: 'Failed to delete: ' + err.message }
     }
   }
 

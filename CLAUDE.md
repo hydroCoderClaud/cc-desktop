@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.35
+**当前版本**：1.6.36
 
 **核心理念**：Desktop = Claude Code CLI Launcher + Terminal Emulator
 
@@ -92,6 +92,12 @@ PTY.onData → IPC:terminal:data → xterm.write()
 用户发送消息 → agent:sendMessage → AgentSessionManager.sendMessage()
   └── Streaming HTTP → Claude Code CLI API
 响应流 → agent:stream → 前端逐块渲染
+
+图片识别（多模态）：
+用户粘贴/上传图片 → ChatInput 处理 → base64 编码
+  → { text, images: [{ base64, mediaType, ... }] }
+  → AgentSessionManager 转换为 Claude API Vision 格式
+  → content: [{ type: 'text' }, { type: 'image', source: {...} }]
 ```
 
 ## 核心模式
@@ -176,6 +182,64 @@ const ensureSessionTab = (session) => {
   allTabs.value.push(newTab)
 }
 ```
+
+### Agent 模式图片识别
+
+**功能概述**：Agent 模式支持多模态消息，用户可发送图片给 AI 进行分析（基于 Claude API Vision）。
+
+**输入方式**：
+- 截屏后粘贴（Ctrl+V / Cmd+V）
+- 复制图片后粘贴
+- 点击上传按钮选择文件
+
+**消息类型**：
+- 纯文字：`'这是文本'` → 字符串格式
+- 纯图片：`{ text: '', images: [...] }` → 对象格式
+- 图片+文字：`{ text: '这是什么', images: [...] }` → 对象格式
+
+**数据流**：
+```javascript
+// 前端：ChatInput.vue
+用户粘贴图片 → FileReader 读取 → base64 编码
+  → attachedImages.value.push({ base64, mediaType, sizeBytes, ... })
+  → 用户按回车 → emit('send', { text, images })
+
+// 消息管理：useAgentChat.js
+addUserMessage(text, images) → messages.value.push({ content, images, ... })
+sendMessage(text) → 类型检测 → 提取 textContent 和 hasImages
+  → 验证: (!textContent.trim() && !hasImages) || isStreaming
+  → window.electronAPI.sendAgentMessage({ message: originalMessage })
+
+// 后端：agent-session-manager.js
+sendMessage(sessionId, userMessage) →
+  if (typeof userMessage === 'object' && userMessage.images) {
+    messageContent = [
+      { type: 'text', text: userMessage.text },
+      { type: 'image', source: { type: 'base64', media_type, data } }
+    ]
+  }
+  → Claude API Vision 请求
+
+// 显示：MessageBubble.vue
+<div class="bubble-images">
+  <img :src="`data:${img.mediaType};base64,${img.base64}`" />
+</div>
+```
+
+**限制和提示**：
+- 最多 4 张图片/消息
+- 5MB 大小限制（Claude API 限制）
+- **队列不支持图片**：流式输出时发送图片会提示等待
+- 用户可通过队列控制按钮（暂停/清空）灵活处理
+
+**核心文件**：
+- `src/renderer/utils/image-utils.js` - 图片处理工具
+- `src/renderer/pages/main/components/agent/ChatInput.vue` - 输入和预览
+- `src/renderer/pages/main/components/agent/MessageBubble.vue` - 气泡显示
+- `src/renderer/composables/useAgentChat.js` - 消息管理
+- `src/main/agent-session-manager.js` - 后端处理
+
+**详细文档**：`docs/IMAGE-RECOGNITION-FEATURE.md`
 
 ### Agent 能力管理（Capability Manager）
 
@@ -371,6 +435,8 @@ src/
     │       ├── FilePreview.vue   # 文件预览
     │       └── FileTreeHeader.vue
     ├── composables/              # 可复用逻辑（21 个模块）
+    ├── utils/                    # 工具函数
+    │   └── image-utils.js        # 图片处理（图片识别功能）
     └── locales/                  # 国际化（zh-CN / en-US）
 ```
 
@@ -487,3 +553,4 @@ this._safeSend('session:data', { sessionId, data })
 | `docs/ARCHITECTURE.md` | 架构设计 |
 | `docs/QUICKSTART.md` | 快速开始 |
 | `docs/CUSTOM-UI-GUIDE.md` | 自定义 UI 模式 |
+| `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能实现文档 |

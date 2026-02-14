@@ -57,6 +57,10 @@ export default {
     openFile: 'Open File',
     all: 'All',
     rename: 'Rename',
+    create: 'Create',
+    confirmDelete: 'Confirm Delete',
+    folder: 'Folder',
+    file: 'File',
     today: 'Today',
     older: 'Older'
   },
@@ -87,7 +91,8 @@ export default {
     hideLeft: 'Hide left panel',
     showRight: 'Show right panel',
     hideRight: 'Hide right panel',
-    toggleBoth: 'Toggle both panels'
+    toggleBoth: 'Toggle both panels',
+    dragToResize: 'Drag to resize panel'
   },
 
   // Right Panel
@@ -1178,6 +1183,14 @@ export default {
     browseFolder: 'Browse...',
     create: 'Create',
 
+    // Image recognition
+    uploadImage: 'Upload Image',
+    clearInput: 'Clear Input (Ctrl+L)',
+    imageUploadTitle: 'Image Upload',
+    imageLimitReached: 'Maximum {max} images allowed',
+    imageTooLarge: 'Image too large (over 5MB), may fail to send',
+    imageQueueNotSupported: 'Messages with images cannot be queued, please wait for current output to finish',
+
     // File browser panel
     files: {
       title: 'Working Directory',
@@ -1190,7 +1203,36 @@ export default {
       tooLarge: 'File too large to preview',
       cannotPreview: 'Cannot preview this file type',
       errorLoading: 'Failed to load directory',
-      errorReading: 'Failed to read file'
+      errorReading: 'Failed to read file',
+      zoomIn: 'Zoom In',
+      zoomOut: 'Zoom Out',
+      resetZoom: 'Reset Zoom',
+      download: 'Download',
+      openExternal: 'Open in Browser',
+      openInDefaultApp: 'Open in Default App',
+      showToolbar: 'Show Toolbar',
+      hideToolbar: 'Hide Toolbar',
+      webviewTips: 'Ctrl + Zoom In · Ctrl - Zoom Out · Ctrl 0 Reset',
+      textTips: 'Ctrl+S to Save',
+      save: 'Save',
+      unsaved: 'Unsaved',
+      saved: 'Saved',
+      // Context menu
+      newFile: 'New File',
+      newFolder: 'New Folder',
+      fileNamePlaceholder: 'File name (e.g. README.md)',
+      folderNamePlaceholder: 'Folder name',
+      newNamePlaceholder: 'New name',
+      fileNameRequired: 'Please enter file name',
+      folderNameRequired: 'Please enter folder name',
+      nameRequired: 'Please enter name',
+      createSuccess: 'Created successfully',
+      createFailed: 'Failed to create',
+      renameSuccess: 'Renamed successfully',
+      renameFailed: 'Failed to rename',
+      deleteConfirm: 'Confirm delete',
+      deleteSuccess: 'Deleted successfully',
+      deleteFailed: 'Failed to delete'
     },
 
     // Capability management

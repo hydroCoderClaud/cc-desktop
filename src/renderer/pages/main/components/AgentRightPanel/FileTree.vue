@@ -1,5 +1,5 @@
 <template>
-  <div class="file-tree" ref="treeRef">
+  <div class="file-tree" ref="treeRef" @contextmenu="handleContextMenu">
     <template v-if="entries.length > 0">
       <FileTreeNode
         v-for="entry in entries"
@@ -12,6 +12,8 @@
         @toggle-dir="$emit('toggle-dir', $event)"
         @select-file="$emit('select-file', $event)"
         @open-file="$emit('open-file', $event)"
+        @insert-path="$emit('insert-path', $event)"
+        @context-menu="$emit('context-menu', $event)"
       />
     </template>
     <div v-else-if="!loading" class="empty-tree">
@@ -35,9 +37,18 @@ defineProps({
   loading: { type: Boolean, default: false }
 })
 
-defineEmits(['toggle-dir', 'select-file', 'open-file'])
+const emit = defineEmits(['toggle-dir', 'select-file', 'open-file', 'insert-path', 'context-menu'])
 
 const treeRef = ref(null)
+
+const handleContextMenu = (event) => {
+  // 只有在空白区域点击时才触发（没有命中节点）
+  if (event.target.classList.contains('file-tree') || event.target.classList.contains('empty-tree')) {
+    event.preventDefault()
+    event.stopPropagation()
+    emit('context-menu', { x: event.clientX, y: event.clientY, entry: null })
+  }
+}
 </script>
 
 <style scoped>

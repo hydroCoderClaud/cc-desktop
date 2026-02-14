@@ -7,6 +7,7 @@
 
 const { shell } = require('electron')
 const fs = require('fs')
+const path = require('path')
 
 function setupAgentHandlers(ipcMain, agentSessionManager) {
   if (!agentSessionManager) {
@@ -252,6 +253,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 保存文件
+  ipcMain.handle('agent:saveFile', async (event, { sessionId, relativePath, content }) => {
+    try {
+      return agentSessionManager.saveFile(sessionId, relativePath, content)
+    } catch (err) {
+      console.error('[IPC] agent:saveFile error:', err)
+      return { error: err.message }
+    }
+  })
+
   // 用系统默认应用打开文件
   ipcMain.handle('agent:openFile', async (event, { sessionId, relativePath }) => {
     try {
@@ -264,6 +275,75 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     } catch (err) {
       console.error('[IPC] agent:openFile error:', err)
       return { success: false, error: 'Failed to open file' }
+    }
+  })
+
+  // 读取任意绝对路径的文件（用于聊天消息中的文件链接预览）
+  ipcMain.handle('agent:readAbsolutePath', async (event, { filePath }) => {
+    try {
+      // 安全检查：确保是绝对路径
+      if (!path.isAbsolute(filePath)) {
+        return { error: 'Only absolute paths are allowed' }
+      }
+
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        return { error: 'File not found' }
+      }
+
+      const stats = fs.statSync(filePath)
+      const name = path.basename(filePath)
+
+      // 如果是目录，返回目录信息
+      if (stats.isDirectory()) {
+        return {
+          type: 'directory',
+          name,
+          path: filePath
+        }
+      }
+
+      // 文件大小限制（10MB）
+      if (stats.size > 10 * 1024 * 1024) {
+        return { error: 'File too large (max 10MB)' }
+      }
+
+      const ext = path.extname(filePath).toLowerCase()
+
+      // 图片文件
+      if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) {
+        const buffer = fs.readFileSync(filePath)
+        const base64 = buffer.toString('base64')
+        const mimeTypes = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.bmp': 'image/bmp',
+          '.webp': 'image/webp',
+          '.svg': 'image/svg+xml'
+        }
+        return {
+          type: 'image',
+          name,
+          content: `data:${mimeTypes[ext] || 'image/png'};base64,${base64}`,
+          size: stats.size,
+          ext
+        }
+      }
+
+      // 文本文件
+      const content = fs.readFileSync(filePath, 'utf-8')
+      return {
+        type: 'text',
+        name,
+        content,
+        size: stats.size,
+        ext
+      }
+    } catch (err) {
+      console.error('[IPC] agent:readAbsolutePath error:', err)
+      return { error: err.message || 'Failed to read file' }
     }
   })
 
@@ -290,6 +370,40 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     } catch (err) {
       console.error('[IPC] agent:getQueue error:', err)
       return { success: false, error: err.message, queue: [] }
+    }
+  })
+
+  // ========================================
+  // 文件操作
+  // ========================================
+
+  // 创建文件或文件夹
+  ipcMain.handle('agent:createFile', async (event, { sessionId, parentPath, name, isDirectory }) => {
+    try {
+      return await agentSessionManager.createFile(sessionId, parentPath, name, isDirectory)
+    } catch (err) {
+      console.error('[IPC] agent:createFile error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 重命名文件或文件夹
+  ipcMain.handle('agent:renameFile', async (event, { sessionId, oldPath, newName }) => {
+    try {
+      return await agentSessionManager.renameFile(sessionId, oldPath, newName)
+    } catch (err) {
+      console.error('[IPC] agent:renameFile error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 删除文件或文件夹
+  ipcMain.handle('agent:deleteFile', async (event, { sessionId, path }) => {
+    try {
+      return await agentSessionManager.deleteFile(sessionId, path)
+    } catch (err) {
+      console.error('[IPC] agent:deleteFile error:', err)
+      return { error: err.message }
     }
   })
 
