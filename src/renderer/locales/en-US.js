@@ -1214,6 +1214,8 @@ export default {
       hideToolbar: 'Hide Toolbar',
       webviewTips: 'Ctrl + Zoom In · Ctrl - Zoom Out · Ctrl 0 Reset',
       textTips: 'Ctrl+S to Save',
+      videoTips: 'Double-click for fullscreen · Scroll to adjust volume',
+      videoNotSupported: 'Browser does not support this video format',
       save: 'Save',
       unsaved: 'Unsaved',
       saved: 'Saved',

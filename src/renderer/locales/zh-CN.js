@@ -1217,6 +1217,8 @@ export default {
       hideToolbar: '隐藏工具栏',
       webviewTips: 'Ctrl + 放大 · Ctrl - 缩小 · Ctrl 0 恢复',
       textTips: 'Ctrl+S 保存',
+      videoTips: '双击全屏 · 滚轮调节音量',
+      videoNotSupported: '浏览器不支持此视频格式',
       save: '保存',
       unsaved: '未保存',
       saved: '已保存',

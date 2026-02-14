@@ -147,6 +147,47 @@
         </div>
       </div>
 
+      <!-- Video -->
+      <div v-else-if="preview?.type === 'video'" class="preview-video">
+        <!-- Video Toolbar -->
+        <div v-if="showToolbar" class="video-toolbar">
+          <span class="toolbar-tips">{{ t('agent.files.videoTips') }}</span>
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
+            @click="openVideoExternal"
+            :title="t('agent.files.openInDefaultApp')"
+          >
+            <Icon name="externalLink" :size="14" />
+          </button>
+        </div>
+
+        <!-- Video Player -->
+        <div class="video-container" @wheel.prevent="handleVideoWheel">
+          <video
+            ref="videoRef"
+            :src="preview.content"
+            :key="preview?.filePath || preview?.name"
+            controls
+            autoplay
+            class="video-player"
+            @loadedmetadata="handleVideoLoad"
+            @dblclick="toggleVideoFullscreen"
+          >
+            {{ t('agent.files.videoNotSupported') }}
+          </video>
+        </div>
+
+        <!-- Video Info -->
+        <div v-if="videoInfo" class="video-info">
+          <span>{{ videoInfo.width }} × {{ videoInfo.height }}</span>
+          <span class="info-separator">·</span>
+          <span>{{ formatDuration(videoInfo.duration) }}</span>
+          <span class="info-separator">·</span>
+          <span>{{ formatFileSize(preview.size || 0) }}</span>
+        </div>
+      </div>
+
       <!-- Binary -->
       <div v-else-if="preview?.type === 'binary'" class="preview-placeholder">
         <Icon name="fileText" :size="24" />
@@ -180,6 +221,10 @@ const imageContainerRef = ref(null)
 // HTML 预览刷新
 const htmlRefreshKey = ref(0)
 
+// 视频预览
+const videoRef = ref(null)
+const videoInfo = ref(null)
+
 // webview 相关（统一 HTML 和 URL）
 const webviewRef = ref(null)
 
@@ -189,7 +234,7 @@ const showToolbar = ref(true) // 默认显示
 // 判断当前类型是否有工具栏
 const hasToolbar = computed(() => {
   const type = props.preview?.type
-  return type === 'image' || type === 'html' || type === 'url' || type === 'text'
+  return type === 'image' || type === 'video' || type === 'html' || type === 'url' || type === 'text'
 })
 
 // 切换工具栏显示
@@ -257,6 +302,7 @@ const openTextExternal = async () => {
 watch(() => props.preview, (newPreview) => {
   imageZoom.value = 1
   imageInfo.value = null
+  videoInfo.value = null
   htmlRefreshKey.value = 0
   showToolbar.value = true // 重置工具栏为显示状态
 
@@ -313,6 +359,47 @@ const downloadImage = () => {
 
 // 在默认应用中打开图片
 const openImageExternal = async () => {
+  if (!window.electronAPI || !props.preview?.filePath) return
+  await window.electronAPI.openPath(props.preview.filePath)
+}
+
+// 视频加载完成，获取元数据
+const handleVideoLoad = (e) => {
+  const video = e.target
+  videoInfo.value = {
+    width: video.videoWidth,
+    height: video.videoHeight,
+    duration: video.duration
+  }
+}
+
+// 格式化时长（秒 → mm:ss）
+const formatDuration = (seconds) => {
+  if (!seconds || !isFinite(seconds)) return '--:--'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// 滚轮调节音量
+const handleVideoWheel = (e) => {
+  if (!videoRef.value) return
+  const delta = e.deltaY > 0 ? -0.05 : 0.05
+  videoRef.value.volume = Math.max(0, Math.min(1, videoRef.value.volume + delta))
+}
+
+// 双击全屏
+const toggleVideoFullscreen = () => {
+  if (!videoRef.value) return
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+  } else {
+    videoRef.value.requestFullscreen()
+  }
+}
+
+// 在默认应用中打开视频
+const openVideoExternal = async () => {
   if (!window.electronAPI || !props.preview?.filePath) return
   await window.electronAPI.openPath(props.preview.filePath)
 }
@@ -621,5 +708,51 @@ onUnmounted(() => {
   width: 100%;
   border: none;
   background: white;
+}
+
+/* 视频预览 */
+.preview-video {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.video-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-color-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.video-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.video-player {
+  max-width: 100%;
+  max-height: 100%;
+  outline: none;
+}
+
+.video-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-color-secondary);
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  color: var(--text-color-muted);
+  flex-shrink: 0;
 }
 </style>

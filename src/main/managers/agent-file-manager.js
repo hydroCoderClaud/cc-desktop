@@ -18,6 +18,7 @@ const {
   TEXT_EXTS,
   IMAGE_EXTS,
   LANG_MAP,
+  VIDEO_EXTS,
   MAX_TEXT_SIZE,
   MAX_IMG_SIZE,
   MIME_MAP
@@ -201,6 +202,20 @@ class AgentFileManager {
         const buf = await fsp.readFile(filePath)
         const content = `data:${mime};base64,${buf.toString('base64')}`
         return { ...base, type: 'image', content, filePath }
+      }
+
+      // 视频文件（与图片相同，返回 base64 data URL）
+      if (VIDEO_EXTS.has(ext)) {
+        if (stat.size > 50 * 1024 * 1024) {
+          return { ...base, type: 'video', tooLarge: true, filePath }
+        }
+        const videoMimes = {
+          '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+          '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.ogg': 'video/ogg'
+        }
+        const buf = await fsp.readFile(filePath)
+        const content = `data:${videoMimes[ext] || 'video/mp4'};base64,${buf.toString('base64')}`
+        return { ...base, type: 'video', content, filePath }
       }
 
       // 其他二进制文件

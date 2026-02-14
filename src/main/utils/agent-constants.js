@@ -65,6 +65,9 @@ const TEXT_EXTS = new Set([
 // 图片文件扩展名
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp'])
 
+// 视频文件扩展名
+const VIDEO_EXTS = new Set(['.mp4', '.webm', '.mov', '.avi', '.mkv', '.ogg'])
+
 // 语言映射
 const LANG_MAP = {
   '.js': 'javascript', '.ts': 'typescript', '.jsx': 'jsx', '.tsx': 'tsx',
@@ -95,6 +98,7 @@ module.exports = {
   HIDDEN_FILES,
   TEXT_EXTS,
   IMAGE_EXTS,
+  VIDEO_EXTS,
   LANG_MAP,
   MAX_TEXT_SIZE,
   MAX_IMG_SIZE,

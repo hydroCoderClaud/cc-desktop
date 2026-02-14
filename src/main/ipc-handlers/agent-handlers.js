@@ -345,6 +345,23 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
 
       const ext = path.extname(filePath).toLowerCase()
 
+      // 视频文件（与图片相同，返回 base64 data URL，避免 file:// CSP 问题）
+      if (['.mp4', '.webm', '.mov', '.avi', '.mkv', '.ogg'].includes(ext)) {
+        const buffer = fs.readFileSync(filePath)
+        const base64 = buffer.toString('base64')
+        const videoMimes = {
+          '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+          '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.ogg': 'video/ogg'
+        }
+        return {
+          type: 'video',
+          name,
+          content: `data:${videoMimes[ext] || 'video/mp4'};base64,${base64}`,
+          size: stats.size,
+          ext
+        }
+      }
+
       // 图片文件
       if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) {
         const buffer = fs.readFileSync(filePath)
