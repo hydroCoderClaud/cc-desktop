@@ -21,7 +21,9 @@ const {
   VIDEO_EXTS,
   MAX_TEXT_SIZE,
   MAX_IMG_SIZE,
-  MIME_MAP
+  MAX_VIDEO_SIZE,
+  MIME_MAP,
+  VIDEO_MIME_MAP
 } = require('../utils/agent-constants')
 
 class AgentFileManager {
@@ -206,15 +208,11 @@ class AgentFileManager {
 
       // 视频文件（与图片相同，返回 base64 data URL）
       if (VIDEO_EXTS.has(ext)) {
-        if (stat.size > 50 * 1024 * 1024) {
+        if (stat.size > MAX_VIDEO_SIZE) {
           return { ...base, type: 'video', tooLarge: true, filePath }
         }
-        const videoMimes = {
-          '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
-          '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.ogg': 'video/ogg'
-        }
         const buf = await fsp.readFile(filePath)
-        const content = `data:${videoMimes[ext] || 'video/mp4'};base64,${buf.toString('base64')}`
+        const content = `data:${VIDEO_MIME_MAP[ext] || 'video/mp4'};base64,${buf.toString('base64')}`
         return { ...base, type: 'video', content, filePath }
       }
 

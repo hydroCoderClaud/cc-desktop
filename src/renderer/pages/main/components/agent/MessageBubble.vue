@@ -122,7 +122,7 @@ const renderedContent = computed(() => {
       let linkType = ''
       if (/^https?:\/\//.test(trimmed)) {
         linkType = 'url'
-      } else if (/^[A-Z]:\\/.test(trimmed) || /^\//.test(trimmed) || /^\.\.?\//.test(trimmed) || /^~\//.test(trimmed)) {
+      } else if (/^[A-Z]:\\/.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?\//.test(trimmed) || /^~\//.test(trimmed)) {
         linkType = 'path'
       }
       if (linkType) {

@@ -8,6 +8,7 @@
 const { shell } = require('electron')
 const fs = require('fs')
 const path = require('path')
+const { VIDEO_EXTS, VIDEO_MIME_MAP, MAX_VIDEO_SIZE } = require('../utils/agent-constants')
 
 function setupAgentHandlers(ipcMain, agentSessionManager) {
   if (!agentSessionManager) {
@@ -338,28 +339,26 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
         }
       }
 
-      // 文件大小限制（10MB）
-      if (stats.size > 10 * 1024 * 1024) {
-        return { error: 'File too large (max 10MB)' }
-      }
-
       const ext = path.extname(filePath).toLowerCase()
 
-      // 视频文件（与图片相同，返回 base64 data URL，避免 file:// CSP 问题）
-      if (['.mp4', '.webm', '.mov', '.avi', '.mkv', '.ogg'].includes(ext)) {
-        const buffer = fs.readFileSync(filePath)
-        const base64 = buffer.toString('base64')
-        const videoMimes = {
-          '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
-          '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.ogg': 'video/ogg'
+      // 视频文件（独立大小限制，避免被通用 10MB 拦截）
+      if (VIDEO_EXTS.has(ext)) {
+        if (stats.size > MAX_VIDEO_SIZE) {
+          return { error: `Video too large (max ${MAX_VIDEO_SIZE / 1024 / 1024}MB)` }
         }
+        const buffer = fs.readFileSync(filePath)
         return {
           type: 'video',
           name,
-          content: `data:${videoMimes[ext] || 'video/mp4'};base64,${base64}`,
+          content: `data:${VIDEO_MIME_MAP[ext] || 'video/mp4'};base64,${buffer.toString('base64')}`,
           size: stats.size,
           ext
         }
+      }
+
+      // 文件大小限制（10MB，视频已在上面处理）
+      if (stats.size > 10 * 1024 * 1024) {
+        return { error: 'File too large (max 10MB)' }
       }
 
       // 图片文件

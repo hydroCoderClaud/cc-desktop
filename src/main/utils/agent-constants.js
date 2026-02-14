@@ -81,13 +81,20 @@ const LANG_MAP = {
 }
 
 // 文件大小限制
-const MAX_TEXT_SIZE = 512 * 1024    // 文本预览上限 512KB
-const MAX_IMG_SIZE = 2 * 1024 * 1024 // 图片预览上限 2MB
+const MAX_TEXT_SIZE = 512 * 1024       // 文本预览上限 512KB
+const MAX_IMG_SIZE = 2 * 1024 * 1024   // 图片预览上限 2MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 视频预览上限 50MB
 
 // MIME 类型映射
 const MIME_MAP = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.bmp': 'image/bmp'
+}
+
+// 视频 MIME 类型映射
+const VIDEO_MIME_MAP = {
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
+  '.avi': 'video/x-msvideo', '.mkv': 'video/x-matroska', '.ogg': 'video/ogg'
 }
 
 module.exports = {
@@ -102,5 +109,7 @@ module.exports = {
   LANG_MAP,
   MAX_TEXT_SIZE,
   MAX_IMG_SIZE,
-  MIME_MAP
+  MAX_VIDEO_SIZE,
+  MIME_MAP,
+  VIDEO_MIME_MAP
 }
