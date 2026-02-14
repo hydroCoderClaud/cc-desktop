@@ -51,12 +51,17 @@ Electron 应用
 │   ├── component-scanner.js      # 组件扫描基础类
 │   ├── database/                 # SQLite 数据库模块
 │   ├── managers/                 # 功能管理器
+│   │   ├── agent-file-manager.js # Agent 文件操作（文件树、CRUD）
+│   │   ├── agent-query-manager.js # Agent Query 控制（模型、命令、账户）
 │   │   ├── capability-manager.js # Agent 能力管理（v1.1 一能力一组件）
 │   │   ├── skills-manager.js     # Skills 管理
 │   │   ├── plugin-cli.js         # 插件 CLI 操作
 │   │   ├── hooks-manager.js      # Hooks 管理
 │   │   ├── mcp-manager.js        # MCP 管理
 │   │   └── settings-manager.js   # Settings 管理
+│   ├── utils/                    # 工具模块
+│   │   ├── agent-constants.js    # Agent 常量定义（状态、类型、文件过滤）
+│   │   └── ...                   # 其他工具
 │   └── ipc-handlers/             # IPC 处理器
 │
 ├── Preload (Security Bridge)
@@ -181,16 +186,17 @@ config/
 
 **合理设计**（推荐）：
 ```javascript
-// Agent 会话管理（当前重构方案）
+// Agent 会话管理（实际重构方案 - Phase 1-3）
 src/main/
-├── agent-session-manager.js         // 核心（~800行）
+├── agent-session-manager.js         // 核心管理器（1274行，重构前1651行）
 ├── managers/
-│   ├── agent-file-manager.js        // 文件操作（~300行）
-│   └── agent-streaming-manager.js   // 流控制（~100行）
+│   ├── agent-file-manager.js        // 文件操作（355行）
+│   └── agent-query-manager.js       // Query 控制（105行）
 └── utils/
-    └── agent-constants.js           // 常量（~100行）
+    └── agent-constants.js           // 常量定义（102行）
 
-// ✅ 优点：4 个文件，职责清晰，无过度拆分
+// ✅ 优点：4 个文件，职责清晰，减少 22.8% 代码量，无过度拆分
+// ✅ 重构效果：1651 → 1274 行（-377行）
 ```
 
 #### 🔑 关键原则
@@ -214,6 +220,109 @@ src/main/
 - [ ] 职责是否单一明确？
 - [ ] 是否存在过度设计？
 - [ ] 模块依赖是否合理？
+
+### 📚 实战案例：agent-session-manager 模块化重构
+
+**背景**：`agent-session-manager.js` 原有 **1651 行**代码，职责混杂，维护困难
+
+**重构目标**：遵循"刚好够用"原则，提取独立模块，保持核心逻辑清晰
+
+#### 三阶段渐进式重构
+
+| 阶段 | 提取内容 | 行数 | 原因 |
+|------|---------|------|------|
+| **Phase 1** | 常量定义 | 61 行 | 数据定义与逻辑分离 |
+| **Phase 2** | 文件操作 | 277 行 | 文件系统操作是独立领域 |
+| **Phase 3** | Query 控制 | 39 行 | Generator 控制是独立功能 |
+| **总计** | — | **-377 行 (-22.8%)** | 核心文件从 1651 → 1274 行 |
+
+#### 新增模块架构
+
+**1. 常量模块** (`utils/agent-constants.js`, 102 行)
+```javascript
+// 职责：集中管理 Agent 模块的常量定义
+module.exports = {
+  AgentStatus,      // 会话状态枚举
+  AgentType,        // 会话类型枚举
+  HIDDEN_DIRS,      // 文件树过滤规则
+  TEXT_EXTS,        // 支持的文本文件扩展名
+  IMAGE_EXTS,       // 支持的图片文件扩展名
+  LANG_MAP,         // 语言映射（语法高亮）
+  MAX_TEXT_SIZE,    // 文件预览大小限制
+  MAX_IMG_SIZE,
+  MIME_MAP
+}
+```
+
+**2. 文件操作模块** (`managers/agent-file-manager.js`, 355 行)
+```javascript
+// 职责：Agent 模式下的文件系统操作
+class AgentFileManager {
+  constructor(sessionManager) { /* 依赖注入 */ }
+
+  _resolveCwd(sessionId)           // 获取工作目录
+  _safePath(cwd, relativePath)     // 路径安全校验
+  listDir(sessionId, path)         // 列出目录
+  readFile(sessionId, path)        // 读取文件
+  saveFile(sessionId, path, content) // 保存文件
+  createFile(sessionId, parent, name, isDir) // 创建文件/文件夹
+  renameFile(sessionId, oldPath, newName)    // 重命名
+  deleteFile(sessionId, path)      // 删除
+}
+```
+
+**3. Query 控制模块** (`managers/agent-query-manager.js`, 105 行)
+```javascript
+// 职责：Agent Query Generator 控制
+class AgentQueryManager {
+  constructor(sessionManager) { /* 依赖注入 */ }
+
+  _getGenerator(sessionId)         // 获取 generator 实例
+  setModel(sessionId, model)       // 切换模型
+  getSupportedModels(sessionId)    // 获取模型列表
+  getSupportedCommands(sessionId)  // 获取命令列表
+  getAccountInfo(sessionId)        // 获取账户信息
+  getMcpServerStatus(sessionId)    // 获取 MCP 状态
+  getInitResult(sessionId)         // 获取初始化结果（含缓存）
+}
+```
+
+#### 核心设计模式
+
+**依赖注入 + 委托模式**：
+```javascript
+// agent-session-manager.js
+class AgentSessionManager {
+  constructor(mainWindow, configManager) {
+    // 注入依赖
+    this.fileManager = new AgentFileManager(this)
+    this.queryManager = new AgentQueryManager(this)
+  }
+
+  // 委托方法（保持公共 API 不变）
+  async listDir(sessionId, path) {
+    return this.fileManager.listDir(sessionId, path)
+  }
+
+  async setModel(sessionId, model) {
+    return this.queryManager.setModel(sessionId, model)
+  }
+}
+```
+
+#### 重构收益
+
+✅ **可维护性**：主文件减少 22.8%，职责更清晰
+✅ **可测试性**：独立模块可单独测试，Mock 更容易
+✅ **可扩展性**：新增功能创建独立 Manager 即可
+✅ **协作友好**：模块边界清晰，减少合并冲突
+
+#### 关键经验
+
+1. **渐进式重构**：分阶段提取，每阶段完成后立即测试和提交
+2. **保持 API 稳定**：使用委托模式，IPC 处理器无需修改
+3. **合理粒度**：不过度拆分（如单独拆 pause/resume 方法）
+4. **依赖注入**：避免循环依赖，便于单元测试
 
 ---
 
@@ -519,6 +628,8 @@ src/
 │   │   ├── ai-handlers.js
 │   │   └── ...
 │   ├── managers/
+│   │   ├── agent-file-manager.js # Agent 文件操作（355行）
+│   │   ├── agent-query-manager.js # Agent Query 控制（105行）
 │   │   ├── capability-manager.js # Agent 能力管理（v1.1 一能力一组件）
 │   │   ├── skills-manager.js     # Skills 管理
 │   │   ├── skills/               # Skills 管理 mixin
@@ -529,6 +640,8 @@ src/
 │   │   └── settings-manager.js   # Settings 管理
 │   ├── config/                   # ConfigManager mixins
 │   └── utils/
+│       ├── agent-constants.js    # Agent 常量定义（102行）
+│       └── ...                   # 其他工具
 │
 ├── preload/
 │   └── preload.js                # contextBridge API
