@@ -231,12 +231,18 @@ const handleNewFile = async (target) => {
     }
 
     try {
-      await window.electronAPI.createAgentFile({
+      const result = await window.electronAPI.createAgentFile({
         sessionId,
         parentPath,
         name: fileName,
         isDirectory: false
       })
+
+      if (result.error) {
+        message.error(t('agent.files.createFailed') + ': ' + result.error)
+        return false
+      }
+
       message.success(t('agent.files.createSuccess'))
       agentFiles.refresh()
       if (dialogInstance) dialogInstance.destroy()
@@ -289,12 +295,18 @@ const handleNewFolder = async (target) => {
     }
 
     try {
-      await window.electronAPI.createAgentFile({
+      const result = await window.electronAPI.createAgentFile({
         sessionId,
         parentPath,
         name: folderName,
         isDirectory: true
       })
+
+      if (result.error) {
+        message.error(t('agent.files.createFailed') + ': ' + result.error)
+        return false
+      }
+
       message.success(t('agent.files.createSuccess'))
       agentFiles.refresh()
       if (dialogInstance) dialogInstance.destroy()
@@ -352,11 +364,17 @@ const handleRename = async (target) => {
     }
 
     try {
-      await window.electronAPI.renameAgentFile({
+      const result = await window.electronAPI.renameAgentFile({
         sessionId,
         oldPath: target.relativePath,
         newName
       })
+
+      if (result.error) {
+        message.error(t('agent.files.renameFailed') + ': ' + result.error)
+        return false
+      }
+
       message.success(t('agent.files.renameSuccess'))
       agentFiles.refresh()
       if (dialogInstance) dialogInstance.destroy()
@@ -400,10 +418,16 @@ const handleDelete = async (target) => {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        await window.electronAPI.deleteAgentFile({
+        const result = await window.electronAPI.deleteAgentFile({
           sessionId,
           path: target.relativePath
         })
+
+        if (result.error) {
+          message.error(t('agent.files.deleteFailed') + ': ' + result.error)
+          return
+        }
+
         message.success(t('agent.files.deleteSuccess'))
         agentFiles.refresh()
       } catch (err) {
