@@ -1236,6 +1236,10 @@ export default {
       deleteConfirm: '确定删除',
       deleteSuccess: '删除成功',
       deleteFailed: '删除失败',
+      // 文件操作错误
+      fileAlreadyExists: '文件或文件夹已存在',
+      targetNameExists: '目标名称已存在',
+      fileNotFound: '文件或文件夹不存在',
       // 文件名验证错误
       reservedName: '文件名不能使用系统保留名称（如 CON、PRN、AUX 等）',
       invalidChars: '文件名包含非法字符（< > : " / \\ | ? *）',

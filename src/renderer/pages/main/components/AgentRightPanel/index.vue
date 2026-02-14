@@ -100,6 +100,16 @@ const props = defineProps({
 
 const emit = defineEmits(['collapse', 'insert-path'])
 
+// 错误消息映射（将后端英文错误映射到 i18n key）
+const mapErrorMessage = (errorMsg) => {
+  const errorMap = {
+    'File or folder already exists': t('agent.files.fileAlreadyExists'),
+    'Target name already exists': t('agent.files.targetNameExists'),
+    'File or folder not found': t('agent.files.fileNotFound')
+  }
+  return errorMap[errorMsg] || errorMsg
+}
+
 // watch sessionId 变化自动重置并加载
 watch(() => props.sessionId, (newId) => {
   agentFiles.setSessionId(newId)
@@ -239,7 +249,7 @@ const handleNewFile = async (target) => {
       })
 
       if (result.error) {
-        message.error(t('agent.files.createFailed') + ': ' + result.error)
+        message.error(mapErrorMessage(result.error))
         return false
       }
 
@@ -303,7 +313,7 @@ const handleNewFolder = async (target) => {
       })
 
       if (result.error) {
-        message.error(t('agent.files.createFailed') + ': ' + result.error)
+        message.error(mapErrorMessage(result.error))
         return false
       }
 
@@ -371,7 +381,7 @@ const handleRename = async (target) => {
       })
 
       if (result.error) {
-        message.error(t('agent.files.renameFailed') + ': ' + result.error)
+        message.error(mapErrorMessage(result.error))
         return false
       }
 
@@ -424,7 +434,7 @@ const handleDelete = async (target) => {
         })
 
         if (result.error) {
-          message.error(t('agent.files.deleteFailed') + ': ' + result.error)
+          message.error(mapErrorMessage(result.error))
           return
         }
 

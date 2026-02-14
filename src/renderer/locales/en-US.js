@@ -1233,6 +1233,10 @@ export default {
       deleteConfirm: 'Confirm delete',
       deleteSuccess: 'Deleted successfully',
       deleteFailed: 'Failed to delete',
+      // File operation errors
+      fileAlreadyExists: 'File or folder already exists',
+      targetNameExists: 'Target name already exists',
+      fileNotFound: 'File or folder not found',
       // File name validation errors
       reservedName: 'File name cannot use reserved system names (e.g. CON, PRN, AUX)',
       invalidChars: 'File name contains invalid characters (< > : " / \\ | ? *)',
