@@ -34,55 +34,96 @@ if (Test-Claude) {
     Write-Warn "Claude CLI not found. Installing..."
 
     # ---------------------------------------------------------------------------
-    # 2. Install Claude Code CLI (official installer, fallback to npm)
+    # 2. Proxy configuration (for official installer)
+    # ---------------------------------------------------------------------------
+    Write-Host ""
+    Write-Host "  官方安装脚本需要访问 https://claude.ai" -ForegroundColor White
+    Write-Host "  如果在国内环境，建议配置代理以提高成功率。" -ForegroundColor White
+    Write-Host ""
+    $useProxy = Read-Host "  是否配置代理？(y/N)"
+
+    if ($useProxy -eq "y" -or $useProxy -eq "Y") {
+        $proxyUrl = Read-Host "  请输入代理地址 [http://127.0.0.1:15236]"
+        if ([string]::IsNullOrWhiteSpace($proxyUrl)) {
+            $proxyUrl = "http://127.0.0.1:15236"
+        }
+
+        $env:HTTP_PROXY = $proxyUrl
+        $env:HTTPS_PROXY = $proxyUrl
+        Write-Ok "已设置代理: $proxyUrl"
+    }
+
+    # ---------------------------------------------------------------------------
+    # 3. Install Claude Code CLI (official installer)
     # ---------------------------------------------------------------------------
     Write-Step "Installing Claude Code CLI..."
 
-    # Try official installer first
+    $cliInstalled = $false
+
+    # Try official installer
     try {
         Invoke-RestMethod https://claude.ai/install.ps1 -ErrorAction Stop | Invoke-Expression
         Write-Ok "Installed via official installer"
+        $cliInstalled = $true
     } catch {
-        Write-Warn "Official installer failed (network/region issue), trying npm..."
+        Write-Warn "Official installer failed."
 
-        # Check if npm is available
+        # Try npm if available
         $npm = Get-Command npm -ErrorAction SilentlyContinue
-        if ($null -eq $npm) {
-            Write-Err "npm not found. Please install Node.js first:"
-            Write-Host "  Download from: https://nodejs.org/" -ForegroundColor White
-            exit 1
-        }
+        if ($null -ne $npm) {
+            Write-Host ""
+            $useNpm = Read-Host "  是否尝试使用 npm 安装？(y/N)"
 
-        # Install via npm
-        try {
-            & npm install -g @anthropic-ai/claude-code
-            Write-Ok "Installed via npm"
-        } catch {
-            Write-Err "Failed to install Claude CLI via both methods."
-            Write-Host ""
-            Write-Host "Please install manually:" -ForegroundColor Yellow
-            Write-Host "  npm install -g @anthropic-ai/claude-code" -ForegroundColor White
-            Write-Host ""
-            exit 1
+            if ($useNpm -eq "y" -or $useNpm -eq "Y") {
+                try {
+                    & npm install -g @anthropic-ai/claude-code
+                    Write-Ok "Installed via npm"
+                    $cliInstalled = $true
+                } catch {
+                    Write-Warn "npm installation also failed."
+                }
+            }
         }
     }
 
-    # Refresh PATH for the current session
-    $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-                [System.Environment]::GetEnvironmentVariable('Path', 'User')
+    # Check installation result
+    if ($cliInstalled) {
+        # Refresh PATH for the current session
+        $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                    [System.Environment]::GetEnvironmentVariable('Path', 'User')
 
-    if (Test-Claude) {
-        $ver = & claude --version 2>$null
-        Write-Ok "Claude CLI installed successfully: $ver"
+        if (Test-Claude) {
+            $ver = & claude --version 2>$null
+            Write-Ok "Claude CLI installed successfully: $ver"
+        } else {
+            Write-Warn "Claude CLI installed but not in PATH. Please restart terminal."
+        }
     } else {
-        Write-Err "Claude CLI installation succeeded but 'claude' is not in PATH."
-        Write-Host "  Please restart your terminal and try again." -ForegroundColor Yellow
-        exit 1
+        # CLI installation failed, offer to continue with Desktop only
+        Write-Host ""
+        Write-Warn "Claude CLI 自动安装失败。"
+        Write-Host ""
+        Write-Host "  可以先安装 CC Desktop，稍后手动安装 Claude CLI：" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  【方式 1】使用代理 + 官方脚本（推荐）" -ForegroundColor Yellow
+        Write-Host "    `$env:HTTPS_PROXY='http://your-proxy:port'" -ForegroundColor White
+        Write-Host "    irm https://claude.ai/install.ps1 | iex" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  【方式 2】使用 npm（需要 Node.js）" -ForegroundColor Yellow
+        Write-Host "    npm install -g @anthropic-ai/claude-code" -ForegroundColor White
+        Write-Host ""
+        $continueDesktop = Read-Host "  是否继续仅安装 CC Desktop？(y/N)"
+
+        if ($continueDesktop -ne "y" -and $continueDesktop -ne "Y") {
+            Write-Host ""
+            Write-Host "安装已取消。" -ForegroundColor Yellow
+            exit 1
+        }
     }
 }
 
 # ---------------------------------------------------------------------------
-# 3. Find and launch CC Desktop installer
+# 4. Find and launch CC Desktop installer
 # ---------------------------------------------------------------------------
 Write-Step "Looking for CC Desktop installer..."
 

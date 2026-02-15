@@ -43,53 +43,94 @@ else
     warn "Claude CLI not found. Installing..."
 
     # ------------------------------------------------------------------
-    # 2. Install Claude Code CLI (official installer, fallback to npm)
+    # 2. Proxy configuration (for official installer)
+    # ------------------------------------------------------------------
+    echo ""
+    echo "  官方安装脚本需要访问 https://claude.ai"
+    echo "  如果在国内环境，建议配置代理以提高成功率。"
+    echo ""
+    printf "  是否配置代理？(y/N): "
+    read -r use_proxy
+
+    if [[ "$use_proxy" == "y" || "$use_proxy" == "Y" ]]; then
+        printf "  请输入代理地址 [http://127.0.0.1:15236]: "
+        read -r proxy_url
+        proxy_url=${proxy_url:-http://127.0.0.1:15236}
+
+        export http_proxy="$proxy_url"
+        export https_proxy="$proxy_url"
+        ok "已设置代理: $proxy_url"
+    fi
+
+    # ------------------------------------------------------------------
+    # 3. Install Claude Code CLI (official installer)
     # ------------------------------------------------------------------
     step "Installing Claude Code CLI..."
 
-    # Try official installer first
+    # Try official installer
     if curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null; then
         ok "Installed via official installer"
+        CLI_INSTALLED=true
     else
-        warn "Official installer failed (network/region issue), trying npm..."
+        warn "Official installer failed."
+        CLI_INSTALLED=false
 
-        # Check if npm is available
-        if ! command -v npm &>/dev/null; then
-            err "npm not found. Please install Node.js first:"
-            echo "  macOS: brew install node"
-            echo "  or download from: https://nodejs.org/"
-            exit 1
-        fi
+        # Try npm if available
+        if command -v npm &>/dev/null; then
+            echo ""
+            printf "  是否尝试使用 npm 安装？(y/N): "
+            read -r use_npm
 
-        # Install via npm
-        if npm install -g @anthropic-ai/claude-code; then
-            ok "Installed via npm"
-        else
-            err "Failed to install Claude CLI via both methods."
-            echo ""
-            echo "  Please install manually:"
-            echo "    npm install -g @anthropic-ai/claude-code"
-            echo ""
-            exit 1
+            if [[ "$use_npm" == "y" || "$use_npm" == "Y" ]]; then
+                if npm install -g @anthropic-ai/claude-code; then
+                    ok "Installed via npm"
+                    CLI_INSTALLED=true
+                else
+                    warn "npm installation also failed."
+                fi
+            fi
         fi
     fi
 
-    # Refresh PATH so we can find the newly installed binary
-    refresh_path
-    export PATH="$HOME/.claude/local/bin:$HOME/.local/bin:$PATH"
+    # Refresh PATH if installed
+    if [ "$CLI_INSTALLED" = true ]; then
+        # Add common bin paths
+        export PATH="/usr/local/bin:$HOME/.local/bin:$HOME/.claude/local/bin:$PATH"
 
-    if command -v claude &>/dev/null; then
-        ver=$(claude --version 2>/dev/null || echo "unknown")
-        ok "Claude CLI installed successfully: $ver"
+        # Try to verify, but don't fail if not found immediately
+        if command -v claude &>/dev/null; then
+            ver=$(claude --version 2>/dev/null || echo "unknown")
+            ok "Claude CLI installed successfully: $ver"
+        else
+            warn "Claude CLI installed. If 'claude' command not found, please restart terminal."
+        fi
     else
-        err "Claude CLI installation succeeded but 'claude' is not in PATH."
-        echo "  Please restart your terminal and try again."
-        exit 1
+        # CLI installation failed, offer to continue with Desktop only
+        echo ""
+        warn "Claude CLI 自动安装失败。"
+        echo ""
+        echo "  可以先安装 CC Desktop，稍后手动安装 Claude CLI："
+        echo ""
+        echo "  【方式 1】使用代理 + 官方脚本（推荐）"
+        echo "    export https_proxy=http://your-proxy:port"
+        echo "    curl -fsSL https://claude.ai/install.sh | bash"
+        echo ""
+        echo "  【方式 2】使用 npm（需要 Node.js）"
+        echo "    npm install -g @anthropic-ai/claude-code"
+        echo ""
+        printf "  是否继续仅安装 CC Desktop？(y/N): "
+        read -r continue_desktop
+
+        if [[ "$continue_desktop" != "y" && "$continue_desktop" != "Y" ]]; then
+            echo ""
+            echo "安装已取消。"
+            exit 1
+        fi
     fi
 fi
 
 # ------------------------------------------------------------------
-# 3. Install CC Desktop
+# 4. Install CC Desktop
 # ------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLATFORM=$(detect_platform)
@@ -152,6 +193,18 @@ install_macos() {
 
     # Remove old version if present
     if [ -d "/Applications/$app_name" ]; then
+        warn "检测到已安装 $app_name"
+        echo ""
+        printf "  是否覆盖安装？(y/N): "
+        read -r replace_app
+
+        if [[ "$replace_app" != "y" && "$replace_app" != "Y" ]]; then
+            echo ""
+            echo "安装已取消。"
+            hdiutil detach "$mount_point" -quiet 2>/dev/null || true
+            return
+        fi
+
         warn "Removing existing /Applications/$app_name ..."
         rm -rf "/Applications/$app_name"
     fi
