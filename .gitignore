@@ -50,3 +50,7 @@ nul
 # Claude Code CLI artifacts
 .claude/
 .serena/
+
+# Release artifacts
+release/
+*.tar.gz

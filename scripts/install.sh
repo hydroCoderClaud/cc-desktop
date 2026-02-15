@@ -78,9 +78,28 @@ PLATFORM=$(detect_platform)
 step "Looking for CC Desktop installer (platform: $PLATFORM)..."
 
 install_macos() {
+    # Detect system architecture
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        arm64|aarch64) arch="arm64" ;;
+        x86_64|amd64)  arch="x64" ;;
+        *)
+            warn "Unknown architecture: $arch"
+            arch=""
+            ;;
+    esac
+
     # Look for .dmg in script dir or parent dir
+    # Priority: 1) arch-specific DMG, 2) any CC Desktop DMG
     local dmg
-    dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name '*.dmg' -iname '*cc*desktop*' 2>/dev/null | head -n1)
+    if [ -n "$arch" ]; then
+        dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name "*darwin-${arch}.dmg" -iname '*cc*desktop*' 2>/dev/null | head -n1)
+    fi
+
+    if [ -z "$dmg" ]; then
+        dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name '*.dmg' -iname '*cc*desktop*' 2>/dev/null | head -n1)
+    fi
 
     if [ -z "$dmg" ]; then
         warn "No CC Desktop .dmg found in the current directory."
