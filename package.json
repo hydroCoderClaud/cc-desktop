@@ -1,6 +1,6 @@
 {
   "name": "cc-desktop",
-  "version": "1.6.39",
+  "version": "1.6.40",
   "description": "CC Desktop - Claude Code CLI 桌面启动器",
   "main": "src/main/index.js",
   "author": "HydroCoder",
