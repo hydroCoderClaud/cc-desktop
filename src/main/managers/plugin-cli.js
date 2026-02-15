@@ -154,10 +154,16 @@ class PluginCli {
    */
   _exec(args) {
     return new Promise((resolve, reject) => {
+      // 构建基础环境变量（增强 PATH，不包含 API 配置）
+      // 插件命令只需要找到 claude 命令，不需要 API 认证
+      const { buildBasicEnv } = require('../utils/env-builder')
+      const env = buildBasicEnv({})
+
       const options = {
         timeout: this.timeout,
         maxBuffer: 1024 * 1024 * 5, // 5MB
-        windowsHide: true
+        windowsHide: true,
+        env  // 传递增强后的环境变量
       }
 
       execFile('claude', args, options, (error, stdout, stderr) => {

@@ -4,6 +4,15 @@
  */
 
 /**
+ * 检测是否在打包后的应用中运行
+ * @returns {boolean}
+ */
+function isPackagedApp() {
+  // Electron 打包后，主模块路径包含 app.asar
+  return process.mainModule && process.mainModule.filename.includes('app.asar')
+}
+
+/**
  * 从 API Profile 生成 Claude Code CLI 环境变量
  * @param {Object} profile - API Profile 对象
  * @returns {Object} 环境变量对象（只包含有值的变量）
@@ -99,35 +108,132 @@ function buildClaudeEnvVars(profile) {
 }
 
 /**
+ * 构建基础环境变量（仅 PATH 增强，不含 API 配置）
+ * 用于不需要 API 配置的场景，如插件 CLI 命令
+ *
+ * @param {Object} [extraVars={}] - 额外环境变量
+ * @returns {Object} 环境变量对象（包含增强的 PATH）
+ */
+function buildBasicEnv(extraVars = {}) {
+  const os = require('os')
+  const path = require('path')
+  const homeDir = os.homedir()
+
+  const baseEnv = { ...process.env }
+
+  // 清除可能存在的认证变量（避免干扰）
+  delete baseEnv.ANTHROPIC_API_KEY
+  delete baseEnv.ANTHROPIC_AUTH_TOKEN
+
+  // 增强 PATH：添加常见的 bin 目录
+  const isWindows = process.platform === 'win32'
+  const pathSep = isWindows ? ';' : ':'
+
+  let commonPaths = []
+  if (isWindows) {
+    // Windows 路径
+    commonPaths = [
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs'),
+      path.join(homeDir, 'AppData', 'Roaming', 'npm'),
+      path.join(homeDir, '.claude', 'local', 'bin')
+    ]
+  } else {
+    // macOS / Linux 路径
+    commonPaths = [
+      '/usr/local/bin',      // macOS Homebrew, npm global
+      '/opt/homebrew/bin',   // macOS Apple Silicon Homebrew
+      '/usr/bin',            // 系统基础命令
+      '/bin',                // 系统基础命令
+      path.join(homeDir, '.local', 'bin'),     // 用户本地 bin
+      path.join(homeDir, '.npm-global', 'bin'), // npm global (某些配置)
+      path.join(homeDir, '.claude', 'local', 'bin') // Claude CLI 官方安装路径
+    ]
+  }
+
+  const existingPath = baseEnv.PATH || ''
+  const existingPaths = existingPath.split(pathSep).filter(Boolean)
+  const pathsToAdd = commonPaths.filter(p => !existingPaths.includes(p))
+
+  if (pathsToAdd.length > 0) {
+    baseEnv.PATH = [...pathsToAdd, ...existingPaths].filter(Boolean).join(pathSep)
+
+    // 调试日志：打包后特别重要
+    if (isPackagedApp()) {
+      console.log('[env-builder] Running in packaged mode')
+      console.log('[env-builder] PATH enhanced, added:', pathsToAdd.join(pathSep))
+    }
+  }
+
+  // 合并额外变量
+  const env = { ...baseEnv, ...extraVars }
+
+  // 清理空值
+  for (const key of Object.keys(env)) {
+    if (env[key] === '') {
+      delete env[key]
+    }
+  }
+
+  return env
+}
+
+/**
+ * 构建标准额外环境变量（TERM、SHELL、AUTOCOMPACT）
+ * 统一 AgentSessionManager 和 ActiveSessionManager 的 extraVars 逻辑
+ *
+ * @param {Object} configManager - ConfigManager 实例
+ * @returns {Object} extraVars 对象
+ */
+function buildStandardExtraVars(configManager) {
+  const fs = require('fs')
+  const extraVars = { TERM: 'xterm-256color' }
+
+  // AUTOCOMPACT 设置
+  if (configManager) {
+    const autocompactPct = configManager.getAutocompactPctOverride()
+    if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
+      extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
+    }
+  }
+
+  // SHELL 设置（非 Windows）
+  if (process.platform !== 'win32') {
+    let shell = process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash')
+    try {
+      fs.accessSync(shell, fs.constants.X_OK)
+    } catch {
+      const alternatives = ['/bin/zsh', '/bin/bash', '/bin/sh']
+      for (const alt of alternatives) {
+        try {
+          fs.accessSync(alt, fs.constants.X_OK)
+          shell = alt
+          break
+        } catch { continue }
+      }
+    }
+    extraVars.SHELL = shell
+  }
+
+  return extraVars
+}
+
+/**
  * 构建完整的子进程环境变量
  * 统一 AgentSessionManager 和 ActiveSessionManager 的环境构建逻辑：
- *   复制 process.env → 清除认证变量 → 合并 Claude 环境变量 → 合并额外变量 → 清理空值
+ *   基础环境（PATH增强）→ 合并 Claude 环境变量 → 合并额外变量
  *
  * @param {Object} profile - API Profile 对象
  * @param {Object} [extraVars={}] - 额外环境变量（如 TERM、CLAUDE_AUTOCOMPACT_PCT_OVERRIDE）
  * @returns {Object} 完整的环境变量对象
  */
 function buildProcessEnv(profile, extraVars = {}) {
-  const baseEnv = { ...process.env }
-  delete baseEnv.ANTHROPIC_API_KEY
-  delete baseEnv.ANTHROPIC_AUTH_TOKEN
+  // 先构建基础环境（PATH 增强）
+  const baseEnv = buildBasicEnv({})
 
-  // 增强 PATH：添加常见的 bin 目录（Agent 模式需要 node/npm 等命令）
-  const commonPaths = [
-    '/usr/local/bin',      // macOS Homebrew, npm global
-    '/opt/homebrew/bin',   // macOS Apple Silicon Homebrew
-    process.env.HOME ? `${process.env.HOME}/.local/bin` : null,  // 用户本地 bin
-    process.env.HOME ? `${process.env.HOME}/.npm-global/bin` : null  // npm global (某些配置)
-  ].filter(Boolean)
-
-  const existingPath = baseEnv.PATH || ''
-  const pathsToAdd = commonPaths.filter(p => !existingPath.includes(p))
-
-  if (pathsToAdd.length > 0) {
-    baseEnv.PATH = [...pathsToAdd, existingPath].join(':')
-  }
-
+  // 添加 Claude API 配置
   const claudeEnvVars = buildClaudeEnvVars(profile)
+
+  // 合并所有环境变量
   const env = { ...baseEnv, ...claudeEnvVars, ...extraVars }
 
   // 清理空值
@@ -140,4 +246,10 @@ function buildProcessEnv(profile, extraVars = {}) {
   return env
 }
 
-module.exports = { buildClaudeEnvVars, buildProcessEnv }
+module.exports = {
+  buildClaudeEnvVars,
+  buildProcessEnv,
+  buildStandardExtraVars,
+  buildBasicEnv,
+  isPackagedApp
+}

@@ -89,10 +89,10 @@ class TerminalManager {
     console.log(`[Terminal] Working directory: ${projectPath}`);
 
     // 获取默认 API Profile 并构建环境变量
+    // 注意：不要传递 PATH，让 buildProcessEnv 自动增强（确保打包后能找到 node/claude）
     const profile = this.configManager.getDefaultProfile();
     const env = buildProcessEnv(profile, {
-      TERM: 'xterm-256color',
-      PATH: process.env.PATH
+      TERM: 'xterm-256color'
     });
 
     try {

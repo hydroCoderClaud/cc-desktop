@@ -11,7 +11,7 @@
 const { v4: uuidv4 } = require('uuid')
 const pty = require('node-pty')
 const os = require('os')
-const { buildProcessEnv } = require('./utils/env-builder')
+const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder')
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
 
@@ -224,12 +224,8 @@ class ActiveSessionManager {
       }
     }
 
-    // 构建子进程环境变量（使用共享的 buildProcessEnv）
-    const extraVars = { TERM: 'xterm-256color' }
-    const autocompactPct = this.configManager.getAutocompactPctOverride()
-    if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
-      extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
-    }
+    // 构建子进程环境变量（使用标准 extraVars：TERM、SHELL、AUTOCOMPACT）
+    const extraVars = buildStandardExtraVars(this.configManager)
     const envVars = buildProcessEnv(profile, extraVars)
 
     // 调试日志

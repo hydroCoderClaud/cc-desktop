@@ -195,36 +195,11 @@ class AgentSessionManager {
    * 构建 SDK 环境变量
    */
   _buildEnvVars() {
-    const { buildProcessEnv } = require('./utils/env-builder')
+    const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder')
     const profile = this.configManager.getDefaultProfile()
 
-    // 额外环境变量
-    const extraVars = {}
-    const autocompactPct = this.configManager.getAutocompactPctOverride()
-    if (autocompactPct !== null && autocompactPct >= 0 && autocompactPct <= 100) {
-      extraVars.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autocompactPct)
-    }
-
-    // 终端类型（CLI 需要知道终端能力，与 active-session-manager 保持一致）
-    extraVars.TERM = 'xterm-256color'
-
-    // macOS/Linux: 确保 SHELL 变量有效（参照 terminal-manager.js 的 shell 选择逻辑）
-    if (process.platform !== 'win32') {
-      let shell = process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash')
-      try {
-        fs.accessSync(shell, fs.constants.X_OK)
-      } catch {
-        const alternatives = ['/bin/zsh', '/bin/bash', '/bin/sh']
-        for (const alt of alternatives) {
-          try {
-            fs.accessSync(alt, fs.constants.X_OK)
-            shell = alt
-            break
-          } catch { continue }
-        }
-      }
-      extraVars.SHELL = shell
-    }
+    // 使用标准 extraVars（TERM、SHELL、AUTOCOMPACT）
+    const extraVars = buildStandardExtraVars(this.configManager)
 
     return buildProcessEnv(profile, extraVars)
   }
@@ -482,13 +457,57 @@ class AgentSessionManager {
         env,
         // 包装 spawn 以捕获 CLI 子进程 PID（Windows 进程树 kill 需要）
         spawnClaudeCodeProcess: (spawnOpts) => {
+          // 修正 CLI 路径：SDK 在 asar 里，计算的路径需要重定向到 unpacked
+          // 支持 Windows 和 Unix 风格的路径分隔符
+          let cliPath = spawnOpts.args[0]  // 第一个参数通常是 cli.js 的路径
+          if (cliPath && /[\/\\]app\.asar[\/\\]/.test(cliPath) && !cliPath.includes('app.asar.unpacked')) {
+            // 使用正则替换，兼容 Windows 反斜杠和 Unix 正斜杠
+            cliPath = cliPath.replace(/[\/\\]app\.asar[\/\\]/g, (match) => {
+              return match.replace('app.asar', 'app.asar.unpacked')
+            })
+            spawnOpts.args[0] = cliPath
+            console.log(`[AgentSession] Fixed CLI path: ${cliPath}`)
+          }
+
+          // 直接使用我们构建的环境变量，忽略 SDK 的（确保 PATH 包含 node）
+          const finalEnv = env
+
           const proc = cpSpawn(spawnOpts.command, spawnOpts.args, {
             cwd: spawnOpts.cwd,
-            env: spawnOpts.env,
-            stdio: ['pipe', 'pipe', 'pipe']
+            env: finalEnv,  // 使用我们的环境变量
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: false  // 显式禁用 shell（使用直接 exec）
           })
           session.cliPid = proc.pid || null
-          console.log(`[AgentSession] CLI process spawned, PID: ${session.cliPid}`)
+          console.log(`[AgentSession] CLI spawned: command=${spawnOpts.command}, args[0]=${spawnOpts.args[0]?.substring(0, 80)}`)
+
+
+          // 捕获 stderr 用于调试
+          let stderrData = ''
+          if (proc.stderr) {
+            proc.stderr.on('data', (data) => {
+              const text = data.toString()
+              stderrData += text
+              console.error(`[AgentSession] CLI stderr: ${text}`)  // 立即输出到控制台
+            })
+          }
+
+          // 进程退出时输出完整错误信息
+          proc.on('exit', (code, signal) => {
+            console.log(`[AgentSession] CLI exited: code=${code}, signal=${signal}`)
+            if (code !== 0) {
+              console.error(`[AgentSession] CLI stderr (full):`, stderrData)
+              if (stderrData) {
+                this._safeSend('agent:cliError', {
+                  sessionId: session.id,
+                  exitCode: code,
+                  signal,
+                  stderr: stderrData
+                })
+              }
+            }
+          })
+
           return proc
         }
       }
