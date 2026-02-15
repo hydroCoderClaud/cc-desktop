@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "electron-rebuild -f -w better-sqlite3,node-pty",
     "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
+    "predev": "electron-rebuild -f -w better-sqlite3,node-pty",
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173/ electron .",
