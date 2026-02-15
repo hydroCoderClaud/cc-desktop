@@ -32,7 +32,53 @@ refresh_path() {
 }
 
 # ------------------------------------------------------------------
-# 1. Detect Claude Code CLI
+# 1. Check Node.js (required for Agent mode)
+# ------------------------------------------------------------------
+step "Checking Node.js..."
+
+NODE_AVAILABLE=false
+if command -v node &>/dev/null; then
+    NODE_AVAILABLE=true
+    node_ver=$(node --version 2>/dev/null || echo "unknown")
+    ok "Node.js found: $node_ver"
+else
+    warn "Node.js not found"
+    echo ""
+    echo "  📌 Node.js 依赖说明："
+    echo "    • Terminal 模式：不需要（可正常使用）"
+    echo "    • Agent 模式：必需（需要系统 Node.js 环境）"
+    echo ""
+    printf "  是否现在安装 Node.js？(y/N): "
+    read -r install_node
+
+    if [[ "$install_node" == "y" || "$install_node" == "Y" ]]; then
+        if command -v brew &>/dev/null; then
+            step "Installing Node.js via Homebrew..."
+            if brew install node; then
+                NODE_AVAILABLE=true
+                node_ver=$(node --version 2>/dev/null || echo "unknown")
+                ok "Node.js installed: $node_ver"
+            else
+                err "Failed to install Node.js via Homebrew"
+            fi
+        else
+            warn "Homebrew not found"
+            echo ""
+            echo "  请手动安装 Node.js："
+            echo "    下载地址: https://nodejs.org/"
+            echo ""
+            echo "  安装完成后重新运行此脚本以启用 Agent 模式"
+        fi
+    fi
+
+    if [[ "$NODE_AVAILABLE" != "true" ]]; then
+        warn "继续安装（Agent 模式将不可用）"
+        echo ""
+    fi
+fi
+
+# ------------------------------------------------------------------
+# 2. Detect Claude Code CLI
 # ------------------------------------------------------------------
 step "Detecting Claude Code CLI..."
 
@@ -43,7 +89,7 @@ else
     warn "Claude CLI not found. Installing..."
 
     # ------------------------------------------------------------------
-    # 2. Proxy configuration (for official installer)
+    # 3. Proxy configuration (for official installer)
     # ------------------------------------------------------------------
     echo ""
     echo "  官方安装脚本需要访问 https://claude.ai"
@@ -63,7 +109,7 @@ else
     fi
 
     # ------------------------------------------------------------------
-    # 3. Install Claude Code CLI (official installer)
+    # 4. Install Claude Code CLI (official installer)
     # ------------------------------------------------------------------
     step "Installing Claude Code CLI..."
 
@@ -130,7 +176,7 @@ else
 fi
 
 # ------------------------------------------------------------------
-# 4. Install CC Desktop
+# 5. Install CC Desktop
 # ------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLATFORM=$(detect_platform)

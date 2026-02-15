@@ -18,7 +18,60 @@ function Write-Warn { param([string]$Message) Write-Host "   [!] $Message" -Fore
 function Write-Err  { param([string]$Message) Write-Host "   [ERROR] $Message" -ForegroundColor Red }
 
 # ---------------------------------------------------------------------------
-# 1. Detect Claude Code CLI
+# 1. Check Node.js (required for Agent mode)
+# ---------------------------------------------------------------------------
+Write-Step "Checking Node.js..."
+
+$nodeAvailable = $false
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+
+if ($null -ne $nodeCmd) {
+    $nodeAvailable = $true
+    $nodeVer = & node --version 2>$null
+    Write-Ok "Node.js found: $nodeVer"
+} else {
+    Write-Warn "Node.js not found"
+    Write-Host ""
+    Write-Host "  📌 Node.js 依赖说明：" -ForegroundColor White
+    Write-Host "    • Terminal 模式：不需要（可正常使用）" -ForegroundColor White
+    Write-Host "    • Agent 模式：必需（需要系统 Node.js 环境）" -ForegroundColor White
+    Write-Host ""
+    $installNode = Read-Host "  是否现在安装 Node.js？(y/N)"
+
+    if ($installNode -eq "y" -or $installNode -eq "Y") {
+        # Check if winget is available
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($null -ne $winget) {
+            Write-Step "Installing Node.js via winget..."
+            try {
+                & winget install OpenJS.NodeJS.LTS
+                $nodeAvailable = $true
+                # Refresh PATH
+                $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                            [System.Environment]::GetEnvironmentVariable('Path', 'User')
+                $nodeVer = & node --version 2>$null
+                Write-Ok "Node.js installed: $nodeVer"
+            } catch {
+                Write-Err "Failed to install Node.js via winget"
+            }
+        } else {
+            Write-Warn "winget not found"
+            Write-Host ""
+            Write-Host "  请手动安装 Node.js：" -ForegroundColor White
+            Write-Host "    下载地址: https://nodejs.org/" -ForegroundColor White
+            Write-Host ""
+            Write-Host "  安装完成后重新运行此脚本以启用 Agent 模式" -ForegroundColor White
+        }
+    }
+
+    if (-not $nodeAvailable) {
+        Write-Warn "继续安装（Agent 模式将不可用）"
+        Write-Host ""
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 2. Detect Claude Code CLI
 # ---------------------------------------------------------------------------
 Write-Step "Detecting Claude Code CLI..."
 
@@ -34,7 +87,7 @@ if (Test-Claude) {
     Write-Warn "Claude CLI not found. Installing..."
 
     # ---------------------------------------------------------------------------
-    # 2. Proxy configuration (for official installer)
+    # 3. Proxy configuration (for official installer)
     # ---------------------------------------------------------------------------
     Write-Host ""
     Write-Host "  官方安装脚本需要访问 https://claude.ai" -ForegroundColor White
@@ -54,7 +107,7 @@ if (Test-Claude) {
     }
 
     # ---------------------------------------------------------------------------
-    # 3. Install Claude Code CLI (official installer)
+    # 4. Install Claude Code CLI (official installer)
     # ---------------------------------------------------------------------------
     Write-Step "Installing Claude Code CLI..."
 
@@ -123,7 +176,7 @@ if (Test-Claude) {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Find and launch CC Desktop installer
+# 5. Find and launch CC Desktop installer
 # ---------------------------------------------------------------------------
 Write-Step "Looking for CC Desktop installer..."
 

@@ -112,6 +112,21 @@ function buildProcessEnv(profile, extraVars = {}) {
   delete baseEnv.ANTHROPIC_API_KEY
   delete baseEnv.ANTHROPIC_AUTH_TOKEN
 
+  // 增强 PATH：添加常见的 bin 目录（Agent 模式需要 node/npm 等命令）
+  const commonPaths = [
+    '/usr/local/bin',      // macOS Homebrew, npm global
+    '/opt/homebrew/bin',   // macOS Apple Silicon Homebrew
+    process.env.HOME ? `${process.env.HOME}/.local/bin` : null,  // 用户本地 bin
+    process.env.HOME ? `${process.env.HOME}/.npm-global/bin` : null  // npm global (某些配置)
+  ].filter(Boolean)
+
+  const existingPath = baseEnv.PATH || ''
+  const pathsToAdd = commonPaths.filter(p => !existingPath.includes(p))
+
+  if (pathsToAdd.length > 0) {
+    baseEnv.PATH = [...pathsToAdd, existingPath].join(':')
+  }
+
   const claudeEnvVars = buildClaudeEnvVars(profile)
   const env = { ...baseEnv, ...claudeEnvVars, ...extraVars }
 

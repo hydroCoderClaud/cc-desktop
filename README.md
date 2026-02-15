@@ -50,7 +50,24 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
 
 ## 安装前提
 
-> **提示**：如果使用上方的"快速安装"中的一键安装脚本，可以跳过此部分，脚本会自动安装 Claude Code CLI。
+> **提示**：如果使用上方的"快速安装"中的一键安装脚本，脚本会自动检测并安装依赖。
+
+### ⚠️ 重要依赖说明
+
+**Node.js**（推荐安装）：
+
+- **Terminal 模式**：❌ 不需要
+- **Agent 模式**：✅ **必需**（Agent SDK 需要调用系统 Node.js 环境）
+
+> **注意**：即使使用官方二进制方式安装 Claude CLI，Agent 模式仍然需要系统 Node.js。
+>
+> 一键安装脚本会自动检测 Node.js，如未安装会提示并协助安装。
+
+**安装方式**：
+- **macOS**: `brew install node` 或下载 [https://nodejs.org/](https://nodejs.org/)
+- **Windows**: `winget install OpenJS.NodeJS.LTS` 或下载 [https://nodejs.org/](https://nodejs.org/)
+
+---
 
 ### Windows
 
