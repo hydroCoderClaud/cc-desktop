@@ -2,6 +2,89 @@
 
 ---
 
+## v1.6.40 - 2026-02-16
+
+### 修复 (Bug Fixes)
+
+**打包后环境变量与 Agent 模式启动问题（P0 级核心修复）**
+- 修复打包后 Agent 模式 "Claude Code process exited with code 1" 错误
+  - **根因**：SDK 计算 cli.js 路径为 `/app.asar/...`，但文件已被 unpacked 到 `/app.asar.unpacked/`
+  - **修复**：`agent-session-manager.js` 的 `spawnClaudeCodeProcess` 回调中添加 asar 路径重定向
+  - **兼容性**：Windows 路径分隔符兼容（`/[\/\\]app\.asar[\/\\]/` 正则）
+- 修复插件下载 "spawn claude ENOENT" 错误
+  - **根因**：`plugin-cli.js` 未传递增强的环境变量给 `execFile()`
+  - **修复**：使用新提取的 `buildBasicEnv()` 函数获取 PATH 增强
+- 修复 Terminal 模式打包后 PATH 被覆盖问题
+  - **根因**：`terminal-manager.js` 在 extraVars 中显式设置 `PATH: process.env.PATH`，覆盖了 `buildProcessEnv()` 的增强
+  - **修复**：移除 extraVars 中的 PATH 设置，完全交给 `buildProcessEnv()` 处理
+- 修复 PATH 去重逻辑不精确问题
+  - **根因**：使用 `existingPath.includes(p)` 会匹配到子字符串（如 `/usr/local/bin-test`）
+  - **修复**：改用 `split(pathSep)` 分割后精确匹配
+- 添加打包模式检测和调试日志
+  - 新增 `isPackagedApp()` 函数检测 app.asar 环境
+  - 打包模式下输出 PATH 增强日志，便于调试
+
+**Agent 模式错误诊断改进**
+- 捕获并记录 CLI 进程 stderr 完整输出
+- 新增 IPC 事件 `agent:cliError` 传递 stderr 到前端（用于未来调试 UI）
+- 非零退出码时自动输出 stderr 到主进程日志
+
+**package.json 配置**
+- 添加 `@anthropic-ai/claude-agent-sdk` 到 `asarUnpack` 列表
+  - 确保 cli.js 和 shebang 脚本在打包后可执行
+
+### 重构 (Refactor)
+
+**环境变量构建逻辑统一化**
+- 提取 `buildBasicEnv(extraVars)` 函数（`utils/env-builder.js`）
+  - 用途：仅增强 PATH，不包含 API 配置（插件 CLI 命令场景）
+  - 清除潜在冲突的认证变量（`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`）
+- 提取 `buildStandardExtraVars(configManager)` 函数（`utils/env-builder.js`）
+  - 统一 TERM、SHELL、CLAUDE_AUTOCOMPACT_PCT_OVERRIDE 逻辑
+  - 消除 `agent-session-manager.js` 和 `active-session-manager.js` 中的重复代码
+- 重构 `buildProcessEnv(profile, extraVars)` 函数
+  - 底层调用 `buildBasicEnv()` 获取基础环境（PATH 增强）
+  - 叠加 Claude API 配置（`buildClaudeEnvVars()`）
+  - 叠加额外变量（TERM、SHELL 等）
+  - 最终清理空值
+
+**模块职责清晰化**
+- `buildBasicEnv()` → 基础 PATH 增强（无 API 配置）
+- `buildClaudeEnvVars()` → API 认证环境变量
+- `buildStandardExtraVars()` → 标准子进程附加变量（TERM/SHELL/AUTOCOMPACT）
+- `buildProcessEnv()` → 完整子进程环境（基础 + API + 附加）
+
+### 技术细节 (Technical Details)
+
+**修改文件清单**：
+- `package.json` - asarUnpack 配置
+- `src/main/utils/env-builder.js` - 核心重构（4 个导出函数）
+- `src/main/agent-session-manager.js` - asar 路径重定向 + stderr 捕获 + extraVars 简化
+- `src/main/active-session-manager.js` - 使用 `buildStandardExtraVars()`
+- `src/main/terminal-manager.js` - 移除 PATH 覆盖
+- `src/main/managers/plugin-cli.js` - 使用 `buildBasicEnv()`
+
+**Windows 兼容性增强**：
+- asar 路径正则支持反斜杠：`/[\/\\]app\.asar[\/\\]/`
+- PATH 分隔符检测：`process.platform === 'win32' ? ';' : ':'`
+- 路径分隔符通用处理：`path.join()` 自动适配
+
+**调试能力提升**：
+- 打包模式自动检测：`process.mainModule.filename.includes('app.asar')`
+- 条件日志输出：仅打包模式输出 PATH 增强日志，避免开发模式日志污染
+- stderr 完整捕获：Agent 模式 CLI 进程错误输出记录到主进程日志
+
+**设计模式改进**：
+- DRY 原则：消除 extraVars 构建逻辑重复
+- 单一职责：每个函数职责明确（PATH 增强 vs API 配置 vs 附加变量）
+- 防御式编程：清除空值、清除冲突变量、精确 PATH 去重
+
+### Git 提交记录
+
+- `69abfb9` - fix: 修复打包后环境变量问题 + 重构环境构建逻辑
+
+---
+
 ## v1.6.39 - 2026-02-15
 
 ### 新功能 (Features)
