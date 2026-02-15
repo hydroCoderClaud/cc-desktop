@@ -74,8 +74,15 @@ jobs:
           # 创建发布目录
           New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
 
-          # 复制文件
-          Copy-Item "dist\CC Desktop Setup ${VERSION}.exe" "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+          # 复制文件 - 查找 exe 文件（支持多种命名格式）
+          $exeFile = Get-ChildItem -Path dist -Filter "*.exe" | Select-Object -First 1
+          if ($exeFile) {
+            Write-Host "Found installer: $($exeFile.Name)"
+            Copy-Item $exeFile.FullName "$RELEASE_DIR\CC Desktop Setup ${VERSION}.exe"
+          } else {
+            Write-Error "No .exe file found in dist/"
+            exit 1
+          }
           Copy-Item "scripts\install.ps1" "$RELEASE_DIR\"
 
           # 创建 README
