@@ -23,11 +23,14 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   // 获取所有工程（不含隐藏）
   createIPCHandler(ipcMain, 'project:getAll', (includeHidden = false) => {
     const projects = sessionDatabase.getAllProjects(includeHidden)
-    // 检查每个项目的路径是否有效
-    return projects.map(project => {
+    const validProjects = []
+    const removedNames = []
+
+    for (const project of projects) {
       // 首先检查存储的路径是否有效
       if (fs.existsSync(project.path)) {
-        return { ...project, pathValid: true }
+        validProjects.push({ ...project, pathValid: true })
+        continue
       }
 
       // 路径无效，且有 encoded_path，尝试智能解码找到正确路径
@@ -37,12 +40,21 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
         if (correctPath) {
           // 找到正确路径，更新数据库
           sessionDatabase.updateProject(project.id, { path: correctPath })
-          return { ...project, path: correctPath, pathValid: true }
+          validProjects.push({ ...project, path: correctPath, pathValid: true })
+          continue
         }
       }
 
-      return { ...project, pathValid: false }
-    })
+      // 路径不存在且无法恢复，自动从列表移除
+      removedNames.push(project.name || project.path)
+      sessionDatabase.deleteProject(project.id, false)
+    }
+
+    if (removedNames.length > 0) {
+      console.log(`[Project] Auto-removed ${removedNames.length} invalid project(s): ${removedNames.join(', ')}`)
+    }
+
+    return validProjects
   })
 
   // 获取隐藏的工程

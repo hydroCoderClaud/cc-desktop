@@ -206,8 +206,8 @@ describe('ConfigManager', () => {
   })
 
   describe('配置持久化', () => {
-    it('应该能保存配置到文件', () => {
-      configManager.updateSettings({ theme: 'dark' })
+    it('应该能保存配置到文件', async () => {
+      await configManager.updateSettings({ theme: 'dark' })
 
       const configPath = path.join(testTempDir, 'config.json')
       expect(fs.existsSync(configPath)).toBe(true)
@@ -218,8 +218,8 @@ describe('ConfigManager', () => {
 
     it('应该能从文件加载配置', async () => {
       // 先保存一个配置
-      configManager.updateSettings({ theme: 'dark' })
-      configManager.updateMaxActiveSessions(15)
+      await configManager.updateSettings({ theme: 'dark' })
+      await configManager.updateMaxActiveSessions(15)
 
       // 重新导入模块获得新实例
       vi.resetModules()

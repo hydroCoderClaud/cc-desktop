@@ -780,6 +780,26 @@ this._safeSend('session:data', { sessionId, data })
 
 ---
 
+## 待办计划
+
+### 测试重构：移除 better-sqlite3 Mock
+
+- **背景**：早期因 Electron 内置 Node.js 与 better-sqlite3 原生模块不兼容，`tests/main/session-database-prompts.test.js` 使用 MockDatabase/MockStatement（约 370 行）模拟 better-sqlite3
+- **现状**：Electron 40 + better-sqlite3 12.x 已兼容，Mock 不再必要
+- **目标**：替换为真实的 better-sqlite3 内存数据库（`:memory:`），提高测试可信度
+- **优先级**：低
+
+### 零依赖安装改造（Phase 2-5）
+
+Phase 1（Electron 28 → 40 升级）已完成，后续阶段：
+
+- **Phase 2**：CLI 路径解析工具模块 `src/main/utils/cli-resolver.js`（双源检测：系统 CLI 优先，SDK 内嵌兜底）
+- **Phase 3**：Agent 模式零依赖改造（`agent-session-manager.js`）
+- **Phase 4**：Terminal 模式零依赖改造（`terminal-manager.js` + `active-session-manager.js`）
+- **Phase 5**：打包配置优化（SDK asarUnpack、平台专属 ripgrep 排除）
+
+---
+
 ## 文档索引
 
 | 文档 | 说明 |
