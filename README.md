@@ -32,7 +32,11 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
    bash install.sh
    ```
 
-> 一键安装脚本会自动检测并安装 Claude Code CLI（如未安装），然后安装 CC Desktop。
+**一键安装脚本功能**：
+- 可选配置代理（国内用户推荐，默认 http://127.0.0.1:15236）
+- 自动安装 Claude Code CLI（官方脚本优先，失败则可用 npm）
+- 安装失败时提供详细的手动安装指引
+- 自动安装 CC Desktop
 
 ### 手动下载
 
