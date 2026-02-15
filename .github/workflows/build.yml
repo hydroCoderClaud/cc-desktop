@@ -64,13 +64,51 @@ jobs:
       - name: Build Electron
         run: npx electron-builder --win --publish never
 
+      - name: Create Windows installer package
+        shell: pwsh
+        run: |
+          # 获取版本号
+          $VERSION = (Get-Content package.json | ConvertFrom-Json).version
+          $RELEASE_DIR = "cc-desktop-v${VERSION}-windows"
+
+          # 创建发布目录
+          New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
+
+          # 复制文件
+          Copy-Item "dist\CC Desktop Setup ${VERSION}.exe" "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+          Copy-Item "scripts\install.ps1" "$RELEASE_DIR\"
+
+          # 创建 README
+          @"
+          # CC Desktop v${VERSION} - Windows Installer
+
+          ## Quick Install (Recommended)
+
+          Right-click PowerShell and "Run as Administrator", then:
+
+          ``````powershell
+          powershell -ExecutionPolicy Bypass -File .\install.ps1
+          ``````
+
+          This will:
+          1. Check if Claude Code CLI is installed (install if not)
+          2. Launch CC Desktop installer
+
+          ## Manual Install
+
+          Double-click ``CC Desktop Setup ${VERSION}.exe``
+          "@ | Out-File -FilePath "$RELEASE_DIR\README.md" -Encoding UTF8
+
+          # 打包
+          Compress-Archive -Path $RELEASE_DIR -DestinationPath "dist\cc-desktop-v${VERSION}-windows.zip" -Force
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: win-build
           path: |
             dist/*.exe
-            dist/*.zip
+            dist/cc-desktop-v*-windows.zip
           if-no-files-found: ignore
 
   build-macos:
@@ -98,13 +136,47 @@ jobs:
       - name: Build Electron
         run: npx electron-builder --mac --publish never
 
+      - name: Create macOS installer package
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          RELEASE_DIR="cc-desktop-v${VERSION}-macos"
+
+          mkdir -p "$RELEASE_DIR"
+          cp "dist/CC Desktop-${VERSION}-darwin-arm64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
+          cp "dist/CC Desktop-${VERSION}-darwin-x64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
+          cp scripts/install.sh "$RELEASE_DIR/"
+
+          # 创建 README
+          cat > "$RELEASE_DIR/README.md" << EOF
+          # CC Desktop v${VERSION} - macOS Installer
+
+          ## Quick Install (Recommended)
+
+          \`\`\`bash
+          bash install.sh
+          \`\`\`
+
+          This will:
+          1. Detect your system architecture (ARM64 or x64)
+          2. Check if Claude Code CLI is installed (install if not)
+          3. Install CC Desktop to /Applications
+
+          ## Manual Install
+
+          - **Apple Silicon (M1/M2/M3)**: \`CC Desktop-${VERSION}-darwin-arm64.dmg\`
+          - **Intel**: \`CC Desktop-${VERSION}-darwin-x64.dmg\`
+          EOF
+
+          # 打包
+          tar czf "dist/cc-desktop-v${VERSION}-macos.tar.gz" "$RELEASE_DIR"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mac-build
           path: |
             dist/*.dmg
-            dist/*.zip
+            dist/cc-desktop-v*-macos.tar.gz
           if-no-files-found: ignore
 
   release:
@@ -154,10 +226,46 @@ jobs:
           files: |
             artifacts/**/*.exe
             artifacts/**/*.dmg
-            artifacts/**/*.zip
+            artifacts/**/cc-desktop-v*-windows.zip
+            artifacts/**/cc-desktop-v*-macos.tar.gz
             artifacts/**/*.AppImage
           draft: false
           prerelease: false
-          generate_release_notes: true
+          body: |
+            ## 🚀 CC Desktop ${{ steps.version.outputs.tag }}
+
+            ### 📦 一键安装
+
+            #### Windows
+            下载 `cc-desktop-v*-windows.zip`，解压后右键 PowerShell "以管理员身份运行"：
+            ```powershell
+            powershell -ExecutionPolicy Bypass -File .\install.ps1
+            ```
+
+            #### macOS
+            下载 `cc-desktop-v*-macos.tar.gz`，解压后运行：
+            ```bash
+            bash install.sh
+            ```
+
+            ### 📥 手动下载
+
+            #### Windows
+            - `CC Desktop Setup *.exe`
+
+            #### macOS
+            - **Apple Silicon**: `CC Desktop-*-darwin-arm64.dmg`
+            - **Intel**: `CC Desktop-*-darwin-x64.dmg`
+
+            ### ✨ 功能特性
+            - 双模式架构：Terminal 模式 + Agent 模式
+            - 多会话管理
+            - 支持恢复历史会话
+            - 内置 Agent 对话界面
+
+            ### 📋 系统要求
+            - **Windows**: Windows 10/11
+            - **macOS**: 10.13+
+            - Claude Code CLI（安装脚本会自动检查和安装）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
