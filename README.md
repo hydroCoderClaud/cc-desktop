@@ -2,7 +2,7 @@
 
 Claude Code CLI 的桌面启动器 + 终端模拟器。
 
-**当前版本**：1.5.8
+**当前版本**：1.6.40
 
 ## 功能特点
 
@@ -13,7 +13,40 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
 - 深色/浅色主题，6 套配色方案
 - 中英文界面
 
+## 快速安装
+
+### 从 Release 下载（推荐）
+
+**Windows**：
+1. 下载 [cc-desktop-v1.6.40-windows.zip](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
+2. 解压后，右键 PowerShell "以管理员身份运行"
+3. 执行：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+
+**macOS**：
+1. 下载 [cc-desktop-v1.6.40-macos.tar.gz](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
+2. 解压后，在终端执行：
+   ```bash
+   bash install.sh
+   ```
+
+> 一键安装脚本会自动检测并安装 Claude Code CLI（如未安装），然后安装 CC Desktop。
+
+### 手动下载
+
+如果不使用安装脚本，可以直接下载对应平台的安装包：
+
+- **Windows**：`CC Desktop Setup 1.6.40.exe`
+- **macOS (Apple Silicon)**：`CC Desktop-1.6.40-darwin-arm64.dmg`
+- **macOS (Intel)**：`CC Desktop-1.6.40-darwin-x64.dmg`
+
+但仍需手动安装 Claude Code CLI（见下方"安装前提"）。
+
 ## 安装前提
+
+> **提示**：如果使用上方的"快速安装"中的一键安装脚本，可以跳过此部分，脚本会自动安装 Claude Code CLI。
 
 ### Windows
 
@@ -28,6 +61,16 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
 安装后将 Git Bash 目录添加到系统 PATH 环境变量（通常是 `C:\Program Files\Git\bin`）。Claude Code 需要用它执行后台文件操作。
 
 #### 3. 安装 Claude Code CLI
+
+**推荐方式**（官方安装脚本）：
+
+以管理员身份运行 PowerShell，执行：
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+**替代方式**（npm 安装）：
 
 ```powershell
 npm install -g @anthropic-ai/claude-code
@@ -59,9 +102,19 @@ brew install node
 
 #### 2. 安装 Claude Code CLI
 
+**推荐方式**（官方安装脚本）：
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**替代方式**（npm 安装）：
+
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
+
+> 官方安装脚本会自动处理环境变量配置，推荐使用。
 
 #### 3. 验证安装
 
@@ -69,7 +122,7 @@ npm install -g @anthropic-ai/claude-code
 claude --version
 ```
 
-## 下载与运行
+## 从源码安装（开发者）
 
 ### 下载源码
 
@@ -175,8 +228,19 @@ A: 确保 `js-yaml` 依赖已正确安装。运行 `npm install` 后重新打包
 
 ### Q: 连接失败提示 "未找到 Claude Code CLI"？
 
-A: 确保已全局安装 Claude Code CLI：
+A: 确保已安装 Claude Code CLI。推荐使用官方安装脚本：
 
+**Windows（管理员权限 PowerShell）**：
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+**macOS / Linux**：
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+或使用 npm 安装：
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
