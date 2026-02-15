@@ -782,21 +782,39 @@ this._safeSend('session:data', { sessionId, data })
 
 ## 待办计划
 
-### 测试重构：移除 better-sqlite3 Mock
+### 测试 Mock 说明（better-sqlite3）
 
-- **背景**：早期因 Electron 内置 Node.js 与 better-sqlite3 原生模块不兼容，`tests/main/session-database-prompts.test.js` 使用 MockDatabase/MockStatement（约 370 行）模拟 better-sqlite3
-- **现状**：Electron 40 + better-sqlite3 12.x 已兼容，Mock 不再必要
-- **目标**：替换为真实的 better-sqlite3 内存数据库（`:memory:`），提高测试可信度
-- **优先级**：低
+- **文件**：`tests/main/session-database-prompts.test.js` 中的 MockDatabase/MockStatement（约 370 行）
+- **原因**：`postinstall` 的 `electron-rebuild` 将 better-sqlite3 编译为 Electron Node ABI（MODULE_VERSION 143），而 vitest 运行在系统 Node.js（MODULE_VERSION 127），ABI 不兼容导致原生模块无法加载
+- **现状**：这是 Electron 原生模块测试的结构性问题，与 Electron 版本无关。除非改用 `electron-vitest`（在 Electron 内跑测试）或添加 `sql.js`（WebAssembly SQLite）作为 devDep，否则 Mock 仍是必要的
+- **结论**：保持现有 Mock 方案，49 个测试用例正常通过
 
-### 零依赖安装改造（Phase 2-5）
+### ~~零依赖安装改造~~ — 已取消
 
-Phase 1（Electron 28 → 40 升级）已完成，后续阶段：
+Phase 1（Electron 28 → 40 升级）已完成并保留。Phase 2-5 经实测验证后决定取消并回撤，原因如下：
 
-- **Phase 2**：CLI 路径解析工具模块 `src/main/utils/cli-resolver.js`（双源检测：系统 CLI 优先，SDK 内嵌兜底）
-- **Phase 3**：Agent 模式零依赖改造（`agent-session-manager.js`）
-- **Phase 4**：Terminal 模式零依赖改造（`terminal-manager.js` + `active-session-manager.js`）
-- **Phase 5**：打包配置优化（SDK asarUnpack、平台专属 ripgrep 排除）
+**实测发现的技术障碍**：
+
+1. **Electron TTY 缺陷**：`ELECTRON_RUN_AS_NODE=1` 模式下 `process.stdin.isTTY` 始终返回 `undefined`，导致 SDK 的 cli.js 误入 `--print` 非交互模式后立即退出。交互式终端必须使用系统 `node` 而非 Electron 来执行 cli.js。
+2. **MCP 服务器依赖系统 claude 二进制**：即使通过 `node cli.js` 成功启动终端，MCP 服务器（如 Serena）在初始化时需要 spawn 系统 `claude` 命令。PATH 中无 claude 时 MCP 启动失败，导致 SDK 兜底方案在实际使用中不可行。
+
+**结论**：SDK 内嵌 cli.js 兜底方案的适用范围过窄（仅基础 CLI 交互可用，MCP 等核心功能不可用），不具备实际生产价值。
+
+**环境依赖**：
+
+| 依赖 | 开发模式 | 生产模式 | 说明 |
+|------|---------|---------|------|
+| **Node.js** | **需要** | 不需要 | 开发：npm/Vite/测试等工具链必需；生产：Electron 自带 Node.js 运行时 |
+| **Claude Code CLI** | **需要** | **需要** | Terminal 模式直接调用 `claude` 命令，MCP 服务器也依赖它 |
+| cc-desktop 源码 | 需要 | 不需要 | `npm install && npm run dev` |
+| cc-desktop 安装包 | 不需要 | 需要 | 内含 Electron + SDK + 全部前端资源 |
+
+**双模式启动方式**：
+
+| 模式 | 启动方式 | 入口 |
+|------|---------|------|
+| Terminal 模式 | PTY spawn shell → 执行 `claude` / `claude --resume <id>` | `active-session-manager.js` |
+| Agent 模式 | `import('@anthropic-ai/claude-agent-sdk')` → `sdk.query()` → SDK 内部 spawn CLI | `agent-session-manager.js` |
 
 ---
 
