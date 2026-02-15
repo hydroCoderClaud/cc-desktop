@@ -180,10 +180,11 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     # 触发条件：推送 tag 或手动触发时填写了版本号
-    if: ${{ always() && needs.build-windows.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '') }}
+    # Windows 必须成功，macOS 可以跳过（skip_macos）或成功
+    if: ${{ always() && needs.build-windows.result == 'success' && (needs.build-macos.result == 'success' || needs.build-macos.result == 'skipped') && (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '') }}
 
     permissions:
       contents: write
