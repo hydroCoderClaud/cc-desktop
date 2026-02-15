@@ -43,16 +43,35 @@ else
     warn "Claude CLI not found. Installing..."
 
     # ------------------------------------------------------------------
-    # 2. Install Claude Code CLI (official installer)
+    # 2. Install Claude Code CLI (official installer, fallback to npm)
     # ------------------------------------------------------------------
     step "Installing Claude Code CLI..."
-    if ! curl -fsSL https://claude.ai/install.sh | bash; then
-        err "Failed to install Claude CLI."
-        echo ""
-        echo "  Please install manually:"
-        echo "    curl -fsSL https://claude.ai/install.sh | bash"
-        echo ""
-        exit 1
+
+    # Try official installer first
+    if curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null; then
+        ok "Installed via official installer"
+    else
+        warn "Official installer failed (network/region issue), trying npm..."
+
+        # Check if npm is available
+        if ! command -v npm &>/dev/null; then
+            err "npm not found. Please install Node.js first:"
+            echo "  macOS: brew install node"
+            echo "  or download from: https://nodejs.org/"
+            exit 1
+        fi
+
+        # Install via npm
+        if npm install -g @anthropic-ai/claude-code; then
+            ok "Installed via npm"
+        else
+            err "Failed to install Claude CLI via both methods."
+            echo ""
+            echo "  Please install manually:"
+            echo "    npm install -g @anthropic-ai/claude-code"
+            echo ""
+            exit 1
+        fi
     fi
 
     # Refresh PATH so we can find the newly installed binary

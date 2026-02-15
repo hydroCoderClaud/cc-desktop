@@ -34,18 +34,37 @@ if (Test-Claude) {
     Write-Warn "Claude CLI not found. Installing..."
 
     # ---------------------------------------------------------------------------
-    # 2. Install Claude Code CLI (official installer)
+    # 2. Install Claude Code CLI (official installer, fallback to npm)
     # ---------------------------------------------------------------------------
     Write-Step "Installing Claude Code CLI..."
+
+    # Try official installer first
     try {
-        Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression
+        Invoke-RestMethod https://claude.ai/install.ps1 -ErrorAction Stop | Invoke-Expression
+        Write-Ok "Installed via official installer"
     } catch {
-        Write-Err "Failed to install Claude CLI: $_"
-        Write-Host ""
-        Write-Host "Please install manually:" -ForegroundColor Yellow
-        Write-Host "  irm https://claude.ai/install.ps1 | iex" -ForegroundColor White
-        Write-Host ""
-        exit 1
+        Write-Warn "Official installer failed (network/region issue), trying npm..."
+
+        # Check if npm is available
+        $npm = Get-Command npm -ErrorAction SilentlyContinue
+        if ($null -eq $npm) {
+            Write-Err "npm not found. Please install Node.js first:"
+            Write-Host "  Download from: https://nodejs.org/" -ForegroundColor White
+            exit 1
+        }
+
+        # Install via npm
+        try {
+            & npm install -g @anthropic-ai/claude-code
+            Write-Ok "Installed via npm"
+        } catch {
+            Write-Err "Failed to install Claude CLI via both methods."
+            Write-Host ""
+            Write-Host "Please install manually:" -ForegroundColor Yellow
+            Write-Host "  npm install -g @anthropic-ai/claude-code" -ForegroundColor White
+            Write-Host ""
+            exit 1
+        }
     }
 
     # Refresh PATH for the current session
