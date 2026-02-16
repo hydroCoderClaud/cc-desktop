@@ -44,13 +44,19 @@ onMounted(async () => {
 
   // 获取当前应用版本
   try {
-    currentVersion.value = await window.electronAPI.getAppVersion()
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+      currentVersion.value = await window.electronAPI.getAppVersion()
+    }
   } catch (error) {
     console.error('[Update] Failed to get app version:', error)
   }
 
   // 监听更新事件
-  setupUpdateListeners()
+  try {
+    setupUpdateListeners()
+  } catch (error) {
+    console.error('[Update] Failed to setup listeners:', error)
+  }
 })
 
 onUnmounted(() => {
@@ -61,78 +67,95 @@ onUnmounted(() => {
 
 // 设置更新事件监听
 const setupUpdateListeners = () => {
+  // 检查 API 是否可用
+  if (!window.electronAPI) {
+    console.warn('[Update] electronAPI not available')
+    return
+  }
+
   // 正在检查更新
-  const cleanupChecking = window.electronAPI.onUpdateChecking(() => {
-    console.log('[Update] Checking for updates...')
-  })
+  if (window.electronAPI.onUpdateChecking) {
+    const cleanupChecking = window.electronAPI.onUpdateChecking(() => {
+      console.log('[Update] Checking for updates...')
+    })
+    cleanupFunctions.push(cleanupChecking)
+  }
 
   // 发现新版本
-  const cleanupAvailable = window.electronAPI.onUpdateAvailable((info) => {
-    console.log('[Update] Update available:', info.version)
-    updateInfo.value = info
+  if (window.electronAPI.onUpdateAvailable) {
+    const cleanupAvailable = window.electronAPI.onUpdateAvailable((info) => {
+      console.log('[Update] Update available:', info.version)
+      updateInfo.value = info
 
-    // 显示通知
-    message.info(
-      `${t('update.newVersionAvailable')}: ${info.version}`,
-      {
-        duration: 5000,
-        closable: true,
-        onClose: () => {
+      // 显示通知
+      message.info(
+        `${t('update.newVersionAvailable')}: ${info.version}`,
+        {
+          duration: 5000,
+          closable: true,
+          onClose: () => {
+            updateModalVisible.value = true
+          }
+        }
+      )
+
+      // 3 秒后自动显示弹窗
+      setTimeout(() => {
+        if (!updateModalVisible.value) {
           updateModalVisible.value = true
         }
-      }
-    )
-
-    // 3 秒后自动显示弹窗
-    setTimeout(() => {
-      if (!updateModalVisible.value) {
-        updateModalVisible.value = true
-      }
-    }, 3000)
-  })
+      }, 3000)
+    })
+    cleanupFunctions.push(cleanupAvailable)
+  }
 
   // 已是最新版本
-  const cleanupNotAvailable = window.electronAPI.onUpdateNotAvailable(() => {
-    console.log('[Update] Already up to date')
-  })
+  if (window.electronAPI.onUpdateNotAvailable) {
+    const cleanupNotAvailable = window.electronAPI.onUpdateNotAvailable(() => {
+      console.log('[Update] Already up to date')
+    })
+    cleanupFunctions.push(cleanupNotAvailable)
+  }
 
   // 下载进度
-  const cleanupProgress = window.electronAPI.onUpdateDownloadProgress((progress) => {
-    console.log('[Update] Download progress:', progress.percent + '%')
-    if (updateModalRef.value) {
-      updateModalRef.value.updateProgress(progress)
-    }
-  })
+  if (window.electronAPI.onUpdateDownloadProgress) {
+    const cleanupProgress = window.electronAPI.onUpdateDownloadProgress((progress) => {
+      console.log('[Update] Download progress:', progress.percent + '%')
+      if (updateModalRef.value) {
+        updateModalRef.value.updateProgress(progress)
+      }
+    })
+    cleanupFunctions.push(cleanupProgress)
+  }
 
   // 下载完成
-  const cleanupDownloaded = window.electronAPI.onUpdateDownloaded((info) => {
-    console.log('[Update] Update downloaded:', info.version)
-    if (updateModalRef.value) {
-      updateModalRef.value.markDownloaded()
-    }
-    message.success(t('update.downloadComplete'))
-  })
+  if (window.electronAPI.onUpdateDownloaded) {
+    const cleanupDownloaded = window.electronAPI.onUpdateDownloaded((info) => {
+      console.log('[Update] Update downloaded:', info.version)
+      if (updateModalRef.value) {
+        updateModalRef.value.markDownloaded()
+      }
+      message.success(t('update.downloadComplete'))
+    })
+    cleanupFunctions.push(cleanupDownloaded)
+  }
 
   // 更新错误
-  const cleanupError = window.electronAPI.onUpdateError((data) => {
-    console.error('[Update] Update error:', data.message)
-    message.error(`${t('update.error')}: ${data.message}`)
-  })
-
-  cleanupFunctions.push(
-    cleanupChecking,
-    cleanupAvailable,
-    cleanupNotAvailable,
-    cleanupProgress,
-    cleanupDownloaded,
-    cleanupError
-  )
+  if (window.electronAPI.onUpdateError) {
+    const cleanupError = window.electronAPI.onUpdateError((data) => {
+      console.error('[Update] Update error:', data.message)
+      message.error(`${t('update.error')}: ${data.message}`)
+    })
+    cleanupFunctions.push(cleanupError)
+  }
 }
 
 // 处理下载更新
 const handleDownloadUpdate = async () => {
   try {
-    await window.electronAPI.downloadUpdate()
+    if (window.electronAPI && window.electronAPI.downloadUpdate) {
+      await window.electronAPI.downloadUpdate()
+    }
   } catch (error) {
     console.error('[Update] Failed to download update:', error)
     message.error(t('update.downloadFailed'))
@@ -141,7 +164,9 @@ const handleDownloadUpdate = async () => {
 
 // 处理安装更新
 const handleInstallUpdate = () => {
-  window.electronAPI.quitAndInstall()
+  if (window.electronAPI && window.electronAPI.quitAndInstall) {
+    window.electronAPI.quitAndInstall()
+  }
 }
 </script>
 
