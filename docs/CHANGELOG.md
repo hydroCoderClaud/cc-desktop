@@ -2,6 +2,37 @@
 
 ---
 
+## v1.6.42 - 2026-02-16
+
+### 修复 (Bug Fixes)
+
+**GitHub Actions 构建修复**
+- 修复 electron-builder 不生成 `latest-mac.yml` 的问题
+  - 移除 `--publish never` 参数（阻止生成更新元数据）
+  - 添加 `latest.yml` 和 `latest-mac.yml` 到 artifacts 上传列表
+  - 添加 `.blockmap` 文件上传（增量更新支持）
+  - 确保 GitHub Release 包含所有更新检测必需的文件
+
+**文档优化**
+- README 移除固定版本号，使用 `/releases/latest` 自动跳转
+- 避免每次版本升级都需要手动修改文档
+
+### 技术说明
+
+**更新检测流程**：
+```
+应用启动 → 5 秒后检查更新 → 请求 GitHub API
+→ 下载 latest-mac.yml → 解析版本号和下载 URL
+→ 如果有新版本 → 显示更新弹窗
+```
+
+**关键文件**：
+- `latest-mac.yml`: macOS 更新元数据（必需）
+- `latest.yml`: Windows 更新元数据（必需）
+- `*.blockmap`: 增量更新文件（可选）
+
+---
+
 ## v1.6.41 - 2026-02-16
 
 ### 新增功能 (Features)
