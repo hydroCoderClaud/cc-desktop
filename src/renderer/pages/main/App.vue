@@ -20,7 +20,6 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import MainContent from './components/MainContent.vue'
@@ -28,7 +27,8 @@ import UpdateModal from './components/UpdateModal.vue'
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
 const { t } = useLocale()
-const message = useMessage()
+// 延迟获取 message 实例（在 provider 渲染后）
+let message = null
 
 // 更新相关状态
 const updateModalVisible = ref(false)
@@ -41,6 +41,14 @@ let cleanupFunctions = []
 
 onMounted(async () => {
   initTheme()
+
+  // 动态获取 message API（此时 provider 已渲染）
+  try {
+    const { useMessage } = await import('naive-ui')
+    message = useMessage()
+  } catch (error) {
+    console.warn('[Update] Failed to get message API:', error)
+  }
 
   // 获取当前应用版本
   try {
@@ -88,16 +96,18 @@ const setupUpdateListeners = () => {
       updateInfo.value = info
 
       // 显示通知
-      message.info(
-        `${t('update.newVersionAvailable')}: ${info.version}`,
-        {
-          duration: 5000,
-          closable: true,
-          onClose: () => {
-            updateModalVisible.value = true
+      if (message) {
+        message.info(
+          `${t('update.newVersionAvailable')}: ${info.version}`,
+          {
+            duration: 5000,
+            closable: true,
+            onClose: () => {
+              updateModalVisible.value = true
+            }
           }
-        }
-      )
+        )
+      }
 
       // 3 秒后自动显示弹窗
       setTimeout(() => {
@@ -135,7 +145,9 @@ const setupUpdateListeners = () => {
       if (updateModalRef.value) {
         updateModalRef.value.markDownloaded()
       }
-      message.success(t('update.downloadComplete'))
+      if (message) {
+        message.success(t('update.downloadComplete'))
+      }
     })
     cleanupFunctions.push(cleanupDownloaded)
   }
@@ -144,7 +156,9 @@ const setupUpdateListeners = () => {
   if (window.electronAPI.onUpdateError) {
     const cleanupError = window.electronAPI.onUpdateError((data) => {
       console.error('[Update] Update error:', data.message)
-      message.error(`${t('update.error')}: ${data.message}`)
+      if (message) {
+        message.error(`${t('update.error')}: ${data.message}`)
+      }
     })
     cleanupFunctions.push(cleanupError)
   }
@@ -158,7 +172,9 @@ const handleDownloadUpdate = async () => {
     }
   } catch (error) {
     console.error('[Update] Failed to download update:', error)
-    message.error(t('update.downloadFailed'))
+    if (message) {
+      message.error(t('update.downloadFailed'))
+    }
   }
 }
 

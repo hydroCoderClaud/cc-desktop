@@ -1,12 +1,5 @@
 <template>
-  <n-modal v-model:show="showModal" :mask-closable="false" preset="card" style="width: 500px;">
-    <template #header>
-      <div class="modal-header">
-        <Icon name="info" :size="20" class="header-icon" />
-        <span>{{ t('update.newVersionAvailable') }}</span>
-      </div>
-    </template>
-
+  <n-modal v-model:show="showModal" :mask-closable="false" preset="card" style="width: 500px;" :title="t('update.newVersionAvailable')">
     <div class="modal-content">
       <!-- 版本信息 -->
       <div v-if="updateInfo" class="version-info">
@@ -48,8 +41,8 @@
       </div>
     </div>
 
-    <template #footer>
-      <div class="modal-footer">
+    <template #action>
+      <n-space>
         <!-- 未开始下载 -->
         <template v-if="!isDownloading && !isDownloaded">
           <n-button @click="handleClose">{{ t('common.cancel') }}</n-button>
@@ -70,7 +63,7 @@
             {{ t('update.quitAndInstall') }}
           </n-button>
         </template>
-      </div>
+      </n-space>
     </template>
   </n-modal>
 </template>

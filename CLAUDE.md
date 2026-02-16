@@ -782,6 +782,40 @@ this._safeSend('session:data', { sessionId, data })
 
 ## 待办计划
 
+### 待修复 Bug
+
+#### 能力清单市场依赖问题
+
+**问题描述**：
+- 能力清单（`agent-capabilities.json`）中引用的市场（marketplace）在本地尚未通过 `claude plugin marketplace add` 添加时，无法下载对应的能力（skill/agent/plugin）
+- 这会导致用户在首次使用能力管理功能时遇到安装失败
+
+**问题场景**：
+1. 用户打开能力管理弹窗
+2. 清单显示一个来自 `marketplace-X` 的 skill
+3. 用户点击"下载"
+4. 安装失败：`Error: Marketplace 'marketplace-X' not found`
+
+**预期行为**：
+- 自动检测能力所属市场是否存在
+- 如果市场不存在，自动调用 `claude plugin marketplace add <source>` 添加市场
+- 然后再执行能力安装
+
+**相关文件**：
+- `src/main/managers/capability-manager.js`（能力管理器）
+- `src/main/managers/plugin-cli.js`（Plugin CLI 操作）
+- `src/renderer/pages/main/components/agent/CapabilityModal.vue`（UI）
+
+**优先级**：中 — 影响首次用户体验
+
+**解决方案建议**：
+1. 在 `capability-manager.js` 的 `installCapability()` 中添加市场存在性检查
+2. 如果市场不存在，先调用 `pluginCli.addMarketplace(marketplaceSource)`
+3. 添加市场后再执行 `pluginCli.install(componentId)`
+4. UI 层显示"正在添加市场..."提示
+
+---
+
 ### 测试 Mock 说明（better-sqlite3）
 
 - **文件**：`tests/main/session-database-prompts.test.js` 中的 MockDatabase/MockStatement（约 370 行）
