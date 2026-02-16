@@ -330,7 +330,7 @@ const toggleBothPanels = () => {
 // ========================================
 // Right Panel Resize
 // ========================================
-const rightPanelWidth = ref('33.3%')  // 默认 33.3%（2:1 比例）
+const rightPanelWidth = ref('20%')  // 默认 20%（最小宽度，用户可拖动调整）
 const isResizing = ref(false)
 const startX = ref(0)
 const startWidth = ref(0)
