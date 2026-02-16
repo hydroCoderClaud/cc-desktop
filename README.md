@@ -2,8 +2,6 @@
 
 Claude Code CLI 的桌面启动器 + 终端模拟器。
 
-**当前版本**：1.6.40
-
 ## 功能特点
 
 - 多终端会话管理，支持后台运行
@@ -18,7 +16,7 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
 ### 从 Release 下载（推荐）
 
 **Windows**：
-1. 下载 [cc-desktop-v1.6.40-windows.zip](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
+1. 下载 [最新版本 Windows 安装包](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
 2. 解压后，右键 PowerShell "以管理员身份运行"
 3. 执行：
    ```powershell
@@ -26,7 +24,7 @@ Claude Code CLI 的桌面启动器 + 终端模拟器。
    ```
 
 **macOS**：
-1. 下载 [cc-desktop-v1.6.40-macos.tar.gz](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
+1. 下载 [最新版本 macOS 安装包](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
 2. 解压后，在终端执行：
    ```bash
    bash install.sh
