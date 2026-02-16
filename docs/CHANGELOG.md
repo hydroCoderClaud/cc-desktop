@@ -2,6 +2,58 @@
 
 ---
 
+## v1.6.41 - 2026-02-16
+
+### 新增功能 (Features)
+
+**应用自动更新 (Phase 1 - MVP)**
+- 基于 electron-updater，支持从 GitHub Releases 自动检查和下载更新
+- 启动 5 秒后自动检查更新（静默，不打扰用户）
+- 发现新版本时显示 Toast 通知 + 更新弹窗
+- 显示版本信息、发布日期、更新日志
+- 实时下载进度条（百分比 + 速度）
+- 下载完成后一键"退出并安装"
+- 打包后自动工作，开发模式下自动跳过
+
+**核心实现**：
+- `UpdateManager` 类 - 更新管理器（electron-updater 封装）
+- `UpdateModal.vue` - 更新弹窗 UI 组件
+- IPC 通道：`update:check`, `update:download`, `update:quitAndInstall`
+- 事件监听：checking, available, progress, downloaded, error
+- 国际化支持（中英文）
+
+### 修复 (Bug Fixes)
+
+**关键修复：页面空白问题**
+- 修复 `useMessage()` 在 setup 阶段调用导致的页面崩溃
+  - **根因**：setup 执行时 `n-message-provider` 尚未渲染
+  - **修复**：延迟到 onMounted 中动态获取 message API
+- 修复 UpdateModal 组件缺少 Naive UI 组件导入
+  - 添加 `NModal`, `NButton`, `NProgress`, `NSpace` 导入
+- 所有 message 调用添加存在性检查（防御性编程）
+
+**Agent 模式优化**
+- Agent 模式工具调用卡片现在显示命令摘要（不需要展开就能看到执行内容）
+- 删除 Agent 会话时自动关闭对应的 Tab 页
+
+**API 配置优化**
+- 增加 API 测试连接超时从 10s 到 30s（适应国内网络）
+- 修复 `https-proxy-agent@7.x` 导入问题（named export）
+
+### 配置变更
+
+**package.json**
+- 版本升级：1.6.40 → 1.6.41
+- 新增依赖：`electron-updater@6.7.3`, `electron-log@5.4.3`
+- 新增 publish 配置（GitHub Releases）
+
+### 文档
+
+**新增待办事项**
+- 记录能力清单市场依赖问题（marketplace 本地不存在时无法下载）
+
+---
+
 ## v1.6.40 - 2026-02-16
 
 ### 修复 (Bug Fixes)
