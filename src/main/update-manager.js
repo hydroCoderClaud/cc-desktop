@@ -62,9 +62,12 @@ class UpdateManager {
 
     // 下载进度
     autoUpdater.on('download-progress', (progressObj) => {
-      log.info('[UpdateManager] Download progress:', Math.round(progressObj.percent) + '%')
+      const percent = Math.round(progressObj.percent)
+      log.info('[UpdateManager] Download progress:', percent + '%',
+        `(${(progressObj.transferred / 1024 / 1024).toFixed(2)}MB / ${(progressObj.total / 1024 / 1024).toFixed(2)}MB)`)
+
       this.sendToRenderer('update-download-progress', {
-        percent: Math.round(progressObj.percent),
+        percent: percent,
         transferred: progressObj.transferred,
         total: progressObj.total,
         bytesPerSecond: progressObj.bytesPerSecond
@@ -189,9 +192,17 @@ class UpdateManager {
   async downloadUpdate() {
     try {
       log.info('[UpdateManager] Start downloading update...')
-      return await autoUpdater.downloadUpdate()
+      log.info('[UpdateManager] Update info:', JSON.stringify(autoUpdater.currentVersion))
+
+      const result = await autoUpdater.downloadUpdate()
+
+      log.info('[UpdateManager] Download initiated successfully')
+      log.info('[UpdateManager] Download result:', JSON.stringify(result))
+
+      return result
     } catch (error) {
       log.error('[UpdateManager] Download update failed:', error)
+      log.error('[UpdateManager] Error stack:', error.stack)
       this.sendToRenderer('update-error', {
         message: error.message || String(error)
       })
