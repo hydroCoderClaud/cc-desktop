@@ -64,7 +64,8 @@
       {
         "provider": "github",
         "owner": "hydroCoderClaud",
-        "repo": "cc-desktop"
+        "repo": "cc-desktop",
+        "releaseType": "draft"
       }
     ],
     "directories": {

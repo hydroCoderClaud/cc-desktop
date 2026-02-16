@@ -44,6 +44,8 @@ jobs:
     needs: test
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -62,9 +64,10 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --win --publish onTagOrDraft
+        run: npx electron-builder --win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_FOR_PULL_REQUEST: false
 
       - name: Create Windows installer package
         shell: pwsh
@@ -126,6 +129,8 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     if: ${{ github.event.inputs.skip_macos != 'true' }}
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -144,9 +149,10 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --mac --publish onTagOrDraft
+        run: npx electron-builder --mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_FOR_PULL_REQUEST: false
 
       - name: Create macOS installer package
         run: |
