@@ -805,7 +805,7 @@ class ConfigManager {
             'Content-Length': Buffer.byteLength(postData),
             'anthropic-version': '2023-06-01'
           },
-          timeout: 10000
+          timeout: 30000  // 增加到 30 秒，适应国内网络环境
         };
 
         // 5. Configure proxy (may fail)
@@ -826,8 +826,19 @@ class ConfigManager {
 
         // 6. Create request
         console.log(`[API Test] Creating ${isHttps ? 'HTTPS' : 'HTTP'} request...`);
+        console.log('[API Test] Request options:', JSON.stringify({
+          hostname: options.hostname,
+          port: options.port,
+          path: options.path,
+          method: options.method,
+          timeout: options.timeout,
+          hasProxy: !!options.agent
+        }, null, 2));
+
+        const startTime = Date.now();
         request = httpModule.request(options, (res) => {
-          console.log('[API Test] Received response, status code:', res.statusCode);
+          const elapsed = Date.now() - startTime;
+          console.log(`[API Test] Received response after ${elapsed}ms, status code:`, res.statusCode);
 
           let responseData = '';
 
@@ -857,17 +868,20 @@ class ConfigManager {
         // 7. Error handling
         request.on('error', (error) => {
           console.error('[API Test] Request error:', error.message);
+          console.error('[API Test] Error code:', error.code);
+          request.destroy();  // 显式销毁请求
           safeResolve({
             success: false,
-            message: `Connection error: ${error.message}`
+            message: `Connection error: ${error.message}${error.code ? ` (${error.code})` : ''}`
           });
         });
 
         request.on('timeout', () => {
-          console.error('[API Test] Request timeout (10s)');
+          console.error('[API Test] Request timeout (30s)');
+          request.destroy();  // 显式销毁请求，避免挂起
           safeResolve({
             success: false,
-            message: 'Connection timeout (10s)'
+            message: 'Connection timeout (30s)'
           });
         });
 
