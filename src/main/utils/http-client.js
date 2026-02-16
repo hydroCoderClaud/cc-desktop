@@ -52,7 +52,7 @@ function httpGet(url, _redirectCount = 0) {
     const proxyUrl = getProxyUrl()
     if (proxyUrl && isHttps) {
       try {
-        const HttpsProxyAgent = require('https-proxy-agent')
+        const { HttpsProxyAgent } = require('https-proxy-agent')
         options.agent = new HttpsProxyAgent(proxyUrl)
         console.log('[HttpClient] Using proxy:', proxyUrl)
       } catch (e) {

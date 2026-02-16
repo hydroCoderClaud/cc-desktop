@@ -812,13 +812,13 @@ class ConfigManager {
         if (apiConfig.useProxy && apiConfig.httpsProxy) {
           try {
             console.log('[API Test] Using proxy:', apiConfig.httpsProxy);
-            const HttpsProxyAgent = require('https-proxy-agent');
+            const { HttpsProxyAgent } = require('https-proxy-agent');
             options.agent = new HttpsProxyAgent(apiConfig.httpsProxy);
           } catch (proxyError) {
             console.error('[API Test] Proxy config error:', proxyError);
-            safeResolve({ 
-              success: false, 
-              message: `代理配置错误: ${proxyError.message}` 
+            safeResolve({
+              success: false,
+              message: `代理配置错误: ${proxyError.message}`
             });
             return;
           }
