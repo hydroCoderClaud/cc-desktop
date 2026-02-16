@@ -3,6 +3,7 @@
     <div class="tool-header" @click="expanded = !expanded">
       <Icon name="wrench" :size="14" class="tool-icon" />
       <span class="tool-name">{{ message.toolName }}</span>
+      <span v-if="toolSummary" class="tool-summary">: {{ toolSummary }}</span>
       <span class="tool-status" :class="{ done: message.output }">
         {{ message.output ? '✓' : '...' }}
       </span>
@@ -22,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
@@ -33,6 +34,43 @@ const props = defineProps({
 })
 
 const expanded = ref(false)
+
+/**
+ * 获取工具调用的摘要信息
+ * 优先级：description > command > 第一个参数值
+ */
+const toolSummary = computed(() => {
+  const input = props.message.input
+  if (!input) return ''
+
+  // 优先使用 description（如果存在）
+  if (input.description) {
+    return truncate(input.description, 60)
+  }
+
+  // Bash 工具：显示 command
+  if (props.message.toolName === 'Bash' && input.command) {
+    return truncate(input.command, 60)
+  }
+
+  // 其他工具：尝试显示第一个有意义的字符串值
+  const values = Object.values(input)
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return truncate(value, 60)
+    }
+  }
+
+  return ''
+})
+
+/**
+ * 截断长文本
+ */
+const truncate = (str, maxLength) => {
+  if (!str || str.length <= maxLength) return str
+  return str.slice(0, maxLength) + '...'
+}
 
 const formatJson = (obj) => {
   if (typeof obj === 'string') return obj
@@ -80,12 +118,23 @@ const formatOutput = (output) => {
 .tool-name {
   font-weight: 600;
   color: var(--text-color);
+  flex-shrink: 0;
+}
+
+.tool-summary {
+  color: var(--text-color-secondary);
+  font-weight: 400;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .tool-status {
   font-size: 12px;
   color: var(--text-color-muted);
+  flex-shrink: 0;
 }
 
 .tool-status.done {
