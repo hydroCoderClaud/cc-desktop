@@ -63,7 +63,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "HydroCoder",
+        "owner": "hydroCoderClaud",
         "repo": "cc-desktop"
       }
     ],
