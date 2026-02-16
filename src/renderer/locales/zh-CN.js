@@ -1280,5 +1280,22 @@ export default {
       'developer-tools': '开发者工具',
       'other': '其他'
     }
+  },
+
+  // 应用更新
+  update: {
+    newVersionAvailable: '发现新版本',
+    currentVersion: '当前版本',
+    latestVersion: '最新版本',
+    releaseDate: '发布日期',
+    releaseNotes: '更新日志',
+    downloadNow: '立即下载',
+    downloading: '下载中',
+    downloadComplete: '下载完成',
+    downloadFailed: '下载失败',
+    installLater: '稍后安装',
+    quitAndInstall: '退出并安装',
+    error: '更新错误',
+    checkingForUpdate: '正在检查更新'
   }
 }

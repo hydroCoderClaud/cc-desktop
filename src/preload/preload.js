@@ -598,6 +598,46 @@ contextBridge.exposeInMainWorld('electronAPI', {
   disableCapability: (id, capability) => ipcRenderer.invoke('capabilities:disable', id, capability),
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
 
+  // ========================================
+  // 应用更新
+  // ========================================
+  checkForUpdates: (silent = false) => ipcRenderer.invoke('update:check', silent),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
+  getAppVersion: () => ipcRenderer.invoke('update:getVersion'),
+
+  // 更新事件监听
+  onUpdateChecking: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-checking', listener);
+    return () => ipcRenderer.removeListener('update-checking', listener);
+  },
+  onUpdateAvailable: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-available', listener);
+    return () => ipcRenderer.removeListener('update-available', listener);
+  },
+  onUpdateNotAvailable: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-not-available', listener);
+    return () => ipcRenderer.removeListener('update-not-available', listener);
+  },
+  onUpdateDownloadProgress: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-download-progress', listener);
+    return () => ipcRenderer.removeListener('update-download-progress', listener);
+  },
+  onUpdateDownloaded: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-downloaded', listener);
+    return () => ipcRenderer.removeListener('update-downloaded', listener);
+  },
+  onUpdateError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-error', listener);
+    return () => ipcRenderer.removeListener('update-error', listener);
+  },
+
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册
   ...Object.fromEntries(

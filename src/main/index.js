@@ -10,6 +10,7 @@ const TerminalManager = require('./terminal-manager');
 const { ActiveSessionManager } = require('./active-session-manager');
 const { AgentSessionManager } = require('./agent-session-manager');
 const { CapabilityManager } = require('./managers/capability-manager');
+const UpdateManager = require('./update-manager');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -19,6 +20,7 @@ let terminalManager = null;
 let activeSessionManager = null;
 let agentSessionManager = null;
 let capabilityManager = null;
+let updateManager = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -194,8 +196,14 @@ app.whenReady().then(async () => {
   const agentsManager = new AgentsManager()
   capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager)
 
+  // 初始化更新管理器
+  updateManager = new UpdateManager(mainWindow)
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager);
+
+  // 启动后延迟 5 秒检查更新（避免影响启动体验）
+  updateManager.scheduleUpdateCheck(5000)
 
   // macOS 特定行为
   app.on('activate', () => {

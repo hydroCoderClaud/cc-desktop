@@ -1277,5 +1277,22 @@ export default {
       'developer-tools': 'Developer Tools',
       'other': 'Other'
     }
+  },
+
+  // Application update
+  update: {
+    newVersionAvailable: 'New version available',
+    currentVersion: 'Current version',
+    latestVersion: 'Latest version',
+    releaseDate: 'Release date',
+    releaseNotes: 'Release notes',
+    downloadNow: 'Download now',
+    downloading: 'Downloading',
+    downloadComplete: 'Download complete',
+    downloadFailed: 'Download failed',
+    installLater: 'Install later',
+    quitAndInstall: 'Quit and install',
+    error: 'Update error',
+    checkingForUpdate: 'Checking for update'
   }
 }
