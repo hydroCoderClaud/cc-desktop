@@ -266,7 +266,7 @@ jobs:
             - **Intel**: `CC Desktop-*-darwin-x64.dmg`
 
             ### ✨ 功能特性
-            - 双模式架构：Terminal 模式 + Agent 模式
+            - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
             - 多会话管理
             - 支持恢复历史会话
             - 内置 Agent 对话界面
