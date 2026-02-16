@@ -62,7 +62,9 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --win
+        run: npx electron-builder --win --publish onTagOrDraft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Windows installer package
         shell: pwsh
@@ -142,7 +144,9 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish onTagOrDraft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create macOS installer package
         run: |
