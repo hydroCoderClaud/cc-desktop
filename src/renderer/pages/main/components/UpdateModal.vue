@@ -70,6 +70,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { NModal, NButton, NProgress, NSpace } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
