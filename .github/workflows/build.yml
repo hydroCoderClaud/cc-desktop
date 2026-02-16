@@ -62,7 +62,7 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win
 
       - name: Create Windows installer package
         shell: pwsh
@@ -115,6 +115,7 @@ jobs:
           name: win-build
           path: |
             dist/*.exe
+            dist/latest.yml
             dist/cc-desktop-v*-windows.zip
           if-no-files-found: ignore
 
@@ -141,7 +142,7 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac
 
       - name: Create macOS installer package
         run: |
@@ -183,6 +184,8 @@ jobs:
           name: mac-build
           path: |
             dist/*.dmg
+            dist/*.blockmap
+            dist/latest-mac.yml
             dist/cc-desktop-v*-macos.tar.gz
           if-no-files-found: ignore
 
@@ -234,6 +237,9 @@ jobs:
           files: |
             artifacts/**/*.exe
             artifacts/**/*.dmg
+            artifacts/**/*.blockmap
+            artifacts/**/latest.yml
+            artifacts/**/latest-mac.yml
             artifacts/**/cc-desktop-v*-windows.zip
             artifacts/**/cc-desktop-v*-macos.tar.gz
             artifacts/**/*.AppImage
