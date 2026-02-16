@@ -132,8 +132,9 @@ const formatSpeed = (bytesPerSecond) => {
 
 // 更新下载进度（由父组件调用）
 const updateProgress = (progress) => {
-  downloadProgress.value = progress.percent
-  downloadSpeed.value = progress.bytesPerSecond
+  console.log('[UpdateModal] Update progress:', progress)
+  downloadProgress.value = Math.round(progress.percent || 0)
+  downloadSpeed.value = progress.bytesPerSecond || 0
 }
 
 // 标记下载完成（由父组件调用）

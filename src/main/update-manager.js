@@ -90,14 +90,64 @@ class UpdateManager {
 
   /**
    * 格式化更新日志（从 GitHub Release Notes）
+   * 将 HTML 转换为纯文本
    */
   formatReleaseNotes(notes) {
     if (!notes) return ''
+
+    let text = ''
     // 支持 String 或 Array 格式
     if (Array.isArray(notes)) {
-      return notes.map(item => item.note).join('\n\n')
+      text = notes.map(item => item.note).join('\n\n')
+    } else {
+      text = String(notes)
     }
-    return String(notes)
+
+    // 转换 HTML 为纯文本
+    return this.htmlToText(text)
+  }
+
+  /**
+   * 将 HTML 转换为纯文本
+   */
+  htmlToText(html) {
+    if (!html) return ''
+
+    return html
+      // 标题标签：转换为纯文本并添加换行
+      .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '\n$1\n')
+      // 段落：添加换行
+      .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n')
+      // 列表项：添加 "- " 前缀
+      .replace(/<li[^>]*>(.*?)<\/li>/gi, '  - $1\n')
+      // 有序列表项：添加数字前缀（简化处理）
+      .replace(/<ol[^>]*>(.*?)<\/ol>/gi, '$1')
+      .replace(/<ul[^>]*>(.*?)<\/ul>/gi, '$1')
+      // 换行标签
+      .replace(/<br\s*\/?>/gi, '\n')
+      // 代码块：保留内容
+      .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+      .replace(/<pre[^>]*>(.*?)<\/pre>/gi, '\n$1\n')
+      // 强调标签
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '$1')
+      .replace(/<b[^>]*>(.*?)<\/b>/gi, '$1')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '$1')
+      .replace(/<i[^>]*>(.*?)<\/i>/gi, '$1')
+      // 链接：保留文本
+      .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
+      // 移除所有剩余的 HTML 标签
+      .replace(/<[^>]+>/g, '')
+      // HTML 实体解码
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      // 清理多余空行（超过2个连续换行）
+      .replace(/\n{3,}/g, '\n\n')
+      // 清理首尾空白
+      .trim()
   }
 
   /**

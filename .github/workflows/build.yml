@@ -160,9 +160,12 @@ jobs:
           RELEASE_DIR="cc-desktop-v${VERSION}-macos"
 
           mkdir -p "$RELEASE_DIR"
+          # DMG 文件（手动安装用）
           cp "dist/CC Desktop-${VERSION}-darwin-arm64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
           cp "dist/CC Desktop-${VERSION}-darwin-x64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
           cp scripts/install.sh "$RELEASE_DIR/"
+
+          # 注意：ZIP 文件不放入 tar.gz，直接上传到 Release（用于自动更新）
 
           # 创建 README
           cat > "$RELEASE_DIR/README.md" << EOF
@@ -194,6 +197,7 @@ jobs:
           name: mac-build
           path: |
             dist/*.dmg
+            dist/*.zip
             dist/*.blockmap
             dist/latest-mac.yml
             dist/cc-desktop-v*-macos.tar.gz
@@ -247,6 +251,7 @@ jobs:
           files: |
             artifacts/**/*.exe
             artifacts/**/*.dmg
+            artifacts/**/*.zip
             artifacts/**/*.blockmap
             artifacts/**/latest.yml
             artifacts/**/latest-mac.yml

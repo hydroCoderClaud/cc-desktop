@@ -850,6 +850,14 @@ export default {
     marketUrl: '仓库地址',
     marketUrlPlaceholder: '输入组件仓库的 Raw URL',
     marketUrlHint: '支持 GitHub/GitLab Raw URL，如 https://raw.githubusercontent.com/user/repo/main',
+    appUpdate: '应用更新',
+    currentVersion: '当前版本',
+    checkUpdate: '检查更新',
+    checkNow: '立即检查',
+    checking: '检查中...',
+    updateAvailable: '发现新版本 {version}',
+    alreadyLatest: '已是最新版本',
+    checkFailed: '检查失败: {error}',
     saveSuccess: '设置已保存'
   },
 

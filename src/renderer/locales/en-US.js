@@ -847,6 +847,14 @@ export default {
     marketUrl: 'Registry URL',
     marketUrlPlaceholder: 'Enter component registry Raw URL',
     marketUrlHint: 'Supports GitHub/GitLab Raw URL, e.g. https://raw.githubusercontent.com/user/repo/main',
+    appUpdate: 'App Updates',
+    currentVersion: 'Current Version',
+    checkUpdate: 'Check for Updates',
+    checkNow: 'Check Now',
+    checking: 'Checking...',
+    updateAvailable: 'New version {version} available',
+    alreadyLatest: 'Already up to date',
+    checkFailed: 'Check failed: {error}',
     saveSuccess: 'Settings saved'
   },
 
