@@ -146,6 +146,8 @@ const handleDelete = (conv) => {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       await deleteConversation(conv.id)
+      // 通知父组件关闭对应的 Tab（如果已打开）
+      emit('close', conv)
     }
   })
 }
