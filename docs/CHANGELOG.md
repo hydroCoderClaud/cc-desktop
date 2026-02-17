@@ -2,6 +2,51 @@
 
 ---
 
+## v1.6.47 - 2026-02-18
+
+### 修复 (Bug Fixes)
+
+**更新模块逻辑漏洞修复**
+- 修复下载完成状态跨重启丢失问题
+  - 旧方案：通过硬编码路径猜测缓存文件（`cc-desktop-updater`），实际路径含空格（`CC Desktop-updater`）导致判断失效
+  - 新方案：持久化状态文件 `userData/update-state.json`，存储 `update-downloaded` 事件返回的精确路径
+- 修复 macOS 手动安装 shell 注入风险
+  - 版本号用正则 `/^\d+\.\d+\.\d+$/` 校验
+  - ZIP 路径通过环境变量 `CC_DESKTOP_ZIP_FILE` 传入脚本，不做字符串插值
+- 添加下载防重入保护（`isDownloading` 标志位）
+- 修复 `App.vue` 中 `useMessage()` 死代码（App.vue 本身是 NMessageProvider，内部调用永远返回 null）
+- 修复 `formatDate` 对无效日期的处理（添加 `isNaN` 检查）
+
+**构建流程修复**
+- 修复 GitHub Release 中 `cc-desktop-*-macos.tar.gz` 缺失问题（glob 模式匹配修正）
+- 修复 `windows.zip` 被重复上传导致 404 错误（移除重复的 glob 模式）
+- 安装包文件名去掉 `v` 前缀，与 electron-builder 命名风格统一
+  - `cc-desktop-{version}-windows.zip`（不带 v）
+  - `cc-desktop-{version}-macos.tar.gz`（不带 v）
+- electron-builder 添加 `--publish never`，统一由 release job 发布，避免重复 Release
+
+### 新增 (Features)
+
+**本地打包脚本**
+- 新增 `scripts/local-package-mac.sh`：macOS 本地打包，仅生成 DMG + tar.gz，不生成自动更新相关文件
+- 新增 `scripts/local-package-win.ps1`：Windows 本地打包，仅生成 EXE + windows.zip
+- 新增 npm 脚本 `build:mac:local` 和 `build:win:local`，一条命令完成编译 + 打包
+
+**文档**
+- 新增 `docs/BUILD.md`：记录 CI 和本地打包的文件目标、命名规则、命令说明
+- 新增 `README_EN.md`：完整英文版 README，支持中英文切换（顶部导航链接互通）
+
+### 重构 (Refactor)
+
+**macOS 安装脚本**
+- 解压目录改用 `mktemp -d` 临时目录，避免路径冲突
+- APP 名称动态从解压结果获取，不硬编码
+
+**删除**
+- 删除 `scripts/create-release.sh`（旧打包脚本，硬编码文件名含空格，被 local-package-* 脚本替代）
+
+---
+
 ## v1.6.42 - 2026-02-16
 
 ### 修复 (Bug Fixes)
