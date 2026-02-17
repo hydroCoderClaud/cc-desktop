@@ -257,9 +257,9 @@ class UpdateManager {
 echo "[Install] Starting installation..."
 cd "${cacheDir}"
 
-ZIP_FILE=$(ls CC-Desktop-*.zip 2>/dev/null | head -1)
+ZIP_FILE=$(ls *.zip 2>/dev/null | head -1)
 if [ -z "$ZIP_FILE" ]; then
-  echo "[Install] Error: No update file found in ${cacheDir}"
+  echo "[Install] Error: No update zip found in ${cacheDir}"
   exit 1
 fi
 
@@ -270,20 +270,21 @@ sleep 2
 echo "[Install] Extracting..."
 unzip -o "$ZIP_FILE" > /dev/null 2>&1
 
-if [ ! -d "CC Desktop.app" ]; then
-  echo "[Install] Error: Extraction failed"
+APP_FILE=$(ls -d *.app 2>/dev/null | head -1)
+if [ -z "$APP_FILE" ]; then
+  echo "[Install] Error: No .app found after extraction"
   exit 1
 fi
 
-echo "[Install] Installing to /Applications..."
-rm -rf "/Applications/CC Desktop.app"
-cp -R "CC Desktop.app" /Applications/
+echo "[Install] Installing to /Applications: $APP_FILE"
+rm -rf "/Applications/$APP_FILE"
+cp -R "$APP_FILE" /Applications/
 
 echo "[Install] Cleaning up cache..."
-rm -f CC-Desktop-*.zip
+rm -f *.zip
 
 echo "[Install] Launching new version..."
-nohup open "/Applications/CC Desktop.app" > /dev/null 2>&1 &
+nohup open "/Applications/$APP_FILE" > /dev/null 2>&1 &
 
 echo "[Install] Installation complete!"
 exit 0
