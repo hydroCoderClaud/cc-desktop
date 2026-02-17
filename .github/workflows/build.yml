@@ -161,8 +161,8 @@ jobs:
 
           mkdir -p "$RELEASE_DIR"
           # DMG 文件（手动安装用）
-          cp "dist/CC Desktop-${VERSION}-darwin-arm64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
-          cp "dist/CC Desktop-${VERSION}-darwin-x64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
+          cp "dist/CC-Desktop-${VERSION}-darwin-arm64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
+          cp "dist/CC-Desktop-${VERSION}-darwin-x64.dmg" "$RELEASE_DIR/" 2>/dev/null || true
           cp scripts/install.sh "$RELEASE_DIR/"
 
           # 注意：ZIP 文件不放入 tar.gz，直接上传到 Release（用于自动更新）
@@ -283,8 +283,8 @@ jobs:
             - `CC Desktop Setup *.exe`
 
             #### macOS
-            - **Apple Silicon**: `CC Desktop-*-darwin-arm64.dmg`
-            - **Intel**: `CC Desktop-*-darwin-x64.dmg`
+            - **Apple Silicon**: `CC-Desktop-*-darwin-arm64.dmg`
+            - **Intel**: `CC-Desktop-*-darwin-x64.dmg`
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
