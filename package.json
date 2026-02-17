@@ -15,6 +15,8 @@
     "build": "npm run build:vue && electron-builder",
     "build:win": "npm run build:vue && electron-builder --win",
     "build:mac": "npm run build:vue && electron-builder --mac",
+    "build:mac:local": "npm run build:vue && electron-builder --mac dmg && bash scripts/local-package-mac.sh",
+    "build:win:local": "npm run build:vue && electron-builder --win nsis && powershell -ExecutionPolicy Bypass -File scripts\\local-package-win.ps1",
     "build:linux": "npm run build:vue && electron-builder --linux",
     "build:vue": "vite build",
     "preview": "vite preview",
