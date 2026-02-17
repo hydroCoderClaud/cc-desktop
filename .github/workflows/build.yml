@@ -73,7 +73,7 @@ jobs:
         run: |
           # 获取版本号
           $VERSION = (Get-Content package.json | ConvertFrom-Json).version
-          $RELEASE_DIR = "cc-desktop-v${VERSION}-windows"
+          $RELEASE_DIR = "cc-desktop-${VERSION}-windows"
 
           # 创建发布目录
           New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
@@ -111,7 +111,7 @@ jobs:
           "@ | Out-File -FilePath "$RELEASE_DIR\README.md" -Encoding UTF8
 
           # 打包
-          Compress-Archive -Path $RELEASE_DIR -DestinationPath "dist\cc-desktop-v${VERSION}-windows.zip" -Force
+          Compress-Archive -Path $RELEASE_DIR -DestinationPath "dist\cc-desktop-${VERSION}-windows.zip" -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -120,7 +120,7 @@ jobs:
           path: |
             dist/*.exe
             dist/latest.yml
-            dist/cc-desktop-v*-windows.zip
+            dist/cc-desktop-*-windows.zip
           if-no-files-found: ignore
 
   build-macos:
@@ -155,7 +155,7 @@ jobs:
       - name: Create macOS installer package
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          RELEASE_DIR="cc-desktop-v${VERSION}-macos"
+          RELEASE_DIR="cc-desktop-${VERSION}-macos"
 
           mkdir -p "$RELEASE_DIR"
           # DMG 文件（手动安装用）- 用 find 动态查找，不依赖硬编码文件名
@@ -181,12 +181,12 @@ jobs:
 
           ## Manual Install
 
-          - **Apple Silicon (M1/M2/M3)**: \`CC Desktop-${VERSION}-darwin-arm64.dmg\`
-          - **Intel**: \`CC Desktop-${VERSION}-darwin-x64.dmg\`
+          - **Apple Silicon (M1/M2/M3)**: \`CC-Desktop-${VERSION}-darwin-arm64.dmg\`
+          - **Intel**: \`CC-Desktop-${VERSION}-darwin-x64.dmg\`
           EOF
 
           # 打包
-          tar czf "dist/cc-desktop-v${VERSION}-macos.tar.gz" "$RELEASE_DIR"
+          tar czf "dist/cc-desktop-${VERSION}-macos.tar.gz" "$RELEASE_DIR"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -197,7 +197,7 @@ jobs:
             dist/*.zip
             dist/*.blockmap
             dist/latest-mac.yml
-            dist/cc-desktop-v*-macos.tar.gz
+            dist/cc-desktop-*-macos.tar.gz
           if-no-files-found: ignore
 
   release:
@@ -252,8 +252,8 @@ jobs:
             artifacts/**/*.blockmap
             artifacts/**/latest.yml
             artifacts/**/latest-mac.yml
-            artifacts/**/cc-desktop-v*-windows.zip
-            artifacts/**/cc-desktop-v*-macos.tar.gz
+            artifacts/**/cc-desktop-*-windows.zip
+            artifacts/**/cc-desktop-*-macos.tar.gz
             artifacts/**/*.AppImage
           draft: false
           prerelease: false
@@ -263,13 +263,13 @@ jobs:
             ### 📦 一键安装
 
             #### Windows
-            下载 `cc-desktop-v*-windows.zip`，解压后右键 PowerShell "以管理员身份运行"：
+            下载 `cc-desktop-*-windows.zip`，解压后右键 PowerShell "以管理员身份运行"：
             ```powershell
             powershell -ExecutionPolicy Bypass -File .\install.ps1
             ```
 
             #### macOS
-            下载 `cc-desktop-v*-macos.tar.gz`，解压后运行：
+            下载 `cc-desktop-*-macos.tar.gz`，解压后运行：
             ```bash
             bash install.sh
             ```
