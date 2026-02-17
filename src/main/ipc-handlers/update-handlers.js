@@ -40,6 +40,13 @@ function setupUpdateHandlers(updateManager) {
   ipcMain.handle('update:getVersion', () => {
     return app.getVersion()
   })
+
+  /**
+   * 获取更新状态（是否有可用更新）
+   */
+  ipcMain.handle('update:getStatus', () => {
+    return updateManager.getUpdateStatus()
+  })
 }
 
 module.exports = { setupUpdateHandlers }

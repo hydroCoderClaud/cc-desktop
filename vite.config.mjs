@@ -30,7 +30,8 @@ export default defineConfig({
         customModels: path.resolve(__dirname, 'src/renderer/pages/custom-models/index.html'),
         globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html'),
         appearanceSettings: path.resolve(__dirname, 'src/renderer/pages/appearance-settings/index.html'),
-        sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html')
+        sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html'),
+        updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html')
       }
     }
   },

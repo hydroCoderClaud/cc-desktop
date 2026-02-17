@@ -749,6 +749,7 @@ export default {
     globalSettings: 'Global Settings',
     appearanceSettings: 'Appearance',
     sessionHistory: 'Session Browser',
+    appUpdate: 'App Update',
     claudeSettings: 'Claude Settings File',
     claudeSettingsNotFound: 'Claude settings file not found'
   },
@@ -1289,18 +1290,27 @@ export default {
 
   // Application update
   update: {
+    title: 'Application Update',
+    versionInfo: 'Version Info',
     newVersionAvailable: 'New version available',
     currentVersion: 'Current version',
     latestVersion: 'Latest version',
     releaseDate: 'Release date',
     releaseNotes: 'Release notes',
+    checkForUpdate: 'Check for update',
+    checking: 'Checking...',
     downloadNow: 'Download now',
     downloading: 'Downloading',
     downloadComplete: 'Download complete',
-    downloadFailed: 'Download failed',
+    downloadFailed: 'Download failed: {error}',
+    downloadStarted: 'Download started',
     installLater: 'Install later',
     quitAndInstall: 'Quit and install',
+    installFailed: 'Install failed: {error}',
     error: 'Update error',
-    checkingForUpdate: 'Checking for update'
+    checkingForUpdate: 'Checking for update',
+    alreadyLatest: 'Already on latest version',
+    updateAvailableStatus: 'New version {version} available',
+    checkFailed: 'Check failed: {error}'
   }
 }

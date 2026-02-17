@@ -215,6 +215,42 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  // 聚焦主窗口
+  ipcMain.handle('window:focusMainWindow', async () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+      return { success: true };
+    }
+    return { success: false, error: 'Main window not available' };
+  });
+
+  // 打开应用更新窗口（防止重复打开）
+  let updateManagerWindow = null
+  ipcMain.handle('window:openUpdateManager', async () => {
+    // 如果窗口已存在且未销毁，聚焦它而不是新开
+    if (updateManagerWindow && !updateManagerWindow.isDestroyed()) {
+      if (updateManagerWindow.isMinimized()) updateManagerWindow.restore()
+      updateManagerWindow.show()
+      updateManagerWindow.focus()
+      return { success: true }
+    }
+    updateManagerWindow = createSubWindow({
+      width: 700,
+      height: 600,
+      title: '应用更新 - CC Desktop',
+      page: 'update-manager'
+    })
+    // 窗口关闭时清理引用
+    updateManagerWindow.on('closed', () => {
+      updateManagerWindow = null
+    })
+    return { success: true };
+  });
+
   // ========================================
   // 会话文件监控
   // ========================================

@@ -151,6 +151,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openAppearanceSettings: () => ipcRenderer.invoke('window:openAppearanceSettings'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
+  openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
+  focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
 
   // ========================================
   // 服务商定义管理
@@ -605,6 +607,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   getAppVersion: () => ipcRenderer.invoke('update:getVersion'),
+  getUpdateStatus: () => ipcRenderer.invoke('update:getStatus'),
 
   // 更新事件监听
   onUpdateChecking: (callback) => {

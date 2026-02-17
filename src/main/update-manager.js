@@ -3,6 +3,7 @@
  * 基于 electron-updater，支持从 GitHub Releases 自动检查和下载更新
  */
 
+const { app, BrowserWindow } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const log = require('electron-log')
 
@@ -10,6 +11,10 @@ class UpdateManager {
   constructor(mainWindow) {
     this.mainWindow = mainWindow
     this.updateCheckTimer = null
+    this.hasUpdateAvailable = false  // 是否有可用更新
+    this.latestUpdateInfo = null     // 最新更新信息
+    this.isDownloaded = false        // 是否已下载完成
+    this.downloadedVersion = null    // 已下载的版本号
     this.setupAutoUpdater()
     this.setupEventListeners()
   }
@@ -18,16 +23,10 @@ class UpdateManager {
    * 配置 autoUpdater
    */
   setupAutoUpdater() {
-    // 使用 electron-log 记录更新日志
     autoUpdater.logger = log
     autoUpdater.logger.transports.file.level = 'info'
-
-    // 不自动下载（让用户决定是否下载）
     autoUpdater.autoDownload = false
-
-    // 应用退出时自动安装（如果已下载）
     autoUpdater.autoInstallOnAppQuit = true
-
     log.info('[UpdateManager] Initialized')
   }
 
@@ -35,54 +34,59 @@ class UpdateManager {
    * 设置事件监听器
    */
   setupEventListeners() {
-    // 检查更新中
     autoUpdater.on('checking-for-update', () => {
       log.info('[UpdateManager] Checking for updates...')
       this.sendToRenderer('update-checking')
     })
 
-    // 发现新版本
     autoUpdater.on('update-available', (info) => {
       log.info('[UpdateManager] Update available:', info.version)
-      this.sendToRenderer('update-available', {
+
+      // 发现更新版本号与已下载版本不同时，重置下载状态
+      if (this.isDownloaded && this.downloadedVersion !== info.version) {
+        log.info('[UpdateManager] Newer version found, resetting downloaded state')
+        this.isDownloaded = false
+        this.downloadedVersion = null
+      }
+
+      this.hasUpdateAvailable = true
+      this.latestUpdateInfo = {
         version: info.version,
         releaseDate: info.releaseDate,
         releaseNotes: this.formatReleaseNotes(info.releaseNotes),
         files: info.files
+      }
+
+      this.sendToRenderer('update-available', {
+        ...this.latestUpdateInfo,
+        isDownloaded: this.isDownloaded
       })
     })
 
-    // 当前已是最新版本
     autoUpdater.on('update-not-available', (info) => {
-      log.info('[UpdateManager] Update not available, current version:', info.version)
-      this.sendToRenderer('update-not-available', {
-        version: info.version
-      })
+      log.info('[UpdateManager] Already up to date:', info.version)
+      this.sendToRenderer('update-not-available', { version: info.version })
     })
 
-    // 下载进度
     autoUpdater.on('download-progress', (progressObj) => {
       const percent = Math.round(progressObj.percent)
       log.info('[UpdateManager] Download progress:', percent + '%',
         `(${(progressObj.transferred / 1024 / 1024).toFixed(2)}MB / ${(progressObj.total / 1024 / 1024).toFixed(2)}MB)`)
-
       this.sendToRenderer('update-download-progress', {
-        percent: percent,
+        percent,
         transferred: progressObj.transferred,
         total: progressObj.total,
         bytesPerSecond: progressObj.bytesPerSecond
       })
     })
 
-    // 下载完成
     autoUpdater.on('update-downloaded', (info) => {
       log.info('[UpdateManager] Update downloaded:', info.version)
-      this.sendToRenderer('update-downloaded', {
-        version: info.version
-      })
+      this.isDownloaded = true
+      this.downloadedVersion = info.version
+      this.sendToRenderer('update-downloaded', { version: info.version })
     })
 
-    // 错误处理
     autoUpdater.on('error', (error) => {
       log.error('[UpdateManager] Error:', error)
       this.sendToRenderer('update-error', {
@@ -92,91 +96,67 @@ class UpdateManager {
   }
 
   /**
-   * 格式化更新日志（从 GitHub Release Notes）
-   * 将 HTML 转换为纯文本
+   * 格式化更新日志（将 GitHub Release Notes HTML 转为纯文本）
    */
   formatReleaseNotes(notes) {
     if (!notes) return ''
-
-    let text = ''
-    // 支持 String 或 Array 格式
-    if (Array.isArray(notes)) {
-      text = notes.map(item => item.note).join('\n\n')
-    } else {
-      text = String(notes)
-    }
-
-    // 转换 HTML 为纯文本
+    const text = Array.isArray(notes)
+      ? notes.map(item => item.note).join('\n\n')
+      : String(notes)
     return this.htmlToText(text)
   }
 
   /**
-   * 将 HTML 转换为纯文本
+   * 将 HTML 转换为纯文本（支持多行标签）
    */
   htmlToText(html) {
     if (!html) return ''
 
     return html
-      // 标题标签：转换为纯文本并添加换行
-      .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '\n$1\n')
-      // 段落：添加换行
-      .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n')
-      // 列表项：添加 "- " 前缀
-      .replace(/<li[^>]*>(.*?)<\/li>/gi, '  - $1\n')
-      // 有序列表项：添加数字前缀（简化处理）
-      .replace(/<ol[^>]*>(.*?)<\/ol>/gi, '$1')
-      .replace(/<ul[^>]*>(.*?)<\/ul>/gi, '$1')
-      // 换行标签
+      .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, '\n$1\n')
+      .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n')
+      .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '  - $1\n')
+      .replace(/<(?:ol|ul)[^>]*>([\s\S]*?)<\/(?:ol|ul)>/gi, '$1')
       .replace(/<br\s*\/?>/gi, '\n')
-      // 代码块：保留内容
-      .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-      .replace(/<pre[^>]*>(.*?)<\/pre>/gi, '\n$1\n')
-      // 强调标签
-      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '$1')
-      .replace(/<b[^>]*>(.*?)<\/b>/gi, '$1')
-      .replace(/<em[^>]*>(.*?)<\/em>/gi, '$1')
-      .replace(/<i[^>]*>(.*?)<\/i>/gi, '$1')
-      // 链接：保留文本
-      .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
-      // 移除所有剩余的 HTML 标签
+      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
+      .replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, '\n$1\n')
+      .replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '$1')
+      .replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '$1')
+      .replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1')
       .replace(/<[^>]+>/g, '')
-      // HTML 实体解码
       .replace(/&nbsp;/g, ' ')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      // 清理多余空行（超过2个连续换行）
       .replace(/\n{3,}/g, '\n\n')
-      // 清理首尾空白
       .trim()
   }
 
   /**
-   * 向渲染进程发送消息
+   * 向所有窗口广播消息
    */
   sendToRenderer(channel, data = {}) {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, data)
-    }
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        try {
+          win.webContents.send(channel, data)
+        } catch (err) {
+          log.error(`[UpdateManager] Failed to send "${channel}":`, err.message)
+        }
+      }
+    })
   }
 
   /**
    * 检查更新
-   * @param {boolean} silent - 静默检查（不显示"已是最新版本"提示）
+   * @param {boolean} silent - 静默检查（启动时后台检查）
    */
   async checkForUpdates(silent = false) {
     try {
-      log.info('[UpdateManager] Manual check for updates, silent:', silent)
-      const result = await autoUpdater.checkForUpdates()
-
-      // 如果是手动检查且没有更新，发送提示
-      if (!silent && result && !result.updateInfo) {
-        this.sendToRenderer('update-not-available-manual')
-      }
-
-      return result
+      log.info('[UpdateManager] Check for updates, silent:', silent)
+      return await autoUpdater.checkForUpdates()
     } catch (error) {
       log.error('[UpdateManager] Check for updates failed:', error)
       this.sendToRenderer('update-error', {
@@ -192,17 +172,9 @@ class UpdateManager {
   async downloadUpdate() {
     try {
       log.info('[UpdateManager] Start downloading update...')
-      log.info('[UpdateManager] Update info:', JSON.stringify(autoUpdater.currentVersion))
-
-      const result = await autoUpdater.downloadUpdate()
-
-      log.info('[UpdateManager] Download initiated successfully')
-      log.info('[UpdateManager] Download result:', JSON.stringify(result))
-
-      return result
+      return await autoUpdater.downloadUpdate()
     } catch (error) {
       log.error('[UpdateManager] Download update failed:', error)
-      log.error('[UpdateManager] Error stack:', error.stack)
       this.sendToRenderer('update-error', {
         message: error.message || String(error)
       })
@@ -212,23 +184,124 @@ class UpdateManager {
 
   /**
    * 退出并安装更新
-   * @param {boolean} isSilent - 静默安装（不弹窗）
-   * @param {boolean} isForceRunAfter - 安装后强制启动
    */
   quitAndInstall(isSilent = false, isForceRunAfter = true) {
-    log.info('[UpdateManager] Quit and install update')
-    autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+    if (!this.isDownloaded) {
+      log.error('[UpdateManager] Cannot install: update has not been downloaded')
+      return
+    }
+
+    log.info('[UpdateManager] Quit and install called')
+
+    if (process.platform === 'darwin') {
+      // macOS：无代码签名时 autoUpdater.quitAndInstall 不可用，使用手动安装
+      log.info('[UpdateManager] Using manual install on macOS')
+      this.macOSManualInstall()
+      return
+    }
+
+    // Windows / Linux：使用标准 autoUpdater
+    try {
+      autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
+    } catch (error) {
+      log.error('[UpdateManager] quitAndInstall failed:', error)
+      this.sendToRenderer('update-error', {
+        message: error.message || String(error)
+      })
+    }
   }
 
   /**
-   * 启动时自动检查更新（延迟执行，避免影响启动性能）
-   * @param {number} delay - 延迟时间（毫秒），默认 5000ms
+   * macOS 手动安装（跳过签名检查，仅在 macOS 上调用）
+   */
+  macOSManualInstall() {
+    const { exec, spawn } = require('child_process')
+    const path = require('path')
+    const os = require('os')
+    const fs = require('fs')
+
+    try {
+      const cacheDir = path.join(os.homedir(), 'Library/Caches/cc-desktop-updater/pending')
+      const scriptPath = path.join(os.tmpdir(), 'cc-desktop-install.sh')
+
+      const installScript = `#!/bin/bash
+echo "[Install] Starting installation..."
+cd "${cacheDir}"
+
+ZIP_FILE=$(ls CC-Desktop-*.zip 2>/dev/null | head -1)
+if [ -z "$ZIP_FILE" ]; then
+  echo "[Install] Error: No update file found in ${cacheDir}"
+  exit 1
+fi
+
+echo "[Install] Found: $ZIP_FILE"
+echo "[Install] Waiting for app to quit..."
+sleep 2
+
+echo "[Install] Extracting..."
+unzip -o "$ZIP_FILE" > /dev/null 2>&1
+
+if [ ! -d "CC Desktop.app" ]; then
+  echo "[Install] Error: Extraction failed"
+  exit 1
+fi
+
+echo "[Install] Installing to /Applications..."
+rm -rf "/Applications/CC Desktop.app"
+cp -R "CC Desktop.app" /Applications/
+
+echo "[Install] Launching new version..."
+nohup open "/Applications/CC Desktop.app" > /dev/null 2>&1 &
+
+echo "[Install] Installation complete!"
+exit 0
+`
+
+      fs.writeFileSync(scriptPath, installScript, { mode: 0o755 })
+      log.info('[UpdateManager] Install script created:', scriptPath)
+
+      const child = spawn('/bin/bash', [scriptPath], {
+        detached: true,
+        stdio: 'ignore'
+      })
+      child.unref()
+
+      log.info('[UpdateManager] Install script launched (PID:', child.pid, ')')
+
+      setTimeout(() => {
+        log.info('[UpdateManager] Quitting app...')
+        app.quit()
+      }, 1000)
+
+    } catch (error) {
+      log.error('[UpdateManager] macOSManualInstall failed:', error)
+      this.sendToRenderer('update-error', {
+        message: error.message || String(error)
+      })
+    }
+  }
+
+  /**
+   * 启动时延迟自动检查更新
+   * @param {number} delay - 延迟毫秒数，默认 5000
    */
   scheduleUpdateCheck(delay = 5000) {
-    log.info(`[UpdateManager] Schedule update check in ${delay}ms`)
+    log.info(`[UpdateManager] Scheduled update check in ${delay}ms`)
     setTimeout(() => {
       this.checkForUpdates(true)
     }, delay)
+  }
+
+  /**
+   * 获取当前更新状态
+   */
+  getUpdateStatus() {
+    return {
+      hasUpdate: this.hasUpdateAvailable,
+      updateInfo: this.latestUpdateInfo,
+      isDownloaded: this.isDownloaded,
+      downloadedVersion: this.downloadedVersion
+    }
   }
 
   /**

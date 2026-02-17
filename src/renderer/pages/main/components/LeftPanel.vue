@@ -207,11 +207,13 @@
         <n-dropdown
           trigger="click"
           :options="settingsOptions"
+          :render-label="renderSettingsLabel"
           @select="handleSettingsSelect"
           placement="top-start"
         >
           <button class="settings-btn" :title="t('main.settingsMenu')">
             <Icon name="settings" :size="16" class="icon" />
+            <span v-if="hasUpdateAvailable" class="update-badge"></span>
           </button>
         </n-dropdown>
 
@@ -503,6 +505,9 @@ const activeAgentSessionId = ref(null)
 const showNewConvModal = ref(false)
 const showCapabilityModal = ref(false)
 
+// 更新红点状态
+const hasUpdateAvailable = ref(false)
+
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
 const historyRenameTitle = ref('')
@@ -544,8 +549,24 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
   { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { type: 'divider', key: 'd1' },
-  { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') }
+  { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
+  {
+    key: 'app-update',
+    icon: renderMenuIcon('download'),
+    label: t('settingsMenu.appUpdate')
+  }
 ])
+
+// 有更新时在 app-update 菜单项标签后追加红点
+const renderSettingsLabel = (option) => {
+  if (option.key === 'app-update' && hasUpdateAvailable.value) {
+    return h('span', { style: 'display:inline-flex; align-items:center; gap:6px;' }, [
+      String(option.label),
+      h('span', { style: 'width:7px; height:7px; border-radius:50%; background:#ff4d4f; flex-shrink:0;' })
+    ])
+  }
+  return typeof option.label === 'function' ? option.label() : option.label
+}
 
 // Handle project selection change
 const handleProjectChange = async (projectId) => {
@@ -640,6 +661,9 @@ const handleSettingsSelect = async (key) => {
       break
     case 'session-history':
       window.electronAPI.openSessionManager()
+      break
+    case 'app-update':
+      window.electronAPI.openUpdateManager()
       break
   }
 }
@@ -944,12 +968,32 @@ watch(() => props.currentProject, async (newProject) => {
 let cleanupFn = null
 let fileWatcherCleanup = null
 let sessionUpdatedCleanup = null
+let updateAvailableCleanup = null
 
 onMounted(async () => {
   await loadConfig()
 
   // 初始加载活动会话列表
   await loadActiveSessions()
+
+  // 检查是否已有可用更新（应用启动时自动检查后留存的状态）
+  if (window.electronAPI?.getUpdateStatus) {
+    try {
+      const status = await window.electronAPI.getUpdateStatus()
+      if (status?.hasUpdate) {
+        hasUpdateAvailable.value = true
+      }
+    } catch (err) {
+      console.error('[LeftPanel] Failed to get update status:', err)
+    }
+  }
+
+  // 监听更新事件，实时显示红点
+  if (window.electronAPI?.onUpdateAvailable) {
+    updateAvailableCleanup = window.electronAPI.onUpdateAvailable(() => {
+      hasUpdateAvailable.value = true
+    })
+  }
 
   cleanupFn = setupEventListeners()
 
@@ -987,6 +1031,7 @@ onUnmounted(() => {
   if (cleanupFn) cleanupFn()
   if (fileWatcherCleanup) fileWatcherCleanup()
   if (sessionUpdatedCleanup) sessionUpdatedCleanup()
+  if (updateAvailableCleanup) updateAvailableCleanup()
   // Stop file watching when component unmounts
   if (window.electronAPI?.stopWatchingSessionFiles) {
     window.electronAPI.stopWatchingSessionFiles()
@@ -1454,11 +1499,23 @@ defineExpose({
   cursor: pointer;
   transition: all 0.2s;
   color: var(--text-color);
+  position: relative;
 }
 
 .settings-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
+}
+
+.update-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  border: 1.5px solid var(--bg-color);
 }
 
 .locale-toggle-btn {

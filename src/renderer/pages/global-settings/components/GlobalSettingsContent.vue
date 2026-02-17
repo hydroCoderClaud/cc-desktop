@@ -99,34 +99,6 @@
       </n-form-item>
     </n-card>
 
-    <!-- Application Update Section -->
-    <n-card :title="t('globalSettings.appUpdate')" class="settings-section">
-      <n-grid :cols="2" :x-gap="24">
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.currentVersion')">
-            <n-text>{{ currentVersion }}</n-text>
-          </n-form-item>
-        </n-grid-item>
-
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.checkUpdate')">
-            <n-button
-              @click="handleCheckUpdate"
-              :loading="checkingUpdate"
-              :disabled="checkingUpdate"
-            >
-              {{ checkingUpdate ? t('globalSettings.checking') : t('globalSettings.checkNow') }}
-            </n-button>
-            <template #feedback>
-              <span v-if="updateCheckMessage" :style="{ color: updateCheckMessageType === 'success' ? '#52c41a' : '#faad14' }">
-                {{ updateCheckMessage }}
-              </span>
-            </template>
-          </n-form-item>
-        </n-grid-item>
-      </n-grid>
-    </n-card>
-
     <!-- Footer Buttons -->
     <div class="settings-footer">
       <n-space>
@@ -170,27 +142,11 @@ const formData = ref({
   messageQueue: DEFAULTS.messageQueue
 })
 
-// Update check states
-const currentVersion = ref('')
-const checkingUpdate = ref(false)
-const updateCheckMessage = ref('')
-const updateCheckMessageType = ref('success') // 'success' or 'info'
-
 onMounted(async () => {
   await initTheme()
   await initLocale()
   await loadSettings()
-  await loadVersion()
 })
-
-const loadVersion = async () => {
-  try {
-    currentVersion.value = await invoke('getAppVersion')
-  } catch (err) {
-    console.error('Failed to get app version:', err)
-    currentVersion.value = 'Unknown'
-  }
-}
 
 const loadSettings = async () => {
   try {
@@ -306,70 +262,6 @@ const handleReset = async () => {
 
 const handleClose = () => {
   window.close()
-}
-
-// Check for updates manually
-const handleCheckUpdate = async () => {
-  checkingUpdate.value = true
-  updateCheckMessage.value = ''
-
-  try {
-    // Call the update check API (silent = false to show notifications)
-    await invoke('checkForUpdates', false)
-
-    // Listen for update events
-    const cleanup = []
-
-    // Update available
-    if (window.electronAPI?.onUpdateAvailable) {
-      const cleanupAvailable = window.electronAPI.onUpdateAvailable((info) => {
-        updateCheckMessage.value = t('globalSettings.updateAvailable', { version: info.version })
-        updateCheckMessageType.value = 'info'
-        message.info(t('globalSettings.updateAvailable', { version: info.version }))
-        checkingUpdate.value = false
-        cleanup.forEach(fn => fn())
-      })
-      cleanup.push(cleanupAvailable)
-    }
-
-    // No update available
-    if (window.electronAPI?.onUpdateNotAvailable) {
-      const cleanupNotAvailable = window.electronAPI.onUpdateNotAvailable(() => {
-        updateCheckMessage.value = t('globalSettings.alreadyLatest')
-        updateCheckMessageType.value = 'success'
-        message.success(t('globalSettings.alreadyLatest'))
-        checkingUpdate.value = false
-        cleanup.forEach(fn => fn())
-      })
-      cleanup.push(cleanupNotAvailable)
-    }
-
-    // Error
-    if (window.electronAPI?.onUpdateError) {
-      const cleanupError = window.electronAPI.onUpdateError((error) => {
-        updateCheckMessage.value = t('globalSettings.checkFailed', { error: error.message })
-        updateCheckMessageType.value = 'info'
-        message.error(t('globalSettings.checkFailed', { error: error.message }))
-        checkingUpdate.value = false
-        cleanup.forEach(fn => fn())
-      })
-      cleanup.push(cleanupError)
-    }
-
-    // Fallback: if no event fires within 10 seconds, reset state
-    setTimeout(() => {
-      if (checkingUpdate.value) {
-        checkingUpdate.value = false
-        cleanup.forEach(fn => fn())
-      }
-    }, 10000)
-  } catch (err) {
-    console.error('Failed to check for updates:', err)
-    message.error(t('globalSettings.checkFailed', { error: err.message }))
-    updateCheckMessage.value = t('globalSettings.checkFailed', { error: err.message })
-    updateCheckMessageType.value = 'info'
-    checkingUpdate.value = false
-  }
 }
 </script>
 

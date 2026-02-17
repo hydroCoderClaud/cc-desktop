@@ -752,6 +752,7 @@ export default {
     globalSettings: '全局设置',
     appearanceSettings: '外观设置',
     sessionHistory: '会话查询',
+    appUpdate: '应用更新',
     claudeSettings: 'Claude 配置文件',
     claudeSettingsNotFound: 'Claude 配置文件不存在'
   },
@@ -1292,18 +1293,27 @@ export default {
 
   // 应用更新
   update: {
+    title: '应用更新',
+    versionInfo: '版本信息',
     newVersionAvailable: '发现新版本',
     currentVersion: '当前版本',
     latestVersion: '最新版本',
     releaseDate: '发布日期',
     releaseNotes: '更新日志',
+    checkForUpdate: '检查更新',
+    checking: '检查中...',
     downloadNow: '立即下载',
     downloading: '下载中',
     downloadComplete: '下载完成',
-    downloadFailed: '下载失败',
+    downloadFailed: '下载失败: {error}',
+    downloadStarted: '开始下载更新',
     installLater: '稍后安装',
     quitAndInstall: '退出并安装',
+    installFailed: '安装失败: {error}',
     error: '更新错误',
-    checkingForUpdate: '正在检查更新'
+    checkingForUpdate: '正在检查更新',
+    alreadyLatest: '已是最新版本',
+    updateAvailableStatus: '发现新版本 {version}',
+    checkFailed: '检查失败: {error}'
   }
 }
