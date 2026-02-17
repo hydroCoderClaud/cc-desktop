@@ -249,17 +249,20 @@ class UpdateManager {
   macOSManualInstall() {
     const { spawn } = require('child_process')
 
+    const version = this.downloadedVersion
+
     try {
       const cacheDir = path.join(os.homedir(), 'Library/Caches/cc-desktop-updater/pending')
       const scriptPath = path.join(os.tmpdir(), 'cc-desktop-install.sh')
 
       const installScript = `#!/bin/bash
-echo "[Install] Starting installation..."
+echo "[Install] Starting installation for version ${version}..."
 cd "${cacheDir}"
 
-ZIP_FILE=$(ls *.zip 2>/dev/null | head -1)
+# 精确匹配版本号，避免误装旧版本
+ZIP_FILE=$(ls *${version}*.zip 2>/dev/null | head -1)
 if [ -z "$ZIP_FILE" ]; then
-  echo "[Install] Error: No update zip found in ${cacheDir}"
+  echo "[Install] Error: No zip found for version ${version} in ${cacheDir}"
   exit 1
 fi
 
