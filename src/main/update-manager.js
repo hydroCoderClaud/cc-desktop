@@ -279,6 +279,9 @@ echo "[Install] Installing to /Applications..."
 rm -rf "/Applications/CC Desktop.app"
 cp -R "CC Desktop.app" /Applications/
 
+echo "[Install] Cleaning up cache..."
+rm -f CC-Desktop-*.zip
+
 echo "[Install] Launching new version..."
 nohup open "/Applications/CC Desktop.app" > /dev/null 2>&1 &
 
