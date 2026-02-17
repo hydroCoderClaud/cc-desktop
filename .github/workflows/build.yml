@@ -64,10 +64,9 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --win
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_FOR_PULL_REQUEST: false
 
       - name: Create Windows installer package
         shell: pwsh
@@ -149,10 +148,9 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --mac
+        run: npx electron-builder --mac --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_FOR_PULL_REQUEST: false
 
       - name: Create macOS installer package
         run: |
