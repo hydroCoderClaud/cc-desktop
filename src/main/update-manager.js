@@ -161,6 +161,13 @@ class UpdateManager {
    * @param {boolean} silent - 静默检查（启动时后台检查）
    */
   async checkForUpdates(silent = false) {
+    // 手动检查时取消待执行的自动检查，避免重复触发
+    if (!silent && this.updateCheckTimer) {
+      clearTimeout(this.updateCheckTimer)
+      this.updateCheckTimer = null
+      log.info('[UpdateManager] Cancelled pending auto-check (manual check triggered)')
+    }
+
     try {
       log.info('[UpdateManager] Check for updates, silent:', silent)
       return await autoUpdater.checkForUpdates()
@@ -323,7 +330,8 @@ exit 0
    */
   scheduleUpdateCheck(delay = 5000) {
     log.info(`[UpdateManager] Scheduled update check in ${delay}ms`)
-    setTimeout(() => {
+    this.updateCheckTimer = setTimeout(() => {
+      this.updateCheckTimer = null
       this.checkForUpdates(true)
     }, delay)
   }
