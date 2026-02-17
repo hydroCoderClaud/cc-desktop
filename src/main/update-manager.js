@@ -6,6 +6,9 @@
 const { app, BrowserWindow } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const log = require('electron-log')
+const path = require('path')
+const os = require('os')
+const fs = require('fs')
 
 class UpdateManager {
   constructor(mainWindow) {
@@ -42,9 +45,13 @@ class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       log.info('[UpdateManager] Update available:', info.version)
 
-      // 发现更新版本号与已下载版本不同时，重置下载状态
-      if (this.isDownloaded && this.downloadedVersion !== info.version) {
-        log.info('[UpdateManager] Newer version found, resetting downloaded state')
+      // 以磁盘文件为准恢复跨会话的下载状态（重启后内存状态丢失）
+      if (this._checkDownloadedOnDisk(info.version)) {
+        this.isDownloaded = true
+        this.downloadedVersion = info.version
+        log.info('[UpdateManager] Found existing download on disk for', info.version)
+      } else if (this.downloadedVersion !== info.version) {
+        // 磁盘无该版本文件，重置
         this.isDownloaded = false
         this.downloadedVersion = null
       }
@@ -212,13 +219,35 @@ class UpdateManager {
   }
 
   /**
+   * 检查磁盘缓存目录是否已有指定版本的安装文件
+   * 用于 app 重启后恢复跨会话的下载状态
+   */
+  _checkDownloadedOnDisk(version) {
+    try {
+      let cacheDir
+      if (process.platform === 'darwin') {
+        cacheDir = path.join(os.homedir(), 'Library', 'Caches', 'cc-desktop-updater', 'pending')
+      } else if (process.platform === 'win32') {
+        cacheDir = path.join(process.env.LOCALAPPDATA || os.homedir(), 'cc-desktop-updater', 'pending')
+      } else {
+        cacheDir = path.join(os.homedir(), '.cache', 'cc-desktop-updater', 'pending')
+      }
+
+      if (!fs.existsSync(cacheDir)) return false
+
+      const files = fs.readdirSync(cacheDir)
+      return files.some(f => f.includes(version))
+    } catch (err) {
+      log.warn('[UpdateManager] _checkDownloadedOnDisk failed:', err.message)
+      return false
+    }
+  }
+
+  /**
    * macOS 手动安装（跳过签名检查，仅在 macOS 上调用）
    */
   macOSManualInstall() {
-    const { exec, spawn } = require('child_process')
-    const path = require('path')
-    const os = require('os')
-    const fs = require('fs')
+    const { spawn } = require('child_process')
 
     try {
       const cacheDir = path.join(os.homedir(), 'Library/Caches/cc-desktop-updater/pending')
