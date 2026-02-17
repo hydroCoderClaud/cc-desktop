@@ -252,7 +252,6 @@ jobs:
             artifacts/**/*.blockmap
             artifacts/**/latest.yml
             artifacts/**/latest-mac.yml
-            artifacts/**/cc-desktop-*-windows.zip
             artifacts/**/cc-desktop-*-macos.tar.gz
             artifacts/**/*.AppImage
           draft: false
