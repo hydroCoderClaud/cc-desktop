@@ -259,7 +259,8 @@ const handleClose = () => {
 
 const formatDate = (dateString) => {
   if (!dateString) return ''
-  return new Date(dateString).toLocaleDateString()
+  const d = new Date(dateString)
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString()
 }
 
 const formatSpeed = (bytesPerSecond) => {

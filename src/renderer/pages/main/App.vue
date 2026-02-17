@@ -13,25 +13,14 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import { useTheme } from '@composables/useTheme'
-import { useLocale } from '@composables/useLocale'
 import MainContent from './components/MainContent.vue'
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
-const { t } = useLocale()
 
-let message = null
 let cleanupFunctions = []
 
-onMounted(async () => {
+onMounted(() => {
   initTheme()
-
-  try {
-    const { useMessage } = await import('naive-ui')
-    message = useMessage()
-  } catch (error) {
-    console.warn('[Update] Failed to get message API:', error)
-  }
-
   setupUpdateListeners()
 })
 
@@ -43,17 +32,10 @@ onUnmounted(() => {
 const setupUpdateListeners = () => {
   if (!window.electronAPI?.onUpdateAvailable) return
 
-  // 发现新版本：显示通知 + 打开更新窗口（主进程已保证不重复创建）
-  const cleanup = window.electronAPI.onUpdateAvailable((info) => {
-    console.log('[Update] Update available:', info.version)
-
-    if (message) {
-      message.info(`${t('update.newVersionAvailable')}: ${info.version}`, {
-        duration: 5000,
-        closable: true
-      })
-    }
-
+  // 发现新版本：打开更新窗口（主进程已保证不重复创建）
+  // 注意：App.vue 本身是 NMessageProvider，无法在此调用 useMessage()
+  // toast 通知由 MainContent 内的子组件处理
+  const cleanup = window.electronAPI.onUpdateAvailable(() => {
     window.electronAPI.openUpdateManager?.()
   })
   cleanupFunctions.push(cleanup)

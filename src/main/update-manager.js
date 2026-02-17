@@ -18,6 +18,8 @@ class UpdateManager {
     this.latestUpdateInfo = null     // 最新更新信息
     this.isDownloaded = false        // 是否已下载完成
     this.downloadedVersion = null    // 已下载的版本号
+    this.downloadedFilePath = null   // 已下载的文件路径（来自 update-downloaded 事件）
+    this.isDownloading = false       // 是否正在下载（防重入）
     this.setupAutoUpdater()
     this.setupEventListeners()
   }
@@ -45,15 +47,20 @@ class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       log.info('[UpdateManager] Update available:', info.version)
 
-      // 以磁盘文件为准恢复跨会话的下载状态（重启后内存状态丢失）
-      if (this._checkDownloadedOnDisk(info.version)) {
+      // 从持久化状态恢复跨重启的下载状态，并验证文件仍在磁盘
+      const persisted = this._loadPersistedState()
+      if (persisted && persisted.version === info.version &&
+          persisted.downloadedFile && fs.existsSync(persisted.downloadedFile)) {
         this.isDownloaded = true
         this.downloadedVersion = info.version
-        log.info('[UpdateManager] Found existing download on disk for', info.version)
+        this.downloadedFilePath = persisted.downloadedFile
+        log.info('[UpdateManager] Found existing download:', this.downloadedFilePath)
       } else if (this.downloadedVersion !== info.version) {
-        // 磁盘无该版本文件，重置
+        // 版本不同或文件已消失，重置状态并清除旧的持久化记录
         this.isDownloaded = false
         this.downloadedVersion = null
+        this.downloadedFilePath = null
+        this._clearPersistedState()
       }
 
       this.hasUpdateAvailable = true
@@ -88,14 +95,19 @@ class UpdateManager {
     })
 
     autoUpdater.on('update-downloaded', (info) => {
-      log.info('[UpdateManager] Update downloaded:', info.version)
+      log.info('[UpdateManager] Update downloaded:', info.version, info.downloadedFile)
+      this.isDownloading = false
       this.isDownloaded = true
       this.downloadedVersion = info.version
+      this.downloadedFilePath = info.downloadedFile || null
+      // 持久化状态，重启后可恢复
+      this._persistState(info.version, info.downloadedFile)
       this.sendToRenderer('update-downloaded', { version: info.version })
     })
 
     autoUpdater.on('error', (error) => {
       log.error('[UpdateManager] Error:', error)
+      this.isDownloading = false
       this.sendToRenderer('update-error', {
         message: error.message || String(error)
       })
@@ -181,13 +193,19 @@ class UpdateManager {
   }
 
   /**
-   * 开始下载更新
+   * 开始下载更新（带防重入保护）
    */
   async downloadUpdate() {
+    if (this.isDownloading) {
+      log.warn('[UpdateManager] Download already in progress, ignoring duplicate call')
+      return
+    }
+    this.isDownloading = true
     try {
       log.info('[UpdateManager] Start downloading update...')
       return await autoUpdater.downloadUpdate()
     } catch (error) {
+      this.isDownloading = false
       log.error('[UpdateManager] Download update failed:', error)
       this.sendToRenderer('update-error', {
         message: error.message || String(error)
@@ -226,75 +244,109 @@ class UpdateManager {
   }
 
   /**
-   * 检查磁盘缓存目录是否已有指定版本的安装文件
-   * 用于 app 重启后恢复跨会话的下载状态
+   * 持久化下载状态到 userData/update-state.json
+   * 使用 userData 目录确保路径准确，无需猜测 electron-updater 缓存路径
    */
-  _checkDownloadedOnDisk(version) {
+  _persistState(version, downloadedFile) {
     try {
-      let cacheDir
-      if (process.platform === 'darwin') {
-        cacheDir = path.join(os.homedir(), 'Library', 'Caches', 'cc-desktop-updater', 'pending')
-      } else if (process.platform === 'win32') {
-        cacheDir = path.join(process.env.LOCALAPPDATA || os.homedir(), 'cc-desktop-updater', 'pending')
-      } else {
-        cacheDir = path.join(os.homedir(), '.cache', 'cc-desktop-updater', 'pending')
-      }
-
-      if (!fs.existsSync(cacheDir)) return false
-
-      const files = fs.readdirSync(cacheDir)
-      return files.some(f => f.includes(version))
+      const statePath = path.join(app.getPath('userData'), 'update-state.json')
+      fs.writeFileSync(statePath, JSON.stringify({ version, downloadedFile }), 'utf8')
     } catch (err) {
-      log.warn('[UpdateManager] _checkDownloadedOnDisk failed:', err.message)
-      return false
+      log.warn('[UpdateManager] Failed to persist state:', err.message)
+    }
+  }
+
+  /**
+   * 读取持久化的下载状态
+   */
+  _loadPersistedState() {
+    try {
+      const statePath = path.join(app.getPath('userData'), 'update-state.json')
+      if (!fs.existsSync(statePath)) return null
+      return JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    } catch (err) {
+      log.warn('[UpdateManager] Failed to load persisted state:', err.message)
+      return null
+    }
+  }
+
+  /**
+   * 清除持久化状态（安装后或检测到更新版本时）
+   */
+  _clearPersistedState() {
+    try {
+      const statePath = path.join(app.getPath('userData'), 'update-state.json')
+      if (fs.existsSync(statePath)) fs.unlinkSync(statePath)
+    } catch (err) {
+      log.warn('[UpdateManager] Failed to clear persisted state:', err.message)
     }
   }
 
   /**
    * macOS 手动安装（跳过签名检查，仅在 macOS 上调用）
+   * - 版本号经过格式校验，防止 shell 注入
+   * - ZIP 文件路径通过环境变量传入脚本，不做字符串插值
    */
   macOSManualInstall() {
     const { spawn } = require('child_process')
 
     const version = this.downloadedVersion
+    const zipFile = this.downloadedFilePath
+
+    // 校验版本号格式（仅允许 x.y.z），防止注入攻击
+    if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+      log.error('[UpdateManager] Invalid version format:', version)
+      this.sendToRenderer('update-error', { message: `Invalid version format: ${version}` })
+      return
+    }
+
+    // 确认下载文件存在（重启后如果文件被外部删除则提示重新下载）
+    if (!zipFile || !fs.existsSync(zipFile)) {
+      log.error('[UpdateManager] Downloaded file not found:', zipFile)
+      this._clearPersistedState()
+      this.isDownloaded = false
+      this.downloadedFilePath = null
+      this.sendToRenderer('update-error', { message: 'Downloaded file not found, please download again' })
+      return
+    }
 
     try {
-      const cacheDir = path.join(os.homedir(), 'Library/Caches/cc-desktop-updater/pending')
       const scriptPath = path.join(os.tmpdir(), 'cc-desktop-install.sh')
 
+      // ZIP 路径通过环境变量 CC_DESKTOP_ZIP_FILE 传入，避免路径中特殊字符导致的 shell 注入
       const installScript = `#!/bin/bash
-echo "[Install] Starting installation for version ${version}..."
-cd "${cacheDir}"
-
-# 精确匹配版本号，避免误装旧版本
-ZIP_FILE=$(ls *${version}*.zip 2>/dev/null | head -1)
-if [ -z "$ZIP_FILE" ]; then
-  echo "[Install] Error: No zip found for version ${version} in ${cacheDir}"
+set -e
+ZIP_FILE="$CC_DESKTOP_ZIP_FILE"
+if [ ! -f "$ZIP_FILE" ]; then
+  echo "[Install] Error: File not found: $ZIP_FILE"
   exit 1
 fi
 
-echo "[Install] Found: $ZIP_FILE"
 echo "[Install] Waiting for app to quit..."
 sleep 2
 
-echo "[Install] Extracting..."
-unzip -o "$ZIP_FILE" > /dev/null 2>&1
+EXTRACT_DIR=$(mktemp -d)
+echo "[Install] Extracting to $EXTRACT_DIR..."
+unzip -o "$ZIP_FILE" -d "$EXTRACT_DIR" > /dev/null 2>&1
 
-APP_FILE=$(ls -d *.app 2>/dev/null | head -1)
+APP_FILE=$(ls -d "$EXTRACT_DIR"/*.app 2>/dev/null | head -1)
 if [ -z "$APP_FILE" ]; then
   echo "[Install] Error: No .app found after extraction"
+  rm -rf "$EXTRACT_DIR"
   exit 1
 fi
 
-echo "[Install] Installing to /Applications: $APP_FILE"
-rm -rf "/Applications/$APP_FILE"
+APP_NAME=$(basename "$APP_FILE")
+echo "[Install] Installing to /Applications: $APP_NAME"
+rm -rf "/Applications/$APP_NAME"
 cp -R "$APP_FILE" /Applications/
 
-echo "[Install] Cleaning up cache..."
-rm -f *.zip
+echo "[Install] Cleaning up..."
+rm -rf "$EXTRACT_DIR"
+rm -f "$ZIP_FILE"
 
 echo "[Install] Launching new version..."
-nohup open "/Applications/$APP_FILE" > /dev/null 2>&1 &
+nohup open "/Applications/$APP_NAME" > /dev/null 2>&1 &
 
 echo "[Install] Installation complete!"
 exit 0
@@ -305,11 +357,15 @@ exit 0
 
       const child = spawn('/bin/bash', [scriptPath], {
         detached: true,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        env: { ...process.env, CC_DESKTOP_ZIP_FILE: zipFile }
       })
       child.unref()
 
       log.info('[UpdateManager] Install script launched (PID:', child.pid, ')')
+
+      // 安装脚本已启动，清除持久化状态
+      this._clearPersistedState()
 
       setTimeout(() => {
         log.info('[UpdateManager] Quitting app...')
