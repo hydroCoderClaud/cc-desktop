@@ -2,6 +2,17 @@
 
 ---
 
+## v1.6.49 - 2026-02-18
+
+### 重构 (Refactor)
+
+- 将 `fetchRegistryIndex` 从 `skillsManager` 提取为 `http-client.js` 共享工具函数
+  - Skills / Agents / Prompts 市场及 CapabilityManager 统一通过 `http-client.js` 获取注册表索引
+  - 消除跨模块语义误用（能力管理器/插件 IPC handler 不再依赖 skillsManager 获取 agent 索引）
+  - 新版函数兼容 skills-only、agents-only、prompts-only 注册表，三个数组均默认为 `[]`
+
+---
+
 ## v1.6.48 - 2026-02-18
 
 ### 修复 (Bug Fixes)
