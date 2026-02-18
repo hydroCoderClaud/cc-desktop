@@ -8,7 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, classifyHttpError } = require('../utils/http-client')
+const { httpGet, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
 
 class CapabilityManager {
   /**
@@ -475,7 +475,7 @@ class CapabilityManager {
    */
   async _fetchComponentFromIndex(registryUrl, arrayKey, componentId) {
     try {
-      const indexResult = await this.skillsManager.fetchRegistryIndex(registryUrl)
+      const indexResult = await fetchRegistryIndex(registryUrl)
       if (!indexResult.success || !indexResult.data) {
         return null
       }

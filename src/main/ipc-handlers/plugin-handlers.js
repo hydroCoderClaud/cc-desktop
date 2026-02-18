@@ -12,6 +12,7 @@ const {
   SettingsManager
 } = require('../managers')
 const { PluginCli } = require('../managers/plugin-cli')
+const { fetchRegistryIndex } = require('../utils/http-client')
 const { shell } = require('electron')
 
 function setupPluginHandlers(ipcMain) {
@@ -399,7 +400,7 @@ function setupPluginHandlers(ipcMain) {
       if (!registryUrl || typeof registryUrl !== 'string') {
         return { success: false, error: 'Invalid registry URL' }
       }
-      return await skillsManager.fetchRegistryIndex(registryUrl)
+      return await fetchRegistryIndex(registryUrl)
     } catch (err) {
       console.error('[IPC] skills:market:fetchIndex error:', err)
       return { success: false, error: err.message }

@@ -194,4 +194,35 @@ function isSafeFilename(filename) {
   return true
 }
 
-module.exports = { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }
+/**
+ * 获取注册表索引（skills + agents + prompts 共用）
+ * @param {string} registryUrl - 注册表基础 URL
+ * @returns {{ success: boolean, data?: { skills, agents, prompts }, error?: string }}
+ */
+async function fetchRegistryIndex(registryUrl) {
+  if (!registryUrl || typeof registryUrl !== 'string') {
+    return { success: false, error: '注册表 URL 不能为空' }
+  }
+
+  const url = registryUrl.replace(/\/+$/, '') + '/index.json'
+  console.log('[HttpClient] Fetching registry index:', url)
+
+  try {
+    const body = await httpGet(url)
+    const data = JSON.parse(body)
+
+    return {
+      success: true,
+      data: {
+        skills: Array.isArray(data.skills) ? data.skills : [],
+        agents: Array.isArray(data.agents) ? data.agents : [],
+        prompts: Array.isArray(data.prompts) ? data.prompts : []
+      }
+    }
+  } catch (err) {
+    console.error('[HttpClient] Failed to fetch registry index:', err.message)
+    return { success: false, error: classifyHttpError(err) }
+  }
+}
+
+module.exports = { httpGet, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }

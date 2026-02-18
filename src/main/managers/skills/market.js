@@ -6,43 +6,11 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { httpGet, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 
 const MARKET_META_FILE = '.market-meta.json'
 
 const skillsMarketMixin = {
-  /**
-   * 获取注册表索引
-   * @param {string} registryUrl - 注册表基础 URL
-   * @returns {{ success: boolean, data?: Object, error?: string }}
-   */
-  async fetchRegistryIndex(registryUrl) {
-    if (!registryUrl || typeof registryUrl !== 'string') {
-      return { success: false, error: '注册表 URL 不能为空' }
-    }
-
-    const url = registryUrl.replace(/\/+$/, '') + '/index.json'
-    console.log('[SkillsManager] Fetching registry index:', url)
-
-    try {
-      const body = await httpGet(url)
-      const data = JSON.parse(body)
-
-      if (!data.skills || !Array.isArray(data.skills)) {
-        return { success: false, error: '注册表格式无效：缺少 skills 数组' }
-      }
-
-      // 兼容扩展：缺少 prompts/agents 数组时默认为空
-      if (!Array.isArray(data.prompts)) data.prompts = []
-      if (!Array.isArray(data.agents)) data.agents = []
-
-      return { success: true, data }
-    } catch (err) {
-      console.error('[SkillsManager] Failed to fetch registry:', err.message)
-      return { success: false, error: classifyHttpError(err) }
-    }
-  },
-
   /**
    * 下载并安装单个市场 Skill
    * @param {{ registryUrl: string, skill: Object }} params
@@ -151,7 +119,7 @@ const skillsMarketMixin = {
   async checkMarketUpdates(registryUrl) {
     try {
       // 1. 获取注册表索引
-      const indexResult = await this.fetchRegistryIndex(registryUrl)
+      const indexResult = await fetchRegistryIndex(registryUrl)
       if (!indexResult.success) {
         return indexResult
       }
