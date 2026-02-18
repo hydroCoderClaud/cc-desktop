@@ -211,6 +211,18 @@ jobs:
       contents: write
 
     steps:
+      - name: Clean up draft releases
+        run: |
+          echo "Cleaning up draft releases..."
+          DRAFTS=$(gh api repos/${{ github.repository }}/releases --jq '.[] | select(.draft==true) | .id')
+          for id in $DRAFTS; do
+            echo "Deleting draft release $id"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
+          done
+          echo "Done. Deleted $(echo "$DRAFTS" | grep -c . || echo 0) draft(s)."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout code
         uses: actions/checkout@v4
 
