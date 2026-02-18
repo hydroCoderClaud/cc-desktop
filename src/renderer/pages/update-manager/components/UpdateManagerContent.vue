@@ -218,6 +218,19 @@ const setupEventListeners = () => {
     })
     cleanupFunctions.push(cleanup)
   }
+
+  if (window.electronAPI?.onUpdateNeedRedownload) {
+    const cleanup = window.electronAPI.onUpdateNeedRedownload(() => {
+      // 下载文件已失效，重置为可重新下载状态
+      isDownloaded.value = false
+      isDownloading.value = false
+      downloadProgress.value = 0
+      statusMessage.value = t('update.needRedownload')
+      statusType.value = 'error'
+      message.warning(t('update.needRedownload'))
+    })
+    cleanupFunctions.push(cleanup)
+  }
 }
 
 const handleCheckUpdate = async () => {

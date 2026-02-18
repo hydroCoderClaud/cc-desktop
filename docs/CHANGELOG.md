@@ -2,6 +2,24 @@
 
 ---
 
+## v1.6.48 - 2026-02-18
+
+### 修复 (Bug Fixes)
+
+**更新功能修复**
+- 修复"退出并安装"在重启后失效的问题
+  - 原因：electron-updater 内部状态不跨重启，持久化恢复的 `isDownloaded` 与 `autoUpdater` 内存状态不同步
+  - 修复：检测到持久化下载文件后，静默调用 `downloadUpdate()` 同步 electron-updater 内部状态，文件已存在时秒完成
+- 修复 `quitAndInstall()` 失败时静默无反应，新增 `update-need-redownload` 事件通知前端重新下载
+
+**本地打包脚本修复**
+- 修复 `local-package-win.ps1` 读取 `package.json` 中文乱码（添加 `-Encoding UTF8`）
+- 修复 `local-package-win.ps1` 误打包旧版本 exe（改为按版本号匹配，兜底取最新文件）
+- 修复 `local-package-mac.sh` 误打包旧版本 dmg（改为按版本号匹配）
+- 修复 `install.ps1` 在中文 Windows 上语法解析失败（添加 UTF-8 BOM）
+
+---
+
 ## v1.6.47 - 2026-02-18
 
 ### 修复 (Bug Fixes)

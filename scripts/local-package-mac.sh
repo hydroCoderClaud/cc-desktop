@@ -8,7 +8,11 @@ OUTPUT="dist/cc-desktop-${VERSION}-macos.tar.gz"
 echo "Packaging macOS installer: ${OUTPUT}..."
 
 mkdir -p "$RELEASE_DIR"
-find dist -name "*.dmg" -exec cp {} "$RELEASE_DIR/" \;
+find dist -name "*${VERSION}*.dmg" -exec cp {} "$RELEASE_DIR/" \;
+if [ -z "$(ls "$RELEASE_DIR"/*.dmg 2>/dev/null)" ]; then
+  echo "ERROR: No .dmg file matching version ${VERSION} found in dist/"
+  exit 1
+fi
 cp scripts/install.sh "$RELEASE_DIR/"
 
 cat > "$RELEASE_DIR/README.md" << EOF

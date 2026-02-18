@@ -47,15 +47,12 @@ class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       log.info('[UpdateManager] Update available:', info.version)
 
-      // 从持久化状态恢复跨重启的下载状态，并验证文件仍在磁盘
+      // 检查持久化状态，判断是否有已下载的文件
       const persisted = this._loadPersistedState()
-      if (persisted && persisted.version === info.version &&
-          persisted.downloadedFile && fs.existsSync(persisted.downloadedFile)) {
-        this.isDownloaded = true
-        this.downloadedVersion = info.version
-        this.downloadedFilePath = persisted.downloadedFile
-        log.info('[UpdateManager] Found existing download:', this.downloadedFilePath)
-      } else if (this.downloadedVersion !== info.version) {
+      const hasPersistedDownload = persisted && persisted.version === info.version &&
+          persisted.downloadedFile && fs.existsSync(persisted.downloadedFile)
+
+      if (!hasPersistedDownload && this.downloadedVersion !== info.version) {
         // 版本不同或文件已消失，重置状态并清除旧的持久化记录
         this.isDownloaded = false
         this.downloadedVersion = null
@@ -71,10 +68,21 @@ class UpdateManager {
         files: info.files
       }
 
+      // 先通知 UI 有更新可用（此时 isDownloaded 尚未恢复）
       this.sendToRenderer('update-available', {
         ...this.latestUpdateInfo,
         isDownloaded: this.isDownloaded
       })
+
+      // 有持久化的下载文件时，静默调用 downloadUpdate() 让 electron-updater 内部状态同步
+      // 文件已存在时会秒完成，触发 update-downloaded 事件后 UI 自动切换到"退出并安装"
+      if (hasPersistedDownload && !this.isDownloaded) {
+        log.info('[UpdateManager] Found persisted download, triggering silent re-download to sync state:', persisted.downloadedFile)
+        autoUpdater.downloadUpdate().catch(err => {
+          log.warn('[UpdateManager] Silent re-download failed:', err.message)
+          this._clearPersistedState()
+        })
+      }
     })
 
     autoUpdater.on('update-not-available', (info) => {
@@ -219,7 +227,10 @@ class UpdateManager {
    */
   quitAndInstall(isSilent = false, isForceRunAfter = true) {
     if (!this.isDownloaded) {
-      log.error('[UpdateManager] Cannot install: update has not been downloaded')
+      log.warn('[UpdateManager] isDownloaded is false, notifying renderer to re-download')
+      this.sendToRenderer('update-need-redownload', {
+        message: 'Update file not available, please download again'
+      })
       return
     }
 
@@ -237,7 +248,11 @@ class UpdateManager {
       autoUpdater.quitAndInstall(isSilent, isForceRunAfter)
     } catch (error) {
       log.error('[UpdateManager] quitAndInstall failed:', error)
-      this.sendToRenderer('update-error', {
+      // 安装失败可能是文件被清理，重置状态让用户重新下载
+      this.isDownloaded = false
+      this.downloadedFilePath = null
+      this._clearPersistedState()
+      this.sendToRenderer('update-need-redownload', {
         message: error.message || String(error)
       })
     }

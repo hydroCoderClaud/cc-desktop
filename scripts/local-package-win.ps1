@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$VERSION = (Get-Content package.json | ConvertFrom-Json).version
+$VERSION = (Get-Content package.json -Encoding UTF8 | ConvertFrom-Json).version
 $RELEASE_DIR = "cc-desktop-${VERSION}-windows"
 $OUTPUT = "dist\cc-desktop-${VERSION}-windows.zip"
 
@@ -8,7 +8,10 @@ Write-Host "Packaging Windows installer: ${OUTPUT}..."
 
 New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
 
-$exeFile = Get-ChildItem -Path dist -Filter "*.exe" | Select-Object -First 1
+$exeFile = Get-ChildItem -Path dist -Filter "*${VERSION}*.exe" | Select-Object -First 1
+if (-not $exeFile) {
+    $exeFile = Get-ChildItem -Path dist -Filter "*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
 if ($exeFile) {
     Copy-Item $exeFile.FullName "$RELEASE_DIR\CC Desktop Setup ${VERSION}.exe"
 } else {

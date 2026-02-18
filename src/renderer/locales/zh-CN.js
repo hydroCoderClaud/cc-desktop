@@ -1314,6 +1314,7 @@ export default {
     checkingForUpdate: '正在检查更新',
     alreadyLatest: '已是最新版本',
     updateAvailableStatus: '发现新版本 {version}',
-    checkFailed: '检查失败: {error}'
+    checkFailed: '检查失败: {error}',
+    needRedownload: '安装文件已失效，请重新下载'
   }
 }

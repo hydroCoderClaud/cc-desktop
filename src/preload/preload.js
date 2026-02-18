@@ -640,6 +640,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-error', listener);
     return () => ipcRenderer.removeListener('update-error', listener);
   },
+  onUpdateNeedRedownload: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-need-redownload', listener);
+    return () => ipcRenderer.removeListener('update-need-redownload', listener);
+  },
 
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册

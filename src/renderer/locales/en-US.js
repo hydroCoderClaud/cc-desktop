@@ -1311,6 +1311,7 @@ export default {
     checkingForUpdate: 'Checking for update',
     alreadyLatest: 'Already on latest version',
     updateAvailableStatus: 'New version {version} available',
-    checkFailed: 'Check failed: {error}'
+    checkFailed: 'Check failed: {error}',
+    needRedownload: 'Update file expired, please download again'
   }
 }
