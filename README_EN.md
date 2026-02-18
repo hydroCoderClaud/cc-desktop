@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-A desktop launcher and terminal emulator for Claude Code CLI.
+A desktop launcher for Claude Code CLI + local desktop AI assistant.
 
 ## Features
 

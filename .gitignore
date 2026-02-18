@@ -41,6 +41,11 @@ desktop.ini
 config.json
 data/
 
+# E2E / Playwright
+e2e/
+playwright-report/
+test-results/
+
 # Temporary files
 *.tmp
 *.temp

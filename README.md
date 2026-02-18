@@ -2,7 +2,7 @@
 
 [English](README_EN.md) | 中文
 
-Claude Code CLI 的桌面启动器 + 终端模拟器。
+Claude Code CLI 的桌面启动器 + 本地桌面AI助手。
 
 ## 功能特点
 
