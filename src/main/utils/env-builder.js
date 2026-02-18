@@ -129,13 +129,23 @@ function buildBasicEnv(extraVars = {}) {
   const isWindows = process.platform === 'win32'
   const pathSep = isWindows ? ';' : ':'
 
+  // Windows 下 PATH 变量名可能是 Path/PATH/path（取决于启动环境）
+  // process.env 是 case-insensitive proxy，但 {...process.env} 展开后是普通对象
+  // 必须找到实际的 key 名，避免创建重复 key 导致 PATH 丢失
+  const pathKey = isWindows
+    ? (Object.keys(baseEnv).find(k => k.toUpperCase() === 'PATH') || 'PATH')
+    : 'PATH'
+
   let commonPaths = []
   if (isWindows) {
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files'
     // Windows 路径
     commonPaths = [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs'),
+      path.join(programFiles, 'nodejs'),
       path.join(homeDir, 'AppData', 'Roaming', 'npm'),
-      path.join(homeDir, '.claude', 'local', 'bin')
+      path.join(homeDir, '.local', 'bin'),              // Claude CLI 独立安装路径
+      path.join(homeDir, '.claude', 'local', 'bin'),
+      path.join(programFiles, 'Git', 'cmd')             // Git for Windows
     ]
   } else {
     // macOS / Linux 路径
@@ -150,12 +160,16 @@ function buildBasicEnv(extraVars = {}) {
     ]
   }
 
-  const existingPath = baseEnv.PATH || ''
+  const existingPath = baseEnv[pathKey] || ''
   const existingPaths = existingPath.split(pathSep).filter(Boolean)
-  const pathsToAdd = commonPaths.filter(p => !existingPaths.includes(p))
+
+  // Windows 下路径比较需忽略大小写
+  const pathsToAdd = isWindows
+    ? commonPaths.filter(p => !existingPaths.some(ep => ep.toLowerCase() === p.toLowerCase()))
+    : commonPaths.filter(p => !existingPaths.includes(p))
 
   if (pathsToAdd.length > 0) {
-    baseEnv.PATH = [...pathsToAdd, ...existingPaths].filter(Boolean).join(pathSep)
+    baseEnv[pathKey] = [...pathsToAdd, ...existingPaths].filter(Boolean).join(pathSep)
 
     // 调试日志：打包后特别重要
     if (isPackagedApp()) {

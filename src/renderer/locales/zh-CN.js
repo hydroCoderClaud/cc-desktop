@@ -184,6 +184,7 @@ export default {
       updateSuccess: '插件 {name} 已更新',
       updateFailed: '更新失败',
       fetchError: '获取插件列表失败',
+      remoteUnavailable: '未获取到远程插件列表，仅显示本地已安装',
       noPlugins: '没有可用插件',
       searchPlaceholder: '搜索插件...',
       allMarketplaces: '全部市场',

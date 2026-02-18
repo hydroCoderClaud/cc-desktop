@@ -318,6 +318,11 @@ const fetchData = async () => {
 
     allPlugins.value = merged
     fetched.value = true
+
+    // 远程列表为空但本地有安装 → 可能是网络问题
+    if (available.length === 0 && installed.length > 0) {
+      message.info(t('rightPanel.plugins.remoteUnavailable'))
+    }
   } catch (err) {
     console.error('[PluginMarket] fetch error:', err)
     fetchError.value = t('rightPanel.plugins.fetchError')

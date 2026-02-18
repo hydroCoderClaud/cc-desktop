@@ -184,6 +184,7 @@ export default {
       updateSuccess: 'Plugin {name} updated',
       updateFailed: 'Update failed',
       fetchError: 'Failed to fetch plugin list',
+      remoteUnavailable: 'Remote plugin list unavailable, showing local installs only',
       noPlugins: 'No plugins available',
       searchPlaceholder: 'Search plugins...',
       allMarketplaces: 'All Marketplaces',

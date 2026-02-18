@@ -3,7 +3,7 @@
  * 封装 Claude Code CLI 的 plugin 命令，提供安装/卸载/更新/列表功能
  */
 
-const { execFile } = require('child_process')
+const { spawn } = require('child_process')
 
 class PluginCli {
   constructor() {
@@ -149,30 +149,93 @@ class PluginCli {
 
   /**
    * 执行 CLI 命令
+   *
+   * 与终端模式（pty.spawn）保持一致的进程启动方式：
+   * - 使用 spawn 而非 execFile，避免 Node.js 自动添加 /d 标志
+   *   （/d 会禁用 cmd.exe AutoRun，可能导致 PATH 环境差异）
+   * - Windows 下通过 cmd.exe /s /c 启动（与终端模式相同）
+   * - 注入系统代理，确保 CLI 子进程能通过代理访问网络
+   *
    * @param {string[]} args - 命令参数
    * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
    */
-  _exec(args) {
-    return new Promise((resolve, reject) => {
-      // 构建基础环境变量（增强 PATH，不包含 API 配置）
-      // 插件命令只需要找到 claude 命令，不需要 API 认证
-      const { buildBasicEnv } = require('../utils/env-builder')
-      const env = buildBasicEnv({})
+  async _exec(args) {
+    // 构建基础环境变量（增强 PATH，不包含 API 配置）
+    const { buildBasicEnv } = require('../utils/env-builder')
+    const env = buildBasicEnv({})
 
-      const options = {
-        timeout: this.timeout,
-        maxBuffer: 1024 * 1024 * 5, // 5MB
-        windowsHide: true,
-        env  // 传递增强后的环境变量
+    // 注入系统代理，让 claude CLI 子进程也能走代理
+    if (!env.HTTPS_PROXY && !env.https_proxy) {
+      try {
+        const { session } = require('electron')
+        const proxyStr = await session.defaultSession.resolveProxy('https://github.com')
+        if (proxyStr && proxyStr !== 'DIRECT') {
+          const match = proxyStr.match(/^PROXY\s+(.+)$/)
+          if (match) {
+            const addr = match[1]
+            const proxyUrl = (addr.startsWith('http://') || addr.startsWith('https://')) ? addr : `http://${addr}`
+            env.HTTPS_PROXY = proxyUrl
+            env.https_proxy = proxyUrl
+          }
+        }
+      } catch (e) {
+        // Electron session 不可用时（如单元测试）跳过
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      let stdout = ''
+      let stderr = ''
+      let child
+      let timer
+
+      const isWindows = process.platform === 'win32'
+
+      if (isWindows) {
+        // Windows: 通过 cmd.exe 启动（与终端模式一致，不加 /d 标志）
+        // execFile({ shell: true }) 会使用 cmd.exe /d /s /c，/d 禁用 AutoRun
+        // 这里手动调用 cmd.exe /s /c，保留 AutoRun 处理，与 pty.spawn 行为一致
+        const cmdLine = ['claude', ...args].map(a => {
+          // 参数含空格或特殊字符时加引号
+          return /[\s"&|<>^]/.test(a) ? `"${a}"` : a
+        }).join(' ')
+        child = spawn(process.env.COMSPEC || 'cmd.exe', ['/s', '/c', cmdLine], {
+          windowsHide: true,
+          env
+        })
+      } else {
+        // macOS/Linux: 直接 spawn claude
+        child = spawn('claude', args, {
+          env
+        })
       }
 
-      execFile('claude', args, options, (error, stdout, stderr) => {
-        if (error) {
-          // Extract meaningful error message
-          const rawMsg = stderr?.trim() || stdout?.trim() || error.message
+      child.stdout.on('data', chunk => { stdout += chunk.toString() })
+      child.stderr.on('data', chunk => { stderr += chunk.toString() })
+
+      // 超时处理
+      timer = setTimeout(() => {
+        child.kill()
+        reject(new Error('命令执行超时'))
+      }, this.timeout)
+
+      child.on('error', err => {
+        clearTimeout(timer)
+        const rawMsg = err.message || 'Unknown error'
+        const errMsg = PluginCli._classifyCliError(rawMsg)
+        const wrappedErr = new Error(errMsg)
+        wrappedErr.stderr = stderr
+        wrappedErr.stdout = stdout
+        reject(wrappedErr)
+      })
+
+      child.on('close', code => {
+        clearTimeout(timer)
+        if (code !== 0) {
+          const rawMsg = stderr?.trim() || stdout?.trim() || `Process exited with code ${code}`
           const errMsg = PluginCli._classifyCliError(rawMsg)
           const wrappedErr = new Error(errMsg)
-          wrappedErr.exitCode = error.code
+          wrappedErr.exitCode = code
           wrappedErr.stderr = stderr
           wrappedErr.stdout = stdout
           reject(wrappedErr)
