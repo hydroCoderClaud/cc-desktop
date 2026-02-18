@@ -182,11 +182,11 @@ const fetchIndex = async () => {
       fetchError.value = ''
     } else {
       fetchError.value = result.error || t('market.fetchError')
-      marketData.value = { skills: [], prompts: [], agents: [] }
+      message.warning(fetchError.value)
     }
   } catch (e) {
     fetchError.value = t('market.networkError')
-    marketData.value = { skills: [], prompts: [], agents: [] }
+    message.warning(fetchError.value)
   } finally {
     fetchLoading.value = false
   }

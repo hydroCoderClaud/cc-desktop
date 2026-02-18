@@ -166,12 +166,15 @@ const loadCapabilities = async () => {
 
     if (result.success) {
       capabilities.value = result.capabilities
+      fetchError.value = ''
     } else {
       fetchError.value = result.error || t('agent.capabilityFetchFailed')
+      message.warning(fetchError.value)
     }
   } catch (err) {
     console.error('[CapabilityModal] loadCapabilities error:', err)
     fetchError.value = t('agent.capabilityFetchFailed')
+    message.warning(fetchError.value)
   } finally {
     loading.value = false
   }

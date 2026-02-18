@@ -260,7 +260,7 @@ const fetchData = async () => {
 
     if (result.success === false) {
       fetchError.value = result.error || t('rightPanel.plugins.fetchError')
-      allPlugins.value = []
+      message.warning(fetchError.value)
       fetched.value = true
       return
     }
@@ -321,7 +321,7 @@ const fetchData = async () => {
   } catch (err) {
     console.error('[PluginMarket] fetch error:', err)
     fetchError.value = t('rightPanel.plugins.fetchError')
-    allPlugins.value = []
+    message.warning(fetchError.value)
     fetched.value = true
   } finally {
     loading.value = false

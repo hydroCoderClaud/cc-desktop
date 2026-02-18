@@ -169,7 +169,8 @@ class PluginCli {
       execFile('claude', args, options, (error, stdout, stderr) => {
         if (error) {
           // Extract meaningful error message
-          const errMsg = stderr?.trim() || stdout?.trim() || error.message
+          const rawMsg = stderr?.trim() || stdout?.trim() || error.message
+          const errMsg = PluginCli._classifyCliError(rawMsg)
           const wrappedErr = new Error(errMsg)
           wrappedErr.exitCode = error.code
           wrappedErr.stderr = stderr
@@ -199,6 +200,28 @@ class PluginCli {
       console.warn('[PluginCli] Failed to parse JSON output:', text?.substring(0, 200))
       return fallback
     }
+  }
+
+  /**
+   * 将 CLI 错误信息分类为用户友好的中文提示
+   * @param {string} rawMsg - CLI 原始错误信息
+   * @returns {string}
+   */
+  static _classifyCliError(rawMsg) {
+    if (!rawMsg) return '未知错误'
+    const msg = rawMsg.toLowerCase()
+    const NETWORK_HINT = '，请检查网络连接或尝试开启 VPN'
+    if (msg.includes('econnreset') || msg.includes('read econnreset')) return '连接被重置' + NETWORK_HINT
+    if (msg.includes('econnrefused')) return '连接被拒绝' + NETWORK_HINT
+    if (msg.includes('enotfound')) return '无法解析服务器地址' + NETWORK_HINT
+    if (msg.includes('etimedout') || msg.includes('timeout')) return '连接超时' + NETWORK_HINT
+    if (msg.includes('econnaborted')) return '连接被中断' + NETWORK_HINT
+    if (msg.includes('epipe')) return '连接已断开' + NETWORK_HINT
+    if (msg.includes('ehostunreach')) return '服务器不可达' + NETWORK_HINT
+    if (msg.includes('eai_again')) return 'DNS 解析失败' + NETWORK_HINT
+    if (msg.includes('not found') || msg.includes('enoent')) return 'claude 命令未找到，请确认已安装 Claude Code CLI'
+    if (msg.includes('permission denied') || msg.includes('eacces')) return '权限不足，请检查文件权限'
+    return rawMsg
   }
 }
 

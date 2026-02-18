@@ -1,6 +1,6 @@
 /**
  * 共享 HTTP 客户端模块
- * 提供统一的 HTTP GET 请求、代理支持和错误分类
+ * 提供统一的 HTTP GET 请求、系统代理支持和错误分类
  * 供 Skills/Agents/Prompts 市场共用
  */
 
@@ -12,54 +12,76 @@ const HTTP_TIMEOUT = 30000
 const MAX_REDIRECTS = 5
 const MAX_CONTENT_LENGTH = 1024 * 1024  // 1MB
 
-// 缓存代理配置，避免每次请求都读磁盘
-let _cachedProxyUrl = undefined
-let _proxyCacheTime = 0
-const PROXY_CACHE_TTL = 30000  // 30 秒
+/**
+ * 通过 Electron session.resolveProxy 获取系统代理
+ * @param {string} url - 请求 URL
+ * @returns {Promise<string|null>} 代理地址或 null
+ */
+async function resolveSystemProxy(url) {
+  try {
+    const { session } = require('electron')
+    const proxyStr = await session.defaultSession.resolveProxy(url)
+    // resolveProxy 返回格式: "PROXY host:port" 或 "DIRECT"
+    if (!proxyStr || proxyStr === 'DIRECT') return null
+    const match = proxyStr.match(/^PROXY\s+(.+)$/)
+    if (match) {
+      const proxyAddr = match[1]
+      // 补全协议前缀
+      if (proxyAddr.startsWith('http://') || proxyAddr.startsWith('https://')) {
+        return proxyAddr
+      }
+      return `http://${proxyAddr}`
+    }
+    return null
+  } catch (e) {
+    console.warn('[HttpClient] Failed to resolve system proxy:', e.message)
+    return null
+  }
+}
 
 /**
- * HTTP GET 请求
+ * HTTP GET 请求（自动使用系统代理）
  * @param {string} url - 请求 URL
  * @param {number} _redirectCount - 内部使用，当前重定向次数
  * @returns {Promise<string>} 响应体
  */
-function httpGet(url, _redirectCount = 0) {
+async function httpGet(url, _redirectCount = 0) {
+  if (_redirectCount > MAX_REDIRECTS) {
+    const err = new Error('重定向次数超限')
+    err.code = 'TOO_MANY_REDIRECTS'
+    throw err
+  }
+
+  const parsedUrl = new URL(url)
+  const isHttps = parsedUrl.protocol === 'https:'
+  const httpModule = isHttps ? https : http
+
+  const options = {
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port || (isHttps ? 443 : 80),
+    path: parsedUrl.pathname + parsedUrl.search,
+    method: 'GET',
+    headers: {
+      'User-Agent': 'CC-Desktop-Market/1.0',
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache'
+    },
+    timeout: HTTP_TIMEOUT
+  }
+
+  // 使用系统代理
+  const proxyUrl = await resolveSystemProxy(url)
+  if (proxyUrl && isHttps) {
+    try {
+      const { HttpsProxyAgent } = require('https-proxy-agent')
+      options.agent = new HttpsProxyAgent(proxyUrl)
+      console.log('[HttpClient] Using system proxy:', proxyUrl)
+    } catch (e) {
+      console.warn('[HttpClient] https-proxy-agent not available, direct connection')
+    }
+  }
+
   return new Promise((resolve, reject) => {
-    if (_redirectCount > MAX_REDIRECTS) {
-      const err = new Error('重定向次数超限')
-      err.code = 'TOO_MANY_REDIRECTS'
-      return reject(err)
-    }
-
-    const parsedUrl = new URL(url)
-    const isHttps = parsedUrl.protocol === 'https:'
-    const httpModule = isHttps ? https : http
-
-    const options = {
-      hostname: parsedUrl.hostname,
-      port: parsedUrl.port || (isHttps ? 443 : 80),
-      path: parsedUrl.pathname + parsedUrl.search,
-      method: 'GET',
-      headers: {
-        'User-Agent': 'CC-Desktop-Market/1.0',
-        'Cache-Control': 'no-cache, no-store',
-        'Pragma': 'no-cache'
-      },
-      timeout: HTTP_TIMEOUT
-    }
-
-    // 尝试获取代理配置
-    const proxyUrl = getProxyUrl()
-    if (proxyUrl && isHttps) {
-      try {
-        const { HttpsProxyAgent } = require('https-proxy-agent')
-        options.agent = new HttpsProxyAgent(proxyUrl)
-        console.log('[HttpClient] Using proxy:', proxyUrl)
-      } catch (e) {
-        console.warn('[HttpClient] https-proxy-agent not available, direct connection')
-      }
-    }
-
     const req = httpModule.request(options, (res) => {
       // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -106,40 +128,20 @@ function httpGet(url, _redirectCount = 0) {
 }
 
 /**
- * 获取代理 URL（从应用配置中读取，带缓存）
- * @returns {string|null}
- */
-function getProxyUrl() {
-  const now = Date.now()
-  if (_cachedProxyUrl !== undefined && (now - _proxyCacheTime) < PROXY_CACHE_TTL) {
-    return _cachedProxyUrl
-  }
-
-  try {
-    const ConfigManager = require('../config-manager')
-    const configManager = new ConfigManager()
-    const apiConfig = configManager.getAPIConfig()
-    if (apiConfig.useProxy && apiConfig.httpsProxy) {
-      _cachedProxyUrl = apiConfig.httpsProxy
-    } else {
-      _cachedProxyUrl = null
-    }
-  } catch (e) {
-    _cachedProxyUrl = null
-  }
-  _proxyCacheTime = now
-  return _cachedProxyUrl
-}
-
-/**
  * 分类 HTTP 错误为用户友好的消息
  * @param {Error} err
  * @returns {string}
  */
 function classifyHttpError(err) {
-  if (err.code === 'TIMEOUT') return '连接超时'
-  if (err.code === 'ENOTFOUND') return '网络错误，请检查连接'
-  if (err.code === 'ECONNREFUSED') return '连接被拒绝'
+  const NETWORK_HINT = '，请检查网络连接或尝试开启 VPN'
+  if (err.code === 'TIMEOUT') return '连接超时' + NETWORK_HINT
+  if (err.code === 'ENOTFOUND') return '无法解析服务器地址' + NETWORK_HINT
+  if (err.code === 'ECONNREFUSED') return '连接被拒绝' + NETWORK_HINT
+  if (err.code === 'ECONNRESET') return '连接被重置' + NETWORK_HINT
+  if (err.code === 'ECONNABORTED') return '连接被中断' + NETWORK_HINT
+  if (err.code === 'EPIPE') return '连接已断开' + NETWORK_HINT
+  if (err.code === 'EHOSTUNREACH') return '服务器不可达' + NETWORK_HINT
+  if (err.code === 'EAI_AGAIN') return 'DNS 解析失败' + NETWORK_HINT
   if (err.code === 'TOO_MANY_REDIRECTS') return '重定向次数过多'
   if (err.code === 'CONTENT_TOO_LARGE') return '响应内容过大（超过 1MB）'
   if (err.statusCode === 404) return '注册表未找到，请检查 URL'
@@ -192,4 +194,4 @@ function isSafeFilename(filename) {
   return true
 }
 
-module.exports = { httpGet, getProxyUrl, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }
+module.exports = { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }
