@@ -76,11 +76,16 @@ const agentsMarketMixin = {
       return { success: false, error: '参数不完整' }
     }
 
-    // 先删除已有文件
+    // 先删除已有文件（包括 .disabled 状态的文件）
     const targetPath = path.join(this.userAgentsDir, `${agent.id}.md`)
+    const disabledPath = targetPath + '.disabled'
     if (fs.existsSync(targetPath)) {
       fs.unlinkSync(targetPath)
       console.log(`[AgentsManager] Removed existing agent for force install: ${agent.id}`)
+    }
+    if (fs.existsSync(disabledPath)) {
+      fs.unlinkSync(disabledPath)
+      console.log(`[AgentsManager] Removed disabled agent for force install: ${agent.id}`)
     }
 
     return this.installMarketAgent({ registryUrl, agent })
