@@ -131,6 +131,16 @@ Download the installer for your platform from [latest Release](https://github.co
 - Provides detailed manual installation guidance on failure
 - Installs CC Desktop
 
+#### macOS Security Note
+
+On first launch, macOS may block the app with "cannot be opened because the developer cannot be verified". To fix this:
+
+```bash
+xattr -cr /Applications/CC\ Desktop.app
+```
+
+Or go to **System Settings → Privacy & Security**, find the blocked app message, and click "Open Anyway".
+
 #### Manual Install
 
 To install without the script, download the installer directly (ensure prerequisites from Section 2 are installed):
