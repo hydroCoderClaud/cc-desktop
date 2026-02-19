@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.50
+**当前版本**：1.6.51
 
 **版本号管理规范**：
 - 格式：`主版本.次版本.修订号`（如 1.6.38）

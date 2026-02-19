@@ -119,6 +119,7 @@ jobs:
           name: win-build
           path: |
             dist/*.exe
+            dist/*.blockmap
             dist/latest.yml
             dist/cc-desktop-*-windows.zip
           if-no-files-found: ignore
