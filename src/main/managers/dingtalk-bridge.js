@@ -24,6 +24,10 @@ class DingTalkBridge {
 
     // 响应收集器：{ sessionId: { chunks, resolve, webhook } }
     this.responseCollectors = new Map()
+
+    // 消息去重：记录最近处理过的 msgId，防止 SDK 重投导致重复处理
+    this._processedMsgIds = new Set()
+    this._MSG_ID_TTL = 10 * 60 * 1000 // 10 分钟后清理
   }
 
   /**
@@ -62,6 +66,7 @@ class DingTalkBridge {
     }
     this.connected = false
     this.responseCollectors.clear()
+    this._processedMsgIds.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', { connected: false })
   }
@@ -96,14 +101,14 @@ class DingTalkBridge {
     })
 
     // 注册机器人消息回调
+    // 重要：回调必须立即返回，否则 SDK 收不到 ACK 会重投消息
     this.client.registerCallbackListener(
       '/v1.0/im/bot/messages/get',
-      async (res) => {
-        try {
-          await this._handleDingTalkMessage(res)
-        } catch (err) {
+      (res) => {
+        this._handleDingTalkMessage(res).catch(err => {
           console.error('[DingTalk] Message handling error:', err)
-        }
+        })
+        // 立即返回，不等待处理完成
       }
     )
 
@@ -119,10 +124,20 @@ class DingTalkBridge {
    */
   async _handleDingTalkMessage(res) {
     const data = JSON.parse(res.data)
-    const { text, senderStaffId, senderNick, sessionWebhook } = data
+    const { msgId, text, senderStaffId, senderNick, sessionWebhook } = data
 
     const userText = text?.content?.trim()
     if (!userText) return
+
+    // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
+    if (msgId && this._processedMsgIds.has(msgId)) {
+      console.log(`[DingTalk] Duplicate message ${msgId}, skipping`)
+      return
+    }
+    if (msgId) {
+      this._processedMsgIds.add(msgId)
+      setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
+    }
 
     console.log(`[DingTalk] Message from ${senderNick}(${senderStaffId}): ${userText.substring(0, 50)}`)
 
@@ -309,7 +324,6 @@ class DingTalkBridge {
     }
 
     try {
-      const fetch = globalThis.fetch || require('node:http')
       const response = await globalThis.fetch(sessionWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
