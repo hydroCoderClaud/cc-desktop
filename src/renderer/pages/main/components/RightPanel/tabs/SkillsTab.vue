@@ -137,6 +137,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useAppMode } from '@composables/useAppMode'
 import { NInput, NModal, NButton, NButtonGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -332,8 +333,15 @@ const loadSkills = async () => {
   } finally { loading.value = false }
 }
 
+const { isDeveloperMode } = useAppMode()
+
 watch(() => props.currentProject, loadSkills)
 onMounted(loadSkills)
+
+// 从 Agent 模式切回开发者模式时刷新列表
+watch(isDeveloperMode, (val) => {
+  if (val) loadSkills()
+})
 </script>
 
 <style scoped>

@@ -263,7 +263,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useAppMode } from '@composables/useAppMode'
 import { NInput, NSwitch, useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useIPC } from '@composables/useIPC'
@@ -532,8 +533,15 @@ const handleOpenFile = async (filePath) => {
   }
 }
 
+const { isDeveloperMode } = useAppMode()
+
 onMounted(() => {
   loadPlugins()
+})
+
+// 从 Agent 模式切回开发者模式时刷新列表（安装/卸载/更新后能立即看到变化）
+watch(isDeveloperMode, (val) => {
+  if (val) loadPlugins()
 })
 </script>
 

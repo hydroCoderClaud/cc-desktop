@@ -274,6 +274,19 @@ class CapabilityManager {
         }
         case 'plugin': {
           installResult = await this.pluginCli.install(componentId)
+          // 安装失败且市场未注册时，尝试自动注册市场后重试
+          if (!installResult.success && capability.marketplace) {
+            const needAutoRegister = await this._isMarketplaceNotRegistered(componentId)
+            if (needAutoRegister) {
+              console.log(`[CapabilityManager] Auto-registering marketplace: ${capability.marketplace}`)
+              const addResult = await this.pluginCli.addMarketplace(capability.marketplace)
+              if (addResult.success) {
+                installResult = await this.pluginCli.install(componentId)
+              } else {
+                installResult = { success: false, error: `市场 "${capability.marketplace}" 注册失败: ${addResult.error}` }
+              }
+            }
+          }
           break
         }
         default:
@@ -411,6 +424,24 @@ class CapabilityManager {
       }
       default:
         throw new Error(`Unknown component type: ${type}`)
+    }
+  }
+
+  /**
+   * 检查 componentId 对应的市场是否未注册
+   * @param {string} componentId - 格式: pluginName@marketplaceName
+   * @returns {Promise<boolean>}
+   */
+  async _isMarketplaceNotRegistered(componentId) {
+    const atIdx = componentId.lastIndexOf('@')
+    if (atIdx <= 0) return false
+    const marketplaceName = componentId.substring(atIdx + 1)
+    try {
+      const marketplaces = await this.pluginCli.listMarketplaces()
+      const names = (Array.isArray(marketplaces) ? marketplaces : []).map(m => m.name || '')
+      return !names.includes(marketplaceName)
+    } catch {
+      return false
     }
   }
 

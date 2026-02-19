@@ -452,6 +452,7 @@ const handleRemoveMarketplace = (mp) => {
           message.success(t('rightPanel.plugins.removeMarketplaceSuccess'))
           await fetchMarketplaces()
           await fetchData()
+          emit('installed') // 刷新父级插件列表
         } else {
           message.error(result.error || t('rightPanel.plugins.removeMarketplaceFailed'))
         }

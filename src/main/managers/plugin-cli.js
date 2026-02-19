@@ -38,7 +38,9 @@ class PluginCli {
       return { success: true, message: result.stdout.trim() || 'Plugin installed successfully' }
     } catch (err) {
       console.error('[PluginCli] install error:', err)
-      return { success: false, error: err.message || 'Failed to install plugin' }
+      // 对 "not found" 类错误做精确归因：市场未注册 vs 插件不存在
+      const errMsg = await this._refineNotFoundError(pluginId, err.message)
+      return { success: false, error: errMsg }
     }
   }
 
@@ -251,6 +253,42 @@ class PluginCli {
   }
 
   /**
+   * 对 install 的 "not found" 错误做精确归因
+   * - 市场未注册 → 提示去开发者模式注册
+   * - 市场已注册但插件不存在 → 提示检查名称
+   * - 非 not found 错误 → 原样返回
+   * @param {string} pluginId - 插件 ID（格式: name@marketplace）
+   * @param {string} errMsg - 原始错误信息
+   * @returns {Promise<string>}
+   */
+  async _refineNotFoundError(pluginId, errMsg) {
+    if (!errMsg || !errMsg.toLowerCase().includes('not found')) {
+      return errMsg || 'Failed to install plugin'
+    }
+    // 解析 marketplace 名称
+    const atIdx = pluginId.lastIndexOf('@')
+    if (atIdx <= 0) return errMsg // 无 @ 分隔符，无法判断，原样返回
+
+    const marketplaceName = pluginId.substring(atIdx + 1)
+    const pluginName = pluginId.substring(0, atIdx)
+
+    try {
+      const marketplaces = await this.listMarketplaces()
+      const names = (Array.isArray(marketplaces) ? marketplaces : [])
+        .map(m => m.name || m.marketplace || '')
+      const registered = names.some(n => n === marketplaceName)
+
+      if (!registered) {
+        return `市场 "${marketplaceName}" 未注册，请先在开发者模式的 Plugins 标签页中添加该插件市场`
+      }
+      return `市场 "${marketplaceName}" 中未找到插件 "${pluginName}"，请检查插件名称是否正确`
+    } catch {
+      // listMarketplaces 失败时退回原始信息
+      return errMsg
+    }
+  }
+
+  /**
    * 安全解析 JSON 输出
    * @param {string} text - CLI 输出文本
    * @param {*} fallback - 解析失败时的默认值
@@ -282,7 +320,8 @@ class PluginCli {
     if (msg.includes('epipe')) return '连接已断开' + NETWORK_HINT
     if (msg.includes('ehostunreach')) return '服务器不可达' + NETWORK_HINT
     if (msg.includes('eai_again')) return 'DNS 解析失败' + NETWORK_HINT
-    if (msg.includes('not found') || msg.includes('enoent')) return 'claude 命令未找到，请确认已安装 Claude Code CLI'
+    if (msg.includes('enoent')) return 'claude 命令未找到，请确认已安装 Claude Code CLI'
+    if (msg.includes('not found')) return rawMsg
     if (msg.includes('permission denied') || msg.includes('eacces')) return '权限不足，请检查文件权限'
     return rawMsg
   }
