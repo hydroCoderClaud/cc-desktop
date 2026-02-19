@@ -4,76 +4,34 @@
 
 Claude Code CLI 的桌面启动器 + 本地桌面AI助手。
 
-## 功能特点
+## 一、软件定位
 
-- 多终端会话管理，支持后台运行
+CC Desktop 是 Claude Code CLI 的图形化桌面终端，提供两种工作模式：
+
+- **Developer 模式**：完整的 CLI 终端界面，多会话管理，支持后台运行
+- **Agent 模式**：Chat 对话界面，支持多模态（图片识别）、流式输出
+
+核心功能：
+
 - 多 API 配置管理，支持官方/中转服务商
 - 自定义模型映射
-- Skills / Agents / Hooks / MCP 可视化管理
+- Skills / Agents / Hooks / MCP / Plugins 可视化管理
 - 深色/浅色主题，6 套配色方案
 - 中英文界面
 
-## 快速安装
-
-### 从 Release 下载（推荐）
-
-**Windows**：
-1. 下载 [最新版本 Windows 安装包](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
-2. 解压后，右键 PowerShell "以管理员身份运行"
-3. 执行：
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\install.ps1
-   ```
-
-**macOS**：
-1. 下载 [最新版本 macOS 安装包](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
-2. 解压后，在终端执行：
-   ```bash
-   bash install.sh
-   ```
-
-**一键安装脚本功能**：
-- 可选配置代理（国内用户推荐，默认 http://127.0.0.1:15236）
-- 自动安装 Claude Code CLI（官方脚本优先，失败则可用 npm）
-- 安装失败时提供详细的手动安装指引
-- 自动安装 CC Desktop
-
-### 手动下载
-
-如果不使用安装脚本，可以直接下载对应平台的安装包：
-
-- **Windows**：`CC Desktop Setup 1.6.40.exe`
-- **macOS (Apple Silicon)**：`CC Desktop-1.6.40-darwin-arm64.dmg`
-- **macOS (Intel)**：`CC Desktop-1.6.40-darwin-x64.dmg`
-
-但仍需手动安装 Claude Code CLI（见下方"安装前提"）。
-
-## 安装前提
-
-> **提示**：如果使用上方的"快速安装"中的一键安装脚本，脚本会自动检测并安装依赖。
-
-### ⚠️ 重要依赖说明
-
-**Node.js**（推荐安装）：
-
-- **Terminal 模式**：❌ 不需要
-- **Agent 模式**：✅ **必需**（Agent SDK 需要调用系统 Node.js 环境）
-
-> **注意**：即使使用官方二进制方式安装 Claude CLI，Agent 模式仍然需要系统 Node.js。
->
-> 一键安装脚本会自动检测 Node.js，如未安装会提示并协助安装。
-
-**安装方式**：
-- **macOS**: `brew install node` 或下载 [https://nodejs.org/](https://nodejs.org/)
-- **Windows**: `winget install OpenJS.NodeJS.LTS` 或下载 [https://nodejs.org/](https://nodejs.org/)
-
----
+## 二、环境依赖安装
 
 ### Windows
 
 #### 1. 安装 Node.js
 
 从 [Node.js 官网](https://nodejs.org/) 下载并安装 LTS 版本。
+
+或通过命令行安装：
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
 
 #### 2. 安装 Git Bash
 
@@ -91,21 +49,21 @@ Claude Code CLI 的桌面启动器 + 本地桌面AI助手。
 irm https://claude.ai/install.ps1 | iex
 ```
 
-**替代方式**（npm 安装）：
+> **注意**：首次运行 PowerShell 脚本可能遇到执行策略限制。如果报错，先以管理员身份运行：
+> ```powershell
+> Set-ExecutionPolicy RemoteSigned
+> ```
+
+**备选方式**（npm 安装）：
 
 ```powershell
 npm install -g @anthropic-ai/claude-code
 ```
 
-**注意**：首次在 Windows 上运行 PowerShell 脚本可能遇到执行策略限制。如果报错，以管理员身份运行：
-
-```powershell
-Set-ExecutionPolicy RemoteSigned
-```
-
 #### 4. 验证安装
 
 ```powershell
+node --version
 claude --version
 ```
 
@@ -129,54 +87,79 @@ brew install node
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-**替代方式**（npm 安装）：
+> 官方安装脚本会自动处理环境变量配置，推荐使用。
+
+**备选方式**（npm 安装）：
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
 
-> 官方安装脚本会自动处理环境变量配置，推荐使用。
-
 #### 3. 验证安装
 
 ```bash
+node --version
 claude --version
 ```
 
-## 从源码安装（开发者）
+## 三、安装 CC Desktop
 
-### 下载源码
+### 方式 A：Release 版本安装（推荐）
+
+从 [最新版本 Release](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 下载对应平台安装包。
+
+#### Windows
+
+1. 下载 `cc-desktop-*-windows.zip`，解压
+2. 右键 PowerShell「以管理员身份运行」，进入解压目录
+3. 执行一键安装脚本：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+
+#### macOS
+
+1. 下载 `cc-desktop-*-macos.tar.gz`，解压
+2. 在终端进入解压目录，执行一键安装脚本：
+   ```bash
+   bash install.sh
+   ```
+
+**一键安装脚本功能**：
+- 可选配置代理（国内用户推荐，默认 `http://127.0.0.1:15236`）
+- 自动检测 Claude Code CLI，未安装时自动安装
+- 安装失败时提供详细的手动安装指引
+- 自动安装 CC Desktop
+
+#### 手动安装
+
+如果不使用安装脚本，可直接下载对应安装包双击安装（需提前完成第二节的环境依赖安装）：
+
+- **Windows**：`CC Desktop Setup *.exe`
+- **macOS (Apple Silicon)**：`*-darwin-arm64.dmg`
+- **macOS (Intel)**：`*-darwin-x64.dmg`
+
+### 方式 B：源码编译安装（开发者）
 
 ```bash
+# 下载源码
 git clone https://github.com/hydroCoderClaud/cc-desktop.git
 cd cc-desktop
-```
 
-### 安装依赖
-
-```bash
+# 安装依赖
 npm install
-```
 
-### 开发模式
-
-```bash
+# 开发模式运行
 npm run dev
-```
 
-### 打包
-
-```bash
-# Windows
-npm run build:win
-
-# macOS
-npm run build:mac
+# 打包
+npm run build:win    # Windows
+npm run build:mac    # macOS
 ```
 
 打包后的安装文件在 `dist` 目录中。
 
-## 使用入门
+## 四、使用入门
 
 ### 第一步：配置服务商
 
@@ -194,7 +177,7 @@ npm run build:mac
 1. 点击左下角 **设置图标** → **API 配置管理**
 2. 点击 **添加配置**
 3. 填写配置信息：
-   - **配置名称**：给配置起个名字（如"我的官方API"）
+   - **配置名称**：给配置起个名字（如「我的官方API」）
    - **服务商**：选择第一步配置的服务商
    - **API Key**：填写你的 API 密钥
 
@@ -269,15 +252,6 @@ npm install -g @anthropic-ai/claude-code
 ### Q: Windows 上终端显示乱码？
 
 A: 确保系统已安装 Git Bash 并添加到 PATH。
-
-## 开发
-
-```bash
-npm run dev          # 开发模式
-npm run build:win    # Windows 构建
-npm run build:mac    # macOS 构建
-npm test             # 运行测试
-```
 
 ## 许可证
 
