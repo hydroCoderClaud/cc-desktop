@@ -31,6 +31,7 @@ const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-
 const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-handlers');
 const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 'capability-handlers');
 const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-handlers');
+const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -44,6 +45,7 @@ const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
 const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
 const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
+const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -64,7 +66,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge) {
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -627,6 +629,24 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   if (updateManager && setupUpdateHandlers) {
     setupUpdateHandlers(updateManager);
   }
+
+  // ========================================
+  // 钉钉桥接
+  // ========================================
+  if (dingtalkBridge && setupDingTalkHandlers) {
+    setupDingTalkHandlers(ipcMain, dingtalkBridge, configManager);
+  }
+
+  // 打开钉钉桥接设置窗口
+  ipcMain.handle('window:openDingTalkSettings', async () => {
+    createSubWindow({
+      width: 600,
+      height: 600,
+      title: '钉钉桥接设置 - CC Desktop',
+      page: 'dingtalk-settings'
+    });
+    return { success: true };
+  });
 }
 
 module.exports = { setupIPCHandlers };

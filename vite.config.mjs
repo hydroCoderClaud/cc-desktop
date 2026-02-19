@@ -31,7 +31,8 @@ export default defineConfig({
         globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html'),
         appearanceSettings: path.resolve(__dirname, 'src/renderer/pages/appearance-settings/index.html'),
         sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html'),
-        updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html')
+        updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html'),
+        dingtalkSettings: path.resolve(__dirname, 'src/renderer/pages/dingtalk-settings/index.html')
       }
     }
   },

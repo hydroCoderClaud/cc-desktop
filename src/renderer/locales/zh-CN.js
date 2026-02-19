@@ -753,6 +753,7 @@ export default {
     globalSettings: '全局设置',
     appearanceSettings: '外观设置',
     sessionHistory: '会话查询',
+    dingtalkBridge: '钉钉桥接',
     appUpdate: '应用更新',
     claudeSettings: 'Claude 配置文件',
     claudeSettingsNotFound: 'Claude 配置文件不存在'
@@ -1317,5 +1318,35 @@ export default {
     updateAvailableStatus: '发现新版本 {version}',
     checkFailed: '检查失败: {error}',
     needRedownload: '安装文件已失效，请重新下载'
+  },
+
+  // 钉钉桥接设置
+  dingtalkSettings: {
+    title: '钉钉桥接设置',
+    description: '通过钉钉机器人桥接，可以在手机钉钉上直接与 Agent 模式对话。需要先在钉钉开放平台创建企业内部应用并启用机器人。',
+    basicConfig: '基本配置',
+    enableBridge: '启用钉钉桥接',
+    enableHint: '开启后，应用启动时自动连接钉钉',
+    appKey: 'AppKey (ClientID)',
+    appKeyPlaceholder: '请输入钉钉应用的 AppKey',
+    appKeyHint: '在钉钉开放平台 → 应用信息中获取',
+    appSecret: 'AppSecret (ClientSecret)',
+    appSecretPlaceholder: '请输入钉钉应用的 AppSecret',
+    appSecretHint: '在钉钉开放平台 → 应用信息中获取',
+    defaultCwd: '默认工作目录',
+    defaultCwdPlaceholder: '钉钉会话的默认工作目录（留空则使用用户目录）',
+    defaultCwdHint: '钉钉消息创建的 Agent 会话将在此目录下工作',
+    browse: '浏览',
+    connectionControl: '连接控制',
+    connect: '连接',
+    reconnect: '重新连接',
+    disconnect: '断开',
+    statusConnected: '已连接',
+    statusDisconnected: '未连接',
+    activeSessions: '当前活跃会话: {count} 个',
+    saveSuccess: '钉钉配置已保存',
+    connectSuccess: '钉钉桥接连接成功',
+    connectFailed: '钉钉桥接连接失败',
+    disconnected: '钉钉桥接已断开'
   }
 }

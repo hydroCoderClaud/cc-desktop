@@ -90,6 +90,9 @@ class AgentSessionManager {
 
     // Query 控制管理器（依赖注入）
     this.queryManager = new AgentQueryManager(this)
+
+    // 外部消息监听器（可选，钉钉桥接等使用）
+    this.messageListener = null
   }
 
   /**
@@ -583,6 +586,11 @@ class AgentSessionManager {
           sessionId: session.id,
           error: error.message || 'Session error'
         })
+
+        // 通知外部监听器（钉钉桥接等）
+        if (this.messageListener?.onAgentError) {
+          try { this.messageListener.onAgentError(session.id, error.message) } catch (e) { /* ignore */ }
+        }
       }
     } finally {
       // 清理引用
@@ -694,6 +702,11 @@ class AgentSessionManager {
           message: assistantData
         })
 
+        // 通知外部监听器（钉钉桥接等）
+        if (this.messageListener?.onAgentMessage) {
+          try { this.messageListener.onAgentMessage(session.id, assistantData) } catch (e) { /* ignore */ }
+        }
+
         // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
         if (msg.message?.usage) {
           this._safeSend('agent:usage', {
@@ -760,6 +773,11 @@ class AgentSessionManager {
           sessionId: session.id,
           status: AgentStatus.IDLE
         })
+
+        // 通知外部监听器（钉钉桥接等）：一轮对话完成
+        if (this.messageListener?.onAgentResult) {
+          try { this.messageListener.onAgentResult(session.id) } catch (e) { /* ignore */ }
+        }
 
         // 更新 DB 中的统计信息
         if (this.sessionDatabase) {

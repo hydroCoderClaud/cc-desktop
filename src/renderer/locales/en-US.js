@@ -750,6 +750,7 @@ export default {
     globalSettings: 'Global Settings',
     appearanceSettings: 'Appearance',
     sessionHistory: 'Session Browser',
+    dingtalkBridge: 'DingTalk Bridge',
     appUpdate: 'App Update',
     claudeSettings: 'Claude Settings File',
     claudeSettingsNotFound: 'Claude settings file not found'
@@ -1314,5 +1315,35 @@ export default {
     updateAvailableStatus: 'New version {version} available',
     checkFailed: 'Check failed: {error}',
     needRedownload: 'Update file expired, please download again'
+  },
+
+  // DingTalk Bridge Settings
+  dingtalkSettings: {
+    title: 'DingTalk Bridge Settings',
+    description: 'DingTalk robot bridge allows you to chat with Agent mode from your phone via DingTalk. You need to create an enterprise internal app on DingTalk Open Platform and enable the robot.',
+    basicConfig: 'Basic Configuration',
+    enableBridge: 'Enable DingTalk Bridge',
+    enableHint: 'Auto-connect to DingTalk on app startup',
+    appKey: 'AppKey (ClientID)',
+    appKeyPlaceholder: 'Enter DingTalk app AppKey',
+    appKeyHint: 'Found in DingTalk Open Platform → App Info',
+    appSecret: 'AppSecret (ClientSecret)',
+    appSecretPlaceholder: 'Enter DingTalk app AppSecret',
+    appSecretHint: 'Found in DingTalk Open Platform → App Info',
+    defaultCwd: 'Default Working Directory',
+    defaultCwdPlaceholder: 'Default working directory for DingTalk sessions (leave empty for home)',
+    defaultCwdHint: 'Agent sessions from DingTalk will work in this directory',
+    browse: 'Browse',
+    connectionControl: 'Connection Control',
+    connect: 'Connect',
+    reconnect: 'Reconnect',
+    disconnect: 'Disconnect',
+    statusConnected: 'Connected',
+    statusDisconnected: 'Disconnected',
+    activeSessions: 'Active sessions: {count}',
+    saveSuccess: 'DingTalk config saved',
+    connectSuccess: 'DingTalk bridge connected',
+    connectFailed: 'DingTalk bridge connection failed',
+    disconnected: 'DingTalk bridge disconnected'
   }
 }

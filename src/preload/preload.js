@@ -152,6 +152,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
+  openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
 
   // ========================================
@@ -644,6 +645,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('update-need-redownload', listener);
     return () => ipcRenderer.removeListener('update-need-redownload', listener);
+  },
+
+  // ========================================
+  // 钉钉桥接
+  // ========================================
+  getDingTalkStatus: () => ipcRenderer.invoke('dingtalk:getStatus'),
+  startDingTalk: () => ipcRenderer.invoke('dingtalk:start'),
+  stopDingTalk: () => ipcRenderer.invoke('dingtalk:stop'),
+  restartDingTalk: () => ipcRenderer.invoke('dingtalk:restart'),
+  updateDingTalkConfig: (config) => ipcRenderer.invoke('dingtalk:updateConfig', config),
+
+  // 钉钉事件监听
+  onDingTalkStatusChange: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('dingtalk:statusChange', listener);
+    return () => ipcRenderer.removeListener('dingtalk:statusChange', listener);
+  },
+  onDingTalkError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('dingtalk:error', listener);
+    return () => ipcRenderer.removeListener('dingtalk:error', listener);
+  },
+  onDingTalkMessageReceived: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('dingtalk:messageReceived', listener);
+    return () => ipcRenderer.removeListener('dingtalk:messageReceived', listener);
+  },
+  onDingTalkSessionCreated: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('dingtalk:sessionCreated', listener);
+    return () => ipcRenderer.removeListener('dingtalk:sessionCreated', listener);
   },
 
   // Agent 事件监听（main → renderer 推送）

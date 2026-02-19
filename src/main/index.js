@@ -11,6 +11,7 @@ const { ActiveSessionManager } = require('./active-session-manager');
 const { AgentSessionManager } = require('./agent-session-manager');
 const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
+const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -21,6 +22,7 @@ let activeSessionManager = null;
 let agentSessionManager = null;
 let capabilityManager = null;
 let updateManager = null;
+let dingtalkBridge = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -31,6 +33,7 @@ function cleanupAllSessions() {
   if (cleanupDone) return;
   cleanupDone = true;
   try {
+    if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
     if (terminalManager) terminalManager.kill();
     if (activeSessionManager) activeSessionManager.closeAll(false);
     if (agentSessionManager) agentSessionManager.closeAllSync();
@@ -199,11 +202,22 @@ app.whenReady().then(async () => {
   // 初始化更新管理器
   updateManager = new UpdateManager(mainWindow)
 
+  // 初始化钉钉桥接
+  dingtalkBridge = new DingTalkBridge(configManager, agentSessionManager, mainWindow)
+  agentSessionManager.messageListener = dingtalkBridge
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge);
 
   // 启动后延迟 5 秒检查更新（避免影响启动体验）
   updateManager.scheduleUpdateCheck(5000)
+
+  // 延迟启动钉钉桥接（不阻塞主流程）
+  setTimeout(() => {
+    dingtalkBridge.start().catch(err => {
+      console.error('[Main] DingTalk bridge auto-start failed:', err.message)
+    })
+  }, 3000)
 
   // macOS 特定行为
   app.on('activate', () => {
@@ -223,6 +237,9 @@ app.whenReady().then(async () => {
         agentSessionManager.mainWindow = mainWindow;
         // macOS: CLI 进程在 closed 事件中已被 closeAllSync 清理，通知前端刷新状态
         agentSessionManager.notifyAllSessionsClosed();
+      }
+      if (dingtalkBridge) {
+        dingtalkBridge.mainWindow = mainWindow;
       }
     }
   });

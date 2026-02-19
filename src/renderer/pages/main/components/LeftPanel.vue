@@ -549,6 +549,7 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
   { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { type: 'divider', key: 'd1' },
+  { label: t('settingsMenu.dingtalkBridge'), key: 'dingtalk-settings', icon: renderMenuIcon('robot') },
   { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
   {
     key: 'app-update',
@@ -661,6 +662,9 @@ const handleSettingsSelect = async (key) => {
       break
     case 'session-history':
       window.electronAPI.openSessionManager()
+      break
+    case 'dingtalk-settings':
+      window.electronAPI.openDingTalkSettings()
       break
     case 'app-update':
       window.electronAPI.openUpdateManager()

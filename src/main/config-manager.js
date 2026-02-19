@@ -49,6 +49,14 @@ class ConfigManager {
         registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
       },
 
+      // 钉钉桥接配置
+      dingtalk: {
+        enabled: false,
+        appKey: '',
+        appSecret: '',
+        defaultCwd: '',
+      },
+
       settings: {
         theme: 'light',
 

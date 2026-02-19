@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>钉钉接入 Agent 模式 - 架构图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 40px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    color: #DA7756;
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+  .diagram {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 220px 60px 240px 60px 440px;
+    grid-template-rows: auto;
+    align-items: start;
+    gap: 0;
+  }
+
+  /* Boxes */
+  .box {
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .phone-zone {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    grid-column: 1;
+  }
+  .cloud-zone {
+    background: #1a1a3e;
+    border: 2px solid #533483;
+    grid-column: 3;
+  }
+  .desktop-zone {
+    background: #162e16;
+    border: 2px solid #1e5128;
+    grid-column: 5;
+  }
+
+  .zone-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .phone-zone .zone-title { color: #4fc3f7; }
+  .cloud-zone .zone-title { color: #ce93d8; }
+  .desktop-zone .zone-title { color: #81c784; }
+
+  .component {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .component:last-child { margin-bottom: 0; }
+  .component .name {
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .component .desc {
+    color: #aaa;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .component.highlight {
+    border-color: #DA7756;
+    background: rgba(218, 119, 86, 0.1);
+  }
+  .component.highlight .name { color: #DA7756; }
+  .component.new-module {
+    border-color: #4fc3f7;
+    background: rgba(79, 195, 247, 0.08);
+  }
+  .component.new-module .name { color: #4fc3f7; }
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .tag-new { background: #4fc3f7; color: #000; }
+  .tag-exist { background: #555; color: #ccc; }
+
+  /* Arrows */
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 80px;
+  }
+  .arrow-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 8px 0;
+  }
+  .arrow-label {
+    font-size: 10px;
+    color: #888;
+    writing-mode: horizontal-tb;
+    text-align: center;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .arrow-line {
+    display: flex;
+    align-items: center;
+    color: #666;
+    font-size: 20px;
+    letter-spacing: -2px;
+  }
+  .arrow-line.right::after { content: '→'; font-size: 16px; }
+  .arrow-line.left::after { content: '←'; font-size: 16px; }
+  .arrow-line.bidir { color: #DA7756; }
+
+  /* Sub-grid inside desktop */
+  .desktop-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .desktop-inner .full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* Flow section */
+  .flow-section {
+    max-width: 1100px;
+    margin: 50px auto 0;
+  }
+  .flow-title {
+    font-size: 18px;
+    color: #DA7756;
+    margin-bottom: 20px;
+  }
+  .flow-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .flow-step .step-num {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    border-radius: 50%;
+    background: #DA7756;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .flow-step .step-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .flow-step .step-desc {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+  .flow-step.reverse { border-color: #4fc3f7; }
+  .flow-step.reverse .step-num { background: #4fc3f7; color: #000; }
+
+  /* Notes */
+  .notes {
+    max-width: 1100px;
+    margin: 40px auto 0;
+    background: rgba(218, 119, 86, 0.08);
+    border: 1px solid rgba(218, 119, 86, 0.3);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .notes h3 { color: #DA7756; font-size: 15px; margin-bottom: 12px; }
+  .notes ul { padding-left: 20px; }
+  .notes li { font-size: 13px; color: #bbb; margin-bottom: 6px; line-height: 1.5; }
+  .notes li strong { color: #e0e0e0; }
+</style>
+</head>
+<body>
+
+<h1>钉钉接入 Agent 模式 · 架构图</h1>
+<p class="subtitle">手机钉钉 ↔ 钉钉云 ↔ CC Desktop（本地） ↔ Claude API</p>
+
+<div class="diagram">
+
+  <!-- 手机端 -->
+  <div class="box phone-zone">
+    <div class="zone-title">📱 手机端</div>
+    <div class="component">
+      <div class="name">钉钉 App</div>
+      <div class="desc">群聊或单聊中 @机器人 发送消息</div>
+    </div>
+    <div class="component">
+      <div class="name">用户操作</div>
+      <div class="desc">
+        发文字 → 对话<br>
+        发图片 → 多模态<br>
+        收回复 → Markdown
+      </div>
+    </div>
+  </div>
+
+  <!-- 箭头1 -->
+  <div class="arrow-col">
+    <div class="arrow-group">
+      <div class="arrow-label">@机器人<br>发消息</div>
+      <div class="arrow-line right">──</div>
+    </div>
+    <div style="height: 30px;"></div>
+    <div class="arrow-group">
+      <div class="arrow-label">回复<br>Markdown</div>
+      <div class="arrow-line left">──</div>
+    </div>
+  </div>
+
+  <!-- 钉钉云 -->
+  <div class="box cloud-zone">
+    <div class="zone-title">☁️ 钉钉云服务器</div>
+    <div class="component">
+      <div class="name">消息路由</div>
+      <div class="desc">识别 @机器人 消息，路由到对应应用</div>
+    </div>
+    <div class="component">
+      <div class="name">Stream 通道</div>
+      <div class="desc">WebSocket 长连接<br>主动推送消息到客户端<br><strong>无需公网 IP</strong></div>
+    </div>
+    <div class="component">
+      <div class="name">sessionWebhook</div>
+      <div class="desc">每条消息附带临时回复 URL，用于发送回复</div>
+    </div>
+  </div>
+
+  <!-- 箭头2 -->
+  <div class="arrow-col">
+    <div class="arrow-group">
+      <div class="arrow-label">WebSocket<br>推送消息</div>
+      <div class="arrow-line bidir right">──</div>
+    </div>
+    <div style="height: 30px;"></div>
+    <div class="arrow-group">
+      <div class="arrow-label">HTTP POST<br>回复消息</div>
+      <div class="arrow-line bidir left">──</div>
+    </div>
+  </div>
+
+  <!-- CC Desktop -->
+  <div class="box desktop-zone">
+    <div class="zone-title">🖥️ CC Desktop（本地运行）</div>
+    <div class="desktop-inner">
+
+      <div class="component new-module full-width">
+        <div class="name">DingTalk Bridge <span class="tag tag-new">新增</span></div>
+        <div class="desc">
+          dingtalk-stream-sdk-nodejs 封装<br>
+          ① 启动时建立 WebSocket 长连接<br>
+          ② 接收钉钉消息 → 转发给 AgentSessionManager<br>
+          ③ 收到 Agent 回复 → 通过 sessionWebhook 回复钉钉
+        </div>
+      </div>
+
+      <div class="component new-module">
+        <div class="name">会话映射 <span class="tag tag-new">新增</span></div>
+        <div class="desc">
+          钉钉用户 ID<br>↔ Agent Session ID<br>
+          维护 1:1 对应关系
+        </div>
+      </div>
+
+      <div class="component new-module">
+        <div class="name">消息适配 <span class="tag tag-new">新增</span></div>
+        <div class="desc">
+          钉钉文本 → Agent 消息<br>
+          Agent 流式输出 → 攒完整回复<br>
+          → 转 Markdown 发回
+        </div>
+      </div>
+
+      <div class="component highlight full-width">
+        <div class="name">AgentSessionManager <span class="tag tag-exist">已有</span></div>
+        <div class="desc">
+          复用现有 Agent 会话管理<br>
+          sendMessage() / streaming 响应 / 会话生命周期
+        </div>
+      </div>
+
+      <div class="component full-width">
+        <div class="name">Claude Agent SDK → Claude API <span class="tag tag-exist">已有</span></div>
+        <div class="desc">
+          SDK query() → spawn CLI → Anthropic API<br>
+          流式返回 AI 响应
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 消息流 -->
+<div class="flow-section">
+  <div class="flow-title">📨 消息流：用户提问</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <div class="step-title">用户 @机器人</div>
+      <div class="step-desc">在钉钉群或单聊中发送 "分析一下这段代码的性能问题"</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <div class="step-title">钉钉云推送</div>
+      <div class="step-desc">通过 WebSocket 将消息推送到 CC Desktop 的 DingTalk Bridge</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <div class="step-title">会话查找/创建</div>
+      <div class="step-desc">根据钉钉用户 ID 查找对应 Agent Session，不存在则新建</div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <div class="step-title">Agent 处理</div>
+      <div class="step-desc">AgentSessionManager.sendMessage() → Claude SDK → 流式响应</div>
+    </div>
+  </div>
+</div>
+
+<div class="flow-section">
+  <div class="flow-title">💬 消息流：AI 回复</div>
+  <div class="flow-steps">
+    <div class="flow-step reverse">
+      <div class="step-num">5</div>
+      <div class="step-title">攒完整回复</div>
+      <div class="step-desc">监听流式输出，等 Agent 回复完毕后拼成完整文本</div>
+    </div>
+    <div class="flow-step reverse">
+      <div class="step-num">6</div>
+      <div class="step-title">格式转换</div>
+      <div class="step-desc">Agent 输出 → 钉钉 Markdown 格式（代码块、列表等）</div>
+    </div>
+    <div class="flow-step reverse">
+      <div class="step-num">7</div>
+      <div class="step-title">回复钉钉</div>
+      <div class="step-desc">HTTP POST 到 sessionWebhook，消息出现在钉钉对话中</div>
+    </div>
+  </div>
+</div>
+
+<!-- 关键说明 -->
+<div class="notes">
+  <h3>💡 关键设计点</h3>
+  <ul>
+    <li><strong>零公网依赖</strong>：Stream 模式由本地主动建立 WebSocket 连接到钉钉云，不需要公网 IP、域名、内网穿透</li>
+    <li><strong>复用现有架构</strong>：核心对话逻辑完全复用 AgentSessionManager + Claude SDK，DingTalk Bridge 只是新的 "入口"</li>
+    <li><strong>新增模块约 200-300 行</strong>：DingTalk Bridge + 会话映射 + 消息适配，符合项目小模块原则</li>
+    <li><strong>配置项</strong>：在 CC Desktop 设置中添加钉钉 AppKey / AppSecret / 开关，用户可随时启停</li>
+    <li><strong>前提条件</strong>：需要在钉钉开发者后台创建企业内部应用（免费），获取 AppKey + AppSecret</li>
+    <li><strong>局限</strong>：CC Desktop 必须保持运行；流式输出无法实时推送（钉钉不支持），只能攒完后一次发送</li>
+  </ul>
+</div>
+
+</body>
+</html>
