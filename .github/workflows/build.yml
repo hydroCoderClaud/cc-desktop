@@ -306,3 +306,24 @@ jobs:
             - Claude Code CLI（安装脚本会自动检查和安装）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up old releases (keep latest 10)
+        run: |
+          echo "Fetching all releases..."
+          RELEASES=$(gh api repos/${{ github.repository }}/releases --paginate --jq '.[].id')
+          COUNT=0
+          for id in $RELEASES; do
+            COUNT=$((COUNT + 1))
+            if [ $COUNT -gt 10 ]; then
+              TAG=$(gh api "repos/${{ github.repository }}/releases/$id" --jq '.tag_name')
+              echo "Deleting old release: $TAG (id: $id)"
+              gh api -X DELETE "repos/${{ github.repository }}/releases/$id"
+              # 同时删除对应 tag
+              if [ -n "$TAG" ]; then
+                gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$TAG" 2>/dev/null || true
+              fi
+            fi
+          done
+          echo "Done. Kept 10, deleted $((COUNT > 10 ? COUNT - 10 : 0)) old release(s)."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
