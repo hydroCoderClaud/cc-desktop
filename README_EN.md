@@ -153,8 +153,10 @@ npm install
 npm run dev
 
 # Build
-npm run build:win    # Windows
-npm run build:mac    # macOS
+npm run build:win    # Windows (full build, for CI)
+npm run build:mac    # macOS (full build, for CI)
+npm run build:win:local    # Windows local build (EXE + installer package)
+npm run build:mac:local    # macOS local build (DMG + installer package)
 ```
 
 Build output is in the `dist/` directory.

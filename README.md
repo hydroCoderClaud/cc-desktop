@@ -153,8 +153,10 @@ npm install
 npm run dev
 
 # 打包
-npm run build:win    # Windows
-npm run build:mac    # macOS
+npm run build:win    # Windows（完整构建，用于 CI）
+npm run build:mac    # macOS（完整构建，用于 CI）
+npm run build:win:local    # Windows 本地构建（EXE + 安装包）
+npm run build:mac:local    # macOS 本地构建（DMG + 安装包）
 ```
 
 打包后的安装文件在 `dist` 目录中。
