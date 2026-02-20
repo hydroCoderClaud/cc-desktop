@@ -1205,6 +1205,9 @@ export default {
     imageTooLarge: '图片过大（超过 5MB），发送时可能失败',
     imageQueueNotSupported: '带图片的消息暂不支持加入队列，请等待当前输出完成后发送',
 
+    // 钉钉会话
+    dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
+
     // 文件浏览面板
     files: {
       title: '工作目录',

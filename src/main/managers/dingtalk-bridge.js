@@ -28,6 +28,9 @@ class DingTalkBridge {
     // 消息去重：记录最近处理过的 msgId，防止 SDK 重投导致重复处理
     this._processedMsgIds = new Set()
     this._MSG_ID_TTL = 10 * 60 * 1000 // 10 分钟后清理
+
+    // 每个会话的消息处理队列（Promise chain），确保串行处理
+    this._sessionProcessQueues = new Map()
   }
 
   /**
@@ -67,6 +70,7 @@ class DingTalkBridge {
     this.connected = false
     this.responseCollectors.clear()
     this._processedMsgIds.clear()
+    this._sessionProcessQueues.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', { connected: false })
   }
@@ -144,19 +148,26 @@ class DingTalkBridge {
     // 查找或创建 Agent 会话
     const sessionId = await this._ensureSession(senderStaffId, senderNick)
 
-    // 通知前端：收到钉钉消息
+    // 通知前端：收到钉钉消息（立即通知，不等待处理）
     this._notifyFrontend('dingtalk:messageReceived', {
       sessionId,
       senderNick,
       text: userText
     })
 
-    // 如果当前会话正在处理，等待上一条完成
-    if (this.responseCollectors.has(sessionId)) {
-      console.log(`[DingTalk] Session ${sessionId} busy, queuing message`)
-      await this._waitForSession(sessionId)
-    }
+    // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
+    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
+    const currentTask = prevTask
+      .catch(() => {}) // 前一条出错不阻塞后续
+      .then(() => this._processOneMessage(sessionId, userText, sessionWebhook))
+      .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
+    this._sessionProcessQueues.set(sessionId, currentTask)
+  }
 
+  /**
+   * 处理单条消息（在 promise chain 中串行执行，无竞态）
+   */
+  async _processOneMessage(sessionId, userText, sessionWebhook) {
     // 设置响应收集器
     const responsePromise = this._collectResponse(sessionId, sessionWebhook)
 
@@ -180,23 +191,6 @@ class DingTalkBridge {
       console.error(`[DingTalk] Response collection failed:`, err.message)
       await this._replyToDingTalk(sessionWebhook, `❌ 响应超时或失败`)
     }
-  }
-
-  /**
-   * 等待会话空闲（上一条消息处理完成）
-   */
-  _waitForSession(sessionId, timeout = 5 * 60 * 1000) {
-    return new Promise((resolve) => {
-      const start = Date.now()
-      const check = () => {
-        if (!this.responseCollectors.has(sessionId) || Date.now() - start > timeout) {
-          resolve()
-        } else {
-          setTimeout(check, 500)
-        }
-      }
-      check()
-    })
   }
 
   /**

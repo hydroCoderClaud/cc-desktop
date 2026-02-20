@@ -557,6 +557,22 @@ export function useAgentChat(sessionId) {
         hasActiveSession = false
       }))
     }
+
+    // 钉钉用户消息注入：将钉钉用户发送的消息实时显示在对话中
+    if (window.electronAPI?.onDingTalkMessageReceived) {
+      cleanupFns.push(window.electronAPI.onDingTalkMessageReceived((data) => {
+        console.log(`[useAgentChat] dingtalk:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
+        if (data.sessionId !== sessionId) return
+        messages.value.push({
+          id: `msg-dt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: MessageRole.USER,
+          content: data.text,
+          timestamp: Date.now(),
+          source: 'dingtalk',
+          senderNick: data.senderNick
+        })
+      }))
+    }
   }
 
   /**

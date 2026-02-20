@@ -1202,6 +1202,9 @@ export default {
     imageTooLarge: 'Image too large (over 5MB), may fail to send',
     imageQueueNotSupported: 'Messages with images cannot be queued, please wait for current output to finish',
 
+    // DingTalk session
+    dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+
     // File browser panel
     files: {
       title: 'Working Directory',

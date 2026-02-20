@@ -285,6 +285,10 @@ export function useTabManagement() {
       if (agentSession.title) {
         existingTab.title = agentSession.title
       }
+      // 同步 sessionType（可能从历史加载时缺失）
+      if (agentSession.type) {
+        existingTab.sessionType = agentSession.type
+      }
       activeTabId.value = existingTab.id
 
       // 如果不在 tabs 中，添加回去
@@ -300,6 +304,7 @@ export function useTabManagement() {
       id: tabId,
       sessionId: agentSession.id,
       type: 'agent-chat',
+      sessionType: agentSession.type || 'chat',  // 'chat' | 'dingtalk'
       title: agentSession.title || t('agent.chat'),
       status: agentSession.status || 'idle'
     }

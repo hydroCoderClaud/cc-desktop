@@ -4,6 +4,10 @@
       <Icon :name="message.role === 'user' ? 'user' : 'robot'" :size="16" />
     </div>
     <div class="bubble-content">
+      <!-- 钉钉来源标识 -->
+      <div v-if="message.source === 'dingtalk' && message.senderNick" class="dingtalk-sender">
+        {{ message.senderNick }}（钉钉）
+      </div>
       <!-- 图片区域（如果消息包含图片） -->
       <div v-if="message.images && message.images.length > 0" class="bubble-images">
         <div
@@ -365,5 +369,18 @@ const handleImageClick = (img) => {
 /* 用户消息的图片样式 */
 .message-bubble.user .bubble-images {
   justify-content: flex-end;
+}
+
+/* 钉钉来源标识 */
+.dingtalk-sender {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.message-bubble.user .dingtalk-sender {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.7);
 }
 </style>

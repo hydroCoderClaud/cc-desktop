@@ -23,7 +23,7 @@
           @dblclick="startRename(conv)"
         >
           <div class="conv-info">
-            <Icon name="chat" :size="12" class="conv-icon" />
+            <Icon :name="conv.type === 'dingtalk' ? 'robot' : 'chat'" :size="12" class="conv-icon" />
             <input
               v-if="editingId === conv.id"
               class="rename-input"
@@ -154,6 +154,7 @@ const handleDelete = (conv) => {
 
 // 监听重命名事件（从后端推送）
 let cleanupRenamed = null
+let cleanupDingtalkSession = null
 onMounted(() => {
   loadConversations()
 
@@ -165,10 +166,18 @@ onMounted(() => {
       }
     })
   }
+
+  // 钉钉会话创建时自动刷新列表
+  if (window.electronAPI?.onDingTalkSessionCreated) {
+    cleanupDingtalkSession = window.electronAPI.onDingTalkSessionCreated(() => {
+      loadConversations()
+    })
+  }
 })
 
 onUnmounted(() => {
   if (cleanupRenamed) cleanupRenamed()
+  if (cleanupDingtalkSession) cleanupDingtalkSession()
 })
 
 defineExpose({

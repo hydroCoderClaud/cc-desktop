@@ -50,6 +50,7 @@ export const iconPaths = {
   // 用户类
   user: '<circle cx="10" cy="6" r="3"/><path d="M4 18v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1"/>',
   robot: '<rect x="4" y="6" width="12" height="10" rx="3"/><path d="M7 4v2M13 4v2"/><circle cx="7" cy="3" r="1"/><circle cx="13" cy="3" r="1"/><path d="M7 10h.01M13 10h.01"/><path d="M8 13.5q2 1.5 4 0"/>',
+  dingtalk: '<path d="M10 3v2"/><rect x="4" y="5" width="12" height="12" rx="2"/><path d="M7 9l3 3 3-3"/>',
 
   // 状态类
   check: '<path d="M4 10l4 4 8-8" stroke-width="2.5"/>',

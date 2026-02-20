@@ -20,7 +20,7 @@
         @click="selectTab(tab)"
       >
         <span class="tab-icon" :class="[tab.status, tab.type]">
-          <Icon :name="getStatusIconName(tab.status, tab.type)" :size="12" />
+          <Icon :name="getStatusIconName(tab.status, tab.type, tab.sessionType)" :size="12" />
         </span>
         <span class="tab-name" :title="tab.title || tab.projectPath">
           {{ tab.title || tab.projectName || 'Session' }}
@@ -93,7 +93,7 @@ const closeTab = (tab) => {
 }
 
 // 根据状态获取图标名称
-const getStatusIconName = (status, type = SessionType.SESSION) => {
+const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '') => {
   // 纯终端使用终端图标
   if (type === SessionType.TERMINAL) {
     switch (status) {
@@ -112,6 +112,10 @@ const getStatusIconName = (status, type = SessionType.SESSION) => {
 
   // Agent 对话图标
   if (type === SessionType.AGENT_CHAT) {
+    // 钉钉会话使用特殊图标
+    if (sessionType === 'dingtalk') {
+      return status === SessionStatus.ERROR ? 'xCircle' : 'dingtalk'
+    }
     switch (status) {
       case SessionStatus.RUNNING:
         return 'robot'

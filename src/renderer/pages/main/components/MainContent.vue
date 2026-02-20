@@ -114,6 +114,7 @@
               :key="tab.id"
               :ref="el => { if (el) agentChatTabRefs[tab.id] = el }"
               :session-id="tab.sessionId"
+              :session-type="tab.sessionType"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
               @preview-image="handlePreviewImage"
@@ -760,10 +761,10 @@ const handleAgentSelected = (conv) => {
 
 const handleAgentClosed = (conv) => {
   const tab = allTabs.value.find(t => t.id === `agent-${conv.id}`)
-  if (tab) {
-    closeAgentTab(tab)
-    ensureActiveTabInCurrentMode()
-  }
+  if (!tab) return
+
+  closeAgentTab(tab)
+  ensureActiveTabInCurrentMode()
 }
 
 const handleAgentTabReady = ({ sessionId }) => {

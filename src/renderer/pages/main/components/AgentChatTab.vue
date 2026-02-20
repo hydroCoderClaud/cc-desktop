@@ -54,6 +54,12 @@
       <div ref="scrollAnchor"></div>
     </div>
 
+    <!-- 钉钉观察模式提示条 -->
+    <div v-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
+      <Icon name="dingtalk" :size="14" />
+      <span>{{ t('agent.dingtalkObserving') }}</span>
+    </div>
+
     <!-- 输入框 -->
     <ChatInput
       ref="chatInputRef"
@@ -91,6 +97,10 @@ const props = defineProps({
   sessionId: {
     type: String,
     required: true
+  },
+  sessionType: {
+    type: String,
+    default: 'chat'  // 'chat' | 'dingtalk'
   },
   visible: {
     type: Boolean,
@@ -541,6 +551,19 @@ defineExpose({
   font-size: 12px;
   color: var(--text-color-muted);
   white-space: nowrap;
+}
+
+/* 钉钉观察模式提示条 */
+.dingtalk-observe-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--warning-bg);
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  flex-shrink: 0;
 }
 
 .error-banner {
