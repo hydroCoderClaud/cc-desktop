@@ -323,7 +323,7 @@ class AgentSessionManager {
    * 第一条消息：创建 MessageQueue + 持久 query + 后台输出循环
    * 后续消息：直接 push 到现有 MessageQueue
    */
-  async sendMessage(sessionId, userMessage, { modelTier, maxTurns } = {}) {
+  async sendMessage(sessionId, userMessage, { modelTier, maxTurns, meta } = {}) {
     let session = this.sessions.get(sessionId)
 
     // 内存中不存在，尝试自动恢复（兜底）
@@ -403,6 +403,12 @@ class AgentSessionManager {
     // 如果有图片，添加到消息对象
     if (imageData && imageData.length > 0) {
       userMsgToStore.images = imageData
+    }
+
+    // 附加元数据（如钉钉来源信息）
+    if (meta) {
+      if (meta.source) userMsgToStore.source = meta.source
+      if (meta.senderNick) userMsgToStore.senderNick = meta.senderNick
     }
 
     this._storeMessage(session, userMsgToStore)
@@ -589,7 +595,7 @@ class AgentSessionManager {
 
         // 通知外部监听器（钉钉桥接等）
         if (this.messageListener?.onAgentError) {
-          try { this.messageListener.onAgentError(session.id, error.message) } catch (e) { /* ignore */ }
+          try { this.messageListener.onAgentError(session.id, error.message) } catch (e) { console.error('[AgentSession] messageListener.onAgentError threw:', e) }
         }
       }
     } finally {
@@ -618,11 +624,14 @@ class AgentSessionManager {
       try {
         let contentToSave = msg.content
 
-        // 如果消息包含图片，将 content 和 images 合并为对象保存
-        if (msg.images && msg.images.length > 0) {
+        // 如果消息包含图片或元数据（钉钉来源），将 content 合并为对象保存
+        const hasMeta = msg.source || msg.senderNick
+        if ((msg.images && msg.images.length > 0) || hasMeta) {
           contentToSave = {
             text: msg.content || '',
-            images: msg.images
+            ...(msg.images?.length > 0 && { images: msg.images }),
+            ...(msg.source && { source: msg.source }),
+            ...(msg.senderNick && { senderNick: msg.senderNick })
           }
         }
 
@@ -704,7 +713,7 @@ class AgentSessionManager {
 
         // 通知外部监听器（钉钉桥接等）
         if (this.messageListener?.onAgentMessage) {
-          try { this.messageListener.onAgentMessage(session.id, assistantData) } catch (e) { /* ignore */ }
+          try { this.messageListener.onAgentMessage(session.id, assistantData) } catch (e) { console.error('[AgentSession] messageListener.onAgentMessage threw:', e) }
         }
 
         // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
@@ -776,7 +785,7 @@ class AgentSessionManager {
 
         // 通知外部监听器（钉钉桥接等）：一轮对话完成
         if (this.messageListener?.onAgentResult) {
-          try { this.messageListener.onAgentResult(session.id) } catch (e) { /* ignore */ }
+          try { this.messageListener.onAgentResult(session.id) } catch (e) { console.error('[AgentSession] messageListener.onAgentResult threw:', e) }
         }
 
         // 更新 DB 中的统计信息
@@ -1056,6 +1065,8 @@ class AgentSessionManager {
           // 反序列化 content（如果是 JSON 字符串，解析为对象/数组）
           let content = row.content || undefined
           let images = undefined
+          let source = undefined
+          let senderNick = undefined
 
           if (content && typeof content === 'string') {
             // 检测是否为 JSON 字符串（以 { 或 [ 开头）
@@ -1063,10 +1074,12 @@ class AgentSessionManager {
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
               try {
                 const parsed = JSON.parse(content)
-                // 如果是图片消息格式 { text, images }，拆分为 content 和 images
-                if (parsed && typeof parsed === 'object' && 'images' in parsed) {
+                // 如果是扩展消息格式 { text, images?, source?, senderNick? }
+                if (parsed && typeof parsed === 'object' && ('images' in parsed || 'source' in parsed)) {
                   content = parsed.text || ''
                   images = parsed.images
+                  source = parsed.source
+                  senderNick = parsed.senderNick
                 } else {
                   content = parsed
                 }
@@ -1090,6 +1103,9 @@ class AgentSessionManager {
           if (images && images.length > 0) {
             message.images = images
           }
+          // 恢复钉钉来源元数据
+          if (source) message.source = source
+          if (senderNick) message.senderNick = senderNick
 
           return message
         })

@@ -24,6 +24,7 @@ let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
 let powerSaveBlockerId = null;
+let resumeTimer = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -34,6 +35,10 @@ function cleanupAllSessions() {
   if (cleanupDone) return;
   cleanupDone = true;
   try {
+    if (resumeTimer) {
+      clearTimeout(resumeTimer)
+      resumeTimer = null
+    }
     if (powerSaveBlockerId != null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
       powerSaveBlocker.stop(powerSaveBlockerId)
       console.log('[Main] PowerSaveBlocker stopped')
@@ -219,7 +224,6 @@ app.whenReady().then(async () => {
   console.log(`[Main] PowerSaveBlocker started (id=${powerSaveBlockerId})`)
 
   // 系统从睡眠恢复时，重连钉钉桥接（防抖：30秒内只执行一次）
-  let resumeTimer = null
   powerMonitor.on('resume', () => {
     console.log('[Main] System resumed from sleep')
     if (resumeTimer) return // 已有待执行的重连，跳过
@@ -251,6 +255,10 @@ app.whenReady().then(async () => {
       cleanupDone = false;
       createWindow();
 
+      // 重新启动 powerSaveBlocker（在 cleanup 中已 stop）
+      powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
+      console.log(`[Main] PowerSaveBlocker restarted on activate (id=${powerSaveBlockerId})`)
+
       // 更新所有 manager 的 mainWindow 引用
       if (terminalManager) {
         terminalManager.mainWindow = mainWindow;
@@ -265,6 +273,10 @@ app.whenReady().then(async () => {
       }
       if (dingtalkBridge) {
         dingtalkBridge.mainWindow = mainWindow;
+        // macOS: 桥接在 closed 事件的 cleanupAllSessions 中已 stop，需重启
+        dingtalkBridge.start().catch(err => {
+          console.error('[Main] DingTalk bridge restart on activate failed:', err.message)
+        })
       }
     }
   });

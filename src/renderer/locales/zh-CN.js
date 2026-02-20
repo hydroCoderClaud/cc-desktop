@@ -1207,6 +1207,8 @@ export default {
 
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
+    dingtalkSuffix: '（钉钉）',
+    dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 
     // 文件浏览面板
     files: {

@@ -1204,6 +1204,8 @@ export default {
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+    dingtalkSuffix: ' (DingTalk)',
+    dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 
     // File browser panel
     files: {

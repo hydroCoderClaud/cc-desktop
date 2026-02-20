@@ -226,7 +226,7 @@ class DingTalkBridge {
     const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
     const currentTask = prevTask
       .catch(() => {}) // 前一条出错不阻塞后续
-      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook))
+      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook, senderNick))
       .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
     this._sessionProcessQueues.set(sessionId, currentTask)
   }
@@ -234,13 +234,15 @@ class DingTalkBridge {
   /**
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
-  async _processOneMessage(sessionId, userMessage, sessionWebhook) {
+  async _processOneMessage(sessionId, userMessage, sessionWebhook, senderNick) {
     // 设置响应处理器（每段文本即时发送到钉钉）
     const donePromise = this._setupResponseHandler(sessionId, sessionWebhook)
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
+    // 附带钉钉元数据，用于持久化来源信息
+    const meta = { source: 'dingtalk', senderNick }
     try {
-      await this.agentSessionManager.sendMessage(sessionId, userMessage)
+      await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
       console.error(`[DingTalk] sendMessage failed:`, err.message)
       await this._replyToDingTalk(sessionWebhook, `❌ 错误: ${err.message}`)
@@ -266,7 +268,8 @@ class DingTalkBridge {
     if (sessionId) {
       const session = this.agentSessionManager.get(sessionId)
       if (session) return sessionId
-      // 会话不存在了，需要重建
+      // 会话不存在了，需要重建；同时清理旧的队列引用
+      this._sessionProcessQueues.delete(sessionId)
       this.sessionMap.delete(staffId)
     }
 
@@ -282,11 +285,12 @@ class DingTalkBridge {
 
     console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId})`)
 
-    // 通知前端新会话
+    // 通知前端新会话（传 title 保持与 DB 一致）
     this._notifyFrontend('dingtalk:sessionCreated', {
       sessionId,
       staffId,
-      nickname
+      nickname,
+      title: session.title
     })
 
     return sessionId

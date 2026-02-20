@@ -185,7 +185,7 @@ import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
-import { useAppMode } from '@composables/useAppMode'
+import { useAppMode, AppMode } from '@composables/useAppMode'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import RightPanel from './RightPanel/index.vue'
@@ -200,7 +200,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
 const { t, initLocale } = useLocale()
-const { isDeveloperMode, isAgentMode, initMode } = useAppMode()
+const { isDeveloperMode, isAgentMode, initMode, switchMode } = useAppMode()
 
 // Use composables
 const {
@@ -520,15 +520,19 @@ const setupSessionListeners = () => {
     )
   }
 
-  // 钉钉会话创建时，自动打开 Tab
+  // 钉钉会话创建时，自动切换到 Agent 模式并打开 Tab
   if (window.electronAPI.onDingTalkSessionCreated) {
     cleanupFns.push(
-      window.electronAPI.onDingTalkSessionCreated((data) => {
+      window.electronAPI.onDingTalkSessionCreated(async (data) => {
         if (data?.sessionId) {
+          // 如果当前在 Developer 模式，自动切换到 Agent 模式
+          if (isDeveloperMode.value) {
+            await switchMode(AppMode.AGENT)
+          }
           const tab = ensureAgentTab({
             id: data.sessionId,
             type: 'dingtalk',
-            title: data.nickname ? `DingTalk - ${data.nickname}` : 'DingTalk',
+            title: data.title || (data.nickname ? `钉钉 · ${data.nickname}` : 'DingTalk'),
           })
           if (tab) {
             activeTabId.value = tab.id

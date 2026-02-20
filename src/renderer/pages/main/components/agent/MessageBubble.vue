@@ -6,7 +6,7 @@
     <div class="bubble-content">
       <!-- 钉钉来源标识 -->
       <div v-if="message.source === 'dingtalk' && message.senderNick" class="dingtalk-sender">
-        {{ message.senderNick }}（钉钉）
+        {{ message.senderNick }}{{ t('agent.dingtalkSuffix') }}
       </div>
       <!-- 图片区域（如果消息包含图片） -->
       <div v-if="message.images && message.images.length > 0" class="bubble-images">
@@ -35,6 +35,9 @@
 <script setup>
 import { computed, ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps({
   message: {

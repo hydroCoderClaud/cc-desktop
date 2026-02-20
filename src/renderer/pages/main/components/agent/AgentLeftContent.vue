@@ -23,7 +23,7 @@
           @dblclick="startRename(conv)"
         >
           <div class="conv-info">
-            <Icon :name="conv.type === 'dingtalk' ? 'robot' : 'chat'" :size="12" class="conv-icon" />
+            <Icon :name="conv.type === 'dingtalk' ? 'dingtalk' : 'chat'" :size="12" class="conv-icon" />
             <input
               v-if="editingId === conv.id"
               class="rename-input"
