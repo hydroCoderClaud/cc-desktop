@@ -563,14 +563,18 @@ export function useAgentChat(sessionId) {
       cleanupFns.push(window.electronAPI.onDingTalkMessageReceived((data) => {
         console.log(`[useAgentChat] dingtalk:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
         if (data.sessionId !== sessionId) return
-        messages.value.push({
+        const msg = {
           id: `msg-dt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           role: MessageRole.USER,
           content: data.text,
           timestamp: Date.now(),
           source: 'dingtalk',
           senderNick: data.senderNick
-        })
+        }
+        if (data.images && data.images.length > 0) {
+          msg.images = data.images
+        }
+        messages.value.push(msg)
       }))
     }
   }

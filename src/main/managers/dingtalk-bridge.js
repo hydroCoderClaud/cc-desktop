@@ -31,6 +31,10 @@ class DingTalkBridge {
 
     // 每个会话的消息处理队列（Promise chain），确保串行处理
     this._sessionProcessQueues = new Map()
+
+    // 钉钉 access token 缓存
+    this._accessToken = null
+    this._accessTokenExpiresAt = 0
   }
 
   /**
@@ -128,10 +132,7 @@ class DingTalkBridge {
    */
   async _handleDingTalkMessage(res) {
     const data = JSON.parse(res.data)
-    const { msgId, text, senderStaffId, senderNick, sessionWebhook } = data
-
-    const userText = text?.content?.trim()
-    if (!userText) return
+    const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode } = data
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
@@ -143,23 +144,89 @@ class DingTalkBridge {
       setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
     }
 
-    console.log(`[DingTalk] Message from ${senderNick}(${senderStaffId}): ${userText.substring(0, 50)}`)
+    // 根据消息类型构建 Agent 消息
+    let agentMessage = null  // string 或 { text, images }
+    let displayText = ''     // 用于前端显示和日志
+
+    if (msgtype === 'picture') {
+      // 图片消息
+      const downloadCode = content?.downloadCode
+      if (!downloadCode) return
+
+      console.log(`[DingTalk] Picture from ${senderNick}(${senderStaffId})`)
+
+      try {
+        const imageData = await this._downloadImage(downloadCode, robotCode)
+        agentMessage = {
+          text: '',
+          images: [imageData]
+        }
+        displayText = '[图片]'
+      } catch (err) {
+        console.error(`[DingTalk] Image download failed:`, err.message)
+        return
+      }
+    } else if (msgtype === 'richText') {
+      // 富文本消息（可能包含图片+文字混合）
+      const richTextContent = content?.richText || []
+      const textParts = []
+      const images = []
+
+      for (const section of richTextContent) {
+        if (section.text) {
+          textParts.push(section.text)
+        }
+        if (section.downloadCode) {
+          try {
+            const imageData = await this._downloadImage(section.downloadCode, robotCode)
+            images.push(imageData)
+          } catch (err) {
+            console.error(`[DingTalk] RichText image download failed:`, err.message)
+          }
+        }
+      }
+
+      const combinedText = textParts.join('\n').trim()
+      if (!combinedText && images.length === 0) return
+
+      if (images.length > 0) {
+        agentMessage = { text: combinedText, images }
+        displayText = combinedText || `[图片x${images.length}]`
+      } else {
+        agentMessage = combinedText
+        displayText = combinedText
+      }
+
+      console.log(`[DingTalk] RichText from ${senderNick}: text=${combinedText.substring(0, 30)}, images=${images.length}`)
+    } else {
+      // 文本消息（默认）
+      const userText = text?.content?.trim()
+      if (!userText) return
+
+      agentMessage = userText
+      displayText = userText
+      console.log(`[DingTalk] Message from ${senderNick}(${senderStaffId}): ${userText.substring(0, 50)}`)
+    }
 
     // 查找或创建 Agent 会话
     const sessionId = await this._ensureSession(senderStaffId, senderNick)
 
     // 通知前端：收到钉钉消息（立即通知，不等待处理）
-    this._notifyFrontend('dingtalk:messageReceived', {
-      sessionId,
-      senderNick,
-      text: userText
-    })
+    const notification = { sessionId, senderNick, text: displayText }
+    // 图片消息：附带 base64 数据供前端气泡显示
+    if (agentMessage && typeof agentMessage === 'object' && agentMessage.images) {
+      notification.images = agentMessage.images.map(img => ({
+        base64: img.base64,
+        mediaType: img.mediaType
+      }))
+    }
+    this._notifyFrontend('dingtalk:messageReceived', notification)
 
     // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
     const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
     const currentTask = prevTask
       .catch(() => {}) // 前一条出错不阻塞后续
-      .then(() => this._processOneMessage(sessionId, userText, sessionWebhook))
+      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook))
       .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
     this._sessionProcessQueues.set(sessionId, currentTask)
   }
@@ -167,13 +234,13 @@ class DingTalkBridge {
   /**
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
-  async _processOneMessage(sessionId, userText, sessionWebhook) {
+  async _processOneMessage(sessionId, userMessage, sessionWebhook) {
     // 设置响应处理器（每段文本即时发送到钉钉）
     const donePromise = this._setupResponseHandler(sessionId, sessionWebhook)
 
-    // 发送到 Agent
+    // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     try {
-      await this.agentSessionManager.sendMessage(sessionId, userText)
+      await this.agentSessionManager.sendMessage(sessionId, userMessage)
     } catch (err) {
       console.error(`[DingTalk] sendMessage failed:`, err.message)
       await this._replyToDingTalk(sessionWebhook, `❌ 错误: ${err.message}`)
@@ -358,6 +425,80 @@ class DingTalkBridge {
       }
     }
     return process.env.HOME || process.env.USERPROFILE || process.cwd()
+  }
+
+  /**
+   * 获取钉钉 access token（带缓存）
+   */
+  async _getAccessToken() {
+    if (this._accessToken && Date.now() < this._accessTokenExpiresAt) {
+      return this._accessToken
+    }
+
+    const config = this.configManager.getConfig()
+    const { appKey, appSecret } = config.dingtalk || {}
+
+    const response = await globalThis.fetch('https://api.dingtalk.com/v1.0/oauth2/accessToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appKey, appSecret })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Get access token failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    this._accessToken = result.accessToken
+    // 提前 5 分钟过期，避免边界问题
+    this._accessTokenExpiresAt = Date.now() + (result.expireIn - 300) * 1000
+    return this._accessToken
+  }
+
+  /**
+   * 通过钉钉 API 下载图片，返回 { base64, mediaType }
+   */
+  async _downloadImage(downloadCode, robotCode) {
+    const token = await this._getAccessToken()
+
+    // 调用钉钉 API 获取图片下载地址
+    const response = await globalThis.fetch('https://api.dingtalk.com/v1.0/robot/messageFiles/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-acs-dingtalk-access-token': token
+      },
+      body: JSON.stringify({ downloadCode, robotCode })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Download API failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    const imageUrl = result.downloadUrl
+
+    if (!imageUrl) {
+      throw new Error('No downloadUrl in response')
+    }
+
+    // 下载实际图片
+    const imgResponse = await globalThis.fetch(imageUrl)
+    if (!imgResponse.ok) {
+      throw new Error(`Image fetch failed: ${imgResponse.status}`)
+    }
+
+    const buffer = Buffer.from(await imgResponse.arrayBuffer())
+    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+    // 标准化 mediaType
+    const mediaType = contentType.split(';')[0].trim()
+
+    console.log(`[DingTalk] Image downloaded: ${buffer.length} bytes, type=${mediaType}`)
+
+    return {
+      base64: buffer.toString('base64'),
+      mediaType
+    }
   }
 
   /**
