@@ -1,6 +1,6 @@
 # CC Desktop
 
-English | [中文](README.md) | [Power Settings QA](docs/POWER-SETTINGS-QA.md)
+English | [中文](README.md) | [Power Settings QA](docs/user-guide/POWER-SETTINGS-QA.md)
 
 A desktop launcher for Claude Code CLI + local desktop AI assistant.
 

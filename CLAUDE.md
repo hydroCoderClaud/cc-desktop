@@ -325,7 +325,7 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 | `docs/ARCHITECTURE.md` | 架构设计 |
 | `docs/QUICKSTART.md` | 快速开始 |
 | `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能文档 |
-| `docs/API-CONFIG-GUIDE.zh.md` | API 配置指南 |
+| `docs/user-guide/API-CONFIG-GUIDE.zh.md` | API 配置指南 |
 | `docs/BUILD.md` | 构建说明 |
 | `docs/DESIGN-SYSTEM.md` | 设计系统 |
 | `docs/SESSION-MANAGEMENT-DESIGN.md` | 会话管理设计 |
