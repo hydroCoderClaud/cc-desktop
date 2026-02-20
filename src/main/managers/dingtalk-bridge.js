@@ -4,9 +4,12 @@
  */
 
 const { DWClient } = require('dingtalk-stream-sdk-nodejs')
+const fs = require('fs')
+const path = require('path')
 
 const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|bmp)$/i
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
+const IMAGE_PATH_MAX_DEPTH = 10 // 递归提取最大深度
 
 class DingTalkBridge {
   /**
@@ -352,11 +355,7 @@ class DingTalkBridge {
     // 扫描 tool_use 块中的图片路径
     for (const block of blocks) {
       if (block.type === 'tool_use' && block.input) {
-        const imagePaths = this._extractImagePaths(block.input)
-        if (imagePaths.length > 0) {
-          console.log(`[DingTalk] Found image paths in tool_use:`, imagePaths)
-        }
-        imagePaths.forEach(p => collector.imagePaths.add(p))
+        this._extractImagePaths(block.input).forEach(p => collector.imagePaths.add(p))
       }
     }
 
@@ -378,11 +377,13 @@ class DingTalkBridge {
       this._replyToDingTalk(collector.webhook, '（处理完成，无文本输出）').catch(() => {})
     }
 
+    // 提取图片发送所需信息后再 resolve（避免 resolve 后引用 collector）
+    const { imagePaths, robotCode, senderStaffId, webhook } = collector
     collector.resolve()
 
     // 异步发送收集到的图片（不阻塞 resolve）
-    if (collector.imagePaths.size > 0) {
-      this._sendCollectedImages(collector).catch(err => {
+    if (imagePaths.size > 0) {
+      this._sendCollectedImages(imagePaths, { robotCode, senderStaffId, webhook }).catch(err => {
         console.error('[DingTalk] Image forward failed:', err.message)
       })
     }
@@ -408,7 +409,8 @@ class DingTalkBridge {
   /**
    * 递归提取 tool_use input 中的图片文件绝对路径
    */
-  _extractImagePaths(obj) {
+  _extractImagePaths(obj, depth = 0) {
+    if (depth > IMAGE_PATH_MAX_DEPTH) return []
     const paths = []
     if (typeof obj === 'string') {
       if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:[/\\]/.test(obj))) {
@@ -416,7 +418,7 @@ class DingTalkBridge {
       }
     } else if (obj && typeof obj === 'object') {
       for (const val of Object.values(obj)) {
-        paths.push(...this._extractImagePaths(val))
+        paths.push(...this._extractImagePaths(val, depth + 1))
       }
     }
     return paths
@@ -437,16 +439,15 @@ class DingTalkBridge {
   /**
    * 遍历收集到的图片路径，逐个上传并通过接口方式发送到钉钉
    */
-  async _sendCollectedImages(collector) {
-    const fs = require('fs')
-    for (const filePath of collector.imagePaths) {
+  async _sendCollectedImages(imagePaths, { robotCode, senderStaffId }) {
+    const token = await this._getAccessToken()
+    for (const filePath of imagePaths) {
       try {
-        if (!fs.existsSync(filePath)) continue
-        const stats = fs.statSync(filePath)
-        if (stats.size > IMAGE_MAX_SIZE || stats.size === 0) continue
+        const stats = await fs.promises.stat(filePath).catch(() => null)
+        if (!stats || stats.size > IMAGE_MAX_SIZE || stats.size === 0) continue
 
-        const mediaId = await this._uploadImage(filePath)
-        await this._sendImageViaApi(collector, mediaId)
+        const mediaId = await this._uploadImage(filePath, token)
+        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, token })
         console.log(`[DingTalk] Image forwarded: ${filePath}`)
       } catch (err) {
         console.error(`[DingTalk] Failed to forward image ${filePath}:`, err.message)
@@ -458,12 +459,9 @@ class DingTalkBridge {
    * 上传本地图片到钉钉 media API，返回 media_id
    * （media_id 可直接作为 sampleImageMsg 的 photoURL 参数）
    */
-  async _uploadImage(filePath) {
-    const fs = require('fs')
-    const pathModule = require('path')
-    const token = await this._getAccessToken()
-    const fileName = pathModule.basename(filePath)
-    const fileBuffer = fs.readFileSync(filePath)
+  async _uploadImage(filePath, token) {
+    const fileName = path.basename(filePath)
+    const fileBuffer = await fs.promises.readFile(filePath)
 
     const formData = new FormData()
     formData.append('media', new Blob([fileBuffer]), fileName)
@@ -482,11 +480,10 @@ class DingTalkBridge {
   /**
    * 通过接口方式（oToMessages/batchSend）发送图片消息
    */
-  async _sendImageViaApi(collector, mediaId) {
-    const token = await this._getAccessToken()
+  async _sendImageViaApi(mediaId, { robotCode, senderStaffId, token }) {
     const body = {
-      robotCode: collector.robotCode,
-      userIds: [collector.senderStaffId],
+      robotCode,
+      userIds: [senderStaffId],
       msgKey: 'sampleImageMsg',
       msgParam: JSON.stringify({ photoURL: mediaId })
     }
@@ -551,7 +548,6 @@ class DingTalkBridge {
     const config = this.configManager.getConfig()
     // 优先使用用户配置的钉钉工作目录
     if (config.dingtalk?.defaultCwd) {
-      const fs = require('fs')
       if (fs.existsSync(config.dingtalk.defaultCwd)) {
         return config.dingtalk.defaultCwd
       }
