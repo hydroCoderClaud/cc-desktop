@@ -168,8 +168,8 @@ class DingTalkBridge {
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
   async _processOneMessage(sessionId, userText, sessionWebhook) {
-    // 设置响应收集器
-    const responsePromise = this._collectResponse(sessionId, sessionWebhook)
+    // 设置响应处理器（每段文本即时发送到钉钉）
+    const donePromise = this._setupResponseHandler(sessionId, sessionWebhook)
 
     // 发送到 Agent
     try {
@@ -181,15 +181,11 @@ class DingTalkBridge {
       return
     }
 
-    // 等待响应完成
+    // 等待 Agent 处理完成（result 事件触发）
     try {
-      const fullResponse = await responsePromise
-      if (fullResponse) {
-        await this._replyToDingTalk(sessionWebhook, fullResponse)
-      }
+      await donePromise
     } catch (err) {
-      console.error(`[DingTalk] Response collection failed:`, err.message)
-      await this._replyToDingTalk(sessionWebhook, `❌ 响应超时或失败`)
+      console.error(`[DingTalk] Response handling failed:`, err.message)
     }
   }
 
@@ -230,14 +226,14 @@ class DingTalkBridge {
   }
 
   /**
-   * 收集 Agent 流式响应，拼接为完整文本
-   * @returns {Promise<string>} 完整回复文本
+   * 设置响应处理器：每段文本即时发送到钉钉，result 时标记完成
+   * @returns {Promise<void>} result 事件触发时 resolve
    */
-  _collectResponse(sessionId, sessionWebhook) {
+  _setupResponseHandler(sessionId, sessionWebhook) {
     return new Promise((resolve, reject) => {
       const collector = {
-        chunks: [],
         webhook: sessionWebhook,
+        hasSent: false, // 是否已发送过至少一条消息
         resolve,
         reject,
         // 5 分钟超时
@@ -252,19 +248,30 @@ class DingTalkBridge {
 
   /**
    * 接收 AgentSessionManager 的消息事件（由外部调用注入）
-   * 用于拦截流式输出，拼接完整响应
+   * 每段文本即时发送到钉钉，不缓冲
    */
   onAgentMessage(sessionId, message) {
     const collector = this.responseCollectors.get(sessionId)
     if (!collector) return false // 非钉钉会话，不处理
 
-    // 收集 assistant 文本块
+    // 提取文本块，有内容则立即发送
     const blocks = message?.content || []
+    const textParts = []
     for (const block of blocks) {
       if (block.type === 'text' && block.text) {
-        collector.chunks.push(block.text)
+        textParts.push(block.text)
       }
     }
+
+    if (textParts.length > 0) {
+      const text = textParts.join('\n\n')
+      collector.hasSent = true
+      // 异步发送，不阻塞消息处理流程
+      this._replyToDingTalk(collector.webhook, text).catch(err => {
+        console.error(`[DingTalk] Immediate reply failed:`, err.message)
+      })
+    }
+
     return true
   }
 
@@ -278,8 +285,12 @@ class DingTalkBridge {
     clearTimeout(collector.timer)
     this.responseCollectors.delete(sessionId)
 
-    const fullText = collector.chunks.join('\n\n')
-    collector.resolve(fullText || '（无内容）')
+    // 如果整轮都没发过消息（极端情况），兜底发一条
+    if (!collector.hasSent) {
+      this._replyToDingTalk(collector.webhook, '（处理完成，无文本输出）').catch(() => {})
+    }
+
+    collector.resolve()
     return true
   }
 
@@ -293,12 +304,8 @@ class DingTalkBridge {
     clearTimeout(collector.timer)
     this.responseCollectors.delete(sessionId)
 
-    // 如果已收集到部分内容，返回已有内容 + 错误提示
-    if (collector.chunks.length > 0) {
-      collector.resolve(collector.chunks.join('\n\n') + `\n\n⚠️ ${error}`)
-    } else {
-      collector.resolve(`❌ ${error}`)
-    }
+    this._replyToDingTalk(collector.webhook, `❌ ${error}`).catch(() => {})
+    collector.resolve()
     return true
   }
 

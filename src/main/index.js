@@ -3,7 +3,7 @@
  * Claude Code Desktop - 独立版本
  */
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, powerSaveBlocker, powerMonitor } = require('electron');
 const path = require('path');
 const ConfigManager = require('./config-manager');
 const TerminalManager = require('./terminal-manager');
@@ -23,6 +23,7 @@ let agentSessionManager = null;
 let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
+let powerSaveBlockerId = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -33,6 +34,10 @@ function cleanupAllSessions() {
   if (cleanupDone) return;
   cleanupDone = true;
   try {
+    if (powerSaveBlockerId != null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+      powerSaveBlocker.stop(powerSaveBlockerId)
+      console.log('[Main] PowerSaveBlocker stopped')
+    }
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
     if (terminalManager) terminalManager.kill();
     if (activeSessionManager) activeSessionManager.closeAll(false);
@@ -208,6 +213,26 @@ app.whenReady().then(async () => {
 
   // 设置 IPC 处理器
   setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge);
+
+  // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
+  powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
+  console.log(`[Main] PowerSaveBlocker started (id=${powerSaveBlockerId})`)
+
+  // 系统从睡眠恢复时，重连钉钉桥接（防抖：30秒内只执行一次）
+  let resumeTimer = null
+  powerMonitor.on('resume', () => {
+    console.log('[Main] System resumed from sleep')
+    if (resumeTimer) return // 已有待执行的重连，跳过
+    resumeTimer = setTimeout(() => {
+      resumeTimer = null
+      if (dingtalkBridge) {
+        console.log('[Main] Reconnecting DingTalk bridge...')
+        dingtalkBridge.restart().catch(err => {
+          console.error('[Main] DingTalk reconnect failed:', err.message)
+        })
+      }
+    }, 3000) // 延迟3秒，等系统完全恢复后再重连
+  })
 
   // 启动后延迟 5 秒检查更新（避免影响启动体验）
   updateManager.scheduleUpdateCheck(5000)

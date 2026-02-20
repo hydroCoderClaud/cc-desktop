@@ -520,6 +520,24 @@ const setupSessionListeners = () => {
     )
   }
 
+  // 钉钉会话创建时，自动打开 Tab
+  if (window.electronAPI.onDingTalkSessionCreated) {
+    cleanupFns.push(
+      window.electronAPI.onDingTalkSessionCreated((data) => {
+        if (data?.sessionId) {
+          const tab = ensureAgentTab({
+            id: data.sessionId,
+            type: 'dingtalk',
+            title: data.nickname ? `DingTalk - ${data.nickname}` : 'DingTalk',
+          })
+          if (tab) {
+            activeTabId.value = tab.id
+          }
+        }
+      })
+    )
+  }
+
   // 监听设置变化（终端字体大小、字体类型等）
   if (window.electronAPI.onSettingsChanged) {
     cleanupFns.push(
