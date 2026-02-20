@@ -5,6 +5,9 @@
 
 const { DWClient } = require('dingtalk-stream-sdk-nodejs')
 
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|bmp)$/i
+const IMAGE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
+
 class DingTalkBridge {
   /**
    * @param {Object} configManager - ConfigManager 实例
@@ -305,6 +308,7 @@ class DingTalkBridge {
       const collector = {
         webhook: sessionWebhook,
         hasSent: false, // 是否已发送过至少一条消息
+        imagePaths: new Set(), // 收集 tool_use 块中的图片文件路径
         resolve,
         reject,
         // 5 分钟超时
@@ -343,6 +347,14 @@ class DingTalkBridge {
       })
     }
 
+    // 扫描 tool_use 块中的图片路径
+    for (const block of blocks) {
+      if (block.type === 'tool_use' && block.input) {
+        const imagePaths = this._extractImagePaths(block.input)
+        imagePaths.forEach(p => collector.imagePaths.add(p))
+      }
+    }
+
     return true
   }
 
@@ -362,6 +374,14 @@ class DingTalkBridge {
     }
 
     collector.resolve()
+
+    // 异步发送收集到的图片（不阻塞 resolve）
+    if (collector.imagePaths.size > 0) {
+      this._sendCollectedImages(collector.webhook, collector.imagePaths).catch(err => {
+        console.error('[DingTalk] Image forward failed:', err.message)
+      })
+    }
+
     return true
   }
 
@@ -378,6 +398,84 @@ class DingTalkBridge {
     this._replyToDingTalk(collector.webhook, `❌ ${error}`).catch(() => {})
     collector.resolve()
     return true
+  }
+
+  /**
+   * 递归提取 tool_use input 中的图片文件绝对路径
+   */
+  _extractImagePaths(obj) {
+    const paths = []
+    if (typeof obj === 'string') {
+      if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:\\/.test(obj))) {
+        paths.push(obj)
+      }
+    } else if (obj && typeof obj === 'object') {
+      for (const val of Object.values(obj)) {
+        paths.push(...this._extractImagePaths(val))
+      }
+    }
+    return paths
+  }
+
+  /**
+   * 遍历收集到的图片路径，逐个上传并发送到钉钉
+   */
+  async _sendCollectedImages(webhook, imagePaths) {
+    const fs = require('fs')
+    for (const filePath of imagePaths) {
+      try {
+        if (!fs.existsSync(filePath)) continue
+        const stats = fs.statSync(filePath)
+        if (stats.size > IMAGE_MAX_SIZE || stats.size === 0) continue
+
+        const mediaId = await this._uploadImage(filePath)
+        await this._replyImageToDingTalk(webhook, mediaId)
+        console.log(`[DingTalk] Image forwarded: ${filePath}`)
+      } catch (err) {
+        console.error(`[DingTalk] Failed to forward image ${filePath}:`, err.message)
+      }
+    }
+  }
+
+  /**
+   * 上传本地图片到钉钉 media API，返回 mediaId
+   */
+  async _uploadImage(filePath) {
+    const fs = require('fs')
+    const pathModule = require('path')
+    const token = await this._getAccessToken()
+    const fileName = pathModule.basename(filePath)
+    const fileBuffer = fs.readFileSync(filePath)
+
+    const formData = new FormData()
+    formData.append('media', new Blob([fileBuffer]), fileName)
+
+    const response = await globalThis.fetch(
+      `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
+      { method: 'POST', body: formData }
+    )
+
+    if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
+    const result = await response.json()
+    if (result.errcode) throw new Error(`Upload error: ${result.errcode} ${result.errmsg}`)
+    return result.media_id
+  }
+
+  /**
+   * 通过 sessionWebhook 发送图片消息
+   */
+  async _replyImageToDingTalk(webhook, mediaId) {
+    const response = await globalThis.fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        msgtype: 'image',
+        image: { mediaId }
+      })
+    })
+    if (!response.ok) {
+      console.error(`[DingTalk] Image reply failed: ${response.status}`)
+    }
   }
 
   /**
