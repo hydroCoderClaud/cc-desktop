@@ -17,6 +17,11 @@
 
     <!-- Enable Switch -->
     <n-card :title="t('dingtalkSettings.basicConfig')" class="settings-section">
+      <template #header-extra>
+        <n-button text type="primary" size="small" @click="openGuide">
+          {{ t('dingtalkSettings.viewGuide') }}
+        </n-button>
+      </template>
       <n-form-item :label="t('dingtalkSettings.enableBridge')">
         <n-switch v-model:value="formData.enabled" />
         <template #feedback>{{ t('dingtalkSettings.enableHint') }}</template>
@@ -241,6 +246,10 @@ const handleSelectCwd = async () => {
   } catch (err) {
     console.error('Failed to select folder:', err)
   }
+}
+
+const openGuide = () => {
+  window.electronAPI?.openExternal('https://github.com/hydroCoderClaud/cc-desktop/blob/master/docs/user-guide/DINGTALK-GUIDE.zh.md')
 }
 
 const handleClose = () => {

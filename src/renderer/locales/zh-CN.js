@@ -1352,6 +1352,7 @@ export default {
     saveSuccess: '钉钉配置已保存',
     connectSuccess: '钉钉桥接连接成功',
     connectFailed: '钉钉桥接连接失败',
-    disconnected: '钉钉桥接已断开'
+    disconnected: '钉钉桥接已断开',
+    viewGuide: '查看使用指南'
   }
 }

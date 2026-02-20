@@ -1349,6 +1349,7 @@ export default {
     saveSuccess: 'DingTalk config saved',
     connectSuccess: 'DingTalk bridge connected',
     connectFailed: 'DingTalk bridge connection failed',
-    disconnected: 'DingTalk bridge disconnected'
+    disconnected: 'DingTalk bridge disconnected',
+    viewGuide: 'View Guide'
   }
 }
