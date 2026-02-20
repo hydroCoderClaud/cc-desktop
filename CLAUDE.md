@@ -71,6 +71,16 @@ npm run rebuild:sqlite   # 原生模块重建（编译问题时使用）
 图片识别：粘贴/上传 → base64 → { text, images } → Claude API Vision 格式
 ```
 
+**钉钉桥接模式**：
+```
+钉钉用户发消息 → DWClient Stream → DingTalkBridge._handleDingTalkMessage()
+  → AgentSessionManager（复用 Agent 模式） → 文本回复走 sessionWebhook
+  → 图片转发走 oToMessages/batchSend API 接口（混合发送模式）
+
+图片识别：钉钉图片 → 下载 → base64 → Agent 识别
+图片转发：tool_use 中的图片路径 → media/upload → batchSend
+```
+
 ## 文件结构
 
 ```
@@ -106,6 +116,7 @@ src/
 │   │   ├── capability-handlers.js # 能力管理
 │   │   ├── plugin-handlers.js    # 插件管理
 │   │   ├── config-handlers.js    # 配置管理
+│   │   ├── dingtalk-handlers.js  # 钉钉桥接
 │   │   ├── session-handlers.js   # 会话管理
 │   │   ├── project-handlers.js   # 项目管理
 │   │   ├── update-handlers.js    # 更新管理
@@ -117,6 +128,7 @@ src/
 │   │   ├── agent-file-manager.js # Agent 文件操作
 │   │   ├── agent-query-manager.js # Agent Query 控制
 │   │   ├── capability-manager.js # Agent 能力管理（含市场自动注册）
+│   │   ├── dingtalk-bridge.js    # 钉钉机器人桥接（Stream 连接/消息转发/图片处理）
 │   │   ├── skills-manager.js     # Skills 管理
 │   │   ├── skills/               # Skills 管理 mixin
 │   │   ├── agents/               # Agents 管理 mixin
@@ -162,6 +174,8 @@ src/
     │       ├── FileTreeContextMenu.vue # 右键菜单
     │       ├── FilePreview.vue   # 文件预览
     │       └── FileTreeHeader.vue
+    ├── pages/dingtalk-settings/  # 钉钉配置独立页面
+    │   └── components/DingTalkSettingsContent.vue
     ├── composables/              # 可复用逻辑（21 个模块）
     │   ├── useAppMode.js         # 应用模式切换（Developer/Agent）
     │   ├── useAgentChat.js       # Agent 对话管理
@@ -319,13 +333,25 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 
 ## 文档索引
 
+### 项目文档
+
 | 文档 | 说明 |
 |------|------|
 | `docs/CHANGELOG.md` | 版本更新日志 |
 | `docs/ARCHITECTURE.md` | 架构设计 |
 | `docs/QUICKSTART.md` | 快速开始 |
-| `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能文档 |
-| `docs/user-guide/API-CONFIG-GUIDE.zh.md` | API 配置指南 |
 | `docs/BUILD.md` | 构建说明 |
 | `docs/DESIGN-SYSTEM.md` | 设计系统 |
 | `docs/SESSION-MANAGEMENT-DESIGN.md` | 会话管理设计 |
+| `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能文档 |
+| `docs/dingtalk-architecture.html` | 钉钉架构图（浏览器打开） |
+| `docs/theme-preview.html` | 主题预览（浏览器打开） |
+
+### 用户文档
+
+| 文档 | 说明 |
+|------|------|
+| `docs/user-guide/DINGTALK-GUIDE.zh.md` | 钉钉机器人使用指南 |
+| `docs/user-guide/API-CONFIG-GUIDE.zh.md` | API 配置指南 |
+| `docs/user-guide/POWER-SETTINGS-QA.md` | 电源设置 FAQ（英文） |
+| `docs/user-guide/POWER-SETTINGS-QA.zh.md` | 电源设置 FAQ（中文） |
