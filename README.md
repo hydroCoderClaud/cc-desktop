@@ -1,6 +1,6 @@
 # CC Desktop
 
-[English](README_EN.md) | 中文 | [熄屏保活电源设置](docs/user-guide/POWER-SETTINGS-QA.zh.md)
+[English](README_EN.md) | 中文 | [钉钉机器人指南](docs/user-guide/DINGTALK-GUIDE.zh.md) | [熄屏保活电源设置](docs/user-guide/POWER-SETTINGS-QA.zh.md)
 
 Claude Code CLI 的桌面启动器 + 本地桌面AI助手。
 
