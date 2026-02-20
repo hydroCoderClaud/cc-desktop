@@ -351,6 +351,9 @@ class DingTalkBridge {
     for (const block of blocks) {
       if (block.type === 'tool_use' && block.input) {
         const imagePaths = this._extractImagePaths(block.input)
+        if (imagePaths.length > 0) {
+          console.log(`[DingTalk] Found image paths in tool_use:`, imagePaths)
+        }
         imagePaths.forEach(p => collector.imagePaths.add(p))
       }
     }
@@ -407,7 +410,7 @@ class DingTalkBridge {
     const paths = []
     if (typeof obj === 'string') {
       if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:\\/.test(obj))) {
-        paths.push(obj)
+        paths.push(this._normalizePath(obj))
       }
     } else if (obj && typeof obj === 'object') {
       for (const val of Object.values(obj)) {
@@ -415,6 +418,18 @@ class DingTalkBridge {
       }
     }
     return paths
+  }
+
+  /**
+   * 归一化路径：将 MSYS 风格 /c/... 转为 Windows 风格 C:/...
+   */
+  _normalizePath(p) {
+    // MSYS: /c/workspace/... → C:/workspace/...
+    const msysMatch = p.match(/^\/([a-zA-Z])\/(.*)$/)
+    if (msysMatch) {
+      return `${msysMatch[1].toUpperCase()}:/${msysMatch[2]}`
+    }
+    return p
   }
 
   /**
