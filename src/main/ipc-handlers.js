@@ -279,8 +279,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // Dialog 相关
   // ========================================
 
-  ipcMain.handle('dialog:selectFolder', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
+  ipcMain.handle('dialog:selectFolder', async (event) => {
+    const { BrowserWindow } = require('electron');
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(senderWindow || mainWindow, {
       properties: ['openDirectory'],
       title: 'Select Project Folder'
     });
