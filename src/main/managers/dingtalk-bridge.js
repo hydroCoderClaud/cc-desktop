@@ -479,6 +479,20 @@ class DingTalkBridge {
 
     // 将触发菜单的原始消息投入队列处理
     if (originalMessage) {
+      // 补发 dingtalk:messageReceived，让 CC 桌面前端渲染出用户消息气泡
+      // （正常流程在 _handleDingTalkMessage 里发此通知，但 needsChoice 路径提前 return 了）
+      const displayText = typeof originalMessage === 'string'
+        ? originalMessage
+        : (originalMessage.text || '[图片]')
+      const notification = { sessionId, senderNick, text: displayText }
+      if (originalMessage && typeof originalMessage === 'object' && originalMessage.images) {
+        notification.images = originalMessage.images.map(img => ({
+          base64: img.base64,
+          mediaType: img.mediaType
+        }))
+      }
+      this._notifyFrontend('dingtalk:messageReceived', notification)
+
       const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
       const currentTask = prevTask
         .catch(() => {})
