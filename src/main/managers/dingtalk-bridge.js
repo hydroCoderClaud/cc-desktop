@@ -298,9 +298,9 @@ class DingTalkBridge {
     const mapKey = `${staffId}:${conversationId || 'default'}`
     let sessionId = this.sessionMap.get(mapKey)
 
-    // 内存中有且会话存在 → 直接用
+    // 内存中或 DB 中有且会话可恢复 → 直接用
     if (sessionId) {
-      const session = this.agentSessionManager.get(sessionId)
+      const session = this.agentSessionManager.reopen(sessionId)
       if (session) return sessionId
       this._sessionProcessQueues.delete(sessionId)
       this.sessionMap.delete(mapKey)
@@ -412,9 +412,9 @@ class DingTalkBridge {
       // 新建会话
       sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
     } else {
-      // 恢复指定历史会话
+      // 恢复指定历史会话（reopen 会从 DB 恢复到内存，get 只查内存）
       const selectedRow = sessions[choice - 1]
-      const session = this.agentSessionManager.get(selectedRow.session_id)
+      const session = this.agentSessionManager.reopen(selectedRow.session_id)
       if (session) {
         sessionId = selectedRow.session_id
         this.sessionMap.set(mapKey, sessionId)
