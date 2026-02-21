@@ -303,18 +303,24 @@ class DingTalkBridge {
       const db = this.agentSessionManager.sessionDatabase
       const row = db && db.getAgentConversation(sessionId)
 
-      if (row && row.status === 'closed') {
-        // CC 桌面已关闭该会话 → 清除内存映射，让用户重新选择
+      if (!row) {
+        // 会话已被物理删除 → 清除映射，走历史查询/新建流程
+        console.log(`[DingTalk] Session ${sessionId} not found in DB, clearing mapping`)
+        this._sessionProcessQueues.delete(sessionId)
+        this.sessionMap.delete(mapKey)
+      } else if (row.status === 'closed') {
+        // CC 桌面主动关闭 → 清除映射，让用户重新选择
         console.log(`[DingTalk] Session ${sessionId} was closed by desktop, will ask user to choose`)
         this._sessionProcessQueues.delete(sessionId)
         this.sessionMap.delete(mapKey)
-        // 继续向下走：查询历史 → 触发选择菜单
       } else {
+        // 会话状态正常（idle/streaming）→ 恢复
         const session = this.agentSessionManager.reopen(sessionId)
         if (session) return sessionId
         this._sessionProcessQueues.delete(sessionId)
         this.sessionMap.delete(mapKey)
       }
+      // 三种情况均继续向下走：查询历史 → 触发选择菜单 或 新建
     }
 
     // 从 DB 查历史会话
@@ -405,6 +411,11 @@ class DingTalkBridge {
    */
   async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle }) {
     const pending = this._pendingChoices.get(mapKey)
+    if (!pending) {
+      // 极少数情况：TTL 刚好过期或并发调用已清除
+      console.warn(`[DingTalk] Pending choice for ${mapKey} not found, ignoring`)
+      return
+    }
     const { sessions, originalMessage } = pending
 
     const choice = parseInt(choiceText)
