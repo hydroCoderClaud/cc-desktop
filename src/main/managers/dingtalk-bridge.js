@@ -324,15 +324,19 @@ class DingTalkBridge {
       const row = db && db.getAgentConversation(sessionId)
 
       if (!row) {
-        // 会话已被物理删除 → 清除映射，走历史查询/新建流程
+        // 会话已被物理删除 → 清除所有相关状态，走历史查询/新建流程
         console.log(`[DingTalk] Session ${sessionId} not found in DB, clearing mapping`)
         this._sessionProcessQueues.delete(sessionId)
         this.sessionMap.delete(mapKey)
+        this._sessionWebhooks.delete(sessionId)
+        this._desktopPendingBlocks.delete(sessionId)
       } else if (row.status === 'closed') {
-        // CC 桌面主动关闭 → 清除映射，让用户重新选择
+        // CC 桌面主动关闭 → 清除所有相关状态，让用户重新选择
         console.log(`[DingTalk] Session ${sessionId} was closed by desktop, will ask user to choose`)
         this._sessionProcessQueues.delete(sessionId)
         this.sessionMap.delete(mapKey)
+        this._sessionWebhooks.delete(sessionId)
+        this._desktopPendingBlocks.delete(sessionId)
       } else {
         // 会话状态正常（idle/streaming）→ 恢复
         const session = this.agentSessionManager.reopen(sessionId)
