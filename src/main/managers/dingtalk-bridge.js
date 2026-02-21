@@ -541,6 +541,9 @@ class DingTalkBridge {
       for (const block of blocks) {
         if (block.type === 'text' && block.text) {
           pending.textChunks.push(block.text)
+        } else if (block.type === 'tool_use' && block.input) {
+          // 同样收集 tool_use 中的图片路径
+          this._extractImagePaths(block.input).forEach(p => pending.imagePaths.add(p))
         }
       }
       return true
@@ -584,7 +587,8 @@ class DingTalkBridge {
     console.log(`[DingTalk] Desktop intervention for session ${sessionId}: "${(userInput || '').substring(0, 50)}"`)
     this._desktopPendingBlocks.set(sessionId, {
       userInput: userInput || '',
-      textChunks: []
+      textChunks: [],
+      imagePaths: new Set()
     })
   }
 
@@ -622,6 +626,13 @@ class DingTalkBridge {
         }
         this._replyToDingTalk(webhookInfo.webhook, lines.join('\n')).catch(err => {
           console.error('[DingTalk] Desktop intervention reply failed:', err.message)
+        })
+      }
+
+      // 异步发送收集到的图片（与钉钉发起路径保持一致）
+      if (pending.imagePaths.size > 0) {
+        this._sendCollectedImages(pending.imagePaths, webhookInfo).catch(err => {
+          console.error('[DingTalk] Desktop intervention image forward failed:', err.message)
         })
       }
 
