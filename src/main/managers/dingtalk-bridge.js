@@ -155,7 +155,7 @@ class DingTalkBridge {
    */
   async _handleDingTalkMessage(res) {
     const data = JSON.parse(res.data)
-    const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle } = data
+    const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle, conversationType } = data
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
@@ -171,7 +171,7 @@ class DingTalkBridge {
     const mapKey = `${senderStaffId}:${conversationId || 'default'}`
     if (this._pendingChoices.has(mapKey)) {
       const choiceText = text?.content?.trim()
-      await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle })
+      await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType })
       return
     }
 
@@ -266,7 +266,7 @@ class DingTalkBridge {
     const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
     const currentTask = prevTask
       .catch(() => {}) // 前一条出错不阻塞后续
-      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId }))
+      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
       .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
     this._sessionProcessQueues.set(sessionId, currentTask)
   }
@@ -274,14 +274,14 @@ class DingTalkBridge {
   /**
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
-  async _processOneMessage(sessionId, userMessage, sessionWebhook, senderNick, { robotCode, senderStaffId } = {}) {
+  async _processOneMessage(sessionId, userMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType } = {}) {
     // 更新会话的最近 webhook（用于 CC 桌面介入时回传给钉钉）
     if (sessionWebhook) {
-      this._sessionWebhooks.set(sessionId, { webhook: sessionWebhook, robotCode, senderStaffId })
+      this._sessionWebhooks.set(sessionId, { webhook: sessionWebhook, robotCode, senderStaffId, conversationId, conversationType })
     }
 
     // 设置响应处理器（每段文本即时发送到钉钉）
-    const donePromise = this._setupResponseHandler(sessionId, sessionWebhook, { robotCode, senderStaffId })
+    const donePromise = this._setupResponseHandler(sessionId, sessionWebhook, { robotCode, senderStaffId, conversationId, conversationType })
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     // 附带钉钉元数据，用于持久化来源信息
@@ -433,7 +433,7 @@ class DingTalkBridge {
   /**
    * 处理用户的历史会话选择（0 = 新建，1~N = 恢复对应会话）
    */
-  async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle }) {
+  async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType }) {
     const pending = this._pendingChoices.get(mapKey)
     if (!pending) {
       // 极少数情况：TTL 刚好过期或并发调用已清除
@@ -499,7 +499,7 @@ class DingTalkBridge {
       const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
       const currentTask = prevTask
         .catch(() => {})
-        .then(() => this._processOneMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId }))
+        .then(() => this._processOneMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
         .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
       this._sessionProcessQueues.set(sessionId, currentTask)
     }
@@ -524,12 +524,14 @@ class DingTalkBridge {
    * 设置响应处理器：每段文本即时发送到钉钉，result 时标记完成
    * @returns {Promise<void>} result 事件触发时 resolve
    */
-  _setupResponseHandler(sessionId, sessionWebhook, { robotCode, senderStaffId } = {}) {
+  _setupResponseHandler(sessionId, sessionWebhook, { robotCode, senderStaffId, conversationId, conversationType } = {}) {
     return new Promise((resolve, reject) => {
       const collector = {
         webhook: sessionWebhook,
         robotCode,
         senderStaffId,
+        conversationId,
+        conversationType,
         hasSent: false, // 是否已发送过至少一条消息
         imagePaths: new Set(), // 收集 tool_use 块中的图片文件路径
         resolve,
@@ -677,12 +679,12 @@ class DingTalkBridge {
     }
 
     // 提取图片发送所需信息后再 resolve（避免 resolve 后引用 collector）
-    const { imagePaths, robotCode, senderStaffId, webhook } = collector
+    const { imagePaths, robotCode, senderStaffId, conversationId, conversationType, webhook } = collector
     collector.resolve()
 
     // 异步发送收集到的图片（不阻塞 resolve）
     if (imagePaths.size > 0) {
-      this._sendCollectedImages(imagePaths, { robotCode, senderStaffId, webhook }).catch(err => {
+      this._sendCollectedImages(imagePaths, { robotCode, senderStaffId, conversationId, conversationType, webhook }).catch(err => {
         console.error('[DingTalk] Image forward failed:', err.message)
       })
     }
@@ -742,7 +744,7 @@ class DingTalkBridge {
   /**
    * 遍历收集到的图片路径，逐个上传并通过接口方式发送到钉钉
    */
-  async _sendCollectedImages(imagePaths, { robotCode, senderStaffId }) {
+  async _sendCollectedImages(imagePaths, { robotCode, senderStaffId, conversationId, conversationType }) {
     const token = await this._getAccessToken()
     for (const filePath of imagePaths) {
       try {
@@ -750,7 +752,7 @@ class DingTalkBridge {
         if (!stats || stats.size > IMAGE_MAX_SIZE || stats.size === 0) continue
 
         const mediaId = await this._uploadImage(filePath, token)
-        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, token })
+        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token })
         console.log(`[DingTalk] Image forwarded: ${filePath}`)
       } catch (err) {
         console.error(`[DingTalk] Failed to forward image ${filePath}:`, err.message)
@@ -761,12 +763,12 @@ class DingTalkBridge {
   /**
    * 发送 base64 图片列表到钉钉（桌面端介入时用户输入的截图等）
    */
-  async _sendBase64Images(images, { robotCode, senderStaffId }) {
+  async _sendBase64Images(images, { robotCode, senderStaffId, conversationId, conversationType }) {
     const token = await this._getAccessToken()
     for (const img of images) {
       try {
         const mediaId = await this._uploadImageBase64(img.base64, img.mediaType, token)
-        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, token })
+        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token })
         console.log('[DingTalk] Input image forwarded to DingTalk')
       } catch (err) {
         console.error('[DingTalk] Failed to forward input image:', err.message)
@@ -817,9 +819,13 @@ class DingTalkBridge {
   }
 
   /**
-   * 通过接口方式（oToMessages/batchSend）发送图片消息
+   * 发送图片消息路由：群聊走 groupMessages/send，单聊走 oToMessages/batchSend
    */
-  async _sendImageViaApi(mediaId, { robotCode, senderStaffId, token }) {
+  async _sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token }) {
+    if (conversationType === '2' && conversationId) {
+      return this._sendImageToGroup(mediaId, { robotCode, openConversationId: conversationId, token })
+    }
+    // 单聊（conversationType === '1' 或未知）
     const body = {
       robotCode,
       userIds: [senderStaffId],
@@ -841,6 +847,34 @@ class DingTalkBridge {
     const result = await response.json()
     if (!response.ok) {
       throw new Error(`Image API failed: ${response.status} ${JSON.stringify(result)}`)
+    }
+  }
+
+  /**
+   * 发送图片消息到群聊
+   */
+  async _sendImageToGroup(mediaId, { robotCode, openConversationId, token }) {
+    const body = {
+      robotCode,
+      openConversationId,
+      msgKey: 'sampleImageMsg',
+      msgParam: JSON.stringify({ photoURL: mediaId })
+    }
+    const response = await globalThis.fetch(
+      'https://api.dingtalk.com/v1.0/robot/groupMessages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-acs-dingtalk-access-token': token
+        },
+        body: JSON.stringify(body)
+      }
+    )
+
+    const result = await response.json()
+    if (!response.ok) {
+      throw new Error(`Group image API failed: ${response.status} ${JSON.stringify(result)}`)
     }
   }
 
