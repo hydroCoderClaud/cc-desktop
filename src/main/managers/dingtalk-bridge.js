@@ -395,19 +395,21 @@ class DingTalkBridge {
       const timeStr = this._formatRelativeTime(row.updated_at)
       lines.push(`${i + 1}. [${timeStr}] ${row.title}`)
     })
-    lines.push('\n0. 开始新会话')
+    // 注意：不用 0，钉钉 Markdown 会将 0. 渲染为连续编号（如 3.），导致用户输入不匹配
+    lines.push(`${sessions.length + 1}. 开始新会话`)
     await this._replyToDingTalk(webhook, lines.join('\n'))
   }
 
   /**
-   * 处理用户的历史会话选择（0 = 新建，1~N = 恢复对应会话）
+   * 处理用户的历史会话选择（N+1 = 新建，1~N = 恢复对应会话）
    */
   async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle }) {
     const pending = this._pendingChoices.get(mapKey)
     const { sessions, originalMessage } = pending
 
     const choice = parseInt(choiceText)
-    const isValid = !isNaN(choice) && choice >= 0 && choice <= sessions.length
+    const newChoice = sessions.length + 1  // "开始新会话"对应的编号
+    const isValid = !isNaN(choice) && choice >= 1 && choice <= newChoice
 
     if (!isValid) {
       // 无效输入，重新发送菜单
@@ -419,7 +421,7 @@ class DingTalkBridge {
 
     let sessionId
 
-    if (choice === 0) {
+    if (choice === newChoice) {
       // 新建会话
       sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
     } else {
