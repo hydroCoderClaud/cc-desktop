@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.55
+**当前版本**：1.6.56
 
 **版本号管理规范**：
 - 格式：`主版本.次版本.修订号`（如 1.6.52）
@@ -330,6 +330,19 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 
 - 修改组件市场相关规范时，**必须同步更新** `C:\workspace\develop\HydroCoder\hydroSkills\CLAUDE.md`
 - Developer 模式的 Plugins/Skills/Agents Tab 通过 `watch(isDeveloperMode)` 在模式切换时自动刷新
+
+## 后期计划
+
+### 钉钉：允许选择任意类型会话
+
+**需求**：钉钉用户在历史会话选择菜单中，可以选择任意会话（包括普通 chat 会话），而不仅限于 `type='dingtalk'` 的会话。
+
+**评估结论**：
+- 改动量小（查询范围扩大 + 元数据写入），但需要处理 `session.type` 是否变更的问题
+- 推荐做法：选中后只写入 DingTalk 元数据，不改 `type`，介入转发逻辑暂不激活
+- 风险：chat 会话被 DingTalk 接管后双端同时操作上下文混乱
+
+**已完整评估，暂不实现，等真正有需求时再推进。**
 
 ## 文档索引
 
