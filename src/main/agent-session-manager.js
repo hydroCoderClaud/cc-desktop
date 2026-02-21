@@ -413,6 +413,15 @@ class AgentSessionManager {
 
     this._storeMessage(session, userMsgToStore)
 
+    // 通知外部监听器：用户消息事件
+    // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
+    if (this.messageListener?.onUserMessage) {
+      const isDingTalkSource = meta?.source === 'dingtalk'
+      if (!isDingTalkSource && session.type === 'dingtalk') {
+        try { this.messageListener.onUserMessage(session.id, displayContent) } catch (e) { console.error('[AgentSession] messageListener.onUserMessage threw:', e) }
+      }
+    }
+
     // 设置状态
     session.status = AgentStatus.STREAMING
     session.messageCount++

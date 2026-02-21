@@ -46,6 +46,14 @@ class DingTalkBridge {
     // 钉钉 access token 缓存
     this._accessToken = null
     this._accessTokenExpiresAt = 0
+
+    // CC 桌面介入同步：每个钉钉会话最近一次的 webhook 信息（用于回传）
+    // key: sessionId, value: { webhook, robotCode, senderStaffId }
+    this._sessionWebhooks = new Map()
+
+    // CC 桌面介入时待发送的 Q&A 块
+    // key: sessionId, value: { userInput, textChunks[] }
+    this._desktopPendingBlocks = new Map()
   }
 
   /**
@@ -88,6 +96,8 @@ class DingTalkBridge {
     this._sessionProcessQueues.clear()
     for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
     this._pendingChoices.clear()
+    this._sessionWebhooks.clear()
+    this._desktopPendingBlocks.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', { connected: false })
   }
@@ -265,6 +275,11 @@ class DingTalkBridge {
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
   async _processOneMessage(sessionId, userMessage, sessionWebhook, senderNick, { robotCode, senderStaffId } = {}) {
+    // 更新会话的最近 webhook（用于 CC 桌面介入时回传给钉钉）
+    if (sessionWebhook) {
+      this._sessionWebhooks.set(sessionId, { webhook: sessionWebhook, robotCode, senderStaffId })
+    }
+
     // 设置响应处理器（每段文本即时发送到钉钉）
     const donePromise = this._setupResponseHandler(sessionId, sessionWebhook, { robotCode, senderStaffId })
 
@@ -275,7 +290,12 @@ class DingTalkBridge {
       await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
       console.error(`[DingTalk] sendMessage failed:`, err.message)
-      await this._replyToDingTalk(sessionWebhook, `❌ 错误: ${err.message}`)
+      // 会话正在 streaming（CC 桌面介入中）：友好提示，不报错
+      if (err.message && err.message.includes('already streaming')) {
+        await this._replyToDingTalk(sessionWebhook, '⏳ 正在处理中，请稍候再试')
+      } else {
+        await this._replyToDingTalk(sessionWebhook, `❌ 错误: ${err.message}`)
+      }
       this.responseCollectors.delete(sessionId)
       return
     }
@@ -505,13 +525,28 @@ class DingTalkBridge {
 
   /**
    * 接收 AgentSessionManager 的消息事件（由外部调用注入）
-   * 每段文本即时发送到钉钉，不缓冲
+   *
+   * 钉钉发起的消息：每段文本即时发送到钉钉（实时流式效果）
+   * CC 桌面介入的消息：累积文本块，等待 onAgentResult 时组装 Q&A 块发送
    */
   onAgentMessage(sessionId, message) {
     const collector = this.responseCollectors.get(sessionId)
-    if (!collector) return false // 非钉钉会话，不处理
+    if (!collector) {
+      // 非钉钉发起的消息 — 检查是否是 CC 桌面介入（有待转发块）
+      const pending = this._desktopPendingBlocks.get(sessionId)
+      if (!pending) return false
 
-    // 提取文本块，有内容则立即发送
+      // 累积文本块，result 时一起打包发送
+      const blocks = message?.content || []
+      for (const block of blocks) {
+        if (block.type === 'text' && block.text) {
+          pending.textChunks.push(block.text)
+        }
+      }
+      return true
+    }
+
+    // 钉钉发起的消息：提取文本块，有内容则立即发送
     const blocks = message?.content || []
     const textParts = []
     for (const block of blocks) {
@@ -540,11 +575,58 @@ class DingTalkBridge {
   }
 
   /**
+   * 接收 CC 桌面端用户消息（非钉钉来源的钉钉会话）
+   * 记录用户输入，等待 onAgentResult 时一起发送完整 Q&A 块到钉钉
+   */
+  onUserMessage(sessionId, userInput) {
+    if (!this._sessionWebhooks.has(sessionId)) return
+
+    console.log(`[DingTalk] Desktop intervention for session ${sessionId}: "${(userInput || '').substring(0, 50)}"`)
+    this._desktopPendingBlocks.set(sessionId, {
+      userInput: userInput || '',
+      textChunks: []
+    })
+  }
+
+  /**
    * 接收 Agent 一轮对话完成事件
+   *
+   * 钉钉发起的消息：清理 collector，resolve donePromise
+   * CC 桌面介入的消息：组装完整 Q&A 块，通过存储的 webhook 发送到钉钉
    */
   onAgentResult(sessionId) {
     const collector = this.responseCollectors.get(sessionId)
-    if (!collector) return false
+    if (!collector) {
+      // CC 桌面介入：发送完整 Q&A 块
+      const pending = this._desktopPendingBlocks.get(sessionId)
+      if (!pending) return false
+
+      this._desktopPendingBlocks.delete(sessionId)
+
+      const webhookInfo = this._sessionWebhooks.get(sessionId)
+      if (!webhookInfo) return false
+
+      const responseText = pending.textChunks.join('\n\n')
+
+      // 有用户输入或有响应文本时才发送（避免发空消息）
+      if (pending.userInput || responseText) {
+        const lines = ['💻 桌面端介入：']
+        if (pending.userInput) {
+          // 多行输入每行加引用前缀
+          const quotedInput = pending.userInput.split('\n').map(l => `> ${l}`).join('\n')
+          lines.push(quotedInput)
+        }
+        if (responseText) {
+          lines.push('')
+          lines.push(responseText)
+        }
+        this._replyToDingTalk(webhookInfo.webhook, lines.join('\n')).catch(err => {
+          console.error('[DingTalk] Desktop intervention reply failed:', err.message)
+        })
+      }
+
+      return true
+    }
 
     clearTimeout(collector.timer)
     this.responseCollectors.delete(sessionId)
@@ -573,7 +655,11 @@ class DingTalkBridge {
    */
   onAgentError(sessionId, error) {
     const collector = this.responseCollectors.get(sessionId)
-    if (!collector) return false
+    if (!collector) {
+      // 清理 CC 桌面介入的待发块
+      this._desktopPendingBlocks.delete(sessionId)
+      return false
+    }
 
     clearTimeout(collector.timer)
     this.responseCollectors.delete(sessionId)
