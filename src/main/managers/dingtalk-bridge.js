@@ -91,6 +91,7 @@ class DingTalkBridge {
       this.client = null
     }
     this.connected = false
+    for (const collector of this.responseCollectors.values()) clearTimeout(collector.timer)
     this.responseCollectors.clear()
     this._processedMsgIds.clear()
     this._sessionProcessQueues.clear()
@@ -296,6 +297,8 @@ class DingTalkBridge {
       } else {
         await this._replyToDingTalk(sessionWebhook, `❌ 错误: ${err.message}`)
       }
+      const failedCollector = this.responseCollectors.get(sessionId)
+      if (failedCollector) clearTimeout(failedCollector.timer)
       this.responseCollectors.delete(sessionId)
       return
     }
@@ -343,6 +346,8 @@ class DingTalkBridge {
         if (session) return sessionId
         this._sessionProcessQueues.delete(sessionId)
         this.sessionMap.delete(mapKey)
+        this._sessionWebhooks.delete(sessionId)
+        this._desktopPendingBlocks.delete(sessionId)
       }
       // 三种情况均继续向下走：查询历史 → 触发选择菜单 或 新建
     }
@@ -420,11 +425,16 @@ class DingTalkBridge {
    * 向钉钉用户发送历史会话选择菜单
    */
   async _sendChoiceMenu(webhook, sessions) {
+    const MAX_SESSIONS = 10
+    const displaySessions = sessions.slice(0, MAX_SESSIONS)
     const lines = ['您有以下历史会话，请回复数字选择：\n']
-    sessions.forEach((row, i) => {
+    displaySessions.forEach((row, i) => {
       const timeStr = this._formatRelativeTime(row.updated_at)
       lines.push(`${i + 1}. [${timeStr}] ${row.title}`)
     })
+    if (sessions.length > MAX_SESSIONS) {
+      lines.push(`\n（仅显示最近 ${MAX_SESSIONS} 条，共 ${sessions.length} 条）`)
+    }
     // 0 单独放在列表外，避免钉钉 Markdown 将 "0." 续接为有序列表编号
     lines.push('\n回复 0 开始全新会话')
     await this._replyToDingTalk(webhook, lines.join('\n'))
@@ -509,7 +519,7 @@ class DingTalkBridge {
    * 格式化时间戳为相对时间描述
    */
   _formatRelativeTime(timestamp) {
-    const diff = Date.now() - timestamp
+    const diff = Date.now() - Number(timestamp)
     const min = 60 * 1000
     const hour = 60 * min
     const day = 24 * hour
@@ -572,12 +582,14 @@ class DingTalkBridge {
       return true
     }
 
-    // 钉钉发起的消息：提取文本块，有内容则立即发送
+    // 钉钉发起的消息：提取文本块立即发送，同时扫描 tool_use 图片路径
     const blocks = message?.content || []
     const textParts = []
     for (const block of blocks) {
       if (block.type === 'text' && block.text) {
         textParts.push(block.text)
+      } else if (block.type === 'tool_use' && block.input) {
+        this._extractImagePaths(block.input).forEach(p => collector.imagePaths.add(p))
       }
     }
 
@@ -588,13 +600,6 @@ class DingTalkBridge {
       this._replyToDingTalk(collector.webhook, text).catch(err => {
         console.error(`[DingTalk] Immediate reply failed:`, err.message)
       })
-    }
-
-    // 扫描 tool_use 块中的图片路径
-    for (const block of blocks) {
-      if (block.type === 'tool_use' && block.input) {
-        this._extractImagePaths(block.input).forEach(p => collector.imagePaths.add(p))
-      }
     }
 
     return true
@@ -777,13 +782,11 @@ class DingTalkBridge {
   }
 
   /**
-   * 上传 base64 图片到钉钉 media API，返回 media_id
+   * 上传 Buffer 到钉钉 media API，返回 media_id（公共逻辑）
    */
-  async _uploadImageBase64(base64, mediaType, token) {
-    const buffer = Buffer.from(base64, 'base64')
-    const ext = (mediaType || 'image/png').split('/')[1] || 'png'
+  async _uploadBuffer(buffer, fileName, mediaType, token) {
     const formData = new FormData()
-    formData.append('media', new Blob([buffer], { type: mediaType || 'image/png' }), `image.${ext}`)
+    formData.append('media', new Blob([buffer], { type: mediaType || 'application/octet-stream' }), fileName)
 
     const response = await globalThis.fetch(
       `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
@@ -798,24 +801,19 @@ class DingTalkBridge {
 
   /**
    * 上传本地图片到钉钉 media API，返回 media_id
-   * （media_id 可直接作为 sampleImageMsg 的 photoURL 参数）
    */
   async _uploadImage(filePath, token) {
-    const fileName = path.basename(filePath)
     const fileBuffer = await fs.promises.readFile(filePath)
+    return this._uploadBuffer(fileBuffer, path.basename(filePath), null, token)
+  }
 
-    const formData = new FormData()
-    formData.append('media', new Blob([fileBuffer]), fileName)
-
-    const response = await globalThis.fetch(
-      `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
-      { method: 'POST', body: formData }
-    )
-
-    if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
-    const result = await response.json()
-    if (result.errcode) throw new Error(`Upload error: ${result.errcode} ${result.errmsg}`)
-    return result.media_id
+  /**
+   * 上传 base64 图片到钉钉 media API，返回 media_id
+   */
+  async _uploadImageBase64(base64, mediaType, token) {
+    const buffer = Buffer.from(base64, 'base64')
+    const ext = (mediaType || 'image/png').split('/')[1] || 'png'
+    return this._uploadBuffer(buffer, `image.${ext}`, mediaType || 'image/png', token)
   }
 
   /**
