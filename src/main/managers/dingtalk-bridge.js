@@ -446,7 +446,10 @@ class DingTalkBridge {
     const isValid = !isNaN(choice) && choice >= 0 && choice <= sessions.length
 
     if (!isValid) {
-      // 无效输入，重新发送菜单
+      // 非有效数字选项：用最新消息替换旧的 originalMessage（保留最后一条）
+      if (choiceText) {
+        pending.originalMessage = choiceText
+      }
       await this._sendChoiceMenu(webhook, sessions)
       return
     }
