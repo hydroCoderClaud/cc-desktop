@@ -169,6 +169,27 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
+     * 查询钉钉特定用户+会话的最近一条 agent 对话（用于重启后恢复 sessionMap）
+     */
+    getDingTalkSession(staffId, conversationId) {
+      return this.db.prepare(`
+        SELECT * FROM agent_conversations
+        WHERE staff_id = ? AND conversation_id = ?
+        ORDER BY updated_at DESC LIMIT 1
+      `).get(staffId, conversationId)
+    }
+
+    /**
+     * 更新钉钉元数据（staffId、conversationId）到对话记录
+     */
+    updateDingTalkMetadata(sessionId, staffId, conversationId) {
+      this.db.prepare(`
+        UPDATE agent_conversations SET staff_id = ?, conversation_id = ?, updated_at = ?
+        WHERE session_id = ?
+      `).run(staffId, conversationId, Date.now(), sessionId)
+    }
+
+    /**
      * 标记所有非 closed 状态的对话为 closed（应用启动时清理）
      */
     closeAllActiveAgentConversations() {

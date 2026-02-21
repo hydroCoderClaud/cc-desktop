@@ -144,7 +144,9 @@ class SessionDatabaseBase {
     const agentConvNewColumns = [
       { name: 'api_profile_id', type: 'TEXT' },
       { name: 'api_base_url', type: 'TEXT' },
-      { name: 'queued_messages', type: "TEXT DEFAULT '[]'" }  // 存储队列消息（JSON 数组）
+      { name: 'queued_messages', type: "TEXT DEFAULT '[]'" },  // 存储队列消息（JSON 数组）
+      { name: 'staff_id', type: 'TEXT' },         // 钉钉发送者 staffId
+      { name: 'conversation_id', type: 'TEXT' }   // 钉钉群/单聊会话 ID
     ]
 
     for (const col of agentConvNewColumns) {

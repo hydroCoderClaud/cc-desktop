@@ -25,7 +25,7 @@ class DingTalkBridge {
     this.client = null
     this.connected = false
 
-    // 钉钉用户 → Agent 会话映射：{ staffId: sessionId }
+    // 钉钉用户+会话 → Agent 会话映射：{ "staffId:conversationId": sessionId }
     this.sessionMap = new Map()
 
     // 响应收集器：{ sessionId: { chunks, resolve, webhook } }
@@ -138,7 +138,7 @@ class DingTalkBridge {
    */
   async _handleDingTalkMessage(res) {
     const data = JSON.parse(res.data)
-    const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode } = data
+    const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle } = data
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
@@ -215,7 +215,7 @@ class DingTalkBridge {
     }
 
     // 查找或创建 Agent 会话
-    const sessionId = await this._ensureSession(senderStaffId, senderNick)
+    const sessionId = await this._ensureSession(senderStaffId, senderNick, conversationId, conversationTitle)
 
     // 通知前端：收到钉钉消息（立即通知，不等待处理）
     const notification = { sessionId, senderNick, text: displayText }
@@ -265,37 +265,64 @@ class DingTalkBridge {
   }
 
   /**
-   * 确保钉钉用户有对应的 Agent 会话
+   * 确保钉钉用户+会话有对应的 Agent 会话
+   * 会话 key = "staffId:conversationId"，不同群/单聊独立隔离
    */
-  async _ensureSession(staffId, nickname) {
-    let sessionId = this.sessionMap.get(staffId)
+  async _ensureSession(staffId, nickname, conversationId, conversationTitle) {
+    const mapKey = `${staffId}:${conversationId || 'default'}`
+    let sessionId = this.sessionMap.get(mapKey)
 
-    // 检查会话是否还存在
+    // 检查内存中的会话是否还存在
     if (sessionId) {
       const session = this.agentSessionManager.get(sessionId)
       if (session) return sessionId
       // 会话不存在了，需要重建；同时清理旧的队列引用
       this._sessionProcessQueues.delete(sessionId)
-      this.sessionMap.delete(staffId)
+      this.sessionMap.delete(mapKey)
     }
 
-    // 创建新会话
+    // 从 DB 恢复（重启后 sessionMap 为空，但 DB 有历史记录）
+    const db = this.agentSessionManager.sessionDatabase
+    if (db && conversationId) {
+      const row = db.getDingTalkSession(staffId, conversationId)
+      if (row) {
+        const session = this.agentSessionManager.get(row.session_id)
+        if (session) {
+          this.sessionMap.set(mapKey, row.session_id)
+          console.log(`[DingTalk] Restored session ${row.session_id} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
+          return row.session_id
+        }
+      }
+    }
+
+    // 创建新会话，title 带上群名以便桌面端区分
+    const title = conversationTitle
+      ? `钉钉 · ${conversationTitle} · ${nickname || staffId}`
+      : `钉钉 · ${nickname || staffId}`
+
     const session = this.agentSessionManager.create({
       type: 'dingtalk',
-      title: `钉钉 · ${nickname || staffId}`,
+      title,
       cwd: this._getDefaultCwd()
     })
 
     sessionId = session.id
-    this.sessionMap.set(staffId, sessionId)
+    this.sessionMap.set(mapKey, sessionId)
 
-    console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId})`)
+    // 持久化钉钉元数据，供重启后恢复
+    if (db && conversationId) {
+      db.updateDingTalkMetadata(sessionId, staffId, conversationId)
+    }
 
-    // 通知前端新会话（传 title 保持与 DB 一致）
+    console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
+
+    // 通知前端新会话
     this._notifyFrontend('dingtalk:sessionCreated', {
       sessionId,
       staffId,
       nickname,
+      conversationId,
+      conversationTitle,
       title: session.title
     })
 
