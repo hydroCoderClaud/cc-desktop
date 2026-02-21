@@ -298,12 +298,23 @@ class DingTalkBridge {
     const mapKey = `${staffId}:${conversationId || 'default'}`
     let sessionId = this.sessionMap.get(mapKey)
 
-    // 内存中或 DB 中有且会话可恢复 → 直接用
+    // 内存中有映射 → 先检查 DB 状态，再决定是否恢复
     if (sessionId) {
-      const session = this.agentSessionManager.reopen(sessionId)
-      if (session) return sessionId
-      this._sessionProcessQueues.delete(sessionId)
-      this.sessionMap.delete(mapKey)
+      const db = this.agentSessionManager.sessionDatabase
+      const row = db && db.getAgentConversation(sessionId)
+
+      if (row && row.status === 'closed') {
+        // CC 桌面已关闭该会话 → 清除内存映射，让用户重新选择
+        console.log(`[DingTalk] Session ${sessionId} was closed by desktop, will ask user to choose`)
+        this._sessionProcessQueues.delete(sessionId)
+        this.sessionMap.delete(mapKey)
+        // 继续向下走：查询历史 → 触发选择菜单
+      } else {
+        const session = this.agentSessionManager.reopen(sessionId)
+        if (session) return sessionId
+        this._sessionProcessQueues.delete(sessionId)
+        this.sessionMap.delete(mapKey)
+      }
     }
 
     // 从 DB 查历史会话
