@@ -418,7 +418,10 @@ class AgentSessionManager {
     if (this.messageListener?.onUserMessage) {
       const isDingTalkSource = meta?.source === 'dingtalk'
       if (!isDingTalkSource && session.type === 'dingtalk') {
-        try { this.messageListener.onUserMessage(session.id, displayContent) } catch (e) { console.error('[AgentSession] messageListener.onUserMessage threw:', e) }
+        const inputImages = (typeof userMessage === 'object' && userMessage?.images?.length > 0)
+          ? userMessage.images
+          : null
+        try { this.messageListener.onUserMessage(session.id, displayContent, inputImages) } catch (e) { console.error('[AgentSession] messageListener.onUserMessage threw:', e) }
       }
     }
 

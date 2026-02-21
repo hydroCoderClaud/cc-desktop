@@ -52,7 +52,7 @@ class DingTalkBridge {
     this._sessionWebhooks = new Map()
 
     // CC 桌面介入时待发送的 Q&A 块
-    // key: sessionId, value: { userInput, textChunks[] }
+    // key: sessionId, value: { userInput, inputImages[], textChunks[], imagePaths }
     this._desktopPendingBlocks = new Map()
   }
 
@@ -602,12 +602,13 @@ class DingTalkBridge {
    * 接收 CC 桌面端用户消息（非钉钉来源的钉钉会话）
    * 记录用户输入，等待 onAgentResult 时一起发送完整 Q&A 块到钉钉
    */
-  onUserMessage(sessionId, userInput) {
+  onUserMessage(sessionId, userInput, inputImages = null) {
     if (!this._sessionWebhooks.has(sessionId)) return
 
-    console.log(`[DingTalk] Desktop intervention for session ${sessionId}: "${(userInput || '').substring(0, 50)}"`)
+    console.log(`[DingTalk] Desktop intervention for session ${sessionId}: "${(userInput || '').substring(0, 50)}"${inputImages?.length ? ` + ${inputImages.length} image(s)` : ''}`)
     this._desktopPendingBlocks.set(sessionId, {
       userInput: userInput || '',
+      inputImages: inputImages || [],
       textChunks: [],
       imagePaths: new Set()
     })
@@ -650,7 +651,14 @@ class DingTalkBridge {
         })
       }
 
-      // 异步发送收集到的图片（与钉钉发起路径保持一致）
+      // 异步发送用户输入的图片（桌面端粘贴的截图等 base64 图片）
+      if (pending.inputImages && pending.inputImages.length > 0) {
+        this._sendBase64Images(pending.inputImages, webhookInfo).catch(err => {
+          console.error('[DingTalk] Desktop intervention input image forward failed:', err.message)
+        })
+      }
+
+      // 异步发送 Agent 读取的磁盘图片（与钉钉发起路径保持一致）
       if (pending.imagePaths.size > 0) {
         this._sendCollectedImages(pending.imagePaths, webhookInfo).catch(err => {
           console.error('[DingTalk] Desktop intervention image forward failed:', err.message)
@@ -748,6 +756,42 @@ class DingTalkBridge {
         console.error(`[DingTalk] Failed to forward image ${filePath}:`, err.message)
       }
     }
+  }
+
+  /**
+   * 发送 base64 图片列表到钉钉（桌面端介入时用户输入的截图等）
+   */
+  async _sendBase64Images(images, { robotCode, senderStaffId }) {
+    const token = await this._getAccessToken()
+    for (const img of images) {
+      try {
+        const mediaId = await this._uploadImageBase64(img.base64, img.mediaType, token)
+        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, token })
+        console.log('[DingTalk] Input image forwarded to DingTalk')
+      } catch (err) {
+        console.error('[DingTalk] Failed to forward input image:', err.message)
+      }
+    }
+  }
+
+  /**
+   * 上传 base64 图片到钉钉 media API，返回 media_id
+   */
+  async _uploadImageBase64(base64, mediaType, token) {
+    const buffer = Buffer.from(base64, 'base64')
+    const ext = (mediaType || 'image/png').split('/')[1] || 'png'
+    const formData = new FormData()
+    formData.append('media', new Blob([buffer], { type: mediaType || 'image/png' }), `image.${ext}`)
+
+    const response = await globalThis.fetch(
+      `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
+      { method: 'POST', body: formData }
+    )
+
+    if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
+    const result = await response.json()
+    if (result.errcode) throw new Error(`Upload error: ${result.errcode} ${result.errmsg}`)
+    return result.media_id
   }
 
   /**

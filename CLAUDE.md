@@ -333,6 +333,24 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 
 ## 后期计划
 
+### 钉钉：群聊图片发到群而非私发
+
+**问题**：Agent 生成的图片（tool_use 读取）以及 CC 桌面介入时用户输入的截图，当前通过 `oToMessages/batchSend` 接口发送，该接口只支持单聊（私发给 `senderStaffId`）。群聊场景下图片只发给最后发消息的成员，不出现在群里。
+
+**方案**（已完整评估，改动约 10 处，集中在 `dingtalk-bridge.js`）：
+1. `_handleDingTalkMessage` 解构中增加 `conversationType`（单聊=`"1"`，群聊=`"2"`）
+2. `conversationType` 和 `conversationId` 随 `_processOneMessage` 透传，存入 `_sessionWebhooks` 和 `responseCollectors`
+3. 新增 `_sendImageToGroup(mediaId, { robotCode, openConversationId, token })` 调 `groupMessages/send` 接口
+4. `_sendImageViaApi` 改为路由函数：`conversationType === '2'` 时走群聊接口，否则走原单聊接口
+5. `_sendCollectedImages` / `_sendBase64Images` 签名加 `conversationId`、`conversationType` 并透传
+6. `_handlePendingChoice` → `_processOneMessage` 调用也补传两字段
+
+**注意**：现有单聊行为不受影响（`conversationType` 不为 `"2"` 时原路径不变）。
+
+**已完整评估，暂不实现，等群聊图片场景确认有需求时再推进。**
+
+---
+
 ### 钉钉：允许选择任意类型会话
 
 **需求**：钉钉用户在历史会话选择菜单中，可以选择任意会话（包括普通 chat 会话），而不仅限于 `type='dingtalk'` 的会话。
