@@ -169,7 +169,7 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
-     * 查询钉钉特定用户+会话的最近一条 agent 对话（用于重启后恢复 sessionMap）
+     * 查询钉钉特定用户+会话的最近一条 agent 对话
      */
     getDingTalkSession(staffId, conversationId) {
       return this.db.prepare(`
@@ -177,6 +177,17 @@ function withAgentOperations(BaseClass) {
         WHERE staff_id = ? AND conversation_id = ?
         ORDER BY updated_at DESC LIMIT 1
       `).get(staffId, conversationId)
+    }
+
+    /**
+     * 查询钉钉特定用户+会话的历史对话列表（供用户选择继续哪个会话）
+     */
+    getDingTalkSessions(staffId, conversationId, limit = 5) {
+      return this.db.prepare(`
+        SELECT * FROM agent_conversations
+        WHERE staff_id = ? AND conversation_id = ?
+        ORDER BY updated_at DESC LIMIT ?
+      `).all(staffId, conversationId, limit)
     }
 
     /**

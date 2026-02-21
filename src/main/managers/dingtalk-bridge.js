@@ -38,6 +38,11 @@ class DingTalkBridge {
     // 每个会话的消息处理队列（Promise chain），确保串行处理
     this._sessionProcessQueues = new Map()
 
+    // 待选择状态：用户发消息时有历史会话，等待用户选择继续或新建
+    // key: "staffId:conversationId"，value: { sessions, originalMessage, robotCode, senderStaffId, timer }
+    this._pendingChoices = new Map()
+    this._CHOICE_TTL = 10 * 60 * 1000 // 10 分钟无响应则超时清除
+
     // 钉钉 access token 缓存
     this._accessToken = null
     this._accessTokenExpiresAt = 0
@@ -81,6 +86,8 @@ class DingTalkBridge {
     this.responseCollectors.clear()
     this._processedMsgIds.clear()
     this._sessionProcessQueues.clear()
+    for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
+    this._pendingChoices.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', { connected: false })
   }
@@ -150,6 +157,14 @@ class DingTalkBridge {
       setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
     }
 
+    // 如果有待选择状态，优先处理（用户正在选择历史会话）
+    const mapKey = `${senderStaffId}:${conversationId || 'default'}`
+    if (this._pendingChoices.has(mapKey)) {
+      const choiceText = text?.content?.trim()
+      await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle })
+      return
+    }
+
     // 根据消息类型构建 Agent 消息
     let agentMessage = null  // string 或 { text, images }
     let displayText = ''     // 用于前端显示和日志
@@ -215,7 +230,16 @@ class DingTalkBridge {
     }
 
     // 查找或创建 Agent 会话
-    const sessionId = await this._ensureSession(senderStaffId, senderNick, conversationId, conversationTitle)
+    const result = await this._ensureSession(senderStaffId, senderNick, conversationId, conversationTitle)
+
+    // 有历史会话需要用户选择：发送菜单并等待
+    if (result && result.needsChoice) {
+      this._setPendingChoice(mapKey, { sessions: result.sessions, originalMessage: agentMessage, robotCode, senderStaffId })
+      await this._sendChoiceMenu(sessionWebhook, result.sessions)
+      return
+    }
+
+    const sessionId = result
 
     // 通知前端：收到钉钉消息（立即通知，不等待处理）
     const notification = { sessionId, senderNick, text: displayText }
@@ -266,36 +290,40 @@ class DingTalkBridge {
 
   /**
    * 确保钉钉用户+会话有对应的 Agent 会话
-   * 会话 key = "staffId:conversationId"，不同群/单聊独立隔离
+   * - 内存命中 → 直接返回 sessionId
+   * - DB 有历史记录 → 返回 { needsChoice: true, sessions } 让用户选择
+   * - 无历史 → 新建并返回 sessionId
    */
   async _ensureSession(staffId, nickname, conversationId, conversationTitle) {
     const mapKey = `${staffId}:${conversationId || 'default'}`
     let sessionId = this.sessionMap.get(mapKey)
 
-    // 检查内存中的会话是否还存在
+    // 内存中有且会话存在 → 直接用
     if (sessionId) {
       const session = this.agentSessionManager.get(sessionId)
       if (session) return sessionId
-      // 会话不存在了，需要重建；同时清理旧的队列引用
       this._sessionProcessQueues.delete(sessionId)
       this.sessionMap.delete(mapKey)
     }
 
-    // 从 DB 恢复（重启后 sessionMap 为空，但 DB 有历史记录）
+    // 从 DB 查历史会话
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
-      const row = db.getDingTalkSession(staffId, conversationId)
-      if (row) {
-        const session = this.agentSessionManager.get(row.session_id)
-        if (session) {
-          this.sessionMap.set(mapKey, row.session_id)
-          console.log(`[DingTalk] Restored session ${row.session_id} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
-          return row.session_id
-        }
+      const sessions = db.getDingTalkSessions(staffId, conversationId)
+      if (sessions.length > 0) {
+        // 有历史会话，交由用户选择（而非自动恢复）
+        return { needsChoice: true, sessions }
       }
     }
 
-    // 创建新会话，title 带上群名以便桌面端区分
+    // 无历史会话 → 新建
+    return this._createNewSession(staffId, nickname, conversationId, conversationTitle, mapKey)
+  }
+
+  /**
+   * 新建 Agent 会话（供 _ensureSession 和 _handlePendingChoice 共用）
+   */
+  async _createNewSession(staffId, nickname, conversationId, conversationTitle, mapKey) {
     const title = conversationTitle
       ? `钉钉 · ${conversationTitle} · ${nickname || staffId}`
       : `钉钉 · ${nickname || staffId}`
@@ -306,27 +334,126 @@ class DingTalkBridge {
       cwd: this._getDefaultCwd()
     })
 
-    sessionId = session.id
+    const sessionId = session.id
     this.sessionMap.set(mapKey, sessionId)
 
-    // 持久化钉钉元数据，供重启后恢复
+    const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
       db.updateDingTalkMetadata(sessionId, staffId, conversationId)
     }
 
     console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
 
-    // 通知前端新会话
     this._notifyFrontend('dingtalk:sessionCreated', {
-      sessionId,
-      staffId,
-      nickname,
-      conversationId,
-      conversationTitle,
-      title: session.title
+      sessionId, staffId, nickname, conversationId, conversationTitle, title: session.title
     })
 
     return sessionId
+  }
+
+  /**
+   * 设置待选择状态（带超时自动清理）
+   */
+  _setPendingChoice(mapKey, data) {
+    const existing = this._pendingChoices.get(mapKey)
+    if (existing) clearTimeout(existing.timer)
+
+    const timer = setTimeout(() => {
+      this._pendingChoices.delete(mapKey)
+      console.log(`[DingTalk] Pending choice expired for ${mapKey}`)
+    }, this._CHOICE_TTL)
+
+    this._pendingChoices.set(mapKey, { ...data, timer })
+  }
+
+  /**
+   * 清除待选择状态
+   */
+  _clearPendingChoice(mapKey) {
+    const pending = this._pendingChoices.get(mapKey)
+    if (pending) clearTimeout(pending.timer)
+    this._pendingChoices.delete(mapKey)
+  }
+
+  /**
+   * 向钉钉用户发送历史会话选择菜单
+   */
+  async _sendChoiceMenu(webhook, sessions) {
+    const lines = ['您有以下历史会话，请回复数字选择：\n']
+    sessions.forEach((row, i) => {
+      const timeStr = this._formatRelativeTime(row.updated_at)
+      lines.push(`${i + 1}. [${timeStr}] ${row.title}`)
+    })
+    lines.push('\n0. 开始新会话')
+    await this._replyToDingTalk(webhook, lines.join('\n'))
+  }
+
+  /**
+   * 处理用户的历史会话选择（0 = 新建，1~N = 恢复对应会话）
+   */
+  async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle }) {
+    const pending = this._pendingChoices.get(mapKey)
+    const { sessions, originalMessage } = pending
+
+    const choice = parseInt(choiceText)
+    const isValid = !isNaN(choice) && choice >= 0 && choice <= sessions.length
+
+    if (!isValid) {
+      // 无效输入，重新发送菜单
+      await this._sendChoiceMenu(webhook, sessions)
+      return
+    }
+
+    this._clearPendingChoice(mapKey)
+
+    let sessionId
+
+    if (choice === 0) {
+      // 新建会话
+      sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
+    } else {
+      // 恢复指定历史会话
+      const selectedRow = sessions[choice - 1]
+      const session = this.agentSessionManager.get(selectedRow.session_id)
+      if (session) {
+        sessionId = selectedRow.session_id
+        this.sessionMap.set(mapKey, sessionId)
+        console.log(`[DingTalk] Resumed session ${sessionId} for ${senderNick}(${senderStaffId})`)
+        this._notifyFrontend('dingtalk:sessionCreated', {
+          sessionId, staffId: senderStaffId, nickname: senderNick,
+          conversationId, conversationTitle, title: selectedRow.title
+        })
+      } else {
+        // 无法恢复，降级新建
+        console.warn(`[DingTalk] Cannot restore session ${selectedRow.session_id}, creating new`)
+        sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
+      }
+    }
+
+    // 将触发菜单的原始消息投入队列处理
+    if (originalMessage) {
+      const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
+      const currentTask = prevTask
+        .catch(() => {})
+        .then(() => this._processOneMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId }))
+        .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
+      this._sessionProcessQueues.set(sessionId, currentTask)
+    }
+  }
+
+  /**
+   * 格式化时间戳为相对时间描述
+   */
+  _formatRelativeTime(timestamp) {
+    const diff = Date.now() - timestamp
+    const min = 60 * 1000
+    const hour = 60 * min
+    const day = 24 * hour
+    if (diff < hour) return `${Math.floor(diff / min)}分钟前`
+    if (diff < day) return `${Math.floor(diff / hour)}小时前`
+    if (diff < 7 * day) return `${Math.floor(diff / day)}天前`
+    if (diff < 30 * day) return `${Math.floor(diff / (7 * day))}周前`
+    return `${Math.floor(diff / (30 * day))}个月前`
   }
 
   /**
