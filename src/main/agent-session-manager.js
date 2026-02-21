@@ -1042,16 +1042,16 @@ class AgentSessionManager {
   }
 
   /**
-   * 获取会话消息历史（内存有消息则用内存，否则查 DB）
+   * 获取会话消息历史（DB 优先，确保历史完整；内存兜底）
+   *
+   * 注意：_storeMessage 同步写入内存和 DB，DB 始终完整。
+   * 若采用"内存优先"，当 sendMessage 在 loadMessages() 之前被调用时（如钉钉恢复场景），
+   * session.messages 仅含当前新消息，导致历史无法渲染。
    */
   getMessages(sessionId) {
-    // 1. 内存中有消息，直接返回
     const session = this.sessions.get(sessionId)
-    if (session && session.messages.length > 0) {
-      return session.messages
-    }
 
-    // 2. 从 DB 查询（内存无消息 或 session 不在内存）
+    // 1. DB 优先查询（DB 始终包含完整历史 + 当前消息）
     if (this.sessionDatabase) {
       try {
         const conv = this.sessionDatabase.getAgentConversation(sessionId)
@@ -1121,7 +1121,8 @@ class AgentSessionManager {
       }
     }
 
-    return []
+    // 2. 兜底：DB 不可用或出错时，返回内存中的消息
+    return session ? session.messages : []
   }
 
   /**
