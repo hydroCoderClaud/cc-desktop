@@ -310,12 +310,17 @@ export function useAgentChat(sessionId) {
     }
     if (data.model) {
       activeModel.value = data.model
-      // 未手动切换过时，根据 SDK 返回的模型名同步下拉菜单
-      syncFromInit = true
+      // 根据 SDK 返回的模型名同步下拉菜单（仅 Claude 官方模型可识别 tier）
       const modelLower = data.model.toLowerCase()
-      if (modelLower.includes('opus')) selectedModel.value = 'opus'
-      else if (modelLower.includes('haiku')) selectedModel.value = 'haiku'
-      else selectedModel.value = 'sonnet'
+      let newTier = null
+      if (modelLower.includes('opus')) newTier = 'opus'
+      else if (modelLower.includes('haiku')) newTier = 'haiku'
+      else if (modelLower.includes('sonnet')) newTier = 'sonnet'
+      // 第三方模型（如 glm-5）无法识别 tier，保留用户当前选择
+      if (newTier) {
+        syncFromInit = true
+        selectedModel.value = newTier
+      }
     }
   }
 
