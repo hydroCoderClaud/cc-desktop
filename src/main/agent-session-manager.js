@@ -22,6 +22,7 @@ const { safeSend } = require('./utils/safe-send')
 const { spawn: cpSpawn } = require('child_process')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const { AgentStatus, AgentType } = require('./utils/agent-constants')
+const { LATEST_MODEL_ALIASES } = require('./utils/constants')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
 
@@ -448,7 +449,7 @@ class AgentSessionManager {
       // push 前确保模型正确（防止 watch 中的 setModel 静默失败）
       if (modelTier) {
         try {
-          await session.queryGenerator.setModel(modelTier)
+          await session.queryGenerator.setModel(LATEST_MODEL_ALIASES[modelTier] || modelTier)
         } catch (e) {
           console.warn(`[AgentSession] setModel before push failed: ${e.message}`)
         }
@@ -535,7 +536,7 @@ class AgentSessionManager {
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       if (modelTier) {
-        options.model = modelTier
+        options.model = LATEST_MODEL_ALIASES[modelTier] || modelTier
       }
 
       if (maxTurns) {

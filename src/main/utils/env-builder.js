@@ -3,6 +3,8 @@
  * 从 API Profile 生成 Claude Code CLI 所需的环境变量
  */
 
+const { LATEST_MODEL_ALIASES } = require('./constants')
+
 /**
  * 检测是否在打包后的应用中运行
  * @returns {boolean}
@@ -63,8 +65,8 @@ function buildClaudeEnvVars(profile) {
   // 默认启动模型（根据选择的 tier 确定模型名）
   if (profile.selectedModelTier) {
     const tier = profile.selectedModelTier
-    // 优先使用 modelMapping 中配置的模型名，否则使用 tier 别名
-    const modelName = profile.modelMapping?.[tier]?.trim() || tier
+    // 优先使用 modelMapping 中配置的模型名，否则用 LATEST_MODEL_ALIASES 显式指定版本
+    const modelName = profile.modelMapping?.[tier]?.trim() || LATEST_MODEL_ALIASES[tier] || tier
     envVars.ANTHROPIC_MODEL = modelName
   }
 

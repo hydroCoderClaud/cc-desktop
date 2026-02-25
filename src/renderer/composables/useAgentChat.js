@@ -617,6 +617,9 @@ export function useAgentChat(sessionId) {
         if (profile?.selectedModelTier) {
           syncFromInit = true
           selectedModel.value = profile.selectedModelTier
+          // 同步初始化右侧 activeModel 显示
+          const tier = profile.selectedModelTier
+          activeModel.value = profile.modelMapping?.[tier] || tier
         }
       }
     } catch (err) {

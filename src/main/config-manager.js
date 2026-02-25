@@ -465,7 +465,7 @@ class ConfigManager {
       authToken,
       authType: 'api_key',  // 旧配置默认使用 api_key（官方标准）
       baseUrl: settings.api?.baseUrl || 'https://api.anthropic.com',
-      model: settings.api?.model || 'claude-sonnet-4-5-20250929',
+      model: settings.api?.model || 'claude-sonnet-4-6',
       useProxy: settings.api?.useProxy || false,
       httpsProxy: settings.api?.httpsProxy || '',
       httpProxy: settings.api?.httpProxy || ''
@@ -796,7 +796,7 @@ class ConfigManager {
 
         // 3. 构造请求体
         const tier = apiConfig.selectedModelTier || 'sonnet'
-        const testModel = apiConfig.modelMapping?.[tier]?.trim() || apiConfig.model || 'claude-sonnet-4-5-20250929'
+        const testModel = apiConfig.modelMapping?.[tier]?.trim() || apiConfig.model || 'claude-sonnet-4-6'
         const postData = JSON.stringify({
           model: testModel,
           max_tokens: 10,

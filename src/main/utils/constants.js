@@ -5,7 +5,7 @@
 // API Configuration Defaults
 const API_DEFAULTS = {
   BASE_URL: 'https://api.anthropic.com',
-  MODEL: 'claude-sonnet-4-5-20250929',
+  MODEL: 'claude-sonnet-4-6',
   AUTH_TYPE: 'api_key',
   ANTHROPIC_VERSION: '2023-06-01'
 };
@@ -79,7 +79,7 @@ const MODEL_TIERS = {
 // 大版本更新时只需修改此处
 const LATEST_MODEL_ALIASES = {
   opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-5',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5'
 };
 
