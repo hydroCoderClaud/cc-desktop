@@ -795,8 +795,10 @@ class ConfigManager {
         console.log('[API Test] Auth type:', apiConfig.authType);
 
         // 3. 构造请求体
+        const tier = apiConfig.selectedModelTier || 'sonnet'
+        const testModel = apiConfig.modelMapping?.[tier]?.trim() || apiConfig.model || 'claude-sonnet-4-5-20250929'
         const postData = JSON.stringify({
-          model: apiConfig.model || 'claude-sonnet-4-5-20250929',
+          model: testModel,
           max_tokens: 10,
           messages: [{ role: 'user', content: 'test' }]
         });

@@ -42,6 +42,7 @@ export function useAgentChat(sessionId) {
   const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
   let currentBlockType = null  // 当前流式 content block 的类型（text / tool_use 等）
+  let streamTextReceived = false  // 本轮是否收到过流式 text delta（用于判断是否为非流式 API）
 
   // 模型切换标记：防止 init 同步触发 watch
   let syncFromInit = false
@@ -327,11 +328,13 @@ export function useAgentChat(sessionId) {
     if (!msg) return
 
     // msg.content 是完整 assistant 消息的 content 块数组
-    // text 块已由 handleStream 流式处理并添加，这里只处理 tool_use 等非流式块
     const blocks = msg.content || []
     for (const block of blocks) {
       if (block.type === 'tool_use') {
         addToolMessage(block.name, block.input, null)
+      } else if (block.type === 'text' && !streamTextReceived && block.text) {
+        // 慢速/非流式 API 场景：没有收到流式 token，直接从完整消息添加文本
+        addAssistantMessage(block.text)
       }
     }
   }
@@ -353,6 +356,7 @@ export function useAgentChat(sessionId) {
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
         currentStreamText.value += event.delta.text
+        streamTextReceived = true  // 标记本轮收到了流式文本
       }
     }
 
@@ -391,6 +395,9 @@ export function useAgentChat(sessionId) {
       addAssistantMessage(currentStreamText.value)
       currentStreamText.value = ''
     }
+
+    // 重置流式标记，为下一轮对话做准备
+    streamTextReceived = false
 
     const result = data.result
 
