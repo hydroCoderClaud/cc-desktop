@@ -362,6 +362,30 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 
 **已完整评估，暂不实现，等真正有需求时再推进。**
 
+---
+
+### 钉钉：新建会话独立工作目录
+
+**问题**：钉钉端新建会话时，`_createNewSession` 直接传入 `cwd: this._getDefaultCwd()`（固定为 `dingtalk.defaultCwd` 或 `$HOME`），导致所有钉钉会话共用同一个目录，文件操作和代码生成互相干扰。而桌面端 Agent 模式不传 cwd 时会走 `_assignCwd()`，在 `outputBaseDir` 下自动创建 `conv-{id}` 独立子目录。
+
+**方案**（改动集中在 `dingtalk-bridge.js` 的 `_createNewSession`）：
+1. 钉钉用户首条消息支持指定子目录名称（如发送 `/dir my-project` 或 `#my-project`）
+2. 有指定 → `cwd = {outputBaseDir}/my-project`（支持中文名称）
+3. 没指定 → 不传 cwd，走 `AgentSessionManager._assignCwd()` 自动分配 `conv-{id}` 子目录
+4. 两端统一使用 `settings.agent.outputBaseDir`（默认 `~/cc-desktop-agent-output`）作为根目录
+5. 废弃钉钉端独立的 `_getDefaultCwd()` 逻辑，与 Agent 模式统一
+
+**效果**：
+```
+~/cc-desktop-agent-output/
+├── my-project/        ← 钉钉用户指定名称
+├── 前端重构/           ← 钉钉用户指定中文名称
+├── conv-a1b2c3d4/     ← 钉钉用户未指定，自动分配
+└── conv-e5f6g7h8/     ← 桌面端 Agent 自动分配
+```
+
+**已完整评估，暂不实现。**
+
 ## 文档索引
 
 ### 项目文档
@@ -377,6 +401,8 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 | `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能文档 |
 | `docs/dingtalk-architecture.html` | 钉钉架构图（浏览器打开） |
 | `docs/theme-preview.html` | 主题预览（浏览器打开） |
+| `docs/WEB-SERVER-PLAN.md` | Web 服务端计划（Express 替代 Electron，Linux 无头部署） |
+| `docs/DINGTALK-COMMAND-PLAN.md` | 钉钉远程命令系统计划（/ 前缀命令拦截，远程管理） |
 
 ### 用户文档
 

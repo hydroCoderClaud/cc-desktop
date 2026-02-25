@@ -54,6 +54,9 @@ class DingTalkBridge {
     // CC 桌面介入时待发送的 Q&A 块
     // key: sessionId, value: { userInput, inputImages[], textChunks[], imagePaths }
     this._desktopPendingBlocks = new Map()
+
+    // 连接健康监控：SDK 重连失败时由外层兜底
+    this._reconnectWatchdog = null
   }
 
   /**
@@ -82,6 +85,10 @@ class DingTalkBridge {
    * 停止钉钉桥接
    */
   async stop() {
+    if (this._reconnectWatchdog) {
+      clearTimeout(this._reconnectWatchdog)
+      this._reconnectWatchdog = null
+    }
     if (this.client) {
       try {
         this.client.disconnect()
@@ -129,8 +136,10 @@ class DingTalkBridge {
   async _connect(appKey, appSecret) {
     this.client = new DWClient({
       clientId: appKey,
-      clientSecret: appSecret
+      clientSecret: appSecret,
+      keepAlive: true  // 启用客户端心跳（ping/pong），检测死连接
     })
+    this.client.heartbeat_interval = 30 * 1000 // 30 秒心跳（SDK 默认 8 秒过于频繁）
 
     // 注册机器人消息回调
     // 重要：回调必须立即返回，否则 SDK 收不到 ACK 会重投消息
@@ -149,6 +158,94 @@ class DingTalkBridge {
     this.connected = true
     console.log('[DingTalk] Bridge connected')
     this._notifyFrontend('dingtalk:statusChange', { connected: true })
+
+    // 监听 SDK 内部 socket 事件，同步连接状态 + 兜底重连
+    this._hookSocketEvents()
+  }
+
+  /**
+   * 监听 SDK 内部 socket 事件
+   * - 同步 connected 状态到前端（问题 3）
+   * - SDK 重连失败时启动外层兜底重连（问题 2）
+   *
+   * 注意：SDK 重连时会创建新 socket 实例，旧 socket 的 open 事件不会触发。
+   * 因此只监听 close，重连成功的检测交给 watchdog 轮询 client.registered。
+   */
+  _hookSocketEvents() {
+    const socket = this.client?.socket
+    if (!socket) return
+
+    socket.on('close', () => {
+      if (this.connected) {
+        this.connected = false
+        console.log('[DingTalk] Socket closed, waiting for SDK reconnect...')
+        this._notifyFrontend('dingtalk:statusChange', { connected: false })
+      }
+      // 启动兜底：定期检查 SDK 是否已自动重连成功
+      this._startReconnectWatchdog()
+    })
+  }
+
+  /**
+   * 启动重连兜底定时器
+   * SDK 内置重连只尝试一次（1 秒后），且失败时 Promise rejection 无人捕获，静默放弃。
+   * 外层兜底策略：
+   *   - 10 秒后首次检查：SDK 是否已自动重连成功（检查 client.registered）
+   *   - 成功 → 同步状态 + 重新 hook 新 socket
+   *   - 失败 → 执行完整 restart，再失败则持续重试（间隔递增，最长 5 分钟）
+   */
+  _startReconnectWatchdog() {
+    this._clearReconnectWatchdog()
+    this._reconnectWatchdog = setTimeout(() => {
+      this._reconnectWatchdog = null
+
+      // SDK 可能已自动重连成功（创建了新 socket）
+      if (this.client?.registered) {
+        this.connected = true
+        console.log('[DingTalk] SDK auto-reconnected successfully')
+        this._notifyFrontend('dingtalk:statusChange', { connected: true })
+        this._hookSocketEvents() // hook 新 socket
+        return
+      }
+
+      console.log('[DingTalk] SDK reconnect appears to have failed, performing full restart...')
+      this._watchdogRestart(30 * 1000) // 首次失败后 30 秒重试
+    }, 10 * 1000)
+  }
+
+  /**
+   * watchdog 重连：restart 失败后按递增间隔持续重试，最长 5 分钟
+   */
+  _watchdogRestart(nextDelay) {
+    this.restart().then(ok => {
+      if (ok) return // restart 成功，_connect 内部会重新 hookSocketEvents
+      // restart 返回 false（start 内部 catch 了异常）
+      const cappedDelay = Math.min(nextDelay, 5 * 60 * 1000)
+      console.log(`[DingTalk] Watchdog restart failed, retrying in ${cappedDelay / 1000}s...`)
+      this._reconnectWatchdog = setTimeout(() => {
+        this._reconnectWatchdog = null
+        if (this.connected) return
+        this._watchdogRestart(cappedDelay * 2) // 指数退避
+      }, cappedDelay)
+    }).catch(err => {
+      // restart 本身不应该抛异常（内部有 try/catch），但防御性处理
+      console.error('[DingTalk] Watchdog restart unexpected error:', err.message)
+      this._reconnectWatchdog = setTimeout(() => {
+        this._reconnectWatchdog = null
+        if (this.connected) return
+        this._watchdogRestart(60 * 1000)
+      }, 60 * 1000)
+    })
+  }
+
+  /**
+   * 清除重连兜底定时器
+   */
+  _clearReconnectWatchdog() {
+    if (this._reconnectWatchdog) {
+      clearTimeout(this._reconnectWatchdog)
+      this._reconnectWatchdog = null
+    }
   }
 
   /**

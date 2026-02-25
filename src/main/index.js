@@ -317,6 +317,8 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 process.on('uncaughtException', (error) => {
   console.error('[Main] Uncaught exception:', error);
   cleanupAllSessions();
+  // uncaughtException 后进程处于未定义状态，应退出避免僵尸进程
+  app.quit();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
