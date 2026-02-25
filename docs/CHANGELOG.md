@@ -2,6 +2,18 @@
 
 ---
 
+## v1.6.58 - 2026-02-25
+
+### 修复 (Fix)
+
+- **第三方 API 兼容性**：`testAPIConnection` 改用 `modelMapping` 中的模型 ID，不再硬编码 `claude-sonnet-4-5-20250929`，修复 ModelScope 等第三方 API 连接测试失败问题
+- **慢速/非流式 API 响应不渲染**：新增 `streamTextReceived` 标记区分流式与非流式场景，非流式 API（如 ModelScope GLM-5）的完整响应现可实时渲染，无需关闭重开 tab
+- **钉钉重连稳定性**：`socket.on('close')` 改为 `socket.once`，防止重复监听器导致 watchdog 多次触发
+- **流式标记重置遗漏**：`handleError` 和 `handleStatusChange` 补充重置 `streamTextReceived`，防止快速 API 中途报错后下一轮文本不渲染
+- **进程异常退出兜底**：`uncaughtException` 加 `process.exit(1)` 延迟强退，确保僵尸进程被清理
+
+---
+
 ## v1.6.57 - 2026-02-21
 
 ### 新功能 (Features)
