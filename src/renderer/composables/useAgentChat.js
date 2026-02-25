@@ -333,7 +333,8 @@ export function useAgentChat(sessionId) {
       else if (modelLower.includes('haiku')) newTier = 'haiku'
       else if (modelLower.includes('sonnet')) newTier = 'sonnet'
       // 第三方模型（如 glm-5）无法识别 tier，保留用户当前选择
-      if (newTier) {
+      // 只有值真正变化时才设 syncFromInit，否则 watch 不触发导致 flag 永久卡住
+      if (newTier && selectedModel.value !== newTier) {
         syncFromInit = true
         selectedModel.value = newTier
       }
