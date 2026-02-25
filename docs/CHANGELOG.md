@@ -2,6 +2,17 @@
 
 ---
 
+## v1.6.59 - 2026-02-25
+
+### 修复 (Fix)
+
+- **Agent 模式模型显示**：切换模型时右侧立即更新显示，有映射用映射名，无映射用 tier 名占位，不再等 SDK 响应
+- **Agent 模式模型显示初始化**：启动时 `initDefaultModel` 同步初始化右侧 activeModel，不再空白
+- **第三方模型切换重置**：SDK 返回第三方模型名（如 glm-5）时不再强制将下拉菜单重置为 Sonnet
+- **Agent 模式默认模型升级**：`LATEST_MODEL_ALIASES.sonnet` 更新为 `claude-sonnet-4-6`，`agent-session-manager` 通过别名解析传给 SDK，不再依赖 CLI 内置别名（CLI 内置别名仍指向 4-5）
+
+---
+
 ## v1.6.58 - 2026-02-25
 
 ### 修复 (Fix)
