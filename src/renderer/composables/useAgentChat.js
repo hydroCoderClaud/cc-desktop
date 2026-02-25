@@ -66,6 +66,18 @@ export function useAgentChat(sessionId) {
         console.warn('[useAgentChat] setModel failed (will use on next query):', err.message)
       }
     }
+    // 立即更新右侧 activeModel 显示（从配置查实际模型名）
+    try {
+      const config = await window.electronAPI.getConfig()
+      if (config?.apiProfiles && config.defaultProfileId) {
+        const profile = config.apiProfiles.find(p => p.id === config.defaultProfileId)
+        const modelName = profile?.modelMapping?.[newVal]
+        // 有映射用映射名，没有映射用 tier 名占位（等 SDK 响应后再替换）
+        activeModel.value = modelName || newVal
+      }
+    } catch (_) {
+      // 查不到就等 SDK 响应时再更新
+    }
   })
 
   // 清理函数列表
