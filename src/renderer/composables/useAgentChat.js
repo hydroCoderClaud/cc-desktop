@@ -74,9 +74,13 @@ export function useAgentChat(sessionId) {
         const modelName = profile?.modelMapping?.[newVal]
         // 有映射用映射名，没有映射用 tier 名占位（等 SDK 响应后再替换）
         activeModel.value = modelName || newVal
+      } else {
+        // 找不到 profile，用 tier 名占位
+        activeModel.value = newVal
       }
     } catch (_) {
       // 查不到就等 SDK 响应时再更新
+      activeModel.value = newVal
     }
   })
 

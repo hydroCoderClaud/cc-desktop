@@ -1309,7 +1309,8 @@ class AgentSessionManager {
   // ============= Query 控制委托（委托给 queryManager） =============
 
   async setModel(sessionId, model) {
-    return this.queryManager.setModel(sessionId, model)
+    const resolvedModel = LATEST_MODEL_ALIASES[model] || model
+    return this.queryManager.setModel(sessionId, resolvedModel)
   }
 
   async getSupportedModels(sessionId) {
