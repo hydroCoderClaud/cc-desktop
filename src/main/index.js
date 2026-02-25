@@ -319,6 +319,7 @@ process.on('uncaughtException', (error) => {
   cleanupAllSessions();
   // uncaughtException 后进程处于未定义状态，应退出避免僵尸进程
   app.quit();
+  setTimeout(() => process.exit(1), 3000);  // 兜底强退
 });
 
 process.on('unhandledRejection', (reason, promise) => {

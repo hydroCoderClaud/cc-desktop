@@ -175,7 +175,7 @@ class DingTalkBridge {
     const socket = this.client?.socket
     if (!socket) return
 
-    socket.on('close', () => {
+    socket.once('close', () => {
       if (this.connected) {
         this.connected = false
         console.log('[DingTalk] Socket closed, waiting for SDK reconnect...')

@@ -458,6 +458,7 @@ export function useAgentChat(sessionId) {
     if (data.sessionId !== sessionId) return
     isStreaming.value = false
     stopTimer()
+    streamTextReceived = false
     const rawError = data.error || 'Unknown error'
     error.value = ERROR_MESSAGES[rawError] || rawError
   }
@@ -471,6 +472,7 @@ export function useAgentChat(sessionId) {
     if (data.status === 'idle' || data.status === 'error') {
       isStreaming.value = false
       stopTimer()
+      streamTextReceived = false
       // flush 未完成的流式文本
       if (currentStreamText.value) {
         addAssistantMessage(currentStreamText.value)
