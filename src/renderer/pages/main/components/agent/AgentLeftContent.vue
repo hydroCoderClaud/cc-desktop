@@ -151,21 +151,19 @@ const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
 
-// API profiles（用于显示非默认 profile 的标记）
+// API profiles（用于显示 profile 标记）
 const apiProfiles = ref([])
-const defaultProfileId = ref(null)
 
 const loadApiProfiles = async () => {
   try {
     const config = await window.electronAPI?.getConfig()
     apiProfiles.value = config?.apiProfiles || []
-    defaultProfileId.value = config?.defaultProfileId || null
   } catch {}
 }
 
-// 返回 profile 名称，仅当 profileId 存在且不是默认 profile 时
+// 返回 profile 名称，仅当 profileId 存在时显示
 const getProfileName = (profileId) => {
-  if (!profileId || profileId === defaultProfileId.value) return null
+  if (!profileId) return null
   const profile = apiProfiles.value.find(p => p.id === profileId)
   return profile?.name || null
 }
