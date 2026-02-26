@@ -47,23 +47,6 @@
         <template #feedback>{{ t('dingtalkSettings.appSecretHint') }}</template>
       </n-form-item>
 
-      <n-form-item :label="t('dingtalkSettings.defaultCwd')">
-        <n-input-group>
-          <n-input
-            v-model:value="formData.defaultCwd"
-            :placeholder="t('dingtalkSettings.defaultCwdPlaceholder')"
-            :disabled="!formData.enabled"
-            style="flex: 1"
-          />
-          <n-button
-            :disabled="!formData.enabled"
-            @click="handleSelectCwd"
-          >
-            {{ t('dingtalkSettings.browse') }}
-          </n-button>
-        </n-input-group>
-        <template #feedback>{{ t('dingtalkSettings.defaultCwdHint') }}</template>
-      </n-form-item>
     </n-card>
 
     <!-- Connection Control -->
@@ -114,8 +97,7 @@ const { t, initLocale } = useLocale()
 const formData = ref({
   enabled: false,
   appKey: '',
-  appSecret: '',
-  defaultCwd: ''
+  appSecret: ''
 })
 
 const connected = ref(false)
@@ -166,7 +148,6 @@ const loadConfig = async () => {
     formData.value.enabled = dt.enabled || false
     formData.value.appKey = dt.appKey || ''
     formData.value.appSecret = dt.appSecret || ''
-    formData.value.defaultCwd = dt.defaultCwd || ''
   } catch (err) {
     console.error('Failed to load DingTalk config:', err)
   }
@@ -190,7 +171,6 @@ const handleSave = async () => {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
       enabled: formData.value.enabled,
-      defaultCwd: formData.value.defaultCwd
     })
     message.success(t('dingtalkSettings.saveSuccess'))
     await refreshStatus()
@@ -208,7 +188,6 @@ const handleConnect = async () => {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
       enabled: true,
-      defaultCwd: formData.value.defaultCwd
     })
     formData.value.enabled = true
     const result = await invoke('startDingTalk')
@@ -237,16 +216,6 @@ const handleDisconnect = async () => {
   }
 }
 
-const handleSelectCwd = async () => {
-  try {
-    const folderPath = await window.electronAPI.selectFolder()
-    if (folderPath) {
-      formData.value.defaultCwd = folderPath
-    }
-  } catch (err) {
-    console.error('Failed to select folder:', err)
-  }
-}
 
 const openGuide = () => {
   window.electronAPI?.openExternal('https://github.com/hydroCoderClaud/cc-desktop/blob/master/docs/user-guide/DINGTALK-GUIDE.zh.md')

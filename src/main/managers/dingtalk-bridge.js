@@ -480,7 +480,7 @@ class DingTalkBridge {
     const session = this.agentSessionManager.create({
       type: 'dingtalk',
       title,
-      cwd: this._getDefaultCwd()
+      cwdSubDir: 'dingtalk'
     })
 
     const sessionId = session.id
@@ -1015,19 +1015,7 @@ class DingTalkBridge {
     }
   }
 
-  /**
-   * 获取默认工作目录
-   */
-  _getDefaultCwd() {
-    const config = this.configManager.getConfig()
-    // 优先使用用户配置的钉钉工作目录
-    if (config.dingtalk?.defaultCwd) {
-      if (fs.existsSync(config.dingtalk.defaultCwd) && fs.statSync(config.dingtalk.defaultCwd).isDirectory()) {
-        return config.dingtalk.defaultCwd
-      }
-    }
-    return process.env.HOME || process.env.USERPROFILE || process.cwd()
-  }
+
 
   /**
    * 获取钉钉 access token（带缓存）

@@ -85,16 +85,17 @@
           </n-form-item>
         </n-grid-item>
 
-        <n-grid-item :span="2">
+        <n-grid-item :span="2" style="margin-top: 12px">
           <n-form-item :label="t('globalSettings.outputBaseDir')">
-            <n-input-group>
+            <div style="display: flex; gap: 8px; width: 100%">
               <n-input
                 v-model:value="formData.outputBaseDir"
                 :placeholder="defaultOutputBaseDir"
                 clearable
+                style="flex: 1"
               />
               <n-button @click="handleSelectOutputDir">{{ t('common.browse') }}</n-button>
-            </n-input-group>
+            </div>
             <template #feedback>{{ t('globalSettings.outputBaseDirHint') }}</template>
           </n-form-item>
         </n-grid-item>

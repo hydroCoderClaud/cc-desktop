@@ -173,17 +173,24 @@ class AgentSessionManager {
   _getOutputBaseDir() {
     const config = this.configManager.getConfig()
     const customDir = config?.settings?.agent?.outputBaseDir
-    if (customDir && fs.existsSync(customDir) && fs.statSync(customDir).isDirectory()) {
-      return customDir
+    if (customDir) {
+      try {
+        fs.mkdirSync(customDir, { recursive: true })
+        return customDir
+      } catch (err) {
+        console.error('[AgentSession] Failed to create custom outputBaseDir, falling back:', err)
+      }
     }
     return path.join(os.homedir(), 'cc-desktop-agent-output')
   }
 
   /**
    * 为会话自动分配工作目录
+   * @param {object} session
+   * @param {string} [subDir='desktop'] 子目录命名空间，桌面端用 'desktop'，钉钉用 'dingtalk'
    */
-  _assignCwd(session) {
-    const baseDir = this._getOutputBaseDir()
+  _assignCwd(session, subDir = 'desktop') {
+    const baseDir = path.join(this._getOutputBaseDir(), subDir)
     const sessionDir = path.join(baseDir, `conv-${session.id.substring(0, 8)}`)
     try {
       if (!fs.existsSync(sessionDir)) {
@@ -230,7 +237,7 @@ class AgentSessionManager {
 
     // 自动分配工作目录
     if (!session.cwd) {
-      session.cwd = this._assignCwd(session)
+      session.cwd = this._assignCwd(session, options.cwdSubDir)
     }
 
     this.sessions.set(session.id, session)
