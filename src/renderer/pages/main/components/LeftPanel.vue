@@ -518,10 +518,10 @@ const projectMenuOptions = computed(() => [
 const settingsOptions = computed(() => [
   { label: t('settingsMenu.apiConfig'), key: 'api-config', icon: renderMenuIcon('key') },
   { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
-  { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
-  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
-  { type: 'divider', key: 'd1' },
   { label: t('settingsMenu.dingtalkBridge'), key: 'dingtalk-settings', icon: renderMenuIcon('robot') },
+  { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
+  { type: 'divider', key: 'd1' },
+  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
   {
     key: 'app-update',
