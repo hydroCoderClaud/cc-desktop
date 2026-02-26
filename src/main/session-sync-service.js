@@ -360,10 +360,17 @@ class SessionSyncService {
     }
 
     try {
-      // Clear all data from database
-      this.db.db.exec('DELETE FROM messages')
-      this.db.db.exec('DELETE FROM sessions')
-      this.db.db.exec('DELETE FROM projects')
+      // Clear all data from database (wrapped in transaction for consistency)
+      this.db.db.exec('BEGIN')
+      try {
+        this.db.db.exec('DELETE FROM messages')
+        this.db.db.exec('DELETE FROM sessions')
+        this.db.db.exec('DELETE FROM projects')
+        this.db.db.exec('COMMIT')
+      } catch (txErr) {
+        this.db.db.exec('ROLLBACK')
+        throw txErr
+      }
 
       // Now run normal sync
       return await this.sync()

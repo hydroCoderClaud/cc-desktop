@@ -13,6 +13,7 @@ const {
 } = require('../managers')
 const { PluginCli } = require('../managers/plugin-cli')
 const { fetchRegistryIndex } = require('../utils/http-client')
+const { atomicWriteJson } = require('../utils/path-utils')
 const { shell } = require('electron')
 
 function setupPluginHandlers(ipcMain) {
@@ -985,8 +986,7 @@ function setupPluginHandlers(ipcMain) {
       }
 
       const fs = require('fs')
-      const content = JSON.stringify(data, null, 2)
-      fs.writeFileSync(filePath, content, 'utf-8')
+      atomicWriteJson(filePath, data)
       return { success: true }
     } catch (err) {
       console.error('[IPC] file:writeJson error:', err)
