@@ -252,7 +252,13 @@ class DingTalkBridge {
    * 处理钉钉消息
    */
   async _handleDingTalkMessage(res) {
-    const data = JSON.parse(res.data)
+    let data
+    try {
+      data = JSON.parse(res.data)
+    } catch (e) {
+      console.error('[DingTalk] Failed to parse message data:', e.message, res.data)
+      return
+    }
     const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle, conversationType } = data
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
@@ -643,11 +649,11 @@ class DingTalkBridge {
         imagePaths: new Set(), // 收集 tool_use 块中的图片文件路径
         resolve,
         reject,
-        // 5 分钟超时
+        // 30 分钟超时（长任务如代码生成、文件分析可能耗时较长）
         timer: setTimeout(() => {
           this.responseCollectors.delete(sessionId)
           reject(new Error('Response timeout'))
-        }, 5 * 60 * 1000)
+        }, 30 * 60 * 1000)
       }
       this.responseCollectors.set(sessionId, collector)
     })
@@ -984,7 +990,7 @@ class DingTalkBridge {
 
     // 截断过长消息（钉钉限制）
     const maxLen = 6000
-    if (text.length > maxLen) {
+    if (text && text.length > maxLen) {
       text = text.substring(0, maxLen) + '\n\n...（消息过长，已截断）'
     }
 
@@ -1016,7 +1022,7 @@ class DingTalkBridge {
     const config = this.configManager.getConfig()
     // 优先使用用户配置的钉钉工作目录
     if (config.dingtalk?.defaultCwd) {
-      if (fs.existsSync(config.dingtalk.defaultCwd)) {
+      if (fs.existsSync(config.dingtalk.defaultCwd) && fs.statSync(config.dingtalk.defaultCwd).isDirectory()) {
         return config.dingtalk.defaultCwd
       }
     }
