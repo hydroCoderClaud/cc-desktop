@@ -1115,7 +1115,7 @@ class DingTalkBridge {
       `├─ 当前配置: ${current?.name || '未配置'}`,
       `├─ 执行中: ${streaming} 个 / 空闲: ${idle} 个`,
       `└─ 总会话数: ${sessions.length} 个`
-    ].join('\n')
+    ].join('\n\n')
   }
 
   _cmdSessions() {
@@ -1126,11 +1126,10 @@ class DingTalkBridge {
     sessions.forEach((s, i) => {
       const icon = s.status === 'streaming' ? '🔄' : '💤'
       const dir = s.cwd ? path.basename(s.cwd) : '-'
-      lines.push(`${i + 1}. ${icon} ${s.title || s.id.substring(0, 8)}`)
-      lines.push(`   目录: ${dir}`)
+      lines.push(`${i + 1}. ${icon} ${s.title || s.id.substring(0, 8)} (${dir})`)
     })
     lines.push('', '使用 /close 关闭当前会话')
-    return lines.join('\n')
+    return lines.join('\n\n')
   }
 
   async _cmdClose({ mapKey }) {
