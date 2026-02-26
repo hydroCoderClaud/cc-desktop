@@ -46,20 +46,14 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-            <n-tooltip
+            <span
               v-if="getProfileName(conv.apiProfileId)"
-              placement="right"
-              :delay="200"
-              :show-arrow="false"
-              :theme-overrides="tooltipThemeOverrides"
+              class="profile-badge"
+              @click.stop
             >
-              <template #trigger>
-                <span class="profile-badge" @click.stop>
-                  <Icon name="api" :size="10" />
-                </span>
-              </template>
-              {{ getProfileName(conv.apiProfileId) }}
-            </n-tooltip>
+              <Icon name="api" :size="10" />
+              <span class="profile-tip">{{ getProfileName(conv.apiProfileId) }}</span>
+            </span>
           </div>
           <div class="conv-actions">
             <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
@@ -89,18 +83,10 @@ import { ref, computed, h, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
-import { useTheme } from '@composables/useTheme'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const dialog = useDialog()
-const { isDark } = useTheme()
-
-const tooltipThemeOverrides = computed(() => isDark.value ? {
-  color: '#f5f5f0',
-  textColor: '#2d2d2d',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
-} : {})
 
 const props = defineProps({
   activeSessionId: {
@@ -416,6 +402,7 @@ defineExpose({
 
 .profile-badge {
   flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: center;
   margin-left: 3px;
@@ -428,6 +415,28 @@ defineExpose({
 .conversation-item:hover .profile-badge {
   opacity: 0.9;
   color: var(--primary-color);
+}
+
+.profile-tip {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text-color);
+  color: var(--bg-color);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.profile-badge:hover .profile-tip {
+  opacity: 1;
 }
 
 .empty-hint {
