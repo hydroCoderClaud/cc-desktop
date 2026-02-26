@@ -127,6 +127,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dialog 相关
   // ========================================
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+  selectDirectory: (options) => ipcRenderer.invoke('dialog:selectDirectory', options),
+  getHomedir: () => require('os').homedir(),
   selectFile: (options) => ipcRenderer.invoke('dialog:selectFile', options),
   selectFiles: (options) => ipcRenderer.invoke('dialog:selectFiles', options),
   saveFile: ({ filename, content, ext }) => ipcRenderer.invoke('dialog:saveFile', { filename, content, ext }),

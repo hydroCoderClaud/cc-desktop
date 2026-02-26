@@ -87,11 +87,14 @@
 
         <n-grid-item :span="2">
           <n-form-item :label="t('globalSettings.outputBaseDir')">
-            <n-input
-              v-model:value="formData.outputBaseDir"
-              :placeholder="t('globalSettings.outputBaseDirPlaceholder')"
-              clearable
-            />
+            <n-input-group>
+              <n-input
+                v-model:value="formData.outputBaseDir"
+                :placeholder="defaultOutputBaseDir"
+                clearable
+              />
+              <n-button @click="handleSelectOutputDir">{{ t('common.browse') }}</n-button>
+            </n-input-group>
             <template #feedback>{{ t('globalSettings.outputBaseDirHint') }}</template>
           </n-form-item>
         </n-grid-item>
@@ -121,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
@@ -191,11 +194,23 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
-    formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || ''
+    formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
   }
+}
+
+// 默认输出目录（从系统 home 推算，仅用于 placeholder）
+const defaultOutputBaseDir = computed(() => {
+  const home = window.electronAPI?.getHomedir?.() || '~'
+  return `${home}/cc-desktop-agent-output`
+})
+
+// 选择输出目录
+const handleSelectOutputDir = async () => {
+  const dir = await window.electronAPI?.selectDirectory({ title: t('globalSettings.outputBaseDir') })
+  if (dir) formData.value.outputBaseDir = dir
 }
 
 // 队列开关实时生效（不依赖保存按钮）
@@ -239,7 +254,10 @@ const handleSave = async () => {
     // 保存 outputBaseDir
     const config = await invoke('getConfig')
     if (config?.settings?.agent !== undefined) {
-      config.settings.agent.outputBaseDir = formData.value.outputBaseDir || ''
+      // 若填的就是默认路径，存空字符串（等价于使用默认值）
+      const outputDir = formData.value.outputBaseDir === defaultOutputBaseDir.value
+        ? '' : (formData.value.outputBaseDir || '')
+      config.settings.agent.outputBaseDir = outputDir
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 
@@ -261,7 +279,7 @@ const handleReset = async () => {
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.skillsMarketUrl = DEFAULTS.skillsMarketUrl
     formData.value.messageQueue = DEFAULTS.messageQueue
-    formData.value.outputBaseDir = DEFAULTS.outputBaseDir
+    formData.value.outputBaseDir = defaultOutputBaseDir.value
 
     // Save to backend
     await invoke('updateTimeout', {

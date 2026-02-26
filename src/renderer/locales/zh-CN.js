@@ -12,6 +12,7 @@ export default {
     view: '查看',
     add: '添加',
     close: '关闭',
+    browse: '浏览',
     collapse: '收起',
     loading: '加载中...',
     success: '成功',

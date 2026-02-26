@@ -12,6 +12,7 @@ export default {
     view: 'View',
     add: 'Add',
     close: 'Close',
+    browse: 'Browse',
     collapse: 'Collapse',
     loading: 'Loading...',
     success: 'Success',

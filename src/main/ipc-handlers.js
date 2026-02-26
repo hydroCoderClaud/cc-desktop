@@ -307,6 +307,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return selectedPath;
   });
 
+  ipcMain.handle('dialog:selectDirectory', async (event, options = {}) => {
+    const { BrowserWindow } = require('electron')
+    const senderWindow = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(senderWindow || mainWindow, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: options.title || 'Select Directory'
+    })
+    return result.canceled ? null : result.filePaths[0]
+  });
+
   ipcMain.handle('dialog:selectFile', async (event, options = {}) => {
     const { title, filters } = options
     const result = await dialog.showOpenDialog(mainWindow, {
