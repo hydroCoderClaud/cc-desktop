@@ -11,7 +11,7 @@ const { LATEST_MODEL_ALIASES } = require('./constants')
  */
 function isPackagedApp() {
   // Electron 打包后，主模块路径包含 app.asar
-  return process.mainModule && process.mainModule.filename.includes('app.asar')
+  return require.main && require.main.filename.includes('app.asar')
 }
 
 /**

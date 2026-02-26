@@ -531,8 +531,7 @@ class ConfigManager {
 
   /**
    * 迁移旧的单 API 配置到 apiProfiles 数组
-
-  /**
+   */
    * 迁移 Profile 结构（从旧的 category/model/customModels 到新的 serviceProvider/selectedModelTier/modelMapping）
    * @param {Object} config - 配置对象
    * @returns {Object} - 迁移后的配置
@@ -815,7 +814,7 @@ class ConfigManager {
             'Content-Length': Buffer.byteLength(postData),
             'anthropic-version': '2023-06-01'
           },
-          timeout: 30000  // 增加到 30 秒，适应国内网络环境
+          timeout: testTimeoutMs  // 与 globalTimer 保持一致，使用用户配置的超时时间
         };
 
         // 5. Configure proxy (may fail)

@@ -173,7 +173,7 @@ class AgentSessionManager {
   _getOutputBaseDir() {
     const config = this.configManager.getConfig()
     const customDir = config?.settings?.agent?.outputBaseDir
-    if (customDir && fs.existsSync(customDir)) {
+    if (customDir && fs.existsSync(customDir) && fs.statSync(customDir).isDirectory()) {
       return customDir
     }
     return path.join(os.homedir(), 'cc-desktop-agent-output')
@@ -1110,8 +1110,8 @@ class AgentSessionManager {
             role: row.role,
             content,
             toolName: row.tool_name || undefined,
-            input: row.tool_input ? JSON.parse(row.tool_input) : undefined,
-            output: row.tool_output ? JSON.parse(row.tool_output) : undefined,
+            input: row.tool_input ? (() => { try { return JSON.parse(row.tool_input) } catch { return undefined } })() : undefined,
+            output: row.tool_output ? (() => { try { return JSON.parse(row.tool_output) } catch { return undefined } })() : undefined,
             timestamp: row.timestamp
           }
 
