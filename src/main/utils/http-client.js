@@ -85,6 +85,7 @@ async function httpGet(url, _redirectCount = 0) {
     const req = httpModule.request(options, (res) => {
       // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume() // 消费响应体，释放 socket
         httpGet(res.headers.location, _redirectCount + 1).then(resolve).catch(reject)
         return
       }
