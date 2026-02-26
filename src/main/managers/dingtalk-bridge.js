@@ -1039,6 +1039,7 @@ class DingTalkBridge {
       case 'close':    reply = await this._cmdClose(context); break
       case 'new':      reply = await this._cmdNew(args, context); break
       case 'resume':   reply = await this._cmdResume(args, context, webhook); break
+      case 'rename':   reply = this._cmdRename(args, context); break
       default:         reply = `❓ 未知命令: /${cmd}\n\n输入 /help 查看可用命令`
     }
 
@@ -1056,6 +1057,7 @@ class DingTalkBridge {
       '/sessions — 当前会话列表',
       '/new [目录] — 新建会话（可选：目录名或绝对路径）',
       '/resume [编号] — 恢复历史会话（不带编号显示列表）',
+      '/rename <名称> — 修改当前会话名称',
       '/close — 关闭当前会话',
       '',
       '💬 不带 / 的消息直接发给 AI 助手'
@@ -1098,6 +1100,17 @@ class DingTalkBridge {
     this._setPendingChoice(mapKey, { sessions, originalMessage: null, robotCode: null, senderStaffId })
     await this._sendChoiceMenu(webhook, sessions)
     return null  // 已由 _sendChoiceMenu 回复
+  }
+
+  _cmdRename(args, { mapKey }) {
+    const sessionId = this._resolveActiveSessionId(mapKey)
+    if (!sessionId) return '当前没有活跃会话，无法重命名'
+
+    const newTitle = args.join(' ').trim()
+    if (!newTitle) return '请提供新名称，例如：/rename 我的项目'
+
+    this.agentSessionManager.rename(sessionId, newTitle)
+    return `✅ 会话已重命名为：${newTitle}`
   }
 
   _cmdStatus() {
