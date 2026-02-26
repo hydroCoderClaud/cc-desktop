@@ -200,16 +200,18 @@ marked.setOptions({
   gfm: true
 })
 
-// Simple HTML sanitizer (removes dangerous tags and attributes)
+// HTML sanitizer (removes dangerous tags and attributes)
 const sanitizeHtml = (html) => {
-  // 移除 script, iframe, object, embed, form 标签
-  html = html.replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
-  html = html.replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
-  // 移除事件处理属性 (onclick, onerror, onload 等)
+  // 移除危险标签（含内容）
+  html = html.replace(/<(script|iframe|object|embed|form|svg|math|meta|link|base|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  // 移除自闭合危险标签
+  html = html.replace(/<(script|iframe|object|embed|form|svg|math|meta|link|base|style)[^>]*\/?>/gi, '')
+  // 移除所有事件处理属性 (onclick, onerror, onload 等)
   html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
-  html = html.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '')
-  // 移除 javascript: 协议
-  html = html.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"')
+  html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '')
+  // 移除 javascript:/vbscript: 协议（href/src/action 等属性）
+  html = html.replace(/(href|src|action|formaction|data)\s*=\s*["']\s*(javascript|vbscript):[^"']*["']/gi, '$1="#"')
+  html = html.replace(/(href|src|action|formaction|data)\s*=\s*(javascript|vbscript):[^\s>]*/gi, '$1="#"')
   return html
 }
 
