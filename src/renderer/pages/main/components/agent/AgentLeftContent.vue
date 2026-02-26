@@ -51,6 +51,7 @@
               placement="right"
               :delay="200"
               :show-arrow="false"
+              :theme-overrides="tooltipThemeOverrides"
             >
               <template #trigger>
                 <span class="profile-badge" @click.stop>
@@ -88,10 +89,18 @@ import { ref, computed, h, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
+import { useTheme } from '@composables/useTheme'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const dialog = useDialog()
+const { isDark } = useTheme()
+
+const tooltipThemeOverrides = computed(() => isDark.value ? {
+  color: '#f0f0ee',
+  textColor: '#1a1a1a',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
+} : {})
 
 const props = defineProps({
   activeSessionId: {
