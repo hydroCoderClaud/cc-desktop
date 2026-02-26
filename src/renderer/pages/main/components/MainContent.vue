@@ -522,6 +522,18 @@ const setupSessionListeners = () => {
     )
   }
 
+  // 钉钉会话关闭时，关闭对应 Tab
+  if (window.electronAPI?.onDingTalkSessionClosed) {
+    cleanupFns.push(
+      window.electronAPI.onDingTalkSessionClosed((data) => {
+        if (data?.sessionId) {
+          handleSessionClosed({ id: data.sessionId })
+          ensureActiveTabInCurrentMode()
+        }
+      })
+    )
+  }
+
   // 钉钉会话创建时，自动切换到 Agent 模式并打开 Tab
   if (window.electronAPI.onDingTalkSessionCreated) {
     cleanupFns.push(

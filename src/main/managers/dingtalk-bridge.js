@@ -1012,10 +1012,13 @@ class DingTalkBridge {
       case 'sessions': reply = this._cmdSessions(); break
       case 'close':    reply = await this._cmdClose(context); break
       case 'new':      reply = await this._cmdNew(args, context); break
-      default:         reply = `❓ 未知命令: /${cmd}\n输入 /help 查看可用命令`
+      case 'resume':   reply = await this._cmdResume(args, context, webhook); break
+      default:         reply = `❓ 未知命令: /${cmd}\n\n输入 /help 查看可用命令`
     }
 
-    await this._replyToDingTalk(webhook, reply)
+    if (reply != null) {
+      await this._replyToDingTalk(webhook, reply)
+    }
   }
 
   _cmdHelp() {
@@ -1026,10 +1029,49 @@ class DingTalkBridge {
       '/status — 系统状态',
       '/sessions — 当前会话列表',
       '/new [目录] — 新建会话（可选：目录名或绝对路径）',
+      '/resume [编号] — 恢复历史会话（不带编号显示列表）',
       '/close — 关闭当前会话',
       '',
       '💬 不带 / 的消息直接发给 AI 助手'
     ].join('\n\n')
+  }
+
+  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }, webhook) {
+    // 有活跃会话时不允许 resume
+    const sessionId = this.sessionMap.get(mapKey)
+    if (sessionId) {
+      const session = this.agentSessionManager.sessions.get(sessionId)
+      if (session?.status === 'streaming') return '⏳ AI 正在响应中，请等待完成后再操作'
+      return '⚠️ 当前有活跃会话，请先 /close 后再恢复历史会话'
+    }
+
+    // 查询历史会话
+    const db = this.agentSessionManager.sessionDatabase
+    if (!db || !conversationId) return '📭 没有历史会话记录'
+    const sessions = db.getDingTalkSessions(senderStaffId, conversationId)
+    if (!sessions || sessions.length === 0) return '📭 没有历史会话记录\n\n发送任意消息可开始新会话'
+
+    // 直接指定编号 → 立即恢复
+    const numArg = parseInt(args[0])
+    if (!isNaN(numArg) && numArg >= 1 && numArg <= sessions.length) {
+      const selectedRow = sessions[numArg - 1]
+      const session = this.agentSessionManager.reopen(selectedRow.session_id)
+      if (session) {
+        this.sessionMap.set(mapKey, selectedRow.session_id)
+        this._notifyFrontend('dingtalk:sessionCreated', {
+          sessionId: selectedRow.session_id, staffId: senderStaffId, nickname: senderNick,
+          conversationId, conversationTitle, title: selectedRow.title
+        })
+        return `✅ 已恢复会话：${selectedRow.title}\n\n现在可以继续对话了`
+      } else {
+        return `❌ 无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话`
+      }
+    }
+
+    // 无参数 → 显示选择菜单（originalMessage = null，不触发消息处理）
+    this._setPendingChoice(mapKey, { sessions, originalMessage: null, robotCode: null, senderStaffId })
+    await this._sendChoiceMenu(webhook, sessions)
+    return null  // 已由 _sendChoiceMenu 回复
   }
 
   _cmdStatus() {
@@ -1067,7 +1109,7 @@ class DingTalkBridge {
 
   async _cmdClose({ mapKey }) {
     const sessionId = this.sessionMap.get(mapKey)
-    if (!sessionId) return '当前没有活跃会话，无需关闭\n发送任意消息可开始新会话'
+    if (!sessionId) return '当前没有活跃会话，无需关闭\n\n发送任意消息可开始新会话'
 
     const session = this.agentSessionManager.sessions.get(sessionId)
     if (session?.status === 'streaming') {
@@ -1080,8 +1122,9 @@ class DingTalkBridge {
     this._sessionProcessQueues.delete(sessionId)
     this._desktopPendingBlocks.delete(sessionId)
     this._clearPendingChoice(mapKey)
+    this._notifyFrontend('dingtalk:sessionClosed', { sessionId })
 
-    return '✅ 会话已关闭\n发送任意消息可开始新会话'
+    return '✅ 会话已关闭\n\n发送任意消息可开始新会话'
   }
 
   async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }) {

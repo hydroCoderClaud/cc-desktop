@@ -679,6 +679,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('dingtalk:sessionCreated', listener);
     return () => ipcRenderer.removeListener('dingtalk:sessionCreated', listener);
   },
+  onDingTalkSessionClosed: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('dingtalk:sessionClosed', listener);
+    return () => ipcRenderer.removeListener('dingtalk:sessionClosed', listener);
+  },
 
   // Agent 事件监听（main → renderer 推送）
   // 使用工厂模式精简重复的监听器注册

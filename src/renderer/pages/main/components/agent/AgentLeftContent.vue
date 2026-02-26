@@ -205,6 +205,7 @@ const handleDelete = (conv) => {
 // 监听重命名事件（从后端推送）
 let cleanupRenamed = null
 let cleanupDingtalkSession = null
+let cleanupDingtalkSessionClosed = null
 onMounted(() => {
   loadConversations()
   loadApiProfiles()
@@ -218,9 +219,14 @@ onMounted(() => {
     })
   }
 
-  // 钉钉会话创建时自动刷新列表
+  // 钉钉会话创建/关闭时自动刷新列表
   if (window.electronAPI?.onDingTalkSessionCreated) {
     cleanupDingtalkSession = window.electronAPI.onDingTalkSessionCreated(() => {
+      loadConversations()
+    })
+  }
+  if (window.electronAPI?.onDingTalkSessionClosed) {
+    cleanupDingtalkSessionClosed = window.electronAPI.onDingTalkSessionClosed(() => {
       loadConversations()
     })
   }
@@ -229,6 +235,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (cleanupRenamed) cleanupRenamed()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
+  if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
 })
 
 defineExpose({
