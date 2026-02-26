@@ -422,17 +422,28 @@ defineExpose({
   left: calc(100% + 6px);
   top: 50%;
   transform: translateY(-50%);
-  background: var(--text-color);
-  color: var(--bg-color);
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 5px;
   font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  /* 深色主题：白底深字 */
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+[data-theme="light"] .profile-tip {
+  /* 浅色主题：深底浅字 */
+  background: #2d2d2d;
+  color: #f5f5f0;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
 }
 
 .profile-badge:hover .profile-tip {
