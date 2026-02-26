@@ -538,6 +538,32 @@ class DingTalkBridge {
   }
 
   /**
+   * 获取当前活跃的 sessionId。
+   * 若 sessionMap 中有映射但 session 已被 CC 桌面关闭，自动清理过期映射并返回 null。
+   */
+  _resolveActiveSessionId(mapKey) {
+    const sessionId = this.sessionMap.get(mapKey)
+    if (!sessionId) return null
+
+    const session = this.agentSessionManager.sessions.get(sessionId)
+    if (session) return sessionId  // 内存中存在，真正活跃
+
+    // 内存中不存在 → 检查 DB 状态
+    const db = this.agentSessionManager.sessionDatabase
+    const row = db && db.getAgentConversation(sessionId)
+    if (!row || row.status === 'closed') {
+      // CC 桌面已关闭或物理删除，清理过期映射
+      this.sessionMap.delete(mapKey)
+      this._sessionWebhooks.delete(sessionId)
+      this._sessionProcessQueues.delete(sessionId)
+      this._desktopPendingBlocks.delete(sessionId)
+      return null
+    }
+
+    return sessionId  // DB 中存在且未关闭（可能待 reopen）
+  }
+
+  /**
    * 向钉钉用户发送历史会话选择菜单
    */
   async _sendChoiceMenu(webhook, sessions) {
@@ -1038,7 +1064,7 @@ class DingTalkBridge {
 
   async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }, webhook) {
     // 有活跃会话时不允许 resume
-    const sessionId = this.sessionMap.get(mapKey)
+    const sessionId = this._resolveActiveSessionId(mapKey)
     if (sessionId) {
       const session = this.agentSessionManager.sessions.get(sessionId)
       if (session?.status === 'streaming') return '⏳ AI 正在响应中，请等待完成后再操作'
@@ -1108,7 +1134,7 @@ class DingTalkBridge {
   }
 
   async _cmdClose({ mapKey }) {
-    const sessionId = this.sessionMap.get(mapKey)
+    const sessionId = this._resolveActiveSessionId(mapKey)
     if (!sessionId) return '当前没有活跃会话，无需关闭\n\n发送任意消息可开始新会话'
 
     const session = this.agentSessionManager.sessions.get(sessionId)
@@ -1128,7 +1154,7 @@ class DingTalkBridge {
   }
 
   async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }) {
-    const sessionId = this.sessionMap.get(mapKey)
+    const sessionId = this._resolveActiveSessionId(mapKey)
     if (sessionId) {
       const session = this.agentSessionManager.sessions.get(sessionId)
       if (session?.status === 'streaming') {
@@ -1159,7 +1185,7 @@ class DingTalkBridge {
     await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey, { cwd })
 
     const dirInfo = cwd ? `\n└─ 目录: ${path.basename(cwd)}` : ''
-    return `✅ 新会话已创建${dirInfo}\n现在可以开始对话了`
+    return `✅ 新会话已创建${dirInfo}\n\n现在可以开始对话了`
   }
 
   /**
