@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const { TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
+const { atomicWriteJson } = require('./utils/path-utils');
 
 class ConfigManager {
   /**
@@ -153,7 +154,7 @@ class ConfigManager {
     // 将写操作加入队列，确保串行执行
     this.saveQueue = this.saveQueue.then(() => {
       try {
-        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8');
+        atomicWriteJson(this.configPath, config);
         this.config = config;
         return true;
       } catch (error) {

@@ -9,6 +9,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { httpGet, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
+const { atomicWriteJson } = require('../utils/path-utils')
 
 class CapabilityManager {
   /**
@@ -225,7 +226,7 @@ class CapabilityManager {
       settings.enabledPlugins = {}
     }
     settings.enabledPlugins[pluginId] = enabled
-    fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+    atomicWriteJson(this.settingsPath, settings)
     console.log(`[CapabilityManager] Set plugin ${pluginId} enabled: ${enabled}`)
   }
 

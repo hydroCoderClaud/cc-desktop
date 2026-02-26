@@ -121,9 +121,22 @@ function getProjectName(projectPath) {
   return parts[parts.length - 1] || projectPath
 }
 
+/**
+ * 原子写入 JSON 文件（写临时文件后 rename，防止崩溃时损坏原文件）
+ * @param {string} filePath - 目标文件路径
+ * @param {*} data - 要序列化的数据
+ */
+function atomicWriteJson(filePath, data) {
+  const fs = require('fs')
+  const tmp = filePath + '.tmp'
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8')
+  fs.renameSync(tmp, filePath)
+}
+
 module.exports = {
   encodePath,
   decodePath,
   smartDecodePath,
-  getProjectName
+  getProjectName,
+  atomicWriteJson
 }

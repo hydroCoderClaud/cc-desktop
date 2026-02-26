@@ -18,6 +18,7 @@ const {
   HooksManager,
   McpManager
 } = require('./managers')
+const { atomicWriteJson } = require('./utils/path-utils')
 
 class PluginManager extends ComponentScanner {
   constructor() {
@@ -162,7 +163,7 @@ class PluginManager extends ComponentScanner {
   // ========================================
 
   _writeSettings(settings) {
-    fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
+    atomicWriteJson(this.settingsPath, settings)
   }
 
   _readPluginJson(installPath) {

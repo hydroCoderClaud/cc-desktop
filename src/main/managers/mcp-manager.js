@@ -14,6 +14,7 @@ const path = require('path')
 const fs = require('fs')
 const os = require('os')
 const { ComponentScanner } = require('../component-scanner')
+const { atomicWriteJson } = require('../utils/path-utils')
 
 // ~/.claude.json 路径
 const CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
@@ -48,7 +49,7 @@ class McpManager extends ComponentScanner {
    */
   writeClaudeJson(config) {
     try {
-      fs.writeFileSync(CLAUDE_JSON_PATH, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(CLAUDE_JSON_PATH, config)
     } catch (err) {
       console.error('[McpManager] Failed to write ~/.claude.json:', err)
       throw err
@@ -245,7 +246,7 @@ class McpManager extends ComponentScanner {
           return { success: false, error: `MCP "${name}" already exists in Project scope` }
         }
         content.mcpServers[name] = config
-        fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+        atomicWriteJson(mcpJsonPath, content)
 
       } else {
         return { success: false, error: `Invalid scope: ${scope}` }
@@ -322,7 +323,7 @@ class McpManager extends ComponentScanner {
         }
         delete content.mcpServers[oldName]
         content.mcpServers[name] = config
-        fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+        atomicWriteJson(mcpJsonPath, content)
 
       } else if (scope === 'plugin') {
         // 插件级 MCP：使用传入的 filePath
@@ -346,7 +347,7 @@ class McpManager extends ComponentScanner {
         if (content.mcpServers) {
           content.mcpServers = mcpServers
         }
-        fs.writeFileSync(filePath, JSON.stringify(content.mcpServers ? content : mcpServers, null, 2), 'utf-8')
+        atomicWriteJson(filePath, content.mcpServers ? content : mcpServers)
 
       } else {
         return { success: false, error: `Invalid scope: ${scope}` }
@@ -426,7 +427,7 @@ class McpManager extends ComponentScanner {
         if (Object.keys(content).length === 0) {
           fs.unlinkSync(mcpJsonPath)
         } else {
-          fs.writeFileSync(mcpJsonPath, JSON.stringify(content, null, 2), 'utf-8')
+          atomicWriteJson(mcpJsonPath, content)
         }
 
       } else {

@@ -11,6 +11,7 @@
 const fs = require('fs')
 const path = require('path')
 const { ComponentScanner } = require('../component-scanner')
+const { atomicWriteJson } = require('../utils/path-utils')
 
 class SettingsManager extends ComponentScanner {
   constructor() {
@@ -66,7 +67,7 @@ class SettingsManager extends ComponentScanner {
   _writeConfig(scope, projectPath, config) {
     const filePath = this._getConfigPath(scope, projectPath)
     this._ensureDir(filePath)
-    fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    atomicWriteJson(filePath, config)
   }
 
   // ========================================
@@ -332,7 +333,7 @@ class SettingsManager extends ComponentScanner {
 
       const filePath = this._getConfigPath(scope, projectPath)
       this._ensureDir(filePath)
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+      atomicWriteJson(filePath, data)
       return { success: true }
     } catch (err) {
       console.error('[SettingsManager] Failed to save raw settings:', err)

@@ -8,6 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { atomicWriteJson } = require('../../utils/path-utils')
 
 const MARKET_META_DIR = '.market-meta'
 
@@ -187,7 +188,7 @@ const agentsMarketMixin = {
     const metaDir = path.join(this.userAgentsDir, MARKET_META_DIR)
     fs.mkdirSync(metaDir, { recursive: true })
     const metaPath = path.join(metaDir, `${agentId}.json`)
-    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+    atomicWriteJson(metaPath, meta)
   },
 
   /**

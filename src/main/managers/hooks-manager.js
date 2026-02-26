@@ -13,6 +13,7 @@
 const fs = require('fs')
 const path = require('path')
 const { ComponentScanner } = require('../component-scanner')
+const { atomicWriteJson } = require('../utils/path-utils')
 
 // 支持的事件类型 (13 种)
 const HOOK_EVENTS = [
@@ -249,7 +250,7 @@ class HooksManager extends ComponentScanner {
       config.hooks[event].push(newHandler)
 
       // 写入文件
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(filePath, config)
       return { success: true }
     } catch (err) {
       console.error('Failed to create hook:', err)
@@ -282,7 +283,7 @@ class HooksManager extends ComponentScanner {
       }
       handler.hooks = [hook]
 
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(filePath, config)
       return { success: true }
     } catch (err) {
       console.error('Failed to update hook:', err)
@@ -321,7 +322,7 @@ class HooksManager extends ComponentScanner {
         delete config.hooks
       }
 
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(filePath, config)
       return { success: true }
     } catch (err) {
       console.error('Failed to delete hook:', err)
@@ -370,7 +371,7 @@ class HooksManager extends ComponentScanner {
         delete config.hooks
       }
 
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(filePath, config)
       return { success: true }
     } catch (err) {
       console.error('Failed to save hooks json:', err)
@@ -449,7 +450,7 @@ class HooksManager extends ComponentScanner {
         config.hooks[event].push(newHandler)
       }
 
-      fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+      atomicWriteJson(filePath, config)
       return { success: true }
     } catch (err) {
       console.error('Failed to copy hook:', err)

@@ -7,6 +7,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { httpGet, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { atomicWriteJson } = require('../../utils/path-utils')
 
 const MARKET_META_FILE = '.market-meta.json'
 
@@ -209,7 +210,7 @@ const skillsMarketMixin = {
    */
   _writeMarketMeta(skillId, meta) {
     const metaPath = path.join(this.userSkillsDir, skillId, MARKET_META_FILE)
-    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+    atomicWriteJson(metaPath, meta)
   }
 }
 
