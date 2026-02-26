@@ -1167,7 +1167,7 @@ export default {
     chat: '对话',
     specialized: '专用',
     lightapp: '轻应用',
-    restoredHint: '历史会话 · 发送消息继续对话（首条消息响应需要耐心等待）',
+    restoredHint: '以上本会话历史消息，请发一条信息恢复对话',
     modelBalanced: '均衡',
     modelPowerful: '强力',
     modelFast: '快速',

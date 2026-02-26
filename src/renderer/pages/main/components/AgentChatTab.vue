@@ -31,7 +31,7 @@
       </template>
 
       <!-- 历史会话恢复提示 -->
-      <div v-if="isRestored && !isStreaming && messages.length > 0" class="restored-divider">
+      <div v-if="isRestored && !isStreaming && messages.length > 0 && sessionType !== 'dingtalk'" class="restored-divider">
         <span class="restored-line"></span>
         <span class="restored-text">{{ t('agent.restoredHint') }}</span>
         <span class="restored-line"></span>
@@ -338,15 +338,17 @@ const onWindowFocus = () => {
 }
 
 onMounted(async () => {
+  // 先加载历史消息，再注册监听器，避免 dingtalk:messageReceived 抢先导致 loadMessages 跳过
+  await loadQueueSetting()
+  await initDefaultModel()  // 从配置读取默认模型
+  await loadMessages()  // 加载历史消息
+
   setupListeners()
   // 绑定滚动事件检测用户手动滚动
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
   window.addEventListener('focus', onWindowFocus)
-  await loadQueueSetting()
-  await initDefaultModel()  // 从配置读取默认模型
-  await loadMessages()  // 加载历史消息
 
   // 恢复持久化队列（需要等待 chatInputRef 准备好）
   await nextTick()  // 确保 ChatInput 组件已渲染

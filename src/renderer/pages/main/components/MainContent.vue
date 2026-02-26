@@ -235,7 +235,8 @@ const {
   updateTabTitle,
   findTabBySessionId,
   ensureAgentTab,
-  closeAgentTab
+  closeAgentTab,
+  closeAgentTabFully
 } = useTabManagement()
 
 // Computed: 按模式过滤
@@ -785,7 +786,7 @@ const handleAgentClosed = (conv) => {
   const tab = allTabs.value.find(t => t.id === `agent-${conv.id}`)
   if (!tab) return
 
-  closeAgentTab(tab)
+  closeAgentTabFully(tab)
   ensureActiveTabInCurrentMode()
 }
 

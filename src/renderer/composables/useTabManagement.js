@@ -321,19 +321,40 @@ export function useTabManagement() {
    * @param {Object} tab - Agent Tab 对象
    */
   const closeAgentTab = async (tab) => {
-    // 从 tabs 中移除
+    // 从 tabs 中移除（隐藏 tab，与 Terminal tab 保持一致）
     const index = tabs.value.findIndex(t => t.id === tab.id)
     if (index !== -1) {
       tabs.value.splice(index, 1)
     }
 
-    // 从 allTabs 中也移除（Agent 不需要保持后台缓冲区）
+    // 保留在 allTabs 中，组件不销毁，重开时直接复用，避免误显示"历史会话"分隔线
+
+    // 如果关闭的是当前活动 tab，切换到其他 tab
+    if (activeTabId.value === tab.id) {
+      if (tabs.value.length > 0) {
+        activeTabId.value = tabs.value[tabs.value.length - 1].id
+      } else {
+        activeTabId.value = 'welcome'
+      }
+    }
+  }
+
+  /**
+   * 完全关闭 Agent Tab（关闭会话时使用）
+   * 同时从 tabs 和 allTabs 移除，销毁组件
+   * 重新打开时会重建组件并自然触发历史消息分隔线
+   */
+  const closeAgentTabFully = (tab) => {
+    const index = tabs.value.findIndex(t => t.id === tab.id)
+    if (index !== -1) {
+      tabs.value.splice(index, 1)
+    }
+
     const allIndex = allTabs.value.findIndex(t => t.id === tab.id)
     if (allIndex !== -1) {
       allTabs.value.splice(allIndex, 1)
     }
 
-    // 如果关闭的是当前活动 tab，切换到其他 tab
     if (activeTabId.value === tab.id) {
       if (tabs.value.length > 0) {
         activeTabId.value = tabs.value[tabs.value.length - 1].id
@@ -375,6 +396,7 @@ export function useTabManagement() {
     ensureSessionTab,
     ensureAgentTab,
     closeAgentTab,
+    closeAgentTabFully,
     selectTab,
     closeTab,
     closeTabBySessionId,

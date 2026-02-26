@@ -1164,7 +1164,7 @@ export default {
     chat: 'Chat',
     specialized: 'Specialized',
     lightapp: 'Light App',
-    restoredHint: 'History session · Send a message to continue (first response may be slower)',
+    restoredHint: 'History messages above · Send a message to resume the conversation',
     modelBalanced: 'Balanced',
     modelPowerful: 'Powerful',
     modelFast: 'Fast',

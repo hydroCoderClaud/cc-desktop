@@ -75,15 +75,23 @@ export function useAgentChat(sessionId) {
    */
   const loadMessages = async () => {
     if (!window.electronAPI?.getAgentMessages) return
-    // 已有消息时跳过（避免 tab 切换导致的重复加载覆盖运行时状态）
-    if (messages.value.length > 0) return
 
     try {
       const history = await window.electronAPI.getAgentMessages(sessionId)
       if (Array.isArray(history) && history.length > 0) {
-        messages.value = history
-        // 仍在 streaming 时不标记为历史会话
-        isRestored.value = !isStreaming.value
+        if (messages.value.length > 0) {
+          // 已有消息（如钉钉实时注入），将历史插入到前面，避免覆盖运行时状态
+          const existingIds = new Set(messages.value.map(m => m.id))
+          const toInsert = history.filter(m => !existingIds.has(m.id))
+          if (toInsert.length > 0) {
+            messages.value = [...toInsert, ...messages.value]
+            isRestored.value = !isStreaming.value
+          }
+        } else {
+          messages.value = history
+          // 仍在 streaming 时不标记为历史会话
+          isRestored.value = !isStreaming.value
+        }
       }
     } catch (err) {
       console.error('[useAgentChat] loadMessages error:', err)
