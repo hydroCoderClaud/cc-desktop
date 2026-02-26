@@ -7,7 +7,7 @@
  * - 模型切换使用 setModel() 实时生效
  * - 取消使用 interrupt() 不杀进程
  */
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useLocale } from './useLocale'
 
 /**
@@ -37,50 +37,33 @@ export function useAgentChat(sessionId) {
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
   const slashCommands = ref([])     // SDK 提供的可用 slash 命令
-  const activeModel = ref('')        // SDK 实际使用的模型名
   const totalCostUsd = ref(0)        // 累计花费
   const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
   let currentBlockType = null  // 当前流式 content block 的类型（text / tool_use 等）
   let streamTextReceived = false  // 本轮是否收到过流式 text delta（用于判断是否为非流式 API）
 
-  // 模型切换标记：防止 init 同步触发 watch
-  let syncFromInit = false
+  // 模型名映射缓存（从配置读取，initDefaultModel 时填充）
+  // 无映射时的内置默认值
+  const DEFAULT_MODEL_NAMES = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-4-5' }
+  let modelMapping = {}
+
+  // 右侧显示的完整模型名：从缓存映射派生，切换下拉立即同步
+  const activeModel = computed(() =>
+    modelMapping[selectedModel.value] || DEFAULT_MODEL_NAMES[selectedModel.value] || selectedModel.value
+  )
+
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   let hasActiveSession = false
   // 用户是否主动取消了生成（用于抑制队列自动消费和错误显示）
   const isInterrupting = ref(false)
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
-  watch(selectedModel, async (newVal) => {
-    if (syncFromInit) {
-      syncFromInit = false
-      return
-    }
-    // 有活跃连接时，使用 setModel() 实时切换
+  watch(selectedModel, (newVal) => {
     if (hasActiveSession && window.electronAPI?.setAgentModel) {
-      try {
-        await window.electronAPI.setAgentModel(sessionId, newVal)
-        console.log(`[useAgentChat] Model switched to ${newVal} via setModel()`)
-      } catch (err) {
+      window.electronAPI.setAgentModel(sessionId, newVal).catch(err =>
         console.warn('[useAgentChat] setModel failed (will use on next query):', err.message)
-      }
-    }
-    // 立即更新右侧 activeModel 显示（从配置查实际模型名）
-    try {
-      const config = await window.electronAPI.getConfig()
-      if (config?.apiProfiles && config.defaultProfileId) {
-        const profile = config.apiProfiles.find(p => p.id === config.defaultProfileId)
-        const modelName = profile?.modelMapping?.[newVal]
-        // 有映射用映射名，没有映射用 tier 名占位（等 SDK 响应后再替换）
-        activeModel.value = modelName || newVal
-      } else {
-        // 找不到 profile，用 tier 名占位
-        activeModel.value = newVal
-      }
-    } catch (_) {
-      // 查不到就等 SDK 响应时再更新
-      activeModel.value = newVal
+      )
     }
   })
 
@@ -323,21 +306,6 @@ export function useAgentChat(sessionId) {
 
     if (data.slashCommands && Array.isArray(data.slashCommands)) {
       slashCommands.value = data.slashCommands
-    }
-    if (data.model) {
-      activeModel.value = data.model
-      // 根据 SDK 返回的模型名同步下拉菜单（仅 Claude 官方模型可识别 tier）
-      const modelLower = data.model.toLowerCase()
-      let newTier = null
-      if (modelLower.includes('opus')) newTier = 'opus'
-      else if (modelLower.includes('haiku')) newTier = 'haiku'
-      else if (modelLower.includes('sonnet')) newTier = 'sonnet'
-      // 第三方模型（如 glm-5）无法识别 tier，保留用户当前选择
-      // 只有值真正变化时才设 syncFromInit，否则 watch 不触发导致 flag 永久卡住
-      if (newTier && selectedModel.value !== newTier) {
-        syncFromInit = true
-        selectedModel.value = newTier
-      }
     }
   }
 
@@ -620,11 +588,9 @@ export function useAgentChat(sessionId) {
       if (config?.apiProfiles && config.defaultProfileId) {
         const profile = config.apiProfiles.find(p => p.id === config.defaultProfileId)
         if (profile?.selectedModelTier) {
-          syncFromInit = true
+          // 缓存映射，activeModel computed 会自动使用
+          modelMapping = profile.modelMapping || {}
           selectedModel.value = profile.selectedModelTier
-          // 同步初始化右侧 activeModel 显示
-          const tier = profile.selectedModelTier
-          activeModel.value = profile.modelMapping?.[tier] || tier
         }
       }
     } catch (err) {
