@@ -532,6 +532,8 @@ class ConfigManager {
   /**
    * 迁移旧的单 API 配置到 apiProfiles 数组
    */
+
+  /**
    * 迁移 Profile 结构（从旧的 category/model/customModels 到新的 serviceProvider/selectedModelTier/modelMapping）
    * @param {Object} config - 配置对象
    * @returns {Object} - 迁移后的配置
