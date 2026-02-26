@@ -1141,6 +1141,7 @@ export default {
     newConversation: 'New Conversation',
     conversations: 'Conversations',
     noConversations: 'No conversations yet',
+    allDirectories: 'All directories',
     send: 'Send',
     stopGeneration: 'Stop Generation',
     outputInterrupted: 'Output Interrupted',

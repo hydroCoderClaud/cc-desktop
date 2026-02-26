@@ -8,6 +8,16 @@
       </button>
     </div>
 
+    <!-- 目录筛选 -->
+    <div class="dir-filter-area" v-if="availableCwds.length > 0">
+      <n-select
+        v-model:value="selectedCwd"
+        :options="cwdOptions"
+        :render-label="renderCwdLabel"
+        size="small"
+      />
+    </div>
+
     <!-- 对话列表 -->
     <div class="conversation-list">
       <template v-for="group in conversationGroups" :key="group.key">
@@ -52,7 +62,7 @@
       </template>
 
       <!-- 空状态 -->
-      <div v-if="conversations.length === 0 && !loading" class="empty-hint">
+      <div v-if="conversationGroups.length === 0 && !loading" class="empty-hint">
         <Icon name="robot" :size="32" style="margin-bottom: 8px; opacity: 0.5;" />
         <div>{{ t('agent.noConversations') }}</div>
       </div>
@@ -61,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, h, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
@@ -82,6 +92,8 @@ const emit = defineEmits(['select', 'close', 'created', 'new-conversation-reques
 const {
   conversations,
   loading,
+  selectedCwd,
+  availableCwds,
   groupedConversations,
   loadConversations,
   createConversation,
@@ -89,6 +101,21 @@ const {
   deleteConversation,
   renameConversation
 } = useAgentPanel()
+
+// 下拉选项：第一项"全部"，后跟各目录 basename
+const cwdOptions = computed(() => {
+  const dirs = availableCwds.value.map(cwd => {
+    const basename = cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd
+    return { label: basename, value: cwd }
+  })
+  return [{ label: t('agent.allDirectories'), value: null }, ...dirs]
+})
+
+// 渲染选项 label，非"全部"选项加 title 显示完整路径
+const renderCwdLabel = (option) => {
+  if (!option.value) return h('span', option.label)
+  return h('span', { title: option.value }, option.label)
+}
 
 // 按时间分组的对话列表（消除模板重复）
 const conversationGroups = computed(() => {
@@ -227,6 +254,11 @@ defineExpose({
 .new-session-btn .icon {
   font-size: 16px;
   font-weight: bold;
+}
+
+.dir-filter-area {
+  padding: 0 12px 8px;
+  flex-shrink: 0;
 }
 
 .conversation-list {

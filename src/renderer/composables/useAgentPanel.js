@@ -144,6 +144,28 @@ export function useAgentPanel() {
     }
   }
 
+  // 当前选中的目录筛选（null = 全部）
+  const selectedCwd = ref(null)
+
+  /**
+   * 从对话列表中提取所有不重复的 cwd，按字母排序
+   */
+  const availableCwds = computed(() => {
+    const cwdSet = new Set()
+    for (const conv of conversations.value) {
+      if (conv.cwd) cwdSet.add(conv.cwd)
+    }
+    return Array.from(cwdSet).sort()
+  })
+
+  /**
+   * 按 selectedCwd 过滤后的对话列表
+   */
+  const filteredConversations = computed(() => {
+    if (!selectedCwd.value) return conversations.value
+    return conversations.value.filter(c => c.cwd === selectedCwd.value)
+  })
+
   /**
    * 按时间分组（今天、昨天、更早）
    */
@@ -158,7 +180,7 @@ export function useAgentPanel() {
       older: []
     }
 
-    for (const conv of conversations.value) {
+    for (const conv of filteredConversations.value) {
       const created = new Date(conv.createdAt)
       if (created >= today) {
         groups.today.push(conv)
@@ -175,6 +197,8 @@ export function useAgentPanel() {
   return {
     conversations,
     loading,
+    selectedCwd,
+    availableCwds,
     groupedConversations,
     loadConversations,
     createConversation,
