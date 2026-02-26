@@ -115,6 +115,7 @@
               :ref="el => { if (el) agentChatTabRefs[tab.id] = el }"
               :session-id="tab.sessionId"
               :session-type="tab.sessionType"
+              :api-profile-id="tab.apiProfileId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
               @preview-image="handlePreviewImage"

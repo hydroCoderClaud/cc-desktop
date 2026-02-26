@@ -587,19 +587,21 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 从配置读取默认模型，覆盖硬编码的 'sonnet'
+   * 从配置读取模型，覆盖硬编码的 'sonnet'
+   * @param {string} [apiProfileId] - 会话绑定的 profile ID，不传则使用默认 profile
    */
-  const initDefaultModel = async () => {
+  const initDefaultModel = async (apiProfileId) => {
     try {
       if (!window.electronAPI?.getConfig) return
       const config = await window.electronAPI.getConfig()
-      if (config?.apiProfiles && config.defaultProfileId) {
-        const profile = config.apiProfiles.find(p => p.id === config.defaultProfileId)
-        if (profile?.selectedModelTier) {
-          // 缓存映射，activeModel computed 会自动使用
-          modelMapping = profile.modelMapping || {}
-          selectedModel.value = profile.selectedModelTier
-        }
+      if (!config?.apiProfiles) return
+      // 优先使用会话绑定的 profile，否则回退到默认 profile
+      const profileId = apiProfileId || config.defaultProfileId
+      const profile = config.apiProfiles.find(p => p.id === profileId)
+        || config.apiProfiles.find(p => p.id === config.defaultProfileId)
+      if (profile?.selectedModelTier) {
+        modelMapping = profile.modelMapping || {}
+        selectedModel.value = profile.selectedModelTier
       }
     } catch (err) {
       console.warn('[useAgentChat] Failed to load default model from config:', err)

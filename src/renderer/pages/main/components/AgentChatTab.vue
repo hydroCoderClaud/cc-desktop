@@ -105,6 +105,10 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: true
+  },
+  apiProfileId: {
+    type: String,
+    default: null
   }
 })
 
@@ -340,7 +344,7 @@ const onWindowFocus = () => {
 onMounted(async () => {
   // 先加载历史消息，再注册监听器，避免 dingtalk:messageReceived 抢先导致 loadMessages 跳过
   await loadQueueSetting()
-  await initDefaultModel()  // 从配置读取默认模型
+  await initDefaultModel(props.apiProfileId)  // 从配置读取会话绑定的模型
   await loadMessages()  // 加载历史消息
 
   setupListeners()
