@@ -46,14 +46,12 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-            <span
-              v-if="getProfileName(conv.apiProfileId)"
-              class="profile-badge"
-              @click.stop
-            >
-              <Icon name="api" :size="10" />
-              <span class="profile-tip">{{ getProfileName(conv.apiProfileId) }}</span>
-            </span>
+            <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
+              <span v-if="profileName" class="profile-badge" @click.stop>
+                <Icon name="api" :size="10" />
+                <span class="profile-tip">{{ profileName }}</span>
+              </span>
+            </template>
           </div>
           <div class="conv-actions">
             <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
@@ -419,9 +417,9 @@ defineExpose({
 
 .profile-tip {
   position: absolute;
-  left: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 6px);
   padding: 4px 10px;
   border-radius: 5px;
   font-size: 12px;
