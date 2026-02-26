@@ -449,7 +449,9 @@ class AgentSessionManager {
       // push 前确保模型正确（防止 watch 中的 setModel 静默失败）
       if (modelTier) {
         try {
-          await session.queryGenerator.setModel(LATEST_MODEL_ALIASES[modelTier] || modelTier)
+          const profile = this.configManager.getDefaultProfile()
+          const resolvedModel = profile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
+          await session.queryGenerator.setModel(resolvedModel)
         } catch (e) {
           console.warn(`[AgentSession] setModel before push failed: ${e.message}`)
         }
@@ -536,7 +538,8 @@ class AgentSessionManager {
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       if (modelTier) {
-        options.model = LATEST_MODEL_ALIASES[modelTier] || modelTier
+        const profile = this.configManager.getDefaultProfile()
+        options.model = profile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
       }
 
       if (maxTurns) {
@@ -1309,7 +1312,8 @@ class AgentSessionManager {
   // ============= Query 控制委托（委托给 queryManager） =============
 
   async setModel(sessionId, model) {
-    const resolvedModel = LATEST_MODEL_ALIASES[model] || model
+    const profile = this.configManager.getDefaultProfile()
+    const resolvedModel = profile?.modelMapping?.[model]?.trim() || LATEST_MODEL_ALIASES[model] || model
     return this.queryManager.setModel(sessionId, resolvedModel)
   }
 
