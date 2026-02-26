@@ -97,8 +97,8 @@ const dialog = useDialog()
 const { isDark } = useTheme()
 
 const tooltipThemeOverrides = computed(() => isDark.value ? {
-  color: '#f0f0ee',
-  textColor: '#1a1a1a',
+  color: '#f5f5f0',
+  textColor: '#2d2d2d',
   boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
 } : {})
 
