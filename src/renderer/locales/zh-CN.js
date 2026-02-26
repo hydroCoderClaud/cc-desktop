@@ -1145,6 +1145,7 @@ export default {
     conversations: '对话列表',
     noConversations: '暂无对话',
     allDirectories: '全部目录',
+    apiProfile: 'API 配置',
     send: '发送',
     stopGeneration: '停止生成',
     outputInterrupted: '输出已中断',

@@ -1142,6 +1142,7 @@ export default {
     conversations: 'Conversations',
     noConversations: 'No conversations yet',
     allDirectories: 'All directories',
+    apiProfile: 'API Profile',
     send: 'Send',
     stopGeneration: 'Stop Generation',
     outputInterrupted: 'Output Interrupted',

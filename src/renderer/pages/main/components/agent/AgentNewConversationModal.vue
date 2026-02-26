@@ -48,6 +48,16 @@
       </div>
     </div>
 
+    <!-- API 配置选择（有多个 profile 时显示） -->
+    <div class="api-profile-section" v-if="apiProfiles.length > 1">
+      <div class="section-label">{{ t('agent.apiProfile') }}</div>
+      <n-select
+        v-model:value="selectedProfileId"
+        :options="profileOptions"
+        size="small"
+      />
+    </div>
+
     <template #footer>
       <div class="modal-footer">
         <n-button @click="$emit('update:show', false)">{{ t('common.cancel') }}</n-button>
@@ -59,7 +69,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { NModal, NInput, NButton } from 'naive-ui'
+import { NModal, NInput, NButton, NSelect } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -80,6 +90,8 @@ const emit = defineEmits(['update:show', 'create'])
 
 const selectedCwd = ref(null)
 const validProjects = ref([])
+const apiProfiles = ref([])
+const selectedProfileId = ref(null)
 
 // 最多显示 8 个最近项目
 const displayProjects = computed(() => {
@@ -90,6 +102,18 @@ const displayProjects = computed(() => {
 watch(() => props.show, async (newVal) => {
   if (newVal) {
     selectedCwd.value = null
+    selectedProfileId.value = null
+    // 加载 API profiles
+    if (window.electronAPI?.getConfig) {
+      try {
+        const config = await window.electronAPI.getConfig()
+        apiProfiles.value = config.apiProfiles || []
+        const defaultProfile = apiProfiles.value.find(p => p.isDefault) || apiProfiles.value[0]
+        selectedProfileId.value = defaultProfile?.id || null
+      } catch {
+        apiProfiles.value = []
+      }
+    }
     // 检查每个项目目录是否存在，过滤掉不存在的
     if (window.electronAPI?.checkPath && props.projects.length > 0) {
       const checks = await Promise.all(
@@ -136,8 +160,16 @@ const shortenPath = (fullPath) => {
   return parts[0] + sep + '...' + sep + parts.slice(-2).join(sep)
 }
 
+const profileOptions = computed(() =>
+  apiProfiles.value.map(p => ({
+    label: `${p.icon || '🔵'} ${p.name}`,
+    value: p.id,
+    description: p.baseUrl
+  }))
+)
+
 const handleCreate = () => {
-  emit('create', { cwd: selectedCwd.value || null })
+  emit('create', { cwd: selectedCwd.value || null, apiProfileId: selectedProfileId.value || null })
 }
 </script>
 
@@ -225,5 +257,9 @@ const handleCreate = () => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.api-profile-section {
+  margin-bottom: 16px;
 }
 </style>

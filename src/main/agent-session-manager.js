@@ -212,8 +212,13 @@ class AgentSessionManager {
    * 创建新会话
    */
   create(options = {}) {
-    // 获取当前默认 API Profile 信息
-    const profile = this.configManager.getDefaultProfile()
+    // 获取 API Profile：优先使用调用方指定的，否则取默认
+    let profile
+    if (options.apiProfileId) {
+      profile = this.configManager.getAPIProfile(options.apiProfileId) || this.configManager.getDefaultProfile()
+    } else {
+      profile = this.configManager.getDefaultProfile()
+    }
 
     const session = new AgentSession({
       type: options.type,

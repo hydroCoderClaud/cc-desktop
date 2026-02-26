@@ -362,12 +362,13 @@ const handleAgentCreated = (session) => {
   emit('agent-created', session)
 }
 
-const handleNewConvCreate = async ({ cwd }) => {
+const handleNewConvCreate = async ({ cwd, apiProfileId }) => {
   showNewConvModal.value = false
   if (agentLeftContentRef.value) {
     const session = await agentLeftContentRef.value.createConversation({
       type: 'chat',
-      cwd: cwd || null
+      cwd: cwd || null,
+      apiProfileId: apiProfileId || null
     })
     if (session) {
       handleAgentCreated(session)
