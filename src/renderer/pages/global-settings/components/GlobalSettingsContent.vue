@@ -84,6 +84,17 @@
             <template #feedback>{{ t('globalSettings.messageQueueHint') }}</template>
           </n-form-item>
         </n-grid-item>
+
+        <n-grid-item :span="2">
+          <n-form-item :label="t('globalSettings.outputBaseDir')">
+            <n-input
+              v-model:value="formData.outputBaseDir"
+              :placeholder="t('globalSettings.outputBaseDirPlaceholder')"
+              clearable
+            />
+            <template #feedback>{{ t('globalSettings.outputBaseDirHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
       </n-grid>
     </n-card>
 
@@ -129,7 +140,8 @@ const DEFAULTS = {
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   skillsMarketUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
-  messageQueue: true
+  messageQueue: true,
+  outputBaseDir: ''              // 空字符串 = 使用默认 ~/cc-desktop-agent-output
 }
 
 const formData = ref({
@@ -139,7 +151,8 @@ const formData = ref({
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   skillsMarketUrl: DEFAULTS.skillsMarketUrl,
-  messageQueue: DEFAULTS.messageQueue
+  messageQueue: DEFAULTS.messageQueue,
+  outputBaseDir: DEFAULTS.outputBaseDir
 })
 
 onMounted(async () => {
@@ -178,6 +191,7 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
+    formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || ''
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -222,6 +236,13 @@ const handleSave = async () => {
 
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
 
+    // 保存 outputBaseDir
+    const config = await invoke('getConfig')
+    if (config?.settings?.agent !== undefined) {
+      config.settings.agent.outputBaseDir = formData.value.outputBaseDir || ''
+      await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
+    }
+
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
   } catch (err) {
@@ -240,6 +261,7 @@ const handleReset = async () => {
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.skillsMarketUrl = DEFAULTS.skillsMarketUrl
     formData.value.messageQueue = DEFAULTS.messageQueue
+    formData.value.outputBaseDir = DEFAULTS.outputBaseDir
 
     // Save to backend
     await invoke('updateTimeout', {
@@ -250,6 +272,13 @@ const handleReset = async () => {
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
     await invoke('updateMarketConfig', { registryUrl: DEFAULTS.skillsMarketUrl })
+
+    // 重置 outputBaseDir
+    const config = await invoke('getConfig')
+    if (config?.settings?.agent !== undefined) {
+      config.settings.agent.outputBaseDir = ''
+      await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
+    }
 
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存（通过 v-model 触发），这里不再重复保存
 
