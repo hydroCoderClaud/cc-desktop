@@ -198,9 +198,9 @@ class AgentSessionManager {
   /**
    * 构建 SDK 环境变量
    */
-  _buildEnvVars() {
+  _buildEnvVars(profile) {
     const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder')
-    const profile = this.configManager.getDefaultProfile()
+    if (!profile) profile = this.configManager.getDefaultProfile()
 
     // 使用标准 extraVars（TERM、SHELL、AUTOCOMPACT）
     const extraVars = buildStandardExtraVars(this.configManager)
@@ -301,26 +301,7 @@ class AgentSessionManager {
       console.log(`[AgentSession] Reopened session ${sessionId} from DB (sdkSessionId: ${session.sdkSessionId || 'none'})`)
     }
 
-    // 检测 API Profile 是否变化（无论是从内存还是 DB 恢复，都要检测）
-    const currentProfile = this.configManager.getDefaultProfile()
-    const result = session.toJSON()
-
-    // 优先用 baseUrl 比较（精确）；旧会话无 baseUrl 时退化为 profileId 比较
-    if (session.apiBaseUrl) {
-      if (currentProfile?.baseUrl !== session.apiBaseUrl) {
-        result.apiChanged = true
-        result.originalApiBaseUrl = session.apiBaseUrl
-        result.currentApiBaseUrl = currentProfile?.baseUrl || ''
-      }
-    } else if (session.apiProfileId) {
-      if (currentProfile?.id !== session.apiProfileId) {
-        result.apiChanged = true
-        result.originalApiBaseUrl = `Profile: ${session.apiProfileId}`
-        result.currentApiBaseUrl = currentProfile?.baseUrl || `Profile: ${currentProfile?.id || 'unknown'}`
-      }
-    }
-
-    return result
+    return session.toJSON()
   }
 
   /**
@@ -454,7 +435,9 @@ class AgentSessionManager {
       // push 前确保模型正确（防止 watch 中的 setModel 静默失败）
       if (modelTier) {
         try {
-          const profile = this.configManager.getDefaultProfile()
+          const profile = session.apiProfileId
+            ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
+            : this.configManager.getDefaultProfile()
           const resolvedModel = profile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
           await session.queryGenerator.setModel(resolvedModel)
         } catch (e) {
@@ -471,7 +454,11 @@ class AgentSessionManager {
 
     try {
       const queryFn = await this._loadSDK()
-      const env = this._buildEnvVars()
+      // 使用会话创建时绑定的 profile，fallback 到默认
+      const sessionProfile = session.apiProfileId
+        ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
+        : this.configManager.getDefaultProfile()
+      const env = this._buildEnvVars(sessionProfile)
 
       // 创建 MessageQueue
       const messageQueue = new MessageQueue()
@@ -543,8 +530,7 @@ class AgentSessionManager {
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       if (modelTier) {
-        const profile = this.configManager.getDefaultProfile()
-        options.model = profile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
+        options.model = sessionProfile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
       }
 
       if (maxTurns) {
@@ -1317,7 +1303,10 @@ class AgentSessionManager {
   // ============= Query 控制委托（委托给 queryManager） =============
 
   async setModel(sessionId, model) {
-    const profile = this.configManager.getDefaultProfile()
+    const session = this.sessions.get(sessionId)
+    const profile = session?.apiProfileId
+      ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
+      : this.configManager.getDefaultProfile()
     const resolvedModel = profile?.modelMapping?.[model]?.trim() || LATEST_MODEL_ALIASES[model] || model
     return this.queryManager.setModel(sessionId, resolvedModel)
   }
