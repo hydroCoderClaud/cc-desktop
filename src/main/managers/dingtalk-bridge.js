@@ -271,6 +271,18 @@ class DingTalkBridge {
       setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
     }
 
+    // 命令拦截：文本消息以 / 开头时作为命令处理，不进入 Agent 对话
+    if (msgtype !== 'picture' && msgtype !== 'richText') {
+      const rawText = (text?.content || '').trim()
+      if (rawText.startsWith('/')) {
+        const mapKey = `${senderStaffId}:${conversationId || 'default'}`
+        await this._handleCommand(rawText, sessionWebhook, {
+          robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, mapKey
+        })
+        return
+      }
+    }
+
     // 如果有待选择状态，优先处理（用户正在选择历史会话）
     const mapKey = `${senderStaffId}:${conversationId || 'default'}`
     if (this._pendingChoices.has(mapKey)) {
@@ -472,7 +484,7 @@ class DingTalkBridge {
   /**
    * 新建 Agent 会话（供 _ensureSession 和 _handlePendingChoice 共用）
    */
-  async _createNewSession(staffId, nickname, conversationId, conversationTitle, mapKey) {
+  async _createNewSession(staffId, nickname, conversationId, conversationTitle, mapKey, { cwd } = {}) {
     const title = conversationTitle
       ? `钉钉 · ${conversationTitle} · ${nickname || staffId}`
       : `钉钉 · ${nickname || staffId}`
@@ -480,7 +492,8 @@ class DingTalkBridge {
     const session = this.agentSessionManager.create({
       type: 'dingtalk',
       title,
-      cwdSubDir: 'dingtalk'
+      cwd: cwd || undefined,
+      cwdSubDir: cwd ? undefined : 'dingtalk'
     })
 
     const sessionId = session.id
@@ -977,6 +990,122 @@ class DingTalkBridge {
     if (!response.ok) {
       throw new Error(`Group image API failed: ${response.status} ${JSON.stringify(result)}`)
     }
+  }
+
+  // ============================================================
+  // P0 命令层
+  // 新增命令：在 _handleCommand 的 switch 里加 case，再写 _cmdXxx 方法
+  // ============================================================
+
+  /**
+   * 命令分发器
+   */
+  async _handleCommand(text, webhook, context) {
+    const parts = text.substring(1).trim().split(/\s+/)
+    const cmd = parts[0].toLowerCase()
+    const args = parts.slice(1)
+
+    let reply
+    switch (cmd) {
+      case 'help':     reply = this._cmdHelp(); break
+      case 'status':   reply = this._cmdStatus(); break
+      case 'sessions': reply = this._cmdSessions(); break
+      case 'close':    reply = await this._cmdClose(context); break
+      case 'new':      reply = await this._cmdNew(args, context); break
+      default:         reply = `❓ 未知命令: /${cmd}\n输入 /help 查看可用命令`
+    }
+
+    await this._replyToDingTalk(webhook, reply)
+  }
+
+  _cmdHelp() {
+    return [
+      '📋 可用命令：',
+      '',
+      '  /help        — 显示此帮助',
+      '  /status      — 系统状态',
+      '  /sessions    — 当前会话列表',
+      '  /new [目录]  — 新建会话（可选：目录名或绝对路径）',
+      '  /close       — 关闭当前会话',
+      '',
+      '💬 不带 / 的消息直接发给 AI 助手'
+    ].join('\n')
+  }
+
+  _cmdStatus() {
+    const sessions = [...this.agentSessionManager.sessions.values()]
+    const streaming = sessions.filter(s => s.status === 'streaming').length
+    const idle = sessions.filter(s => s.status === 'idle').length
+    const config = this.configManager.getConfig()
+    const profiles = config?.apiProfiles || []
+    const defaultId = config?.defaultProfileId
+    const current = profiles.find(p => p.id === defaultId)
+
+    return [
+      '📊 系统状态',
+      `├─ 钉钉桥接: ✅ 已连接`,
+      `├─ 当前配置: ${current?.name || '未配置'}`,
+      `├─ 执行中: ${streaming} 个 / 空闲: ${idle} 个`,
+      `└─ 总会话数: ${sessions.length} 个`
+    ].join('\n')
+  }
+
+  _cmdSessions() {
+    const sessions = [...this.agentSessionManager.sessions.values()]
+    if (sessions.length === 0) return '📭 暂无活跃会话'
+
+    const lines = ['📋 活跃会话：', '']
+    sessions.forEach((s, i) => {
+      const icon = s.status === 'streaming' ? '🔄' : '💤'
+      const dir = s.cwd ? path.basename(s.cwd) : '-'
+      lines.push(`${i + 1}. ${icon} ${s.title || s.id.substring(0, 8)}`)
+      lines.push(`   目录: ${dir}`)
+    })
+    lines.push('', '使用 /close 关闭当前会话')
+    return lines.join('\n')
+  }
+
+  async _cmdClose({ mapKey }) {
+    const sessionId = this.sessionMap.get(mapKey)
+    if (!sessionId) return '当前没有活跃会话'
+
+    await this.agentSessionManager.close(sessionId)
+    this.sessionMap.delete(mapKey)
+    this._sessionWebhooks.delete(sessionId)
+    this._sessionProcessQueues.delete(sessionId)
+    this._desktopPendingBlocks.delete(sessionId)
+    this._clearPendingChoice(mapKey)
+
+    return '✅ 会话已关闭\n发送任意消息可开始新会话'
+  }
+
+  async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }) {
+    const sessionId = this.sessionMap.get(mapKey)
+    if (sessionId) return '⚠️ 当前有活跃会话，请先发送 /close 关闭后再新建'
+
+    this._clearPendingChoice(mapKey)
+
+    const dirArg = args.join(' ').trim()
+    let cwd
+
+    if (dirArg) {
+      // 绝对路径直接使用，相对名称放在 dingtalk/ 子目录下
+      if (path.isAbsolute(dirArg) || /^[A-Za-z]:[/\\]/.test(dirArg)) {
+        cwd = dirArg
+      } else {
+        cwd = path.join(this.agentSessionManager._getOutputBaseDir(), 'dingtalk', dirArg)
+      }
+      try {
+        fs.mkdirSync(cwd, { recursive: true })
+      } catch (err) {
+        return `❌ 无法创建目录: ${err.message}`
+      }
+    }
+
+    await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey, { cwd })
+
+    const dirInfo = cwd ? `\n└─ 目录: ${path.basename(cwd)}` : ''
+    return `✅ 新会话已创建${dirInfo}\n现在可以开始对话了`
   }
 
   /**
