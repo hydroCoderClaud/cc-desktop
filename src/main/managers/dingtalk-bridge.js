@@ -1067,7 +1067,12 @@ class DingTalkBridge {
 
   async _cmdClose({ mapKey }) {
     const sessionId = this.sessionMap.get(mapKey)
-    if (!sessionId) return '当前没有活跃会话'
+    if (!sessionId) return '当前没有活跃会话，无需关闭\n发送任意消息可开始新会话'
+
+    const session = this.agentSessionManager.sessions.get(sessionId)
+    if (session?.status === 'streaming') {
+      return '⏳ AI 正在响应中，请等待完成后再关闭'
+    }
 
     await this.agentSessionManager.close(sessionId)
     this.sessionMap.delete(mapKey)
@@ -1081,7 +1086,13 @@ class DingTalkBridge {
 
   async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }) {
     const sessionId = this.sessionMap.get(mapKey)
-    if (sessionId) return '⚠️ 当前有活跃会话，请先发送 /close 关闭后再新建'
+    if (sessionId) {
+      const session = this.agentSessionManager.sessions.get(sessionId)
+      if (session?.status === 'streaming') {
+        return '⏳ AI 正在响应中，请等待完成后再操作'
+      }
+      return '⚠️ 当前有活跃会话，请先发送 /close 关闭后再新建'
+    }
 
     this._clearPendingChoice(mapKey)
 
