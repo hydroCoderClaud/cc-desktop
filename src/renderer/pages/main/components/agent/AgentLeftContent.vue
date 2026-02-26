@@ -46,6 +46,19 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <n-tooltip
+              v-if="getProfileName(conv.apiProfileId)"
+              placement="right"
+              :delay="200"
+              :show-arrow="false"
+            >
+              <template #trigger>
+                <span class="profile-badge" @click.stop>
+                  <Icon name="api" :size="10" />
+                </span>
+              </template>
+              {{ getProfileName(conv.apiProfileId) }}
+            </n-tooltip>
           </div>
           <div class="conv-actions">
             <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
@@ -138,6 +151,25 @@ const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
 
+// API profiles（用于显示非默认 profile 的标记）
+const apiProfiles = ref([])
+const defaultProfileId = ref(null)
+
+const loadApiProfiles = async () => {
+  try {
+    const config = await window.electronAPI?.getConfig()
+    apiProfiles.value = config?.apiProfiles || []
+    defaultProfileId.value = config?.defaultProfileId || null
+  } catch {}
+}
+
+// 返回 profile 名称，仅当 profileId 存在且不是默认 profile 时
+const getProfileName = (profileId) => {
+  if (!profileId || profileId === defaultProfileId.value) return null
+  const profile = apiProfiles.value.find(p => p.id === profileId)
+  return profile?.name || null
+}
+
 const handleNewConversation = () => {
   emit('new-conversation-request')
 }
@@ -184,6 +216,7 @@ let cleanupRenamed = null
 let cleanupDingtalkSession = null
 onMounted(() => {
   loadConversations()
+  loadApiProfiles()
 
   if (window.electronAPI?.onAgentRenamed) {
     cleanupRenamed = window.electronAPI.onAgentRenamed((data) => {
@@ -372,6 +405,22 @@ defineExpose({
 .action-btn.delete-btn:hover {
   background: rgba(255, 77, 79, 0.1);
   color: #ff4d4f;
+}
+
+.profile-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 3px;
+  color: var(--text-color-muted);
+  opacity: 0.5;
+  cursor: default;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.conversation-item:hover .profile-badge {
+  opacity: 0.9;
+  color: var(--primary-color);
 }
 
 .empty-hint {
