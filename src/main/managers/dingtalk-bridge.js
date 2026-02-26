@@ -1022,14 +1022,14 @@ class DingTalkBridge {
     return [
       '📋 可用命令：',
       '',
-      '  /help        — 显示此帮助',
-      '  /status      — 系统状态',
-      '  /sessions    — 当前会话列表',
-      '  /new [目录]  — 新建会话（可选：目录名或绝对路径）',
-      '  /close       — 关闭当前会话',
+      '/help — 显示此帮助',
+      '/status — 系统状态',
+      '/sessions — 当前会话列表',
+      '/new [目录] — 新建会话（可选：目录名或绝对路径）',
+      '/close — 关闭当前会话',
       '',
       '💬 不带 / 的消息直接发给 AI 助手'
-    ].join('\n')
+    ].join('\n\n')
   }
 
   _cmdStatus() {
