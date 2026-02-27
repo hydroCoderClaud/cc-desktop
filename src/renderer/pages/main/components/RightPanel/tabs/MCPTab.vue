@@ -121,6 +121,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useAppMode } from '@composables/useAppMode'
 import { NInput, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -226,6 +227,7 @@ const handleEdit = (server) => {
   showEditModal.value = true
 }
 
+// 只读查看模式（预留：用于不可编辑的 MCP，如 plugin scope 注入的）
 const handleView = (server) => {
   editingMcp.value = server
   editingScope.value = server.source
@@ -285,9 +287,16 @@ const handleOpenFile = async (server) => {
   }
 }
 
+const { isDeveloperMode } = useAppMode()
+
 // Watch project change
 watch(() => props.currentProject, () => {
   loadServers()
+})
+
+// 从 Agent 模式切回开发者模式时刷新列表
+watch(isDeveloperMode, (val) => {
+  if (val) loadServers()
 })
 
 onMounted(() => {

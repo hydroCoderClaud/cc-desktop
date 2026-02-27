@@ -47,7 +47,7 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
       if (!capability) return { success: false, error: 'Invalid parameters' }
       if (capability.type === 'mcp') {
         if (!agentSessionManager) return { success: false, error: 'AgentSessionManager not available' }
-        if (!sessionId) return { success: false, error: '需要活跃会话才能启用 MCP' }
+        if (!sessionId) return { success: false, error: 'No active session to enable MCP' }
         return await agentSessionManager.toggleMcp(sessionId, capability.componentId, true)
       }
       return await capabilityManager.enableCapability(capability)
@@ -63,7 +63,7 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
       if (!capability) return { success: false, error: 'Invalid parameters' }
       if (capability.type === 'mcp') {
         if (!agentSessionManager) return { success: false, error: 'AgentSessionManager not available' }
-        if (!sessionId) return { success: false, error: '需要活跃会话才能禁用 MCP' }
+        if (!sessionId) return { success: false, error: 'No active session to disable MCP' }
         return await agentSessionManager.toggleMcp(sessionId, capability.componentId, false)
       }
       return await capabilityManager.disableCapability(capability)
