@@ -2,6 +2,15 @@
 
 ---
 
+## v1.6.62 - 2026-02-27
+
+### 修复 (Fix)
+
+- **模型映射显示不生效**：`useAgentChat` 中 `modelMapping` 从普通变量改为 `ref`，修复新建会话选择带模型映射的 API Profile 时工具栏模型名不更新的问题
+- **新建会话 API 配置选择不生效**：`createConversation` 漏传 `apiProfileId`，导致始终使用默认 profile（v1.6.61 修复未包含在构建产物中）
+
+---
+
 ## v1.6.61 - 2026-02-27
 
 ### 新功能 (Features)

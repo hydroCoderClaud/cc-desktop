@@ -46,11 +46,11 @@ export function useAgentChat(sessionId) {
   // 模型名映射缓存（从配置读取，initDefaultModel 时填充）
   // 无映射时的内置默认值
   const DEFAULT_MODEL_NAMES = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-4-5' }
-  let modelMapping = {}
+  const modelMapping = ref({})
 
   // 右侧显示的完整模型名：从缓存映射派生，切换下拉立即同步
   const activeModel = computed(() =>
-    modelMapping[selectedModel.value] || DEFAULT_MODEL_NAMES[selectedModel.value] || selectedModel.value
+    modelMapping.value[selectedModel.value] || DEFAULT_MODEL_NAMES[selectedModel.value] || selectedModel.value
   )
 
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
@@ -612,7 +612,7 @@ export function useAgentChat(sessionId) {
       const profile = config.apiProfiles.find(p => p.id === profileId)
         || config.apiProfiles.find(p => p.id === config.defaultProfileId)
       if (profile?.selectedModelTier) {
-        modelMapping = profile.modelMapping || {}
+        modelMapping.value = profile.modelMapping || {}
         selectedModel.value = profile.selectedModelTier
       }
     } catch (err) {
