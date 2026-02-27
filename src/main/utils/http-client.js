@@ -1,7 +1,7 @@
 /**
  * 共享 HTTP 客户端模块
  * 提供统一的 HTTP GET 请求、系统代理支持和错误分类
- * 供 Skills/Agents/Prompts 市场共用
+ * 供 Skills/Agents/Prompts/MCPs 市场共用
  */
 
 const https = require('https')
@@ -196,9 +196,9 @@ function isSafeFilename(filename) {
 }
 
 /**
- * 获取注册表索引（skills + agents + prompts 共用）
+ * 获取注册表索引（skills + agents + prompts + mcps 共用）
  * @param {string} registryUrl - 注册表基础 URL
- * @returns {{ success: boolean, data?: { skills, agents, prompts }, error?: string }}
+ * @returns {{ success: boolean, data?: { skills, agents, prompts, mcps }, error?: string }}
  */
 async function fetchRegistryIndex(registryUrl) {
   if (!registryUrl || typeof registryUrl !== 'string') {
@@ -217,7 +217,8 @@ async function fetchRegistryIndex(registryUrl) {
       data: {
         skills: Array.isArray(data.skills) ? data.skills : [],
         agents: Array.isArray(data.agents) ? data.agents : [],
-        prompts: Array.isArray(data.prompts) ? data.prompts : []
+        prompts: Array.isArray(data.prompts) ? data.prompts : [],
+        mcps: Array.isArray(data.mcps) ? data.mcps : []
       }
     }
   } catch (err) {

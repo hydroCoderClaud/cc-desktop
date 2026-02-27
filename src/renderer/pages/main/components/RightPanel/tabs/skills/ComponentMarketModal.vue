@@ -51,6 +51,20 @@
             @update-item="handleUpdateAgent"
           />
         </n-tab-pane>
+        <n-tab-pane :name="'mcps'" :tab="t('market.tabs.mcps')">
+          <MarketList
+            :items="filteredMcps"
+            :installed-map="installedMcpsMap"
+            :installing-set="installingSet"
+            :fetch-loading="fetchLoading"
+            :fetched="fetched"
+            :search-text="mcpsSearch"
+            @update:search-text="mcpsSearch = $event"
+            @fetch="fetchIndex"
+            @install="handleInstallMcp"
+            @update-item="handleUpdateMcp"
+          />
+        </n-tab-pane>
       </n-tabs>
     </div>
   </n-modal>
@@ -77,13 +91,15 @@ const emit = defineEmits(['installed'])
 // State
 const activeTab = ref(props.defaultTab)
 const registryUrl = ref('')
-const marketData = ref({ skills: [], prompts: [], agents: [] })
+const marketData = ref({ skills: [], prompts: [], agents: [], mcps: [] })
 const installedSkillsMap = ref(new Map())
 const installedPromptsMap = ref(new Map())
 const installedAgentsMap = ref(new Map())
+const installedMcpsMap = ref(new Map())
 const skillsSearch = ref('')
 const promptsSearch = ref('')
 const agentsSearch = ref('')
+const mcpsSearch = ref('')
 const fetchLoading = ref(false)
 const fetchError = ref('')
 const fetched = ref(false)
@@ -122,13 +138,15 @@ const filterList = (list, search) => {
 const filteredSkills = computed(() => filterList(marketData.value.skills, skillsSearch.value))
 const filteredPrompts = computed(() => filterList(marketData.value.prompts, promptsSearch.value))
 const filteredAgents = computed(() => filterList(marketData.value.agents, agentsSearch.value))
+const filteredMcps = computed(() => filterList(marketData.value.mcps, mcpsSearch.value))
 
 // Load installed items
 const loadAllInstalled = async () => {
   await Promise.all([
     loadInstalledSkills(),
     loadInstalledPrompts(),
-    loadInstalledAgents()
+    loadInstalledAgents(),
+    loadInstalledMcps()
   ])
 }
 
@@ -159,6 +177,20 @@ const loadInstalledAgents = async () => {
   } catch (e) { console.error('Failed to load installed agents:', e) }
 }
 
+const loadInstalledMcps = async () => {
+  try {
+    // 获取 user scope 中已安装的 MCP（从 ~/.claude.json 读取）
+    const allMcp = await window.electronAPI.listMcpAll()
+    const map = new Map()
+    // 将 user scope 中的 MCP name 标记为已安装
+    // MCP 没有版本信息，所以只记录名称
+    for (const mcp of (allMcp?.user || [])) {
+      map.set(mcp.name, { name: mcp.name, installed: true })
+    }
+    installedMcpsMap.value = map
+  } catch (e) { console.error('Failed to load installed MCPs:', e) }
+}
+
 // Fetch registry index
 const fetchIndex = async () => {
   const url = registryUrl.value.trim()
@@ -176,7 +208,8 @@ const fetchIndex = async () => {
       marketData.value = {
         skills: result.data.skills || [],
         prompts: result.data.prompts || [],
-        agents: result.data.agents || []
+        agents: result.data.agents || [],
+        mcps: result.data.mcps || []
       }
       fetched.value = true
       fetchError.value = ''
@@ -421,6 +454,80 @@ const handleUpdateAgent = async (agent) => {
     message.error(t('market.updateFailed', { error: e.message }))
   } finally {
     removeFromInstalling(agent.id)
+  }
+}
+
+// ========== MCPs install ==========
+const handleInstallMcp = async (mcp) => {
+  addToInstalling(mcp.id)
+  try {
+    const result = await window.electronAPI.installMarketMcp({
+      registryUrl: registryUrl.value.trim(),
+      mcp: JSON.parse(JSON.stringify(mcp))
+    })
+    if (result.success) {
+      message.success(t('market.installSuccess', { name: mcp.name || mcp.id }))
+      await loadInstalledMcps()
+      emit('installed')
+    } else if (result.conflict) {
+      dialog.warning({
+        title: t('market.confirmOverwriteTitle'),
+        content: t('market.confirmOverwrite', { id: mcp.id }),
+        positiveText: t('market.install'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: async () => {
+          await handleForceInstallMcp(mcp)
+        }
+      })
+    } else {
+      message.error(t('market.installFailed', { error: result.error }))
+    }
+  } catch (e) {
+    message.error(t('market.installFailed', { error: e.message }))
+  } finally {
+    removeFromInstalling(mcp.id)
+  }
+}
+
+const handleForceInstallMcp = async (mcp) => {
+  addToInstalling(mcp.id)
+  try {
+    const result = await window.electronAPI.installMarketMcpForce({
+      registryUrl: registryUrl.value.trim(),
+      mcp: JSON.parse(JSON.stringify(mcp))
+    })
+    if (result.success) {
+      message.success(t('market.installSuccess', { name: mcp.name || mcp.id }))
+      await loadInstalledMcps()
+      emit('installed')
+    } else {
+      message.error(t('market.installFailed', { error: result.error }))
+    }
+  } catch (e) {
+    message.error(t('market.installFailed', { error: e.message }))
+  } finally {
+    removeFromInstalling(mcp.id)
+  }
+}
+
+const handleUpdateMcp = async (mcp) => {
+  addToInstalling(mcp.id)
+  try {
+    const result = await window.electronAPI.updateMarketMcp({
+      registryUrl: registryUrl.value.trim(),
+      mcp: JSON.parse(JSON.stringify(mcp))
+    })
+    if (result.success) {
+      message.success(t('market.updateSuccess', { name: mcp.name || mcp.id }))
+      await loadInstalledMcps()
+      emit('installed')
+    } else {
+      message.error(t('market.updateFailed', { error: result.error }))
+    }
+  } catch (e) {
+    message.error(t('market.updateFailed', { error: e.message }))
+  } finally {
+    removeFromInstalling(mcp.id)
   }
 }
 </script>

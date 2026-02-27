@@ -874,7 +874,8 @@ export default {
     tabs: {
       skills: 'Skills',
       prompts: '提示词',
-      agents: 'Agents'
+      agents: 'Agents',
+      mcps: 'MCPs'
     },
     fetching: '获取中...',
     fetchError: '获取注册表失败',

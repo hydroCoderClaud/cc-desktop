@@ -935,6 +935,62 @@ function setupPluginHandlers(ipcMain) {
   })
 
   // ========================================
+  // MCP Market IPC Handlers
+  // ========================================
+
+  // 获取注册表索引
+  ipcMain.handle('mcps:market:fetchIndex', async (event, registryUrl) => {
+    try {
+      if (!registryUrl || typeof registryUrl !== 'string') {
+        return { success: false, error: 'Invalid registry URL' }
+      }
+      return await fetchRegistryIndex(registryUrl)
+    } catch (err) {
+      console.error('[IPC] mcps:market:fetchIndex error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 安装市场 MCP
+  ipcMain.handle('mcps:market:install', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await mcpManager.installMarketMcp(params)
+    } catch (err) {
+      console.error('[IPC] mcps:market:install error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 强制覆盖安装市场 MCP
+  ipcMain.handle('mcps:market:installForce', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await mcpManager.installMarketMcpForce(params)
+    } catch (err) {
+      console.error('[IPC] mcps:market:installForce error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 更新市场 MCP
+  ipcMain.handle('mcps:market:update', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await mcpManager.updateMarketMcp(params)
+    } catch (err) {
+      console.error('[IPC] mcps:market:update error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // ========================================
   // 文件操作
   // ========================================
 

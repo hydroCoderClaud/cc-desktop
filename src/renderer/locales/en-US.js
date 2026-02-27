@@ -871,7 +871,8 @@ export default {
     tabs: {
       skills: 'Skills',
       prompts: 'Prompts',
-      agents: 'Agents'
+      agents: 'Agents',
+      mcps: 'MCPs'
     },
     fetching: 'Fetching...',
     fetchError: 'Failed to fetch registry',

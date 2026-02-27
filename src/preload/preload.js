@@ -275,6 +275,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateMcp: (params) => ipcRenderer.invoke('mcp:update', params),
   deleteMcp: (params) => ipcRenderer.invoke('mcp:delete', params),
 
+  // MCP 市场
+  fetchMarketMcpsIndex: (registryUrl) => ipcRenderer.invoke('mcps:market:fetchIndex', registryUrl),
+  installMarketMcp: (params) => ipcRenderer.invoke('mcps:market:install', params),
+  installMarketMcpForce: (params) => ipcRenderer.invoke('mcps:market:installForce', params),
+  updateMarketMcp: (params) => ipcRenderer.invoke('mcps:market:update', params),
+
   // ========================================
   // Claude Code Settings 管理 (permissions, env)
   // ========================================

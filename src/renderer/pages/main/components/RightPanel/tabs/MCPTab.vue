@@ -3,6 +3,9 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.mcp') }} ({{ totalCount }})</span>
       <div class="tab-actions">
+        <button class="icon-btn" :title="t('market.title')" @click="showMarketModal">
+          <Icon name="store" :size="14" />
+        </button>
         <button class="icon-btn" :title="t('rightPanel.mcp.refresh')" @click="handleRefresh">
           <Icon name="refresh" :size="14" />
         </button>
@@ -110,6 +113,9 @@
       :project-path="currentProject?.path"
       @copied="handleRefresh"
     />
+
+    <!-- Market Modal -->
+    <ComponentMarketModal v-model="marketModalVisible" default-tab="mcps" @installed="handleRefresh" />
   </div>
 </template>
 
@@ -121,6 +127,7 @@ import Icon from '@components/icons/Icon.vue'
 import MCPGroup from '../mcp/MCPGroup.vue'
 import MCPEditModal from '../mcp/MCPEditModal.vue'
 import MCPCopyModal from '../mcp/MCPCopyModal.vue'
+import ComponentMarketModal from './skills/ComponentMarketModal.vue'
 
 const { t } = useLocale()
 const dialog = useDialog()
@@ -147,6 +154,13 @@ const editingReadonly = ref(false)
 // Copy Modal
 const showCopyModal = ref(false)
 const copyingMcp = ref(null)
+
+// Market Modal
+const marketModalVisible = ref(false)
+
+const showMarketModal = () => {
+  marketModalVisible.value = true
+}
 
 // Computed
 const totalCount = computed(() => {

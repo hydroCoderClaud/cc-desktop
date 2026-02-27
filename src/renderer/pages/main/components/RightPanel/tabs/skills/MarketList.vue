@@ -140,6 +140,8 @@ const isNewer = (remote, local) => {
 const getItemStatus = (item) => {
   const meta = props.installedMap.get(item.id)
   if (!meta) return 'not_installed'
+  // 如果没有版本信息但有 installed 标记，说明是 MCP 类型
+  if (meta.installed) return 'installed'
   const installedVersion = meta.version || meta.marketVersion
   if (isNewer(item.version, installedVersion)) return 'updatable'
   return 'installed'

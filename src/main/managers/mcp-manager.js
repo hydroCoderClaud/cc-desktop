@@ -15,6 +15,7 @@ const fs = require('fs')
 const os = require('os')
 const { ComponentScanner } = require('../component-scanner')
 const { atomicWriteJson } = require('../utils/path-utils')
+const { mcpMarketMixin } = require('./mcp/market')
 
 // ~/.claude.json 路径
 const CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
@@ -22,6 +23,8 @@ const CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
 class McpManager extends ComponentScanner {
   constructor() {
     super()
+    // 混入市场功能方法
+    Object.assign(this, mcpMarketMixin)
   }
 
   // ========================================
