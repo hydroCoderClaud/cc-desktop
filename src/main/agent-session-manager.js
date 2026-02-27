@@ -974,6 +974,27 @@ class AgentSessionManager {
   }
 
   /**
+   * 通过 SDK 启用/禁用 MCP 服务器（等效于 /mcp enable|disable，立即生效）
+   * @param {string} sessionId - Agent 会话 ID
+   * @param {string} name - MCP 服务器名称
+   * @param {boolean} enabled - true=启用，false=禁用
+   */
+  async toggleMcp(sessionId, name, enabled) {
+    const session = this.sessions.get(sessionId)
+    if (!session?.queryGenerator) {
+      return { success: false, error: '当前会话无活跃连接，无法切换 MCP 状态' }
+    }
+    try {
+      await session.queryGenerator.toggleMcpServer(name, enabled)
+      console.log(`[AgentSession] toggleMcp: ${name} enabled=${enabled} for session ${sessionId}`)
+      return { success: true }
+    } catch (err) {
+      console.error(`[AgentSession] toggleMcp error:`, err)
+      return { success: false, error: err.message }
+    }
+  }
+
+  /**
    * 获取所有会话列表（合并内存活跃 + DB 历史，去重）
    */
   list() {

@@ -203,11 +203,12 @@ app.whenReady().then(async () => {
 
   // 初始化能力管理器（Agent 模式）
   const { PluginCli } = require('./managers/plugin-cli')
-  const { SkillsManager, AgentsManager } = require('./managers')
+  const { SkillsManager, AgentsManager, McpManager } = require('./managers')
   const pluginCli = new PluginCli()
   const skillsManager = new SkillsManager()
   const agentsManager = new AgentsManager()
-  capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager)
+  const capMcpManager = new McpManager()
+  capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager, capMcpManager)
 
   // 初始化更新管理器
   updateManager = new UpdateManager(mainWindow)

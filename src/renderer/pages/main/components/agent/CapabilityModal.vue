@@ -119,7 +119,9 @@ const { t, locale } = useLocale()
 const message = useMessage()
 
 const props = defineProps({
-  show: { type: Boolean, default: false }
+  show: { type: Boolean, default: false },
+  projectPath: { type: String, default: null },
+  sessionId: { type: String, default: null }
 })
 
 defineEmits(['update:show'])
@@ -162,7 +164,7 @@ const loadCapabilities = async () => {
   fetchError.value = ''
 
   try {
-    const result = await window.electronAPI.fetchCapabilities()
+    const result = await window.electronAPI.fetchCapabilities(props.projectPath)
 
     if (result.success) {
       capabilities.value = result.capabilities
@@ -197,6 +199,9 @@ const handleAction = async (cap, action) => {
     if (result.success) {
       config.onSuccess(cap)
       message.success(t(config.successMsg))
+      if (result.requiresRestart) {
+        message.warning(t('agent.capMcpRestartHint'), { duration: 5000 })
+      }
     } else {
       message.error(result.error || t(config.failMsg))
     }
@@ -210,10 +215,15 @@ const handleAction = async (cap, action) => {
 }
 
 const handleToggle = async (cap, enabled) => {
+  if (cap.type === 'mcp' && !props.sessionId) {
+    message.warning(t('agent.capMcpNoProject'))
+    return
+  }
   togglingId.value = cap.id
   try {
     const api = enabled ? 'enableCapability' : 'disableCapability'
-    const result = await window.electronAPI[api](cap.id, toPlain(cap))
+    const thirdArg = cap.type === 'mcp' ? props.sessionId : null
+    const result = await window.electronAPI[api](cap.id, toPlain(cap), thirdArg)
     if (result.success) {
       cap.disabled = !enabled
       message[enabled ? 'success' : 'info'](t(enabled ? 'agent.capabilityEnabled' : 'agent.capabilityDisabled'))
@@ -388,6 +398,11 @@ watch(() => props.show, (val) => {
 .type-badge.type-plugin {
   background: rgba(82, 196, 26, 0.1);
   color: #52c41a;
+}
+
+.type-badge.type-mcp {
+  background: rgba(250, 140, 22, 0.1);
+  color: #fa8c16;
 }
 
 .capability-name {

@@ -17,12 +17,14 @@ class CapabilityManager {
    * @param {Object} pluginCli - PluginCli 实例
    * @param {Object} skillsManager - SkillsManager 实例
    * @param {Object} agentsManager - AgentsManager 实例
+   * @param {Object} mcpManager - McpManager 实例
    */
-  constructor(configManager, pluginCli, skillsManager, agentsManager) {
+  constructor(configManager, pluginCli, skillsManager, agentsManager, mcpManager = null) {
     this.configManager = configManager
     this.pluginCli = pluginCli
     this.skillsManager = skillsManager
     this.agentsManager = agentsManager
+    this.mcpManager = mcpManager
     this._legacyCleaned = false
 
     // 路径常量
@@ -36,9 +38,10 @@ class CapabilityManager {
 
   /**
    * 从远程拉取能力清单，并检测每个组件的安装状态
+   * @param {string} [projectPath] - 项目路径（用于检测 MCP 的 disabled 状态）
    * @returns {{ success: boolean, capabilities?: Array, error?: string }}
    */
-  async fetchCapabilities() {
+  async fetchCapabilities(projectPath) {
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl
 
@@ -65,7 +68,7 @@ class CapabilityManager {
 
       // 检测每个组件的安装状态（一能力一组件）
       const capabilities = rawCapabilities.map(cap => {
-        const status = this.checkComponentInstalled(cap.type, cap.componentId)
+        const status = this.checkComponentInstalled(cap.type, cap.componentId, projectPath)
         return {
           ...cap,
           installed: status === 'installed' || status === 'disabled',
@@ -128,11 +131,12 @@ class CapabilityManager {
 
   /**
    * 检测单个组件的安装状态
-   * @param {string} type - 组件类型: 'skill' | 'agent' | 'plugin'
+   * @param {string} type - 组件类型: 'skill' | 'agent' | 'plugin' | 'mcp'
    * @param {string} id - 组件 ID
+   * @param {string} [projectPath] - 项目路径（mcp 启闭检测需要）
    * @returns {'installed'|'disabled'|false} - 已安装/已禁用/未安装
    */
-  checkComponentInstalled(type, id) {
+  checkComponentInstalled(type, id, projectPath) {
     try {
       switch (type) {
         case 'skill': {
@@ -158,6 +162,20 @@ class CapabilityManager {
         case 'plugin': {
           if (!this._checkPluginInstalled(id)) return false
           if (this._checkPluginDisabled(id)) return 'disabled'
+          return 'installed'
+        }
+        case 'mcp': {
+          if (!this.mcpManager) return false
+          const mcpList = this.mcpManager.listMcpUser()
+          const entry = mcpList.find(m => m.name === id)
+          if (!entry) return false
+          // 检查项目级 disabledMcpServers
+          if (projectPath) {
+            const claudeJson = this.mcpManager.readClaudeJson()
+            const normalizedPath = this.mcpManager.normalizePath(projectPath)
+            const disabled = claudeJson.projects?.[normalizedPath]?.disabledMcpServers || []
+            if (disabled.includes(id)) return 'disabled'
+          }
           return 'installed'
         }
         default:
@@ -290,13 +308,27 @@ class CapabilityManager {
           }
           break
         }
+        case 'mcp': {
+          if (!this.mcpManager) {
+            throw new Error('McpManager not available')
+          }
+          const mcp = await this._fetchComponentFromIndex(registryUrl, 'mcps', componentId)
+          if (!mcp) {
+            throw new Error(`MCP "${componentId}" not found in registry index`)
+          }
+          installResult = await this.mcpManager.installMarketMcpForce({ registryUrl, mcp })
+          if (installResult.success) {
+            installResult = { success: true, requiresRestart: true }
+          }
+          break
+        }
         default:
           throw new Error(`Unknown component type: ${type}`)
       }
 
       if (installResult.success) {
         console.log(`[CapabilityManager] Installed: ${type}/${componentId}`)
-        return { success: true }
+        return { success: true, requiresRestart: installResult.requiresRestart || false }
       } else {
         console.error(`[CapabilityManager] Install failed: ${type}/${componentId}:`, installResult.error)
         return { success: false, error: installResult.error }
@@ -338,11 +370,17 @@ class CapabilityManager {
           }
           break
         }
+        case 'mcp': {
+          if (!this.mcpManager) throw new Error('McpManager not available')
+          const result = this.mcpManager.deleteMcp({ name: componentId, scope: 'user' })
+          if (!result.success) return { success: false, error: result.error }
+          return { success: true, requiresRestart: true }
+        }
         default:
           throw new Error(`Unknown component type: ${type}`)
       }
       console.log(`[CapabilityManager] Uninstalled: ${type}/${componentId}`)
-      return { success: true }
+      return { success: true, requiresRestart: type === 'mcp' }
     } catch (err) {
       console.error(`[CapabilityManager] Uninstall error: ${type}/${componentId}:`, err.message)
       return { success: false, error: err.message }
@@ -352,10 +390,12 @@ class CapabilityManager {
   /**
    * 启用能力：恢复已禁用组件
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
+   * @param {string} [projectPath] - 项目路径（mcp 需要）
    * @returns {{ success: boolean, error?: string }}
    */
   async enableCapability(capability) {
     const { type, componentId } = capability
+
     const installStatus = this.checkComponentInstalled(type, componentId)
 
     if (installStatus === 'disabled') {
@@ -380,10 +420,12 @@ class CapabilityManager {
   /**
    * 禁用能力：将组件文件重命名为 .disabled
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
+   * @param {string} [projectPath] - 项目路径（mcp 需要）
    * @returns {{ success: boolean, error?: string }}
    */
   async disableCapability(capability) {
     const { type, componentId } = capability
+
     try {
       await this._disableComponent(type, componentId)
       console.log(`[CapabilityManager] Disabled: ${type}/${componentId}`)

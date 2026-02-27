@@ -632,7 +632,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 能力管理（Agent 模式）
   // ========================================
   if (capabilityManager && setupCapabilityHandlers) {
-    setupCapabilityHandlers(ipcMain, capabilityManager);
+    setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager);
   }
 
   // ========================================

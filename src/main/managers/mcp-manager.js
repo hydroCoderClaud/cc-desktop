@@ -443,6 +443,53 @@ class McpManager extends ComponentScanner {
       return { success: false, error: err.message }
     }
   }
+
+  /**
+   * 切换 MCP 服务器的启用/禁用状态（项目级）
+   * 禁用：将 name 加入 projects.<path>.disabledMcpServers 数组
+   * 启用：从 projects.<path>.disabledMcpServers 数组移除
+   * @param {Object} params - { name, projectPath, disabled }
+   * @returns {{ success: boolean, error?: string }}
+   */
+  toggleMcpDisabled({ name, projectPath, disabled }) {
+    try {
+      if (!name || typeof name !== 'string') {
+        return { success: false, error: 'Invalid MCP name' }
+      }
+      if (!projectPath || typeof projectPath !== 'string') {
+        return { success: false, error: 'Project path required for MCP enable/disable' }
+      }
+
+      const claudeJson = this.readClaudeJson()
+      const normalizedPath = this.normalizePath(projectPath)
+
+      if (!claudeJson.projects) claudeJson.projects = {}
+      if (!claudeJson.projects[normalizedPath]) claudeJson.projects[normalizedPath] = {}
+
+      const proj = claudeJson.projects[normalizedPath]
+      const list = Array.isArray(proj.disabledMcpServers) ? proj.disabledMcpServers : []
+
+      if (disabled) {
+        if (!list.includes(name)) list.push(name)
+      } else {
+        const idx = list.indexOf(name)
+        if (idx !== -1) list.splice(idx, 1)
+      }
+
+      if (list.length > 0) {
+        proj.disabledMcpServers = list
+      } else {
+        delete proj.disabledMcpServers
+      }
+
+      this.writeClaudeJson(claudeJson)
+      console.log(`[McpManager] toggleMcpDisabled: ${name} disabled=${disabled} in ${normalizedPath}`)
+      return { success: true }
+    } catch (err) {
+      console.error('[McpManager] toggleMcpDisabled error:', err)
+      return { success: false, error: err.message }
+    }
+  }
 }
 
 module.exports = { McpManager }

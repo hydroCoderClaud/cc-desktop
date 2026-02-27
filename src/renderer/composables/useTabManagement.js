@@ -307,7 +307,8 @@ export function useTabManagement() {
       sessionType: agentSession.type || 'chat',  // 'chat' | 'dingtalk'
       title: agentSession.title || t('agent.chat'),
       status: agentSession.status || 'idle',
-      apiProfileId: agentSession.apiProfileId || null
+      apiProfileId: agentSession.apiProfileId || null,
+      cwd: agentSession.cwd || null
     }
 
     tabs.value.push(newTab)

@@ -83,6 +83,8 @@
     <CapabilityModal
       v-if="!isDeveloperMode"
       v-model:show="showCapabilityModal"
+      :project-path="agentCwd"
+      :session-id="agentSessionId"
     />
 
     <!-- Session Area (滚动区域) - 仅开发者模式 -->
@@ -410,6 +412,14 @@ const props = defineProps({
   },
   currentProject: {
     type: Object,
+    default: null
+  },
+  agentCwd: {
+    type: String,
+    default: null
+  },
+  agentSessionId: {
+    type: String,
     default: null
   },
   isDark: {

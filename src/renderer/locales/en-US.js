@@ -1283,6 +1283,8 @@ export default {
     capUpdateSuccess: 'Updated successfully',
     capUninstallSuccess: 'Uninstalled successfully',
     capUninstallFailed: 'Uninstall failed',
+    capMcpRestartHint: 'MCP changes will take effect on next new conversation',
+    capMcpNoProject: 'Open a session first to enable/disable MCP',
 
     // Capability categories
     category: {

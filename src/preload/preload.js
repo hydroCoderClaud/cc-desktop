@@ -602,11 +602,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:deleteFile', { sessionId, path }),
 
   // 能力管理（Agent 模式）
-  fetchCapabilities: () => ipcRenderer.invoke('capabilities:fetch'),
+  fetchCapabilities: (projectPath) => ipcRenderer.invoke('capabilities:fetch', projectPath),
   installCapability: (id, capability) => ipcRenderer.invoke('capabilities:install', id, capability),
   uninstallCapability: (id, capability) => ipcRenderer.invoke('capabilities:uninstall', id, capability),
-  enableCapability: (id, capability) => ipcRenderer.invoke('capabilities:enable', id, capability),
-  disableCapability: (id, capability) => ipcRenderer.invoke('capabilities:disable', id, capability),
+  enableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:enable', id, capability, sessionId),
+  disableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:disable', id, capability, sessionId),
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
 
   // ========================================

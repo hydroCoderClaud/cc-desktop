@@ -1286,6 +1286,8 @@ export default {
     capUpdateSuccess: '更新成功',
     capUninstallSuccess: '卸载成功',
     capUninstallFailed: '卸载失败',
+    capMcpRestartHint: 'MCP 更改将在下次新建对话时生效',
+    capMcpNoProject: '请先打开一个会话后再启用/禁用 MCP',
 
     // 能力分类
     category: {

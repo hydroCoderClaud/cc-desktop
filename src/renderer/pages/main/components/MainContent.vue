@@ -27,6 +27,8 @@
       ref="leftPanelRef"
       :projects="projects"
       :current-project="currentProject"
+      :agent-cwd="activeAgentCwd"
+      :agent-session-id="activeAgentSessionId"
       :is-dark="isDark"
       @open-project="handleOpenProject"
       @select-project="selectProject"
@@ -257,6 +259,13 @@ const activeAgentSessionId = computed(() => {
   if (isDeveloperMode.value || activeTabId.value === 'welcome') return null
   const tab = allTabs.value.find(t => t.id === activeTabId.value)
   return (tab?.type === 'agent-chat') ? tab.sessionId : null
+})
+
+// Agent 模式下当前活动会话的工作目录（用于 MCP 启闭）
+const activeAgentCwd = computed(() => {
+  if (isDeveloperMode.value || activeTabId.value === 'welcome') return null
+  const tab = allTabs.value.find(t => t.id === activeTabId.value)
+  return (tab?.type === 'agent-chat') ? (tab.cwd || null) : null
 })
 
 // 各模式最后的 activeTabId，切换模式时保存/恢复

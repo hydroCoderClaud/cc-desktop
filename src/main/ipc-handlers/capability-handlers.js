@@ -3,16 +3,16 @@
  * 处理 Agent 模式能力管理相关的 IPC 通信
  */
 
-function setupCapabilityHandlers(ipcMain, capabilityManager) {
+function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager) {
   if (!capabilityManager) {
     console.warn('[IPC] CapabilityManager not available, skipping capability handlers')
     return
   }
 
   // 拉取远程能力清单（含组件安装状态检测）
-  ipcMain.handle('capabilities:fetch', async () => {
+  ipcMain.handle('capabilities:fetch', async (event, projectPath) => {
     try {
-      return await capabilityManager.fetchCapabilities()
+      return await capabilityManager.fetchCapabilities(projectPath)
     } catch (err) {
       console.error('[IPC] capabilities:fetch error:', err)
       return { success: false, error: err.message }
@@ -41,10 +41,15 @@ function setupCapabilityHandlers(ipcMain, capabilityManager) {
     }
   })
 
-  // 启用能力（恢复已禁用组件）
-  ipcMain.handle('capabilities:enable', async (event, _id, capability) => {
+  // 启用能力（MCP 走 SDK toggleMcpServer，其他走文件重命名）
+  ipcMain.handle('capabilities:enable', async (event, _id, capability, sessionId) => {
     try {
       if (!capability) return { success: false, error: 'Invalid parameters' }
+      if (capability.type === 'mcp') {
+        if (!agentSessionManager) return { success: false, error: 'AgentSessionManager not available' }
+        if (!sessionId) return { success: false, error: '需要活跃会话才能启用 MCP' }
+        return await agentSessionManager.toggleMcp(sessionId, capability.componentId, true)
+      }
       return await capabilityManager.enableCapability(capability)
     } catch (err) {
       console.error('[IPC] capabilities:enable error:', err)
@@ -52,10 +57,15 @@ function setupCapabilityHandlers(ipcMain, capabilityManager) {
     }
   })
 
-  // 禁用能力（重命名组件文件）
-  ipcMain.handle('capabilities:disable', async (event, _id, capability) => {
+  // 禁用能力（MCP 走 SDK toggleMcpServer，其他走文件重命名）
+  ipcMain.handle('capabilities:disable', async (event, _id, capability, sessionId) => {
     try {
       if (!capability) return { success: false, error: 'Invalid parameters' }
+      if (capability.type === 'mcp') {
+        if (!agentSessionManager) return { success: false, error: 'AgentSessionManager not available' }
+        if (!sessionId) return { success: false, error: '需要活跃会话才能禁用 MCP' }
+        return await agentSessionManager.toggleMcp(sessionId, capability.componentId, false)
+      }
       return await capabilityManager.disableCapability(capability)
     } catch (err) {
       console.error('[IPC] capabilities:disable error:', err)
