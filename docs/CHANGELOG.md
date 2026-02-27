@@ -2,6 +2,25 @@
 
 ---
 
+## v1.6.61 - 2026-02-27
+
+### 新功能 (Features)
+
+- **MCP 市场**：能力清单新增 MCP 类型支持，可从市场一键安装/卸载 MCP 配置；支持冲突检测与强制覆盖安装
+- **Agent 能力清单 MCP 启闭**：Agent 模式能力清单中可对 MCP 进行启用/禁用，通过 SDK `toggleMcpServer` 对当前会话立即生效
+
+### 修复 (Fix)
+
+- **钉钉第一条消息无思考动画**：将流式监听器注册提前至 `loadMessages` 之前，修复钉钉消息触发时 `streaming` 事件已发出但监听器尚未注册导致动画缺失的问题
+- **MCPTab 切回开发者模式不刷新**：补充 `isDeveloperMode` watch，从 Agent 模式切回开发者模式时自动刷新 MCP 列表
+
+### 代码质量 (Chore)
+
+- `capability-handlers.js` MCP 启闭兜底错误信息改为英文
+- `MCPTab.vue` `handleView` 方法添加预留注释
+
+---
+
 ## v1.6.60 - 2026-02-26
 
 ### 文档 (Docs)
