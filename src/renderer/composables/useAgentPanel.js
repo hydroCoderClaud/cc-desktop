@@ -59,7 +59,7 @@ export function useAgentPanel() {
 
   /**
    * 创建新对话
-   * @param {Object} options - { type, title, cwd }
+   * @param {Object} options - { type, title, cwd, apiProfileId }
    * @returns {Object} 会话对象
    */
   const createConversation = async (options = {}) => {
@@ -69,7 +69,8 @@ export function useAgentPanel() {
       const session = await window.electronAPI.createAgentSession({
         type: options.type || 'chat',
         title: options.title || '',
-        cwd: options.cwd || null
+        cwd: options.cwd || null,
+        apiProfileId: options.apiProfileId || null
       })
 
       if (session && !session.error) {
