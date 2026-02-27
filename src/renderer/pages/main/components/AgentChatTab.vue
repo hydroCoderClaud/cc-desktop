@@ -132,6 +132,8 @@ const {
   sendMessage,
   cancelGeneration,
   compactConversation,
+  setupStreamListeners,
+  setupDingTalkListeners,
   setupListeners,
   initDefaultModel,
   cleanup
@@ -342,12 +344,13 @@ const onWindowFocus = () => {
 }
 
 onMounted(async () => {
-  // 先加载历史消息，再注册监听器，避免 dingtalk:messageReceived 抢先导致 loadMessages 跳过
+  // 先注册流式监听器，再加载历史消息，确保钉钉第一条消息的 streaming 事件不被错过
+  setupStreamListeners()
   await loadQueueSetting()
   await initDefaultModel(props.apiProfileId)  // 从配置读取会话绑定的模型
   await loadMessages()  // 加载历史消息
 
-  setupListeners()
+  setupDingTalkListeners()  // 钉钉监听器在历史加载后注册，避免与 loadMessages 竞争
   // 绑定滚动事件检测用户手动滚动
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })

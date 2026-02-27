@@ -525,9 +525,10 @@ export function useAgentChat(sessionId) {
   }
 
   /**
-   * 设置 IPC 事件监听
+   * 提前注册流式相关监听器（在 loadMessages 之前调用）
+   * 避免钉钉消息触发时 streaming 事件已发出但监听器尚未注册
    */
-  const setupListeners = () => {
+  const setupStreamListeners = () => {
     if (!window.electronAPI) return
 
     if (window.electronAPI.onAgentInit) {
@@ -564,26 +565,37 @@ export function useAgentChat(sessionId) {
         hasActiveSession = false
       }))
     }
+  }
+
+  /**
+   * 注册钉钉消息监听器（在 loadMessages 之后调用，避免与历史加载竞争）
+   */
+  const setupDingTalkListeners = () => {
+    if (!window.electronAPI?.onDingTalkMessageReceived) return
 
     // 钉钉用户消息注入：将钉钉用户发送的消息实时显示在对话中
-    if (window.electronAPI?.onDingTalkMessageReceived) {
-      cleanupFns.push(window.electronAPI.onDingTalkMessageReceived((data) => {
-        console.log(`[useAgentChat] dingtalk:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
-        if (data.sessionId !== sessionId) return
-        const msg = {
-          id: `msg-dt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          role: MessageRole.USER,
-          content: data.text,
-          timestamp: Date.now(),
-          source: 'dingtalk',
-          senderNick: data.senderNick
-        }
-        if (data.images && data.images.length > 0) {
-          msg.images = data.images
-        }
-        messages.value.push(msg)
-      }))
-    }
+    cleanupFns.push(window.electronAPI.onDingTalkMessageReceived((data) => {
+      console.log(`[useAgentChat] dingtalk:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
+      if (data.sessionId !== sessionId) return
+      const msg = {
+        id: `msg-dt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: MessageRole.USER,
+        content: data.text,
+        timestamp: Date.now(),
+        source: 'dingtalk',
+        senderNick: data.senderNick
+      }
+      if (data.images && data.images.length > 0) {
+        msg.images = data.images
+      }
+      messages.value.push(msg)
+    }))
+  }
+
+  // 向后兼容：保留 setupListeners 供外部调用（已拆分为两步）
+  const setupListeners = () => {
+    setupStreamListeners()
+    setupDingTalkListeners()
   }
 
   /**
@@ -639,6 +651,8 @@ export function useAgentChat(sessionId) {
     sendMessage,
     cancelGeneration,
     compactConversation,
+    setupStreamListeners,
+    setupDingTalkListeners,
     setupListeners,
     initDefaultModel,
     cleanup
