@@ -2,6 +2,18 @@
 
 ---
 
+## v1.6.63 - 2026-02-28
+
+### 修复 (Fix)
+
+- **路径编码与 CLI 不一致**：`encodePath` 新增 `_` 替换为 `-`，与 Claude CLI 实际编码行为一致；`smartDecodePath` 同时尝试 `-` 和 `_` 两种 joiner 解码
+- **移除目录名 `-`/`_` 限制**：移除 5 处目录名校验，允许使用包含连字符或下划线的项目目录
+- **新建会话竞态导致重复记录**：修复 FileWatcher 与 SyncService 竞态，新增 `mergePendingIntoExisting` 合并逻辑，避免 pending session 无法关联
+- **会话删除对话框标题缺少 i18n**：补充 `session.deleteTitle` 国际化 key
+- **API 配置重命名后 Agent 列表 tips 不更新**：`AgentLeftContent` 监听窗口 focus 事件自动刷新 API profiles
+
+---
+
 ## v1.6.62 - 2026-02-27
 
 ### 修复 (Fix)

@@ -206,9 +206,14 @@ const handleDelete = (conv) => {
 let cleanupRenamed = null
 let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
+// 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
+const onWindowFocus = () => loadApiProfiles()
+
 onMounted(() => {
   loadConversations()
   loadApiProfiles()
+
+  window.addEventListener('focus', onWindowFocus)
 
   if (window.electronAPI?.onAgentRenamed) {
     cleanupRenamed = window.electronAPI.onAgentRenamed((data) => {
@@ -233,6 +238,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('focus', onWindowFocus)
   if (cleanupRenamed) cleanupRenamed()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
   if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
