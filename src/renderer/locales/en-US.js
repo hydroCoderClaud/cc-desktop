@@ -917,6 +917,7 @@ export default {
     delete: 'Delete session',
     deleted: 'Session deleted',
     noSessions: 'No sessions',
+    deleteTitle: 'Delete Session',
     deleteConfirm: 'Are you sure you want to delete session "{name}"?',
     deleteWarning: 'This will permanently delete the session file and cannot be undone.',
     newSessionHint: 'Please open a project directory first<br>Then click "New Session" or restore a history session',

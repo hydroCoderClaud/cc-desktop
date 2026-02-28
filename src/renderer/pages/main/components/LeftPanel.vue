@@ -910,7 +910,7 @@ const confirmHistoryRename = async () => {
 // Delete history session
 const handleDeleteHistorySession = (session) => {
   dialog.warning({
-    title: t('session.deleteTitle') || '删除会话',
+    title: t('session.deleteTitle'),
     content: `${t('session.deleteConfirm', { name: session.name || session.session_uuid?.slice(0, 8) })}\n\n${t('session.deleteWarning')}`,
     positiveText: t('common.confirm') || '确认',
     negativeText: t('common.cancel') || '取消',

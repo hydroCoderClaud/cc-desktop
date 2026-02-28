@@ -920,6 +920,7 @@ export default {
     delete: '删除会话',
     deleted: '会话已删除',
     noSessions: '暂无会话',
+    deleteTitle: '删除会话',
     deleteConfirm: '确定要删除会话 "{name}" 吗？',
     deleteWarning: '此操作将永久删除会话文件，无法恢复。',
     newSessionHint: '请先打开项目工程目录<br>然后点击"新建会话"或恢复历史会话',
