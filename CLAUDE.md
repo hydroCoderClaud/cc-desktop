@@ -403,6 +403,7 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 | `docs/theme-preview.html` | 主题预览（浏览器打开） |
 | `docs/WEB-SERVER-PLAN.md` | Web 服务端计划（Express 替代 Electron，Linux 无头部署） |
 | `docs/DINGTALK-COMMAND-PLAN.md` | 钉钉远程命令系统计划（/ 前缀命令拦截，远程管理） |
+| `docs/ROADMAP.md` | 产品路线图（文档推广、能力生态、知识库、自治演进） |
 
 ### 用户文档
 
