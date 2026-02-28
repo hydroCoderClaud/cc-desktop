@@ -8,6 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
+const crypto = require('crypto')
 const { httpGet, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 
@@ -26,6 +27,8 @@ class CapabilityManager {
     this.agentsManager = agentsManager
     this.mcpManager = mcpManager
     this._legacyCleaned = false
+    this._capabilityCachePath = null
+    this.hasCapabilityUpdate = false
 
     // 路径常量
     this.claudeDir = path.join(os.homedir(), '.claude')
@@ -79,11 +82,110 @@ class CapabilityManager {
       // 清理 v1.0 遗留的 config.settings.agent.capabilities 数据
       this._cleanupLegacyState()
 
+      // 更新本地缓存并清除更新标记
+      try {
+        const hash = this._computeHash(rawCapabilities)
+        this._writeCache(rawCapabilities, hash)
+        this.hasCapabilityUpdate = false
+      } catch (cacheErr) {
+        console.warn('[CapabilityManager] Failed to update cache:', cacheErr.message)
+      }
+
       return { success: true, capabilities }
     } catch (err) {
       console.error('[CapabilityManager] Failed to fetch capabilities:', err.message)
       return { success: false, error: classifyHttpError(err) }
     }
+  }
+
+  // ========================================
+  // 能力清单缓存与更新检测
+  // ========================================
+
+  _getCachePath() {
+    if (!this._capabilityCachePath) {
+      const { app } = require('electron')
+      this._capabilityCachePath = path.join(app.getPath('userData'), 'capabilities-cache.json')
+    }
+    return this._capabilityCachePath
+  }
+
+  _computeHash(rawCapabilities) {
+    const normalized = rawCapabilities.map(cap => ({
+      id: cap.id,
+      name: cap.name,
+      type: cap.type,
+      componentId: cap.componentId,
+      category: cap.category,
+      description: cap.description,
+      icon: cap.icon,
+      marketplace: cap.marketplace
+    }))
+    normalized.sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+    const json = JSON.stringify(normalized)
+    return crypto.createHash('sha256').update(json).digest('hex')
+  }
+
+  _readCache() {
+    try {
+      const cachePath = this._getCachePath()
+      if (!fs.existsSync(cachePath)) return null
+      const raw = fs.readFileSync(cachePath, 'utf-8')
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  _writeCache(rawCapabilities, hash) {
+    const cachePath = this._getCachePath()
+    atomicWriteJson(cachePath, {
+      hash,
+      capabilities: rawCapabilities,
+      updatedAt: new Date().toISOString()
+    })
+  }
+
+  async checkForCapabilityUpdates() {
+    const config = this.configManager.getConfig()
+    const registryUrl = config.market?.registryUrl
+    if (!registryUrl) return { hasUpdate: false }
+
+    const url = registryUrl.replace(/\/+$/, '') + '/agent-capabilities.json?t=' + Date.now()
+
+    try {
+      const body = await httpGet(url)
+      const data = JSON.parse(body)
+      if (!data.capabilities || !Array.isArray(data.capabilities)) return { hasUpdate: false }
+
+      let rawCapabilities = data.capabilities
+      if (data.version !== '1.1') {
+        rawCapabilities = this._flattenV1Capabilities(data.capabilities)
+      }
+
+      const remoteHash = this._computeHash(rawCapabilities)
+      const cache = this._readCache()
+      const localHash = cache?.hash
+
+      if (localHash !== remoteHash) {
+        this.hasCapabilityUpdate = true
+        console.log('[CapabilityManager] Capability update detected')
+        return { hasUpdate: true }
+      }
+
+      return { hasUpdate: false }
+    } catch (err) {
+      console.warn('[CapabilityManager] Update check failed:', err.message)
+      return { hasUpdate: false }
+    }
+  }
+
+  clearUpdateBadge() {
+    this.hasCapabilityUpdate = false
+  }
+
+  getUpdateStatus() {
+    return { hasUpdate: this.hasCapabilityUpdate }
   }
 
   /**

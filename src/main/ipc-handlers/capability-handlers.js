@@ -84,6 +84,17 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
     }
   })
 
+  // 获取能力清单更新状态
+  ipcMain.handle('capabilities:getUpdateStatus', () => {
+    return capabilityManager.getUpdateStatus()
+  })
+
+  // 清除更新徽章
+  ipcMain.handle('capabilities:clearUpdateBadge', () => {
+    capabilityManager.clearUpdateBadge()
+    return { cleared: true }
+  })
+
   console.log('[IPC] Capability handlers registered')
 }
 

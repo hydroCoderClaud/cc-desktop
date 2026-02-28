@@ -616,6 +616,23 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager);
   }
 
+  // 启动后台能力清单更新检测（延迟 5s）
+  if (capabilityManager) {
+    setTimeout(async () => {
+      try {
+        const result = await capabilityManager.checkForCapabilityUpdates()
+        if (result.hasUpdate) {
+          const { BrowserWindow } = require('electron')
+          BrowserWindow.getAllWindows().forEach(win => {
+            if (!win.isDestroyed()) win.webContents.send('capabilities-update-available')
+          })
+        }
+      } catch (err) {
+        console.warn('[IPC] Capability update check failed:', err.message)
+      }
+    }, 5000)
+  }
+
   // ========================================
   // 应用更新
   // ========================================
