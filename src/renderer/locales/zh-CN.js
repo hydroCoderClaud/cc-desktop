@@ -1101,7 +1101,7 @@ export default {
     deleteConfirm: '确认删除项目',
     deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
     deleteWithSessions: '同时删除关联的会话记录',
-    unsupportedPathError: '项目文件夹名称 "{name}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。',
+    unsupportedPathError: '项目文件夹名称 "{name}" 包含连字符(-)，会导致会话同步时路径解析歧义。请重命名文件夹后再添加。',
     apiProfileChangedTitle: 'API 配置已更改',
     apiProfileChangedContent: '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
     restartSessions: '重启会话',

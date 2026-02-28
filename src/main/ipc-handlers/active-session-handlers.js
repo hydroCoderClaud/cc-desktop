@@ -24,17 +24,6 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
     // options: { projectId, projectPath, projectName, title, apiProfileId, resumeSessionId, type }
     // type: 'session' (默认) 或 'terminal' (纯终端)
 
-    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
-    if (options.projectPath) {
-      const folderName = path.basename(options.projectPath)
-      if (folderName.includes('_') || folderName.includes('-')) {
-        return {
-          success: false,
-          error: `项目文件夹名称 "${folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再打开。`
-        }
-      }
-    }
-
     // 跨模式占用检查：恢复会话时检查是否被 Agent 模式占用
     if (options.resumeSessionId && activeSessionManager.peerManager?.isCliSessionActive(options.resumeSessionId)) {
       return {

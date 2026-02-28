@@ -1098,7 +1098,7 @@ export default {
     deleteConfirm: 'Confirm Delete Project',
     deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
     deleteWithSessions: 'Also delete associated session records',
-    unsupportedPathError: 'Project folder name "{name}" contains underscore(_) or hyphen(-), which causes session sync issues. Please rename the folder before adding.',
+    unsupportedPathError: 'Project folder name "{name}" contains hyphen(-), which causes path ambiguity during session sync. Please rename the folder before adding.',
     apiProfileChangedTitle: 'API Config Changed',
     apiProfileChangedContent: 'The new API config requires restarting sessions to take effect. Restart running sessions now?',
     restartSessions: 'Restart Sessions',

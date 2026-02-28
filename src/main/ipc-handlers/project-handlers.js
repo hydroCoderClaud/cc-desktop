@@ -92,16 +92,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       throw new Error('目录不存在')
     }
 
-    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
-    const folderName = path.basename(projectData.path)
-    if (folderName.includes('_') || folderName.includes('-')) {
-      return {
-        error: true,
-        errorType: 'unsupportedPath',
-        folderName
-      }
-    }
-
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectData.path)
     if (existing) {
@@ -137,16 +127,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     }
 
     const projectPath = result.filePaths[0]
-
-    // 检查路径是否包含 _ 或 -，这会导致 Claude CLI 会话同步问题
-    const folderName = path.basename(projectPath)
-    if (folderName.includes('_') || folderName.includes('-')) {
-      return {
-        error: true,
-        errorType: 'unsupportedPath',
-        folderName
-      }
-    }
 
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectPath)

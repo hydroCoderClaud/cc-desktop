@@ -214,12 +214,8 @@ class SessionFileWatcher {
         return
       }
 
-      // 检查这个 uuid 是否已存在于数据库
+      // 检查这个 uuid 是否已存在于数据库（可能被 SyncService 抢先创建）
       const existingSession = this.sessionDatabase.getSessionByUuid(sessionInfo.sessionId)
-      if (existingSession) {
-        console.log('[FileWatcher] Session already exists in DB:', sessionInfo.sessionId)
-        return
-      }
 
       // 通过 projectPath 获取数据库项目 ID
       const dbProject = this.sessionDatabase.getProjectByPath(this.currentProjectPath)
@@ -229,8 +225,30 @@ class SessionFileWatcher {
       }
       console.log('[FileWatcher] DB project id:', dbProject.id)
 
-      // 简化逻辑：查找当前项目最近创建的待定会话（没有 uuid 的）
+      // 查找当前项目最近创建的待定会话（没有 uuid 的）
       const pendingSession = this.sessionDatabase.getLatestPendingSession(dbProject.id)
+
+      if (existingSession && pendingSession) {
+        // 竞态修复：SyncService 已创建了 session 记录，但还有一个 pending session 未关联
+        // 需要把 pending session 的 title 和 active_session_id 合并到已存在的记录，然后删除 pending
+        console.log('[FileWatcher] Race condition detected: merging pending session', pendingSession.id, 'into existing session', existingSession.id)
+
+        this.sessionDatabase.mergePendingIntoExisting(existingSession.id, pendingSession)
+
+        // 同时更新 ActiveSession 的 resumeSessionId
+        if (pendingSession.active_session_id) {
+          this.activeSessionManager.linkSessionUuid(
+            pendingSession.active_session_id,
+            sessionInfo.sessionId
+          )
+        }
+        return
+      }
+
+      if (existingSession) {
+        console.log('[FileWatcher] Session already exists in DB, no pending to merge:', sessionInfo.sessionId)
+        return
+      }
 
       if (pendingSession) {
         console.log('[FileWatcher] Found pending session:', pendingSession.id, 'active_session_id:', pendingSession.active_session_id)

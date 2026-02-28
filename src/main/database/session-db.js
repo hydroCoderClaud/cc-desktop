@@ -231,6 +231,31 @@ function withSessionOperations(BaseClass) {
     }
 
     /**
+     * Merge pending session info into an existing session (created by SyncService)
+     * Then delete the orphaned pending session.
+     * This handles the race condition where SyncService creates a session record
+     * before FileWatcher can link it to the pending session.
+     * @param {number} existingSessionId - SyncService 创建的会话 ID
+     * @param {Object} pendingSession - 待合并的 pending session
+     */
+    mergePendingIntoExisting(existingSessionId, pendingSession) {
+      const now = Date.now()
+      // 把 pending 的 title 和 active_session_id 写入已存在的记录
+      this.db.prepare(`
+        UPDATE sessions
+        SET title = COALESCE(?, title),
+            active_session_id = ?,
+            updated_at = ?
+        WHERE id = ?
+      `).run(pendingSession.title, pendingSession.active_session_id, now, existingSessionId)
+
+      // 删除孤立的 pending 记录
+      this.db.prepare('DELETE FROM sessions WHERE id = ?').run(pendingSession.id)
+
+      console.log(`[SessionDB] Merged pending session ${pendingSession.id} into existing session ${existingSessionId}, pending deleted`)
+    }
+
+    /**
      * Update session title
      * @param {number} sessionId - 数据库会话 ID
      * @param {string} title - 新标题
