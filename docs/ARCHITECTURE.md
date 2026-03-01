@@ -92,7 +92,12 @@ Electron 应用
       name: "Default API",
       authToken: "sk-ant-...",
       baseUrl: "https://api.anthropic.com",
-      isDefault: true
+      isDefault: true,
+      modelMapping: {
+        opus: "claude-opus-4-6",    // → ANTHROPIC_DEFAULT_OPUS_MODEL
+        sonnet: "claude-sonnet-4-6", // → ANTHROPIC_DEFAULT_SONNET_MODEL
+        haiku: "claude-haiku-4-5"   // → ANTHROPIC_DEFAULT_HAIKU_MODEL
+      }
     }
   ],
   defaultProfileId: "profile-uuid",
@@ -125,7 +130,9 @@ spawn() 新进程 (PowerShell/Bash)
   ↓
 设置工作目录 (cwd)
   ↓
-注入环境变量 (ANTHROPIC_API_KEY)
+注入环境变量 (ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN,
+             ANTHROPIC_DEFAULT_OPUS_MODEL,
+             ANTHROPIC_DEFAULT_SONNET_MODEL, ANTHROPIC_DEFAULT_HAIKU_MODEL)
   ↓
 监听数据输出 → 转发到渲染进程
   ↓

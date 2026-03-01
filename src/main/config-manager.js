@@ -7,7 +7,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { TIMEOUTS } = require('./utils/constants');
+const { TIMEOUTS, LATEST_MODEL_ALIASES } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
@@ -798,7 +798,7 @@ class ConfigManager {
 
         // 3. 构造请求体
         const tier = apiConfig.selectedModelTier || 'sonnet'
-        const testModel = apiConfig.modelMapping?.[tier]?.trim() || apiConfig.model || 'claude-sonnet-4-6'
+        const testModel = apiConfig.modelMapping?.[tier]?.trim() || LATEST_MODEL_ALIASES[tier] || 'claude-sonnet-4-6'
         const postData = JSON.stringify({
           model: testModel,
           max_tokens: 10,
