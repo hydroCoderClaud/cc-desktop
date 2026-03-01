@@ -39,6 +39,7 @@ class AgentSession {
     this.cwd = options.cwd || null  // 工作目录
     this.cwdAuto = !options.cwd     // 是否自动分配
     this.createdAt = new Date()
+    this.updatedAt = new Date()
     this.messageQueue = null        // MessageQueue 实例（streaming input 模式）
     this.queryGenerator = null      // Query 生成器（常驻 CLI 进程）
     this.outputLoopPromise = null   // _runOutputLoop 的 Promise
@@ -62,6 +63,7 @@ class AgentSession {
       cwd: this.cwd,
       cwdAuto: this.cwdAuto,
       createdAt: this.createdAt.toISOString(),
+      updatedAt: this.updatedAt.toISOString(),
       messageCount: this.messageCount,
       totalCostUsd: this.totalCostUsd,
       isStreamingActive: !!this.queryGenerator,
@@ -422,6 +424,7 @@ class AgentSessionManager {
     // 设置状态
     session.status = AgentStatus.STREAMING
     session.messageCount++
+    session.updatedAt = new Date()
 
     // 通知前端状态变化
     this._safeSend('agent:statusChange', {
@@ -809,6 +812,7 @@ class AgentSessionManager {
               totalCostUsd: session.totalCostUsd,
               messageCount: session.messageCount
             })
+            session.updatedAt = new Date()
           } catch (err) {
             console.error('[AgentSession] Failed to update result stats:', err)
           }
@@ -1022,6 +1026,7 @@ class AgentSessionManager {
             cwd: row.cwd,
             cwdAuto: !!row.cwd_auto,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+            updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
             messageCount: row.message_count || 0,
             totalCostUsd: row.total_cost_usd || 0,
             apiProfileId: row.api_profile_id || null,
@@ -1033,10 +1038,10 @@ class AgentSessionManager {
       }
     }
 
-    // 按 createdAt 降序排序
+    // 按 updatedAt 降序排序（最近访问/活跃的在前）
     result.sort((a, b) => {
-      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
       return tb - ta
     })
 

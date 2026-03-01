@@ -105,6 +105,7 @@ const {
   createConversation,
   closeConversation,
   deleteConversation,
+  bumpConversation,
   renameConversation
 } = useAgentPanel()
 
@@ -204,6 +205,7 @@ const handleDelete = (conv) => {
 
 // 监听重命名事件（从后端推送）
 let cleanupRenamed = null
+let cleanupAgentResult = null
 let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
@@ -224,6 +226,13 @@ onMounted(() => {
     })
   }
 
+  // 每轮对话完成时将该会话上浮到列表最前
+  if (window.electronAPI?.onAgentResult) {
+    cleanupAgentResult = window.electronAPI.onAgentResult((data) => {
+      bumpConversation(data.sessionId)
+    })
+  }
+
   // 钉钉会话创建/关闭时自动刷新列表
   if (window.electronAPI?.onDingTalkSessionCreated) {
     cleanupDingtalkSession = window.electronAPI.onDingTalkSessionCreated(() => {
@@ -240,6 +249,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('focus', onWindowFocus)
   if (cleanupRenamed) cleanupRenamed()
+  if (cleanupAgentResult) cleanupAgentResult()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
   if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
 })

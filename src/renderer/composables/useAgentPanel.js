@@ -129,6 +129,20 @@ export function useAgentPanel() {
   }
 
   /**
+   * 将指定会话上浮到列表最前（收到 agent:result 时调用）
+   */
+  const bumpConversation = (sessionId) => {
+    const index = conversations.value.findIndex(c => c.id === sessionId)
+    if (index > 0) {
+      const [conv] = conversations.value.splice(index, 1)
+      conv.updatedAt = new Date().toISOString()
+      conversations.value.unshift(conv)
+    } else if (index === 0) {
+      conversations.value[0].updatedAt = new Date().toISOString()
+    }
+  }
+
+  /**
    * 重命名对话
    */
   const renameConversation = async (sessionId, title) => {
@@ -182,10 +196,10 @@ export function useAgentPanel() {
     }
 
     for (const conv of filteredConversations.value) {
-      const created = new Date(conv.createdAt)
-      if (created >= today) {
+      const ts = new Date(conv.updatedAt || conv.createdAt)
+      if (ts >= today) {
         groups.today.push(conv)
-      } else if (created >= yesterday) {
+      } else if (ts >= yesterday) {
         groups.yesterday.push(conv)
       } else {
         groups.older.push(conv)
@@ -205,6 +219,7 @@ export function useAgentPanel() {
     createConversation,
     closeConversation,
     deleteConversation,
+    bumpConversation,
     renameConversation
   }
 }
