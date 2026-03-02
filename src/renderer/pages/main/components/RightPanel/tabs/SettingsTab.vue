@@ -212,7 +212,7 @@ const deleteConfirmContent = computed(() => {
   if (deleteType.value === 'permission') {
     return t('rightPanel.settings.permissions.confirmDelete')
   }
-  return t('rightPanel.settings.env.confirmDelete')
+  return t('rightPanel.settings.env.confirmDelete', { key: deletingItem.value?.key || '' })
 })
 
 // Search filter for permissions

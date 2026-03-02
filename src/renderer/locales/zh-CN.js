@@ -63,7 +63,9 @@ export default {
     folder: '文件夹',
     file: '文件',
     today: '今天',
-    older: '更早'
+    older: '更早',
+    deleteSuccess: '删除成功',
+    deleteFailed: '删除失败'
   },
 
   // 主页面

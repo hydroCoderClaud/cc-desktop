@@ -63,7 +63,9 @@ export default {
     folder: 'Folder',
     file: 'File',
     today: 'Today',
-    older: 'Older'
+    older: 'Older',
+    deleteSuccess: 'Deleted successfully',
+    deleteFailed: 'Delete failed'
   },
 
   // Main Page
