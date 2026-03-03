@@ -383,6 +383,14 @@ class McpManager extends ComponentScanner {
         }
         this.writeClaudeJson(claudeJson)
 
+        // 同步删除该 MCP 的工具权限
+        if (this.settingsManager) {
+          const result = this.settingsManager.removeMcpToolPermissions(name)
+          if (result.removed > 0) {
+            console.log(`[McpManager] Removed ${result.removed} tool permissions for MCP "${name}"`)
+          }
+        }
+
       } else if (scope === 'local') {
         if (!projectPath) {
           return { success: false, error: 'Project path required for Local scope' }

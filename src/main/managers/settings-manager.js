@@ -298,6 +298,66 @@ class SettingsManager extends ComponentScanner {
   }
 
   // ========================================
+  // MCP 工具权限批量写入
+  // ========================================
+
+  /**
+   * 批量添加 MCP 工具权限（跳过已存在的）
+   * @param {string} serverName - MCP 服务器名称
+   * @param {string[]} tools - 工具名称列表
+   * @returns {{ success: boolean, added: number, error?: string }}
+   */
+  addMcpToolPermissions(serverName, tools) {
+    try {
+      const config = this._readConfig('global')
+      if (!config.permissions) config.permissions = {}
+      if (!Array.isArray(config.permissions.allow)) config.permissions.allow = []
+
+      let added = 0
+      for (const tool of tools) {
+        const pattern = `mcp__${serverName}__${tool}`
+        if (!config.permissions.allow.includes(pattern)) {
+          config.permissions.allow.push(pattern)
+          added++
+        }
+      }
+
+      if (added > 0) {
+        this._writeConfig('global', null, config)
+      }
+      return { success: true, added }
+    } catch (err) {
+      console.error('[SettingsManager] Failed to add MCP tool permissions:', err)
+      return { success: false, added: 0, error: err.message }
+    }
+  }
+
+  /**
+   * 按前缀删除 MCP 工具权限
+   * @param {string} serverName - MCP 服务器名称
+   * @returns {{ success: boolean, removed: number }}
+   */
+  removeMcpToolPermissions(serverName) {
+    try {
+      const config = this._readConfig('global')
+      if (!Array.isArray(config.permissions?.allow)) return { success: true, removed: 0 }
+
+      const prefix = `mcp__${serverName}__`
+      const before = config.permissions.allow.length
+      config.permissions.allow = config.permissions.allow.filter(p => !p.startsWith(prefix))
+      const removed = before - config.permissions.allow.length
+
+      if (removed > 0) {
+        this._writeConfig('global', null, config)
+      }
+      return { success: true, removed }
+    } catch (err) {
+      console.error('[SettingsManager] Failed to remove MCP tool permissions:', err)
+      return { success: false, removed: 0, error: err.message }
+    }
+  }
+
+  // ========================================
   // Raw JSON 操作
   // ========================================
 

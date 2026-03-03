@@ -295,6 +295,64 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 ---
 
+## MCP 市场安装设计
+
+### 安装流程
+
+MCP（Model Context Protocol）服务器通过组件市场安装，支持两个入口：
+
+- **Agent 模式**：能力清单弹窗 → `CapabilityManager` → `McpManager.installMarketMcp()`
+- **Developer 模式**：组件市场弹窗 → IPC `mcp:installFromMarket` → `McpManager.installMarketMcp()`
+
+两条路径最终都调用 `market.js` 中的安装方法，流程一致：
+
+```
+下载 .mcp.json → 解析 mcpServers
+  → 注入代理环境变量（可选）
+  → 自动写入工具权限
+  → 剔除 tools 自定义字段
+  → 注册到 ~/.claude.json user scope
+```
+
+### 代理环境变量注入
+
+MCP 服务器进程（如 `npx -y some-mcp-server`）在网络受限环境下可能无法访问 npm 或外部 API。安装时可选择注入代理配置。
+
+**三态决策逻辑**（`_injectProxyEnvToServers(mcpServers, useProxy)`）：
+
+| `useProxy` 值 | 含义 | 行为 |
+|---------------|------|------|
+| `true` | 用户在环境变量弹窗中勾选了「使用代理」 | 强制注入代理 |
+| `false` | 用户明确取消勾选 | 跳过注入 |
+| `undefined` | 无环境变量弹窗（直接安装） | 跟随全局代理开关（`proxyConfig.enabled`） |
+
+**注入的环境变量**：
+
+| 变量 | 值 | 用途 |
+|------|-----|------|
+| `HTTPS_PROXY` | 代理 URL | HTTP 客户端代理 |
+| `HTTP_PROXY` | 代理 URL | HTTP 客户端代理 |
+| `NODE_OPTIONS` | `-r "~/.claude/proxy-support/proxy-setup.cjs"` | Node.js 进程级代理（通过 startup script 注入） |
+
+**代理配置来源**：`configManager.getMcpProxyConfig()` 返回 `{ enabled, url }`，对应全局设置中的 MCP 代理配置。
+
+### 工具权限自动注入
+
+注册表中的 `.mcp.json` 支持自定义 `tools` 扩展字段，列出该 MCP 暴露的所有工具名称。安装时自动将工具权限写入 `~/.claude/settings.json`，格式为 `mcp__<serverName>__<toolName>`。
+
+**写入逻辑**（`SettingsManager.addMcpToolPermissions()`）：
+- 只写 global scope
+- 跳过已存在的权限（幂等）
+- 一次性读写，避免多次 IO
+
+**清理逻辑**（`SettingsManager.removeMcpToolPermissions()`）：
+- 卸载 MCP 时按前缀 `mcp__<serverName>__` 匹配删除
+- 自动清理，无残留
+
+**字段剔除**：`tools` 在写入 `~/.claude.json` 前被 `delete cleanConfig.tools` 剔除，不影响 Claude Code CLI 解析。
+
+---
+
 ## 扩展性设计
 
 ### 插件系统（未来）

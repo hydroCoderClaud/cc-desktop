@@ -145,9 +145,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch } from 'vue'
 import { NInput, NModal, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
+import { useAppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
 import PermissionsGroup from '../settings/PermissionsGroup.vue'
 import EnvGroup from '../settings/EnvGroup.vue'
@@ -156,6 +157,7 @@ import EnvEditModal from '../settings/EnvEditModal.vue'
 import RawJsonModal from '../settings/RawJsonModal.vue'
 
 const { t } = useLocale()
+const { isDeveloperMode } = useAppMode()
 const message = useMessage()
 
 const props = defineProps({
@@ -396,7 +398,16 @@ watch(() => props.currentProject, () => {
   loadSettings()
 })
 
+// 从 Agent 模式切回开发者模式时刷新列表
+watch(isDeveloperMode, (val) => {
+  if (val) loadSettings()
+})
+
 onMounted(() => {
+  loadSettings()
+})
+
+onActivated(() => {
   loadSettings()
 })
 </script>

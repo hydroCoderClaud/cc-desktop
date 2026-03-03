@@ -208,6 +208,9 @@ app.whenReady().then(async () => {
   const skillsManager = new SkillsManager()
   const agentsManager = new AgentsManager()
   const capMcpManager = new McpManager()
+  capMcpManager.configManager = configManager  // 注入 configManager，供代理注入使用
+  const { SettingsManager } = require('./managers/settings-manager')
+  capMcpManager.settingsManager = new SettingsManager()  // 注入 settingsManager，供 MCP 安装时自动写入工具权限
   capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager, capMcpManager)
 
   // 初始化更新管理器

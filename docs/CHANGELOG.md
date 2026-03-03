@@ -2,6 +2,25 @@
 
 ---
 
+## v1.6.67 - 2026-03-03
+
+### 新增 (Feature)
+
+- **MCP 工具权限自动注入**：安装 MCP 时自动从注册表 `tools` 字段读取工具名，批量写入 `~/.claude/settings.json` 权限，免去手动授权
+- **MCP 卸载权限清理**：卸载 MCP 时按前缀自动删除关联的工具权限，无残留
+- **Settings 标签页自动刷新**：MCP 安装/卸载后切换到 Settings 标签页或从 Agent 模式切回时自动刷新权限列表
+
+### 改进 (Improvement)
+
+- **环境变量弹窗复用**：`ComponentMarketModal` 和 `CapabilityModal` 共用 `mcp-env-utils.js` 工具模块，消除重复代码
+
+### 文档 (Docs)
+
+- **MCP 安装用户指南**：`API-CONFIG-GUIDE.zh.md` 新增"MCP 服务器安装与配置"章节
+- **MCP 市场设计文档**：`ARCHITECTURE.md` 新增代理环境变量注入逻辑、工具权限自动注入设计说明
+
+---
+
 ## v1.6.66 - 2026-03-01
 
 ### 修复 (Fix)

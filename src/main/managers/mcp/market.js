@@ -70,12 +70,17 @@ const mcpMarketMixin = {
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
 
-      // 6. 注册每个 MCP 服务器到 user scope
+      // 6. 自动注入工具权限（在写入 user scope 前提取 tools 字段）
+      this._autoAllowMcpTools(mcpServers)
+
+      // 7. 注册每个 MCP 服务器到 user scope（剔除自定义 tools 字段）
       let hasError = false
       let hasConflict = false
       let errorMessage = ''
       for (const [name, config] of Object.entries(mcpServers)) {
-        const createResult = this.createMcp({ scope: 'user', name, config })
+        const cleanConfig = { ...config }
+        delete cleanConfig.tools
+        const createResult = this.createMcp({ scope: 'user', name, config: cleanConfig })
         if (!createResult.success) {
           console.warn(`[McpManager] Failed to register MCP "${name}" to user scope: ${createResult.error}`)
           if (createResult.error && createResult.error.includes('already exists')) {
@@ -170,9 +175,14 @@ const mcpMarketMixin = {
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
 
-      // 6. 注册到 user scope
+      // 5.2 自动注入工具权限
+      this._autoAllowMcpTools(mcpServers)
+
+      // 6. 注册到 user scope（剔除自定义 tools 字段）
       for (const [name, config] of Object.entries(mcpServers)) {
-        const createResult = this.createMcp({ scope: 'user', name, config })
+        const cleanConfig = { ...config }
+        delete cleanConfig.tools
+        const createResult = this.createMcp({ scope: 'user', name, config: cleanConfig })
         if (!createResult.success) {
           console.warn(`[McpManager] Failed to register MCP "${name}" to user scope: ${createResult.error}`)
         }
@@ -253,6 +263,22 @@ const mcpMarketMixin = {
   },
 
   // ========== 内部方法 ==========
+
+  /**
+   * 从 mcpServers 配置中提取 tools 字段，自动写入权限
+   * tools 是注册表中的自定义扩展字段，不影响 CLI 解析
+   */
+  _autoAllowMcpTools(mcpServers) {
+    if (!this.settingsManager) return
+    for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+      if (Array.isArray(serverConfig.tools) && serverConfig.tools.length > 0) {
+        const result = this.settingsManager.addMcpToolPermissions(serverName, serverConfig.tools)
+        if (result.added > 0) {
+          console.log(`[McpManager] Auto-allowed ${result.added} tools for MCP "${serverName}"`)
+        }
+      }
+    }
+  },
 
   /**
    * 向 mcpServers 注入代理环境变量

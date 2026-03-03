@@ -29,6 +29,8 @@ function setupPluginHandlers(ipcMain, configManager) {
   if (configManager) {
     mcpManager.configManager = configManager
   }
+  // 注入 settingsManager 到 mcpManager（供 MCP 安装时自动写入工具权限）
+  mcpManager.settingsManager = settingsManager
 
   // 获取插件列表
   ipcMain.handle('plugins:list', async () => {
