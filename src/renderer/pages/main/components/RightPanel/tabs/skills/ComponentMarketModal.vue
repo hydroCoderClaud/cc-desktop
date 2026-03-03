@@ -513,25 +513,16 @@ const pendingMcpAction = ref('install') // 'install' | 'force' | 'update'
 const handleInstallMcp = async (mcp) => {
   addToInstalling(mcp.id)
   try {
-    // 先预览配置，检测是否有占位符 env
     const preview = await window.electronAPI.previewMarketMcpConfig({
       registryUrl: registryUrl.value.trim(),
       mcp: JSON.parse(JSON.stringify(mcp))
     })
-    if (preview.success && preview.config) {
-      const vars = extractAllEnvVars(preview.config)
-      if (vars.length > 0) {
-        // 有占位符 → 弹出配置弹窗
-        pendingMcp.value = mcp
-        pendingEnvVars.value = vars
-        pendingMcpAction.value = 'install'
-        showEnvConfigModal.value = true
-        removeFromInstalling(mcp.id)
-        return
-      }
-    }
-    // 无占位符 → 直接安装
-    await doInstallMcp(mcp, false, null)
+    const vars = (preview.success && preview.config) ? extractAllEnvVars(preview.config) : []
+    pendingMcp.value = mcp
+    pendingEnvVars.value = vars
+    pendingMcpAction.value = 'install'
+    showEnvConfigModal.value = true
+    removeFromInstalling(mcp.id)
   } catch (e) {
     message.error(t('market.installFailed', { error: e.message }))
     removeFromInstalling(mcp.id)
@@ -577,31 +568,6 @@ const doInstallMcp = async (mcp, force, envOverrides, useProxy) => {
   }
 }
 
-const handleForceInstallMcp = async (mcp) => {
-  addToInstalling(mcp.id)
-  try {
-    const preview = await window.electronAPI.previewMarketMcpConfig({
-      registryUrl: registryUrl.value.trim(),
-      mcp: JSON.parse(JSON.stringify(mcp))
-    })
-    if (preview.success && preview.config) {
-      const vars = extractAllEnvVars(preview.config)
-      if (vars.length > 0) {
-        pendingMcp.value = mcp
-        pendingEnvVars.value = vars
-        pendingMcpAction.value = 'force'
-        showEnvConfigModal.value = true
-        removeFromInstalling(mcp.id)
-        return
-      }
-    }
-    await doInstallMcp(mcp, true, null)
-  } catch (e) {
-    message.error(t('market.installFailed', { error: e.message }))
-    removeFromInstalling(mcp.id)
-  }
-}
-
 const handleUpdateMcp = async (mcp) => {
   addToInstalling(mcp.id)
   try {
@@ -609,18 +575,12 @@ const handleUpdateMcp = async (mcp) => {
       registryUrl: registryUrl.value.trim(),
       mcp: JSON.parse(JSON.stringify(mcp))
     })
-    if (preview.success && preview.config) {
-      const vars = extractAllEnvVars(preview.config)
-      if (vars.length > 0) {
-        pendingMcp.value = mcp
-        pendingEnvVars.value = vars
-        pendingMcpAction.value = 'update'
-        showEnvConfigModal.value = true
-        removeFromInstalling(mcp.id)
-        return
-      }
-    }
-    await doUpdateMcp(mcp, null)
+    const vars = (preview.success && preview.config) ? extractAllEnvVars(preview.config) : []
+    pendingMcp.value = mcp
+    pendingEnvVars.value = vars
+    pendingMcpAction.value = 'update'
+    showEnvConfigModal.value = true
+    removeFromInstalling(mcp.id)
   } catch (e) {
     message.error(t('market.updateFailed', { error: e.message }))
     removeFromInstalling(mcp.id)

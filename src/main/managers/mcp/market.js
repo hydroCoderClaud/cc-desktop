@@ -60,7 +60,8 @@ const mcpMarketMixin = {
       // 5. 合并 envOverrides（用户自定义环境变量）
       if (mcp.envOverrides) {
         for (const [serverName, overrides] of Object.entries(mcp.envOverrides)) {
-          if (mcpServers[serverName] && mcpServers[serverName].env) {
+          if (mcpServers[serverName]) {
+            if (!mcpServers[serverName].env) mcpServers[serverName].env = {}
             Object.assign(mcpServers[serverName].env, overrides)
           }
         }
@@ -115,8 +116,12 @@ const mcpMarketMixin = {
    * 先删除 user scope 中已存在的 MCP，然后重新安装
    */
   async installMarketMcpForce({ registryUrl, mcp }) {
-    if (!mcp || !mcp.id) {
+    if (!registryUrl || !mcp || !mcp.id) {
       return { success: false, error: '参数不完整' }
+    }
+
+    if (!isValidMarketId(mcp.id)) {
+      return { success: false, error: `非法的 MCP ID: "${mcp.id}"` }
     }
 
     const tempDir = path.join(os.tmpdir(), `mcp-market-${Date.now()}`)
@@ -128,6 +133,9 @@ const mcpMarketMixin = {
 
       const files = mcp.files || [`${mcp.id}.mcp.json`]
       for (const filename of files) {
+        if (!isSafeFilename(filename)) {
+          return { success: false, error: `非法的文件名："${filename}"` }
+        }
         const fileUrl = `${baseUrl}/mcps/${mcp.id}/${filename}`
         const content = await httpGet(fileUrl)
         const filePath = path.join(tempDir, filename)
@@ -152,7 +160,8 @@ const mcpMarketMixin = {
       // 5. 合并 envOverrides（用户自定义环境变量）
       if (mcp.envOverrides) {
         for (const [serverName, overrides] of Object.entries(mcp.envOverrides)) {
-          if (mcpServers[serverName] && mcpServers[serverName].env) {
+          if (mcpServers[serverName]) {
+            if (!mcpServers[serverName].env) mcpServers[serverName].env = {}
             Object.assign(mcpServers[serverName].env, overrides)
           }
         }

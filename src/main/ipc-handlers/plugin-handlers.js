@@ -943,19 +943,6 @@ function setupPluginHandlers(ipcMain, configManager) {
   // MCP Market IPC Handlers
   // ========================================
 
-  // 获取注册表索引
-  ipcMain.handle('mcps:market:fetchIndex', async (event, registryUrl) => {
-    try {
-      if (!registryUrl || typeof registryUrl !== 'string') {
-        return { success: false, error: 'Invalid registry URL' }
-      }
-      return await fetchRegistryIndex(registryUrl)
-    } catch (err) {
-      console.error('[IPC] mcps:market:fetchIndex error:', err)
-      return { success: false, error: err.message }
-    }
-  })
-
   // 预览市场 MCP 配置（不写入文件，仅返回解析结果）
   ipcMain.handle('mcps:market:previewConfig', async (event, params) => {
     try {

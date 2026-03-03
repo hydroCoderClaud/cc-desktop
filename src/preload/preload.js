@@ -276,7 +276,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteMcp: (params) => ipcRenderer.invoke('mcp:delete', params),
 
   // MCP 市场
-  fetchMarketMcpsIndex: (registryUrl) => ipcRenderer.invoke('mcps:market:fetchIndex', registryUrl),
   installMarketMcp: (params) => ipcRenderer.invoke('mcps:market:install', params),
   installMarketMcpForce: (params) => ipcRenderer.invoke('mcps:market:installForce', params),
   previewMarketMcpConfig: (params) => ipcRenderer.invoke('mcps:market:previewConfig', params),

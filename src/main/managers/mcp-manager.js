@@ -123,10 +123,7 @@ class McpManager extends ComponentScanner {
     try {
       if (fs.existsSync(mcpJsonPath)) {
         const content = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'))
-        const mcpServers = content.mcpServers || content || {}
-
-        // 如果顶层就是 mcpServers 的内容（无 mcpServers 包装）
-        const servers = content.mcpServers ? content.mcpServers : content
+        const servers = content.mcpServers || content || {}
 
         return Object.entries(servers).map(([name, config]) => ({
           name,
