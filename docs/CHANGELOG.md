@@ -2,6 +2,14 @@
 
 ---
 
+## v1.6.68 - 2026-03-03
+
+### 修复 (Fix)
+
+- **macOS MCP 代理环境构建失败**：修复 `ensureProxySupport` 中 `npm install undici` 在 macOS 下因 PATH 缺失导致 `npm: command not found` 的问题，使用 `buildBasicEnv()` 注入增强 PATH
+
+---
+
 ## v1.6.67 - 2026-03-03
 
 ### 新增 (Feature)

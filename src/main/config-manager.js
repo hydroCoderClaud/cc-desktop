@@ -12,6 +12,7 @@ const { TIMEOUTS, LATEST_MODEL_ALIASES } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
+const { buildBasicEnv } = require('./utils/env-builder');
 
 class ConfigManager {
   /**
@@ -979,7 +980,8 @@ class ConfigManager {
         execSync('npm install undici', {
           cwd: proxySupportDir,
           timeout: 60000,
-          stdio: 'pipe'
+          stdio: 'pipe',
+          env: buildBasicEnv()
         });
         console.log('[ProxySupport] undici installed');
       }
