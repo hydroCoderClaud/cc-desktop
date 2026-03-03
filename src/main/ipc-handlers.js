@@ -444,7 +444,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // Plugin 管理
   // ========================================
   if (setupPluginHandlers) {
-    setupPluginHandlers(ipcMain);
+    setupPluginHandlers(ipcMain, configManager);
   }
 
   // ========================================

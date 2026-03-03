@@ -490,6 +490,51 @@ class McpManager extends ComponentScanner {
       return { success: false, error: err.message }
     }
   }
+
+  /**
+   * 批量应用代理配置到所有已安装的 user scope MCP
+   * @param {{ enabled: boolean, url: string }} proxyConfig
+   * @returns {{ success: boolean, count?: number, error?: string }}
+   */
+  applyProxyToAllMcps(proxyConfig) {
+    try {
+      const claudeJson = this.readClaudeJson()
+      const mcpServers = claudeJson.mcpServers || {}
+      const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs').replace(/\\/g, '/')
+
+      let count = 0
+      for (const [name, serverConfig] of Object.entries(mcpServers)) {
+        if (!serverConfig.env) serverConfig.env = {}
+
+        if (proxyConfig.enabled && proxyConfig.url) {
+          // 注入代理
+          serverConfig.env.HTTPS_PROXY = proxyConfig.url
+          serverConfig.env.HTTP_PROXY = proxyConfig.url
+          serverConfig.env.NODE_OPTIONS = `-r "${proxyScriptPath}"`
+        } else {
+          // 移除代理
+          delete serverConfig.env.HTTPS_PROXY
+          delete serverConfig.env.HTTP_PROXY
+          // 只移除我们注入的 NODE_OPTIONS（包含 proxy-setup.cjs）
+          if (serverConfig.env.NODE_OPTIONS && serverConfig.env.NODE_OPTIONS.includes('proxy-setup.cjs')) {
+            delete serverConfig.env.NODE_OPTIONS
+          }
+          // 如果 env 为空，删除 env 字段
+          if (Object.keys(serverConfig.env).length === 0) {
+            delete serverConfig.env
+          }
+        }
+        count++
+      }
+
+      this.writeClaudeJson(claudeJson)
+      console.log(`[McpManager] Applied proxy to ${count} MCPs, enabled=${proxyConfig.enabled}`)
+      return { success: true, count }
+    } catch (err) {
+      console.error('[McpManager] applyProxyToAllMcps error:', err)
+      return { success: false, error: err.message }
+    }
+  }
 }
 
 module.exports = { McpManager }

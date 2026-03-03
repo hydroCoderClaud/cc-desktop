@@ -870,6 +870,28 @@ export default {
     saveSuccess: '设置已保存'
   },
 
+  // MCP 代理
+  mcp: {
+    proxy: {
+      title: 'MCP 代理配置',
+      enable: '安装时自动注入代理',
+      url: '代理地址',
+      urlPlaceholder: '如 http://127.0.0.1:7890',
+      hint: 'Node.js 原生 fetch 不支持系统代理，需要通过此配置让 MCP 进程走代理访问外部 API。',
+      detailConfig: '开关和地址保存在应用配置文件中，仅作为安装时的注入依据',
+      detailRuntime: '安装时会将代理环境变量写入 ~/.claude.json 中对应 MCP 的 env，运行时由 CLI 直接读取',
+      detailApplyAll: '"应用到所有"可将代理配置同步到已安装的全部 MCP，关闭时同理可批量移除',
+      applyAll: '应用到所有已安装的 MCP',
+      applyAllSuccess: '已应用到 {count} 个 MCP',
+      setupSuccess: '代理环境配置成功',
+      setupFailed: '代理环境配置失败：{error}',
+      saved: '代理配置已保存',
+      useProxy: '使用 MCP 代理',
+      openConfig: '打开应用配置文件',
+      openProxySupport: '打开 proxy-support 目录',
+    }
+  },
+
   // 统一组件市场
   market: {
     title: '组件市场',
@@ -900,7 +922,13 @@ export default {
     marketBadge: '市场',
     version: 'v{version}',
     author: '作者: {author}',
-    noDescription: '无描述'
+    noDescription: '无描述',
+    envConfig: {
+      title: '配置环境变量 - {name}',
+      hint: '请检查并填写此 MCP 的环境变量。高亮项为需要填写的配置。',
+      hintRequired: '需填写',
+      confirm: '确认安装',
+    }
   },
 
   // 会话相关

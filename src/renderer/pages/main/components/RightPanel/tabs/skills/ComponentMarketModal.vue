@@ -67,6 +67,15 @@
         </n-tab-pane>
       </n-tabs>
     </div>
+
+    <!-- MCP 环境变量配置弹窗 -->
+    <McpEnvConfigModal
+      v-model="showEnvConfigModal"
+      :mcp-name="pendingMcp?.name || pendingMcp?.id || ''"
+      :env-vars="pendingEnvVars"
+      @confirm="onEnvConfigConfirm"
+      @cancel="onEnvConfigCancel"
+    />
   </n-modal>
 </template>
 
@@ -76,6 +85,7 @@ import { NModal, NTabs, NTabPane, useMessage, useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import MarketList from './MarketList.vue'
+import McpEnvConfigModal from './McpEnvConfigModal.vue'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -458,13 +468,91 @@ const handleUpdateAgent = async (agent) => {
 }
 
 // ========== MCPs install ==========
+
+// 占位符检测
+const isPlaceholderValue = (val) => {
+  if (!val || typeof val !== 'string') return false
+  const v = val.trim()
+  return /^your[_-].*[_-]here$/i.test(v) ||
+    /^<.*>$/.test(v) ||
+    /^\/path\/to\//i.test(v) ||
+    /^placeholder/i.test(v) ||
+    /^enter[_-].*[_-]here$/i.test(v) ||
+    /^xxx+$/i.test(v) ||
+    /^TODO$/i.test(v) ||
+    /^CHANGE[_-]?ME$/i.test(v) ||
+    /^YOUR_/i.test(v)
+}
+
+// 从 config 中提取所有 env 变量（不只是占位符）
+const extractAllEnvVars = (config) => {
+  const vars = []
+  for (const [serverName, serverConfig] of Object.entries(config)) {
+    if (serverConfig.env && typeof serverConfig.env === 'object') {
+      for (const [key, value] of Object.entries(serverConfig.env)) {
+        const placeholder = isPlaceholderValue(value)
+        vars.push({
+          serverName,
+          key,
+          value: placeholder ? '' : value,
+          placeholder: String(value),
+          isPlaceholder: placeholder
+        })
+      }
+    }
+  }
+  return vars
+}
+
+// MCP env config modal state
+const showEnvConfigModal = ref(false)
+const pendingMcp = ref(null)
+const pendingEnvVars = ref([])
+const pendingMcpAction = ref('install') // 'install' | 'force' | 'update'
+
 const handleInstallMcp = async (mcp) => {
   addToInstalling(mcp.id)
   try {
-    const result = await window.electronAPI.installMarketMcp({
+    // 先预览配置，检测是否有占位符 env
+    const preview = await window.electronAPI.previewMarketMcpConfig({
       registryUrl: registryUrl.value.trim(),
       mcp: JSON.parse(JSON.stringify(mcp))
     })
+    if (preview.success && preview.config) {
+      const vars = extractAllEnvVars(preview.config)
+      if (vars.length > 0) {
+        // 有占位符 → 弹出配置弹窗
+        pendingMcp.value = mcp
+        pendingEnvVars.value = vars
+        pendingMcpAction.value = 'install'
+        showEnvConfigModal.value = true
+        removeFromInstalling(mcp.id)
+        return
+      }
+    }
+    // 无占位符 → 直接安装
+    await doInstallMcp(mcp, false, null)
+  } catch (e) {
+    message.error(t('market.installFailed', { error: e.message }))
+    removeFromInstalling(mcp.id)
+  }
+}
+
+const doInstallMcp = async (mcp, force, envOverrides, useProxy) => {
+  addToInstalling(mcp.id)
+  try {
+    const mcpPayload = JSON.parse(JSON.stringify(mcp))
+    if (envOverrides) mcpPayload.envOverrides = envOverrides
+    if (useProxy !== undefined) mcpPayload.useProxy = useProxy
+
+    const installFn = force
+      ? window.electronAPI.installMarketMcpForce
+      : window.electronAPI.installMarketMcp
+    const result = await installFn({
+      registryUrl: registryUrl.value.trim(),
+      mcp: mcpPayload
+    })
+
     if (result.success) {
       message.success(t('market.installSuccess', { name: mcp.name || mcp.id }))
       await loadInstalledMcps()
@@ -476,7 +564,7 @@ const handleInstallMcp = async (mcp) => {
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),
         onPositiveClick: async () => {
-          await handleForceInstallMcp(mcp)
+          await doInstallMcp(mcp, true, envOverrides, useProxy)
         }
       })
     } else {
@@ -492,20 +580,24 @@ const handleInstallMcp = async (mcp) => {
 const handleForceInstallMcp = async (mcp) => {
   addToInstalling(mcp.id)
   try {
-    const result = await window.electronAPI.installMarketMcpForce({
+    const preview = await window.electronAPI.previewMarketMcpConfig({
       registryUrl: registryUrl.value.trim(),
       mcp: JSON.parse(JSON.stringify(mcp))
     })
-    if (result.success) {
-      message.success(t('market.installSuccess', { name: mcp.name || mcp.id }))
-      await loadInstalledMcps()
-      emit('installed')
-    } else {
-      message.error(t('market.installFailed', { error: result.error }))
+    if (preview.success && preview.config) {
+      const vars = extractAllEnvVars(preview.config)
+      if (vars.length > 0) {
+        pendingMcp.value = mcp
+        pendingEnvVars.value = vars
+        pendingMcpAction.value = 'force'
+        showEnvConfigModal.value = true
+        removeFromInstalling(mcp.id)
+        return
+      }
     }
+    await doInstallMcp(mcp, true, null)
   } catch (e) {
     message.error(t('market.installFailed', { error: e.message }))
-  } finally {
     removeFromInstalling(mcp.id)
   }
 }
@@ -513,9 +605,38 @@ const handleForceInstallMcp = async (mcp) => {
 const handleUpdateMcp = async (mcp) => {
   addToInstalling(mcp.id)
   try {
-    const result = await window.electronAPI.updateMarketMcp({
+    const preview = await window.electronAPI.previewMarketMcpConfig({
       registryUrl: registryUrl.value.trim(),
       mcp: JSON.parse(JSON.stringify(mcp))
+    })
+    if (preview.success && preview.config) {
+      const vars = extractAllEnvVars(preview.config)
+      if (vars.length > 0) {
+        pendingMcp.value = mcp
+        pendingEnvVars.value = vars
+        pendingMcpAction.value = 'update'
+        showEnvConfigModal.value = true
+        removeFromInstalling(mcp.id)
+        return
+      }
+    }
+    await doUpdateMcp(mcp, null)
+  } catch (e) {
+    message.error(t('market.updateFailed', { error: e.message }))
+    removeFromInstalling(mcp.id)
+  }
+}
+
+const doUpdateMcp = async (mcp, envOverrides, useProxy) => {
+  addToInstalling(mcp.id)
+  try {
+    const mcpPayload = JSON.parse(JSON.stringify(mcp))
+    if (envOverrides) mcpPayload.envOverrides = envOverrides
+    if (useProxy !== undefined) mcpPayload.useProxy = useProxy
+
+    const result = await window.electronAPI.updateMarketMcp({
+      registryUrl: registryUrl.value.trim(),
+      mcp: mcpPayload
     })
     if (result.success) {
       message.success(t('market.updateSuccess', { name: mcp.name || mcp.id }))
@@ -529,6 +650,23 @@ const handleUpdateMcp = async (mcp) => {
   } finally {
     removeFromInstalling(mcp.id)
   }
+}
+
+// Env config modal callbacks
+const onEnvConfigConfirm = (envOverrides, useProxy) => {
+  const mcp = pendingMcp.value
+  if (!mcp) return
+  const action = pendingMcpAction.value
+  if (action === 'update') {
+    doUpdateMcp(mcp, envOverrides, useProxy)
+  } else {
+    doInstallMcp(mcp, action === 'force', envOverrides, useProxy)
+  }
+  pendingMcp.value = null
+}
+
+const onEnvConfigCancel = () => {
+  pendingMcp.value = null
 }
 </script>
 

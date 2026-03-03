@@ -257,6 +257,22 @@ function setupConfigHandlers(ipcMain, configManager) {
   registerHandler('quickCommands:delete', (id) => {
     return configManager.deleteQuickCommand(id)
   })
+
+  // ========================================
+  // MCP 代理配置
+  // ========================================
+
+  registerHandler('config:getMcpProxy', () => {
+    return configManager.getMcpProxyConfig()
+  })
+
+  registerHandler('config:updateMcpProxy', (proxyConfig) => {
+    return configManager.updateMcpProxyConfig(proxyConfig)
+  })
+
+  registerHandler('config:ensureProxySupport', async (proxyUrl) => {
+    return await configManager.ensureProxySupport(proxyUrl)
+  })
 }
 
 module.exports = { setupConfigHandlers }

@@ -3,6 +3,9 @@
     <div class="tab-header">
       <span class="tab-title">{{ t('rightPanel.tabs.mcp') }} ({{ totalCount }})</span>
       <div class="tab-actions">
+        <button class="icon-btn" :title="t('mcp.proxy.title')" @click="showProxyModal = true">
+          <Icon name="globe" :size="14" />
+        </button>
         <button class="icon-btn" :title="t('market.title')" @click="showMarketModal">
           <Icon name="store" :size="14" />
         </button>
@@ -116,6 +119,9 @@
 
     <!-- Market Modal -->
     <ComponentMarketModal v-model="marketModalVisible" default-tab="mcps" @installed="handleRefresh" />
+
+    <!-- Proxy Modal -->
+    <McpProxyModal v-model="showProxyModal" @saved="handleRefresh" />
   </div>
 </template>
 
@@ -128,6 +134,7 @@ import Icon from '@components/icons/Icon.vue'
 import MCPGroup from '../mcp/MCPGroup.vue'
 import MCPEditModal from '../mcp/MCPEditModal.vue'
 import MCPCopyModal from '../mcp/MCPCopyModal.vue'
+import McpProxyModal from '../mcp/McpProxyModal.vue'
 import ComponentMarketModal from './skills/ComponentMarketModal.vue'
 
 const { t } = useLocale()
@@ -158,6 +165,9 @@ const copyingMcp = ref(null)
 
 // Market Modal
 const marketModalVisible = ref(false)
+
+// Proxy Modal
+const showProxyModal = ref(false)
 
 const showMarketModal = () => {
   marketModalVisible.value = true

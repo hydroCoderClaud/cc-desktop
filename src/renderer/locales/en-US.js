@@ -867,6 +867,28 @@ export default {
     saveSuccess: 'Settings saved'
   },
 
+  // MCP Proxy
+  mcp: {
+    proxy: {
+      title: 'MCP Proxy Config',
+      enable: 'Auto-inject proxy on install',
+      url: 'Proxy URL',
+      urlPlaceholder: 'e.g. http://127.0.0.1:7890',
+      hint: 'Node.js native fetch does not support system proxy. This setting injects proxy env vars into MCP processes to access external APIs.',
+      detailConfig: 'Toggle and URL are saved in the app config file, used as injection reference during installation',
+      detailRuntime: 'On install, proxy env vars are written to ~/.claude.json for each MCP server, read directly by CLI at runtime',
+      detailApplyAll: '"Apply to All" syncs proxy config to all installed MCPs; when disabled, it can batch-remove proxy vars',
+      applyAll: 'Apply to All Installed MCPs',
+      applyAllSuccess: 'Applied to {count} MCPs',
+      setupSuccess: 'Proxy environment configured',
+      setupFailed: 'Proxy setup failed: {error}',
+      saved: 'Proxy config saved',
+      useProxy: 'Use MCP Proxy',
+      openConfig: 'Open app config file',
+      openProxySupport: 'Open proxy-support directory',
+    }
+  },
+
   // Unified component market
   market: {
     title: 'Component Market',
@@ -897,10 +919,14 @@ export default {
     marketBadge: 'Market',
     version: 'v{version}',
     author: 'Author: {author}',
-    noDescription: 'No description'
+    noDescription: 'No description',
+    envConfig: {
+      title: 'Configure Environment Variables - {name}',
+      hint: 'Review and fill in the environment variables for this MCP. Highlighted items need to be configured.',
+      hintRequired: 'Required',
+      confirm: 'Confirm Install',
+    }
   },
-
-  // Session related
   session: {
     newSession: 'New Session',
     sessionTitle: 'Session Title',

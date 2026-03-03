@@ -16,7 +16,7 @@ const { fetchRegistryIndex } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 const { shell } = require('electron')
 
-function setupPluginHandlers(ipcMain) {
+function setupPluginHandlers(ipcMain, configManager) {
   const pluginManager = new PluginManager()
   const pluginCli = new PluginCli()
   const skillsManager = new SkillsManager()
@@ -24,6 +24,11 @@ function setupPluginHandlers(ipcMain) {
   const hooksManager = new HooksManager()
   const mcpManager = new McpManager()
   const settingsManager = new SettingsManager()
+
+  // 注入 configManager 到 mcpManager（供代理注入使用）
+  if (configManager) {
+    mcpManager.configManager = configManager
+  }
 
   // 获取插件列表
   ipcMain.handle('plugins:list', async () => {
@@ -951,6 +956,19 @@ function setupPluginHandlers(ipcMain) {
     }
   })
 
+  // 预览市场 MCP 配置（不写入文件，仅返回解析结果）
+  ipcMain.handle('mcps:market:previewConfig', async (event, params) => {
+    try {
+      if (!params || typeof params !== 'object') {
+        return { success: false, error: 'Invalid parameters' }
+      }
+      return await mcpManager.previewMarketMcpConfig(params)
+    } catch (err) {
+      console.error('[IPC] mcps:market:previewConfig error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // 安装市场 MCP
   ipcMain.handle('mcps:market:install', async (event, params) => {
     try {
@@ -1195,6 +1213,18 @@ function setupPluginHandlers(ipcMain) {
       return settingsManager.saveRawSettings(scope, projectPath, data)
     } catch (err) {
       console.error('[IPC] settings:saveRaw error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // ========================================
+  // MCP 代理 — 批量应用
+  // ========================================
+  ipcMain.handle('mcps:applyProxyToAll', async (event, proxyConfig) => {
+    try {
+      return mcpManager.applyProxyToAllMcps(proxyConfig)
+    } catch (err) {
+      console.error('[IPC] mcps:applyProxyToAll error:', err)
       return { success: false, error: err.message }
     }
   })

@@ -57,7 +57,19 @@ const mcpMarketMixin = {
       const mcpConfigPath = path.join(tempDir, files[0])
       const mcpServers = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf-8'))
 
-      // 5. 注册每个 MCP 服务器到 user scope
+      // 5. 合并 envOverrides（用户自定义环境变量）
+      if (mcp.envOverrides) {
+        for (const [serverName, overrides] of Object.entries(mcp.envOverrides)) {
+          if (mcpServers[serverName] && mcpServers[serverName].env) {
+            Object.assign(mcpServers[serverName].env, overrides)
+          }
+        }
+      }
+
+      // 5.1 注入代理环境变量
+      this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
+
+      // 6. 注册每个 MCP 服务器到 user scope
       let hasError = false
       let hasConflict = false
       let errorMessage = ''
@@ -137,7 +149,19 @@ const mcpMarketMixin = {
         this.deleteMcp({ scope: 'user', name })
       }
 
-      // 5. 注册到 user scope
+      // 5. 合并 envOverrides（用户自定义环境变量）
+      if (mcp.envOverrides) {
+        for (const [serverName, overrides] of Object.entries(mcp.envOverrides)) {
+          if (mcpServers[serverName] && mcpServers[serverName].env) {
+            Object.assign(mcpServers[serverName].env, overrides)
+          }
+        }
+      }
+
+      // 5.1 注入代理环境变量
+      this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
+
+      // 6. 注册到 user scope
       for (const [name, config] of Object.entries(mcpServers)) {
         const createResult = this.createMcp({ scope: 'user', name, config })
         if (!createResult.success) {
@@ -169,7 +193,82 @@ const mcpMarketMixin = {
     return this.installMarketMcpForce({ registryUrl, mcp })
   },
 
+  /**
+   * 预览市场 MCP 配置（不写入 ~/.claude.json）
+   * 下载 mcp.json 模板并返回解析后的 config 对象
+   * @param {{ registryUrl: string, mcp: Object }} params
+   * @returns {{ success: boolean, config?: Object, error?: string }}
+   */
+  async previewMarketMcpConfig({ registryUrl, mcp }) {
+    if (!registryUrl || !mcp || !mcp.id) {
+      return { success: false, error: '参数不完整' }
+    }
+
+    if (!isValidMarketId(mcp.id)) {
+      return { success: false, error: `非法的 MCP ID: "${mcp.id}"` }
+    }
+
+    const baseUrl = registryUrl.replace(/\/+$/, '')
+    const tempDir = path.join(os.tmpdir(), `mcp-preview-${Date.now()}`)
+
+    try {
+      fs.mkdirSync(tempDir, { recursive: true })
+
+      const files = mcp.files || [`${mcp.id}.mcp.json`]
+      for (const filename of files) {
+        if (!isSafeFilename(filename)) {
+          return { success: false, error: `非法的文件名："${filename}"` }
+        }
+        const fileUrl = `${baseUrl}/mcps/${mcp.id}/${filename}`
+        const content = await httpGet(fileUrl)
+        const filePath = path.join(tempDir, filename)
+        fs.writeFileSync(filePath, content, 'utf-8')
+      }
+
+      const mcpConfigPath = path.join(tempDir, files[0])
+      const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf-8'))
+
+      return { success: true, config }
+    } catch (err) {
+      console.error('[McpManager] Preview market MCP config failed:', err)
+      return { success: false, error: err.message }
+    } finally {
+      try {
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      } catch (e) {
+        console.warn('[McpManager] Failed to cleanup temp dir:', e.message)
+      }
+    }
+  },
+
   // ========== 内部方法 ==========
+
+  /**
+   * 向 mcpServers 注入代理环境变量
+   * @param {Object} mcpServers - MCP 服务器配置
+   * @param {boolean|undefined} useProxy - true=强制注入, false=跳过, undefined=跟随全局配置
+   */
+  _injectProxyEnvToServers(mcpServers, useProxy) {
+    if (!this.configManager) return
+    const proxyConfig = this.configManager.getMcpProxyConfig()
+    if (!proxyConfig.url) return
+
+    // useProxy 明确为 false → 跳过
+    if (useProxy === false) return
+    // useProxy 未指定（无 env 弹窗的直接安装）→ 跟随全局开关
+    if (useProxy === undefined && !proxyConfig.enabled) return
+
+    const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs')
+    for (const [, serverConfig] of Object.entries(mcpServers)) {
+      if (!serverConfig.env) serverConfig.env = {}
+      serverConfig.env.HTTPS_PROXY = proxyConfig.url
+      serverConfig.env.HTTP_PROXY = proxyConfig.url
+      serverConfig.env.NODE_OPTIONS = `-r "${proxyScriptPath.replace(/\\/g, '/')}"`
+    }
+    console.log(`[McpManager] Injected proxy env: ${proxyConfig.url}`)
+  },
 
   /**
    * 验证 MCP 配置目录

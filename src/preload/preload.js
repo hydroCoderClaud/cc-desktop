@@ -279,7 +279,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchMarketMcpsIndex: (registryUrl) => ipcRenderer.invoke('mcps:market:fetchIndex', registryUrl),
   installMarketMcp: (params) => ipcRenderer.invoke('mcps:market:install', params),
   installMarketMcpForce: (params) => ipcRenderer.invoke('mcps:market:installForce', params),
+  previewMarketMcpConfig: (params) => ipcRenderer.invoke('mcps:market:previewConfig', params),
   updateMarketMcp: (params) => ipcRenderer.invoke('mcps:market:update', params),
+
+  // MCP 代理配置
+  getMcpProxyConfig: () => ipcRenderer.invoke('config:getMcpProxy'),
+  updateMcpProxyConfig: (config) => ipcRenderer.invoke('config:updateMcpProxy', config),
+  ensureProxySupport: (proxyUrl) => ipcRenderer.invoke('config:ensureProxySupport', proxyUrl),
+  applyProxyToAllMcps: (config) => ipcRenderer.invoke('mcps:applyProxyToAll', config),
 
   // ========================================
   // Claude Code Settings 管理 (permissions, env)
