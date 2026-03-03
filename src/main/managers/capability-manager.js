@@ -355,8 +355,9 @@ class CapabilityManager {
    * @param {Object} capability - 能力对象（v1.1: 含 type + componentId）
    * @returns {{ success: boolean, error?: string }}
    */
-  async installCapability(capability) {
+  async installCapability(capability, options = {}) {
     const { type, componentId } = capability
+    const { envOverrides, useProxy } = options
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl?.replace(/\/+$/, '')
 
@@ -418,6 +419,8 @@ class CapabilityManager {
           if (!mcp) {
             throw new Error(`MCP "${componentId}" not found in registry index`)
           }
+          if (envOverrides) mcp.envOverrides = envOverrides
+          if (useProxy !== undefined) mcp.useProxy = useProxy
           installResult = await this.mcpManager.installMarketMcpForce({ registryUrl, mcp })
           if (installResult.success) {
             installResult = { success: true, requiresRestart: true }

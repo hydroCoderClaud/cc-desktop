@@ -106,6 +106,15 @@
         </div>
       </div>
     </div>
+
+    <!-- MCP 环境变量配置弹窗 -->
+    <McpEnvConfigModal
+      v-model="showEnvConfigModal"
+      :mcp-name="pendingCap?.name || pendingCap?.componentId || ''"
+      :env-vars="pendingEnvVars"
+      @confirm="onEnvConfigConfirm"
+      @cancel="onEnvConfigCancel"
+    />
   </n-modal>
 </template>
 
@@ -114,6 +123,7 @@ import { ref, computed, watch } from 'vue'
 import { NModal, NSpin, NSwitch, NButton, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import McpEnvConfigModal from '../RightPanel/tabs/skills/McpEnvConfigModal.vue'
 
 const { t, locale } = useLocale()
 const message = useMessage()
@@ -132,6 +142,12 @@ const capabilities = ref([])
 const installingId = ref(null)
 const installingAction = ref(null) // 'install' | 'update' | 'uninstall'
 const togglingId = ref(null)
+
+// MCP env config modal state
+const showEnvConfigModal = ref(false)
+const pendingCap = ref(null)
+const pendingEnvVars = ref([])
+const pendingAction = ref(null)
 
 // 任意操作进行中的 ID（下载或启闭）
 const busyId = computed(() => installingId.value || togglingId.value)
@@ -184,6 +200,40 @@ const loadCapabilities = async () => {
 
 const toPlain = (obj) => JSON.parse(JSON.stringify(obj))
 
+// 占位符检测
+const isPlaceholderValue = (val) => {
+  if (!val || typeof val !== 'string') return false
+  const v = val.trim()
+  return /^your[_-].*[_-]here$/i.test(v) ||
+    /^<.*>$/.test(v) ||
+    /^\/path\/to\//i.test(v) ||
+    /^placeholder/i.test(v) ||
+    /^enter[_-].*[_-]here$/i.test(v) ||
+    /^xxx+$/i.test(v) ||
+    /^TODO$/i.test(v) ||
+    /^CHANGE[_-]?ME$/i.test(v) ||
+    /^YOUR_/i.test(v)
+}
+
+const extractAllEnvVars = (config) => {
+  const vars = []
+  for (const [serverName, serverConfig] of Object.entries(config)) {
+    if (serverConfig.env && typeof serverConfig.env === 'object') {
+      for (const [key, value] of Object.entries(serverConfig.env)) {
+        const placeholder = isPlaceholderValue(value)
+        vars.push({
+          serverName,
+          key,
+          value: placeholder ? '' : value,
+          placeholder: String(value),
+          isPlaceholder: placeholder
+        })
+      }
+    }
+  }
+  return vars
+}
+
 const ACTION_CONFIG = {
   install:   { api: 'installCapability',   successMsg: 'agent.capInstallSuccess',   failMsg: 'agent.capabilityInstallFailed', onSuccess: (cap) => { cap.installed = true; cap.disabled = false } },
   update:    { api: 'installCapability',   successMsg: 'agent.capUpdateSuccess',    failMsg: 'agent.capabilityInstallFailed', onSuccess: (cap) => { cap.disabled = false } },
@@ -191,6 +241,12 @@ const ACTION_CONFIG = {
 }
 
 const handleAction = async (cap, action) => {
+  // MCP 的 install/update 走 env 弹窗流程
+  if (cap.type === 'mcp' && action !== 'uninstall') {
+    await handleMcpInstall(cap, action)
+    return
+  }
+
   const config = ACTION_CONFIG[action]
   installingId.value = cap.id
   installingAction.value = action
@@ -212,6 +268,63 @@ const handleAction = async (cap, action) => {
     installingId.value = null
     installingAction.value = null
   }
+}
+
+// MCP 安装/更新：先 preview 获取 env → 弹窗配置 → 带参数安装
+const handleMcpInstall = async (cap, action) => {
+  installingId.value = cap.id
+  installingAction.value = action
+  try {
+    const preview = await window.electronAPI.previewMarketMcpConfig({
+      registryUrl: (await window.electronAPI.getMarketConfig()).registryUrl,
+      mcp: { id: cap.componentId, files: cap.files }
+    })
+    const vars = (preview.success && preview.config) ? extractAllEnvVars(preview.config) : []
+    pendingCap.value = cap
+    pendingEnvVars.value = vars
+    pendingAction.value = action
+    showEnvConfigModal.value = true
+  } catch (err) {
+    console.error('[CapabilityModal] MCP preview error:', err)
+    message.error(err.message || t('agent.capabilityInstallFailed'))
+  } finally {
+    installingId.value = null
+    installingAction.value = null
+  }
+}
+
+const onEnvConfigConfirm = async (envOverrides, useProxy) => {
+  const cap = pendingCap.value
+  if (!cap) return
+  const action = pendingAction.value || 'install'
+  const config = ACTION_CONFIG[action]
+
+  installingId.value = cap.id
+  installingAction.value = action
+  try {
+    const options = { envOverrides, useProxy }
+    const result = await window.electronAPI[config.api](cap.id, toPlain(cap), options)
+    if (result.success) {
+      config.onSuccess(cap)
+      message.success(t(config.successMsg))
+      if (result.requiresRestart) {
+        message.warning(t('agent.capMcpRestartHint'), { duration: 5000 })
+      }
+    } else {
+      message.error(result.error || t(config.failMsg))
+    }
+  } catch (err) {
+    console.error(`[CapabilityModal] MCP ${action} error:`, err)
+    message.error(err.message || t(config.failMsg))
+  } finally {
+    installingId.value = null
+    installingAction.value = null
+    pendingCap.value = null
+  }
+}
+
+const onEnvConfigCancel = () => {
+  pendingCap.value = null
 }
 
 const handleToggle = async (cap, enabled) => {

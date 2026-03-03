@@ -20,10 +20,10 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
   })
 
   // 安装能力（从 registry 下载组件）
-  ipcMain.handle('capabilities:install', async (event, _id, capability) => {
+  ipcMain.handle('capabilities:install', async (event, _id, capability, options) => {
     try {
       if (!capability) return { success: false, error: 'Invalid parameters' }
-      return await capabilityManager.installCapability(capability)
+      return await capabilityManager.installCapability(capability, options)
     } catch (err) {
       console.error('[IPC] capabilities:install error:', err)
       return { success: false, error: err.message }

@@ -609,7 +609,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 能力管理（Agent 模式）
   fetchCapabilities: (projectPath) => ipcRenderer.invoke('capabilities:fetch', projectPath),
-  installCapability: (id, capability) => ipcRenderer.invoke('capabilities:install', id, capability),
+  installCapability: (id, capability, options) => ipcRenderer.invoke('capabilities:install', id, capability, options),
   uninstallCapability: (id, capability) => ipcRenderer.invoke('capabilities:uninstall', id, capability),
   enableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:enable', id, capability, sessionId),
   disableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:disable', id, capability, sessionId),
