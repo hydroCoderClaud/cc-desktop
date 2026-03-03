@@ -70,6 +70,9 @@ const mcpMarketMixin = {
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
 
+      // 5.2 Windows 平台命令包装（npx → cmd /c npx）
+      this._wrapCommandsForWindows(mcpServers)
+
       // 6. 自动注入工具权限（在写入 user scope 前提取 tools 字段）
       this._autoAllowMcpTools(mcpServers)
 
@@ -175,7 +178,10 @@ const mcpMarketMixin = {
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
 
-      // 5.2 自动注入工具权限
+      // 5.2 Windows 平台命令包装（npx → cmd /c npx）
+      this._wrapCommandsForWindows(mcpServers)
+
+      // 5.3 自动注入工具权限
       this._autoAllowMcpTools(mcpServers)
 
       // 6. 注册到 user scope（剔除自定义 tools 字段）
@@ -277,6 +283,27 @@ const mcpMarketMixin = {
           console.log(`[McpManager] Auto-allowed ${result.added} tools for MCP "${serverName}"`)
         }
       }
+    }
+  },
+
+  /**
+   * Windows 平台命令包装
+   * npx/node/tsx 等命令在 Windows 上实际是 .cmd 批处理脚本，
+   * spawn 无法直接执行，需要通过 cmd /c 调用
+   */
+  _wrapCommandsForWindows(mcpServers) {
+    if (process.platform !== 'win32') return
+
+    const CMD_WRAPPERS = new Set(['npx', 'node', 'tsx', 'npm', 'pnpm', 'yarn', 'bunx'])
+
+    for (const [, serverConfig] of Object.entries(mcpServers)) {
+      if (!serverConfig.command) continue
+      if (!CMD_WRAPPERS.has(serverConfig.command)) continue
+
+      const originalCommand = serverConfig.command
+      const originalArgs = serverConfig.args || []
+      serverConfig.command = 'cmd'
+      serverConfig.args = ['/c', originalCommand, ...originalArgs]
     }
   },
 
