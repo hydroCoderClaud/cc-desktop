@@ -6,6 +6,10 @@ on:
 jobs:
   test-upload:
     runs-on: ubuntu-latest
+    env:
+      QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
+      QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
+      BUCKET: cc-desktop-releases
     steps:
       - name: Generate test files
         run: |
@@ -17,75 +21,47 @@ jobs:
           ls -lh test-*
 
       - name: Setup Python and qiniu SDK
-        run: |
-          pip install qiniu
+        run: pip install qiniu
 
-      - name: Upload test-140mb (simulate Windows exe)
-        env:
-          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
-          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
+      - name: Upload all test files
         run: |
-          echo "=== Uploading 140MB file ==="
-          python3 -c "
+          python3 << 'PYEOF'
           import qiniu, time, os
-          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
-          auth = qiniu.Auth(ak, sk)
-          token = auth.upload_token('cc-desktop-releases', 'test-140mb.bin', 3600)
-          start = time.time()
-          ret, info = qiniu.put_file(token, 'test-140mb.bin', 'test-140mb.bin')
-          elapsed = time.time() - start
-          size_mb = 140
-          print(f'Status: {info.status_code}')
-          print(f'Time: {elapsed:.1f}s')
-          print(f'Speed: {size_mb/elapsed:.1f} MB/s')
-          assert info.status_code == 200, f'Upload failed: {info}'
-          "
 
-      - name: Upload test-150mb (simulate macOS dmg)
-        env:
-          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
-          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
-        run: |
-          echo "=== Uploading 150MB file ==="
-          python3 -c "
-          import qiniu, time, os
-          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
+          ak = os.environ['QINIU_AK']
+          sk = os.environ['QINIU_SK']
+          bucket = os.environ['BUCKET']
           auth = qiniu.Auth(ak, sk)
-          token = auth.upload_token('cc-desktop-releases', 'test-150mb.bin', 3600)
-          start = time.time()
-          ret, info = qiniu.put_file(token, 'test-150mb.bin', 'test-150mb.bin')
-          elapsed = time.time() - start
-          size_mb = 150
-          print(f'Status: {info.status_code}')
-          print(f'Time: {elapsed:.1f}s')
-          print(f'Speed: {size_mb/elapsed:.1f} MB/s')
-          assert info.status_code == 200, f'Upload failed: {info}'
-          "
 
-      - name: Upload small files (simulate blockmap + yml)
-        env:
-          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
-          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
-        run: |
-          echo "=== Uploading small files ==="
-          python3 -c "
-          import qiniu, time, os
-          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
-          auth = qiniu.Auth(ak, sk)
-          for fname, label in [('test-blockmap.bin','blockmap'), ('test-latest.yml','latest.yml')]:
-              token = auth.upload_token('cc-desktop-releases', fname, 3600)
+          # 华东-浙江 区域配置
+          config = qiniu.config.Config()
+          config.zone = qiniu.zone.Zone(
+              up_host="https://up-cn-east-2.qiniup.com",
+              up_host_backup="https://upload-cn-east-2.qiniup.com"
+          )
+
+          files = [
+              ("test-140mb.bin", "Windows exe ~140MB"),
+              ("test-150mb.bin", "macOS dmg ~150MB"),
+              ("test-blockmap.bin", "blockmap ~150KB"),
+              ("test-latest.yml", "latest.yml ~1KB"),
+          ]
+
+          print("=" * 50)
+          for fname, label in files:
+              size_bytes = os.path.getsize(fname)
+              size_mb = size_bytes / (1024 * 1024)
+              token = auth.upload_token(bucket, fname, 3600)
+
               start = time.time()
-              ret, info = qiniu.put_file(token, fname, fname)
+              ret, info = qiniu.put_file(token, fname, fname, config=config)
               elapsed = time.time() - start
-              size = os.path.getsize(fname) / 1024
-              print(f'{label}: {info.status_code}, {elapsed:.2f}s, {size:.0f}KB')
-          "
 
-      - name: Summary
-        run: |
-          echo "========================================="
-          echo "  Qiniu Upload Speed Test Complete"
-          echo "  Bucket: cc-desktop-releases"
-          echo "  Region: cn-east-2 (华东-浙江)"
-          echo "  Runner: ubuntu-latest (GitHub Actions)"
-          echo "========================================="
+              status = "OK" if info.status_code == 200 else f"FAIL({info.status_code})"
+              speed = size_mb / elapsed if elapsed > 0 else 0
+              print(f"[{status}] {label}: {elapsed:.1f}s, {speed:.1f} MB/s")
+
+              if info.status_code != 200:
+                  print(f"  Error: {info.text_body}")
+          print("=" * 50)
+          PYEOF
