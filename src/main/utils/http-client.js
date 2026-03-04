@@ -9,6 +9,7 @@ const http = require('http')
 const { URL } = require('url')
 
 const HTTP_TIMEOUT = 30000
+const MIRROR_PRIMARY_TIMEOUT = 8000  // 有镜像时主地址的快速超时
 const MAX_REDIRECTS = 5
 const MAX_CONTENT_LENGTH = 1024 * 1024  // 1MB
 
@@ -45,7 +46,7 @@ async function resolveSystemProxy(url) {
  * @param {number} _redirectCount - 内部使用，当前重定向次数
  * @returns {Promise<string>} 响应体
  */
-async function httpGet(url, _redirectCount = 0) {
+async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
   if (_redirectCount > MAX_REDIRECTS) {
     const err = new Error('重定向次数超限')
     err.code = 'TOO_MANY_REDIRECTS'
@@ -66,7 +67,7 @@ async function httpGet(url, _redirectCount = 0) {
       'Cache-Control': 'no-cache, no-store',
       'Pragma': 'no-cache'
     },
-    timeout: HTTP_TIMEOUT
+    timeout: _timeout
   }
 
   // 使用系统代理
@@ -86,7 +87,7 @@ async function httpGet(url, _redirectCount = 0) {
       // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume() // 消费响应体，释放 socket
-        httpGet(res.headers.location, _redirectCount + 1).then(resolve).catch(reject)
+        httpGet(res.headers.location, _redirectCount + 1, _timeout).then(resolve).catch(reject)
         return
       }
 
@@ -196,20 +197,53 @@ function isSafeFilename(filename) {
 }
 
 /**
+ * 带镜像 fallback 的 HTTP GET
+ * 主地址请求失败时，自动将 baseUrl 替换为 mirrorBaseUrl 重试
+ * @param {string} url - 主请求 URL
+ * @param {string} primaryBase - 主地址基础 URL
+ * @param {string} mirrorBase - 镜像地址基础 URL
+ * @returns {Promise<string>} 响应体
+ */
+async function httpGetWithMirror(url, primaryBase, mirrorBase) {
+  // 有镜像时主地址用短超时，加快 fallback 速度
+  const primaryTimeout = mirrorBase ? MIRROR_PRIMARY_TIMEOUT : HTTP_TIMEOUT
+  try {
+    const result = await httpGet(url, 0, primaryTimeout)
+    console.log(`[HttpClient] Primary OK: ${url}`)
+    return result
+  } catch (err) {
+    if (!mirrorBase || !primaryBase) throw err
+    const normalizedPrimary = primaryBase.replace(/\/+$/, '')
+    const normalizedMirror = mirrorBase.replace(/\/+$/, '')
+    if (!url.startsWith(normalizedPrimary)) throw err
+
+    const mirrorUrl = url.replace(normalizedPrimary, normalizedMirror)
+    console.log(`[HttpClient] Primary FAIL (${err.code || err.message}), fallback → ${mirrorUrl}`)
+    const result = await httpGet(mirrorUrl)
+    console.log(`[HttpClient] Mirror OK: ${mirrorUrl}`)
+    return result
+  }
+}
+
+/**
  * 获取注册表索引（skills + agents + prompts + mcps 共用）
  * @param {string} registryUrl - 注册表基础 URL
+ * @param {string} [mirrorUrl] - 镜像注册表基础 URL（可选）
  * @returns {{ success: boolean, data?: { skills, agents, prompts, mcps }, error?: string }}
  */
-async function fetchRegistryIndex(registryUrl) {
+async function fetchRegistryIndex(registryUrl, mirrorUrl) {
   if (!registryUrl || typeof registryUrl !== 'string') {
     return { success: false, error: '注册表 URL 不能为空' }
   }
 
-  const url = registryUrl.replace(/\/+$/, '') + '/index.json'
+  const baseUrl = registryUrl.replace(/\/+$/, '')
+  const url = baseUrl + '/index.json'
   console.log('[HttpClient] Fetching registry index:', url)
 
   try {
-    const body = await httpGet(url)
+    const body = mirrorUrl
+      ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
+      : await httpGet(url)
     const data = JSON.parse(body)
 
     return {
@@ -227,4 +261,4 @@ async function fetchRegistryIndex(registryUrl) {
   }
 }
 
-module.exports = { httpGet, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }
+module.exports = { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename }

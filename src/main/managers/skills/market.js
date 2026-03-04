@@ -6,7 +6,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 const { atomicWriteJson } = require('../../utils/path-utils')
 
 const MARKET_META_FILE = '.market-meta.json'
@@ -17,7 +17,7 @@ const skillsMarketMixin = {
    * @param {{ registryUrl: string, skill: Object }} params
    * @returns {{ success: boolean, skillId?: string, error?: string, conflict?: boolean }}
    */
-  async installMarketSkill({ registryUrl, skill }) {
+  async installMarketSkill({ registryUrl, skill, mirrorUrl }) {
     if (!registryUrl || !skill || !skill.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -43,7 +43,9 @@ const skillsMarketMixin = {
         }
         const fileUrl = `${baseUrl}/skills/${skill.id}/${filename}`
         console.log(`[SkillsManager] Downloading: ${fileUrl}`)
-        const content = await httpGet(fileUrl)
+        const content = mirrorUrl
+          ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
+          : await httpGet(fileUrl)
 
         const filePath = path.join(skillTempDir, filename)
         // 确保子目录存在
@@ -96,7 +98,7 @@ const skillsMarketMixin = {
    * 强制覆盖安装市场 Skill
    * @param {{ registryUrl: string, skill: Object }} params
    */
-  async installMarketSkillForce({ registryUrl, skill }) {
+  async installMarketSkillForce({ registryUrl, skill, mirrorUrl }) {
     if (!skill || !skill.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -109,7 +111,7 @@ const skillsMarketMixin = {
     }
 
     // 走正常安装流程
-    return this.installMarketSkill({ registryUrl, skill })
+    return this.installMarketSkill({ registryUrl, skill, mirrorUrl })
   },
 
   /**
@@ -117,10 +119,10 @@ const skillsMarketMixin = {
    * @param {string} registryUrl - 注册表 URL
    * @returns {{ success: boolean, updates?: Array, error?: string }}
    */
-  async checkMarketUpdates(registryUrl) {
+  async checkMarketUpdates(registryUrl, mirrorUrl) {
     try {
       // 1. 获取注册表索引
-      const indexResult = await fetchRegistryIndex(registryUrl)
+      const indexResult = await fetchRegistryIndex(registryUrl, mirrorUrl)
       if (!indexResult.success) {
         return indexResult
       }
@@ -153,9 +155,9 @@ const skillsMarketMixin = {
    * 更新已安装的市场 Skill
    * @param {{ registryUrl: string, skill: Object }} params
    */
-  async updateMarketSkill({ registryUrl, skill }) {
+  async updateMarketSkill({ registryUrl, skill, mirrorUrl }) {
     // 删除旧版 → 重新安装
-    return this.installMarketSkillForce({ registryUrl, skill })
+    return this.installMarketSkillForce({ registryUrl, skill, mirrorUrl })
   },
 
   /**

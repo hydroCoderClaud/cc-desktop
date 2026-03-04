@@ -50,6 +50,7 @@ class ConfigManager {
       // 组件市场配置（Skills / Agents / Prompts）
       market: {
         registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
+        registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
       },
 
       // MCP 代理配置

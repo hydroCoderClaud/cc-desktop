@@ -112,6 +112,14 @@
         />
         <template #feedback>{{ t('globalSettings.marketUrlHint') }}</template>
       </n-form-item>
+      <n-form-item :label="t('globalSettings.marketMirrorUrl')">
+        <n-input
+          v-model:value="formData.skillsMarketMirrorUrl"
+          :placeholder="t('globalSettings.marketMirrorUrlPlaceholder')"
+          clearable
+        />
+        <template #feedback>{{ t('globalSettings.marketMirrorUrlHint') }}</template>
+      </n-form-item>
     </n-card>
 
     <!-- Footer Buttons -->
@@ -144,6 +152,7 @@ const DEFAULTS = {
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   skillsMarketUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
+  skillsMarketMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
   messageQueue: true,
   outputBaseDir: ''              // 空字符串 = 使用默认 ~/cc-desktop-agent-output
 }
@@ -155,6 +164,7 @@ const formData = ref({
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   skillsMarketUrl: DEFAULTS.skillsMarketUrl,
+  skillsMarketMirrorUrl: DEFAULTS.skillsMarketMirrorUrl,
   messageQueue: DEFAULTS.messageQueue,
   outputBaseDir: DEFAULTS.outputBaseDir
 })
@@ -189,6 +199,7 @@ const loadSettings = async () => {
     // Get skills market config
     const marketConfig = await invoke('getMarketConfig')
     formData.value.skillsMarketUrl = marketConfig?.registryUrl || DEFAULTS.skillsMarketUrl
+    formData.value.skillsMarketMirrorUrl = marketConfig?.registryMirrorUrl || DEFAULTS.skillsMarketMirrorUrl
 
     // Get message queue setting
     const config = await invoke('getConfig')
@@ -248,7 +259,10 @@ const handleSave = async () => {
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
     // Save skills market config
-    await invoke('updateMarketConfig', { registryUrl: formData.value.skillsMarketUrl || '' })
+    await invoke('updateMarketConfig', {
+      registryUrl: formData.value.skillsMarketUrl || '',
+      registryMirrorUrl: formData.value.skillsMarketMirrorUrl || ''
+    })
 
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
 
@@ -279,6 +293,7 @@ const handleReset = async () => {
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.skillsMarketUrl = DEFAULTS.skillsMarketUrl
+    formData.value.skillsMarketMirrorUrl = DEFAULTS.skillsMarketMirrorUrl
     formData.value.messageQueue = DEFAULTS.messageQueue
     formData.value.outputBaseDir = defaultOutputBaseDir.value
 
@@ -290,7 +305,10 @@ const handleReset = async () => {
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
-    await invoke('updateMarketConfig', { registryUrl: DEFAULTS.skillsMarketUrl })
+    await invoke('updateMarketConfig', {
+      registryUrl: DEFAULTS.skillsMarketUrl,
+      registryMirrorUrl: DEFAULTS.skillsMarketMirrorUrl
+    })
 
     // 重置 outputBaseDir
     const config = await invoke('getConfig')

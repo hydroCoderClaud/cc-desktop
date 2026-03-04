@@ -7,7 +7,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { httpGet, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { httpGet, httpGetWithMirror, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 const { atomicWriteJson } = require('../../utils/path-utils')
 
 const MARKET_META_DIR = '.market-meta'
@@ -18,7 +18,7 @@ const agentsMarketMixin = {
    * @param {{ registryUrl: string, agent: Object }} params
    * @returns {{ success: boolean, agentId?: string, error?: string, conflict?: boolean }}
    */
-  async installMarketAgent({ registryUrl, agent }) {
+  async installMarketAgent({ registryUrl, agent, mirrorUrl }) {
     if (!registryUrl || !agent || !agent.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -37,7 +37,9 @@ const agentsMarketMixin = {
       }
       const fileUrl = `${baseUrl}/agents/${file}`
       console.log(`[AgentsManager] Downloading: ${fileUrl}`)
-      const content = await httpGet(fileUrl)
+      const content = mirrorUrl
+        ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
+        : await httpGet(fileUrl)
 
       if (!content || content.trim().length === 0) {
         return { success: false, error: 'Agent 文件内容为空' }
@@ -72,7 +74,7 @@ const agentsMarketMixin = {
   /**
    * 强制覆盖安装市场 Agent
    */
-  async installMarketAgentForce({ registryUrl, agent }) {
+  async installMarketAgentForce({ registryUrl, agent, mirrorUrl }) {
     if (!agent || !agent.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -89,7 +91,7 @@ const agentsMarketMixin = {
       console.log(`[AgentsManager] Removed disabled agent for force install: ${agent.id}`)
     }
 
-    return this.installMarketAgent({ registryUrl, agent })
+    return this.installMarketAgent({ registryUrl, agent, mirrorUrl })
   },
 
   /**
@@ -158,8 +160,8 @@ const agentsMarketMixin = {
   /**
    * 更新已安装的市场 Agent
    */
-  async updateMarketAgent({ registryUrl, agent }) {
-    return this.installMarketAgentForce({ registryUrl, agent })
+  async updateMarketAgent({ registryUrl, agent, mirrorUrl }) {
+    return this.installMarketAgentForce({ registryUrl, agent, mirrorUrl })
   },
 
   // ========== 内部方法 ==========

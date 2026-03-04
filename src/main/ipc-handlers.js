@@ -423,7 +423,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 提示词管理
   // ========================================
   if (registerPromptHandlers) {
-    registerPromptHandlers(sessionDatabase);
+    registerPromptHandlers(sessionDatabase, configManager);
   }
 
   // ========================================

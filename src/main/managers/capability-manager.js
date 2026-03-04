@@ -9,7 +9,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const crypto = require('crypto')
-const { httpGet, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
+const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 
 class CapabilityManager {
@@ -47,16 +47,20 @@ class CapabilityManager {
   async fetchCapabilities(projectPath) {
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl
+    const mirrorUrl = config.market?.registryMirrorUrl
 
     if (!registryUrl) {
       return { success: false, error: '未配置市场源 URL' }
     }
 
-    const url = registryUrl.replace(/\/+$/, '') + '/agent-capabilities.json?t=' + Date.now()
+    const baseUrl = registryUrl.replace(/\/+$/, '')
+    const url = baseUrl + '/agent-capabilities.json?t=' + Date.now()
     console.log('[CapabilityManager] Fetching capabilities:', url)
 
     try {
-      const body = await httpGet(url)
+      const body = mirrorUrl
+        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
+        : await httpGet(url)
       const data = JSON.parse(body)
 
       if (!data.capabilities || !Array.isArray(data.capabilities)) {
@@ -149,12 +153,16 @@ class CapabilityManager {
   async checkForCapabilityUpdates() {
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl
+    const mirrorUrl = config.market?.registryMirrorUrl
     if (!registryUrl) return { hasUpdate: false }
 
-    const url = registryUrl.replace(/\/+$/, '') + '/agent-capabilities.json?t=' + Date.now()
+    const baseUrl = registryUrl.replace(/\/+$/, '')
+    const url = baseUrl + '/agent-capabilities.json?t=' + Date.now()
 
     try {
-      const body = await httpGet(url)
+      const body = mirrorUrl
+        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
+        : await httpGet(url)
       const data = JSON.parse(body)
       if (!data.capabilities || !Array.isArray(data.capabilities)) return { hasUpdate: false }
 
@@ -360,6 +368,7 @@ class CapabilityManager {
     const { envOverrides, useProxy } = options
     const config = this.configManager.getConfig()
     const registryUrl = config.market?.registryUrl?.replace(/\/+$/, '')
+    const mirrorUrl = config.market?.registryMirrorUrl
 
     if (!registryUrl) {
       return { success: false, error: '未配置市场源 URL' }
@@ -379,19 +388,19 @@ class CapabilityManager {
       let installResult
       switch (type) {
         case 'skill': {
-          const skill = await this._fetchComponentFromIndex(registryUrl, 'skills', componentId)
+          const skill = await this._fetchComponentFromIndex(registryUrl, 'skills', componentId, mirrorUrl)
           if (!skill) {
             throw new Error(`Skill "${componentId}" not found in registry index`)
           }
-          installResult = await this.skillsManager.installMarketSkillForce({ registryUrl, skill })
+          installResult = await this.skillsManager.installMarketSkillForce({ registryUrl, skill, mirrorUrl })
           break
         }
         case 'agent': {
-          const agent = await this._fetchComponentFromIndex(registryUrl, 'agents', componentId)
+          const agent = await this._fetchComponentFromIndex(registryUrl, 'agents', componentId, mirrorUrl)
           if (!agent) {
             throw new Error(`Agent "${componentId}" not found in registry index`)
           }
-          installResult = await this.agentsManager.installMarketAgentForce({ registryUrl, agent })
+          installResult = await this.agentsManager.installMarketAgentForce({ registryUrl, agent, mirrorUrl })
           break
         }
         case 'plugin': {
@@ -415,13 +424,13 @@ class CapabilityManager {
           if (!this.mcpManager) {
             throw new Error('McpManager not available')
           }
-          const mcp = await this._fetchComponentFromIndex(registryUrl, 'mcps', componentId)
+          const mcp = await this._fetchComponentFromIndex(registryUrl, 'mcps', componentId, mirrorUrl)
           if (!mcp) {
             throw new Error(`MCP "${componentId}" not found in registry index`)
           }
           if (envOverrides) mcp.envOverrides = envOverrides
           if (useProxy !== undefined) mcp.useProxy = useProxy
-          installResult = await this.mcpManager.installMarketMcpForce({ registryUrl, mcp })
+          installResult = await this.mcpManager.installMarketMcpForce({ registryUrl, mcp, mirrorUrl })
           if (installResult.success) {
             installResult = { success: true, requiresRestart: true }
           }
@@ -652,9 +661,9 @@ class CapabilityManager {
   /**
    * 从注册表 index.json 获取指定组件的完整信息
    */
-  async _fetchComponentFromIndex(registryUrl, arrayKey, componentId) {
+  async _fetchComponentFromIndex(registryUrl, arrayKey, componentId, mirrorUrl) {
     try {
-      const indexResult = await fetchRegistryIndex(registryUrl)
+      const indexResult = await fetchRegistryIndex(registryUrl, mirrorUrl)
       if (!indexResult.success || !indexResult.data) {
         return null
       }

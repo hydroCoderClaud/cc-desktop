@@ -8,7 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { httpGet, httpGetWithMirror, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 
 const mcpMarketMixin = {
   /**
@@ -16,7 +16,7 @@ const mcpMarketMixin = {
    * @param {{ registryUrl: string, mcp: Object }} params
    * @returns {{ success: boolean, mcpId?: string, error?: string }}
    */
-  async installMarketMcp({ registryUrl, mcp }) {
+  async installMarketMcp({ registryUrl, mcp, mirrorUrl }) {
     if (!registryUrl || !mcp || !mcp.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -41,7 +41,9 @@ const mcpMarketMixin = {
         // MCP 配置文件在子目录中：mcps/{id}/{filename}
         const fileUrl = `${baseUrl}/mcps/${mcp.id}/${filename}`
         console.log(`[McpManager] Downloading: ${fileUrl}`)
-        const content = await httpGet(fileUrl)
+        const content = mirrorUrl
+          ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
+          : await httpGet(fileUrl)
 
         const filePath = path.join(tempDir, filename)
         fs.writeFileSync(filePath, content, 'utf-8')
@@ -123,7 +125,7 @@ const mcpMarketMixin = {
    * 强制覆盖安装市场 MCP 配置
    * 先删除 user scope 中已存在的 MCP，然后重新安装
    */
-  async installMarketMcpForce({ registryUrl, mcp }) {
+  async installMarketMcpForce({ registryUrl, mcp, mirrorUrl }) {
     if (!registryUrl || !mcp || !mcp.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -145,7 +147,9 @@ const mcpMarketMixin = {
           return { success: false, error: `非法的文件名："${filename}"` }
         }
         const fileUrl = `${baseUrl}/mcps/${mcp.id}/${filename}`
-        const content = await httpGet(fileUrl)
+        const content = mirrorUrl
+          ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
+          : await httpGet(fileUrl)
         const filePath = path.join(tempDir, filename)
         fs.writeFileSync(filePath, content, 'utf-8')
       }
@@ -214,8 +218,8 @@ const mcpMarketMixin = {
   /**
    * 更新已安装的市场 MCP 配置（强制覆盖安装）
    */
-  async updateMarketMcp({ registryUrl, mcp }) {
-    return this.installMarketMcpForce({ registryUrl, mcp })
+  async updateMarketMcp({ registryUrl, mcp, mirrorUrl }) {
+    return this.installMarketMcpForce({ registryUrl, mcp, mirrorUrl })
   },
 
   /**
@@ -224,7 +228,7 @@ const mcpMarketMixin = {
    * @param {{ registryUrl: string, mcp: Object }} params
    * @returns {{ success: boolean, config?: Object, error?: string }}
    */
-  async previewMarketMcpConfig({ registryUrl, mcp }) {
+  async previewMarketMcpConfig({ registryUrl, mcp, mirrorUrl }) {
     if (!registryUrl || !mcp || !mcp.id) {
       return { success: false, error: '参数不完整' }
     }
@@ -245,7 +249,9 @@ const mcpMarketMixin = {
           return { success: false, error: `非法的文件名："${filename}"` }
         }
         const fileUrl = `${baseUrl}/mcps/${mcp.id}/${filename}`
-        const content = await httpGet(fileUrl)
+        const content = mirrorUrl
+          ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
+          : await httpGet(fileUrl)
         const filePath = path.join(tempDir, filename)
         fs.writeFileSync(filePath, content, 'utf-8')
       }

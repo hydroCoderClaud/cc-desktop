@@ -408,7 +408,8 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!registryUrl || typeof registryUrl !== 'string') {
         return { success: false, error: 'Invalid registry URL' }
       }
-      return await fetchRegistryIndex(registryUrl)
+      const mirrorUrl = configManager.getMarketConfig()?.registryMirrorUrl
+      return await fetchRegistryIndex(registryUrl, mirrorUrl)
     } catch (err) {
       console.error('[IPC] skills:market:fetchIndex error:', err)
       return { success: false, error: err.message }
@@ -421,6 +422,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await skillsManager.installMarketSkill(params)
     } catch (err) {
       console.error('[IPC] skills:market:install error:', err)
@@ -434,6 +436,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await skillsManager.installMarketSkillForce(params)
     } catch (err) {
       console.error('[IPC] skills:market:installForce error:', err)
@@ -447,7 +450,8 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!registryUrl || typeof registryUrl !== 'string') {
         return { success: false, error: 'Invalid registry URL' }
       }
-      return await skillsManager.checkMarketUpdates(registryUrl)
+      const mirrorUrl = configManager.getMarketConfig()?.registryMirrorUrl
+      return await skillsManager.checkMarketUpdates(registryUrl, mirrorUrl)
     } catch (err) {
       console.error('[IPC] skills:market:checkUpdates error:', err)
       return { success: false, error: err.message }
@@ -460,6 +464,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await skillsManager.updateMarketSkill(params)
     } catch (err) {
       console.error('[IPC] skills:market:update error:', err)
@@ -688,6 +693,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await agentsManager.installMarketAgent(params)
     } catch (err) {
       console.error('[IPC] agents:market:install error:', err)
@@ -701,6 +707,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await agentsManager.installMarketAgentForce(params)
     } catch (err) {
       console.error('[IPC] agents:market:installForce error:', err)
@@ -734,6 +741,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await agentsManager.updateMarketAgent(params)
     } catch (err) {
       console.error('[IPC] agents:market:update error:', err)
@@ -951,6 +959,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await mcpManager.previewMarketMcpConfig(params)
     } catch (err) {
       console.error('[IPC] mcps:market:previewConfig error:', err)
@@ -964,6 +973,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await mcpManager.installMarketMcp(params)
     } catch (err) {
       console.error('[IPC] mcps:market:install error:', err)
@@ -977,6 +987,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await mcpManager.installMarketMcpForce(params)
     } catch (err) {
       console.error('[IPC] mcps:market:installForce error:', err)
@@ -990,6 +1001,7 @@ function setupPluginHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
+      params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
       return await mcpManager.updateMarketMcp(params)
     } catch (err) {
       console.error('[IPC] mcps:market:update error:', err)
