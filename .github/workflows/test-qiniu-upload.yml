@@ -1,0 +1,76 @@
+name: Test Qiniu Upload Speed
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate test files
+        run: |
+          echo "=== Generating test files ==="
+          # 模拟 Windows exe (~140MB)
+          dd if=/dev/urandom of=test-140mb.bin bs=1M count=140
+          # 模拟 macOS dmg (~150MB)
+          dd if=/dev/urandom of=test-150mb.bin bs=1M count=150
+          # 模拟 blockmap (~150KB)
+          dd if=/dev/urandom of=test-blockmap.bin bs=1K count=150
+          # 模拟 latest.yml (~1KB)
+          echo "version: 1.6.69" > test-latest.yml
+          ls -lh test-*
+
+      - name: Install qshell
+        run: |
+          wget -q https://devtools.qiniu.com/qshell-v2.14.0-linux-amd64.tar.gz
+          tar -xzf qshell-v2.14.0-linux-amd64.tar.gz
+          chmod +x qshell
+          sudo mv qshell /usr/local/bin/
+          qshell version
+
+      - name: Configure qshell
+        run: |
+          qshell account ${{ secrets.QINIU_ACCESS_KEY }} ${{ secrets.QINIU_SECRET_KEY }} github-actions
+
+      - name: Upload test-140mb (simulate Windows exe)
+        run: |
+          echo "=== Uploading 140MB file ==="
+          START=$(date +%s%N)
+          qshell rput --overwrite cc-desktop-releases test-140mb.bin test-140mb.bin \
+            --up-host https://up-cn-east-2.qiniup.com
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000 ))
+          echo "✅ 140MB upload: ${ELAPSED}ms ($(( ELAPSED / 1000 ))s)"
+          echo "Speed: $(( 140 * 1000 / ELAPSED )) MB/s"
+
+      - name: Upload test-150mb (simulate macOS dmg)
+        run: |
+          echo "=== Uploading 150MB file ==="
+          START=$(date +%s%N)
+          qshell rput --overwrite cc-desktop-releases test-150mb.bin test-150mb.bin \
+            --up-host https://up-cn-east-2.qiniup.com
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000 ))
+          echo "✅ 150MB upload: ${ELAPSED}ms ($(( ELAPSED / 1000 ))s)"
+          echo "Speed: $(( 150 * 1000 / ELAPSED )) MB/s"
+
+      - name: Upload small files (simulate blockmap + yml)
+        run: |
+          echo "=== Uploading small files ==="
+          START=$(date +%s%N)
+          qshell rput --overwrite cc-desktop-releases test-blockmap.bin test-blockmap.bin \
+            --up-host https://up-cn-east-2.qiniup.com
+          qshell rput --overwrite cc-desktop-releases test-latest.yml test-latest.yml \
+            --up-host https://up-cn-east-2.qiniup.com
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000 ))
+          echo "✅ Small files upload: ${ELAPSED}ms"
+
+      - name: Summary
+        run: |
+          echo "========================================="
+          echo "  Qiniu Upload Speed Test Complete"
+          echo "  Bucket: cc-desktop-releases"
+          echo "  Region: cn-east-2 (华东-浙江)"
+          echo "  Runner: ubuntu-latest (GitHub Actions)"
+          echo "========================================="
