@@ -572,7 +572,10 @@ class DingTalkBridge {
     const lines = ['您有以下历史会话，请回复数字选择：\n']
     displaySessions.forEach((row, i) => {
       const timeStr = this._formatRelativeTime(row.updated_at)
-      lines.push(`${i + 1}. [${timeStr}] ${row.title}`)
+      const profileName = row.api_profile_id
+        ? (this.configManager?.getAPIProfile(row.api_profile_id)?.name || '未知配置')
+        : '默认配置'
+      lines.push(`${i + 1}. [${timeStr}] ${row.title}（${profileName}）`)
     })
     if (sessions.length > MAX_SESSIONS) {
       lines.push(`\n（仅显示最近 ${MAX_SESSIONS} 条，共 ${sessions.length} 条）`)
