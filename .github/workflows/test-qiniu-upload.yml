@@ -10,61 +10,76 @@ jobs:
       - name: Generate test files
         run: |
           echo "=== Generating test files ==="
-          # 模拟 Windows exe (~140MB)
           dd if=/dev/urandom of=test-140mb.bin bs=1M count=140
-          # 模拟 macOS dmg (~150MB)
           dd if=/dev/urandom of=test-150mb.bin bs=1M count=150
-          # 模拟 blockmap (~150KB)
           dd if=/dev/urandom of=test-blockmap.bin bs=1K count=150
-          # 模拟 latest.yml (~1KB)
           echo "version: 1.6.69" > test-latest.yml
           ls -lh test-*
 
-      - name: Install qshell
+      - name: Setup Python and qiniu SDK
         run: |
-          wget -q https://devtools.qiniu.com/qshell-v2.14.0-linux-amd64.tar.gz
-          tar -xzf qshell-v2.14.0-linux-amd64.tar.gz
-          chmod +x qshell
-          sudo mv qshell /usr/local/bin/
-          qshell version
-
-      - name: Configure qshell
-        run: |
-          qshell account ${{ secrets.QINIU_ACCESS_KEY }} ${{ secrets.QINIU_SECRET_KEY }} github-actions
+          pip install qiniu
 
       - name: Upload test-140mb (simulate Windows exe)
+        env:
+          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
         run: |
           echo "=== Uploading 140MB file ==="
-          START=$(date +%s%N)
-          qshell rput --overwrite cc-desktop-releases test-140mb.bin test-140mb.bin \
-            --up-host https://up-cn-east-2.qiniup.com
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000 ))
-          echo "✅ 140MB upload: ${ELAPSED}ms ($(( ELAPSED / 1000 ))s)"
-          echo "Speed: $(( 140 * 1000 / ELAPSED )) MB/s"
+          python3 -c "
+          import qiniu, time, os
+          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
+          auth = qiniu.Auth(ak, sk)
+          token = auth.upload_token('cc-desktop-releases', 'test-140mb.bin', 3600)
+          start = time.time()
+          ret, info = qiniu.put_file(token, 'test-140mb.bin', 'test-140mb.bin')
+          elapsed = time.time() - start
+          size_mb = 140
+          print(f'Status: {info.status_code}')
+          print(f'Time: {elapsed:.1f}s')
+          print(f'Speed: {size_mb/elapsed:.1f} MB/s')
+          assert info.status_code == 200, f'Upload failed: {info}'
+          "
 
       - name: Upload test-150mb (simulate macOS dmg)
+        env:
+          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
         run: |
           echo "=== Uploading 150MB file ==="
-          START=$(date +%s%N)
-          qshell rput --overwrite cc-desktop-releases test-150mb.bin test-150mb.bin \
-            --up-host https://up-cn-east-2.qiniup.com
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000 ))
-          echo "✅ 150MB upload: ${ELAPSED}ms ($(( ELAPSED / 1000 ))s)"
-          echo "Speed: $(( 150 * 1000 / ELAPSED )) MB/s"
+          python3 -c "
+          import qiniu, time, os
+          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
+          auth = qiniu.Auth(ak, sk)
+          token = auth.upload_token('cc-desktop-releases', 'test-150mb.bin', 3600)
+          start = time.time()
+          ret, info = qiniu.put_file(token, 'test-150mb.bin', 'test-150mb.bin')
+          elapsed = time.time() - start
+          size_mb = 150
+          print(f'Status: {info.status_code}')
+          print(f'Time: {elapsed:.1f}s')
+          print(f'Speed: {size_mb/elapsed:.1f} MB/s')
+          assert info.status_code == 200, f'Upload failed: {info}'
+          "
 
       - name: Upload small files (simulate blockmap + yml)
+        env:
+          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
         run: |
           echo "=== Uploading small files ==="
-          START=$(date +%s%N)
-          qshell rput --overwrite cc-desktop-releases test-blockmap.bin test-blockmap.bin \
-            --up-host https://up-cn-east-2.qiniup.com
-          qshell rput --overwrite cc-desktop-releases test-latest.yml test-latest.yml \
-            --up-host https://up-cn-east-2.qiniup.com
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000 ))
-          echo "✅ Small files upload: ${ELAPSED}ms"
+          python3 -c "
+          import qiniu, time, os
+          ak, sk = os.environ['QINIU_AK'], os.environ['QINIU_SK']
+          auth = qiniu.Auth(ak, sk)
+          for fname, label in [('test-blockmap.bin','blockmap'), ('test-latest.yml','latest.yml')]:
+              token = auth.upload_token('cc-desktop-releases', fname, 3600)
+              start = time.time()
+              ret, info = qiniu.put_file(token, fname, fname)
+              elapsed = time.time() - start
+              size = os.path.getsize(fname) / 1024
+              print(f'{label}: {info.status_code}, {elapsed:.2f}s, {size:.0f}KB')
+          "
 
       - name: Summary
         run: |
