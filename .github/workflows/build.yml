@@ -18,6 +18,7 @@ on:
 
 env:
   CI: true
+  R2_BUCKET: cc-desktop-releases
 
 jobs:
   test:
@@ -295,6 +296,9 @@ jobs:
             - **Apple Silicon**: `*-darwin-arm64.dmg`
             - **Intel**: `*-darwin-x64.dmg`
 
+            ### 🇨🇳 国内下载（China Mirror）
+            - [ccd.myseek.fun](https://ccd.myseek.fun/)
+
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
             - 多会话管理
@@ -307,6 +311,31 @@ jobs:
             - Claude Code CLI（安装脚本会自动检查和安装）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to R2 (China mirror)
+        run: |
+          echo "=== Uploading to Cloudflare R2 ==="
+          VERSION="${{ steps.version.outputs.tag }}"
+
+          # 清空旧文件（只保留最新版本）
+          echo "Cleaning old files..."
+          aws s3 rm "s3://${{ env.R2_BUCKET }}/" --recursive \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}" || true
+
+          # 上传所有构建产物到 R2（flat 目录，electron-updater 需要）
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
+            [ -f "$f" ] || continue
+            BASENAME=$(basename "$f")
+            echo "Uploading: $BASENAME"
+            aws s3 cp "$f" "s3://${{ env.R2_BUCKET }}/$BASENAME" \
+              --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+          done
+
+          echo "=== R2 upload complete ==="
+          aws s3 ls "s3://${{ env.R2_BUCKET }}/" --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Clean up old releases (keep latest 10)
         run: |
