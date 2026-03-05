@@ -1,0 +1,60 @@
+name: Test R2 Upload Speed
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      BUCKET: cc-desktop-releases
+    steps:
+      - name: Generate test files
+        run: |
+          dd if=/dev/urandom of=test-140mb.bin bs=1M count=140
+          dd if=/dev/urandom of=test-150mb.bin bs=1M count=150
+          dd if=/dev/urandom of=test-blockmap.bin bs=1K count=150
+          echo "version: 1.6.69" > test-latest.yml
+          ls -lh test-*
+
+      - name: Install AWS CLI
+        run: |
+          aws --version
+
+      - name: Upload test-140mb (Windows exe)
+        run: |
+          echo "=== Uploading 140MB ==="
+          START=$SECONDS
+          aws s3 cp test-140mb.bin s3://$BUCKET/test-140mb.bin \
+            --endpoint-url $R2_ENDPOINT
+          echo "Wall time: $(( SECONDS - START ))s"
+
+      - name: Upload test-150mb (macOS dmg)
+        run: |
+          echo "=== Uploading 150MB ==="
+          START=$SECONDS
+          aws s3 cp test-150mb.bin s3://$BUCKET/test-150mb.bin \
+            --endpoint-url $R2_ENDPOINT
+          echo "Wall time: $(( SECONDS - START ))s"
+
+      - name: Upload small files (blockmap + yml)
+        run: |
+          echo "=== Uploading small files ==="
+          START=$SECONDS
+          aws s3 cp test-blockmap.bin s3://$BUCKET/test-blockmap.bin \
+            --endpoint-url $R2_ENDPOINT
+          aws s3 cp test-latest.yml s3://$BUCKET/test-latest.yml \
+            --endpoint-url $R2_ENDPOINT
+          echo "Wall time: $(( SECONDS - START ))s"
+
+      - name: Summary
+        run: |
+          echo "========================================="
+          echo "  R2 Upload Speed Test Complete"
+          echo "  Bucket: $BUCKET"
+          echo "  Endpoint: $R2_ENDPOINT"
+          echo "========================================="
+          aws s3 ls s3://$BUCKET/ --endpoint-url $R2_ENDPOINT
