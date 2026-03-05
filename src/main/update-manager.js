@@ -23,6 +23,7 @@ class UpdateManager {
     this.isDownloading = false       // 是否正在下载（防重入）
     this._isChecking = false         // 是否正在检查（防重入）
     this._usingMirror = false        // 当前是否使用镜像源
+    this._isFallingBack = false       // 是否正在 fallback（抑制 error 事件通知 UI）
     this.setupAutoUpdater()
     this.setupEventListeners()
   }
@@ -124,9 +125,12 @@ class UpdateManager {
     autoUpdater.on('error', (error) => {
       log.error('[UpdateManager] Error:', error)
       this.isDownloading = false
-      this.sendToRenderer('update-error', {
-        message: error.message || String(error)
-      })
+      // fallback 期间不通知 UI，避免闪现错误后又显示更新可用
+      if (!this._isFallingBack) {
+        this.sendToRenderer('update-error', {
+          message: error.message || String(error)
+        })
+      }
     })
   }
 
@@ -253,6 +257,7 @@ class UpdateManager {
     } catch (error) {
       log.warn('[UpdateManager] Primary check failed:', error.message, '- trying mirror')
       try {
+        this._isFallingBack = true
         this._switchToMirror()
         return await autoUpdater.checkForUpdates()
       } catch (mirrorError) {
@@ -264,6 +269,8 @@ class UpdateManager {
           })
         }
         throw mirrorError
+      } finally {
+        this._isFallingBack = false
       }
     } finally {
       this._isChecking = false
@@ -288,6 +295,7 @@ class UpdateManager {
       if (!this._usingMirror) {
         log.warn('[UpdateManager] Primary download failed:', error.message, '- trying mirror')
         try {
+          this._isFallingBack = true
           this._switchToMirror()
           // 切换源后需要重新 checkForUpdates 让 electron-updater 感知新源
           await autoUpdater.checkForUpdates()
@@ -300,6 +308,8 @@ class UpdateManager {
             message: mirrorError.message || String(mirrorError)
           })
           throw mirrorError
+        } finally {
+          this._isFallingBack = false
         }
       }
       this.isDownloading = false

@@ -135,22 +135,33 @@ class ConfigManager {
 
         // 深度合并配置（处理新增的配置项和嵌套对象）
         const mergedConfig = this.deepMerge(this.defaultConfig, config);
-        
+        let needsSave = false;
+
         // 迁移旧的单 API 配置到 apiProfiles
         let migratedConfig = this.migrateToProfiles(mergedConfig);
-        
+
         // 迁移 Profile 结构（category/model → serviceProvider/selectedModelTier）
         migratedConfig = this.migrateProfileStructure(migratedConfig);
 
         // 迁移 skillsMarket → market
-        if (migratedConfig.skillsMarket && !migratedConfig.market) {
-          migratedConfig.market = migratedConfig.skillsMarket;
+        if (migratedConfig.skillsMarket) {
+          if (!migratedConfig.market) {
+            migratedConfig.market = migratedConfig.skillsMarket;
+            console.log('[ConfigManager] Migrated skillsMarket → market');
+          }
           delete migratedConfig.skillsMarket;
-          console.log('[ConfigManager] Migrated skillsMarket → market');
+          needsSave = true;
         }
-        
+
+        // 清理旧的 updateUrl 字段（已被 updateGithub 替代）
+        if (migratedConfig.updateUrl !== undefined) {
+          delete migratedConfig.updateUrl;
+          console.log('[ConfigManager] Cleaned up legacy updateUrl field');
+          needsSave = true;
+        }
+
         // 如果发生了迁移，保存新配置
-        if (migratedConfig !== mergedConfig) {
+        if (needsSave || migratedConfig !== mergedConfig) {
           this.save(migratedConfig);
         }
         
