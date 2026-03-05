@@ -232,12 +232,13 @@ jobs:
         id: version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-            echo "Using manual version: ${{ github.event.inputs.version }}"
+            TAG="${{ github.event.inputs.version }}"
           else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "Using tag from push: ${GITHUB_REF#refs/tags/}"
+            TAG="${GITHUB_REF#refs/tags/}"
           fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "number=${TAG#v}" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG, version number: ${TAG#v}"
 
       - name: Create tag (if manual trigger)
         if: ${{ github.event.inputs.version != '' }}
@@ -297,7 +298,9 @@ jobs:
             - **Intel**: `*-darwin-x64.dmg`
 
             ### 🇨🇳 国内下载（China Mirror）
-            - [ccd.myseek.fun](https://ccd.myseek.fun/)
+            - **Windows**: [CC-Desktop-${{ steps.version.outputs.number }}-win32-x64.exe](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-win32-x64.exe)
+            - **macOS (Apple Silicon)**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg)
+            - **macOS (Intel)**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg)
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
@@ -334,6 +337,55 @@ jobs:
             aws s3 cp "$f" "s3://${{ env.R2_BUCKET }}/$BASENAME" \
               --endpoint-url "${{ secrets.R2_ENDPOINT }}"
           done
+
+          # 生成下载引导页
+          VER="${{ steps.version.outputs.number }}"
+          cat > /tmp/index.html << HTMLEOF
+          <!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>CC Desktop 国内镜像下载</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f7f7f5; color: #1a1a1a; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+              .container { max-width: 600px; width: 90%; padding: 48px 40px; background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+              h1 { font-size: 24px; margin-bottom: 8px; }
+              .version { color: #666; font-size: 14px; margin-bottom: 32px; }
+              .section { margin-bottom: 24px; }
+              .section h2 { font-size: 16px; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+              a.dl { display: block; padding: 12px 16px; margin-bottom: 8px; background: #f5f5f0; border-radius: 8px; color: #1a1a1a; text-decoration: none; transition: background 0.2s; }
+              a.dl:hover { background: #e8e8e0; }
+              a.dl .name { font-weight: 600; }
+              a.dl .hint { font-size: 13px; color: #888; }
+              .footer { margin-top: 32px; font-size: 13px; color: #999; text-align: center; }
+              .footer a { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>CC Desktop</h1>
+              <div class="version">v${VER} · 国内镜像</div>
+              <div class="section">
+                <h2>Windows</h2>
+                <a class="dl" href="CC-Desktop-${VER}-win32-x64.exe"><span class="name">CC-Desktop-${VER}-win32-x64.exe</span><br><span class="hint">安装包</span></a>
+              </div>
+              <div class="section">
+                <h2>macOS</h2>
+                <a class="dl" href="CC-Desktop-${VER}-darwin-arm64.dmg"><span class="name">CC-Desktop-${VER}-darwin-arm64.dmg</span><br><span class="hint">Apple Silicon (M1/M2/M3/M4)</span></a>
+                <a class="dl" href="CC-Desktop-${VER}-darwin-x64.dmg"><span class="name">CC-Desktop-${VER}-darwin-x64.dmg</span><br><span class="hint">Intel</span></a>
+              </div>
+              <div class="footer">
+                <a href="https://github.com/hydroCoderClaud/cc-desktop" target="_blank">GitHub</a>
+              </div>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
+          aws s3 cp /tmp/index.html "s3://${{ env.R2_BUCKET }}/index.html" \
+            --content-type "text/html; charset=utf-8" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
           echo "=== R2 upload complete ==="
           aws s3 ls "s3://${{ env.R2_BUCKET }}/" --endpoint-url "${{ secrets.R2_ENDPOINT }}"
