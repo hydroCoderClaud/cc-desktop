@@ -53,8 +53,8 @@ class ConfigManager {
         registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
       },
 
-      // 自动更新源（留空则使用 GitHub Releases）
-      updateUrl: '',
+      // 自动更新源
+      updateUrl: 'https://github.com/hydroCoderClaud/cc-desktop/releases/latest/download',
       // 自动更新镜像（国内 fallback）
       updateMirrorUrl: 'https://ccd.myseek.fun',
 

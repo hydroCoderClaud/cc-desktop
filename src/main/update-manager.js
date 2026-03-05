@@ -1,6 +1,6 @@
 /**
  * 应用自动更新管理器
- * 基于 electron-updater，支持从 GitHub Releases 自动检查和下载更新
+ * 基于 electron-updater，支持主源 + 镜像双源 fallback
  */
 
 const { app, BrowserWindow } = require('electron')
@@ -9,9 +9,6 @@ const log = require('electron-log')
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
-
-// 默认国内镜像地址（Cloudflare R2 + 自定义域名）
-const DEFAULT_MIRROR_URL = 'https://ccd.myseek.fun'
 
 class UpdateManager {
   constructor(mainWindow, configManager) {
@@ -24,6 +21,7 @@ class UpdateManager {
     this.downloadedVersion = null    // 已下载的版本号
     this.downloadedFilePath = null   // 已下载的文件路径（来自 update-downloaded 事件）
     this.isDownloading = false       // 是否正在下载（防重入）
+    this._isChecking = false         // 是否正在检查（防重入）
     this._usingMirror = false        // 当前是否使用镜像源
     this.setupAutoUpdater()
     this.setupEventListeners()
@@ -37,13 +35,12 @@ class UpdateManager {
     autoUpdater.logger.transports.file.level = 'info'
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+    autoUpdater.disableWebInstaller = true
 
-    // 如果配置了自定义主更新地址，覆盖 package.json 的 GitHub 配置
-    const customUrl = this.configManager?.getConfig()?.updateUrl
-    if (customUrl) {
-      log.info('[UpdateManager] Using custom update URL:', customUrl)
-      autoUpdater.setFeedURL({ provider: 'generic', url: customUrl })
-    }
+    // 始终从配置读取主更新地址
+    const updateUrl = this.configManager?.getConfig()?.updateUrl
+    log.info('[UpdateManager] Primary update URL:', updateUrl)
+    autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl })
 
     log.info('[UpdateManager] Initialized')
   }
@@ -194,37 +191,39 @@ class UpdateManager {
    */
   _switchToMirror() {
     if (this._usingMirror) return
-    const mirrorUrl = this.configManager?.getConfig()?.updateMirrorUrl || DEFAULT_MIRROR_URL
-    log.info('[UpdateManager] Switching to China mirror:', mirrorUrl)
+    const mirrorUrl = this.configManager?.getConfig()?.updateMirrorUrl
+    if (!mirrorUrl) {
+      log.warn('[UpdateManager] No mirror URL configured, skip fallback')
+      return
+    }
+    log.info('[UpdateManager] Switching to mirror:', mirrorUrl)
     autoUpdater.setFeedURL({ provider: 'generic', url: mirrorUrl })
     this._usingMirror = true
   }
 
   /**
-   * 重置回主源（自定义 URL 或 GitHub）
+   * 重置回主源
    */
-  _resetToGitHub() {
+  _resetToPrimary() {
     if (!this._usingMirror) return
-    const customUrl = this.configManager?.getConfig()?.updateUrl
-    if (customUrl) {
-      log.info('[UpdateManager] Resetting to custom primary source:', customUrl)
-      autoUpdater.setFeedURL({ provider: 'generic', url: customUrl })
-    } else {
-      log.info('[UpdateManager] Resetting to GitHub source')
-      autoUpdater.setFeedURL({
-        provider: 'github',
-        owner: 'hydroCoderClaud',
-        repo: 'cc-desktop'
-      })
-    }
+    const updateUrl = this.configManager?.getConfig()?.updateUrl
+    log.info('[UpdateManager] Resetting to primary source:', updateUrl)
+    autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl })
     this._usingMirror = false
   }
 
   /**
-   * 检查更新（GitHub → 镜像 fallback）
+   * 检查更新（主源 → 镜像 fallback）
    * @param {boolean} silent - 静默检查（启动时后台检查）
    */
   async checkForUpdates(silent = false) {
+    // 防重入：避免并发检查导致源被切换
+    if (this._isChecking) {
+      log.warn('[UpdateManager] Check already in progress, ignoring duplicate call')
+      return
+    }
+    this._isChecking = true
+
     // 手动检查时取消待执行的自动检查，避免重复触发
     if (!silent && this.updateCheckTimer) {
       clearTimeout(this.updateCheckTimer)
@@ -232,20 +231,20 @@ class UpdateManager {
       log.info('[UpdateManager] Cancelled pending auto-check (manual check triggered)')
     }
 
-    // 每次检查先重置回 GitHub，确保优先使用主源
-    this._resetToGitHub()
+    // 每次检查先重置回主源
+    this._resetToPrimary()
 
     try {
-      log.info('[UpdateManager] Check for updates (GitHub), silent:', silent)
+      log.info('[UpdateManager] Check for updates (primary), silent:', silent)
       return await autoUpdater.checkForUpdates()
     } catch (error) {
-      log.warn('[UpdateManager] GitHub check failed:', error.message, '- trying China mirror')
+      log.warn('[UpdateManager] Primary check failed:', error.message, '- trying mirror')
       try {
         this._switchToMirror()
         return await autoUpdater.checkForUpdates()
       } catch (mirrorError) {
         log.error('[UpdateManager] Mirror check also failed:', mirrorError.message)
-        this._resetToGitHub()
+        this._resetToPrimary()
         if (!silent) {
           this.sendToRenderer('update-error', {
             message: mirrorError.message || String(mirrorError)
@@ -253,6 +252,8 @@ class UpdateManager {
         }
         throw mirrorError
       }
+    } finally {
+      this._isChecking = false
     }
   }
 
@@ -266,13 +267,13 @@ class UpdateManager {
     }
     this.isDownloading = true
     try {
-      const source = this._usingMirror ? 'China mirror' : 'GitHub'
+      const source = this._usingMirror ? 'mirror' : 'primary'
       log.info(`[UpdateManager] Start downloading update from ${source}...`)
       return await autoUpdater.downloadUpdate()
     } catch (error) {
-      // 如果 GitHub 下载失败，尝试镜像
+      // 如果主源下载失败，尝试镜像
       if (!this._usingMirror) {
-        log.warn('[UpdateManager] GitHub download failed:', error.message, '- trying China mirror')
+        log.warn('[UpdateManager] Primary download failed:', error.message, '- trying mirror')
         try {
           this._switchToMirror()
           // 切换源后需要重新 checkForUpdates 让 electron-updater 感知新源
@@ -281,7 +282,7 @@ class UpdateManager {
         } catch (mirrorError) {
           this.isDownloading = false
           log.error('[UpdateManager] Mirror download also failed:', mirrorError.message)
-          this._resetToGitHub()
+          this._resetToPrimary()
           this.sendToRenderer('update-error', {
             message: mirrorError.message || String(mirrorError)
           })

@@ -317,10 +317,14 @@ jobs:
           echo "=== Uploading to Cloudflare R2 ==="
           VERSION="${{ steps.version.outputs.tag }}"
 
-          # 清空旧文件（只保留最新版本）
-          echo "Cleaning old files..."
-          aws s3 rm "s3://${{ env.R2_BUCKET }}/" --recursive \
-            --endpoint-url "${{ secrets.R2_ENDPOINT }}" || true
+          # 清理旧的大文件（exe/dmg/zip/tar.gz），保留 blockmap（差分更新需要上一版本的 blockmap）
+          echo "Cleaning old large files (keeping blockmaps)..."
+          aws s3 ls "s3://${{ env.R2_BUCKET }}/" --endpoint-url "${{ secrets.R2_ENDPOINT }}" | \
+            awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
+              [ -z "$f" ] && continue
+              echo "Deleting: $f"
+              aws s3 rm "s3://${{ env.R2_BUCKET }}/$f" --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+            done || true
 
           # 上传所有构建产物到 R2（flat 目录，electron-updater 需要）
           for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do

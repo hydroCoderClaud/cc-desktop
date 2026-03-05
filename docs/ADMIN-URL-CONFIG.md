@@ -34,7 +34,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `updateUrl` |
-| **默认值** | `""` （空字符串 = 使用 GitHub Releases） |
+| **默认值** | `https://github.com/hydroCoderClaud/cc-desktop/releases/latest/download` |
 | **用途** | electron-updater 检查和下载新版本的地址 |
 | **协议** | `provider: "generic"` 模式，需要 `latest.yml` / `latest-mac.yml` 和安装包文件 |
 
@@ -44,7 +44,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 |------|------|
 | **配置路径** | `updateMirrorUrl` |
 | **默认值** | `https://ccd.myseek.fun` |
-| **用途** | GitHub 不可达时自动 fallback 检查和下载更新 |
+| **用途** | 主源不可达时自动 fallback 检查和下载更新 |
 | **协议** | 同上，flat 目录结构（所有文件放根目录） |
 
 ## 配置文件示例
@@ -55,7 +55,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
     "registryUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main",
     "registryMirrorUrl": "https://gitee.com/reistlin/hydroskills/raw/main"
   },
-  "updateUrl": "",
+  "updateUrl": "https://github.com/hydroCoderClaud/cc-desktop/releases/latest/download",
   "updateMirrorUrl": "https://ccd.myseek.fun"
 }
 ```
