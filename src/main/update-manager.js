@@ -37,10 +37,8 @@ class UpdateManager {
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.disableWebInstaller = true
 
-    // 始终从配置读取主更新地址
-    const updateUrl = this.configManager?.getConfig()?.updateUrl
-    log.info('[UpdateManager] Primary update URL:', updateUrl)
-    autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl })
+    // 主源使用 GitHub provider（支持差分更新的 Range 请求）
+    this._applyPrimaryFeed()
 
     log.info('[UpdateManager] Initialized')
   }
@@ -187,7 +185,24 @@ class UpdateManager {
   }
 
   /**
-   * 切换到镜像源
+   * 应用主源 feed（GitHub provider，支持 Range 请求 → 差分更新）
+   */
+  _applyPrimaryFeed() {
+    const github = this.configManager?.getConfig()?.updateGithub
+    if (!github?.owner || !github?.repo) {
+      log.warn('[UpdateManager] GitHub config missing, cannot set primary feed')
+      return
+    }
+    log.info('[UpdateManager] Primary feed: github', `${github.owner}/${github.repo}`)
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: github.owner,
+      repo: github.repo
+    })
+  }
+
+  /**
+   * 切换到镜像源（generic provider）
    */
   _switchToMirror() {
     if (this._usingMirror) return
@@ -206,9 +221,7 @@ class UpdateManager {
    */
   _resetToPrimary() {
     if (!this._usingMirror) return
-    const updateUrl = this.configManager?.getConfig()?.updateUrl
-    log.info('[UpdateManager] Resetting to primary source:', updateUrl)
-    autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl })
+    this._applyPrimaryFeed()
     this._usingMirror = false
   }
 

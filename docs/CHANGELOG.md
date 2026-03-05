@@ -2,6 +2,15 @@
 
 ---
 
+## v1.6.74 - 2026-03-05
+
+### 修复 (Fix)
+
+- **恢复 GitHub 差分更新**：主源从 `provider: "generic"` 改回 `provider: "github"`，修复 GitHub CDN 不支持 Range 请求导致差分下载失效的问题
+- **配置结构调整**：`updateUrl` 替换为 `updateGithub.owner/repo`，主源走 GitHub API，镜像保持 generic
+
+---
+
 ## v1.6.73 - 2026-03-05
 
 ### 优化 (Enhancement)

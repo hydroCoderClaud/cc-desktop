@@ -29,14 +29,14 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | **用途** | 组件市场主地址不可达时自动 fallback（8 秒超时后切换） |
 | **协议** | 同上，目录结构须与主仓库保持一致 |
 
-### 3. 自动更新 — 主地址
+### 3. 自动更新 — 主源（GitHub）
 
 | 项目 | 说明 |
 |------|------|
-| **配置路径** | `updateUrl` |
-| **默认值** | `https://github.com/hydroCoderClaud/cc-desktop/releases/latest/download` |
-| **用途** | electron-updater 检查和下载新版本的地址 |
-| **协议** | `provider: "generic"` 模式，需要 `latest.yml` / `latest-mac.yml` 和安装包文件 |
+| **配置路径** | `updateGithub.owner` / `updateGithub.repo` |
+| **默认值** | `hydroCoderClaud` / `cc-desktop` |
+| **用途** | electron-updater 通过 GitHub API 检查和下载新版本 |
+| **协议** | `provider: "github"` 模式，使用 GitHub Releases API，支持差分更新（Range 请求） |
 
 ### 4. 自动更新 — 镜像地址
 
@@ -44,8 +44,8 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 |------|------|
 | **配置路径** | `updateMirrorUrl` |
 | **默认值** | `https://ccd.myseek.fun` |
-| **用途** | 主源不可达时自动 fallback 检查和下载更新 |
-| **协议** | 同上，flat 目录结构（所有文件放根目录） |
+| **用途** | GitHub 不可达时自动 fallback 检查和下载更新 |
+| **协议** | `provider: "generic"` 模式，flat 目录结构（所有文件放根目录），需要 `latest.yml` / `latest-mac.yml` 和安装包文件 |
 
 ## 配置文件示例
 
@@ -55,7 +55,10 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
     "registryUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main",
     "registryMirrorUrl": "https://gitee.com/reistlin/hydroskills/raw/main"
   },
-  "updateUrl": "https://github.com/hydroCoderClaud/cc-desktop/releases/latest/download",
+  "updateGithub": {
+    "owner": "hydroCoderClaud",
+    "repo": "cc-desktop"
+  },
   "updateMirrorUrl": "https://ccd.myseek.fun"
 }
 ```
@@ -79,11 +82,11 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 ### 自动更新
 
 ```
-检查 GitHub / updateUrl
-  ├─ 成功 → 从该源下载
-  │          ├─ 下载成功 → 完成
-  │          └─ 下载失败 → 切换到 updateMirrorUrl → 重新检查 → 下载
-  └─ 失败 → 切换到 updateMirrorUrl → 检查
+检查 GitHub（provider: "github"，支持差分更新）
+  ├─ 成功 → 从 GitHub 下载
+  │          ├─ 下载成功 → 完成（支持差分更新）
+  │          └─ 下载失败 → 切换到镜像 → 重新检查 → 下载
+  └─ 失败 → 切换到镜像（provider: "generic"）→ 检查
               ├─ 成功 → 从镜像下载
               └─ 失败 → 报错
 ```
@@ -104,25 +107,24 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 2. 修改 `config.json` 中的 `updateMirrorUrl`
 3. 重启应用生效
 
-### 场景 3：完全自建主源
+### 场景 3：更换 GitHub 仓库
 
-1. 自建静态文件服务器或 CDN
-2. 修改 `updateUrl` 为自建地址
-3. 修改 `market.registryUrl` 为自建仓库地址
-4. 重启应用生效
+1. 修改 `config.json` 中的 `updateGithub.owner` 和 `updateGithub.repo`
+2. 确保新仓库的 Releases 包含构建产物
+3. 重启应用生效
 
 ## 当前基础设施
 
 | 服务 | 用途 | 备注 |
 |------|------|------|
-| **GitHub Releases** | 自动更新主源 | 海外用户直连，国内可能较慢 |
+| **GitHub Releases** | 自动更新主源 | `provider: "github"`，支持差分更新 |
 | **Cloudflare R2** + `ccd.myseek.fun` | 自动更新镜像 + 安装包下载 | 国内加速，GitHub Actions 构建后自动同步 |
 | **GitHub Raw** | 组件市场主源 | 海外用户直连 |
 | **Gitee Raw** | 组件市场镜像 | 国内加速，需手动或 CI 同步 |
 
 ## 注意事项
 
-- **不要在 UI 中暴露这 4 个地址**：普通用户修改后可能导致更新失效或组件市场不可用
+- **不要在 UI 中暴露这些地址**：普通用户修改后可能导致更新失效或组件市场不可用
 - **修改后需重启应用**：配置在启动时读取，运行中修改不会立即生效
 - **镜像目录结构必须一致**：文件名、路径须与主源完全相同，否则 fallback 后仍会失败
-- **R2 上传在 CI 中自动完成**：`.github/workflows/build.yml` 的 `Upload to R2` 步骤在每次发布时清空旧文件并上传新版本
+- **R2 上传在 CI 中自动完成**：`.github/workflows/build.yml` 的 `Upload to R2` 步骤在每次发布时自动上传新版本
