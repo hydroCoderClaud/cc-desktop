@@ -10,6 +10,9 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 
+// 国内镜像地址（Cloudflare R2 + 自定义域名）
+const CHINA_MIRROR_URL = 'https://ccd.myseek.fun'
+
 class UpdateManager {
   constructor(mainWindow) {
     this.mainWindow = mainWindow
@@ -20,6 +23,7 @@ class UpdateManager {
     this.downloadedVersion = null    // 已下载的版本号
     this.downloadedFilePath = null   // 已下载的文件路径（来自 update-downloaded 事件）
     this.isDownloading = false       // 是否正在下载（防重入）
+    this._usingMirror = false        // 当前是否使用镜像源
     this.setupAutoUpdater()
     this.setupEventListeners()
   }
@@ -177,7 +181,31 @@ class UpdateManager {
   }
 
   /**
-   * 检查更新
+   * 切换到镜像源
+   */
+  _switchToMirror() {
+    if (this._usingMirror) return
+    log.info('[UpdateManager] Switching to China mirror:', CHINA_MIRROR_URL)
+    autoUpdater.setFeedURL({ provider: 'generic', url: CHINA_MIRROR_URL })
+    this._usingMirror = true
+  }
+
+  /**
+   * 重置回 GitHub 源
+   */
+  _resetToGitHub() {
+    if (!this._usingMirror) return
+    log.info('[UpdateManager] Resetting to GitHub source')
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'hydroCoderClaud',
+      repo: 'cc-desktop'
+    })
+    this._usingMirror = false
+  }
+
+  /**
+   * 检查更新（GitHub → 镜像 fallback）
    * @param {boolean} silent - 静默检查（启动时后台检查）
    */
   async checkForUpdates(silent = false) {
@@ -188,20 +216,32 @@ class UpdateManager {
       log.info('[UpdateManager] Cancelled pending auto-check (manual check triggered)')
     }
 
+    // 每次检查先重置回 GitHub，确保优先使用主源
+    this._resetToGitHub()
+
     try {
-      log.info('[UpdateManager] Check for updates, silent:', silent)
+      log.info('[UpdateManager] Check for updates (GitHub), silent:', silent)
       return await autoUpdater.checkForUpdates()
     } catch (error) {
-      log.error('[UpdateManager] Check for updates failed:', error)
-      this.sendToRenderer('update-error', {
-        message: error.message || String(error)
-      })
-      throw error
+      log.warn('[UpdateManager] GitHub check failed:', error.message, '- trying China mirror')
+      try {
+        this._switchToMirror()
+        return await autoUpdater.checkForUpdates()
+      } catch (mirrorError) {
+        log.error('[UpdateManager] Mirror check also failed:', mirrorError.message)
+        this._resetToGitHub()
+        if (!silent) {
+          this.sendToRenderer('update-error', {
+            message: mirrorError.message || String(mirrorError)
+          })
+        }
+        throw mirrorError
+      }
     }
   }
 
   /**
-   * 开始下载更新（带防重入保护）
+   * 开始下载更新（带防重入保护 + 镜像 fallback）
    */
   async downloadUpdate() {
     if (this.isDownloading) {
@@ -210,9 +250,28 @@ class UpdateManager {
     }
     this.isDownloading = true
     try {
-      log.info('[UpdateManager] Start downloading update...')
+      const source = this._usingMirror ? 'China mirror' : 'GitHub'
+      log.info(`[UpdateManager] Start downloading update from ${source}...`)
       return await autoUpdater.downloadUpdate()
     } catch (error) {
+      // 如果 GitHub 下载失败，尝试镜像
+      if (!this._usingMirror) {
+        log.warn('[UpdateManager] GitHub download failed:', error.message, '- trying China mirror')
+        try {
+          this._switchToMirror()
+          // 切换源后需要重新 checkForUpdates 让 electron-updater 感知新源
+          await autoUpdater.checkForUpdates()
+          return await autoUpdater.downloadUpdate()
+        } catch (mirrorError) {
+          this.isDownloading = false
+          log.error('[UpdateManager] Mirror download also failed:', mirrorError.message)
+          this._resetToGitHub()
+          this.sendToRenderer('update-error', {
+            message: mirrorError.message || String(mirrorError)
+          })
+          throw mirrorError
+        }
+      }
       this.isDownloading = false
       log.error('[UpdateManager] Download update failed:', error)
       this.sendToRenderer('update-error', {
