@@ -186,6 +186,7 @@ const setupEventListeners = () => {
 
   if (window.electronAPI?.onUpdateDownloadProgress) {
     const cleanup = window.electronAPI.onUpdateDownloadProgress((progress) => {
+      console.log('[UpdateManager UI] progress event:', progress.percent, progress.bytesPerSecond)
       downloadProgress.value = Math.round(progress.percent || 0)
       downloadSpeed.value = progress.bytesPerSecond || 0
     })
