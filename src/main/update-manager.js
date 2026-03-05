@@ -10,12 +10,13 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 
-// 国内镜像地址（Cloudflare R2 + 自定义域名）
-const CHINA_MIRROR_URL = 'https://ccd.myseek.fun'
+// 默认国内镜像地址（Cloudflare R2 + 自定义域名）
+const DEFAULT_MIRROR_URL = 'https://ccd.myseek.fun'
 
 class UpdateManager {
-  constructor(mainWindow) {
+  constructor(mainWindow, configManager) {
     this.mainWindow = mainWindow
+    this.configManager = configManager
     this.updateCheckTimer = null
     this.hasUpdateAvailable = false  // 是否有可用更新
     this.latestUpdateInfo = null     // 最新更新信息
@@ -36,6 +37,14 @@ class UpdateManager {
     autoUpdater.logger.transports.file.level = 'info'
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+
+    // 如果配置了自定义主更新地址，覆盖 package.json 的 GitHub 配置
+    const customUrl = this.configManager?.getConfig()?.updateUrl
+    if (customUrl) {
+      log.info('[UpdateManager] Using custom update URL:', customUrl)
+      autoUpdater.setFeedURL({ provider: 'generic', url: customUrl })
+    }
+
     log.info('[UpdateManager] Initialized')
   }
 
@@ -185,22 +194,29 @@ class UpdateManager {
    */
   _switchToMirror() {
     if (this._usingMirror) return
-    log.info('[UpdateManager] Switching to China mirror:', CHINA_MIRROR_URL)
-    autoUpdater.setFeedURL({ provider: 'generic', url: CHINA_MIRROR_URL })
+    const mirrorUrl = this.configManager?.getConfig()?.updateMirrorUrl || DEFAULT_MIRROR_URL
+    log.info('[UpdateManager] Switching to China mirror:', mirrorUrl)
+    autoUpdater.setFeedURL({ provider: 'generic', url: mirrorUrl })
     this._usingMirror = true
   }
 
   /**
-   * 重置回 GitHub 源
+   * 重置回主源（自定义 URL 或 GitHub）
    */
   _resetToGitHub() {
     if (!this._usingMirror) return
-    log.info('[UpdateManager] Resetting to GitHub source')
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: 'hydroCoderClaud',
-      repo: 'cc-desktop'
-    })
+    const customUrl = this.configManager?.getConfig()?.updateUrl
+    if (customUrl) {
+      log.info('[UpdateManager] Resetting to custom primary source:', customUrl)
+      autoUpdater.setFeedURL({ provider: 'generic', url: customUrl })
+    } else {
+      log.info('[UpdateManager] Resetting to GitHub source')
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: 'hydroCoderClaud',
+        repo: 'cc-desktop'
+      })
+    }
     this._usingMirror = false
   }
 

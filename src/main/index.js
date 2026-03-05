@@ -214,7 +214,7 @@ app.whenReady().then(async () => {
   capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager, capMcpManager)
 
   // 初始化更新管理器
-  updateManager = new UpdateManager(mainWindow)
+  updateManager = new UpdateManager(mainWindow, configManager)
 
   // 初始化钉钉桥接
   dingtalkBridge = new DingTalkBridge(configManager, agentSessionManager, mainWindow)
