@@ -256,6 +256,42 @@ jobs:
       - name: Display structure
         run: ls -R artifacts
 
+      - name: Inject release notes into yml files
+        run: |
+          node -e "
+          const fs = require('fs');
+          const version = process.env.VERSION;
+
+          // 从 CHANGELOG.md 提取当前版本的更新说明
+          const changelog = fs.readFileSync('docs/CHANGELOG.md', 'utf8');
+          const escaped = version.replace(/\./g, '\\\\.');
+          const regex = new RegExp('## v' + escaped + '[^\\\\n]*\\\\n([\\\\s\\\\S]*?)(?=\\\\n---|$)');
+          const match = changelog.match(regex);
+          const notes = match ? match[1].trim() : '';
+
+          if (!notes) {
+            console.log('No changelog notes found for v' + version + ', skipping');
+            process.exit(0);
+          }
+          console.log('Changelog notes (' + notes.length + ' chars): ' + notes.slice(0, 80) + '...');
+
+          // 注入到 latest-mac.yml 和 latest.yml（generic provider 从此字段读取更新说明）
+          const ymlFiles = [
+            'artifacts/mac-build/latest-mac.yml',
+            'artifacts/win-build/latest.yml',
+          ];
+          for (const f of ymlFiles) {
+            if (!fs.existsSync(f)) { console.log('Skip (not found):', f); continue; }
+            let content = fs.readFileSync(f, 'utf8');
+            content = content.replace(/^releaseNotes:.*\n/m, '');
+            content = content.trimEnd() + '\nreleaseNotes: ' + JSON.stringify(notes) + '\n';
+            fs.writeFileSync(f, content);
+            console.log('Injected releaseNotes into:', f);
+          }
+          "
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
