@@ -188,7 +188,9 @@ export const iconPaths = {
   letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>',
 
   // 面板控制
-  panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>'
+  panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
+  maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',
+  restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>'
 }
 
 // 图标名称列表（用于校验）

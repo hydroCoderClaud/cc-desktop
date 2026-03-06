@@ -4,6 +4,14 @@
     <div class="preview-header">
       <span class="preview-filename" :title="preview?.name">{{ preview?.name || '' }}</span>
       <div class="preview-actions">
+        <!-- 最大化/还原按钮 -->
+        <button
+          class="preview-toggle"
+          @click="$emit('toggle-maximize')"
+          :title="maximized ? t('agent.files.restorePreview') : t('agent.files.maximizePreview')"
+        >
+          <Icon :name="maximized ? 'restore' : 'maximize'" :size="12" />
+        </button>
         <!-- 工具栏显隐开关 -->
         <button
           v-if="hasToolbar"
@@ -208,10 +216,11 @@ const { t } = useLocale()
 
 const props = defineProps({
   preview: { type: Object, default: null },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  maximized: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'toggle-maximize'])
 
 // 图片预览增强
 const imageZoom = ref(1)

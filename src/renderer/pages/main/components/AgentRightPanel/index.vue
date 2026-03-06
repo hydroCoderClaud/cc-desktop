@@ -4,6 +4,7 @@
     <template v-if="sessionId">
       <!-- Header -->
       <FileTreeHeader
+        v-show="!previewMaximized"
         :cwd="agentFiles.cwd.value"
         :show-hidden="agentFiles.showHidden.value"
         @open-explorer="agentFiles.openInExplorer()"
@@ -13,22 +14,23 @@
       />
 
       <!-- Loading -->
-      <div v-if="agentFiles.loading.value" class="panel-loading">
+      <div v-if="agentFiles.loading.value && !previewMaximized" class="panel-loading">
         <Icon name="refresh" :size="16" class="spin-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
       <!-- Error -->
-      <div v-else-if="agentFiles.error.value" class="panel-error">
+      <div v-else-if="agentFiles.error.value && !previewMaximized" class="panel-error">
         <Icon name="warning" :size="16" />
         <span>{{ t('agent.files.errorLoading') }}</span>
       </div>
 
       <!-- Content: File Tree + Preview -->
       <template v-else>
-        <div class="panel-body" :class="{ 'has-preview': agentFiles.selectedFile.value }">
+        <div class="panel-body" :class="{ 'has-preview': agentFiles.selectedFile.value, 'preview-maximized': previewMaximized }">
           <!-- File Tree -->
           <FileTree
+            v-show="!previewMaximized"
             class="tree-section"
             :entries="agentFiles.entries.value"
             :expanded-dirs="agentFiles.expandedDirs"
@@ -48,7 +50,9 @@
             class="preview-section"
             :preview="agentFiles.filePreview.value"
             :loading="agentFiles.previewLoading.value"
-            @close="agentFiles.closePreview()"
+            :maximized="previewMaximized"
+            @close="handleClosePreview"
+            @toggle-maximize="previewMaximized = !previewMaximized"
           />
         </div>
       </template>
@@ -93,6 +97,7 @@ const dialog = useDialog()
 const message = useMessage()
 const agentFiles = useAgentFiles()
 const contextMenuRef = ref(null)
+const previewMaximized = ref(false)
 
 const props = defineProps({
   sessionId: { type: String, default: null }
@@ -114,6 +119,12 @@ const mapErrorMessage = (errorMsg) => {
 watch(() => props.sessionId, (newId) => {
   agentFiles.setSessionId(newId)
 }, { immediate: true })
+
+// 关闭预览时自动还原最大化状态
+const handleClosePreview = () => {
+  previewMaximized.value = false
+  agentFiles.closePreview()
+}
 
 // 暴露预览方法给父组件调用
 const previewImage = (previewData) => {
@@ -480,6 +491,11 @@ defineExpose({
 .panel-body.has-preview .tree-section {
   flex: 1;
   max-height: 50%;
+}
+
+.panel-body.preview-maximized .preview-section {
+  flex: 1;
+  max-height: none;
 }
 
 .preview-section {

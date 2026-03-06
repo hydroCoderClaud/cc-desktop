@@ -1255,6 +1255,8 @@ export default {
       openInDefaultApp: 'Open in Default App',
       showToolbar: 'Show Toolbar',
       hideToolbar: 'Hide Toolbar',
+      maximizePreview: 'Maximize Preview',
+      restorePreview: 'Restore Preview',
       webviewTips: 'Ctrl + Zoom In · Ctrl - Zoom Out · Ctrl 0 Reset',
       textTips: 'Ctrl+S to Save',
       videoTips: 'Double-click for fullscreen · Scroll to adjust volume',

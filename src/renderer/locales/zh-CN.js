@@ -1260,6 +1260,8 @@ export default {
       openInDefaultApp: '在默认应用中打开',
       showToolbar: '显示工具栏',
       hideToolbar: '隐藏工具栏',
+      maximizePreview: '最大化预览',
+      restorePreview: '还原预览',
       webviewTips: 'Ctrl + 放大 · Ctrl - 缩小 · Ctrl 0 恢复',
       textTips: 'Ctrl+S 保存',
       videoTips: '双击全屏 · 滚轮调节音量',

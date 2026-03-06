@@ -457,7 +457,10 @@ cp -R "$APP_FILE" /Applications/
 
 echo "[Install] Cleaning up..."
 rm -rf "$EXTRACT_DIR"
-rm -f "$ZIP_FILE"
+# 保留当前 ZIP（下次差分更新的基础），清理同目录下的其他旧 ZIP
+ZIP_DIR=$(dirname "$ZIP_FILE")
+ZIP_BASE=$(basename "$ZIP_FILE")
+find "$ZIP_DIR" -maxdepth 1 -name "*.zip" ! -name "$ZIP_BASE" -delete 2>/dev/null || true
 
 echo "[Install] Launching new version..."
 nohup open "/Applications/$APP_NAME" > /dev/null 2>&1 &
