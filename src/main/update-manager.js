@@ -253,11 +253,25 @@ class UpdateManager {
     // 每次检查先重置回主源
     this._resetToPrimary()
 
+    const hasMirror = !!this.configManager?.getConfig()?.updateMirrorUrl
+
     try {
+      // 有镜像源时预先抑制 error 事件，避免主源失败的错误信息闪现在 UI
+      // 主源成功则立即恢复；主源失败则静默 fallback，由镜像结果决定是否报错
+      if (hasMirror) this._isFallingBack = true
       log.info('[UpdateManager] Check for updates (primary), silent:', silent)
-      return await autoUpdater.checkForUpdates()
+      const result = await autoUpdater.checkForUpdates()
+      this._isFallingBack = false
+      return result
     } catch (error) {
+      this._isFallingBack = false
       log.warn('[UpdateManager] Primary check failed:', error.message, '- trying mirror')
+      if (!hasMirror) {
+        if (!silent) {
+          this.sendToRenderer('update-error', { message: error.message || String(error) })
+        }
+        throw error
+      }
       try {
         this._isFallingBack = true
         this._switchToMirror()
@@ -475,8 +489,8 @@ if [ -z "$APP_FILE" ]; then
 fi
 
 APP_NAME=$(basename "$APP_FILE")
-NEW_APP="/Applications/${APP_NAME}.new"
-FINAL_APP="/Applications/${APP_NAME}"
+NEW_APP="/Applications/\${APP_NAME}.new"
+FINAL_APP="/Applications/$APP_NAME"
 
 echo "[Install] Copying to /Applications..."
 rm -rf "$NEW_APP" 2>/dev/null || true

@@ -2,6 +2,14 @@
 
 ---
 
+## v1.6.84 - 2026-03-06
+
+### 修复 (Fix)
+
+- macOS 安装脚本模板字符串转义：`${APP_NAME}` → `\${APP_NAME}`，修复 JS 模板求值导致的 `ReferenceError: APP_NAME is not defined`，彻底修复"退出并安装"无响应问题
+
+---
+
 ## v1.6.83 - 2026-03-06
 
 ### 修复 (Fix)
