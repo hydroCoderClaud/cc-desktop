@@ -1355,7 +1355,8 @@ export default {
     alreadyLatest: '已是最新版本',
     updateAvailableStatus: '发现新版本 {version}',
     checkFailed: '检查失败: {error}',
-    needRedownload: '安装文件已失效，请重新下载'
+    needRedownload: '安装文件已失效，请重新下载',
+    previousInstallFailed: '上次安装失败: {error}'
   },
 
   // 钉钉桥接设置

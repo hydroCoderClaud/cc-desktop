@@ -35,10 +35,18 @@ const setupUpdateListeners = () => {
   // 发现新版本：打开更新窗口（主进程已保证不重复创建）
   // 注意：App.vue 本身是 NMessageProvider，无法在此调用 useMessage()
   // toast 通知由 MainContent 内的子组件处理
-  const cleanup = window.electronAPI.onUpdateAvailable(() => {
+  const cleanup1 = window.electronAPI.onUpdateAvailable(() => {
     window.electronAPI.openUpdateManager?.()
   })
-  cleanupFunctions.push(cleanup)
+  cleanupFunctions.push(cleanup1)
+
+  // macOS 上次安装失败：打开更新窗口让用户重试
+  if (window.electronAPI?.onUpdateInstallFailed) {
+    const cleanup2 = window.electronAPI.onUpdateInstallFailed(() => {
+      window.electronAPI.openUpdateManager?.()
+    })
+    cleanupFunctions.push(cleanup2)
+  }
 }
 </script>
 

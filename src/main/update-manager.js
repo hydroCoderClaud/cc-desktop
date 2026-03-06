@@ -24,8 +24,10 @@ class UpdateManager {
     this._isChecking = false         // 是否正在检查（防重入）
     this._usingMirror = false        // 当前是否使用镜像源
     this._isFallingBack = false       // 是否正在 fallback（抑制 error 事件通知 UI）
+    this._pendingInstallError = null  // macOS 上次安装失败信息（供 UpdateManagerContent 读取）
     this.setupAutoUpdater()
     this.setupEventListeners()
+    this._checkPreviousInstallResult()
   }
 
   /**
@@ -399,7 +401,8 @@ class UpdateManager {
   /**
    * macOS 手动安装（跳过签名检查，仅在 macOS 上调用）
    * - 版本号经过格式校验，防止 shell 注入
-   * - ZIP 文件路径通过环境变量传入脚本，不做字符串插值
+   * - ZIP 路径、结果文件路径、脚本路径均通过环境变量传入，不做字符串插值
+   * - 安装结果写入 install-result.json，下次启动时由 _checkPreviousInstallResult 读取
    */
   macOSManualInstall() {
     const { spawn } = require('child_process')
@@ -425,14 +428,30 @@ class UpdateManager {
     }
 
     try {
-      const scriptPath = path.join(os.tmpdir(), 'cc-desktop-install.sh')
+      // 使用时间戳避免多实例或残留文件冲突（隐患3）
+      const scriptPath = path.join(os.tmpdir(), `cc-desktop-install-${Date.now()}.sh`)
+      // 结果文件写入 userData，下次启动时读取（隐患2）
+      const resultPath = path.join(app.getPath('userData'), 'install-result.json')
 
-      // ZIP 路径通过环境变量 CC_DESKTOP_ZIP_FILE 传入，避免路径中特殊字符导致的 shell 注入
+      // 所有外部路径通过环境变量传入，脚本内不做字符串插值
+      // version 已通过 /^\d+\.\d+\.\d+$/ 校验，可安全嵌入脚本
       const installScript = `#!/bin/bash
-set -e
 ZIP_FILE="$CC_DESKTOP_ZIP_FILE"
+RESULT_FILE="$CC_DESKTOP_RESULT_FILE"
+SCRIPT_FILE="$CC_DESKTOP_SCRIPT_FILE"
+VERSION="${version}"
+
+# 写结果 JSON 到 userData，供下次启动时读取
+write_result() {
+  printf '{"success":%s,"message":"%s","version":"%s"}\\n' "$1" "$2" "$VERSION" > "$RESULT_FILE" 2>/dev/null || true
+}
+
+# 退出时自动删除脚本自身
+cleanup_script() { rm -f "$SCRIPT_FILE" 2>/dev/null || true; }
+trap cleanup_script EXIT
+
 if [ ! -f "$ZIP_FILE" ]; then
-  echo "[Install] Error: File not found: $ZIP_FILE"
+  write_result false "Downloaded file not found"
   exit 1
 fi
 
@@ -440,20 +459,48 @@ echo "[Install] Waiting for app to quit..."
 sleep 2
 
 EXTRACT_DIR=$(mktemp -d)
-echo "[Install] Extracting to $EXTRACT_DIR..."
+echo "[Install] Extracting..."
 unzip -o "$ZIP_FILE" -d "$EXTRACT_DIR" > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  write_result false "Failed to extract ZIP"
+  rm -rf "$EXTRACT_DIR"
+  exit 1
+fi
 
 APP_FILE=$(ls -d "$EXTRACT_DIR"/*.app 2>/dev/null | head -1)
 if [ -z "$APP_FILE" ]; then
-  echo "[Install] Error: No .app found after extraction"
+  write_result false "No .app found after extraction"
   rm -rf "$EXTRACT_DIR"
   exit 1
 fi
 
 APP_NAME=$(basename "$APP_FILE")
-echo "[Install] Installing to /Applications: $APP_NAME"
-rm -rf "/Applications/$APP_NAME"
-cp -R "$APP_FILE" /Applications/
+NEW_APP="/Applications/${APP_NAME}.new"
+FINAL_APP="/Applications/${APP_NAME}"
+
+echo "[Install] Copying to /Applications..."
+rm -rf "$NEW_APP" 2>/dev/null || true
+cp -R "$APP_FILE" "$NEW_APP"
+if [ $? -ne 0 ]; then
+  write_result false "Failed to copy .app (check /Applications write permission)"
+  rm -rf "$EXTRACT_DIR"
+  exit 1
+fi
+
+# 原子替换：旧版本在 mv 成功前不会被删除（隐患1）
+# cp 成功后再 rm，rm 失败也不删 .new，保证安装失败时旧版本仍在
+rm -rf "$FINAL_APP"
+if [ $? -ne 0 ]; then
+  write_result false "Failed to remove old version (check /Applications write permission)"
+  rm -rf "$NEW_APP" "$EXTRACT_DIR"
+  exit 1
+fi
+mv "$NEW_APP" "$FINAL_APP"
+if [ $? -ne 0 ]; then
+  write_result false "Failed to finalize installation"
+  rm -rf "$EXTRACT_DIR"
+  exit 1
+fi
 
 echo "[Install] Cleaning up..."
 rm -rf "$EXTRACT_DIR"
@@ -462,10 +509,9 @@ ZIP_DIR=$(dirname "$ZIP_FILE")
 ZIP_BASE=$(basename "$ZIP_FILE")
 find "$ZIP_DIR" -maxdepth 1 -name "*.zip" ! -name "$ZIP_BASE" -delete 2>/dev/null || true
 
+write_result true "Installation successful"
 echo "[Install] Launching new version..."
-nohup open "/Applications/$APP_NAME" > /dev/null 2>&1 &
-
-echo "[Install] Installation complete!"
+nohup open "$FINAL_APP" > /dev/null 2>&1 &
 exit 0
 `
 
@@ -475,14 +521,19 @@ exit 0
       const child = spawn('/bin/bash', [scriptPath], {
         detached: true,
         stdio: 'ignore',
-        env: { ...process.env, CC_DESKTOP_ZIP_FILE: zipFile }
+        env: {
+          ...process.env,
+          CC_DESKTOP_ZIP_FILE: zipFile,
+          CC_DESKTOP_RESULT_FILE: resultPath,
+          CC_DESKTOP_SCRIPT_FILE: scriptPath
+        }
       })
       child.unref()
 
       log.info('[UpdateManager] Install script launched (PID:', child.pid, ')')
-
-      // 安装脚本已启动，清除持久化状态
-      this._clearPersistedState()
+      // 不在此处清除持久化状态：
+      //   成功 → 下次启动由 _checkPreviousInstallResult 在读到 success 后清除
+      //   失败 → 保留状态，允许用户重新触发安装
 
       setTimeout(() => {
         log.info('[UpdateManager] Quitting app...')
@@ -495,6 +546,48 @@ exit 0
         message: error.message || String(error)
       })
     }
+  }
+
+  /**
+   * 检查上次 macOS 安装结果（构造函数中调用）
+   * - 成功：清除下载状态（新版本已在运行）
+   * - 失败：延迟通知 renderer，保留持久化状态允许用户重试安装
+   */
+  _checkPreviousInstallResult() {
+    if (process.platform !== 'darwin') return
+    const resultPath = path.join(app.getPath('userData'), 'install-result.json')
+    if (!fs.existsSync(resultPath)) return
+
+    try {
+      const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'))
+      fs.unlinkSync(resultPath) // 消费结果文件，避免重复读取
+      log.info('[UpdateManager] Previous install result:', result)
+
+      if (result.success) {
+        // 新版本已成功安装并运行，清除旧的下载状态
+        this._clearPersistedState()
+      } else {
+        // 安装失败：保存错误供前端读取，3s 后发事件让 App.vue 打开更新窗口
+        log.warn('[UpdateManager] Previous install failed:', result.message)
+        this._pendingInstallError = { version: result.version, message: result.message }
+        setTimeout(() => {
+          if (this._pendingInstallError) {
+            this.sendToRenderer('update-install-failed', this._pendingInstallError)
+          }
+        }, 3000)
+      }
+    } catch (err) {
+      log.warn('[UpdateManager] Failed to read install result:', err.message)
+    }
+  }
+
+  /**
+   * 返回并清除待通知的安装失败信息（供 UpdateManagerContent 在 mount 时读取）
+   */
+  getPendingInstallError() {
+    const err = this._pendingInstallError
+    this._pendingInstallError = null
+    return err
   }
 
   /**

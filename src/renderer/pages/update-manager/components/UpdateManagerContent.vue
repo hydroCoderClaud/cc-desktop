@@ -125,6 +125,7 @@ onMounted(async () => {
   await initLocale()
   await loadVersion()
   await checkExistingUpdate()
+  await checkInstallError()
   setupEventListeners()
 })
 
@@ -137,6 +138,18 @@ const loadVersion = async () => {
     currentVersion.value = await invoke('getAppVersion')
   } catch {
     currentVersion.value = 'Unknown'
+  }
+}
+
+const checkInstallError = async () => {
+  try {
+    const err = await invoke('getInstallError')
+    if (err?.message) {
+      statusMessage.value = t('update.previousInstallFailed', { error: err.message })
+      statusType.value = 'error'
+    }
+  } catch {
+    // 忽略（旧版本主进程可能无此 IPC）
   }
 }
 
@@ -217,6 +230,14 @@ const setupEventListeners = () => {
       statusMessage.value = t('update.checkFailed', { error: msg })
       statusType.value = 'error'
       message.error(t('update.checkFailed', { error: msg }))
+    })
+    cleanupFunctions.push(cleanup)
+  }
+
+  if (window.electronAPI?.onUpdateInstallFailed) {
+    const cleanup = window.electronAPI.onUpdateInstallFailed((err) => {
+      statusMessage.value = t('update.previousInstallFailed', { error: err?.message || '' })
+      statusType.value = 'error'
     })
     cleanupFunctions.push(cleanup)
   }

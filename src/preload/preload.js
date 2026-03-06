@@ -667,6 +667,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-need-redownload', listener);
     return () => ipcRenderer.removeListener('update-need-redownload', listener);
   },
+  onUpdateInstallFailed: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-install-failed', listener);
+    return () => ipcRenderer.removeListener('update-install-failed', listener);
+  },
+  getInstallError: () => ipcRenderer.invoke('update:getInstallError'),
 
   // ========================================
   // 钉钉桥接

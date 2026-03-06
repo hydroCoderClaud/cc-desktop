@@ -1350,7 +1350,8 @@ export default {
     alreadyLatest: 'Already on latest version',
     updateAvailableStatus: 'New version {version} available',
     checkFailed: 'Check failed: {error}',
-    needRedownload: 'Update file expired, please download again'
+    needRedownload: 'Update file expired, please download again',
+    previousInstallFailed: 'Previous installation failed: {error}'
   },
 
   // DingTalk Bridge Settings

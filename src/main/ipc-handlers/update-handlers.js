@@ -47,6 +47,13 @@ function setupUpdateHandlers(updateManager) {
   ipcMain.handle('update:getStatus', () => {
     return updateManager.getUpdateStatus()
   })
+
+  /**
+   * 获取并清除上次 macOS 安装失败信息（UpdateManagerContent mount 时调用）
+   */
+  ipcMain.handle('update:getInstallError', () => {
+    return updateManager.getPendingInstallError()
+  })
 }
 
 module.exports = { setupUpdateHandlers }
