@@ -2,6 +2,14 @@
 
 ---
 
+## v1.6.79 - 2026-03-06
+
+### 修复
+
+- 修复镜像 fallback 下载时进度条不显示的问题（fallback 路径的 `checkForUpdates` 重新触发 `update-available` 事件，导致 `isDownloading` 被重置为 false，进度条消失）
+
+---
+
 ## v1.6.78 - 2026-03-06
 
 ### 调试

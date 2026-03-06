@@ -166,9 +166,10 @@ const setupEventListeners = () => {
       statusType.value = 'info'
       // 同步后端的下载状态（版本不同时后端已重置为 false）
       isDownloaded.value = !!info.isDownloaded
-      if (!info.isDownloaded) {
+      if (!info.isDownloaded && !isDownloading.value) {
+        // 仅在未下载中时重置（fallback 路径的 checkForUpdates 会重新触发此事件，
+        // 此时下载正在进行中，不应重置 isDownloading 导致进度条消失）
         downloadProgress.value = 0
-        isDownloading.value = false
       }
     })
     cleanupFunctions.push(cleanup)
