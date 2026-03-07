@@ -27,7 +27,7 @@
           @preview-path="$emit('preview-path', $event)"
         />
         <!-- 工具调用 -->
-        <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" />
+        <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" @preview-path="$emit('preview-path', $event)" />
       </template>
 
       <!-- 历史会话恢复提示 -->

@@ -39,6 +39,11 @@ irm https://claude.ai/install.ps1 | iex
 
 **Alternative** (npm):
 
+> **China network tip**: If npm downloads are slow or timing out, set the npmmirror registry first:
+> ```powershell
+> npm config set registry https://registry.npmmirror.com
+> ```
+
 ```powershell
 npm install -g @anthropic-ai/claude-code
 ```
@@ -73,6 +78,11 @@ curl -fsSL https://claude.ai/install.sh | bash
 > The official installer automatically handles environment variable configuration.
 
 **Alternative** (npm):
+
+> **China network tip**: If npm downloads are slow or timing out, set the npmmirror registry first:
+> ```bash
+> npm config set registry https://registry.npmmirror.com
+> ```
 
 ```bash
 npm install -g @anthropic-ai/claude-code

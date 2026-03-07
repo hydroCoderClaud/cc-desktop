@@ -39,6 +39,11 @@ irm https://claude.ai/install.ps1 | iex
 
 **备选方式**（npm 安装）：
 
+> **国内网络提示**：如果 npm 下载速度慢或超时，请先设置国内镜像源：
+> ```powershell
+> npm config set registry https://registry.npmmirror.com
+> ```
+
 ```powershell
 npm install -g @anthropic-ai/claude-code
 ```
@@ -73,6 +78,11 @@ curl -fsSL https://claude.ai/install.sh | bash
 > 官方安装脚本会自动处理环境变量配置，推荐使用。
 
 **备选方式**（npm 安装）：
+
+> **国内网络提示**：如果 npm 下载速度慢或超时，请先设置国内镜像源：
+> ```bash
+> npm config set registry https://registry.npmmirror.com
+> ```
 
 ```bash
 npm install -g @anthropic-ai/claude-code

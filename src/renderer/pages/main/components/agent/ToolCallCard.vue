@@ -1,6 +1,6 @@
 <template>
   <div class="tool-call-card">
-    <div class="tool-header" @click="expanded = !expanded">
+    <div class="tool-header" @click="handleHeaderClick">
       <Icon name="wrench" :size="14" class="tool-icon" />
       <span class="tool-name">{{ message.toolName }}</span>
       <span v-if="toolSummary" class="tool-summary">: {{ toolSummary }}</span>
@@ -33,7 +33,30 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['preview-path'])
+
 const expanded = ref(false)
+
+/**
+ * 提取工具调用中的文件路径（用于预览）
+ */
+const filePath = computed(() => {
+  const input = props.message.input
+  if (!input) return null
+  // Read / Write / Edit 等工具的 file_path 或 filePath
+  return input.file_path || input.filePath || null
+})
+
+/**
+ * 点击工具标题：展开详情 + 如果有文件路径则触发预览
+ */
+const handleHeaderClick = () => {
+  expanded.value = !expanded.value
+  // 仅展开时触发预览，收起时不触发
+  if (expanded.value && filePath.value) {
+    emit('preview-path', filePath.value)
+  }
+}
 
 /**
  * 获取工具调用的摘要信息

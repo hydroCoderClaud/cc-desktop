@@ -12,7 +12,6 @@ const { TIMEOUTS, LATEST_MODEL_ALIASES } = require('./utils/constants');
 const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
-const { buildBasicEnv } = require('./utils/env-builder');
 
 class ConfigManager {
   /**
@@ -976,7 +975,21 @@ class ConfigManager {
   }
 
   /**
-   * 确保代理支持环境就绪（安装 undici + 生成 preload 脚本）
+   * 获取打包的 undici 源路径（从 app 资源中获取）
+   */
+  _getBundledUndiciPath() {
+    const { app } = require('electron');
+    const appPath = app.getAppPath();
+    if (appPath.includes('app.asar')) {
+      // 生产模式：从 asarUnpack 解压目录读取
+      return path.join(appPath.replace('app.asar', 'app.asar.unpacked'), 'node_modules', 'undici');
+    }
+    // 开发模式：直接从 node_modules 读取
+    return path.join(appPath, 'node_modules', 'undici');
+  }
+
+  /**
+   * 确保代理支持环境就绪（从 app 资源复制 undici + 生成 preload 脚本）
    */
   async ensureProxySupport(proxyUrl) {
     const proxySupportDir = path.join(os.homedir(), '.claude', 'proxy-support');
@@ -985,25 +998,32 @@ class ConfigManager {
 
     try {
       // 确保目录存在
-      fs.mkdirSync(proxySupportDir, { recursive: true });
+      fs.mkdirSync(path.join(proxySupportDir, 'node_modules'), { recursive: true });
 
-      // 确保有 package.json（否则 npm 可能将依赖装到上级目录）
-      const pkgJsonPath = path.join(proxySupportDir, 'package.json');
-      if (!fs.existsSync(pkgJsonPath)) {
-        fs.writeFileSync(pkgJsonPath, JSON.stringify({ name: 'proxy-support', private: true }, null, 2), 'utf-8');
+      // 检查 undici 是否已复制，或版本不一致时更新
+      const bundledSrc = this._getBundledUndiciPath();
+      if (!fs.existsSync(bundledSrc)) {
+        console.error('[ProxySupport] Bundled undici not found at:', bundledSrc);
+        return { success: false, error: 'Bundled undici not found' };
       }
 
-      // 检查 undici 是否已安装
-      if (!fs.existsSync(undiciDir)) {
-        console.log('[ProxySupport] Installing undici...');
-        const { execSync } = require('child_process');
-        execSync('npm install undici', {
-          cwd: proxySupportDir,
-          timeout: 60000,
-          stdio: 'pipe',
-          env: buildBasicEnv()
-        });
-        console.log('[ProxySupport] undici installed');
+      let needCopy = !fs.existsSync(undiciDir);
+      if (!needCopy) {
+        // 版本不一致时更新（随 app 升级自动同步）
+        try {
+          const srcVer = JSON.parse(fs.readFileSync(path.join(bundledSrc, 'package.json'), 'utf-8')).version;
+          const dstVer = JSON.parse(fs.readFileSync(path.join(undiciDir, 'package.json'), 'utf-8')).version;
+          if (srcVer !== dstVer) {
+            console.log(`[ProxySupport] Updating undici: ${dstVer} → ${srcVer}`);
+            needCopy = true;
+          }
+        } catch { needCopy = true; }
+      }
+
+      if (needCopy) {
+        console.log('[ProxySupport] Copying bundled undici...');
+        fs.cpSync(bundledSrc, undiciDir, { recursive: true, force: true });
+        console.log('[ProxySupport] undici copied');
       }
 
       // 生成 preload 脚本
