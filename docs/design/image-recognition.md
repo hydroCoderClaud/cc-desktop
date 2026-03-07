@@ -221,7 +221,7 @@ else if (userMessage.images?.length > 0) {
 - ✅ `src/renderer/locales/zh-CN.js` - 中文翻译（5 个键）
 - ✅ `src/renderer/locales/en-US.js` - 英文翻译（5 个键）
 - ✅ `src/renderer/components/icons/index.js` - 添加 image 图标
-- ✅ `docs/IMAGE-RECOGNITION-FEATURE.md` - 功能文档（本文件）
+- ✅ `docs/design/image-recognition.md` - 功能文档（本文件）
 
 ## 测试检查清单
 
@@ -535,6 +535,6 @@ Claude API Vision 支持文档：
 - `src/renderer/components/icons/index.js` - 图标定义
 
 **文档**：
-- `docs/IMAGE-RECOGNITION-FEATURE.md` - 本文档
+- `docs/design/image-recognition.md` - 本文档
 - `CLAUDE.md` - 项目指南（待更新）
 - `docs/CHANGELOG.md` - 版本日志（待更新）

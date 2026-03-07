@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Desktop 是独立的 Electron 桌面终端应用，作为 Claude Code CLI 的启动器。
 
-**当前版本**：1.6.89
+**当前版本**：1.6.90
 
 **版本号管理规范**：
 - 格式：`主版本.次版本.修订号`（如 1.6.52）
@@ -398,9 +398,9 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。解
 | `docs/BUILD.md` | 构建说明 |
 | `docs/INSTALL.md` | 安装指南（中文） |
 | `docs/INSTALL_EN.md` | 安装指南（英文） |
-| `docs/DESIGN-SYSTEM.md` | 设计系统 |
-| `docs/SESSION-MANAGEMENT-DESIGN.md` | 会话管理设计 |
-| `docs/IMAGE-RECOGNITION-FEATURE.md` | 图片识别功能文档 |
+| `docs/design/design-system.md` | 设计系统（UI 规范） |
+| `docs/design/session-management.md` | 会话管理设计 |
+| `docs/design/image-recognition.md` | 图片识别功能文档 |
 | `docs/dingtalk-architecture.html` | 钉钉架构图（浏览器打开） |
 | `docs/theme-preview.html` | 主题预览（浏览器打开） |
 | `docs/WEB-SERVER-PLAN.md` | Web 服务端计划（Express 替代 Electron，Linux 无头部署） |

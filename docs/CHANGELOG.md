@@ -2,6 +2,15 @@
 
 ---
 
+## v1.6.90 - 2026-03-07
+
+### 文档 (Docs)
+
+- 建立系统性设计文档体系：新增 `docs/design/`（3 篇设计文档）和 `docs/code-index/`（3 篇代码索引），重写 `docs/ARCHITECTURE.md` 架构总览
+- 迁移 3 份设计类文档到 `docs/design/` 统一管理（design-system、session-management、image-recognition）
+
+---
+
 ## v1.6.89 - 2026-03-07
 
 ### 修复 (Fix)
