@@ -2,6 +2,22 @@
 
 ---
 
+## v1.6.87 - 2026-03-07
+
+### 修复 (Fix)
+
+- macOS 更新下载完成后不再触发签名检查错误（`autoInstallOnAppQuit` 在 macOS 上改为 `false`，避免无代码签名时的 `Could not get code signature` 报错）
+
+### 新增 (Feat)
+
+- macOS 支持"稍后安装"语义：用户点击稍后安装后正常退出 App，自动触发 `macOSManualInstall()` 安装更新（3s 安全兜底防止安装失败导致应用无法退出）
+
+### 其他 (Chore)
+
+- electron-updater 内部日志统一加 `[eu]` 前缀，与 `[UpdateManager]` 自有日志区分，提升可读性
+
+---
+
 ## v1.6.86 - 2026-03-07
 
 ### 其他 (Chore)

@@ -25,8 +25,10 @@ class UpdateManager {
     this._usingMirror = false        // 当前是否使用镜像源
     this._isFallingBack = false       // 是否正在 fallback（抑制 error 事件通知 UI）
     this._pendingInstallError = null  // macOS 上次安装失败信息（供 UpdateManagerContent 读取）
+    this._isInstalling = false        // 是否正在执行安装（防止 before-quit 重复拦截）
     this.setupAutoUpdater()
     this.setupEventListeners()
+    this._setupMacOSAutoInstall()
     this._checkPreviousInstallResult()
   }
 
@@ -34,10 +36,17 @@ class UpdateManager {
    * 配置 autoUpdater
    */
   setupAutoUpdater() {
-    autoUpdater.logger = log
-    autoUpdater.logger.transports.file.level = 'info'
+    log.transports.file.level = 'info'
+    autoUpdater.logger = {
+      info:  (msg) => log.info(`[eu] ${msg}`),
+      warn:  (msg) => log.warn(`[eu] ${msg}`),
+      error: (msg) => log.error(`[eu] ${msg}`),
+      debug: (msg) => log.debug(`[eu] ${msg}`)
+    }
     autoUpdater.autoDownload = false
-    autoUpdater.autoInstallOnAppQuit = true
+    // macOS 无代码签名，内置安装流程会触发签名检查报错，改用 macOSManualInstall() 手动处理
+    // Windows/Linux 保持 true，退出时由 electron-updater 原生自动安装
+    autoUpdater.autoInstallOnAppQuit = process.platform !== 'darwin'
     autoUpdater.disableWebInstaller = true
 
     // 主源使用 GitHub provider（支持差分更新的 Range 请求）
@@ -354,6 +363,7 @@ class UpdateManager {
     if (process.platform === 'darwin') {
       // macOS：无代码签名时 autoUpdater.quitAndInstall 不可用，使用手动安装
       log.info('[UpdateManager] Using manual install on macOS')
+      this._isInstalling = true
       this.macOSManualInstall()
       return
     }
@@ -560,6 +570,26 @@ exit 0
         message: error.message || String(error)
       })
     }
+  }
+
+  /**
+   * macOS 退出时自动安装更新（实现"稍后安装"语义）
+   * - 仅 macOS 生效；Windows 由 autoInstallOnAppQuit=true 原生处理
+   * - 拦截 before-quit：若有已下载更新且未在安装中，触发 macOSManualInstall
+   * - 3s 安全兜底：防止安装前校验失败导致 app.quit() 未被调用、应用无法退出
+   */
+  _setupMacOSAutoInstall() {
+    if (process.platform !== 'darwin') return
+    app.on('before-quit', (event) => {
+      if (this.isDownloaded && !this._isInstalling) {
+        event.preventDefault()
+        this._isInstalling = true
+        log.info('[UpdateManager] Auto-installing update on quit (macOS)')
+        this.macOSManualInstall()
+        // 安全兜底：若 macOSManualInstall 内部校验失败未触发 app.quit()，3s 后强制退出
+        setTimeout(() => app.quit(), 3000)
+      }
+    })
   }
 
   /**
