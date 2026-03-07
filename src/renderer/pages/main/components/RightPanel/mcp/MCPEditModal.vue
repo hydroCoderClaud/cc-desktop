@@ -116,7 +116,11 @@ const formatJson = () => {
 // 解析 JSON 获取 name 和 config
 const parseJson = () => {
   try {
-    const obj = JSON.parse(jsonText.value)
+    let obj = JSON.parse(jsonText.value)
+    // 自动解包 { "mcpServers": { ... } } 格式（兼容 Claude Desktop 配置格式）
+    if (obj.mcpServers && typeof obj.mcpServers === 'object' && Object.keys(obj).length === 1) {
+      obj = obj.mcpServers
+    }
     const keys = Object.keys(obj)
     if (keys.length !== 1) {
       return { error: t('rightPanel.mcp.singleMcpRequired') }

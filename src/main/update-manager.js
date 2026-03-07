@@ -136,6 +136,12 @@ class UpdateManager {
     autoUpdater.on('error', (error) => {
       log.error('[UpdateManager] Error:', error)
       this.isDownloading = false
+      // macOS 无代码签名：下载完成后 MacUpdater 启动本地 Server 时必然触发此错误
+      // 不影响 macOSManualInstall() 手动安装流程，直接忽略，不通知 UI
+      if (process.platform === 'darwin' && error.message?.includes('Could not get code signature')) {
+        log.warn('[UpdateManager] Ignoring expected macOS code signature error (unsigned app)')
+        return
+      }
       // fallback 期间不通知 UI，避免闪现错误后又显示更新可用
       if (!this._isFallingBack) {
         this.sendToRenderer('update-error', {

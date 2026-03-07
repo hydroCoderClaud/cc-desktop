@@ -2,6 +2,15 @@
 
 ---
 
+## v1.6.89 - 2026-03-07
+
+### 修复 (Fix)
+
+- macOS 更新下载完成后 `MacUpdater` 启动本地 Server 触发的 `Could not get code signature` 错误现已静默处理，不再弹出错误提示（无代码签名的预期行为）
+- MCP 添加/编辑弹窗支持 Claude Desktop 格式（`{ "mcpServers": { ... } }`），自动解包后正确保存，不再出现名称变成 `mcpServers` 的问题
+
+---
+
 ## v1.6.88 - 2026-03-07
 
 ### 测试
