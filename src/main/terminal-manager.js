@@ -98,7 +98,7 @@ class TerminalManager {
     try {
       // 创建 PTY 进程
       this.pty = pty.spawn(shell, shellArgs, {
-        name: 'xterm-color',
+        name: 'xterm-256color',
         cols: 80,
         rows: 24,
         cwd: projectPath,

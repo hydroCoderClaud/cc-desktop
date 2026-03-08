@@ -59,12 +59,14 @@ const getTerminalTheme = () => {
     background: '#0d0d0d',
     foreground: '#e8e8e8',
     cursor: props.cursorColor,
+    cursorAccent: '#0d0d0d',
     selectionBackground: 'rgba(255, 255, 255, 0.2)'
   } : {
     // 浅色背景
     background: '#f8f8f5',
     foreground: '#2d2d2d',
     cursor: props.cursorColor,
+    cursorAccent: '#f8f8f5',
     selectionBackground: 'rgba(0, 0, 0, 0.15)'
   }
 }
@@ -75,6 +77,8 @@ const initTerminal = async () => {
 
   terminal = new window.Terminal({
     cursorBlink: true,
+    cursorStyle: 'block',
+    cursorWidth: 1,
     fontSize: props.fontSize,
     fontFamily: props.fontFamily,
     lineHeight: 1.2,
@@ -86,15 +90,8 @@ const initTerminal = async () => {
   fitAddon = new window.FitAddon.FitAddon()
   terminal.loadAddon(fitAddon)
 
-  // 优先使用 Canvas 渲染器（WebGL 在某些情况下有渲染问题）
-  if (window.CanvasAddon) {
-    try {
-      terminal.loadAddon(new window.CanvasAddon.CanvasAddon())
-      console.log('[Terminal] Using Canvas renderer')
-    } catch (e) {
-      console.warn('[Terminal] Canvas failed, using DOM renderer:', e)
-    }
-  }
+  // 使用 DOM renderer（Canvas renderer 在 Electron 中会导致光标不渲染）
+  console.log('[Terminal] Using DOM renderer')
 
   if (window.WebLinksAddon) {
     // 自定义链接处理：使用系统默认浏览器打开
@@ -427,5 +424,25 @@ defineExpose({
   bottom: 80px !important;
   top: auto !important;
   transform: none !important;
+}
+
+/* 光标样式修复 */
+.terminal :deep(.xterm-cursor) {
+  background-color: #FF6B35 !important;
+  border-color: #FF6B35 !important;
+}
+
+.terminal :deep(.xterm-cursor.xterm-cursor-block) {
+  background-color: #FF6B35 !important;
+  color: #0d0d0d !important;
+}
+
+.terminal :deep(.xterm-cursor.xterm-cursor-blink) {
+  animation: xterm-cursor-blink 1s step-end infinite !important;
+}
+
+@keyframes xterm-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>
