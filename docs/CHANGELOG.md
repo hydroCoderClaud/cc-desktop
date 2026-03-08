@@ -2,6 +2,17 @@
 
 ---
 
+## v1.6.93 - 2026-03-08
+
+### 新增 (Feat)
+
+- xterm.js 本地化：终端组件从 CDN 迁移到本地 vendor 目录（`public/vendor/xterm/`），离线环境下终端可正常使用，CSP 策略同步更新
+- 终端光标修复：PTY name 改为 `xterm-256color`，使用 DOM 渲染器，光标样式优化
+- 版本发布自动化 Skill（`/my-update-version`）：一键完成版本号更新、CHANGELOG 生成、Git 提交、Tag、推送所有 remote 并确认 CI 触发
+- GitHub Release 页面新增「更新内容」区块，CI 自动从 CHANGELOG 提取版本说明展示
+
+---
+
 ## v1.6.91 - 2026-03-08
 
 ### 修复 (Fix)
