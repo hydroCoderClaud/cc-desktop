@@ -357,6 +357,35 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true, filePath: result.filePath };
   });
 
+  ipcMain.handle('dialog:saveImage', async (event, { filename, base64, dir }) => {
+    let filePath;
+
+    if (dir) {
+      // 直接写入指定目录
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      filePath = path.join(dir, filename || 'message.png');
+    } else {
+      // 弹出保存对话框
+      const { BrowserWindow } = require('electron');
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      const result = await dialog.showSaveDialog(senderWindow || mainWindow, {
+        title: 'Save Image',
+        defaultPath: filename || 'message.png',
+        filters: [{ name: 'PNG Image', extensions: ['png'] }]
+      });
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+      filePath = result.filePath;
+    }
+
+    const buffer = Buffer.from(base64, 'base64');
+    fs.writeFileSync(filePath, buffer);
+    return { success: true, filePath };
+  });
+
   ipcMain.handle('shell:openExternal', async (event, url) => {
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       await shell.openExternal(url);

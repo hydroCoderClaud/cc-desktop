@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFile: (options) => ipcRenderer.invoke('dialog:selectFile', options),
   selectFiles: (options) => ipcRenderer.invoke('dialog:selectFiles', options),
   saveFile: ({ filename, content, ext }) => ipcRenderer.invoke('dialog:saveFile', { filename, content, ext }),
+  saveImage: ({ filename, base64, dir }) => ipcRenderer.invoke('dialog:saveImage', { filename, base64, dir }),
 
   // ========================================
   // Shell 相关

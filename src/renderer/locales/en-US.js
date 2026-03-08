@@ -1237,6 +1237,8 @@ export default {
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+    saveAsImage: 'Save as Image',
+    imageSaved: 'Image saved',
     dingtalkSuffix: ' (DingTalk)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 

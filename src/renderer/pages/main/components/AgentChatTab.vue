@@ -22,6 +22,7 @@
         <MessageBubble
           v-if="msg.role === 'user' || msg.role === 'assistant'"
           :message="msg"
+          :session-cwd="sessionCwd"
           @preview-image="$emit('preview-image', $event)"
           @preview-link="$emit('preview-link', $event)"
           @preview-path="$emit('preview-path', $event)"
@@ -101,6 +102,10 @@ const props = defineProps({
   sessionType: {
     type: String,
     default: 'chat'  // 'chat' | 'dingtalk'
+  },
+  sessionCwd: {
+    type: String,
+    default: null
   },
   visible: {
     type: Boolean,

@@ -117,6 +117,7 @@
               :ref="el => { if (el) agentChatTabRefs[tab.id] = el }"
               :session-id="tab.sessionId"
               :session-type="tab.sessionType"
+              :session-cwd="tab.cwd"
               :api-profile-id="tab.apiProfileId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
@@ -854,10 +855,15 @@ const handlePreviewImage = (previewData) => {
     showRightPanel.value = true
   }
 
-  // 调用 AgentRightPanel 的预览方法
+  // 调用 AgentRightPanel 的预览方法并刷新文件树
   nextTick(() => {
-    if (agentRightPanelRef.value && agentRightPanelRef.value.previewImage) {
-      agentRightPanelRef.value.previewImage(previewData)
+    if (agentRightPanelRef.value) {
+      if (agentRightPanelRef.value.previewImage) {
+        agentRightPanelRef.value.previewImage(previewData)
+      }
+      if (agentRightPanelRef.value.refreshFiles) {
+        agentRightPanelRef.value.refreshFiles()
+      }
     }
   })
 }

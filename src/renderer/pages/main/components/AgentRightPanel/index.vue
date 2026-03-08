@@ -536,7 +536,8 @@ const handleDelete = async (target) => {
 
 // 使用 defineExpose 暴露方法
 defineExpose({
-  previewImage
+  previewImage,
+  refreshFiles: () => agentFiles.refresh()
 })
 </script>
 

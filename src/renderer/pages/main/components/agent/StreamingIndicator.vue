@@ -18,6 +18,7 @@
 <script setup>
 import { computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
+import { extractLatex, restoreLatex } from '@utils/latex-utils'
 
 const props = defineProps({
   visible: {
@@ -36,8 +37,13 @@ const props = defineProps({
 
 const renderedText = computed(() => {
   let text = props.text || ''
+  // 提取 LaTeX（在 HTML 转义之前）
+  const { text: latexProcessed, blocks: latexBlocks } = extractLatex(text)
+  text = latexProcessed
   text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   text = text.replace(/\n/g, '<br>')
+  // 还原 LaTeX
+  text = restoreLatex(text, latexBlocks)
   return text + '<span class="cursor-blink">▎</span>'
 })
 </script>

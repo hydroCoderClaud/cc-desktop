@@ -22,6 +22,8 @@ import App from './App.vue'
 
 // 公共样式
 import '@/styles/common.css'
+// KaTeX 数学公式样式
+import 'katex/dist/katex.min.css'
 
 console.log('[Main] Initializing Vue app...')
 

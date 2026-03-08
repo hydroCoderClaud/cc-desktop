@@ -25,6 +25,12 @@
       </div>
       <!-- 文字内容（过滤掉 [图片] 占位符） -->
       <div class="bubble-body" ref="bodyRef" v-html="renderedContent" @click="handleLinkClick"></div>
+      <!-- hover 操作栏（仅助手消息） -->
+      <div v-if="message.role === 'assistant'" class="bubble-actions">
+        <button class="bubble-action-btn" :title="t('agent.saveAsImage')" @click="saveAsImage">
+          <Icon name="download" :size="14" />
+        </button>
+      </div>
       <div class="bubble-meta" v-if="message.timestamp">
         {{ formatTime(message.timestamp) }}
       </div>
@@ -36,6 +42,7 @@
 import { computed, ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
+import { extractLatex, restoreLatex } from '@utils/latex-utils'
 
 const { t } = useLocale()
 
@@ -43,6 +50,10 @@ const props = defineProps({
   message: {
     type: Object,
     required: true
+  },
+  sessionCwd: {
+    type: String,
+    default: null
   }
 })
 
@@ -87,7 +98,11 @@ const renderedContent = computed(() => {
     return `\x00IC${inlineCodes.length - 1}\x00`
   })
 
-  // 步骤3：转义剩余的文本（这时代码已被占位符替换）
+  // 步骤3：提取 LaTeX 公式（代码块/行内代码已被占位符保护）
+  const { text: latexProcessed, blocks: latexBlocks } = extractLatex(text)
+  text = latexProcessed
+
+  // 步骤4：转义剩余的文本（代码和 LaTeX 已被占位符替换）
   text = escapeHtml(text)
 
   // 加粗
@@ -119,7 +134,10 @@ const renderedContent = computed(() => {
   // 换行
   text = text.replace(/\n/g, '<br>')
 
-  // 步骤4：还原代码块（转义后再插入）
+  // 步骤5：还原 LaTeX 公式（在代码还原之前）
+  text = restoreLatex(text, latexBlocks)
+
+  // 步骤6：还原代码块（转义后再插入）
   // 单行代码块如果整行是路径/URL，注入可点击链接
   text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => {
     const { lang, code } = codeBlocks[i]
@@ -140,7 +158,7 @@ const renderedContent = computed(() => {
     return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
   })
 
-  // 步骤5：还原行内代码 — 如果内容是 URL/路径，注入可点击链接
+  // 步骤7：还原行内代码 — 如果内容是 URL/路径，注入可点击链接
   text = text.replace(/\x00IC(\d+)\x00/g, (_, i) => {
     const code = inlineCodes[i]
     let linkType = ''
@@ -215,6 +233,44 @@ const handleImageClick = (img) => {
     ext: `.${img.mediaType?.split('/')[1] || 'png'}`
   })
 }
+
+/**
+ * 保存消息气泡为图片
+ */
+const saveAsImage = async () => {
+  const el = bodyRef.value
+  if (!el) return
+
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(el, {
+      backgroundColor: getComputedStyle(el).backgroundColor || '#ffffff',
+      scale: 2,
+      useCORS: true
+    })
+    const dataUrl = canvas.toDataURL('image/png')
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const filename = `message-${timestamp}.png`
+
+    const res = await window.electronAPI.saveImage({
+      filename,
+      base64,
+      dir: props.sessionCwd || null
+    })
+    if (res?.success && res.filePath) {
+      emit('preview-image', {
+        type: 'image',
+        name: filename,
+        content: dataUrl,
+        size: Math.round((base64.length * 3) / 4),
+        ext: '.png'
+      })
+    }
+  } catch (err) {
+    console.error('[MessageBubble] Save as image failed:', err)
+  }
+}
 </script>
 
 <style scoped>
@@ -253,6 +309,7 @@ const handleImageClick = (img) => {
 .bubble-content {
   max-width: 75%;
   min-width: 0;
+  position: relative;
 }
 
 .bubble-body {
@@ -328,6 +385,42 @@ const handleImageClick = (img) => {
   border-bottom-color: white;
 }
 
+/* hover 操作栏 */
+.bubble-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.bubble-content:hover .bubble-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bubble-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-color-tertiary);
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bubble-action-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
 .bubble-meta {
   font-size: 11px;
   color: var(--text-color-muted);
@@ -384,5 +477,16 @@ const handleImageClick = (img) => {
 
 .message-bubble.user .dingtalk-sender {
   text-align: right;
+}
+
+/* KaTeX 公式样式 */
+.bubble-body :deep(.katex-display) {
+  margin: 8px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.message-bubble.user .bubble-body :deep(.katex) {
+  color: white;
 }
 </style>
