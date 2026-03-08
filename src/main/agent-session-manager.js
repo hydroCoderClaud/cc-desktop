@@ -379,6 +379,11 @@ class AgentSessionManager {
 
         // 保存图片数据到数据库
         imageData = images
+
+        // 自动保存图片到会话目录
+        if (imageData.length > 0 && session.cwd) {
+          this._saveImagesToDir(session.cwd, imageData)
+        }
       } else {
         // 只有文本
         messageContent = text
@@ -1369,6 +1374,33 @@ class AgentSessionManager {
 
   async getInitResult(sessionId) {
     return this.queryManager.getInitResult(sessionId)
+  }
+
+  _saveImagesToDir(cwd, images) {
+    try {
+      const imagesDir = path.join(cwd, 'chat_paste_images')
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true })
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i]
+        const ext = this._getImageExt(img.mediaType)
+        const suffix = images.length > 1 ? `-${i + 1}` : ''
+        const fileName = `${timestamp}${suffix}.${ext}`
+        const filePath = path.join(imagesDir, fileName)
+        fs.writeFileSync(filePath, Buffer.from(img.base64, 'base64'))
+        console.log(`[Agent] Image saved: ${filePath}`)
+      }
+    } catch (e) {
+      console.warn('[Agent] Failed to save images:', e.message)
+    }
+  }
+
+  _getImageExt(mediaType) {
+    const map = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' }
+    return map[mediaType] || 'png'
   }
 }
 
