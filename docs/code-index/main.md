@@ -1,6 +1,6 @@
 # 主进程代码索引
 
-> CC Desktop v1.6.89 | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
+> CC Desktop v1.6.91 | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
 
 ## 概览
 
@@ -109,12 +109,12 @@
 
 | 文件 | 通道前缀 | 行数 | 关键 Handler |
 |------|---------|------|-------------|
-| agent-handlers.js | agent: | 464 | sendMessage, cancel, create, close, reopen, rename, getMessages, listConversations |
+| agent-handlers.js | agent: | 474 | sendMessage, cancel, create, close, reopen, rename, getMessages, listConversations, searchFiles |
 | plugin-handlers.js | plugins: / skills: / agents: / hooks: / mcp: / settings: | 1236 | listPlugins, getAllSkills, createSkill, importSkills, getAllAgents, getGlobalHooks, listMcpAll |
 | ai-handlers.js | ai: | 333 | ai:stream（独立 AI 对话） |
 | config-handlers.js | config: / providers: | 278 | getConfig, updateSettings, testAPI, getProfiles, addProfile |
 | prompt-handlers.js | prompt: | 278 | getPrompts, createPrompt, updatePrompt, deletePrompt, getPromptTags |
-| project-handlers.js | project: | 244 | listProjects, createProject, updateProject, deleteProject |
+| project-handlers.js | project: | 290 | listProjects, createProject, updateProject, deleteProject, hasProblematicPath |
 | session-handlers.js | session: | 230 | getSessions, getMessages, searchSessions, syncSessions, getTags |
 | active-session-handlers.js | activeSession: | 136 | create, start, close, write, resize, rename |
 | capability-handlers.js | capabilities: | 101 | fetch, install, uninstall, enable, disable, toggleMcp |
@@ -160,9 +160,9 @@
 - **继承**：`ComponentScanner`
 
 ### agent-file-manager.js
-- **行数**：368
-- **职责**：Agent 文件操作（目录浏览、文件读写、创建、重命名、删除）
-- **关键方法**：`listDir()`, `readFile()`, `saveFile()`, `createFile()`, `renameFile()`, `deleteFile()`, `resolveFilePath()`
+- **行数**：446
+- **职责**：Agent 文件操作（目录浏览、文件读写、创建、重命名、删除、搜索）
+- **关键方法**：`listDir()`, `readFile()`, `saveFile()`, `createFile()`, `renameFile()`, `deleteFile()`, `searchFiles()`, `resolveFilePath()`
 
 ### agent-query-manager.js
 - **行数**：105

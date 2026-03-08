@@ -1,6 +1,6 @@
 # IPC 通道清单
 
-> CC Desktop v1.6.89 | [← 返回架构文档](../ARCHITECTURE.md)
+> CC Desktop v1.6.91 | [← 返回架构文档](../ARCHITECTURE.md)
 
 ## 概览
 
@@ -228,6 +228,7 @@
 | agent:createFile | handle | 创建文件/文件夹 |
 | agent:renameFile | handle | 重命名文件/文件夹 |
 | agent:deleteFile | handle | 删除文件/文件夹 |
+| agent:searchFiles | handle | 搜索文件（递归遍历 cwd，按文件名模糊匹配） |
 
 ### capabilities 域（capability-handlers.js）
 

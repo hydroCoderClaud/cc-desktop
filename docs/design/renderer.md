@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> CC Desktop v1.6.89 | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> CC Desktop v1.6.91 | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
