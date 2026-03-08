@@ -256,7 +256,8 @@ jobs:
       - name: Display structure
         run: ls -R artifacts
 
-      - name: Inject release notes into yml files
+      - name: Extract changelog and inject release notes
+        id: changelog
         run: |
           node -e "
           const fs = require('fs');
@@ -271,9 +272,15 @@ jobs:
 
           if (!notes) {
             console.log('No changelog notes found for v' + version + ', skipping');
+            // 写入空值，release body 会使用 fallback
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'notes=\n');
             process.exit(0);
           }
           console.log('Changelog notes (' + notes.length + ' chars): ' + notes.slice(0, 80) + '...');
+
+          // 写入 GITHUB_OUTPUT（多行值用 delimiter）
+          const delimiter = 'CHANGELOG_EOF_' + Date.now();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'notes<<' + delimiter + '\n' + notes + '\n' + delimiter + '\n');
 
           // 注入到 latest-mac.yml 和 latest.yml（generic provider 从此字段读取更新说明）
           const ymlFiles = [
@@ -309,6 +316,10 @@ jobs:
           prerelease: false
           body: |
             ## 🚀 CC Desktop ${{ steps.version.outputs.tag }}
+
+            ### 📝 更新内容
+
+            ${{ steps.changelog.outputs.notes || '> 详情请查看 [CHANGELOG](docs/CHANGELOG.md)' }}
 
             ### 📦 一键安装
 

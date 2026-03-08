@@ -53,7 +53,8 @@ tmpclaude-*-cwd
 nul
 
 # Claude Code CLI artifacts
-.claude/
+.claude/*
+!.claude/skills/
 .serena/
 
 # Release artifacts
