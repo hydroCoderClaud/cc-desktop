@@ -90,16 +90,20 @@ git tag vX.Y.Z
 
 ### 步骤 7：推送到所有 remote
 
-依次执行，每一步确认成功后再执行下一步：
+先运行 `git remote` 获取当前配置的所有 remote 名称，然后按以下规则推送：
 
+**origin**（必须存在）：
 ```bash
 git push origin master          # GitHub 主仓库
 git push origin vX.Y.Z          # 触发 GitHub Actions CI 构建（只推指定 tag，不要用 --tags）
-git push gitlab master --tags   # GitLab 镜像
-git push local master --tags    # 本地备份
 ```
 
-**重要**：推送到 origin 时只推指定 tag（`git push origin vX.Y.Z`），不要用 `--tags`，避免推送历史遗留的旧 tag。
+**其他 remote**（如 gitlab、local，存在才推，不存在则跳过）：
+```bash
+git push <remote> master --tags
+```
+
+**重要**：推送到 origin 时只推指定 tag（`git push origin vX.Y.Z`），不要用 `--tags`，避免推送历史遗留的旧 tag。其他 remote 作为镜像/备份，用 `--tags` 全量同步即可。
 
 ### 步骤 8：确认 CI 触发
 
