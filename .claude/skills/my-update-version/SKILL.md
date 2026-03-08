@@ -82,11 +82,15 @@ git add package.json CLAUDE.md docs/CHANGELOG.md
 git commit -m "chore: bump version to X.Y.Z"
 ```
 
-### 步骤 6：创建 Tag
+### 步骤 6：创建 Tag 与推送确认
 
 ```bash
 git tag vX.Y.Z
 ```
+
+询问用户选择推送模式：
+- **推送并构建**（默认）：推送 master + tag，触发 CI 构建发布
+- **仅推送，不构建**：只推送 master，不推送 tag，CI 不会触发
 
 ### 步骤 7：推送到所有 remote
 
@@ -95,18 +99,23 @@ git tag vX.Y.Z
 **origin**（必须存在）：
 ```bash
 git push origin master          # GitHub 主仓库
+# 仅在用户选择"推送并构建"时执行：
 git push origin vX.Y.Z          # 触发 GitHub Actions CI 构建（只推指定 tag，不要用 --tags）
 ```
 
 **其他 remote**（如 gitlab、local，存在才推，不存在则跳过）：
 ```bash
+# 推送并构建模式：
 git push <remote> master --tags
+# 仅推送模式：
+git push <remote> master
 ```
 
 **重要**：推送到 origin 时只推指定 tag（`git push origin vX.Y.Z`），不要用 `--tags`，避免推送历史遗留的旧 tag。其他 remote 作为镜像/备份，用 `--tags` 全量同步即可。
 
-### 步骤 8：确认 CI 触发
+### 步骤 8：确认结果
 
+如果选择了"推送并构建"：
 ```bash
 gh run list --limit 3
 ```
@@ -115,7 +124,8 @@ gh run list --limit 3
 - 新版本号
 - CHANGELOG 新增条目数
 - 各 remote 推送状态
-- CI 触发状态
+- CI 触发状态（如选择了构建）
+- 如选择了"仅推送"，提示用户后续可手动推送 tag 触发构建：`git push origin vX.Y.Z`
 
 ## 异常处理
 
