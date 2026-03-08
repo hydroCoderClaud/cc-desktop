@@ -330,6 +330,84 @@ class AgentFileManager {
   }
 
   /**
+   * 搜索文件（递归遍历 cwd 下所有文件/目录）
+   * @param {string} sessionId 会话 ID
+   * @param {string} keyword 搜索关键词
+   * @param {boolean} showHidden 是否显示隐藏文件
+   * @returns {Promise<{ results: Array }>}
+   */
+  async searchFiles(sessionId, keyword, showHidden = false) {
+    const cwd = this._resolveCwd(sessionId)
+    if (!cwd) return { results: [] }
+    if (!keyword || !keyword.trim()) return { results: [] }
+
+    const lowerKeyword = keyword.trim().toLowerCase()
+    const results = []
+    const MAX_RESULTS = 100
+    const MAX_DEPTH = 10
+
+    const walk = async (dir, relativePath, depth) => {
+      if (depth > MAX_DEPTH || results.length >= MAX_RESULTS) return
+
+      let dirents
+      try {
+        dirents = await fsp.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+
+      for (const dirent of dirents) {
+        if (results.length >= MAX_RESULTS) return
+
+        // 过滤隐藏文件/目录
+        if (!showHidden) {
+          if (dirent.isDirectory() && (
+            HIDDEN_DIRS.has(dirent.name) ||
+            HIDDEN_DIR_SUFFIXES.some(s => dirent.name.endsWith(s))
+          )) continue
+          if (!dirent.isDirectory() && HIDDEN_FILES.has(dirent.name)) continue
+        }
+
+        const entryRelPath = relativePath ? path.join(relativePath, dirent.name) : dirent.name
+
+        // 文件名匹配（不区分大小写）
+        if (dirent.name.toLowerCase().includes(lowerKeyword)) {
+          let size = 0
+          try {
+            const s = await fsp.stat(path.join(dir, dirent.name))
+            size = s.size
+          } catch {}
+          results.push({
+            name: dirent.name,
+            relativePath: entryRelPath,
+            isDirectory: dirent.isDirectory(),
+            size
+          })
+        }
+
+        // 递归遍历子目录
+        if (dirent.isDirectory()) {
+          await walk(path.join(dir, dirent.name), entryRelPath, depth + 1)
+        }
+      }
+    }
+
+    try {
+      await walk(cwd, '', 0)
+    } catch (err) {
+      console.error('[AgentFileManager] searchFiles error:', err.message)
+    }
+
+    // 排序：目录在前，再按名称字母序
+    results.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+
+    return { results }
+  }
+
+  /**
    * 删除文件或文件夹
    * @param {string} sessionId - 会话 ID
    * @param {string} relativePath - 相对路径

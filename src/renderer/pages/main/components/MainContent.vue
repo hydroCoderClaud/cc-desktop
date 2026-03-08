@@ -598,12 +598,31 @@ const handleOpenProject = async () => {
     const result = await openProject()
     if (result.canceled) return
 
-    // 检查是否有路径不支持的错误
-    if (result.error && result.errorType === 'unsupportedPath') {
-      message.error(
-        t('project.unsupportedPathError', { name: result.folderName }) ||
-        `项目文件夹名称 "${result.folderName}" 包含下划线(_)或连字符(-)，会导致会话同步问题。请重命名文件夹后再添加。`
-      )
+    // 路径包含可能导致同步问题的字符时，弹确认对话框（后端未创建记录）
+    if (result.pathWarning) {
+      dialog.warning({
+        title: t('project.pathWarningTitle'),
+        content: t('project.pathWarningContent', { path: result.path }),
+        positiveText: t('project.pathWarningContinue'),
+        negativeText: t('project.pathWarningCancel'),
+        onPositiveClick: async () => {
+          // 用户确认风险
+          try {
+            if (result.alreadyExists && result.existingId) {
+              // 已存在的项目（可能是隐藏的）：恢复显示
+              await invoke('unhideProject', result.existingId)
+            } else {
+              // 新项目：创建记录（skipPathCheck 绕过二次检测）
+              await invoke('createProject', { path: result.path, name: result.name, skipPathCheck: true })
+            }
+            await loadProjects()
+            message.success(t('messages.projectAdded') + ': ' + result.name)
+          } catch (err) {
+            message.error(err.message || t('messages.operationFailed'))
+          }
+        }
+        // 取消：无需处理，后端本来就没创建记录
+      })
       return
     }
 

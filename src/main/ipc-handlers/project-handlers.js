@@ -10,6 +10,16 @@ const { createIPCHandler } = require('../utils/ipc-utils')
 const { smartDecodePath } = require('../utils/path-utils')
 
 /**
+ * 检测路径中是否包含可能导致会话同步问题的字符
+ * - 非 ASCII 字符（中文等）：encodePath 后信息丢失，不可逆
+ * - 连字符(-)和下划线(_)：encodePath 统一转 -，反向解码有歧义
+ */
+function hasProblematicPath(filePath) {
+  const segments = filePath.replace(/\\/g, '/').split('/').filter(s => s && !s.endsWith(':'))
+  return segments.some(seg => /[-_]|[^\x00-\x7F]/.test(seg))
+}
+
+/**
  * 设置工程管理的 IPC 处理器
  * @param {Object} ipcMain - Electron ipcMain module
  * @param {Object} sessionDatabase - SessionDatabase instance
@@ -92,14 +102,21 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       throw new Error('目录不存在')
     }
 
+    // 检测路径中是否包含可能导致会话同步问题的字符（skipPathCheck 用于用户已确认风险后的创建）
+    if (!projectData.skipPathCheck) {
+      const pathWarning = hasProblematicPath(projectData.path)
+      if (pathWarning) {
+        return {
+          pathWarning: true,
+          path: projectData.path,
+          name: projectData.name || path.basename(projectData.path)
+        }
+      }
+    }
+
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectData.path)
     if (existing) {
-      // If hidden, unhide it
-      if (existing.is_hidden) {
-        sessionDatabase.unhideProject(existing.id)
-        return { ...existing, is_hidden: 0, restored: true }
-      }
       throw new Error('工程已存在')
     }
 
@@ -108,7 +125,8 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       projectData.name = path.basename(projectData.path)
     }
 
-    return sessionDatabase.createProject(projectData)
+    const project = sessionDatabase.createProject(projectData)
+    return { ...project }
   })
 
   // 打开工程（选择已有目录）
@@ -128,10 +146,26 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
     const projectPath = result.filePaths[0]
 
+    // 检测路径中是否包含可能导致会话同步问题的字符
+    const pathWarning = hasProblematicPath(projectPath)
+
+    // pathWarning 时不创建记录，只返回路径信息，由前端确认后再创建
+    if (pathWarning) {
+      // 已存在的项目也只返回信息，不做任何修改
+      const existing = sessionDatabase.getProjectByPath(projectPath)
+      return {
+        pathWarning: true,
+        path: projectPath,
+        name: path.basename(projectPath),
+        alreadyExists: !!existing,
+        existingId: existing?.id
+      }
+    }
+
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectPath)
     if (existing) {
-      // If hidden, unhide it
+      // 如果已隐藏，恢复显示
       if (existing.is_hidden) {
         sessionDatabase.unhideProject(existing.id)
       }
@@ -146,10 +180,11 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     }
 
     // Create new project
-    return sessionDatabase.createProject({
+    const project = sessionDatabase.createProject({
       path: projectPath,
       name: path.basename(projectPath)
     })
+    return { ...project }
   })
 
   // ========================================
@@ -175,7 +210,18 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     const newPath = result.filePaths[0]
     const newName = path.basename(newPath)
 
-    return sessionDatabase.duplicateProject(projectId, newPath, newName)
+    // 检测路径中是否包含可能导致会话同步问题的字符
+    const pathWarning = hasProblematicPath(newPath)
+    if (pathWarning) {
+      return {
+        pathWarning: true,
+        path: newPath,
+        name: newName
+      }
+    }
+
+    const project = sessionDatabase.duplicateProject(projectId, newPath, newName)
+    return { ...project }
   })
 
   // ========================================

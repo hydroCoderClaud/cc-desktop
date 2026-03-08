@@ -44,6 +44,12 @@ export function useAgentFiles() {
   // 显示隐藏文件（.claude, CLAUDE.md 等）
   const showHidden = ref(false)
 
+  // 搜索状态
+  const searchKeyword = ref('')
+  const searchResults = ref([])
+  const searchLoading = ref(false)
+  let searchTimer = null
+
   // 错误信息
   const error = ref('')
 
@@ -198,6 +204,47 @@ export function useAgentFiles() {
   }
 
   /**
+   * 搜索文件（带 300ms 防抖）
+   */
+  const searchFiles = (keyword) => {
+    searchKeyword.value = keyword
+    if (searchTimer) clearTimeout(searchTimer)
+
+    if (!keyword || !keyword.trim()) {
+      searchResults.value = []
+      searchLoading.value = false
+      return
+    }
+
+    searchLoading.value = true
+    searchTimer = setTimeout(async () => {
+      if (!sessionId.value) return
+      try {
+        const result = await window.electronAPI.searchAgentFiles({
+          sessionId: sessionId.value,
+          keyword: keyword.trim(),
+          showHidden: showHidden.value
+        })
+        searchResults.value = result.results || []
+      } catch (err) {
+        searchResults.value = []
+      } finally {
+        searchLoading.value = false
+      }
+    }, 300)
+  }
+
+  /**
+   * 清空搜索
+   */
+  const clearSearch = () => {
+    searchKeyword.value = ''
+    searchResults.value = []
+    searchLoading.value = false
+    if (searchTimer) clearTimeout(searchTimer)
+  }
+
+  /**
    * 打开资源管理器
    */
   const openInExplorer = async () => {
@@ -219,6 +266,7 @@ export function useAgentFiles() {
     error.value = ''
     loading.value = false
     previewLoading.value = false
+    clearSearch()
   }
 
   /**
@@ -245,6 +293,9 @@ export function useAgentFiles() {
     error,
 
     showHidden,
+    searchKeyword,
+    searchResults,
+    searchLoading,
     loadDir,
     toggleDir,
     getDirEntries,
@@ -254,6 +305,8 @@ export function useAgentFiles() {
     toggleShowHidden,
     refresh,
     openInExplorer,
+    searchFiles,
+    clearSearch,
     setSessionId,
     reset
   }

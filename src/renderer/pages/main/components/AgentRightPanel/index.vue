@@ -7,11 +7,33 @@
         v-show="!previewMaximized"
         :cwd="agentFiles.cwd.value"
         :show-hidden="agentFiles.showHidden.value"
+        :search-active="searchActive"
         @open-explorer="agentFiles.openInExplorer()"
         @refresh="agentFiles.refresh()"
         @toggle-hidden="agentFiles.toggleShowHidden()"
+        @toggle-search="toggleSearch"
         @collapse="$emit('collapse')"
       />
+
+      <!-- Search Box -->
+      <div v-if="searchActive && !previewMaximized" class="search-box">
+        <Icon name="search" :size="12" class="search-icon" />
+        <input
+          ref="searchInputRef"
+          class="search-input"
+          :placeholder="t('agent.files.searchPlaceholder')"
+          :value="agentFiles.searchKeyword.value"
+          @input="agentFiles.searchFiles($event.target.value)"
+          @keydown.esc="closeSearch"
+        />
+        <button
+          v-if="agentFiles.searchKeyword.value"
+          class="search-clear"
+          @click="closeSearch"
+        >
+          <Icon name="close" :size="10" />
+        </button>
+      </div>
 
       <!-- Loading -->
       <div v-if="agentFiles.loading.value && !previewMaximized" class="panel-loading">
@@ -28,9 +50,35 @@
       <!-- Content: File Tree + Preview -->
       <template v-else>
         <div class="panel-body" :class="{ 'has-preview': agentFiles.selectedFile.value, 'preview-maximized': previewMaximized }">
+          <!-- Search Results -->
+          <div v-if="isSearchMode && !previewMaximized" class="tree-section search-results">
+            <div v-if="agentFiles.searchLoading.value" class="search-status">
+              <Icon name="refresh" :size="14" class="spin-icon" />
+            </div>
+            <div v-else-if="agentFiles.searchResults.value.length === 0" class="search-status">
+              <span>{{ t('agent.files.noResults') }}</span>
+            </div>
+            <template v-else>
+              <div
+                v-for="item in agentFiles.searchResults.value"
+                :key="item.relativePath"
+                class="search-result-item"
+                :class="{ 'is-selected': agentFiles.selectedFile.value === item.relativePath }"
+                @click="handleSearchResultClick(item)"
+                @dblclick="item.isDirectory || agentFiles.openFile(item.relativePath)"
+              >
+                <Icon :name="item.isDirectory ? 'folder' : 'file'" :size="14" class="result-icon" />
+                <div class="result-info">
+                  <span class="result-name">{{ item.name }}</span>
+                  <span class="result-path">{{ item.relativePath }}</span>
+                </div>
+              </div>
+            </template>
+          </div>
+
           <!-- File Tree -->
           <FileTree
-            v-show="!previewMaximized"
+            v-show="!previewMaximized && !isSearchMode"
             class="tree-section"
             :entries="agentFiles.entries.value"
             :expanded-dirs="agentFiles.expandedDirs"
@@ -82,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, watch, h, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, h, nextTick, onMounted, onUnmounted } from 'vue'
 import { useDialog, useMessage, NInput } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentFiles } from '@composables/useAgentFiles'
@@ -98,6 +146,34 @@ const message = useMessage()
 const agentFiles = useAgentFiles()
 const contextMenuRef = ref(null)
 const previewMaximized = ref(false)
+const searchActive = ref(false)
+const searchInputRef = ref(null)
+
+const isSearchMode = computed(() => searchActive.value && agentFiles.searchKeyword.value)
+
+const toggleSearch = () => {
+  searchActive.value = !searchActive.value
+  if (searchActive.value) {
+    nextTick(() => searchInputRef.value?.focus())
+  } else {
+    agentFiles.clearSearch()
+  }
+}
+
+const closeSearch = () => {
+  agentFiles.clearSearch()
+  searchActive.value = false
+}
+
+const handleSearchResultClick = (item) => {
+  if (item.isDirectory) {
+    // 关闭搜索，展开目录
+    closeSearch()
+    agentFiles.toggleDir(item.relativePath)
+  } else {
+    agentFiles.selectFile(item.relativePath)
+  }
+}
 
 const props = defineProps({
   sessionId: { type: String, default: null }
@@ -580,5 +656,113 @@ defineExpose({
 .header-btn:hover {
   background: var(--hover-bg);
   color: var(--primary-color);
+}
+
+/* Search Box */
+.search-box {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.search-icon {
+  color: var(--text-color-muted);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  outline: none;
+  padding: 3px 0;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--text-color-muted);
+}
+
+.search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-color-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.search-clear:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+/* Search Results */
+.search-results {
+  padding: 2px 0;
+}
+
+.search-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 8px;
+  color: var(--text-color-muted);
+  font-size: 12px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.search-result-item:hover {
+  background: var(--hover-bg);
+}
+
+.search-result-item.is-selected {
+  background: var(--primary-color-light, rgba(var(--primary-rgb, 99, 102, 241), 0.12));
+}
+
+.result-icon {
+  color: var(--text-color-muted);
+  flex-shrink: 0;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.result-name {
+  font-size: 12px;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-path {
+  font-size: 10px;
+  color: var(--text-color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

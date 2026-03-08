@@ -1333,6 +1333,13 @@ class AgentSessionManager {
     return this.fileManager.deleteFile(sessionId, relativePath)
   }
 
+  /**
+   * 搜索文件
+   */
+  async searchFiles(sessionId, keyword, showHidden = false) {
+    return this.fileManager.searchFiles(sessionId, keyword, showHidden)
+  }
+
   // ============= Query 控制委托（委托给 queryManager） =============
 
   async setModel(sessionId, model) {

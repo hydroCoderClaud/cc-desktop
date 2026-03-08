@@ -118,6 +118,11 @@ export function useProjects() {
         return { canceled: true }
       }
 
+      // pathWarning 时后端未创建记录，直接返回路径信息给调用方处理
+      if (result.pathWarning) {
+        return result
+      }
+
       await loadProjects()
       // 从 projects.value 中找到项目（带有 pathValid 字段）
       const project = projects.value.find(p => p.id === result.id)
@@ -162,7 +167,7 @@ export function useProjects() {
   }
 
   /**
-   * 隐藏项目
+   * 从面板移除项目（隐藏，保留历史会话数据）
    * @param {Object} project - 项目对象
    */
   const hideProject = async (project) => {
@@ -170,14 +175,14 @@ export function useProjects() {
       await invoke('hideProject', project.id)
       await loadProjects()
 
-      // 如果隐藏的是当前项目，清除选中
+      // 如果移除的是当前项目，清除选中
       if (currentProject.value?.id === project.id) {
         currentProject.value = null
       }
 
       return { success: true }
     } catch (err) {
-      console.error('Failed to hide project:', err)
+      console.error('Failed to remove project:', err)
       throw err
     }
   }

@@ -28,6 +28,7 @@
           <n-select
             v-model:value="selectedProjectId"
             :options="projectOptions"
+            :render-label="renderProjectLabel"
             :placeholder="t('main.selectProject')"
             clearable
             filterable
@@ -507,9 +508,15 @@ const projectOptions = computed(() => {
   return props.projects.map(project => ({
     label: `${project.icon || '📁'} ${project.name}`,
     value: project.id,
-    disabled: !project.pathValid
+    disabled: !project.pathValid,
+    path: project.path
   }))
 })
+
+// 渲染项目选项，显示完整路径 tooltip
+const renderProjectLabel = (option) => {
+  return h('span', { title: option.path, style: 'display: block; overflow: hidden; text-overflow: ellipsis;' }, option.label)
+}
 
 // Project settings menu options
 const renderMenuIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })

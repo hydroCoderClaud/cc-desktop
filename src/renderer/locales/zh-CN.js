@@ -1128,7 +1128,12 @@ export default {
     deleteConfirm: '确认删除项目',
     deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
     deleteWithSessions: '同时删除关联的会话记录',
-    unsupportedPathError: '项目文件夹名称 "{name}" 包含连字符(-)，会导致会话同步时路径解析歧义。请重命名文件夹后再添加。',
+    unsupportedPathError: '项目路径 "{name}" 包含中文或特殊字符，Claude Code CLI 无法正确处理此类路径，会导致会话监控和历史同步失效。请使用纯英文路径。',
+    nonAsciiPathWarning: '项目 "{name}" 的路径包含中文、连字符(-)或下划线(_)，可能导致会话同步时路径解析异常。建议使用纯英文且不含特殊符号的路径。',
+    pathWarningTitle: '路径存在兼容性问题',
+    pathWarningContent: '路径 "{path}" 包含中文、连字符(-)或下划线(_)。这会导致 Claude Code CLI 无法正确编码路径，造成以下严重后果：\n\n• 会话文件监控完全失效\n• 历史会话记录无法关联\n• 会话同步数据丢失或错乱\n\n强烈建议使用纯英文、不含特殊符号的目录路径。如果你清楚上述风险并接受后果，可以选择继续。',
+    pathWarningContinue: '我已知晓风险，继续添加',
+    pathWarningCancel: '取消，我去改路径',
     apiProfileChangedTitle: 'API 配置已更改',
     apiProfileChangedContent: '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
     restartSessions: '重启会话',
@@ -1155,6 +1160,7 @@ export default {
     projectUpdated: '项目已更新',
     projectDeleted: '项目已删除',
     projectHidden: '项目已从面板移除',
+    projectRemoved: '项目已移除',
     projectPinned: '项目已置顶',
     projectUnpinned: '项目已取消置顶',
     terminalExited: '终端进程已退出',
@@ -1293,7 +1299,11 @@ export default {
       reservedName: '文件名不能使用系统保留名称（如 CON、PRN、AUX 等）',
       invalidChars: '文件名包含非法字符（< > : " / \\ | ? *）',
       noPathSeparator: '文件名不能包含路径分隔符（/ 或 \\）',
-      invalidEnding: '文件名不能以点号或空格结尾'
+      invalidEnding: '文件名不能以点号或空格结尾',
+      // 搜索
+      search: '搜索文件',
+      searchPlaceholder: '输入文件名搜索...',
+      noResults: '无匹配结果'
     },
 
     // 能力管理

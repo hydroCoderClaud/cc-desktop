@@ -390,7 +390,12 @@ class ActiveSessionManager {
             // 如果还没退出，强制 kill
             if (session.status !== SessionStatus.EXITED && session.pty) {
               console.log(`[ActiveSession] Force killing session ${sessionId}...`)
-              session.pty.kill()
+              try {
+                session.pty.kill()
+              } catch (killError) {
+                // Windows conpty 在进程已退出时 kill() 会抛 AttachConsole failed，忽略
+                console.log(`[ActiveSession] Kill error (ignored): ${killError.message}`)
+              }
             }
           }
         } catch (error) {
@@ -424,11 +429,15 @@ class ActiveSessionManager {
         console.log(`[ActiveSession] Force killing session ${session.id} (PID: ${pid})...`)
         // Windows: 先杀进程树（shell 内的 claude code 等子进程）
         killProcessTree(pid)
-        // 再走 node-pty 自身清理
-        session.pty.kill()
+        // 再走 node-pty 自身清理（进程已退出时 conpty 可能抛 AttachConsole failed）
+        try {
+          session.pty.kill()
+        } catch (_) {
+          // 忽略：进程已退出时 conpty 的预期异常
+        }
       }
     } catch (error) {
-      console.error(`[ActiveSession] Force kill failed:`, error)
+      console.log(`[ActiveSession] Force kill error (ignored): ${error.message}`)
     }
   }
 

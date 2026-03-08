@@ -15,6 +15,14 @@
       </button>
       <button
         class="header-btn"
+        :class="{ 'is-active': searchActive }"
+        :title="t('agent.files.search')"
+        @click="$emit('toggle-search')"
+      >
+        <Icon name="search" :size="14" />
+      </button>
+      <button
+        class="header-btn"
         :title="t('agent.files.openExplorer')"
         @click="$emit('open-explorer')"
       >
@@ -46,10 +54,11 @@ const { t } = useLocale()
 
 defineProps({
   cwd: { type: String, default: '' },
-  showHidden: { type: Boolean, default: false }
+  showHidden: { type: Boolean, default: false },
+  searchActive: { type: Boolean, default: false }
 })
 
-defineEmits(['open-explorer', 'refresh', 'collapse', 'toggle-hidden'])
+defineEmits(['open-explorer', 'refresh', 'collapse', 'toggle-hidden', 'toggle-search'])
 
 const shortenPath = (p) => {
   if (!p) return ''

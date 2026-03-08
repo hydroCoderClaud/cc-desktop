@@ -1123,7 +1123,12 @@ export default {
     deleteConfirm: 'Confirm Delete Project',
     deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
     deleteWithSessions: 'Also delete associated session records',
-    unsupportedPathError: 'Project folder name "{name}" contains hyphen(-), which causes path ambiguity during session sync. Please rename the folder before adding.',
+    unsupportedPathError: 'Project path "{name}" contains non-ASCII characters (e.g. Chinese). Claude Code CLI cannot handle such paths correctly, causing session monitoring and history sync to fail. Please use an ASCII-only path.',
+    nonAsciiPathWarning: 'Project "{name}" path contains non-ASCII characters, hyphens(-), or underscores(_), which may cause session sync path resolution issues. Paths without special characters are recommended.',
+    pathWarningTitle: 'Path Compatibility Issue',
+    pathWarningContent: 'Path "{path}" contains non-ASCII characters, hyphens(-), or underscores(_). This prevents Claude Code CLI from encoding the path correctly, causing:\n\n• Session file monitoring completely broken\n• History sessions cannot be associated\n• Session sync data lost or corrupted\n\nIt is strongly recommended to use ASCII-only paths without special characters. If you understand these risks and accept the consequences, you may continue.',
+    pathWarningContinue: 'I understand the risks, continue',
+    pathWarningCancel: 'Cancel, I will fix the path',
     apiProfileChangedTitle: 'API Config Changed',
     apiProfileChangedContent: 'The new API config requires restarting sessions to take effect. Restart running sessions now?',
     restartSessions: 'Restart Sessions',
@@ -1150,6 +1155,7 @@ export default {
     projectUpdated: 'Project updated',
     projectDeleted: 'Project deleted',
     projectHidden: 'Project removed from panel',
+    projectRemoved: 'Project removed',
     projectPinned: 'Project pinned',
     projectUnpinned: 'Project unpinned',
     terminalExited: 'Terminal process exited',
@@ -1288,7 +1294,11 @@ export default {
       reservedName: 'File name cannot use reserved system names (e.g. CON, PRN, AUX)',
       invalidChars: 'File name contains invalid characters (< > : " / \\ | ? *)',
       noPathSeparator: 'File name cannot contain path separators (/ or \\)',
-      invalidEnding: 'File name cannot end with a dot or space'
+      invalidEnding: 'File name cannot end with a dot or space',
+      // Search
+      search: 'Search files',
+      searchPlaceholder: 'Type file name to search...',
+      noResults: 'No results found'
     },
 
     // Capability management

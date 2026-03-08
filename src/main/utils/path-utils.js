@@ -25,6 +25,7 @@ function encodePath(projectPath) {
     .replace(/\\/g, '-')
     .replace(/\//g, '-')
     .replace(/_/g, '-')
+    .replace(/[^\x20-\x7E]/g, '-')  // 非 ASCII 字符 → -，匹配 CLI 行为
 }
 
 /**

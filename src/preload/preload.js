@@ -606,6 +606,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:renameFile', { sessionId, oldPath, newName }),
   deleteAgentFile: ({ sessionId, path }) =>
     ipcRenderer.invoke('agent:deleteFile', { sessionId, path }),
+  searchAgentFiles: ({ sessionId, keyword, showHidden }) =>
+    ipcRenderer.invoke('agent:searchFiles', { sessionId, keyword, showHidden }),
 
   // 能力管理（Agent 模式）
   fetchCapabilities: (projectPath) => ipcRenderer.invoke('capabilities:fetch', projectPath),

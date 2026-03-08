@@ -424,6 +424,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 搜索文件
+  ipcMain.handle('agent:searchFiles', async (event, { sessionId, keyword, showHidden }) => {
+    try {
+      return await agentSessionManager.searchFiles(sessionId, keyword, !!showHidden)
+    } catch (err) {
+      console.error('[IPC] agent:searchFiles error:', err)
+      return { results: [] }
+    }
+  })
+
   // ========================================
   // 文件操作
   // ========================================
