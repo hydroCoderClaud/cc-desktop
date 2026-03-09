@@ -137,9 +137,13 @@ const getInitialTheme = () => {
 }
 
 // 全局主题状态（跨组件共享）
-const isDark = ref(getInitialTheme())
-const colorScheme = ref('claude') // 当前配色方案（默认 Claude 官方色）
-const isInitialized = ref(false)
+// HMR 时从 hot.data 恢复上一次的值，避免 colorScheme 被重置为初始值导致光标颜色跳动
+const isDark = ref(import.meta.hot?.data?.isDark ?? getInitialTheme())
+const colorScheme = ref(import.meta.hot?.data?.colorScheme ?? 'claude')
+const isInitialized = ref(import.meta.hot?.data?.isInitialized ?? false)
+
+// 全局监听清理函数（防止 HMR 重复注册）
+let _settingsCleanup = null
 
 // 同步 DOM 主题属性
 const syncDOMTheme = (dark) => {
@@ -319,8 +323,9 @@ export function useTheme() {
    * 监听其他窗口的主题变更
    */
   const listenForChanges = () => {
+    if (_settingsCleanup) return // 已注册，避免 HMR 重复注册
     if (window.electronAPI?.onSettingsChanged) {
-      window.electronAPI.onSettingsChanged((settings) => {
+      _settingsCleanup = window.electronAPI.onSettingsChanged((settings) => {
         if (settings.theme !== undefined) {
           const newDark = settings.theme === 'dark'
           if (isDark.value !== newDark) {
@@ -442,3 +447,16 @@ export function useTheme() {
     setColorScheme
   }
 }
+
+// HMR 热重载时：保存当前状态 + 清理监听，防止重载后 colorScheme 重置导致光标颜色跳动
+// test-hmr-2
+if (import.meta.hot) {
+  import.meta.hot.dispose((data) => {
+    data.isDark = isDark.value
+    data.colorScheme = colorScheme.value
+    data.isInitialized = isInitialized.value
+    _settingsCleanup?.()
+    _settingsCleanup = null
+  })
+}
+
