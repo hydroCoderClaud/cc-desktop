@@ -124,7 +124,7 @@
               @preview-image="handlePreviewImage"
               @preview-link="handlePreviewLink"
               @preview-path="handlePreviewPath"
-              @agent-done="agentRightPanelRef?.refreshFiles()"
+              @agent-done="handleAgentDone"
             />
           </div>
         </div>
@@ -937,6 +937,17 @@ const handlePreviewPath = async (filePath, confirmed = false) => {
   } catch (err) {
     console.error('Failed to preview file:', err)
     message.error(t('agent.files.errorLoading'))
+  }
+}
+
+// Agent 完成：刷新文件树，并对本轮生成的文件自动展开目录 + 预览最后一个
+const handleAgentDone = async (filePaths = []) => {
+  if (!agentRightPanelRef.value) return
+  await agentRightPanelRef.value.refreshFiles()
+  if (!filePaths.length) return
+  for (let i = 0; i < filePaths.length; i++) {
+    const isLast = i === filePaths.length - 1
+    await agentRightPanelRef.value.revealInTree(filePaths[i], { preview: isLast })
   }
 }
 

@@ -544,7 +544,13 @@ const handleDelete = async (target) => {
  * 在文件树中定位并高亮文件（展开父目录 + 选中 + 滚动到可见位置）
  * @param {string} absolutePath - 文件绝对路径
  */
-const revealInTree = async (absolutePath) => {
+/**
+ * @param {string} absolutePath
+ * @param {{ preview?: boolean }} options
+ *   preview=true：展开父目录 + 选中 + 加载文件预览 + 滚动（agent-done 自动定位用）
+ *   preview=false（默认）：展开父目录 + 选中 + 滚动（手动点击路径用）
+ */
+const revealInTree = async (absolutePath, { preview = false } = {}) => {
   const cwd = agentFiles.cwd.value
   if (!cwd || !absolutePath) return
 
@@ -554,10 +560,14 @@ const revealInTree = async (absolutePath) => {
   const relativePath = absolutePath.slice(normalizedCwd.length)
   if (!relativePath) return
 
-  // 展开父目录并选中文件
-  await agentFiles.revealFile(relativePath)
+  if (preview) {
+    // 展开父目录（不预设 selectedFile），再由 selectFile 统一设置选中 + 加载预览
+    await agentFiles.revealFile(relativePath, { select: false })
+    await agentFiles.selectFile(relativePath)
+  } else {
+    await agentFiles.revealFile(relativePath)
+  }
 
-  // 等待 DOM 更新后滚动到文件行
   await nextTick()
   fileTreeRef.value?.scrollToFile(relativePath)
 }

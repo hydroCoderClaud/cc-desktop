@@ -259,10 +259,19 @@ const tryAutoConsumeQueue = () => {
   })
 }
 
-// --- streaming 结束时通知父组件刷新文件树 ---
+// --- streaming 结束时通知父组件刷新文件树，并带出本轮生成的文件路径 ---
 watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming) {
-    emit('agent-done')
+    // 从最后一条 user 消息之后收集工具调用写入的文件路径
+    const msgs = messages.value
+    let startIdx = msgs.length - 1
+    while (startIdx > 0 && msgs[startIdx].role !== 'user') startIdx--
+    const filePaths = []
+    for (let i = startIdx + 1; i < msgs.length; i++) {
+      const fp = msgs[i].input?.file_path || msgs[i].input?.filePath
+      if (fp) filePaths.push(fp)
+    }
+    emit('agent-done', [...new Set(filePaths)])
   }
 })
 

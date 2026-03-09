@@ -123,7 +123,7 @@ export function useAgentFiles() {
    * 展开父目录并选中文件（用于从外部定位文件树中的文件）
    * @param {string} relativePath - 相对于 cwd 的文件路径
    */
-  const revealFile = async (relativePath) => {
+  const revealFile = async (relativePath, { select = true } = {}) => {
     if (!relativePath) return
     const parts = relativePath.replace(/\\/g, '/').split('/')
     // 逐级展开父目录
@@ -133,7 +133,7 @@ export function useAgentFiles() {
         await toggleDir(dirPath)
       }
     }
-    selectedFile.value = relativePath
+    if (select) selectedFile.value = relativePath
   }
 
   /**
