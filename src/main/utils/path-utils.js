@@ -25,6 +25,7 @@ function encodePath(projectPath) {
     .replace(/\\/g, '-')
     .replace(/\//g, '-')
     .replace(/_/g, '-')
+    .replace(/ /g, '-')             // 空格 → -，匹配 CLI 行为
     .replace(/[^\x20-\x7E]/g, '-')  // 非 ASCII 字符 → -，匹配 CLI 行为
 }
 
@@ -106,9 +107,9 @@ function findValidPath(basePath, remainingParts, sep, fs) {
   for (let i = remainingParts.length; i >= 1; i--) {
     const subParts = remainingParts.slice(0, i)
 
-    // Try different joiners: '-' (original hyphen) and '_' (original underscore)
-    // Both were encoded to '-' by CLI, so we need to try both
-    const joiners = ['-', '_']
+    // Try different joiners: '-' (original hyphen), '_' (original underscore), ' ' (original space)
+    // All were encoded to '-' by CLI, so we need to try all three
+    const joiners = ['-', '_', ' ']
     for (const joiner of joiners) {
       const segment = subParts.join(joiner)
       const newPath = basePath + sep + segment

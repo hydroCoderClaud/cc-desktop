@@ -355,9 +355,13 @@ const mcpMarketMixin = {
     if (!useNodeOptions) return
 
     const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs')
+    const requireFlag = `-r "${proxyScriptPath.replace(/\\/g, '/')}"`
     for (const [, serverConfig] of Object.entries(mcpServers)) {
       if (!serverConfig.env) serverConfig.env = {}
-      serverConfig.env.NODE_OPTIONS = `-r "${proxyScriptPath.replace(/\\/g, '/')}"`
+      const existing = serverConfig.env.NODE_OPTIONS || ''
+      // 已包含此 flag 则跳过，避免重复注入
+      if (existing.includes(requireFlag)) continue
+      serverConfig.env.NODE_OPTIONS = existing ? `${existing} ${requireFlag}` : requireFlag
     }
     console.log(`[McpManager] Injected NODE_OPTIONS: -r proxy-setup.cjs`)
   },
