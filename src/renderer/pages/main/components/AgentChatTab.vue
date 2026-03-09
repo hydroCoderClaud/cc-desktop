@@ -117,7 +117,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path'])
+const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done'])
 
 // 使用 Agent 对话 composable
 const {
@@ -258,6 +258,13 @@ const tryAutoConsumeQueue = () => {
     }
   })
 }
+
+// --- streaming 结束时通知父组件刷新文件树 ---
+watch(isStreaming, (streaming, wasStreaming) => {
+  if (wasStreaming && !streaming) {
+    emit('agent-done')
+  }
+})
 
 // --- 消息队列自动发送：流式正常结束后自动消费队列 ---
 const streamingWatchStop = watch(isStreaming, (streaming, wasStreaming) => {

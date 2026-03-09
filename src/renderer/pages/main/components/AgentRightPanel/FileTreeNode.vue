@@ -8,6 +8,7 @@
         'is-selected': isSelected
       }"
       :style="{ paddingLeft: depth * 16 + 8 + 'px' }"
+      :data-path="entry.relativePath"
       @click="handleClick($event)"
       @dblclick="handleDblClick"
       @contextmenu="handleContextMenu($event)"

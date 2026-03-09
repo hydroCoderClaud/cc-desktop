@@ -120,6 +120,23 @@ export function useAgentFiles() {
   }
 
   /**
+   * 展开父目录并选中文件（用于从外部定位文件树中的文件）
+   * @param {string} relativePath - 相对于 cwd 的文件路径
+   */
+  const revealFile = async (relativePath) => {
+    if (!relativePath) return
+    const parts = relativePath.replace(/\\/g, '/').split('/')
+    // 逐级展开父目录
+    for (let i = 1; i < parts.length; i++) {
+      const dirPath = parts.slice(0, i).join('/')
+      if (!expandedDirs.has(dirPath)) {
+        await toggleDir(dirPath)
+      }
+    }
+    selectedFile.value = relativePath
+  }
+
+  /**
    * 获取目录的子条目
    */
   const getDirEntries = (dirPath) => {
@@ -307,6 +324,7 @@ export function useAgentFiles() {
     openInExplorer,
     searchFiles,
     clearSearch,
+    revealFile,
     setSessionId,
     reset
   }

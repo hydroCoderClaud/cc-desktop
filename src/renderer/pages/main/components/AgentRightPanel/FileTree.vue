@@ -41,6 +41,16 @@ const emit = defineEmits(['toggle-dir', 'select-file', 'open-file', 'insert-path
 
 const treeRef = ref(null)
 
+const scrollToFile = (relativePath) => {
+  if (!treeRef.value || !relativePath) return
+  const el = treeRef.value.querySelector(`[data-path="${CSS.escape(relativePath)}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+}
+
+defineExpose({ scrollToFile })
+
 const handleContextMenu = (event) => {
   // 只有在空白区域点击时才触发（没有命中节点）
   if (event.target.classList.contains('file-tree') || event.target.classList.contains('empty-tree')) {

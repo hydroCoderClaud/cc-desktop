@@ -78,6 +78,7 @@
 
           <!-- File Tree -->
           <FileTree
+            ref="fileTreeRef"
             v-show="!previewMaximized && !isSearchMode"
             class="tree-section"
             :entries="agentFiles.entries.value"
@@ -147,6 +148,7 @@ const message = useMessage()
 const agentFiles = useAgentFiles()
 const contextMenuRef = ref(null)
 const previewMaximized = ref(false)
+const fileTreeRef = ref(null)
 const searchActive = ref(false)
 const searchInputRef = ref(null)
 
@@ -538,10 +540,33 @@ const handleDelete = async (target) => {
   })
 }
 
+/**
+ * 在文件树中定位并高亮文件（展开父目录 + 选中 + 滚动到可见位置）
+ * @param {string} absolutePath - 文件绝对路径
+ */
+const revealInTree = async (absolutePath) => {
+  const cwd = agentFiles.cwd.value
+  if (!cwd || !absolutePath) return
+
+  const normalizedCwd = cwd.endsWith('/') ? cwd : cwd + '/'
+  if (!absolutePath.startsWith(normalizedCwd)) return
+
+  const relativePath = absolutePath.slice(normalizedCwd.length)
+  if (!relativePath) return
+
+  // 展开父目录并选中文件
+  await agentFiles.revealFile(relativePath)
+
+  // 等待 DOM 更新后滚动到文件行
+  await nextTick()
+  fileTreeRef.value?.scrollToFile(relativePath)
+}
+
 // 使用 defineExpose 暴露方法
 defineExpose({
   previewImage,
-  refreshFiles: () => agentFiles.refresh()
+  refreshFiles: () => agentFiles.refresh(),
+  revealInTree
 })
 </script>
 

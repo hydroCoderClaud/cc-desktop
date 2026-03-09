@@ -124,6 +124,7 @@
               @preview-image="handlePreviewImage"
               @preview-link="handlePreviewLink"
               @preview-path="handlePreviewPath"
+              @agent-done="agentRightPanelRef?.refreshFiles()"
             />
           </div>
         </div>
@@ -926,10 +927,11 @@ const handlePreviewPath = async (filePath, confirmed = false) => {
       showRightPanel.value = true
     }
 
-    // 调用 AgentRightPanel 的预览方法
+    // 调用 AgentRightPanel 的预览方法，并在文件树中定位选中
     nextTick(() => {
-      if (agentRightPanelRef.value && agentRightPanelRef.value.previewImage) {
-        agentRightPanelRef.value.previewImage(fileData)
+      if (agentRightPanelRef.value) {
+        agentRightPanelRef.value.previewImage?.(fileData)
+        agentRightPanelRef.value.revealInTree?.(filePath)
       }
     })
   } catch (err) {
