@@ -50,6 +50,10 @@
             clearable
           />
         </div>
+        <div class="env-proxy-toggle" style="margin-top: 8px;">
+          <n-switch v-model:value="useNodeOptions" size="small" />
+          <span class="env-proxy-label">{{ t('mcp.proxy.useNodeOptions') }}</span>
+        </div>
       </div>
     </div>
     <template #footer>
@@ -81,6 +85,7 @@ const emit = defineEmits(['confirm', 'cancel'])
 const envList = ref([])
 const useProxy = ref(false)
 const proxyUrl = ref('')
+const useNodeOptions = ref(false)
 const confirming = ref(false)
 
 watch(() => props.envVars, (vars) => {
@@ -91,6 +96,7 @@ watch(() => props.envVars, (vars) => {
 watch(visible, async (show) => {
   if (show) {
     confirming.value = false
+    useNodeOptions.value = false
     try {
       const config = await window.electronAPI.getMcpProxyConfig()
       proxyUrl.value = config.url || ''
@@ -128,20 +134,28 @@ const buildEnvOverrides = () => {
 }
 
 const handleConfirm = async () => {
-  // 如果开启了代理，先保存全局配置并确保环境就绪
+  // 如果开启了代理，保存全局代理配置
   if (useProxy.value && proxyUrl.value) {
-    confirming.value = true
     try {
       await window.electronAPI.updateMcpProxyConfig({
         enabled: true,
         url: proxyUrl.value
       })
-      const result = await window.electronAPI.ensureProxySupport(proxyUrl.value)
+    } catch (e) {
+      console.error('Failed to save proxy config:', e)
+    }
+  }
+
+  // 如果开启了 NODE_OPTIONS，确保 proxy-support 环境就绪
+  if (useNodeOptions.value) {
+    confirming.value = true
+    try {
+      const result = await window.electronAPI.ensureProxySupport(proxyUrl.value || '')
       if (!result.success) {
         message.warning(t('mcp.proxy.setupFailed', { error: result.error }))
       }
     } catch (e) {
-      console.error('Failed to setup proxy:', e)
+      console.error('Failed to setup proxy support:', e)
     } finally {
       confirming.value = false
     }
@@ -149,7 +163,7 @@ const handleConfirm = async () => {
 
   const overrides = buildEnvOverrides()
   visible.value = false
-  emit('confirm', overrides, useProxy.value && !!proxyUrl.value)
+  emit('confirm', overrides, useProxy.value && !!proxyUrl.value, useNodeOptions.value)
 }
 
 const handleCancel = () => {

@@ -495,12 +495,13 @@ const handleInstallMcp = async (mcp) => {
   }
 }
 
-const doInstallMcp = async (mcp, force, envOverrides, useProxy) => {
+const doInstallMcp = async (mcp, force, envOverrides, useProxy, useNodeOptions) => {
   addToInstalling(mcp.id)
   try {
     const mcpPayload = JSON.parse(JSON.stringify(mcp))
     if (envOverrides) mcpPayload.envOverrides = envOverrides
     if (useProxy !== undefined) mcpPayload.useProxy = useProxy
+    if (useNodeOptions !== undefined) mcpPayload.useNodeOptions = useNodeOptions
 
     const installFn = force
       ? window.electronAPI.installMarketMcpForce
@@ -521,7 +522,7 @@ const doInstallMcp = async (mcp, force, envOverrides, useProxy) => {
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),
         onPositiveClick: async () => {
-          await doInstallMcp(mcp, true, envOverrides, useProxy)
+          await doInstallMcp(mcp, true, envOverrides, useProxy, useNodeOptions)
         }
       })
     } else {
@@ -553,12 +554,13 @@ const handleUpdateMcp = async (mcp) => {
   }
 }
 
-const doUpdateMcp = async (mcp, envOverrides, useProxy) => {
+const doUpdateMcp = async (mcp, envOverrides, useProxy, useNodeOptions) => {
   addToInstalling(mcp.id)
   try {
     const mcpPayload = JSON.parse(JSON.stringify(mcp))
     if (envOverrides) mcpPayload.envOverrides = envOverrides
     if (useProxy !== undefined) mcpPayload.useProxy = useProxy
+    if (useNodeOptions !== undefined) mcpPayload.useNodeOptions = useNodeOptions
 
     const result = await window.electronAPI.updateMarketMcp({
       registryUrl: registryUrl.value.trim(),
@@ -579,14 +581,14 @@ const doUpdateMcp = async (mcp, envOverrides, useProxy) => {
 }
 
 // Env config modal callbacks
-const onEnvConfigConfirm = (envOverrides, useProxy) => {
+const onEnvConfigConfirm = (envOverrides, useProxy, useNodeOptions) => {
   const mcp = pendingMcp.value
   if (!mcp) return
   const action = pendingMcpAction.value
   if (action === 'update') {
-    doUpdateMcp(mcp, envOverrides, useProxy)
+    doUpdateMcp(mcp, envOverrides, useProxy, useNodeOptions)
   } else {
-    doInstallMcp(mcp, action === 'force', envOverrides, useProxy)
+    doInstallMcp(mcp, action === 'force', envOverrides, useProxy, useNodeOptions)
   }
   pendingMcp.value = null
 }

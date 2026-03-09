@@ -880,6 +880,7 @@ export default {
       setupFailed: 'Proxy setup failed: {error}',
       saved: 'Proxy config saved',
       useProxy: 'Use MCP Proxy',
+      useNodeOptions: 'Inject NODE_OPTIONS (-r proxy-setup.cjs)',
       openConfig: 'Open app config file',
       openProxySupport: 'Open proxy-support directory',
     }

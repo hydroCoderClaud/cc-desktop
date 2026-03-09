@@ -883,6 +883,7 @@ export default {
       setupFailed: '代理环境配置失败：{error}',
       saved: '代理配置已保存',
       useProxy: '使用 MCP 代理',
+      useNodeOptions: '注入 NODE_OPTIONS（-r proxy-setup.cjs）',
       openConfig: '打开应用配置文件',
       openProxySupport: '打开 proxy-support 目录',
     }

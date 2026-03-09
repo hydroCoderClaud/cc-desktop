@@ -72,6 +72,9 @@ const mcpMarketMixin = {
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
 
+      // 5.1.1 注入 NODE_OPTIONS（-r proxy-setup.cjs）
+      this._injectNodeOptionsToServers(mcpServers, mcp.useNodeOptions)
+
       // 5.2 Windows 平台命令包装（npx → cmd /c npx）
       this._wrapCommandsForWindows(mcpServers)
 
@@ -181,6 +184,9 @@ const mcpMarketMixin = {
 
       // 5.1 注入代理环境变量
       this._injectProxyEnvToServers(mcpServers, mcp.useProxy)
+
+      // 5.1.1 注入 NODE_OPTIONS（-r proxy-setup.cjs）
+      this._injectNodeOptionsToServers(mcpServers, mcp.useNodeOptions)
 
       // 5.2 Windows 平台命令包装（npx → cmd /c npx）
       this._wrapCommandsForWindows(mcpServers)
@@ -314,7 +320,8 @@ const mcpMarketMixin = {
   },
 
   /**
-   * 向 mcpServers 注入代理环境变量
+   * 向 mcpServers 注入代理地址环境变量（HTTP_PROXY / HTTPS_PROXY）
+   * 若 MCP 配置中已存在代理变量则跳过，不覆盖 MCP 自带配置
    * @param {Object} mcpServers - MCP 服务器配置
    * @param {boolean|undefined} useProxy - true=强制注入, false=跳过, undefined=跟随全局配置
    */
@@ -328,14 +335,31 @@ const mcpMarketMixin = {
     // useProxy 未指定（无 env 弹窗的直接安装）→ 跟随全局开关
     if (useProxy === undefined && !proxyConfig.enabled) return
 
+    for (const [, serverConfig] of Object.entries(mcpServers)) {
+      if (!serverConfig.env) serverConfig.env = {}
+      // 已有代理环境变量则跳过（不覆盖 MCP 自带的代理配置）
+      if (serverConfig.env.HTTP_PROXY || serverConfig.env.HTTPS_PROXY) continue
+      serverConfig.env.HTTPS_PROXY = proxyConfig.url
+      serverConfig.env.HTTP_PROXY = proxyConfig.url
+    }
+    console.log(`[McpManager] Injected proxy env: ${proxyConfig.url}`)
+  },
+
+  /**
+   * 向 mcpServers 注入 NODE_OPTIONS（-r proxy-setup.cjs）
+   * 独立于代理地址开关，仅控制是否加载 proxy-setup 脚本
+   * @param {Object} mcpServers - MCP 服务器配置
+   * @param {boolean|undefined} useNodeOptions - true=注入, 其他值=跳过
+   */
+  _injectNodeOptionsToServers(mcpServers, useNodeOptions) {
+    if (!useNodeOptions) return
+
     const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs')
     for (const [, serverConfig] of Object.entries(mcpServers)) {
       if (!serverConfig.env) serverConfig.env = {}
-      serverConfig.env.HTTPS_PROXY = proxyConfig.url
-      serverConfig.env.HTTP_PROXY = proxyConfig.url
       serverConfig.env.NODE_OPTIONS = `-r "${proxyScriptPath.replace(/\\/g, '/')}"`
     }
-    console.log(`[McpManager] Injected proxy env: ${proxyConfig.url}`)
+    console.log(`[McpManager] Injected NODE_OPTIONS: -r proxy-setup.cjs`)
   },
 
   /**

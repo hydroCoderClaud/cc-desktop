@@ -2,6 +2,15 @@
 
 ---
 
+## v1.6.95 - 2026-03-09
+
+### 新增 (Feat)
+
+- MCP 安装配置弹窗新增独立的 NODE_OPTIONS 开关：与代理地址开关分离，单独控制是否注入 `-r proxy-setup.cjs`；proxy-support 环境复制随 NODE_OPTIONS 开关触发
+- MCP 代理注入增加存在检查：若 MCP 配置中已自带 `HTTP_PROXY`/`HTTPS_PROXY`，代理开关不覆盖
+
+---
+
 ## v1.6.94 - 2026-03-09
 
 ### 新增 (Feat)
