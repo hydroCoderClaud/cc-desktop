@@ -2,6 +2,27 @@
 
 ---
 
+## v1.6.94 - 2026-03-09
+
+### 新增 (Feat)
+
+- Agent 右侧文件面板：右键菜单及预览工具栏（图片/文本/视频）新增「插入路径到输入框」，点击后自动将完整路径追加到聊天输入框并换行
+- Agent 右侧文件面板：图片预览大小限制从 2MB 放宽至 20MB
+- Agent 左侧目录筛选：修复 placeholder 未国际化（英文 "Please Select" → 中文）
+- 聊天输入框默认高度由 2 行提升至 3 行
+- Agent 模式粘贴图片自动保存到会话目录下的 `chat_paste_images` 子目录
+
+### 修复 (Fix)
+
+- 恢复 Terminal Canvas 渲染器，删除硬编码光标 CSS 导致的样式异常
+- 修复 HMR 热重载后终端光标颜色跳动：useTheme 通过 `import.meta.hot.data` 在 HMR 周期间保持 colorScheme/isDark 状态，防止重置为默认值
+
+### 其他 (Chore)
+
+- `my-update-version` skill：增加推送模式选择（构建/不构建），动态检测 remote，未配置的跳过不报错
+
+---
+
 ## v1.6.93 - 2026-03-08
 
 ### 新增 (Feat)
