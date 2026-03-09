@@ -66,6 +66,14 @@
           <button
             v-if="preview?.filePath"
             class="toolbar-btn"
+            @click="$emit('insert-path', preview.filePath)"
+            :title="t('agent.files.insertPath')"
+          >
+            <Icon name="send" :size="14" />
+          </button>
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
             @click="openTextExternal"
             :title="t('agent.files.openInDefaultApp')"
           >
@@ -126,6 +134,14 @@
           <button
             v-if="preview?.filePath"
             class="toolbar-btn"
+            @click="$emit('insert-path', preview.filePath)"
+            :title="t('agent.files.insertPath')"
+          >
+            <Icon name="send" :size="14" />
+          </button>
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
             @click="openImageExternal"
             :title="t('agent.files.openInDefaultApp')"
           >
@@ -160,6 +176,14 @@
         <!-- Video Toolbar -->
         <div v-if="showToolbar" class="video-toolbar">
           <span class="toolbar-tips">{{ t('agent.files.videoTips') }}</span>
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
+            @click="$emit('insert-path', preview.filePath)"
+            :title="t('agent.files.insertPath')"
+          >
+            <Icon name="send" :size="14" />
+          </button>
           <button
             v-if="preview?.filePath"
             class="toolbar-btn"
@@ -220,7 +244,7 @@ const props = defineProps({
   maximized: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['close', 'toggle-maximize'])
+const emit = defineEmits(['close', 'toggle-maximize', 'insert-path'])
 
 // 图片预览增强
 const imageZoom = ref(1)

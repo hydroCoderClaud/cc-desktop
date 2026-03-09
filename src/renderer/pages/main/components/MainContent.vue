@@ -845,7 +845,7 @@ const handleInsertPath = (relativePath) => {
   if (!activeTabRef || !activeTabRef.insertText) return
 
   // 插入路径到输入框
-  activeTabRef.insertText(relativePath)
+  activeTabRef.insertText(relativePath + '\n')
 }
 
 // 处理图片预览请求

@@ -9,6 +9,11 @@
       >
         <!-- 文件夹菜单 -->
         <template v-if="target?.isDirectory">
+          <div class="menu-item" @click="handleAction('insertPath')">
+            <Icon name="send" :size="14" />
+            <span>{{ t('agent.files.insertPath') }}</span>
+          </div>
+          <div class="menu-divider"></div>
           <div class="menu-item" @click="handleAction('newFile')">
             <Icon name="fileText" :size="14" />
             <span>{{ t('agent.files.newFile') }}</span>
@@ -30,6 +35,11 @@
 
         <!-- 文件菜单 -->
         <template v-else-if="target && !target.isDirectory">
+          <div class="menu-item" @click="handleAction('insertPath')">
+            <Icon name="send" :size="14" />
+            <span>{{ t('agent.files.insertPath') }}</span>
+          </div>
+          <div class="menu-divider"></div>
           <div class="menu-item" @click="handleAction('rename')">
             <Icon name="edit" :size="14" />
             <span>{{ t('common.rename') }}</span>

@@ -1278,6 +1278,7 @@ export default {
       unsaved: '未保存',
       saved: '已保存',
       // 右键菜单
+      insertPath: '插入路径到输入框',
       newFile: '新建文件',
       newFolder: '新建文件夹',
       fileNamePlaceholder: '文件名（如 README.md）',

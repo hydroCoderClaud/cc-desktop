@@ -1273,6 +1273,7 @@ export default {
       unsaved: 'Unsaved',
       saved: 'Saved',
       // Context menu
+      insertPath: 'Insert Path to Input',
       newFile: 'New File',
       newFolder: 'New Folder',
       fileNamePlaceholder: 'File name (e.g. README.md)',

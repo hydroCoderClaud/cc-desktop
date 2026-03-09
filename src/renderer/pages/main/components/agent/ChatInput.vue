@@ -156,7 +156,7 @@
         :placeholder="placeholder"
         :disabled="disabled"
         class="chat-textarea"
-        rows="1"
+        rows="3"
         @input="handleInput"
         @keydown="handleKeyDown"
         @paste="handlePaste"

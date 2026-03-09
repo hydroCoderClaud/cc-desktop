@@ -101,6 +101,7 @@
             :maximized="previewMaximized"
             @close="handleClosePreview"
             @toggle-maximize="previewMaximized = !previewMaximized"
+            @insert-path="emit('insert-path', $event)"
           />
         </div>
       </template>
@@ -289,6 +290,9 @@ const handleMenuAction = async ({ action, target }) => {
   if (!sessionId) return
 
   switch (action) {
+    case 'insertPath':
+      if (target) handleInsertPath(target.relativePath)
+      break
     case 'newFile':
       await handleNewFile(target)
       break

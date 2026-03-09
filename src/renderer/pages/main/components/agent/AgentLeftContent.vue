@@ -14,6 +14,7 @@
         v-model:value="selectedCwd"
         :options="cwdOptions"
         :render-label="renderCwdLabel"
+        :placeholder="t('agent.allDirectories')"
         size="small"
       />
     </div>
