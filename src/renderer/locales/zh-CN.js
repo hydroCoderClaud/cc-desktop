@@ -29,6 +29,8 @@ export default {
     reset: '重置',
     refresh: '刷新',
     copy: '复制',
+    cut: '剪切',
+    paste: '粘贴',
     copied: '已复制',
     required: '必填',
     optional: '可选',
@@ -1245,6 +1247,8 @@ export default {
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
     saveAsImage: '保存为图片',
     imageSaved: '图片已保存',
+    copySelection: '复制选中文字',
+    copyContent: '复制消息内容',
     dingtalkSuffix: '（钉钉）',
     dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 

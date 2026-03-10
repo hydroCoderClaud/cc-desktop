@@ -29,6 +29,8 @@ export default {
     reset: 'Reset',
     refresh: 'Refresh',
     copy: 'Copy',
+    cut: 'Cut',
+    paste: 'Paste',
     copied: 'Copied',
     required: 'Required',
     optional: 'Optional',
@@ -1240,6 +1242,8 @@ export default {
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
     saveAsImage: 'Save as Image',
     imageSaved: 'Image saved',
+    copySelection: 'Copy Selected Text',
+    copyContent: 'Copy Message Content',
     dingtalkSuffix: ' (DingTalk)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 

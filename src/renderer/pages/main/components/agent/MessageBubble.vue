@@ -1,5 +1,5 @@
 <template>
-  <div class="message-bubble" :class="[message.role]">
+  <div class="message-bubble" :class="[message.role]" @contextmenu.prevent="handleContextMenu">
     <div class="bubble-avatar">
       <Icon :name="message.role === 'user' ? 'user' : 'robot'" :size="16" />
     </div>
@@ -36,11 +36,13 @@
       </div>
     </div>
   </div>
+  <ContextMenu ref="contextMenuRef" :items="contextMenuItems" @select="onContextMenuSelect" />
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
+import ContextMenu from '@components/ContextMenu.vue'
 import { useLocale } from '@composables/useLocale'
 import { extractLatex, restoreLatex } from '@utils/latex-utils'
 
@@ -232,6 +234,29 @@ const handleImageClick = (img) => {
     size: img.base64 ? Math.round((img.base64.length * 3) / 4) : 0, // base64 大小估算
     ext: `.${img.mediaType?.split('/')[1] || 'png'}`
   })
+}
+
+/**
+ * 右键菜单
+ */
+const contextMenuRef = ref(null)
+const contextMenuItems = ref([])
+
+const handleContextMenu = (event) => {
+  const sel = window.getSelection()?.toString() || ''
+  contextMenuItems.value = [
+    { key: 'copy-selection', label: t('agent.copySelection'), disabled: !sel },
+    { key: 'copy-content', label: t('agent.copyContent') }
+  ]
+  contextMenuRef.value.show(event.clientX, event.clientY)
+}
+
+const onContextMenuSelect = async (key) => {
+  if (key === 'copy-selection') {
+    await navigator.clipboard.writeText(window.getSelection()?.toString() || '')
+  } else if (key === 'copy-content') {
+    await navigator.clipboard.writeText(props.message.content || '')
+  }
 }
 
 /**

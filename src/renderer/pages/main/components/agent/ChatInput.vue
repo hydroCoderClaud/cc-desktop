@@ -160,6 +160,7 @@
         @input="handleInput"
         @keydown="handleKeyDown"
         @paste="handlePaste"
+        @contextmenu.prevent="handleInputContextMenu"
       />
       <!-- 队列徽章（独立显示，只要有消息就显示，不管队列是否启用） -->
       <div v-if="messageQueue.length > 0" class="queue-wrapper" ref="queueWrapperRef">
@@ -237,12 +238,14 @@
       </button>
     </div>
   </div>
+  <ContextMenu ref="inputContextMenuRef" :items="inputContextMenuItems" @select="onInputContextMenuSelect" />
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import ContextMenu from '@components/ContextMenu.vue'
 import {
   readFileAsBase64,
   getImageMediaType,
@@ -820,6 +823,41 @@ const insertText = (text) => {
     textarea.setSelectionRange(newPosition, newPosition)
     textarea.focus()
   })
+}
+
+// ============================
+// 输入框右键菜单
+// ============================
+const inputContextMenuRef = ref(null)
+const inputContextMenuItems = ref([])
+
+const handleInputContextMenu = (event) => {
+  const textarea = textareaRef.value
+  const hasSelection = textarea && textarea.selectionStart !== textarea.selectionEnd
+  inputContextMenuItems.value = [
+    { key: 'cut', label: t('common.cut'), shortcut: 'Ctrl+X', disabled: !hasSelection },
+    { key: 'copy', label: t('common.copy'), shortcut: 'Ctrl+C', disabled: !hasSelection },
+    { key: 'paste', label: t('common.paste'), shortcut: 'Ctrl+V' }
+  ]
+  inputContextMenuRef.value.show(event.clientX, event.clientY)
+}
+
+const onInputContextMenuSelect = async (key) => {
+  const textarea = textareaRef.value
+  if (!textarea) return
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  if (key === 'cut') {
+    const selected = inputText.value.substring(start, end)
+    await navigator.clipboard.writeText(selected)
+    inputText.value = inputText.value.substring(0, start) + inputText.value.substring(end)
+    nextTick(() => textarea.setSelectionRange(start, start))
+  } else if (key === 'copy') {
+    await navigator.clipboard.writeText(inputText.value.substring(start, end))
+  } else if (key === 'paste') {
+    const text = await navigator.clipboard.readText()
+    insertText(text)
+  }
 }
 
 defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText })
