@@ -330,10 +330,8 @@ const mcpMarketMixin = {
     const proxyConfig = this.configManager.getMcpProxyConfig()
     if (!proxyConfig.url) return
 
-    // useProxy 明确为 false → 跳过
-    if (useProxy === false) return
-    // useProxy 未指定（无 env 弹窗的直接安装）→ 跟随全局开关
-    if (useProxy === undefined && !proxyConfig.enabled) return
+    // useProxy 明确为 true 才注入；false 或 undefined（UI 未暴露）均跳过
+    if (useProxy !== true) return
 
     for (const [, serverConfig] of Object.entries(mcpServers)) {
       if (!serverConfig.env) serverConfig.env = {}
