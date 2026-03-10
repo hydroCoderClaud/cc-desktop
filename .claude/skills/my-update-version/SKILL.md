@@ -66,18 +66,22 @@ description: 版本发布自动化：更新版本号、生成 CHANGELOG、提交
 
 ### 步骤 4：更新版本号
 
-同步更新以下 3 个文件：
+同步更新以下 7 个文件：
 
 | 文件 | 修改内容 |
 |------|---------|
 | `package.json` | `"version": "X.Y.Z"` |
 | `CLAUDE.md` | `**当前版本**：X.Y.Z` |
 | `docs/CHANGELOG.md` | 步骤 3 已完成 |
+| `docs/ARCHITECTURE.md` | `> vX.Y.Z |` (文档头部版本号) |
+| `docs/code-index/main.md` | `> CC Desktop vX.Y.Z |` (文档头部版本号) |
+| `docs/code-index/renderer.md` | `> CC Desktop vX.Y.Z |` (文档头部版本号) |
+| `docs/code-index/ipc-channels.md` | `> CC Desktop vX.Y.Z |` (文档头部版本号) |
 
 ### 步骤 5：Git 提交
 
 ```bash
-git add package.json CLAUDE.md docs/CHANGELOG.md
+git add package.json CLAUDE.md docs/CHANGELOG.md docs/ARCHITECTURE.md docs/code-index/main.md docs/code-index/renderer.md docs/code-index/ipc-channels.md
 # 如有其他本次发版相关的变更文件，一并 add
 git commit -m "chore: bump version to X.Y.Z"
 ```
