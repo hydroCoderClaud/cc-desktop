@@ -101,6 +101,7 @@ class AgentFileManager {
       for (const dirent of dirents) {
         // 过滤系统目录和文件（showHidden 关闭时）
         if (!showHidden) {
+          if (dirent.name.startsWith('.')) continue
           if (dirent.isDirectory() && (
             HIDDEN_DIRS.has(dirent.name) ||
             HIDDEN_DIR_SUFFIXES.some(s => dirent.name.endsWith(s))
@@ -361,6 +362,7 @@ class AgentFileManager {
 
         // 过滤隐藏文件/目录
         if (!showHidden) {
+          if (dirent.name.startsWith('.')) continue
           if (dirent.isDirectory() && (
             HIDDEN_DIRS.has(dirent.name) ||
             HIDDEN_DIR_SUFFIXES.some(s => dirent.name.endsWith(s))

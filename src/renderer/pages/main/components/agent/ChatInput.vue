@@ -855,6 +855,20 @@ const onInputContextMenuSelect = async (key) => {
   } else if (key === 'copy') {
     await navigator.clipboard.writeText(inputText.value.substring(start, end))
   } else if (key === 'paste') {
+    // 优先尝试读取图片
+    try {
+      const clipItems = await navigator.clipboard.read()
+      const imageItem = clipItems.find(item => item.types.some(t => t.startsWith('image/')))
+      if (imageItem) {
+        const imageType = imageItem.types.find(t => t.startsWith('image/'))
+        const blob = await imageItem.getType(imageType)
+        const file = new File([blob], 'pasted-image.png', { type: imageType })
+        await processImages([file])
+        return
+      }
+    } catch {
+      // clipboard.read() 权限被拒绝时降级为文本粘贴
+    }
     const text = await navigator.clipboard.readText()
     insertText(text)
   }
