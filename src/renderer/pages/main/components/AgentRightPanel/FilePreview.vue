@@ -293,31 +293,45 @@ const saveText = async () => {
   if (!props.preview?.filePath || !isTextDirty.value || savingText.value) return
 
   savingText.value = true
-  try {
-    // 获取当前会话 ID（从父组件传入的 preview 数据中）
-    const sessionId = props.preview.sessionId
-    const relativePath = props.preview.relativePath
 
-    const result = await window.electronAPI.saveAgentFile({
-      sessionId,
-      relativePath,
-      content: editableText.value
-    })
+  // 快照：防止异步保存期间用户切换文件导致写入目标错误
+  const snapshot = {
+    filePath: props.preview.filePath,
+    sessionId: props.preview.sessionId,
+    relativePath: props.preview.relativePath,
+    isExternalFile: props.preview.isExternalFile,
+    content: editableText.value
+  }
+
+  try {
+    let result
+    if (!snapshot.isExternalFile && snapshot.sessionId && snapshot.relativePath) {
+      // cwd 内文件：通过 sessionId + relativePath 保存
+      result = await window.electronAPI.saveAgentFile({
+        sessionId: snapshot.sessionId,
+        relativePath: snapshot.relativePath,
+        content: snapshot.content
+      })
+    } else {
+      // cwd 外文件：直接通过绝对路径保存
+      result = await window.electronAPI.saveAbsoluteFile({
+        filePath: snapshot.filePath,
+        content: snapshot.content
+      })
+    }
 
     if (result.error) {
       console.error('Save failed:', result.error)
       return
     }
 
-    // 保存成功
-    originalText.value = editableText.value
-    isTextDirty.value = false
-    saveSuccess.value = true
-
-    // 3秒后隐藏成功提示
-    setTimeout(() => {
-      saveSuccess.value = false
-    }, 3000)
+    // 保存成功（仅当用户未切换文件时更新 dirty 状态）
+    if (props.preview?.filePath === snapshot.filePath) {
+      originalText.value = snapshot.content
+      isTextDirty.value = false
+      saveSuccess.value = true
+      setTimeout(() => { saveSuccess.value = false }, 3000)
+    }
   } catch (err) {
     console.error('Save error:', err)
   } finally {

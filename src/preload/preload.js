@@ -597,6 +597,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('agent:readFile', { sessionId, relativePath }),
   saveAgentFile: ({ sessionId, relativePath, content }) =>
     ipcRenderer.invoke('agent:saveFile', { sessionId, relativePath, content }),
+  saveAbsoluteFile: ({ filePath, content }) =>
+    ipcRenderer.invoke('agent:saveAbsoluteFile', { filePath, content }),
   openAgentFile: ({ sessionId, relativePath }) =>
     ipcRenderer.invoke('agent:openFile', { sessionId, relativePath }),
   readAbsolutePath: ({ filePath, sessionId, confirmed }) =>

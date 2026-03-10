@@ -927,11 +927,35 @@ const handlePreviewPath = async (filePath, confirmed = false) => {
       showRightPanel.value = true
     }
 
-    // 调用 AgentRightPanel 的预览方法，并在文件树中定位选中
-    nextTick(() => {
-      if (agentRightPanelRef.value) {
-        agentRightPanelRef.value.previewImage?.(fileData)
-        agentRightPanelRef.value.revealInTree?.(filePath)
+    // 调用 AgentRightPanel 展示预览
+    nextTick(async () => {
+      if (!agentRightPanelRef.value) return
+      const cwd = activeAgentCwd.value
+      const toFwd = (p) => {
+        if (!p) return p
+        p = p.replace(/\\/g, '/')
+        // MSYS/Windows 路径规范化：仅在 Windows 平台执行
+        // 在 macOS/Linux 上，/c/foo 是合法 Unix 路径，不能转换
+        if (process.platform === 'win32') {
+          const msys = p.match(/^\/([a-zA-Z])\/(.*)/)
+          if (msys) {
+            p = msys[1].toUpperCase() + ':/' + msys[2]
+          } else if (/^[a-z]:/.test(p)) {
+            p = p[0].toUpperCase() + p.slice(1)
+          }
+        }
+        return p
+      }
+      const normalizedCwd = cwd ? (toFwd(cwd).replace(/\/+$/, '') + '/') : ''
+      const normalizedFilePath = toFwd(filePath)
+      const isWithinCwd = normalizedCwd && normalizedFilePath.startsWith(normalizedCwd)
+
+      if (isWithinCwd) {
+        // 在会话目录内：展开文件树 + 选中高亮 + 加载预览 + 滚动定位
+        await agentRightPanelRef.value.revealInTree?.(filePath, { preview: true })
+      } else {
+        // 在会话目录外：仅展示预览内容，无法在文件树定位
+        agentRightPanelRef.value.previewImage?.({ ...fileData, isExternalFile: true })
       }
     })
   } catch (err) {

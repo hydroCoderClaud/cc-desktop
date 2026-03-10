@@ -352,7 +352,8 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
           name,
           content: `data:${VIDEO_MIME_MAP[ext] || 'video/mp4'};base64,${buffer.toString('base64')}`,
           size: stats.size,
-          ext
+          ext,
+          filePath
         }
       }
 
@@ -379,7 +380,8 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
           name,
           content: `data:${mimeTypes[ext] || 'image/png'};base64,${base64}`,
           size: stats.size,
-          ext
+          ext,
+          filePath
         }
       }
 
@@ -390,7 +392,8 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
         name,
         content,
         size: stats.size,
-        ext
+        ext,
+        filePath
       }
     } catch (err) {
       console.error('[IPC] agent:readAbsolutePath error:', err)
@@ -464,6 +467,54 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       return await agentSessionManager.deleteFile(sessionId, path)
     } catch (err) {
       console.error('[IPC] agent:deleteFile error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 通过绝对路径保存文件（用于 cwd 外的文件预览编辑保存）
+  ipcMain.handle('agent:saveAbsoluteFile', async (event, { filePath, content }) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { error: 'Invalid file path' }
+      }
+
+      // 必须是绝对路径
+      if (!path.isAbsolute(filePath)) {
+        return { error: 'Path must be absolute' }
+      }
+
+      // 用 resolve 规范化路径（跨平台，自动处理正反斜杠、. 和 ..）
+      const resolved = path.resolve(filePath)
+
+      // 文件必须已存在（只允许编辑，不允许在任意目录创建新文件）
+      if (!fs.existsSync(resolved)) {
+        return { error: 'File not found' }
+      }
+
+      // 解析符号链接，防止绕过目录检查
+      const realPath = fs.realpathSync(resolved)
+      const fwdPath = realPath.replace(/\\/g, '/')
+
+      // 不允许写入系统关键目录（含 macOS /private/etc 等符号链接目标）
+      const blocked = [
+        /^\/etc\//i,           // Linux /etc
+        /^\/bin\//i,           // Linux /bin
+        /^\/sbin\//i,          // Linux /sbin
+        /^\/usr\/bin\//i,      // Linux /usr/bin
+        /^\/System\//i,        // macOS /System
+        /^\/private\/etc\//i,  // macOS /etc 真实路径
+        /^\/private\/var\//i,  // macOS /var 真实路径
+        /^[A-Z]:\/Windows\//i,
+        /^[A-Z]:\/System32\//i
+      ]
+      if (blocked.some(re => re.test(fwdPath))) {
+        return { error: 'Cannot write to system directories' }
+      }
+
+      fs.writeFileSync(realPath, content, 'utf-8')
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:saveAbsoluteFile error:', err)
       return { error: err.message }
     }
   })

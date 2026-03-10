@@ -2,6 +2,24 @@
 
 ---
 
+## v1.6.96 - 2026-03-10
+
+### 新增 (Feat)
+- Agent 模式：点击对话中的文件路径，自动在文件树定位（展开子目录 + 高亮选中）并在预览区展示；cwd 外的文件仅预览不定位
+- Agent 模式：cwd 外的预览文件支持编辑保存（通过绝对路径写回，含安全校验）
+- `previewImage` 标记外部文件来源（`isExternalFile`），使保存路径分支更明确
+
+### 修复 (Fix)
+- 路径规范化 MSYS 转换加 `process.platform === 'win32'` 守卫，修复在 macOS/Linux 上 `/a/foo` 类路径被误转为 `A:/foo` 的问题
+- `saveAbsoluteFile` IPC 改用 `path.resolve` + `realpathSync` 做路径校验，修复 Windows 正反斜杠差异导致的误拒绝
+- 黑名单补充 macOS 符号链接真实路径 `/private/etc/`、`/private/var/`
+- 保存文本时快照入参，防止切换文件期间异步保存写到错误目标
+
+### 其他 (Chore)
+- MCP 代理注入 UI 完全移除（代理开关、NodeOptions 开关从安装弹窗移除）；后端 gate 改为 `useProxy !== true`，安装流程不再注入代理
+
+---
+
 ## v1.6.95 - 2026-03-09
 
 ### 新增 (Feat)

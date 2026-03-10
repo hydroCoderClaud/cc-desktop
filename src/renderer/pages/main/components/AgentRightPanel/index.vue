@@ -550,14 +550,34 @@ const handleDelete = async (target) => {
  *   preview=true：展开父目录 + 选中 + 加载文件预览 + 滚动（agent-done 自动定位用）
  *   preview=false（默认）：展开父目录 + 选中 + 滚动（手动点击路径用）
  */
+// 将路径统一为 Windows 正斜杠格式（兼容 MSYS /c/... → C:/... 和反斜杠）
+const toForwardSlash = (p) => {
+  if (!p) return p
+  p = p.replace(/\\/g, '/')
+  // MSYS/Windows 路径规范化：仅在 Windows 平台执行
+  // 在 macOS/Linux 上，/c/foo 是合法 Unix 路径，不能转换
+  if (process.platform === 'win32') {
+    const msys = p.match(/^\/([a-zA-Z])\/(.*)/)
+    if (msys) {
+      // MSYS 格式：/c/foo → C:/foo
+      p = msys[1].toUpperCase() + ':/' + msys[2]
+    } else if (/^[a-z]:/.test(p)) {
+      // Windows 小写盘符 → 大写（c:/foo → C:/foo）
+      p = p[0].toUpperCase() + p.slice(1)
+    }
+  }
+  return p
+}
+
 const revealInTree = async (absolutePath, { preview = false } = {}) => {
   const cwd = agentFiles.cwd.value
   if (!cwd || !absolutePath) return
 
-  const normalizedCwd = cwd.endsWith('/') ? cwd : cwd + '/'
-  if (!absolutePath.startsWith(normalizedCwd)) return
+  const normalizedAbsolute = toForwardSlash(absolutePath)
+  const normalizedCwd = toForwardSlash(cwd).replace(/\/+$/, '') + '/'
+  if (!normalizedAbsolute.startsWith(normalizedCwd)) return
 
-  const relativePath = absolutePath.slice(normalizedCwd.length)
+  const relativePath = normalizedAbsolute.slice(normalizedCwd.length)
   if (!relativePath) return
 
   if (preview) {

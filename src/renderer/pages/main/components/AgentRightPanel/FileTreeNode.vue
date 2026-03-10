@@ -82,7 +82,9 @@ const props = defineProps({
 const emit = defineEmits(['toggle-dir', 'select-file', 'open-file', 'insert-path', 'context-menu'])
 
 const isExpanded = computed(() => props.expandedDirs.has(props.entry.relativePath))
-const isSelected = computed(() => !props.entry.isDirectory && props.selectedFile === props.entry.relativePath)
+const isSelected = computed(() => !props.entry.isDirectory &&
+  !!props.selectedFile &&
+  props.selectedFile.replace(/\\/g, '/') === props.entry.relativePath.replace(/\\/g, '/'))
 const children = computed(() => props.getDirEntries(props.entry.relativePath))
 
 const handleClick = (event) => {

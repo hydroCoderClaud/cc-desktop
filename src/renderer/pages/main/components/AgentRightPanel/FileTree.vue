@@ -43,7 +43,11 @@ const treeRef = ref(null)
 
 const scrollToFile = (relativePath) => {
   if (!treeRef.value || !relativePath) return
-  const el = treeRef.value.querySelector(`[data-path="${CSS.escape(relativePath)}"]`)
+  // 同时尝试正斜杠和反斜杠版本，兼容 Windows IPC 返回的路径格式
+  const fwd = relativePath.replace(/\\/g, '/')
+  const bwd = relativePath.replace(/\//g, '\\')
+  const el = treeRef.value.querySelector(`[data-path="${CSS.escape(fwd)}"]`) ||
+             treeRef.value.querySelector(`[data-path="${CSS.escape(bwd)}"]`)
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
