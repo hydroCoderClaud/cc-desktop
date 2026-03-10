@@ -262,14 +262,21 @@ const tryAutoConsumeQueue = () => {
 // --- streaming 结束时通知父组件刷新文件树，并带出本轮生成的文件路径 ---
 watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming) {
-    // 从最后一条 user 消息之后收集工具调用写入的文件路径
     const msgs = messages.value
     let startIdx = msgs.length - 1
     while (startIdx > 0 && msgs[startIdx].role !== 'user') startIdx--
     const filePaths = []
     for (let i = startIdx + 1; i < msgs.length; i++) {
-      const fp = msgs[i].input?.file_path || msgs[i].input?.filePath
+      const msg = msgs[i]
+      // Claude Code 工具：从 input.file_path 提取
+      const fp = msg.input?.file_path || msg.input?.filePath
       if (fp) filePaths.push(fp)
+      // 助手文本 / MCP 工具：从回复内容中提取绝对路径
+      if (msg.content) {
+        const unixPaths = msg.content.match(/\/(?:[\w\-. ]+\/)+[\w\-. ]+\.[\w]{1,10}/g) || []
+        const winPaths = msg.content.match(/[A-Za-z]:\\(?:[\w\-. ]+\\)+[\w\-. ]+\.[\w]{1,10}/g) || []
+        unixPaths.concat(winPaths).forEach(p => filePaths.push(p))
+      }
     }
     emit('agent-done', [...new Set(filePaths)])
   }

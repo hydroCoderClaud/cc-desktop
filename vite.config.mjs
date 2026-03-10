@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue({ template: { compilerOptions: { isCustomElement: tag => tag === 'webview' } } })],
   root: path.resolve(__dirname, 'src/renderer'),
   base: './',
   resolve: {
