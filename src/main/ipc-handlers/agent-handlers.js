@@ -8,7 +8,7 @@
 const { shell } = require('electron')
 const fs = require('fs')
 const path = require('path')
-const { VIDEO_EXTS, VIDEO_MIME_MAP, MAX_VIDEO_SIZE } = require('../utils/agent-constants')
+const { VIDEO_EXTS, VIDEO_MIME_MAP, MAX_VIDEO_SIZE, MAX_IMG_SIZE } = require('../utils/agent-constants')
 
 function setupAgentHandlers(ipcMain, agentSessionManager) {
   if (!agentSessionManager) {
@@ -366,9 +366,9 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
         }
       }
 
-      // 文件大小限制（10MB，视频已在上面处理）
-      if (stats.size > 10 * 1024 * 1024) {
-        return { error: 'File too large (max 10MB)' }
+      // 文件大小限制（与 agent-file-manager 保持一致：图片 20MB，视频已在上面处理）
+      if (stats.size > MAX_IMG_SIZE) {
+        return { error: `File too large (max ${MAX_IMG_SIZE / 1024 / 1024}MB)` }
       }
 
       // 图片文件

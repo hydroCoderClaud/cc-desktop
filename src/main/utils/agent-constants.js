@@ -82,7 +82,7 @@ const LANG_MAP = {
 
 // 文件大小限制
 const MAX_TEXT_SIZE = 512 * 1024       // 文本预览上限 512KB
-const MAX_IMG_SIZE = 20 * 1024 * 1024  // 图片预览上限 20MB
+const MAX_IMG_SIZE = 50 * 1024 * 1024  // 图片预览上限 50MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 视频预览上限 50MB
 
 // MIME 类型映射
