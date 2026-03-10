@@ -885,30 +885,15 @@ const handlePreviewLink = (linkData) => {
 }
 
 // 处理文件路径预览请求
-const handlePreviewPath = async (filePath, confirmed = false) => {
-  // 请求后端读取文件（使用绝对路径读取）
+const handlePreviewPath = async (filePath) => {
+  // 请求后端读取文件（只读预览，直接 confirmed=true，不弹安全确认框）
   try {
     const sessionId = activeAgentSessionId.value
     const fileData = await window.electronAPI.readAbsolutePath({
       filePath,
       sessionId,
-      confirmed
+      confirmed: true
     })
-
-    // 检查是否需要用户确认（安全检查：文件在工作目录外）
-    if (fileData.requiresConfirmation) {
-      dialog.warning({
-        title: t('common.warning'),
-        content: fileData.message,
-        positiveText: t('common.confirm'),
-        negativeText: t('common.cancel'),
-        onPositiveClick: async () => {
-          // 用户确认后，再次调用并传递 confirmed=true
-          await handlePreviewPath(filePath, true)
-        }
-      })
-      return
-    }
 
     // 检查错误
     if (fileData.error) {
@@ -930,31 +915,10 @@ const handlePreviewPath = async (filePath, confirmed = false) => {
     // 调用 AgentRightPanel 展示预览
     nextTick(async () => {
       if (!agentRightPanelRef.value) return
-      const cwd = activeAgentCwd.value
-      const toFwd = (p) => {
-        if (!p) return p
-        p = p.replace(/\\/g, '/')
-        // MSYS/Windows 路径规范化：仅在 Windows 平台执行
-        // 在 macOS/Linux 上，/c/foo 是合法 Unix 路径，不能转换
-        if (process.platform === 'win32') {
-          const msys = p.match(/^\/([a-zA-Z])\/(.*)/)
-          if (msys) {
-            p = msys[1].toUpperCase() + ':/' + msys[2]
-          } else if (/^[a-z]:/.test(p)) {
-            p = p[0].toUpperCase() + p.slice(1)
-          }
-        }
-        return p
-      }
-      const normalizedCwd = cwd ? (toFwd(cwd).replace(/\/+$/, '') + '/') : ''
-      const normalizedFilePath = toFwd(filePath)
-      const isWithinCwd = normalizedCwd && normalizedFilePath.startsWith(normalizedCwd)
-
-      if (isWithinCwd) {
-        // 在会话目录内：展开文件树 + 选中高亮 + 加载预览 + 滚动定位
-        await agentRightPanelRef.value.revealInTree?.(filePath, { preview: true })
-      } else {
-        // 在会话目录外：仅展示预览内容，无法在文件树定位
+      // 优先尝试在文件树中定位（仅对 cwd 内的文件有效）
+      const revealed = await agentRightPanelRef.value.revealInTree?.(filePath, { preview: true })
+      // 如果文件不在 cwd 内（revealInTree 返回 false/undefined），直接展示预览
+      if (!revealed) {
         agentRightPanelRef.value.previewImage?.({ ...fileData, isExternalFile: true })
       }
     })
@@ -971,7 +935,11 @@ const handleAgentDone = async (filePaths = []) => {
   if (!filePaths.length) return
   for (let i = 0; i < filePaths.length; i++) {
     const isLast = i === filePaths.length - 1
-    await agentRightPanelRef.value.revealInTree(filePaths[i], { preview: isLast })
+    const revealed = await agentRightPanelRef.value.revealInTree(filePaths[i], { preview: isLast })
+    // 如果文件不在 cwd 内（revealInTree 返回 false），且是最后一个，通过 handlePreviewPath 展示
+    if (!revealed && isLast) {
+      await handlePreviewPath(filePaths[i])
+    }
   }
 }
 

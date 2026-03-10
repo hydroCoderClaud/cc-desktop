@@ -35,14 +35,14 @@
         </button>
       </div>
 
-      <!-- Loading -->
-      <div v-if="agentFiles.loading.value && !previewMaximized" class="panel-loading">
+      <!-- Loading（有 preview 时直接跳过，避免遮住 FilePreview） -->
+      <div v-if="agentFiles.loading.value && !previewMaximized && !agentFiles.selectedFile.value" class="panel-loading">
         <Icon name="refresh" :size="16" class="spin-icon" />
         <span>{{ t('common.loading') }}</span>
       </div>
 
-      <!-- Error -->
-      <div v-else-if="agentFiles.error.value && !previewMaximized" class="panel-error">
+      <!-- Error（有 preview 时同样跳过） -->
+      <div v-else-if="agentFiles.error.value && !previewMaximized && !agentFiles.selectedFile.value" class="panel-error">
         <Icon name="warning" :size="16" />
         <span>{{ t('agent.files.errorLoading') }}</span>
       </div>
@@ -556,7 +556,7 @@ const toForwardSlash = (p) => {
   p = p.replace(/\\/g, '/')
   // MSYS/Windows 路径规范化：仅在 Windows 平台执行
   // 在 macOS/Linux 上，/c/foo 是合法 Unix 路径，不能转换
-  if (process.platform === 'win32') {
+  if (window.electronAPI?.platform === 'win32') {
     const msys = p.match(/^\/([a-zA-Z])\/(.*)/)
     if (msys) {
       // MSYS 格式：/c/foo → C:/foo
@@ -571,14 +571,14 @@ const toForwardSlash = (p) => {
 
 const revealInTree = async (absolutePath, { preview = false } = {}) => {
   const cwd = agentFiles.cwd.value
-  if (!cwd || !absolutePath) return
+  if (!cwd || !absolutePath) return false
 
   const normalizedAbsolute = toForwardSlash(absolutePath)
   const normalizedCwd = toForwardSlash(cwd).replace(/\/+$/, '') + '/'
-  if (!normalizedAbsolute.startsWith(normalizedCwd)) return
+  if (!normalizedAbsolute.startsWith(normalizedCwd)) return false
 
   const relativePath = normalizedAbsolute.slice(normalizedCwd.length)
-  if (!relativePath) return
+  if (!relativePath) return false
 
   if (preview) {
     // 展开父目录（不预设 selectedFile），再由 selectFile 统一设置选中 + 加载预览
@@ -590,6 +590,7 @@ const revealInTree = async (absolutePath, { preview = false } = {}) => {
 
   await nextTick()
   fileTreeRef.value?.scrollToFile(relativePath)
+  return true
 }
 
 // 使用 defineExpose 暴露方法

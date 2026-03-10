@@ -76,16 +76,33 @@ const toolSummary = computed(() => {
     return truncate(input.command, 60)
   }
 
-  // 其他工具：尝试显示第一个有意义的字符串值
+  // 其他工具：尝试显示第一个有意义的字符串值（路径按平台规范化显示）
   const values = Object.values(input)
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) {
-      return truncate(value, 60)
+      return truncate(normalizePathForDisplay(value), 60)
     }
   }
 
   return ''
 })
+
+/**
+ * 将路径转换为当前操作系统友好的显示格式
+ * Windows: /c/foo/bar → C:\foo\bar
+ * macOS/Linux: 保持原样（Unix 路径不做处理）
+ */
+const normalizePathForDisplay = (str) => {
+  if (!str || typeof str !== 'string') return str
+  if (window.electronAPI?.platform === 'win32') {
+    // MSYS 格式：/c/foo → C:\foo
+    const msys = str.match(/^\/([a-zA-Z])\/(.*)/)
+    if (msys) return msys[1].toUpperCase() + ':\\' + msys[2].replace(/\//g, '\\')
+    // 正斜杠 Windows 路径：C:/foo → C:\foo
+    if (/^[A-Za-z]:\//.test(str)) return str.replace(/\//g, '\\')
+  }
+  return str
+}
 
 /**
  * 截断长文本

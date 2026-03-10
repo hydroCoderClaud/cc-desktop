@@ -282,6 +282,15 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // 读取任意绝对路径的文件（用于聊天消息中的文件链接预览）
   ipcMain.handle('agent:readAbsolutePath', async (event, { filePath, sessionId, confirmed = false }) => {
     try {
+      // Windows 上规范化 MSYS 格式路径：/c/foo → C:/foo
+      // Node.js 在 Windows 上会把 /c/foo 解析为当前盘符下的 \c\foo，而非 C:\foo
+      if (process.platform === 'win32') {
+        const msys = filePath.match(/^\/([a-zA-Z])\/(.*)/)
+        if (msys) {
+          filePath = msys[1].toUpperCase() + ':/' + msys[2]
+        }
+      }
+
       // 相对路径 / ~ 路径：基于会话 cwd 解析为绝对路径
       if (!path.isAbsolute(filePath)) {
         if (filePath.startsWith('~/') || filePath === '~') {

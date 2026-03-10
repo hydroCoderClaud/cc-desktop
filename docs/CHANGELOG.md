@@ -2,6 +2,16 @@
 
 ---
 
+## v1.6.97 - 2026-03-10
+
+### 修复 (Fix)
+- Agent 右侧面板：文件树 loading/error 状态不再遮挡外部文件预览（FilePreview 现在在有选中文件时始终可见）
+- 修复 macOS 上 cwd 外文件点击预览和自动预览失效的问题（根本原因：previewImage 在 loading 状态时被隐藏）
+- Renderer 进程中 `process.platform` 改用 `window.electronAPI.platform`，修复 contextIsolation 模式下的 ReferenceError
+- Preload 通过 contextBridge 暴露 `platform` 字段，供渲染进程安全访问平台信息
+
+---
+
 ## v1.6.96 - 2026-03-10
 
 ### 新增 (Feat)

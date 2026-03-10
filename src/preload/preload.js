@@ -30,6 +30,9 @@ try {
 
 // 暴露 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
+  // 平台信息（供渲染进程判断 win32/darwin/linux）
+  platform: process.platform,
+
   // ========================================
   // Config 相关
   // ========================================
