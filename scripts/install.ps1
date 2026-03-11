@@ -87,24 +87,14 @@ if (Test-Claude) {
     Write-Warn "Claude CLI not found. Installing..."
 
     # ---------------------------------------------------------------------------
-    # 3. Proxy configuration (for official installer)
+    # 3. Network note
     # ---------------------------------------------------------------------------
     Write-Host ""
-    Write-Host "  官方安装脚本需要访问 https://claude.ai" -ForegroundColor White
-    Write-Host "  如果在国内环境，建议配置代理以提高成功率。" -ForegroundColor White
+    Write-Host "  📌 网络说明：" -ForegroundColor White
+    Write-Host "    • 本脚本会自动使用系统代理设置" -ForegroundColor White
+    Write-Host "    • 如果您使用代理，请确保系统代理已开启（设置 → 网络 → 代理）" -ForegroundColor White
+    Write-Host "    • 或手动设置环境变量：`$env:HTTPS_PROXY='http://your-proxy:port'" -ForegroundColor White
     Write-Host ""
-    $useProxy = Read-Host "  是否配置代理？(y/N)"
-
-    if ($useProxy -eq "y" -or $useProxy -eq "Y") {
-        $proxyUrl = Read-Host "  请输入代理地址 [http://127.0.0.1:15236]"
-        if ([string]::IsNullOrWhiteSpace($proxyUrl)) {
-            $proxyUrl = "http://127.0.0.1:15236"
-        }
-
-        $env:HTTP_PROXY = $proxyUrl
-        $env:HTTPS_PROXY = $proxyUrl
-        Write-Ok "已设置代理: $proxyUrl"
-    }
 
     # ---------------------------------------------------------------------------
     # 4. Install Claude Code CLI (official installer)

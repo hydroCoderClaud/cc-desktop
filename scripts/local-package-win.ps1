@@ -23,7 +23,7 @@ Copy-Item "scripts\install.ps1" "$RELEASE_DIR\"
 @"
 # CC Desktop ${VERSION} - Windows Installer
 
-## Quick Install (Recommended)
+## The First Install (Recommended)
 
 Right-click PowerShell and "Run as Administrator", then:
 
@@ -32,10 +32,10 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 This will:
-1. Check if Claude Code CLI is installed (install if not)
+1. Check if Node.js and Claude Code CLI is installed (install if not)
 2. Launch CC Desktop installer
 
-## Manual Install
+## Update Install
 
 Double-click ``CC Desktop Setup ${VERSION}.exe``
 "@ | Out-File -FilePath "$RELEASE_DIR\README.md" -Encoding UTF8

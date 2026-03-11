@@ -335,19 +335,9 @@ jobs:
             bash install.sh
             ```
 
-            ### 📥 手动下载
-
-            #### Windows
-            - `CC Desktop Setup *.exe`
-
-            #### macOS
-            - **Apple Silicon**: `*-darwin-arm64.dmg`
-            - **Intel**: `*-darwin-x64.dmg`
-
-            ### 🇨🇳 国内下载（China Mirror）
-            - **Windows**: [CC-Desktop-${{ steps.version.outputs.number }}-win32-x64.exe](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-win32-x64.exe)
-            - **macOS (Apple Silicon)**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg)
-            - **macOS (Intel)**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg](https://ccd.myseek.fun/CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg)
+            ### 🇨🇳 镜像站下载（China Mirror）
+            - **Windows**: [cc-desktop-${{ steps.version.outputs.number }}-windows.zip](https://ccd.myseek.fun/cc-desktop-${{ steps.version.outputs.number }}-windows.zip)
+            - **macOS**: [cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz](https://ccd.myseek.fun/cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz)
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
@@ -358,7 +348,8 @@ jobs:
             ### 📋 系统要求
             - **Windows**: Windows 10/11
             - **macOS**: 10.13+
-            - Claude Code CLI（安装脚本会自动检查和安装）
+            - Node.js, Claude Code CLI（安装脚本会自动检查和安装）
+            - 运行 exe 或者 dmg 安装包时不自动检测，请提前手动安装 Node.js, Claude Code CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

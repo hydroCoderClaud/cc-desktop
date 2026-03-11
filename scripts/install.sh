@@ -89,24 +89,14 @@ else
     warn "Claude CLI not found. Installing..."
 
     # ------------------------------------------------------------------
-    # 3. Proxy configuration (for official installer)
+    # 3. Network note
     # ------------------------------------------------------------------
     echo ""
-    echo "  官方安装脚本需要访问 https://claude.ai"
-    echo "  如果在国内环境，建议配置代理以提高成功率。"
+    echo "  📌 网络说明："
+    echo "    • 本脚本会自动使用系统代理设置"
+    echo "    • 如果您使用代理，请确保环境变量已设置"
+    echo "    • 例如：export https_proxy=http://your-proxy:port"
     echo ""
-    printf "  是否配置代理？(y/N): "
-    read -r use_proxy
-
-    if [[ "$use_proxy" == "y" || "$use_proxy" == "Y" ]]; then
-        printf "  请输入代理地址 [http://127.0.0.1:15236]: "
-        read -r proxy_url
-        proxy_url=${proxy_url:-http://127.0.0.1:15236}
-
-        export http_proxy="$proxy_url"
-        export https_proxy="$proxy_url"
-        ok "已设置代理: $proxy_url"
-    fi
 
     # ------------------------------------------------------------------
     # 4. Install Claude Code CLI (official installer)

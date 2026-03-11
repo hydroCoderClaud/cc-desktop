@@ -20,9 +20,8 @@
 
 ### Quick Start
 
-1. **Download** — Get the latest release from [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest)
-2. **Install Claude Code CLI** — Required dependency ([Installation Guide](docs/INSTALL_EN.md))
-3. **Run** — Launch CC Desktop, configure your API provider, and start coding
+1. **Download** — Get the version from [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) and follow the installation guide
+2. **Run** — Launch CC Desktop, configure your API provider, and start coding
 
 > For detailed installation steps (Node.js, Git Bash, CLI setup), see the full [Installation Guide](docs/INSTALL_EN.md).
 
@@ -65,9 +64,8 @@ Custom license — personal use, learning, and development permitted; commercial
 
 ### 快速开始
 
-1. **下载** — 从 [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 获取最新版本
-2. **安装 Claude Code CLI** — 必需依赖（[安装指南](docs/INSTALL.md)）
-3. **运行** — 启动 CC Desktop，配置 API 服务商，开始编码
+1. **下载** — 从 [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 页面获取版本按照指南安装
+2. **运行** — 启动 CC Desktop，配置 API 服务商，开始编码
 
 > 详细安装步骤（Node.js、Git Bash、CLI 配置）请参阅完整 [安装指南](docs/INSTALL.md)。
 
