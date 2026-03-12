@@ -159,6 +159,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
+  openIndustryWorkspace: () => ipcRenderer.invoke('window:openIndustryWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
 
   // ========================================

@@ -240,6 +240,14 @@
           </button>
 
           <button
+            class="industry-btn"
+            @click="handleOpenIndustry"
+            title="打开专业智能体工作台"
+          >
+            <Icon name="briefcase" :size="18" />
+          </button>
+
+          <button
             class="mode-toggle-btn"
             @click="handleToggleMode"
             :title="isDeveloperMode ? t('mode.switchToAgent') : t('mode.switchToDeveloper')"
@@ -355,6 +363,16 @@ const toggleLocale = () => {
 const handleToggleMode = async () => {
   await toggleMode()
   emit('mode-changed', isDeveloperMode.value ? 'developer' : 'agent')
+}
+
+// 打开专业智能体工作台
+const handleOpenIndustry = async () => {
+  try {
+    await window.electronAPI.openIndustryWorkspace()
+  } catch (err) {
+    console.error('[LeftPanel] Failed to open industry workspace:', err)
+    message.error('打开专业智能体工作台失败')
+  }
 }
 
 // ========================================
@@ -1615,7 +1633,8 @@ defineExpose({
   border: 1.5px solid var(--bg-color);
 }
 
-.mode-toggle-btn {
+.mode-toggle-btn,
+.industry-btn {
   width: 40px;
   height: 40px;
   border-radius: 8px;
@@ -1630,7 +1649,8 @@ defineExpose({
   color: var(--primary-color);
 }
 
-.mode-toggle-btn:hover {
+.mode-toggle-btn:hover,
+.industry-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
   background: var(--hover-bg);

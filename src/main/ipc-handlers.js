@@ -686,6 +686,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     });
     return { success: true };
   });
+
+  // 打开专业智能体工作台
+  ipcMain.handle('window:openIndustryWorkspace', async () => {
+    createSubWindow({
+      width: 1400,
+      height: 900,
+      title: '专业智能体工作台 - CC Desktop',
+      page: 'industry'
+    });
+    return { success: true };
+  });
 }
 
 module.exports = { setupIPCHandlers };
