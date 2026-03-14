@@ -5,8 +5,8 @@
       <div class="nav-left">
         <div class="app-logo" @click="toggleFullscreen" :title="isFullscreen ? t('industry.nav.exitFullscreen') : t('industry.nav.fullscreen')">
           <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="15" stroke="#4a90d9" stroke-width="1.5" fill="#e8f4ff"/>
-            <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" fill="#4a90d9" opacity="0.85"/>
+            <circle cx="16" cy="16" r="15" :stroke="primaryColor" stroke-width="1.5" :fill="primaryGhost"/>
+            <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" :fill="primaryColor" opacity="0.85"/>
           </svg>
         </div>
         <h1
@@ -75,6 +75,7 @@ import { ref, computed, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
+import { useTheme } from '@composables/useTheme'
 import { useIndustryLayout } from '../composables/useIndustryLayout'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -82,7 +83,11 @@ import StudioPanel from './StudioPanel.vue'
 
 const message = useMessage()
 const { t } = useLocale()
+const { cssVars } = useTheme()
 const { startResize } = useIndustryLayout()
+
+const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90d9')
+const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
 
 const notebookTitle = ref('MCP HydroSSH 推广视频')
 const editingTitle = ref(false)
@@ -203,7 +208,7 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
   overflow: hidden;
 }
 
-.nav-left { display: flex; align-items: center; gap: 16px; }
+.nav-left { display: flex; align-items: center; gap: 8px; }
 
 .app-logo {
   display: flex;
