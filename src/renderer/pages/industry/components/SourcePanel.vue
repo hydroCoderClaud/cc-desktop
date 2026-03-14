@@ -112,7 +112,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip">
     <div class="strip-header">
-      <button class="header-btn" @click="showLeftPanel = true" title="展开">
+      <button class="header-btn" @click="showLeftPanel = true" :title="t('industry.source.expand')">
         <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
       </button>
     </div>

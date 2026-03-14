@@ -71,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
@@ -115,9 +115,9 @@ const toggleFullscreen = () => {
   }
 }
 
-document.addEventListener('fullscreenchange', () => {
-  isFullscreen.value = !!document.fullscreenElement
-})
+const onFullscreenChange = () => { isFullscreen.value = !!document.fullscreenElement }
+onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+onUnmounted(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
 
 const availableTypes = [
   { id: 'audio', icon: 'audio', beta: false, bgColor: '#E3F2FD', color: '#1976D2', tip: '生成一个由 AI 向您演示的解说音频' },
@@ -320,5 +320,5 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
   transition: background 0.15s;
 }
 
-.resize-handle:hover { background: var(--text-color-muted); }
+.resize-handle:hover { background: transparent; }
 </style>

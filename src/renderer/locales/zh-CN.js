@@ -1420,6 +1420,7 @@ export default {
     source: {
       title: '来源',
       add: '添加来源',
+      expand: '展开',
       searchPlaceholder: '在网络中搜索新来源',
       selectAll: '选择所有来源',
       guide: '来源指南',
@@ -1436,7 +1437,9 @@ export default {
     },
     studio: {
       title: 'Studio',
+      expand: '展开',
       generated: '已生成',
+      sources: '{count} 个来源',
       empty: '暂无成果',
       emptyHint: '与智能体对话后将在此生成',
       export: '导出',

@@ -60,7 +60,7 @@
               <div class="achievement-info">
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
-                  <span>{{ achievement.sourceCount }} 个来源</span>
+                  <span>{{ t('industry.studio.sources', { count: achievement.sourceCount }) }}</span>
                   <span class="dot">•</span>
                   <span>{{ achievement.time }}</span>
                 </div>
@@ -82,7 +82,7 @@
       <template v-else>
         <div class="detail-header">
           <button class="detail-back-btn" @click="closeDetail" :title="t('common.back')">
-            <Icon name="chevronRight" :size="16" />
+            <Icon name="chevronLeft" :size="16" />
           </button>
           <span class="detail-title">{{ expandedAchievement.name }}</span>
           <button class="detail-external-btn" :title="t('industry.studio.export')">
@@ -102,7 +102,7 @@
             <span class="detail-summary-title">{{ expandedAchievement.name }}</span>
           </div>
           <div class="achievement-detail-meta">
-            <span>{{ expandedAchievement.sourceCount }} 个来源</span>
+            <span>{{ t('industry.studio.sources', { count: expandedAchievement.sourceCount }) }}</span>
             <span class="dot">•</span>
             <span>{{ expandedAchievement.time }}</span>
           </div>
@@ -118,7 +118,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip panel-collapsed-right">
     <div class="strip-header">
-      <button class="header-btn" @click="showRightPanel = true" title="展开">
+      <button class="header-btn" @click="showRightPanel = true" :title="t('industry.studio.expand')">
         <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
       </button>
     </div>
@@ -258,7 +258,7 @@ const getTypeName = (typeId) => t('industry.types.' + typeId)
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.85);
+  background: var(--bg-color-secondary);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -374,8 +374,6 @@ const getTypeName = (typeId) => t('industry.types.' + typeId)
   align-items: center;
   justify-content: center;
 }
-
-.strip-divider { width: 100%; height: 1px; background: var(--border-color); margin: 0; flex-shrink: 0; }
 
 .panel-collapsed-right { border-left: none; border-right: none; }
 </style>

@@ -1415,6 +1415,7 @@ export default {
     source: {
       title: 'Sources',
       add: 'Add source',
+      expand: 'Expand',
       searchPlaceholder: 'Search the web for new sources',
       selectAll: 'Select all sources',
       guide: 'Source Guide',
@@ -1431,7 +1432,9 @@ export default {
     },
     studio: {
       title: 'Studio',
+      expand: 'Expand',
       generated: 'Generated',
+      sources: '{count} sources',
       empty: 'No outputs yet',
       emptyHint: 'Outputs will appear here after chatting',
       export: 'Export',

@@ -1,15 +1,12 @@
 import { ref } from 'vue'
 
-let _instance = null
+// 模块级共享状态（Vue 3 推荐的跨组件共享 ref 方式）
+const leftWidth = ref(320)
+const rightWidth = ref(340)
+const showLeftPanel = ref(true)
+const showRightPanel = ref(true)
 
 export function useIndustryLayout() {
-  if (_instance) return _instance
-
-  const leftWidth = ref(320)
-  const rightWidth = ref(340)
-  const showLeftPanel = ref(true)
-  const showRightPanel = ref(true)
-
   const expandPanel = (side) => {
     const container = document.querySelector('.panels-container')
     const containerWidth = container?.offsetWidth || window.innerWidth
@@ -59,6 +56,5 @@ export function useIndustryLayout() {
     document.addEventListener('mouseup', onUp)
   }
 
-  _instance = { leftWidth, rightWidth, showLeftPanel, showRightPanel, expandPanel, collapsePanel, startResize }
-  return _instance
+  return { leftWidth, rightWidth, showLeftPanel, showRightPanel, expandPanel, collapsePanel, startResize }
 }
