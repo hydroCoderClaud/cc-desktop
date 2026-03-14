@@ -176,6 +176,10 @@ const closeDetail = () => {
 const getTypeName = (typeId) => t('industry.types.' + typeId)
 </script>
 
+<style>
+@import '../industry-shared.css';
+</style>
+
 <style scoped>
 .right-panel {
   flex-shrink: 0;
@@ -187,46 +191,6 @@ const getTypeName = (typeId) => t('industry.types.' + typeId)
   overflow: hidden;
   min-width: 0;
 }
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  height: 52px;
-  min-height: 52px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-  overflow: hidden;
-  gap: 6px;
-}
-
-.panel-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.breadcrumb-icon { color: var(--text-color-muted); flex-shrink: 0; }
-
-.header-btn {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-color-muted);
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-
-.header-btn:hover { background: var(--hover-bg); }
-
-.panel-content { flex: 1; overflow-y: auto; padding: 16px; }
 
 .type-grid {
   display: grid;
@@ -381,76 +345,6 @@ const getTypeName = (typeId) => t('industry.types.' + typeId)
 
 .action-icon-btn:hover { background: var(--border-color); color: var(--text-color); }
 
-/* 详情视图 */
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 0 12px;
-  margin-bottom: 16px;
-}
-
-.detail-back-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-color-muted);
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.detail-back-btn:hover { background: var(--hover-bg); }
-
-.detail-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.detail-external-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  color: var(--text-color-muted);
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-
-.detail-external-btn:hover { background: var(--hover-bg); color: var(--primary-color); }
-.detail-external-btn.danger:hover { color: var(--danger-color); }
-
-.detail-summary-section {
-  background: var(--bg-color-tertiary);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 16px;
-}
-
-.detail-summary-header { display: flex; align-items: center; gap: 6px; }
-
-.detail-summary-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color);
-  flex: 1;
-}
-
 .achievement-detail-meta {
   font-size: 12px;
   color: var(--text-color-muted);
@@ -459,83 +353,6 @@ const getTypeName = (typeId) => t('industry.types.' + typeId)
   gap: 6px;
   margin-top: 6px;
 }
-
-.detail-content-section {
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.detail-raw-text {
-  white-space: pre-wrap;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-color);
-  margin: 0;
-  padding: 14px;
-  overflow-x: auto;
-}
-
-/* 折叠条 */
-.panel-collapsed-strip {
-  width: 52px;
-  height: 100%;
-  background: var(--bg-color-secondary);
-  border: none;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0;
-  overflow: hidden;
-  scrollbar-width: none;
-}
-
-.panel-collapsed-strip::-webkit-scrollbar { display: none; }
-
-.strip-header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 52px;
-  min-height: 52px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.strip-body { width: 100%; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-.strip-content {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px;
-  gap: 4px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.strip-content::-webkit-scrollbar { display: none; }
-.strip-content-top { flex: 1; min-height: 0; }
-.strip-content-bottom { flex: 1; min-height: 0; padding-bottom: 16px; }
-
-.strip-icon-item {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  transition: all 0.15s;
-  flex-shrink: 0;
-  position: relative;
-  margin: 4px 0;
-}
-
-.strip-icon-item:hover { background: var(--hover-bg); }
 
 .type-icon-item { width: 36px; height: 36px; border-radius: 8px; }
 .type-icon-item:hover { transform: scale(1.05); }
