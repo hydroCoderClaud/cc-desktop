@@ -320,5 +320,5 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
   transition: background 0.15s;
 }
 
-.resize-handle:hover { background: var(--border-color); }
+.resize-handle:hover { background: var(--text-color-muted); }
 </style>
