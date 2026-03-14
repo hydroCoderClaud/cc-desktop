@@ -7,7 +7,7 @@ import {
   NButton,
   NInput
 } from 'naive-ui'
-import App from './App.vue'
+import RootApp from './App.vue'
 import '../../styles/settings-common.css'
 
 console.log('[Industry] Initializing Vue app...')
@@ -23,7 +23,7 @@ const naive = create({
 })
 
 try {
-  const app = createApp(App)
+  const app = createApp(RootApp)
   app.config.errorHandler = (err, vm, info) => {
     console.error('[Industry] Vue Error:', err)
     console.error('[Industry] Info:', info)

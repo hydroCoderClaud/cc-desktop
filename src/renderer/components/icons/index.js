@@ -190,7 +190,9 @@ export const iconPaths = {
   // 面板控制
   panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
   maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',
-  restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>'
+  restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>',
+  panelLeft: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M7 4v12"/>',
+  panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>'
 }
 
 // 图标名称列表（用于校验）
