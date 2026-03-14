@@ -166,6 +166,12 @@ export const iconPaths = {
   // 清扫/清理
   broom: '<path d="M14 3l3 3M10 7l-7 7v3h3l7-7M6 14l2 2"/>',
 
+  // 专业工作台
+  mindmap: '<circle cx="10" cy="10" r="2"/><line x1="10" y1="8" x2="10" y2="4"/><circle cx="10" cy="3" r="1.5"/><line x1="10" y1="12" x2="10" y2="16"/><circle cx="10" cy="17" r="1.5"/><line x1="8" y1="10" x2="4" y2="10"/><circle cx="3" cy="10" r="1.5"/><line x1="12" y1="10" x2="16" y2="10"/><circle cx="17" cy="10" r="1.5"/>',
+  presentation: '<rect x="3" y="3" width="14" height="10" rx="1"/><path d="M10 13v4M7 17h6"/><path d="M6 7h8M6 10h5"/>',
+  audio: '<path d="M3 8a7 7 0 0 1 14 0"/><path d="M5 10a5 5 0 0 1 10 0"/><circle cx="10" cy="13" r="2"/><path d="M8 13v4M12 13v4"/>',
+  table: '<rect x="3" y="3" width="14" height="14" rx="1"/><path d="M3 8h14M3 13h14M8 3v14M13 3v14"/>',
+
   // 闪电
   zap: '<path d="M11 2L4 12h5l-1 6 7-10H10l1-6z"/>',
 

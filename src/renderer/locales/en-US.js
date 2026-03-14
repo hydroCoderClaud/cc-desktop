@@ -1401,5 +1401,55 @@ export default {
     connectFailed: 'DingTalk bridge connection failed',
     disconnected: 'DingTalk bridge disconnected',
     viewGuide: 'View Guide'
+  },
+  industry: {
+    nav: {
+      createNotebook: 'Create Notebook',
+      share: 'Share',
+      settings: 'Settings',
+      apps: 'Apps',
+      fullscreen: 'Fullscreen',
+      exitFullscreen: 'Exit Fullscreen',
+      editTitle: 'Click to edit title',
+    },
+    source: {
+      title: 'Sources',
+      add: 'Add source',
+      searchPlaceholder: 'Search the web for new sources',
+      selectAll: 'Select all sources',
+      guide: 'Source Guide',
+      openExternal: 'Open source externally',
+      web: 'Web',
+      fastResearch: 'Fast Research',
+    },
+    chat: {
+      title: 'Chat',
+      welcome: 'Welcome to Industry Agent',
+      subtitle: 'Intelligent workspace inspired by NotebookLM',
+      placeholder: 'Start typing...',
+      sources: '{count} sources',
+    },
+    studio: {
+      title: 'Studio',
+      generated: 'Generated',
+      empty: 'No outputs yet',
+      emptyHint: 'Outputs will appear here after chatting',
+      export: 'Export',
+      copy: 'Copy',
+      delete: 'Delete',
+      play: 'Play',
+      betaBadge: 'Beta',
+    },
+    types: {
+      audio: 'Audio Overview',
+      presentation: 'Presentation',
+      video: 'Video Overview',
+      mindmap: 'Mind Map',
+      report: 'Report',
+      flashcard: 'Flashcards',
+      quiz: 'Quiz',
+      infographic: 'Infographic',
+      table: 'Data Table',
+    }
   }
 }

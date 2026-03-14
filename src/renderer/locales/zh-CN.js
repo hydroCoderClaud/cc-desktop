@@ -1406,5 +1406,55 @@ export default {
     connectFailed: '钉钉桥接连接失败',
     disconnected: '钉钉桥接已断开',
     viewGuide: '查看使用指南'
+  },
+  industry: {
+    nav: {
+      createNotebook: '创建笔记本',
+      share: '分享',
+      settings: '设置',
+      apps: '应用',
+      fullscreen: '全屏',
+      exitFullscreen: '退出全屏',
+      editTitle: '点击编辑标题',
+    },
+    source: {
+      title: '来源',
+      add: '添加来源',
+      searchPlaceholder: '在网络中搜索新来源',
+      selectAll: '选择所有来源',
+      guide: '来源指南',
+      openExternal: '在外部打开源',
+      web: 'Web',
+      fastResearch: 'Fast Research',
+    },
+    chat: {
+      title: '对话',
+      welcome: '欢迎使用专业智能体',
+      subtitle: '基于 NotebookLM 理念的智能工作空间',
+      placeholder: '开始输入...',
+      sources: '{count} 个来源',
+    },
+    studio: {
+      title: 'Studio',
+      generated: '已生成',
+      empty: '暂无成果',
+      emptyHint: '与智能体对话后将在此生成',
+      export: '导出',
+      copy: '复制',
+      delete: '删除',
+      play: '播放',
+      betaBadge: 'Beta 版',
+    },
+    types: {
+      audio: '音频概览',
+      presentation: '演示文稿',
+      video: '视频概览',
+      mindmap: '思维导图',
+      report: '报告',
+      flashcard: '闪卡',
+      quiz: '测验',
+      infographic: '信息图',
+      table: '数据表格',
+    }
   }
 }
