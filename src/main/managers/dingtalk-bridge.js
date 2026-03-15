@@ -166,6 +166,23 @@ class DingTalkBridge {
     }
   }
 
+  /**
+   * 销毁实例，解绑事件监听器
+   * 用于 DingTalkBridge 需要销毁重建时（如重新配置）
+   */
+  destroy() {
+    // 先停止连接和清理资源
+    this.stop()
+    // 解绑 AgentSessionManager 事件监听器
+    if (this.agentSessionManager) {
+      this.agentSessionManager.off('userMessage')
+      this.agentSessionManager.off('agentMessage')
+      this.agentSessionManager.off('agentResult')
+      this.agentSessionManager.off('agentError')
+    }
+    console.log('[DingTalk] Bridge destroyed, event listeners unbound')
+  }
+
   // ==================== 内部方法 ====================
 
   /**

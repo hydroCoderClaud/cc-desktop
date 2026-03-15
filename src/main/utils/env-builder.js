@@ -138,6 +138,21 @@ function buildBasicEnv(extraVars = {}) {
     ? (Object.keys(baseEnv).find(k => k.toUpperCase() === 'PATH') || 'PATH')
     : 'PATH'
 
+  // 修复：如果展开后存在多个 PATH key（如 Path 和 PATH），合并它们
+  if (isWindows) {
+    const pathKeys = Object.keys(baseEnv).filter(k => k.toUpperCase() === 'PATH')
+    if (pathKeys.length > 1) {
+      const mergedPath = pathKeys
+        .map(k => baseEnv[k])
+        .filter(Boolean)
+        .join(pathSep)
+      // 删除所有 PATH key，只保留标准的 PATH
+      pathKeys.forEach(k => delete baseEnv[k])
+      baseEnv.PATH = mergedPath
+      console.log('[env-builder] Merged duplicate PATH keys:', pathKeys.join(', '))
+    }
+  }
+
   let commonPaths = []
   if (isWindows) {
     const programFiles = process.env.ProgramFiles || 'C:\\Program Files'

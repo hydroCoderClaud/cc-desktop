@@ -203,6 +203,7 @@ class ClaudeCodeRunner {
         }
 
       default:
+        console.warn('[ClaudeCodeRunner] Unknown message type:', rawMsg.type, '- SDK may have added new message types')
         return { type: 'unknown', raw: rawMsg }
     }
   }

@@ -418,6 +418,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
     try {
       const path = require('path');
+      // 如果 relativePath 已经是绝对路径，直接返回
+      if (path.isAbsolute(relativePath)) {
+        return relativePath;
+      }
       return path.resolve(basePath, relativePath);
     } catch (err) {
       console.error('[IPC] path:resolve error:', err);
