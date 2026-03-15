@@ -142,6 +142,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
+  resolvePath: (basePath, relativePath) => ipcRenderer.invoke('path:resolve', basePath, relativePath),
 
   // ========================================
   // Claude 配置文件

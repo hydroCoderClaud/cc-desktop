@@ -411,6 +411,20 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
   });
 
+  // 解析相对路径为绝对路径（基于指定的 base 目录）
+  ipcMain.handle('path:resolve', async (event, basePath, relativePath) => {
+    if (!basePath || !relativePath) {
+      return null;
+    }
+    try {
+      const path = require('path');
+      return path.resolve(basePath, relativePath);
+    } catch (err) {
+      console.error('[IPC] path:resolve error:', err);
+      return null;
+    }
+  });
+
   // 获取 Claude 配置文件路径
   ipcMain.handle('claude:getSettingsPath', async () => {
     const homedir = require('os').homedir();
