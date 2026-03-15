@@ -57,6 +57,44 @@ class DingTalkBridge {
 
     // 连接健康监控：SDK 重连失败时由外层兜底
     this._reconnectWatchdog = null
+
+    // 监听 AgentSessionManager 内部事件（替代 messageListener 注入模式）
+    this._bindAgentEvents()
+  }
+
+  /**
+   * 绑定 AgentSessionManager 内部事件
+   * 替代原来通过 agentSessionManager.messageListener = this 注入的模式
+   */
+  _bindAgentEvents() {
+    const mgr = this.agentSessionManager
+
+    mgr.on('userMessage', ({ sessionId, sessionType, content, images, source }) => {
+      // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
+      if (source !== 'dingtalk' && sessionType === 'dingtalk') {
+        try { this.onUserMessage(sessionId, content, images) } catch (e) {
+          console.error('[DingTalk] onUserMessage threw:', e)
+        }
+      }
+    })
+
+    mgr.on('agentMessage', (sessionId, message) => {
+      try { this.onAgentMessage(sessionId, message) } catch (e) {
+        console.error('[DingTalk] onAgentMessage threw:', e)
+      }
+    })
+
+    mgr.on('agentResult', (sessionId) => {
+      try { this.onAgentResult(sessionId) } catch (e) {
+        console.error('[DingTalk] onAgentResult threw:', e)
+      }
+    })
+
+    mgr.on('agentError', (sessionId, error) => {
+      try { this.onAgentError(sessionId, error) } catch (e) {
+        console.error('[DingTalk] onAgentError threw:', e)
+      }
+    })
   }
 
   /**

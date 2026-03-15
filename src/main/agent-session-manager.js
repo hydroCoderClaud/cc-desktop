@@ -11,7 +11,7 @@
  * - 多轮对话通过 SDK 的 resume 机制实现
  */
 
-const { v4: uuidv4 } = require('uuid')
+const { EventEmitter } = require('events')
 const path = require('path')
 const os = require('os')
 const fs = require('fs')
@@ -26,8 +26,9 @@ const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 
-class AgentSessionManager {
+class AgentSessionManager extends EventEmitter {
   constructor(mainWindow, configManager) {
+    super()
     this.mainWindow = mainWindow
     this.configManager = configManager
 
@@ -45,9 +46,6 @@ class AgentSessionManager {
 
     // Query 控制管理器（依赖注入）
     this.queryManager = new AgentQueryManager(this)
-
-    // 外部消息监听器（可选，钉钉桥接等使用）
-    this.messageListener = null
   }
 
   /**
@@ -329,17 +327,14 @@ class AgentSessionManager {
 
     this._storeMessage(session, userMsgToStore)
 
-    // 通知外部监听器：用户消息事件
-    // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
-    if (this.messageListener?.onUserMessage) {
-      const isDingTalkSource = meta?.source === 'dingtalk'
-      if (!isDingTalkSource && session.type === 'dingtalk') {
-        const inputImages = (typeof userMessage === 'object' && userMessage?.images?.length > 0)
-          ? userMessage.images
-          : null
-        try { this.messageListener.onUserMessage(session.id, displayContent, inputImages) } catch (e) { console.error('[AgentSession] messageListener.onUserMessage threw:', e) }
-      }
-    }
+    // 发出用户消息事件（DingTalkBridge 等旁路监听者自行决定是否处理）
+    this.emit('userMessage', {
+      sessionId: session.id,
+      sessionType: session.type,
+      content: displayContent,
+      images: imageData || null,
+      source: meta?.source || null
+    })
 
     // 设置状态
     session.status = AgentStatus.STREAMING
@@ -470,11 +465,9 @@ class AgentSessionManager {
           sessionId: session.id,
           error: error.message || 'Session error'
         })
+        // 主进程内部事件（DingTalkBridge 监听）
+        this.emit('agentError', session.id, error.message || 'Session error')
 
-        // 通知外部监听器（钉钉桥接等）
-        if (this.messageListener?.onAgentError) {
-          try { this.messageListener.onAgentError(session.id, error.message) } catch (e) { console.error('[AgentSession] messageListener.onAgentError threw:', e) }
-        }
       }
     } finally {
       // 清理引用
@@ -599,6 +592,8 @@ class AgentSessionManager {
           sessionId: session.id,
           message: assistantData
         })
+        // 主进程内部事件（DingTalkBridge 监听）
+        this.emit('agentMessage', session.id, assistantData)
         if (msg.usage) {
           this._safeSend('agent:usage', {
             sessionId: session.id,
@@ -654,6 +649,8 @@ class AgentSessionManager {
           sessionId: session.id,
           status: AgentStatus.IDLE
         })
+        // 主进程内部事件（DingTalkBridge 监听）
+        this.emit('agentResult', session.id)
         if (this.sessionDatabase) {
           try {
             this.sessionDatabase.updateAgentConversation(session.id, {
