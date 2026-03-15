@@ -2,8 +2,7 @@
  * Agent 会话管理器
  * 管理 Agent 模式下的 AI 对话会话
  *
- * 使用 @anthropic-ai/claude-agent-sdk 的 query() 函数
- * SDK 是 ESM 模块，通过动态 import() 加载
+ * 通过 ClaudeCodeRunner 与 SDK 交互，不直接依赖 SDK。
  *
  * 设计原则：
  * - 参照 ActiveSessionManager 的模式（_safeSend、Map 管理、生命周期）
@@ -19,13 +18,13 @@ const fs = require('fs')
 const fsp = require('fs').promises
 const { MessageQueue } = require('./utils/message-queue')
 const { safeSend } = require('./utils/safe-send')
-const { spawn: cpSpawn } = require('child_process')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const { AgentStatus, AgentType } = require('./utils/agent-constants')
 const { LATEST_MODEL_ALIASES } = require('./utils/constants')
 const { AgentSession } = require('./agent-session')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
+const ClaudeCodeRunner = require('./runners/claude-code-runner')
 
 class AgentSessionManager {
   constructor(mainWindow, configManager) {
@@ -35,9 +34,8 @@ class AgentSessionManager {
     // Agent 会话映射: sessionId -> AgentSession
     this.sessions = new Map()
 
-    // SDK query 函数（延迟加载，ESM）
-    this._queryFn = null
-    this._sdkLoading = null
+    // Runner：封装 SDK 输入输出
+    this.runner = new ClaudeCodeRunner()
 
     // 数据库引用（通过 setSessionDatabase 注入）
     this.sessionDatabase = null
@@ -93,30 +91,6 @@ class AgentSessionManager {
   }
 
   /**
-   * 延迟加载 SDK（ESM 模块需要动态 import）
-   */
-  async _loadSDK() {
-    if (this._queryFn) return this._queryFn
-
-    if (this._sdkLoading) return this._sdkLoading
-
-    this._sdkLoading = (async () => {
-      try {
-        const sdk = await import('@anthropic-ai/claude-agent-sdk')
-        this._queryFn = sdk.query
-        console.log('[AgentSession] SDK loaded successfully')
-        return this._queryFn
-      } catch (error) {
-        this._sdkLoading = null  // 重置，允许下次重试
-        console.error('[AgentSession] Failed to load SDK:', error)
-        throw error
-      }
-    })()
-
-    return this._sdkLoading
-  }
-
-  /**
    * 安全地发送消息到渲染进程（委托给共享工具函数）
    */
   _safeSend(channel, data) {
@@ -156,19 +130,6 @@ class AgentSessionManager {
       console.error('[AgentSession] Failed to create output dir:', err)
     }
     return sessionDir
-  }
-
-  /**
-   * 构建 SDK 环境变量
-   */
-  _buildEnvVars(profile) {
-    const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder')
-    if (!profile) profile = this.configManager.getDefaultProfile()
-
-    // 使用标准 extraVars（TERM、SHELL、AUTOCOMPACT）
-    const extraVars = buildStandardExtraVars(this.configManager)
-
-    return buildProcessEnv(profile, extraVars)
   }
 
   /**
@@ -422,88 +383,29 @@ class AgentSessionManager {
     console.log(`[AgentSession] Creating new streaming query for session ${sessionId}`)
 
     try {
-      const queryFn = await this._loadSDK()
       // 使用会话创建时绑定的 profile，fallback 到默认
       const sessionProfile = session.apiProfileId
         ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
         : this.configManager.getDefaultProfile()
-      const env = this._buildEnvVars(sessionProfile)
+      const env = this.runner.buildEnv(sessionProfile, this.configManager)
 
       // 创建 MessageQueue
       const messageQueue = new MessageQueue()
       session.messageQueue = messageQueue
 
-      // 构建 query 选项
-      const options = {
+      // 构建 runner query 选项
+      const queryOptions = {
         cwd: session.cwd,
-        permissionMode: 'acceptEdits',
-        settingSources: ['user'],
-        includePartialMessages: true,
-        env,
-        // 包装 spawn 以捕获 CLI 子进程 PID（Windows 进程树 kill 需要）
-        spawnClaudeCodeProcess: (spawnOpts) => {
-          // 修正 CLI 路径：SDK 在 asar 里，计算的路径需要重定向到 unpacked
-          // 支持 Windows 和 Unix 风格的路径分隔符
-          let cliPath = spawnOpts.args[0]  // 第一个参数通常是 cli.js 的路径
-          if (cliPath && /[\/\\]app\.asar[\/\\]/.test(cliPath) && !cliPath.includes('app.asar.unpacked')) {
-            // 使用正则替换，兼容 Windows 反斜杠和 Unix 正斜杠
-            cliPath = cliPath.replace(/[\/\\]app\.asar[\/\\]/g, (match) => {
-              return match.replace('app.asar', 'app.asar.unpacked')
-            })
-            spawnOpts.args[0] = cliPath
-            console.log(`[AgentSession] Fixed CLI path: ${cliPath}`)
-          }
-
-          // 直接使用我们构建的环境变量，忽略 SDK 的（确保 PATH 包含 node）
-          const finalEnv = env
-
-          const proc = cpSpawn(spawnOpts.command, spawnOpts.args, {
-            cwd: spawnOpts.cwd,
-            env: finalEnv,  // 使用我们的环境变量
-            stdio: ['pipe', 'pipe', 'pipe'],
-            shell: false  // 显式禁用 shell（使用直接 exec）
-          })
-          session.cliPid = proc.pid || null
-          console.log(`[AgentSession] CLI spawned: command=${spawnOpts.command}, args[0]=${spawnOpts.args[0]?.substring(0, 80)}`)
-
-
-          // 捕获 stderr 用于调试
-          let stderrData = ''
-          if (proc.stderr) {
-            proc.stderr.on('data', (data) => {
-              const text = data.toString()
-              stderrData += text
-              console.error(`[AgentSession] CLI stderr: ${text}`)  // 立即输出到控制台
-            })
-          }
-
-          // 进程退出时输出完整错误信息
-          proc.on('exit', (code, signal) => {
-            console.log(`[AgentSession] CLI exited: code=${code}, signal=${signal}`)
-            if (code !== 0) {
-              console.error(`[AgentSession] CLI stderr (full):`, stderrData)
-              if (stderrData) {
-                this._safeSend('agent:cliError', {
-                  sessionId: session.id,
-                  exitCode: code,
-                  signal,
-                  stderr: stderrData
-                })
-              }
-            }
-          })
-
-          return proc
-        }
+        env
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       if (modelTier) {
-        options.model = sessionProfile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
+        queryOptions.model = sessionProfile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
       }
 
       if (maxTurns) {
-        options.maxTurns = maxTurns
+        queryOptions.maxTurns = maxTurns
       }
 
       // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
@@ -512,11 +414,11 @@ class AgentSessionManager {
         if (this.peerManager?.isCliSessionActive(session.sdkSessionId)) {
           throw new Error('SESSION_IN_USE_BY_TERMINAL')
         }
-        options.resume = session.sdkSessionId
+        queryOptions.resume = session.sdkSessionId
       }
 
-      // 创建持久 query（AsyncIterable 模式）
-      const generator = queryFn({ prompt: messageQueue, options })
+      // 通过 Runner 创建持久 query（AsyncIterable 模式）
+      const generator = await this.runner.createQuery(messageQueue, queryOptions, session)
       session.queryGenerator = generator
 
       // push 第一条消息
@@ -579,7 +481,18 @@ class AgentSessionManager {
       session.queryGenerator = null
       session.messageQueue = null
       session.outputLoopPromise = null
+
+      // CLI 进程异常退出时通知前端（stderr 由 Runner 记录在 session 上）
+      if (session._lastCliExitCode != null && session._lastCliExitCode !== 0 && session._lastCliStderr) {
+        this._safeSend('agent:cliError', {
+          sessionId: session.id,
+          exitCode: session._lastCliExitCode,
+          stderr: session._lastCliStderr
+        })
+      }
       session.cliPid = null
+      session._lastCliExitCode = null
+      session._lastCliStderr = null
 
       this._safeSend('agent:statusChange', {
         sessionId: session.id,
@@ -632,77 +545,67 @@ class AgentSessionManager {
   }
 
   /**
-   * 处理单条 SDK 消息
+   * 处理单条 Runner 标准消息
+   * Runner.normalizeMessage() 已将 SDK 原始格式转为内部标准格式
    */
-  async _processMessage(session, msg) {
-    switch (msg.type) {
-      case 'system':
-        if (msg.subtype === 'init') {
-          // 首次 init：保存 session_id 用于后续 resume
-          session.sdkSessionId = msg.session_id
-          this._safeSend('agent:init', {
-            sessionId: session.id,
-            sdkSessionId: msg.session_id,
-            tools: msg.tools,
-            model: msg.model,
-            slashCommands: msg.slash_commands || []
-          })
+  async _processMessage(session, rawMsg) {
+    const msg = this.runner.normalizeMessage(rawMsg)
 
-          // 更新 DB 中的 sdk_session_id
-          if (this.sessionDatabase) {
-            try {
-              this.sessionDatabase.updateAgentConversation(session.id, {
-                sdkSessionId: msg.session_id
-              })
-            } catch (err) {
-              console.error('[AgentSession] Failed to update sdk_session_id:', err)
-            }
+    switch (msg.type) {
+      case 'init':
+        session.sdkSessionId = msg.sdkSessionId
+        this._safeSend('agent:init', {
+          sessionId: session.id,
+          sdkSessionId: msg.sdkSessionId,
+          tools: msg.tools,
+          model: msg.model,
+          slashCommands: msg.slashCommands
+        })
+        if (this.sessionDatabase) {
+          try {
+            this.sessionDatabase.updateAgentConversation(session.id, {
+              sdkSessionId: msg.sdkSessionId
+            })
+          } catch (err) {
+            console.error('[AgentSession] Failed to update sdk_session_id:', err)
           }
-        } else if (msg.subtype === 'compact_boundary') {
-          // 上下文压缩完成
-          console.log(`[AgentSession] Compact completed for session ${session.id}, pre_tokens=${msg.compact_metadata?.pre_tokens}, trigger=${msg.compact_metadata?.trigger}`)
-          this._safeSend('agent:compacted', {
-            sessionId: session.id,
-            preTokens: msg.compact_metadata?.pre_tokens || 0,
-            trigger: msg.compact_metadata?.trigger || 'manual'
-          })
-        } else if (msg.subtype === 'status') {
-          this._safeSend('agent:systemStatus', {
-            sessionId: session.id,
-            status: msg.status
-          })
         }
         break
 
-      case 'assistant': {
-        // 完整的 assistant 消息（包含 tool_use）
+      case 'compact_done':
+        console.log(`[AgentSession] Compact completed for session ${session.id}, pre_tokens=${msg.preTokens}, trigger=${msg.trigger}`)
+        this._safeSend('agent:compacted', {
+          sessionId: session.id,
+          preTokens: msg.preTokens,
+          trigger: msg.trigger
+        })
+        break
+
+      case 'system_status':
+        this._safeSend('agent:systemStatus', {
+          sessionId: session.id,
+          status: msg.status
+        })
+        break
+
+      case 'assistant_message': {
         const assistantData = {
           type: 'assistant',
-          content: msg.message?.content || [],
+          content: msg.content,
           uuid: msg.uuid,
-          sessionId: msg.session_id
+          sessionId: msg.sdkSessionId
         }
         this._safeSend('agent:message', {
           sessionId: session.id,
           message: assistantData
         })
-
-        // 通知外部监听器（钉钉桥接等）
-        if (this.messageListener?.onAgentMessage) {
-          try { this.messageListener.onAgentMessage(session.id, assistantData) } catch (e) { console.error('[AgentSession] messageListener.onAgentMessage threw:', e) }
-        }
-
-        // 转发 API 级别 usage（input_tokens ≈ 上下文大小）
-        if (msg.message?.usage) {
+        if (msg.usage) {
           this._safeSend('agent:usage', {
             sessionId: session.id,
-            usage: msg.message.usage
+            usage: msg.usage
           })
         }
-
-        // 存储助手消息和工具调用到历史
-        const blocks = msg.message?.content || []
-        for (const block of blocks) {
+        for (const block of msg.content) {
           if (block.type === 'text') {
             this._storeMessage(session, {
               id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -725,7 +628,6 @@ class AgentSessionManager {
       }
 
       case 'stream_event':
-        // 流式 token 事件（不存储，完整消息通过 assistant 类型存储）
         this._safeSend('agent:stream', {
           sessionId: session.id,
           event: msg.event
@@ -733,38 +635,25 @@ class AgentSessionManager {
         break
 
       case 'result':
-        // 一轮对话完成（streaming input 模式下 CLI 仍在运行）
-        session.totalCostUsd += msg.total_cost_usd || 0
-
-        // 设置为 IDLE（等待下一条消息），但不关闭 generator
+        session.totalCostUsd += msg.totalCostUsd || 0
         session.status = AgentStatus.IDLE
-
         this._safeSend('agent:result', {
           sessionId: session.id,
           result: {
             subtype: msg.subtype,
-            isError: msg.is_error,
+            isError: msg.isError,
             result: msg.result,
-            totalCostUsd: msg.total_cost_usd,
-            numTurns: msg.num_turns,
-            durationMs: msg.duration_ms,
+            totalCostUsd: msg.totalCostUsd,
+            numTurns: msg.numTurns,
+            durationMs: msg.durationMs,
             usage: msg.usage,
             modelUsage: msg.modelUsage
           }
         })
-
-        // 通知前端状态回到 IDLE
         this._safeSend('agent:statusChange', {
           sessionId: session.id,
           status: AgentStatus.IDLE
         })
-
-        // 通知外部监听器（钉钉桥接等）：一轮对话完成
-        if (this.messageListener?.onAgentResult) {
-          try { this.messageListener.onAgentResult(session.id) } catch (e) { console.error('[AgentSession] messageListener.onAgentResult threw:', e) }
-        }
-
-        // 更新 DB 中的统计信息
         if (this.sessionDatabase) {
           try {
             this.sessionDatabase.updateAgentConversation(session.id, {
@@ -781,17 +670,16 @@ class AgentSessionManager {
       case 'tool_progress':
         this._safeSend('agent:toolProgress', {
           sessionId: session.id,
-          toolUseId: msg.tool_use_id,
-          toolName: msg.tool_name,
-          elapsedSeconds: msg.elapsed_time_seconds
+          toolUseId: msg.toolUseId,
+          toolName: msg.toolName,
+          elapsedSeconds: msg.elapsedSeconds
         })
         break
 
       default:
-        // 其他消息类型原样转发
         this._safeSend('agent:otherMessage', {
           sessionId: session.id,
-          message: msg
+          message: rawMsg
         })
     }
   }
