@@ -55,8 +55,12 @@
       <div ref="scrollAnchor"></div>
     </div>
 
-    <!-- 钉钉观察模式提示条 -->
-    <div v-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
+    <!-- 提示条：根据会话状态显示不同提示 -->
+    <div v-if="!hasActiveSession" class="status-hint-bar">
+      <Icon name="info" :size="14" />
+      <span>{{ t('agent.historyHint') }}</span>
+    </div>
+    <div v-else-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
       <Icon name="dingtalk" :size="14" />
       <span>{{ t('agent.dingtalkObserving') }}</span>
     </div>
@@ -133,6 +137,7 @@ const {
   slashCommands,
   activeModel,
   isInterrupting,  // 中断标志，用于阻止队列自动消费
+  hasActiveSession,  // 激活状态，用于显示提示文字
   loadMessages,
   sendMessage,
   cancelGeneration,
@@ -597,6 +602,19 @@ defineExpose({
   gap: 8px;
   padding: 6px 16px;
   background: var(--warning-bg);
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  flex-shrink: 0;
+}
+
+/* 历史信息提示条 */
+.status-hint-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--info-bg);
   border-top: 1px solid var(--border-color);
   font-size: 12px;
   color: var(--text-color-secondary);
