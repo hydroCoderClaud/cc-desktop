@@ -63,7 +63,7 @@
 
     <!-- ========== Agent Mode Content (v-show 避免切换模式时 remount) ========== -->
     <AgentLeftContent
-      v-show="!isDeveloperMode"
+      v-show="isAgentMode"
       ref="agentLeftContentRef"
       :active-session-id="activeAgentSessionId"
       @created="handleAgentCreated"
@@ -82,7 +82,7 @@
 
     <!-- 能力管理 Modal（仅 Agent 模式） -->
     <CapabilityModal
-      v-if="!isDeveloperMode"
+      v-if="isAgentMode"
       v-model:show="showCapabilityModal"
       :project-path="agentCwd"
       :session-id="agentSessionId"
@@ -222,7 +222,7 @@
 
         <div class="footer-right">
           <button
-            v-if="!isDeveloperMode"
+            v-if="isAgentMode"
             class="capability-btn"
             @click="showCapabilityModal = true"
             :title="t('agent.capabilities')"
@@ -231,28 +231,35 @@
             <span v-if="hasCapabilityUpdate" class="capability-update-badge"></span>
           </button>
 
-          <button class="locale-toggle-btn" @click="toggleLocale" :title="locale === 'zh-CN' ? 'English' : '中文'">
-            <span>{{ locale === 'zh-CN' ? 'EN' : '中' }}</span>
-          </button>
-
           <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
             <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
           </button>
 
+          <!-- 目标模式按钮：显示可切换到的模式图标 -->
           <button
-            class="notebook-btn"
-            @click="handleOpenNotebook"
-            title="打开 Notebook 工作台"
+            v-if="!isAgentMode"
+            class="mode-switch-btn"
+            @click="handleSwitchMode('agent')"
+            :title="t('mode.switchToAgent')"
           >
-            <Icon name="briefcase" :size="18" />
+            <Icon name="robot" :size="18" />
           </button>
 
           <button
-            class="mode-toggle-btn"
-            @click="handleToggleMode"
-            :title="isDeveloperMode ? t('mode.switchToAgent') : t('mode.switchToDeveloper')"
+            v-if="!isDeveloperMode"
+            class="mode-switch-btn"
+            @click="handleSwitchMode('developer')"
+            :title="t('mode.switchToDeveloper')"
           >
-            <Icon :name="isDeveloperMode ? 'terminal' : 'robot'" :size="18" />
+            <Icon name="terminal" :size="18" />
+          </button>
+
+          <button
+            class="mode-switch-btn"
+            @click="handleOpenNotebook"
+            :title="t('mode.switchToNotebook')"
+          >
+            <Icon name="notebook" :size="18" />
           </button>
         </div>
       </div>
@@ -350,19 +357,13 @@ import CapabilityModal from './agent/CapabilityModal.vue'
 const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
-const { t, locale, setLocale } = useLocale()
-const { isDeveloperMode, isAgentMode, toggleMode } = useAppMode()
+const { t, locale } = useLocale()
+const { isDeveloperMode, isAgentMode, switchMode } = useAppMode()
 
-// 切换语言
-const toggleLocale = () => {
-  const newLocale = locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
-  setLocale(newLocale)
-}
-
-// 切换应用模式
-const handleToggleMode = async () => {
-  await toggleMode()
-  emit('mode-changed', isDeveloperMode.value ? 'developer' : 'agent')
+// 切换到指定模式
+const handleSwitchMode = async (mode) => {
+  await switchMode(mode)
+  emit('mode-changed', mode)
 }
 
 // 打开 Notebook 工作台
@@ -1560,26 +1561,6 @@ defineExpose({
   border: 1.5px solid var(--bg-color);
 }
 
-.locale-toggle-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.locale-toggle-btn:hover {
-  transform: scale(1.05);
-  border-color: var(--primary-color);
-}
 
 .theme-toggle-btn {
   width: 40px;
@@ -1633,8 +1614,7 @@ defineExpose({
   border: 1.5px solid var(--bg-color);
 }
 
-.mode-toggle-btn,
-.notebook-btn {
+.mode-switch-btn {
   width: 40px;
   height: 40px;
   border-radius: 8px;
@@ -1649,8 +1629,7 @@ defineExpose({
   color: var(--primary-color);
 }
 
-.mode-toggle-btn:hover,
-.notebook-btn:hover {
+.mode-switch-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
   background: var(--hover-bg);

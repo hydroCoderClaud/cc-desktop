@@ -13,12 +13,15 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useTheme } from '@composables/useTheme'
+import { useLocale } from '@composables/useLocale'
 import NotebookWorkspace from './components/NotebookWorkspace.vue'
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
+const { initLocale } = useLocale()
 
 onMounted(() => {
   initTheme()
+  initLocale()
 })
 </script>
 

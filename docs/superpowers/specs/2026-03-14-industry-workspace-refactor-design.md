@@ -1,4 +1,4 @@
-# IndustryWorkspace 重构设计文档
+# NotebookWorkspace 重构设计文档
 
 **日期**：2026-03-14
 **分支**：feature/industry-agent-demo
@@ -8,7 +8,7 @@
 
 ## 背景
 
-`IndustryWorkspace.vue` 当前 2200+ 行，存在以下问题：
+`NotebookWorkspace.vue` 当前 2200+ 行，存在以下问题：
 
 1. 单文件过大，违反模块化原则
 2. 所有颜色硬编码，未接入工程主题系统
@@ -23,14 +23,14 @@
 ### 目标文件结构
 
 ```
-src/renderer/pages/industry/
+src/renderer/pages/notebook/
 ├── components/
-│   ├── IndustryWorkspace.vue     # 主容器：三栏布局 + resize 分隔条 + 顶部导航
+│   ├── NotebookWorkspace.vue     # 主容器：三栏布局 + resize 分隔条 + 顶部导航
 │   ├── SourcePanel.vue           # 左侧来源面板（列表视图 + 详情视图）
 │   ├── ChatPanel.vue             # 中间对话区域
 │   └── StudioPanel.vue           # 右侧 Studio 面板（类型网格 + 成果详情）
 └── composables/
-    └── useIndustryLayout.js      # resize 逻辑、面板展开/收起、宽度自动调整
+    └── useNotebookLayout.js      # resize 逻辑、面板展开/收起、宽度自动调整
 ```
 
 国际化翻译直接合并到全局 locales（见第四节），无需独立目录。
@@ -39,19 +39,19 @@ src/renderer/pages/industry/
 
 | 文件 | 职责 | 预估行数 |
 |------|------|---------|
-| `IndustryWorkspace.vue` | 三栏容器、顶部导航、resize 分隔条 | ~150 行 |
+| `NotebookWorkspace.vue` | 三栏容器、顶部导航、resize 分隔条 | ~150 行 |
 | `SourcePanel.vue` | 来源列表、搜索、详情展开/收起 | ~300 行 |
 | `ChatPanel.vue` | 对话区域、输入框、欢迎页 | ~150 行 |
 | `StudioPanel.vue` | 类型网格、成果列表、成果详情 | ~300 行 |
-| `useIndustryLayout.js` | resize 逻辑、宽度状态、面板展开自动调整 | ~80 行 |
+| `useNotebookLayout.js` | resize 逻辑、宽度状态、面板展开自动调整 | ~80 行 |
 
 ### 组件通信
 
-`useIndustryLayout.js` 作为共享状态，所有组件直接 import 使用（无需 props 传递）：
+`useNotebookLayout.js` 作为共享状态，所有组件直接 import 使用（无需 props 传递）：
 
 ```js
-// useIndustryLayout.js 导出接口
-export function useIndustryLayout() {
+// useNotebookLayout.js 导出接口
+export function useNotebookLayout() {
   const leftWidth = ref(320)
   const rightWidth = ref(340)
   const showLeftPanel = ref(true)
@@ -184,13 +184,13 @@ export function useIndustryLayout() {
 
 **选方案 A**：直接合并到全局 locales，无需新目录，`useLocale()` 开箱即用。
 
-在 `src/renderer/locales/zh-CN.js` 和 `en-US.js` 中追加 `industry` 命名空间。
+在 `src/renderer/locales/zh-CN.js` 和 `en-US.js` 中追加 `notebook` 命名空间。
 
 ### 翻译键结构
 
 ```js
 // 追加到 src/renderer/locales/zh-CN.js
-industry: {
+notebook: {
   nav: {
     createNotebook: '创建笔记本',
     share: '分享',
@@ -247,7 +247,7 @@ industry: {
 ```js
 import { useLocale } from '@composables/useLocale'
 const { t } = useLocale()
-// 模板中：{{ t('industry.source.title') }}
+// 模板中：{{ t('notebook.source.title') }}
 ```
 
 ---
@@ -257,13 +257,13 @@ const { t } = useLocale()
 ```
 1. 补充图标 icons/index.js          ← 无依赖
 2. 追加全局 locales（zh-CN/en-US）  ← 无依赖
-3. 创建 useIndustryLayout.js        ← 无依赖
+3. 创建 useNotebookLayout.js        ← 无依赖
       ↓
 4. 拆分 SourcePanel.vue             ← 依赖 1、2、3
 5. 拆分 ChatPanel.vue               ← 依赖 2、3
 6. 拆分 StudioPanel.vue             ← 依赖 1、2、3
       ↓
-7. 重写 IndustryWorkspace.vue       ← 依赖 4、5、6
+7. 重写 NotebookWorkspace.vue       ← 依赖 4、5、6
 8. 删除旧冗余样式                    ← 依赖 7 完成且测试通过
 ```
 
@@ -275,17 +275,17 @@ const { t } = useLocale()
 
 | 文件 | 上限 |
 |------|------|
-| `IndustryWorkspace.vue` | 150 行 |
+| `NotebookWorkspace.vue` | 150 行 |
 | `SourcePanel.vue` | 300 行 |
 | `ChatPanel.vue` | 150 行 |
 | `StudioPanel.vue` | 300 行 |
-| `useIndustryLayout.js` | 80 行 |
+| `useNotebookLayout.js` | 80 行 |
 
 ### 代码质量
 
-- [ ] `grep -r '#[0-9a-fA-F]\{3,6\}' src/renderer/pages/industry/` 无结果（无硬编码颜色）
-- [ ] `grep -r '\.dark-theme' src/renderer/pages/industry/` 无结果
-- [ ] `grep -r 'hardcoded\|TODO' src/renderer/pages/industry/` 无结果
+- [ ] `grep -r '#[0-9a-fA-F]\{3,6\}' src/renderer/pages/notebook/` 无结果（无硬编码颜色）
+- [ ] `grep -r '\.dark-theme' src/renderer/pages/notebook/` 无结果
+- [ ] `grep -r 'hardcoded\|TODO' src/renderer/pages/notebook/` 无结果
 
 ### 功能测试
 

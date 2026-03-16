@@ -193,6 +193,9 @@ export const iconPaths = {
   letterA: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">A</text>',
   letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>',
 
+  // 笔记本（打开的笔记本样式）
+  notebook: '<path d="M5 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v14"/><path d="M10 7h4M10 10h4M10 13h3"/>',
+
   // 面板控制
   panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
   maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',

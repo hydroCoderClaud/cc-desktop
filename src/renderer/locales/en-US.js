@@ -1172,6 +1172,8 @@ export default {
     agentMode: 'Agent Mode',
     switchToAgent: 'Switch to Agent Mode',
     switchToDeveloper: 'Switch to Developer Mode',
+    switchToNotebook: 'Switch to Notebook',
+    notebook: 'Notebook',
     agentWelcome: 'Start conversations with AI Agent to accomplish various tasks without coding knowledge. Please click "New Conversation" or resume a previous conversation.'
   },
 

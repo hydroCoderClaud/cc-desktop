@@ -1177,6 +1177,8 @@ export default {
     agentMode: '智能体模式',
     switchToAgent: '切换到智能体模式',
     switchToDeveloper: '切换到开发者模式',
+    switchToNotebook: '切换到 Notebook 工作台',
+    notebook: 'Notebook 工作台',
     agentWelcome: '开始与 AI 智能体对话，无需代码知识即可完成各种任务。请点击新建对话或者恢复历史对话'
   },
 
