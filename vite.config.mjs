@@ -34,7 +34,7 @@ export default defineConfig({
         sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html'),
         updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html'),
         dingtalkSettings: path.resolve(__dirname, 'src/renderer/pages/dingtalk-settings/index.html'),
-        industry: path.resolve(__dirname, 'src/renderer/pages/industry/index.html')
+        notebook: path.resolve(__dirname, 'src/renderer/pages/notebook/index.html')
       }
     }
   },

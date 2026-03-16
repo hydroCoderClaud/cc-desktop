@@ -3,7 +3,7 @@
     <n-message-provider>
       <n-dialog-provider>
         <div class="app-container" :style="cssVars">
-          <IndustryWorkspace />
+          <NotebookWorkspace />
         </div>
       </n-dialog-provider>
     </n-message-provider>
@@ -13,7 +13,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useTheme } from '@composables/useTheme'
-import IndustryWorkspace from './components/IndustryWorkspace.vue'
+import NotebookWorkspace from './components/NotebookWorkspace.vue'
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
 

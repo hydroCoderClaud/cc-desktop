@@ -10,7 +10,7 @@ import {
 import RootApp from './App.vue'
 import '../../styles/settings-common.css'
 
-console.log('[Industry] Initializing Vue app...')
+console.log('[Notebook] Initializing Vue app...')
 
 const naive = create({
   components: [
@@ -25,8 +25,8 @@ const naive = create({
 try {
   const app = createApp(RootApp)
   app.config.errorHandler = (err, vm, info) => {
-    console.error('[Industry] Vue Error:', err)
-    console.error('[Industry] Info:', info)
+    console.error('[Notebook] Vue Error:', err)
+    console.error('[Notebook] Info:', info)
     document.getElementById('app').innerHTML = `
       <div style="padding: 20px; color: red;">
         <h2>Vue Error</h2>
@@ -36,9 +36,9 @@ try {
   }
   app.use(naive)
   app.mount('#app')
-  console.log('[Industry] Vue app mounted successfully')
+  console.log('[Notebook] Vue app mounted successfully')
 } catch (err) {
-  console.error('[Industry] Failed to initialize:', err)
+  console.error('[Notebook] Failed to initialize:', err)
   document.getElementById('app').innerHTML = `
     <div style="padding: 20px; color: red;">
       <h2>Initialization Error</h2>

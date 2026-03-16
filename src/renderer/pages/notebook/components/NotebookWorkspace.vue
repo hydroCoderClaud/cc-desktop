@@ -1,9 +1,9 @@
 <template>
-  <div class="industry-workspace">
+  <div class="notebook-workspace">
     <!-- 顶部导航栏 -->
     <div class="top-nav">
       <div class="nav-left">
-        <div class="app-logo" @click="toggleFullscreen" :title="isFullscreen ? t('industry.nav.exitFullscreen') : t('industry.nav.fullscreen')">
+        <div class="app-logo" @click="toggleFullscreen" :title="isFullscreen ? t('notebook.nav.exitFullscreen') : t('notebook.nav.fullscreen')">
           <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="16" cy="16" r="15" :stroke="primaryColor" stroke-width="1.5" :fill="primaryGhost"/>
             <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" :fill="primaryColor" opacity="0.85"/>
@@ -13,7 +13,7 @@
           v-if="!editingTitle"
           class="notebook-title"
           @click="startEditTitle"
-          :title="t('industry.nav.editTitle')"
+          :title="t('notebook.nav.editTitle')"
         >{{ notebookTitle }}</h1>
         <input
           v-else
@@ -29,19 +29,19 @@
       <div class="nav-right">
         <button class="create-notebook-btn">
           <Icon name="plus" :size="16" />
-          <span>{{ t('industry.nav.createNotebook') }}</span>
+          <span>{{ t('notebook.nav.createNotebook') }}</span>
         </button>
-        <button class="nav-btn" :title="t('industry.nav.share')">
+        <button class="nav-btn" :title="t('notebook.nav.share')">
           <Icon name="link" :size="16" />
-          <span>{{ t('industry.nav.share') }}</span>
+          <span>{{ t('notebook.nav.share') }}</span>
         </button>
-        <button class="nav-btn" :title="t('industry.nav.settings')">
+        <button class="nav-btn" :title="t('notebook.nav.settings')">
           <Icon name="settings" :size="16" />
-          <span>{{ t('industry.nav.settings') }}</span>
+          <span>{{ t('notebook.nav.settings') }}</span>
         </button>
-        <button class="nav-btn" :title="t('industry.nav.apps')">
+        <button class="nav-btn" :title="t('notebook.nav.apps')">
           <Icon name="grip" :size="16" />
-          <span>{{ t('industry.nav.apps') }}</span>
+          <span>{{ t('notebook.nav.apps') }}</span>
         </button>
         <div class="user-avatar">
           <Icon name="user" :size="20" />
@@ -76,7 +76,7 @@ import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
-import { useIndustryLayout } from '../composables/useIndustryLayout'
+import { useNotebookLayout } from '../composables/useNotebookLayout'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import StudioPanel from './StudioPanel.vue'
@@ -84,7 +84,7 @@ import StudioPanel from './StudioPanel.vue'
 const message = useMessage()
 const { t } = useLocale()
 const { cssVars } = useTheme()
-const { startResize } = useIndustryLayout()
+const { startResize } = useNotebookLayout()
 
 const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90d9')
 const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
@@ -187,7 +187,7 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
 </script>
 
 <style scoped>
-.industry-workspace {
+.notebook-workspace {
   display: flex;
   flex-direction: column;
   height: 100vh;

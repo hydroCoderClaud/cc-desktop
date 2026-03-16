@@ -1,23 +1,23 @@
 <template>
   <div class="main-content">
     <div class="chat-header">
-      <span class="chat-title">{{ t('industry.chat.title') }}</span>
+      <span class="chat-title">{{ t('notebook.chat.title') }}</span>
     </div>
     <div class="chat-content">
       <div class="welcome-message">
-        <h2>{{ t('industry.chat.welcome') }}</h2>
-        <p class="welcome-subtitle">{{ t('industry.chat.subtitle') }}</p>
+        <h2>{{ t('notebook.chat.welcome') }}</h2>
+        <p class="welcome-subtitle">{{ t('notebook.chat.subtitle') }}</p>
       </div>
     </div>
     <div class="chat-input-area">
       <div class="input-wrapper">
         <input
           type="text"
-          :placeholder="t('industry.chat.placeholder')"
+          :placeholder="t('notebook.chat.placeholder')"
           class="chat-input"
           @keyup.enter="$emit('send')"
         />
-        <span class="sources-count">{{ t('industry.chat.sources', { count: selectedCount }) }}</span>
+        <span class="sources-count">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
         <button class="send-btn" @click="$emit('send')">
           <Icon name="send" :size="18" />
         </button>

@@ -1,7 +1,7 @@
 <template>
   <div v-if="showLeftPanel" class="left-panel" :style="{ width: leftWidth + 'px' }">
     <div class="panel-header">
-      <span class="panel-title">{{ t('industry.source.title') }}</span>
+      <span class="panel-title">{{ t('notebook.source.title') }}</span>
       <button v-if="expandedSource" class="header-btn" :title="t('common.back')" @click="closeDetail">
         <Icon name="chevronLeft" :size="18" :strokeWidth="1.8" />
       </button>
@@ -15,23 +15,23 @@
       <template v-if="!expandedSource">
         <button class="add-source-btn" @click="$emit('add-source')">
           <Icon name="plus" :size="16" />
-          <span>{{ t('industry.source.add') }}</span>
+          <span>{{ t('notebook.source.add') }}</span>
         </button>
 
         <div class="search-section">
           <div class="search-box">
             <Icon name="search" :size="18" class="search-icon" />
-            <input type="text" :placeholder="t('industry.source.searchPlaceholder')" class="search-input" />
+            <input type="text" :placeholder="t('notebook.source.searchPlaceholder')" class="search-input" />
           </div>
           <div class="search-options">
             <button class="option-btn">
               <Icon name="globe" :size="14" />
-              <span>{{ t('industry.source.web') }}</span>
+              <span>{{ t('notebook.source.web') }}</span>
               <Icon name="chevronDown" :size="14" />
             </button>
             <button class="option-btn">
               <Icon name="lightning" :size="14" />
-              <span>{{ t('industry.source.fastResearch') }}</span>
+              <span>{{ t('notebook.source.fastResearch') }}</span>
               <Icon name="chevronDown" :size="14" />
             </button>
             <button class="search-submit">
@@ -41,7 +41,7 @@
         </div>
 
         <div class="select-all">
-          <span>{{ t('industry.source.selectAll') }}</span>
+          <span>{{ t('notebook.source.selectAll') }}</span>
           <label class="checkbox-label">
             <input type="checkbox" :checked="allSelected" @change="$emit('toggle-select-all')" />
             <span class="checkmark"></span>
@@ -74,7 +74,7 @@
             <Icon name="chevronLeft" :size="16" />
           </button>
           <span class="detail-title">{{ expandedSource.name }}</span>
-          <button class="detail-external-btn" @click="$emit('open-external', expandedSource)" :title="t('industry.source.openExternal')">
+          <button class="detail-external-btn" @click="$emit('open-external', expandedSource)" :title="t('notebook.source.openExternal')">
             <Icon name="externalLink" :size="16" />
           </button>
         </div>
@@ -82,7 +82,7 @@
         <div class="detail-summary-section">
           <div class="detail-summary-header" @click="summaryCollapsed = !summaryCollapsed">
             <Icon name="lightning" :size="14" color="#5c6bc0" />
-            <span class="detail-summary-title">{{ t('industry.source.guide') }}</span>
+            <span class="detail-summary-title">{{ t('notebook.source.guide') }}</span>
             <Icon :name="summaryCollapsed ? 'chevronDown' : 'chevronUp'" :size="14" class="summary-toggle-icon" />
           </div>
           <template v-if="!summaryCollapsed">
@@ -112,7 +112,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip">
     <div class="strip-header">
-      <button class="header-btn" @click="showLeftPanel = true" :title="t('industry.source.expand')">
+      <button class="header-btn" @click="showLeftPanel = true" :title="t('notebook.source.expand')">
         <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
       </button>
     </div>
@@ -130,13 +130,13 @@
 import { ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { useIndustryLayout } from '../composables/useIndustryLayout'
+import { useNotebookLayout } from '../composables/useNotebookLayout'
 
 defineProps({ sources: { type: Array, default: () => [] }, allSelected: Boolean })
 defineEmits(['add-source', 'toggle-select-all', 'open-external'])
 
 const { t } = useLocale()
-const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useIndustryLayout()
+const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
 const expandedSource = ref(null)
 const summaryCollapsed = ref(false)
@@ -164,7 +164,7 @@ const getSourceColor = (type) => {
 </script>
 
 <style>
-@import '../industry-shared.css';
+@import '../notebook-shared.css';
 </style>
 
 <style scoped>

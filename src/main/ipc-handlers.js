@@ -705,13 +705,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
-  // 打开专业智能体工作台
-  ipcMain.handle('window:openIndustryWorkspace', async () => {
+  // 打开 Notebook 工作台
+  ipcMain.handle('window:openNotebookWorkspace', async () => {
     createSubWindow({
       width: 1400,
       height: 900,
-      title: '专业智能体工作台 - CC Desktop',
-      page: 'industry'
+      title: 'Notebook - CC Desktop',
+      page: 'notebook'
     });
     return { success: true };
   });

@@ -1411,7 +1411,7 @@ export default {
     maxHistorySessions: '历史会话数量',
     maxHistorySessionsHint: '钉钉用户选择历史会话时显示的最大数量（1-20）',
   },
-  industry: {
+  notebook: {
     nav: {
       createNotebook: '创建笔记本',
       share: '分享',

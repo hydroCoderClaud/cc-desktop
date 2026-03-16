@@ -1406,7 +1406,7 @@ export default {
     maxHistorySessions: 'History Sessions Limit',
     maxHistorySessionsHint: 'Maximum number of history sessions shown when DingTalk user selects (1-20)',
   },
-  industry: {
+  notebook: {
     nav: {
       createNotebook: 'Create Notebook',
       share: 'Share',

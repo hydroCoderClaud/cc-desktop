@@ -2,7 +2,7 @@
   <div v-if="showRightPanel" class="right-panel" :style="{ width: rightWidth + 'px' }">
     <div class="panel-header">
       <template v-if="expandedAchievement">
-        <span class="panel-title">{{ t('industry.studio.title') }}</span>
+        <span class="panel-title">{{ t('notebook.studio.title') }}</span>
         <Icon name="chevronRight" :size="14" class="breadcrumb-icon" />
         <span class="panel-title">{{ getTypeName(expandedAchievement.type) }}</span>
         <button class="header-btn" style="margin-left:auto" :title="t('common.back')" @click="closeDetail">
@@ -10,7 +10,7 @@
         </button>
       </template>
       <template v-else>
-        <span class="panel-title">{{ t('industry.studio.title') }}</span>
+        <span class="panel-title">{{ t('notebook.studio.title') }}</span>
         <button class="header-btn" style="margin-left:auto" :title="t('common.collapse')" @click="showRightPanel = false">
           <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
         </button>
@@ -32,9 +32,9 @@
               <div class="type-icon-content" :style="{ color: type.color }">
                 <Icon :name="type.icon" :size="16" />
               </div>
-              <span v-if="type.beta" class="beta-badge">{{ t('industry.studio.betaBadge') }}</span>
+              <span v-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
             </div>
-            <span class="type-name">{{ t('industry.types.' + type.id) }}</span>
+            <span class="type-name">{{ t('notebook.types.' + type.id) }}</span>
             <button class="type-edit-btn">
               <Icon name="edit" :size="14" />
             </button>
@@ -44,10 +44,10 @@
         <div class="panel-divider"></div>
 
         <div class="achievements-section">
-          <div class="section-title">{{ t('industry.studio.generated') }}</div>
+          <div class="section-title">{{ t('notebook.studio.generated') }}</div>
           <div v-if="achievements.length === 0" class="empty-achievements">
-            <p>{{ t('industry.studio.empty') }}</p>
-            <p class="hint">{{ t('industry.studio.emptyHint') }}</p>
+            <p>{{ t('notebook.studio.empty') }}</p>
+            <p class="hint">{{ t('notebook.studio.emptyHint') }}</p>
           </div>
           <div v-else class="achievements-list">
             <div
@@ -60,7 +60,7 @@
               <div class="achievement-info">
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
-                  <span>{{ t('industry.studio.sources', { count: achievement.sourceCount }) }}</span>
+                  <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount }) }}</span>
                   <span class="dot">•</span>
                   <span>{{ achievement.time }}</span>
                 </div>
@@ -85,13 +85,13 @@
             <Icon name="chevronLeft" :size="16" />
           </button>
           <span class="detail-title">{{ expandedAchievement.name }}</span>
-          <button class="detail-external-btn" :title="t('industry.studio.export')">
+          <button class="detail-external-btn" :title="t('notebook.studio.export')">
             <Icon name="export" :size="16" />
           </button>
-          <button class="detail-external-btn" :title="t('industry.studio.copy')">
+          <button class="detail-external-btn" :title="t('notebook.studio.copy')">
             <Icon name="copy" :size="16" />
           </button>
-          <button class="detail-external-btn danger" :title="t('industry.studio.delete')">
+          <button class="detail-external-btn danger" :title="t('notebook.studio.delete')">
             <Icon name="delete" :size="16" />
           </button>
         </div>
@@ -102,14 +102,14 @@
             <span class="detail-summary-title">{{ expandedAchievement.name }}</span>
           </div>
           <div class="achievement-detail-meta">
-            <span>{{ t('industry.studio.sources', { count: expandedAchievement.sourceCount }) }}</span>
+            <span>{{ t('notebook.studio.sources', { count: expandedAchievement.sourceCount }) }}</span>
             <span class="dot">•</span>
             <span>{{ expandedAchievement.time }}</span>
           </div>
         </div>
 
         <div class="detail-content-section">
-          <pre class="detail-raw-text">{{ expandedAchievement.content || t('industry.studio.empty') }}</pre>
+          <pre class="detail-raw-text">{{ expandedAchievement.content || t('notebook.studio.empty') }}</pre>
         </div>
       </template>
     </div>
@@ -118,7 +118,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip panel-collapsed-right">
     <div class="strip-header">
-      <button class="header-btn" @click="showRightPanel = true" :title="t('industry.studio.expand')">
+      <button class="header-btn" @click="showRightPanel = true" :title="t('notebook.studio.expand')">
         <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
       </button>
     </div>
@@ -129,7 +129,7 @@
           :key="type.id"
           class="strip-icon-item type-icon-item"
           :style="{ background: type.bgColor }"
-          :title="t('industry.types.' + type.id)"
+          :title="t('notebook.types.' + type.id)"
         >
           <div class="type-icon-small" :style="{ color: type.color }">
             <Icon :name="type.icon" :size="18" />
@@ -151,7 +151,7 @@
 import { ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { useIndustryLayout } from '../composables/useIndustryLayout'
+import { useNotebookLayout } from '../composables/useNotebookLayout'
 
 defineProps({
   achievements: { type: Array, default: () => [] },
@@ -159,7 +159,7 @@ defineProps({
 })
 
 const { t } = useLocale()
-const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useIndustryLayout()
+const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
 const expandedAchievement = ref(null)
 
@@ -173,11 +173,11 @@ const closeDetail = () => {
   collapsePanel('right')
 }
 
-const getTypeName = (typeId) => t('industry.types.' + typeId)
+const getTypeName = (typeId) => t('notebook.types.' + typeId)
 </script>
 
 <style>
-@import '../industry-shared.css';
+@import '../notebook-shared.css';
 </style>
 
 <style scoped>

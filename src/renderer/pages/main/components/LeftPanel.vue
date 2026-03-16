@@ -240,9 +240,9 @@
           </button>
 
           <button
-            class="industry-btn"
-            @click="handleOpenIndustry"
-            title="打开专业智能体工作台"
+            class="notebook-btn"
+            @click="handleOpenNotebook"
+            title="打开 Notebook 工作台"
           >
             <Icon name="briefcase" :size="18" />
           </button>
@@ -365,13 +365,13 @@ const handleToggleMode = async () => {
   emit('mode-changed', isDeveloperMode.value ? 'developer' : 'agent')
 }
 
-// 打开专业智能体工作台
-const handleOpenIndustry = async () => {
+// 打开 Notebook 工作台
+const handleOpenNotebook = async () => {
   try {
-    await window.electronAPI.openIndustryWorkspace()
+    await window.electronAPI.openNotebookWorkspace()
   } catch (err) {
-    console.error('[LeftPanel] Failed to open industry workspace:', err)
-    message.error('打开专业智能体工作台失败')
+    console.error('[LeftPanel] Failed to open notebook workspace:', err)
+    message.error('打开 Notebook 工作台失败')
   }
 }
 
@@ -1634,7 +1634,7 @@ defineExpose({
 }
 
 .mode-toggle-btn,
-.industry-btn {
+.notebook-btn {
   width: 40px;
   height: 40px;
   border-radius: 8px;
@@ -1650,7 +1650,7 @@ defineExpose({
 }
 
 .mode-toggle-btn:hover,
-.industry-btn:hover {
+.notebook-btn:hover {
   transform: scale(1.05);
   border-color: var(--primary-color);
   background: var(--hover-bg);

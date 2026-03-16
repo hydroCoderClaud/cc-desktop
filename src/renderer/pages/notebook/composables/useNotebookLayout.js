@@ -6,7 +6,7 @@ const rightWidth = ref(340)
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)
 
-export function useIndustryLayout() {
+export function useNotebookLayout() {
   const expandPanel = (side) => {
     const container = document.querySelector('.panels-container')
     const containerWidth = container?.offsetWidth || window.innerWidth
