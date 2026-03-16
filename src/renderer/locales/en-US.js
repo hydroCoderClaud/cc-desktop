@@ -1240,6 +1240,7 @@ export default {
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+    historyHint: 'Above are historical messages. Type in the input box to activate this session',
     saveAsImage: 'Save as Image',
     imageSaved: 'Image saved',
     copySelection: 'Copy Selected Text',
@@ -1400,7 +1401,10 @@ export default {
     connectSuccess: 'DingTalk bridge connected',
     connectFailed: 'DingTalk bridge connection failed',
     disconnected: 'DingTalk bridge disconnected',
-    viewGuide: 'View Guide'
+    viewGuide: 'View Guide',
+    advancedSettings: 'Advanced Settings',
+    maxHistorySessions: 'History Sessions Limit',
+    maxHistorySessionsHint: 'Maximum number of history sessions shown when DingTalk user selects (1-20)',
   },
   industry: {
     nav: {

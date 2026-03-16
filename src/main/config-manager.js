@@ -74,6 +74,7 @@ class ConfigManager {
         appKey: '',
         appSecret: '',
         defaultCwd: '',
+        maxHistorySessions: 5,
       },
 
       settings: {

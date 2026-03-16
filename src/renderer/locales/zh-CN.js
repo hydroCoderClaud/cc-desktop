@@ -1245,6 +1245,7 @@ export default {
 
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
+    historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
     saveAsImage: '保存为图片',
     imageSaved: '图片已保存',
     copySelection: '复制选中文字',
@@ -1405,7 +1406,10 @@ export default {
     connectSuccess: '钉钉桥接连接成功',
     connectFailed: '钉钉桥接连接失败',
     disconnected: '钉钉桥接已断开',
-    viewGuide: '查看使用指南'
+    viewGuide: '查看使用指南',
+    advancedSettings: '高级设置',
+    maxHistorySessions: '历史会话数量',
+    maxHistorySessionsHint: '钉钉用户选择历史会话时显示的最大数量（1-20）',
   },
   industry: {
     nav: {

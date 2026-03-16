@@ -558,7 +558,8 @@ class DingTalkBridge {
     // 从 DB 查历史会话
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
-      const sessions = db.getDingTalkSessions(staffId, conversationId)
+      const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
+      const sessions = db.getDingTalkSessions(staffId, conversationId, limit)
       if (sessions.length > 0) {
         // 有历史会话，交由用户选择（而非自动恢复）
         return { needsChoice: true, sessions }

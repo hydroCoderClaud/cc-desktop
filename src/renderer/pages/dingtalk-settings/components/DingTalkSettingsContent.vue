@@ -72,6 +72,19 @@
       </div>
     </n-card>
 
+    <!-- Advanced Settings -->
+    <n-card :title="t('dingtalkSettings.advancedSettings')" class="settings-section">
+      <n-form-item :label="t('dingtalkSettings.maxHistorySessions')">
+        <n-input-number
+          v-model:value="formData.maxHistorySessions"
+          :min="1"
+          :max="20"
+          :disabled="!formData.enabled"
+        />
+        <template #feedback>{{ t('dingtalkSettings.maxHistorySessionsHint') }}</template>
+      </n-form-item>
+    </n-card>
+
     <!-- Footer Buttons -->
     <div class="settings-footer">
       <n-space>
@@ -97,7 +110,8 @@ const { t, initLocale } = useLocale()
 const formData = ref({
   enabled: false,
   appKey: '',
-  appSecret: ''
+  appSecret: '',
+  maxHistorySessions: 5
 })
 
 const connected = ref(false)
@@ -148,6 +162,7 @@ const loadConfig = async () => {
     formData.value.enabled = dt.enabled || false
     formData.value.appKey = dt.appKey || ''
     formData.value.appSecret = dt.appSecret || ''
+    formData.value.maxHistorySessions = dt.maxHistorySessions || 5
   } catch (err) {
     console.error('Failed to load DingTalk config:', err)
   }
@@ -171,6 +186,7 @@ const handleSave = async () => {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
       enabled: formData.value.enabled,
+      maxHistorySessions: formData.value.maxHistorySessions,
     })
     message.success(t('dingtalkSettings.saveSuccess'))
     await refreshStatus()
@@ -188,6 +204,7 @@ const handleConnect = async () => {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
       enabled: true,
+      maxHistorySessions: formData.value.maxHistorySessions,
     })
     formData.value.enabled = true
     const result = await invoke('startDingTalk')

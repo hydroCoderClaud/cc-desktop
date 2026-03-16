@@ -31,14 +31,15 @@ function setupDingTalkHandlers(ipcMain, dingtalkBridge, configManager) {
   })
 
   // 更新钉钉配置并重启
-  ipcMain.handle('dingtalk:updateConfig', async (event, { appKey, appSecret, enabled, defaultCwd }) => {
+  ipcMain.handle('dingtalk:updateConfig', async (event, { appKey, appSecret, enabled, defaultCwd, maxHistorySessions }) => {
     const config = configManager.getConfig()
     config.dingtalk = {
       ...config.dingtalk,
       appKey: appKey !== undefined ? appKey : config.dingtalk?.appKey || '',
       appSecret: appSecret !== undefined ? appSecret : config.dingtalk?.appSecret || '',
       enabled: enabled !== undefined ? enabled : config.dingtalk?.enabled || false,
-      defaultCwd: defaultCwd !== undefined ? defaultCwd : config.dingtalk?.defaultCwd || ''
+      defaultCwd: defaultCwd !== undefined ? defaultCwd : config.dingtalk?.defaultCwd || '',
+      maxHistorySessions: maxHistorySessions !== undefined ? maxHistorySessions : config.dingtalk?.maxHistorySessions || 5
     }
     await configManager.save(config)
 
