@@ -375,7 +375,7 @@ class AgentSessionManager extends EventEmitter {
     }
 
     // 首次消息（或 CLI 进程已退出）→ 创建新的持久 query
-    console.log(`[AgentSession] Creating new streaming query for session ${sessionId}`)
+    console.log(`[AgentSessionManager] Creating new streaming query for session ${sessionId} (title: ${session.title})`)
 
     try {
       // 使用会话创建时绑定的 profile，fallback 到默认
@@ -487,10 +487,16 @@ class AgentSessionManager extends EventEmitter {
       session._lastCliExitCode = null
       session._lastCliStderr = null
 
+      // CLI 进程退出 = 用户主动结束对话 = 完全关闭会话
+      // 从内存 Map 中移除会话
+      const sessionId = session.id
+      this.sessions.delete(sessionId)
+      console.log(`[AgentSessionManager] Session ${sessionId} removed from memory after CLI exit`)
+
       this._safeSend('agent:statusChange', {
         sessionId: session.id,
         status: session.status,
-        cliExited: true  // 标记 CLI 进程已退出，前端需要重置 hasActiveSession
+        cliExited: true  // 标记 CLI 进程已退出，前端需要关闭 tab 并重置状态
       })
     }
   }

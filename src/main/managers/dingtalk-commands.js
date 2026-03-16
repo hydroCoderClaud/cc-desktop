@@ -69,7 +69,7 @@ module.exports = {
     ].join('\n\n')
   },
 
-  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, conversationType }, webhook) {
+  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, robotCode }, webhook) {
     // 获取当前活跃会话（如果有）
     const currentSessionId = this._resolveActiveSessionId(mapKey)
     const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
@@ -97,6 +97,10 @@ module.exports = {
 
       // 切换到目标会话（不关闭当前会话）
       // 原则：只更新连接映射，不关闭其他会话，避免误关闭桌面端激活的会话
+      // 先检查目标会话是否已在内存中激活
+      const existingSession = this.agentSessionManager.sessions.get(selectedRow.session_id)
+      const isActivated = existingSession && existingSession.queryGenerator != null
+
       const session = this.agentSessionManager.reopen(selectedRow.session_id)
       if (session) {
         // 更新会话的 conversationId（确保会话属于当前钉钉对话）
@@ -108,8 +112,21 @@ module.exports = {
           sessionId: selectedRow.session_id, staffId: senderStaffId, nickname: senderNick,
           conversationId, conversationTitle, title: selectedRow.title
         })
-        // 使用国际化提示文本
-        return this._t('sessionSwitched').replace('{title}', selectedRow.title)
+
+        if (isActivated) {
+          // 已激活 → 直接可用
+          return this._t('sessionSwitched').replace('{title}', selectedRow.title)
+        }
+
+        // 未激活 → 自动发 hello 激活
+        await this._replyToDingTalk(webhook, this._t('sessionActivating'))
+        this._notifyFrontend('dingtalk:messageReceived', {
+          sessionId: selectedRow.session_id, senderNick, text: 'hello'
+        })
+        this._enqueueMessage(selectedRow.session_id, 'hello', webhook, senderNick, {
+          robotCode, senderStaffId, conversationId, conversationType
+        })
+        return null  // 已由 _replyToDingTalk 回复
       } else {
         return `❌ 无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话`
       }
