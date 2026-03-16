@@ -48,8 +48,14 @@ class DingTalkBridge {
     this.responseCollectors = new Map()
 
     // 消息去重：记录最近处理过的 msgId，防止 SDK 重投导致重复处理
-    this._processedMsgIds = new Set()
+    this._processedMsgIds = new Map() // msgId → timestamp
     this._MSG_ID_TTL = 10 * 60 * 1000 // 10 分钟后清理
+    this._msgIdCleanupTimer = setInterval(() => {
+      const cutoff = Date.now() - this._MSG_ID_TTL
+      for (const [id, ts] of this._processedMsgIds) {
+        if (ts < cutoff) this._processedMsgIds.delete(id)
+      }
+    }, 60 * 1000) // 每分钟扫一次
 
     // 每个会话的消息处理队列（Promise chain），确保串行处理
     this._sessionProcessQueues = new Map()
@@ -85,32 +91,36 @@ class DingTalkBridge {
   _bindAgentEvents() {
     const mgr = this.agentSessionManager
 
-    mgr.on('userMessage', ({ sessionId, sessionType, content, images, source }) => {
-      // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
-      if (source !== 'dingtalk' && sessionType === 'dingtalk') {
-        try { this.onUserMessage(sessionId, content, images) } catch (e) {
-          console.error('[DingTalk] onUserMessage threw:', e)
+    // 保存 listener 引用，destroy 时精确移除
+    this._listeners = {
+      userMessage: ({ sessionId, sessionType, content, images, source }) => {
+        // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
+        if (source !== 'dingtalk' && sessionType === 'dingtalk') {
+          try { this.onUserMessage(sessionId, content, images) } catch (e) {
+            console.error('[DingTalk] onUserMessage threw:', e)
+          }
+        }
+      },
+      agentMessage: (sessionId, message) => {
+        try { this.onAgentMessage(sessionId, message) } catch (e) {
+          console.error('[DingTalk] onAgentMessage threw:', e)
+        }
+      },
+      agentResult: (sessionId) => {
+        try { this.onAgentResult(sessionId) } catch (e) {
+          console.error('[DingTalk] onAgentResult threw:', e)
+        }
+      },
+      agentError: (sessionId, error) => {
+        try { this.onAgentError(sessionId, error) } catch (e) {
+          console.error('[DingTalk] onAgentError threw:', e)
         }
       }
-    })
+    }
 
-    mgr.on('agentMessage', (sessionId, message) => {
-      try { this.onAgentMessage(sessionId, message) } catch (e) {
-        console.error('[DingTalk] onAgentMessage threw:', e)
-      }
-    })
-
-    mgr.on('agentResult', (sessionId) => {
-      try { this.onAgentResult(sessionId) } catch (e) {
-        console.error('[DingTalk] onAgentResult threw:', e)
-      }
-    })
-
-    mgr.on('agentError', (sessionId, error) => {
-      try { this.onAgentError(sessionId, error) } catch (e) {
-        console.error('[DingTalk] onAgentError threw:', e)
-      }
-    })
+    for (const [event, fn] of Object.entries(this._listeners)) {
+      mgr.on(event, fn)
+    }
   }
 
   /**
@@ -154,6 +164,10 @@ class DingTalkBridge {
     this.connected = false
     for (const collector of this.responseCollectors.values()) clearTimeout(collector.timer)
     this.responseCollectors.clear()
+    if (this._msgIdCleanupTimer) {
+      clearInterval(this._msgIdCleanupTimer)
+      this._msgIdCleanupTimer = null
+    }
     this._processedMsgIds.clear()
     this._sessionProcessQueues.clear()
     for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
@@ -189,12 +203,12 @@ class DingTalkBridge {
   destroy() {
     // 先停止连接和清理资源
     this.stop()
-    // 解绑 AgentSessionManager 事件监听器
-    if (this.agentSessionManager) {
-      this.agentSessionManager.off('userMessage')
-      this.agentSessionManager.off('agentMessage')
-      this.agentSessionManager.off('agentResult')
-      this.agentSessionManager.off('agentError')
+    // 解绑 AgentSessionManager 事件监听器（精确移除自身绑定的 listener）
+    if (this.agentSessionManager && this._listeners) {
+      for (const [event, fn] of Object.entries(this._listeners)) {
+        this.agentSessionManager.off(event, fn)
+      }
+      this._listeners = null
     }
     console.log('[DingTalk] Bridge destroyed, event listeners unbound')
   }
@@ -349,8 +363,7 @@ class DingTalkBridge {
       return
     }
     if (msgId) {
-      this._processedMsgIds.add(msgId)
-      setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
+      this._processedMsgIds.set(msgId, Date.now())
     }
 
     // 命令拦截：文本消息以 / 开头时作为命令处理，不进入 Agent 对话
@@ -462,12 +475,7 @@ class DingTalkBridge {
     this._notifyFrontend('dingtalk:messageReceived', notification)
 
     // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
-    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-    const currentTask = prevTask
-      .catch(() => {}) // 前一条出错不阻塞后续
-      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
-      .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-    this._sessionProcessQueues.set(sessionId, currentTask)
+    this._enqueueMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
   }
 
   /**
@@ -486,7 +494,7 @@ class DingTalkBridge {
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     // 附带钉钉元数据，用于持久化来源信息
-    const meta = { source: 'dingtalk', senderNick }
+    const meta = { source: 'dingtalk', senderNick, conversationId }
     try {
       await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
@@ -529,25 +537,21 @@ class DingTalkBridge {
       if (!row) {
         // 会话已被物理删除 → 清除所有相关状态，走历史查询/新建流程
         console.log(`[DingTalk] Session ${sessionId} not found in DB, clearing mapping`)
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        this._clearSessionState(sessionId, mapKey)
       } else if (row.status === 'closed') {
         // CC 桌面主动关闭 → 清除所有相关状态，让用户重新选择
         console.log(`[DingTalk] Session ${sessionId} was closed by desktop, will ask user to choose`)
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        this._clearSessionState(sessionId, mapKey)
       } else {
         // 会话状态正常（idle/streaming）→ 恢复
         const session = this.agentSessionManager.reopen(sessionId)
-        if (session) return sessionId
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        if (session) {
+          // 更新会话的 conversationId（确保会话属于当前钉钉对话）
+          if (!session.meta) session.meta = {}
+          session.meta.conversationId = conversationId
+          return sessionId
+        }
+        this._clearSessionState(sessionId, mapKey)
       }
       // 三种情况均继续向下走：查询历史 → 触发选择菜单 或 新建
     }
@@ -578,7 +582,8 @@ class DingTalkBridge {
       type: 'dingtalk',
       title,
       cwd: cwd || undefined,
-      cwdSubDir: cwd ? undefined : 'dingtalk'
+      cwdSubDir: cwd ? undefined : 'dingtalk',
+      meta: { conversationId }
     })
 
     const sessionId = session.id
@@ -623,6 +628,30 @@ class DingTalkBridge {
   }
 
   /**
+   * 清理会话关联的所有内部状态（映射、队列、webhook、待发块）
+   * @param {string} sessionId
+   * @param {string} [mapKey] - 可选，提供时同时清理 sessionMap
+   */
+  _clearSessionState(sessionId, mapKey) {
+    this._sessionProcessQueues.delete(sessionId)
+    if (mapKey) this.sessionMap.delete(mapKey)
+    this._sessionWebhooks.delete(sessionId)
+    this._desktopPendingBlocks.delete(sessionId)
+  }
+
+  /**
+   * 将消息加入会话的串行处理队列（promise chain），确保同一会话无竞态
+   */
+  _enqueueMessage(sessionId, message, webhook, senderNick, opts) {
+    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
+    const currentTask = prevTask
+      .catch(() => {})
+      .then(() => this._processOneMessage(sessionId, message, webhook, senderNick, opts))
+      .catch(err => console.error('[DingTalk] Queue processing error:', err))
+    this._sessionProcessQueues.set(sessionId, currentTask)
+  }
+
+  /**
    * 获取当前活跃的 sessionId。
    * 若 sessionMap 中有映射但 session 已被 CC 桌面关闭，自动清理过期映射并返回 null。
    */
@@ -638,10 +667,7 @@ class DingTalkBridge {
     const row = db && db.getAgentConversation(sessionId)
     if (!row || row.status === 'closed') {
       // CC 桌面已关闭或物理删除，清理过期映射
-      this.sessionMap.delete(mapKey)
-      this._sessionWebhooks.delete(sessionId)
-      this._sessionProcessQueues.delete(sessionId)
-      this._desktopPendingBlocks.delete(sessionId)
+      this._clearSessionState(sessionId, mapKey)
       return null
     }
 
@@ -752,6 +778,10 @@ class DingTalkBridge {
 
       const session = this.agentSessionManager.reopen(selectedRow.session_id)
       if (session) {
+        // 更新会话的 conversationId（确保会话属于当前钉钉对话）
+        if (!session.meta) session.meta = {}
+        session.meta.conversationId = conversationId
+
         sessionId = selectedRow.session_id
         this.sessionMap.set(mapKey, sessionId)
         console.log(`[DingTalk] Resumed session ${sessionId} for ${senderNick}(${senderStaffId})`)
@@ -807,12 +837,7 @@ class DingTalkBridge {
       }
       this._notifyFrontend('dingtalk:messageReceived', notification)
 
-      const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-      const currentTask = prevTask
-        .catch(() => {})
-        .then(() => this._processOneMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
-        .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-      this._sessionProcessQueues.set(sessionId, currentTask)
+      this._enqueueMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
     } else if (needActivation) {
       // 没有原始消息，但需要激活会话：先发送提示，再自动发送 "hello" 激活
       console.log(`[DingTalk] _handlePendingChoice: auto-activating session ${sessionId} with "hello"`)
@@ -830,12 +855,7 @@ class DingTalkBridge {
         text: 'hello'
       })
 
-      const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-      const currentTask = prevTask
-        .catch(() => {})
-        .then(() => this._processOneMessage(sessionId, 'hello', webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
-        .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-      this._sessionProcessQueues.set(sessionId, currentTask)
+      this._enqueueMessage(sessionId, 'hello', webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
     }
   }
 
@@ -891,7 +911,7 @@ class DingTalkBridge {
     if (!collector) {
       // 非钉钉发起的消息 — 检查是否是 CC 桌面介入（有待转发块）
       const pending = this._desktopPendingBlocks.get(sessionId)
-      if (!pending) return false
+      if (!pending) return
 
       // 累积文本块，result 时一起打包发送
       const blocks = message?.content || []
@@ -903,7 +923,7 @@ class DingTalkBridge {
           this._extractImagePaths(block.input).forEach(p => pending.imagePaths.add(p))
         }
       }
-      return true
+      return
     }
 
     // 钉钉发起的消息：提取文本块立即发送，同时扫描 tool_use 图片路径
@@ -925,8 +945,6 @@ class DingTalkBridge {
         console.error(`[DingTalk] Immediate reply failed:`, err.message)
       })
     }
-
-    return true
   }
 
   /**
@@ -965,12 +983,12 @@ class DingTalkBridge {
     if (!collector) {
       // CC 桌面介入：发送完整 Q&A 块
       const pending = this._desktopPendingBlocks.get(sessionId)
-      if (!pending) return false
+      if (!pending) return
 
       this._desktopPendingBlocks.delete(sessionId)
 
       const webhookInfo = this._sessionWebhooks.get(sessionId)
-      if (!webhookInfo) return false
+      if (!webhookInfo) return
 
       const responseText = pending.textChunks.join('\n\n')
 
@@ -1005,7 +1023,7 @@ class DingTalkBridge {
         })
       }
 
-      return true
+      return
     }
 
     clearTimeout(collector.timer)
@@ -1026,8 +1044,6 @@ class DingTalkBridge {
         console.error('[DingTalk] Image forward failed:', err.message)
       })
     }
-
-    return true
   }
 
   /**
@@ -1038,7 +1054,7 @@ class DingTalkBridge {
     if (!collector) {
       // 清理 CC 桌面介入的待发块
       this._desktopPendingBlocks.delete(sessionId)
-      return false
+      return
     }
 
     clearTimeout(collector.timer)
@@ -1046,7 +1062,6 @@ class DingTalkBridge {
 
     this._replyToDingTalk(collector.webhook, `❌ ${error}`).catch(() => {})
     collector.resolve()
-    return true
   }
 
   /**
@@ -1269,7 +1284,7 @@ class DingTalkBridge {
     ].join('\n\n')
   }
 
-  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }, webhook) {
+  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, conversationType }, webhook) {
     // 获取当前活跃会话（如果有）
     const currentSessionId = this._resolveActiveSessionId(mapKey)
     const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
@@ -1299,6 +1314,10 @@ class DingTalkBridge {
       // 原则：只更新连接映射，不关闭其他会话，避免误关闭桌面端激活的会话
       const session = this.agentSessionManager.reopen(selectedRow.session_id)
       if (session) {
+        // 更新会话的 conversationId（确保会话属于当前钉钉对话）
+        if (!session.meta) session.meta = {}
+        session.meta.conversationId = conversationId
+
         this.sessionMap.set(mapKey, selectedRow.session_id)
         this._notifyFrontend('dingtalk:sessionCreated', {
           sessionId: selectedRow.session_id, staffId: senderStaffId, nickname: senderNick,
@@ -1328,10 +1347,36 @@ class DingTalkBridge {
     return `✅ 会话已重命名为：${newTitle}`
   }
 
-  _cmdStatus(context) {
-    // 只统计钉钉发起的激活会话（type === 'dingtalk' 且有 queryGenerator）
+  /**
+   * 获取当前钉钉对话的激活会话列表
+   * @param {string} [conversationId] - 钉钉 conversationId，为空时返回所有钉钉激活会话
+   * @returns {Object[]} 匹配的激活会话数组
+   */
+  _getActiveSessionsByConversation(conversationId) {
     const allSessions = [...this.agentSessionManager.sessions.values()]
-    const activeSessions = allSessions.filter(s => s.type === 'dingtalk' && s.queryGenerator)
+    const db = this.agentSessionManager.sessionDatabase
+
+    return allSessions.filter(s => {
+      if (s.type !== 'dingtalk' || !s.queryGenerator) return false
+      if (!conversationId) return true
+
+      // 优先使用内存中的 meta.conversationId，如果没有则从数据库查询
+      if (s.meta?.conversationId) {
+        return s.meta.conversationId === conversationId
+      }
+
+      // 从数据库查询会话的 conversationId
+      if (db) {
+        const row = db.getAgentConversation(s.id)
+        return row?.conversation_id === conversationId
+      }
+
+      return true  // 无法判断时包含（兼容旧会话）
+    })
+  }
+
+  _cmdStatus(context) {
+    const activeSessions = this._getActiveSessionsByConversation(context?.conversationId)
     const streaming = activeSessions.filter(s => s.status === 'streaming').length
     const idle = activeSessions.filter(s => s.status === 'idle').length
 
@@ -1363,11 +1408,9 @@ class DingTalkBridge {
 
   _cmdSessions(context) {
     console.log('[DingTalk] _cmdSessions called, context:', context)
-    // 只列出钉钉发起的激活会话（type === 'dingtalk' 且有 queryGenerator）
-    const allSessions = [...this.agentSessionManager.sessions.values()]
-    const activeSessions = allSessions.filter(s => s.type === 'dingtalk' && s.queryGenerator)
+    const activeSessions = this._getActiveSessionsByConversation(context?.conversationId)
 
-    console.log('[DingTalk] _cmdSessions: allSessions count:', allSessions.length, 'activeSessions count:', activeSessions.length)
+    console.log('[DingTalk] _cmdSessions: activeSessions count:', activeSessions.length)
     if (activeSessions.length === 0) {
       console.log('[DingTalk] _cmdSessions: returning "暂无活跃会话"')
       return '📭 暂无活跃会话'
@@ -1391,10 +1434,8 @@ class DingTalkBridge {
   }
 
   async _cmdClose(args, context) {
-    const { mapKey } = context
-    // 获取所有钉钉激活会话
-    const allSessions = [...this.agentSessionManager.sessions.values()]
-    const activeSessions = allSessions.filter(s => s.type === 'dingtalk' && s.queryGenerator)
+    const { mapKey, conversationId } = context
+    const activeSessions = this._getActiveSessionsByConversation(conversationId)
 
     // 如果指定了编号
     if (args.length > 0) {
@@ -1412,17 +1453,13 @@ class DingTalkBridge {
       await this.agentSessionManager.close(targetSession.id)
 
       // 清理相关映射（需要找到对应的 mapKey）
-      for (const [key, sessionId] of this.sessionMap.entries()) {
-        if (sessionId === targetSession.id) {
-          this.sessionMap.delete(key)
+      for (const [key, sid] of this.sessionMap.entries()) {
+        if (sid === targetSession.id) {
+          this._clearSessionState(targetSession.id, key)
           this._clearPendingChoice(key)
           break
         }
       }
-
-      this._sessionWebhooks.delete(targetSession.id)
-      this._sessionProcessQueues.delete(targetSession.id)
-      this._desktopPendingBlocks.delete(targetSession.id)
       this._notifyFrontend('dingtalk:sessionClosed', { sessionId: targetSession.id })
 
       // 关闭后自动显示剩余会话列表
@@ -1441,10 +1478,7 @@ class DingTalkBridge {
     }
 
     await this.agentSessionManager.close(sessionId)
-    this.sessionMap.delete(mapKey)
-    this._sessionWebhooks.delete(sessionId)
-    this._sessionProcessQueues.delete(sessionId)
-    this._desktopPendingBlocks.delete(sessionId)
+    this._clearSessionState(sessionId, mapKey)
     this._clearPendingChoice(mapKey)
     this._notifyFrontend('dingtalk:sessionClosed', { sessionId })
 
@@ -1454,7 +1488,7 @@ class DingTalkBridge {
     return `${closeMsg}\n\n${sessionsList}`
   }
 
-  async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }, webhook) {
+  async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, robotCode, conversationType }, webhook) {
     const currentSessionId = this._resolveActiveSessionId(mapKey)
     if (currentSessionId) {
       const session = this.agentSessionManager.sessions.get(currentSessionId)
@@ -1495,12 +1529,7 @@ class DingTalkBridge {
     })
 
     // 自动发送 "hello" 激活会话
-    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-    const currentTask = prevTask
-      .catch(() => {})
-      .then(() => this._processOneMessage(sessionId, 'hello', webhook, senderNick, { robotCode: null, senderStaffId, conversationId, conversationType: null }))
-      .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-    this._sessionProcessQueues.set(sessionId, currentTask)
+    this._enqueueMessage(sessionId, 'hello', webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
 
     return null  // 已由 _replyToDingTalk 回复
   }
