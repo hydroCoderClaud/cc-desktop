@@ -78,8 +78,13 @@ function setupConfigHandlers(ipcMain, configManager) {
     return configManager.validateAPIConfig()
   })
 
-  registerHandler('api:testConnection', (apiConfig) => {
-    return configManager.testAPIConnection(apiConfig)
+  registerHandler('api:testConnection', async (apiConfig) => {
+    try {
+      return await configManager.testAPIConnectionViaSDK(apiConfig)
+    } catch (sdkError) {
+      console.warn('[config-handlers] SDK test failed, falling back to HTTP:', sdkError.message)
+      return configManager.testAPIConnectionViaHTTP(apiConfig)
+    }
   })
 
   // ========================================
