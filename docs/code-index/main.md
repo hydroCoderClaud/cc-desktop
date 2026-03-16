@@ -1,6 +1,6 @@
 # 主进程代码索引
 
-> CC Desktop v1.6.98 | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
+> CC Desktop v1.6.99 | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
 
 ## 概览
 

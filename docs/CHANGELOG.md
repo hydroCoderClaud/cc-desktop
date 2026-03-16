@@ -2,6 +2,35 @@
 
 ---
 
+## v1.6.99 - 2026-03-17
+
+### 新增 (Feat)
+- Notebook 专业工作台独立页面（三栏布局：资料源 / 工作室 / 对话）
+- API 连接测试改用 Agent SDK，支持百炼等有来源校验的端点
+- Agent 对话区解耦 — 会话状态提示、Tab 焦点同步、CLI 退出自动关 Tab
+- 钉钉历史会话数量配置化（原硬编码 limit=5）
+- 对话组件支持 Windows 相对路径渲染与解析
+- 钉钉桥接会话管理与切换逻辑优化
+- Logo 水滴颜色跟随主题配色
+- Footer 模式切换按钮重构为目标模式图标
+- Notebook 入口配置化，默认隐藏（settings.enableNotebook）
+
+### 修复 (Fix)
+- 修复 /resume 带数字时未激活会话
+- 修复解耦重构中的潜在问题及代码审查发现的问题
+- resize-handle hover 颜色加深，竖条可见
+- panel-header 收展按钮靠右
+- Notebook 工作台 locale 初始化跟随系统语言
+
+### 重构 (Refactor)
+- Industry 页面重命名为 Notebook
+- 拆分 dingtalk-bridge.js，提取图片管道和命令系统为独立模块
+- 抽取 ClaudeCodeRunner，解耦 SDK 与 AgentSessionManager
+- 解耦钉钉 messageListener，改为 EventEmitter 内部事件
+- 拆分 IndustryWorkspace 为四组件架构，接入主题和国际化
+
+---
+
 ## v1.6.98 - 2026-03-11
 
 ### 新增 (Feat)
