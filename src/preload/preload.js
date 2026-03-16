@@ -142,6 +142,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
+  resolvePath: (basePath, relativePath) => ipcRenderer.invoke('path:resolve', basePath, relativePath),
 
   // ========================================
   // Claude 配置文件
@@ -159,6 +160,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
+  openNotebookWorkspace: () => ipcRenderer.invoke('window:openNotebookWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
 
   // ========================================

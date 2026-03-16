@@ -330,6 +330,24 @@ const updateCurrentSessionUuid = async () => {
 // 监听 activeTabId 变化
 watch(activeTabId, updateCurrentSessionUuid, { immediate: true })
 
+// 监听 activeTabId 变化，同步左侧列表焦点
+watch(activeTabId, (newTabId) => {
+  if (!newTabId || newTabId === 'welcome') return
+  const tab = allTabs.value.find(t => t.id === newTabId)
+  if (!tab) return
+
+  // 同步左侧面板焦点（按 tab 类型区分）
+  if (tab.type === 'agent-chat') {
+    if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
+      leftPanelRef.value.activeAgentSessionId = tab.sessionId
+    }
+  } else {
+    if (leftPanelRef.value?.focusedSessionId !== undefined) {
+      leftPanelRef.value.focusedSessionId = tab.sessionId
+    }
+  }
+})
+
 // Panel visibility
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)  // 默认显示右侧面板
@@ -540,6 +558,22 @@ const setupSessionListeners = () => {
         if (data?.sessionId) {
           handleSessionClosed({ id: data.sessionId })
           ensureActiveTabInCurrentMode()
+        }
+      })
+    )
+  }
+
+  // Agent CLI 进程退出时，关闭对应 Tab
+  if (window.electronAPI?.onAgentStatusChange) {
+    cleanupFns.push(
+      window.electronAPI.onAgentStatusChange((data) => {
+        if (data?.sessionId && data?.cliExited) {
+          console.log(`[MainContent] CLI exited for session ${data.sessionId}, closing tab`)
+          const tab = allTabs.value.find(t => t.sessionId === data.sessionId && t.type === 'agent-chat')
+          if (tab) {
+            closeAgentTabFully(tab)
+            ensureActiveTabInCurrentMode()
+          }
         }
       })
     )

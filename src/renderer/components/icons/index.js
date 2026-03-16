@@ -166,6 +166,12 @@ export const iconPaths = {
   // 清扫/清理
   broom: '<path d="M14 3l3 3M10 7l-7 7v3h3l7-7M6 14l2 2"/>',
 
+  // 专业工作台
+  mindmap: '<circle cx="10" cy="10" r="2"/><line x1="10" y1="8" x2="10" y2="4"/><circle cx="10" cy="3" r="1.5"/><line x1="10" y1="12" x2="10" y2="16"/><circle cx="10" cy="17" r="1.5"/><line x1="8" y1="10" x2="4" y2="10"/><circle cx="3" cy="10" r="1.5"/><line x1="12" y1="10" x2="16" y2="10"/><circle cx="17" cy="10" r="1.5"/>',
+  presentation: '<rect x="3" y="3" width="14" height="10" rx="1"/><path d="M10 13v4M7 17h6"/><path d="M6 7h8M6 10h5"/>',
+  audio: '<path d="M3 8a7 7 0 0 1 14 0"/><path d="M5 10a5 5 0 0 1 10 0"/><circle cx="10" cy="13" r="2"/><path d="M8 13v4M12 13v4"/>',
+  table: '<rect x="3" y="3" width="14" height="14" rx="1"/><path d="M3 8h14M3 13h14M8 3v14M13 3v14"/>',
+
   // 闪电
   zap: '<path d="M11 2L4 12h5l-1 6 7-10H10l1-6z"/>',
 
@@ -187,10 +193,15 @@ export const iconPaths = {
   letterA: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">A</text>',
   letterH: '<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="600" fill="currentColor" stroke="none">H</text>',
 
+  // 笔记本（打开的笔记本样式）
+  notebook: '<path d="M5 3h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v14"/><path d="M10 7h4M10 10h4M10 13h3"/>',
+
   // 面板控制
   panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
   maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',
-  restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>'
+  restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>',
+  panelLeft: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M7 4v12"/>',
+  panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>'
 }
 
 // 图标名称列表（用于校验）

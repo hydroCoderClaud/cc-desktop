@@ -29,7 +29,7 @@
 
     <template #action>
       <n-space justify="end">
-        <n-button size="small" @click="$emit('test', profile)">{{ t('common.test') }}</n-button>
+        <n-button size="small" :loading="testing" @click="$emit('test', profile)">{{ t('common.test') }}</n-button>
         <n-button size="small" @click="$emit('edit', profile)">{{ t('common.edit') }}</n-button>
         <n-button
           size="small"
@@ -54,6 +54,10 @@ const props = defineProps({
   profile: {
     type: Object,
     required: true
+  },
+  testing: {
+    type: Boolean,
+    default: false
   }
 })
 

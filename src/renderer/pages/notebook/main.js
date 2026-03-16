@@ -3,48 +3,30 @@ import {
   create,
   NConfigProvider,
   NMessageProvider,
+  NDialogProvider,
   NButton,
-  NCard,
-  NSpace,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputGroup,
-  NInputNumber,
-  NSwitch,
-  NDivider,
-  NTag,
-  NAlert
+  NInput
 } from 'naive-ui'
-import App from './App.vue'
+import RootApp from './App.vue'
 import '../../styles/settings-common.css'
 
-console.log('[DingTalkSettings] Initializing Vue app...')
+console.log('[Notebook] Initializing Vue app...')
 
 const naive = create({
   components: [
     NConfigProvider,
     NMessageProvider,
+    NDialogProvider,
     NButton,
-    NCard,
-    NSpace,
-    NForm,
-    NFormItem,
-    NInput,
-    NInputGroup,
-    NInputNumber,
-    NSwitch,
-    NDivider,
-    NTag,
-    NAlert
+    NInput
   ]
 })
 
 try {
-  const app = createApp(App)
+  const app = createApp(RootApp)
   app.config.errorHandler = (err, vm, info) => {
-    console.error('[DingTalkSettings] Vue Error:', err)
-    console.error('[DingTalkSettings] Info:', info)
+    console.error('[Notebook] Vue Error:', err)
+    console.error('[Notebook] Info:', info)
     document.getElementById('app').innerHTML = `
       <div style="padding: 20px; color: red;">
         <h2>Vue Error</h2>
@@ -54,9 +36,9 @@ try {
   }
   app.use(naive)
   app.mount('#app')
-  console.log('[DingTalkSettings] Vue app mounted successfully')
+  console.log('[Notebook] Vue app mounted successfully')
 } catch (err) {
-  console.error('[DingTalkSettings] Failed to initialize:', err)
+  console.error('[Notebook] Failed to initialize:', err)
   document.getElementById('app').innerHTML = `
     <div style="padding: 20px; color: red;">
       <h2>Initialization Error</h2>

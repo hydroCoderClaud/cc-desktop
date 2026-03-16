@@ -48,7 +48,7 @@ export default {
     settings: '设置',
     test: '测试',
     testConnection: '测试连接',
-    connecting: '连接中...',
+    connecting: '"hi" 已发送，连接中...',
     connected: '已连接',
     disconnected: '已断开',
     connect: '连接',
@@ -787,7 +787,7 @@ export default {
     haikuModel: 'Haiku 模型',
     customModels: '自定义模型',
     manageModels: '管理模型',
-    testSuccess: '连接成功',
+    testSuccess: '连接成功！返回信息：',
     testFailed: '连接失败',
     deleteConfirm: '确定要删除此配置吗？',
     deleteSuccess: '配置已删除',
@@ -1177,6 +1177,8 @@ export default {
     agentMode: '智能体模式',
     switchToAgent: '切换到智能体模式',
     switchToDeveloper: '切换到开发者模式',
+    switchToNotebook: '切换到 Notebook 工作台',
+    notebook: 'Notebook 工作台',
     agentWelcome: '开始与 AI 智能体对话，无需代码知识即可完成各种任务。请点击新建对话或者恢复历史对话'
   },
 
@@ -1245,6 +1247,7 @@ export default {
 
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
+    historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
     saveAsImage: '保存为图片',
     imageSaved: '图片已保存',
     copySelection: '复制选中文字',
@@ -1405,6 +1408,62 @@ export default {
     connectSuccess: '钉钉桥接连接成功',
     connectFailed: '钉钉桥接连接失败',
     disconnected: '钉钉桥接已断开',
-    viewGuide: '查看使用指南'
+    viewGuide: '查看使用指南',
+    advancedSettings: '高级设置',
+    maxHistorySessions: '历史会话数量',
+    maxHistorySessionsHint: '钉钉用户选择历史会话时显示的最大数量（1-20）',
+  },
+  notebook: {
+    nav: {
+      createNotebook: '创建笔记本',
+      share: '分享',
+      settings: '设置',
+      apps: '应用',
+      fullscreen: '全屏',
+      exitFullscreen: '退出全屏',
+      editTitle: '点击编辑标题',
+    },
+    source: {
+      title: '来源',
+      add: '添加来源',
+      expand: '展开',
+      searchPlaceholder: '在网络中搜索新来源',
+      selectAll: '选择所有来源',
+      guide: '来源指南',
+      openExternal: '在外部打开源',
+      web: 'Web',
+      fastResearch: 'Fast Research',
+    },
+    chat: {
+      title: '对话',
+      welcome: '欢迎使用专业智能体',
+      subtitle: '基于 NotebookLM 理念的智能工作空间',
+      placeholder: '开始输入...',
+      sources: '{count} 个来源',
+    },
+    studio: {
+      title: 'Studio',
+      expand: '展开',
+      generated: '已生成',
+      sources: '{count} 个来源',
+      empty: '暂无成果',
+      emptyHint: '与智能体对话后将在此生成',
+      export: '导出',
+      copy: '复制',
+      delete: '删除',
+      play: '播放',
+      betaBadge: 'Beta 版',
+    },
+    types: {
+      audio: '音频概览',
+      presentation: '演示文稿',
+      video: '视频概览',
+      mindmap: '思维导图',
+      report: '报告',
+      flashcard: '闪卡',
+      quiz: '测验',
+      infographic: '信息图',
+      table: '数据表格',
+    }
   }
 }

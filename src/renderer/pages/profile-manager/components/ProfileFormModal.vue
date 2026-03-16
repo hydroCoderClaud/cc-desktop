@@ -10,7 +10,7 @@
     <template #header-extra>
       <n-space>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
-        <n-button @click="handleTest">{{ t('common.testConnection') }}</n-button>
+        <n-button :loading="testing" @click="handleTest">{{ t('common.testConnection') }}</n-button>
       </n-space>
     </template>
 
@@ -205,7 +205,8 @@ const props = defineProps({
   show: Boolean,
   profile: Object,
   isEdit: Boolean,
-  providers: Array
+  providers: Array,
+  testing: Boolean
 })
 
 const emit = defineEmits(['update:show', 'save', 'test'])

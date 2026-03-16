@@ -32,6 +32,7 @@
           v-for="profile in profiles"
           :key="profile.id"
           :profile="profile"
+          :testing="testingProfileId === profile.id"
           @edit="handleEdit"
           @delete="handleDelete"
           @set-default="handleSetDefault"
@@ -48,8 +49,9 @@
       :profile="editingProfile"
       :is-edit="!!editingProfile"
       :providers="providers"
+      :testing="testingModal"
       @save="handleSave"
-      @test="handleTestConnection"
+      @test="handleModalTest"
     />
   </div>
 </template>
@@ -73,6 +75,8 @@ const { providers, loadProviders } = useProviders()
 
 const showEditModal = ref(false)
 const editingProfile = ref(null)
+const testingProfileId = ref(null)
+const testingModal = ref(false)
 
 onMounted(async () => {
   await initLocale()
@@ -142,7 +146,12 @@ const handleTest = async (profile) => {
     httpsProxy: profile.httpsProxy,
     httpProxy: profile.httpProxy
   }
-  await handleTestConnection(config)
+  testingProfileId.value = profile.id
+  try {
+    await handleTestConnection(config)
+  } finally {
+    testingProfileId.value = null
+  }
 }
 
 const handleSave = async (profileData) => {
@@ -161,17 +170,29 @@ const handleSave = async (profileData) => {
   }
 }
 
+const handleModalTest = async (config) => {
+  testingModal.value = true
+  try {
+    await handleTestConnection(config)
+  } finally {
+    testingModal.value = false
+  }
+}
+
 const handleTestConnection = async (config) => {
-  message.info(t('common.connecting'))
+  const connectingMsg = message.info(t('common.connecting'), { duration: 0 })
 
   try {
     const result = await testConnection(config)
+    connectingMsg.destroy()
     if (result.success) {
-      message.success(t('profileManager.testSuccess'))
+      const reply = result.message ? result.message.substring(0, 100) : ''
+      message.success(t('profileManager.testSuccess') + reply)
     } else {
       message.error(t('profileManager.testFailed') + ': ' + result.message)
     }
   } catch (err) {
+    connectingMsg.destroy()
     message.error(t('profileManager.testFailed') + ': ' + err.message)
   }
 }

@@ -7,9 +7,24 @@ const { DWClient } = require('dingtalk-stream-sdk-nodejs')
 const fs = require('fs')
 const path = require('path')
 
-const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|bmp)$/i
-const IMAGE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
-const IMAGE_PATH_MAX_DEPTH = 10 // 递归提取最大深度
+const imageMixin = require('./dingtalk-image')
+const commandsMixin = require('./dingtalk-commands')
+
+// 钉钉桥接翻译字典
+const DINGTALK_I18N = {
+  'zh-CN': {
+    sessionActivating: '会话恢复中，请等待信息返回后，即可开始聊天',
+    sessionCreating: '会话创建中，请等待信息返回后，即可开始聊天',
+    alreadyConnected: '您选择的是当前会话，无需重新连接，请继续聊天',
+    sessionSwitched: '✅ 已切换到会话：{title}\n\n现在可以继续对话了'
+  },
+  'en-US': {
+    sessionActivating: 'Session activating, please wait for the response to start chatting',
+    sessionCreating: 'Session creating, please wait for the response to start chatting',
+    alreadyConnected: 'You selected the current session, no need to reconnect, please continue chatting',
+    sessionSwitched: '✅ Switched to session: {title}\n\nYou can continue chatting now'
+  }
+}
 
 class DingTalkBridge {
   /**
@@ -32,8 +47,14 @@ class DingTalkBridge {
     this.responseCollectors = new Map()
 
     // 消息去重：记录最近处理过的 msgId，防止 SDK 重投导致重复处理
-    this._processedMsgIds = new Set()
+    this._processedMsgIds = new Map() // msgId → timestamp
     this._MSG_ID_TTL = 10 * 60 * 1000 // 10 分钟后清理
+    this._msgIdCleanupTimer = setInterval(() => {
+      const cutoff = Date.now() - this._MSG_ID_TTL
+      for (const [id, ts] of this._processedMsgIds) {
+        if (ts < cutoff) this._processedMsgIds.delete(id)
+      }
+    }, 60 * 1000) // 每分钟扫一次
 
     // 每个会话的消息处理队列（Promise chain），确保串行处理
     this._sessionProcessQueues = new Map()
@@ -57,6 +78,48 @@ class DingTalkBridge {
 
     // 连接健康监控：SDK 重连失败时由外层兜底
     this._reconnectWatchdog = null
+
+    // 监听 AgentSessionManager 内部事件（替代 messageListener 注入模式）
+    this._bindAgentEvents()
+  }
+
+  /**
+   * 绑定 AgentSessionManager 内部事件
+   * 替代原来通过 agentSessionManager.messageListener = this 注入的模式
+   */
+  _bindAgentEvents() {
+    const mgr = this.agentSessionManager
+
+    // 保存 listener 引用，destroy 时精确移除
+    this._listeners = {
+      userMessage: ({ sessionId, sessionType, content, images, source }) => {
+        // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
+        if (source !== 'dingtalk' && sessionType === 'dingtalk') {
+          try { this.onUserMessage(sessionId, content, images) } catch (e) {
+            console.error('[DingTalk] onUserMessage threw:', e)
+          }
+        }
+      },
+      agentMessage: (sessionId, message) => {
+        try { this.onAgentMessage(sessionId, message) } catch (e) {
+          console.error('[DingTalk] onAgentMessage threw:', e)
+        }
+      },
+      agentResult: (sessionId) => {
+        try { this.onAgentResult(sessionId) } catch (e) {
+          console.error('[DingTalk] onAgentResult threw:', e)
+        }
+      },
+      agentError: (sessionId, error) => {
+        try { this.onAgentError(sessionId, error) } catch (e) {
+          console.error('[DingTalk] onAgentError threw:', e)
+        }
+      }
+    }
+
+    for (const [event, fn] of Object.entries(this._listeners)) {
+      mgr.on(event, fn)
+    }
   }
 
   /**
@@ -100,6 +163,10 @@ class DingTalkBridge {
     this.connected = false
     for (const collector of this.responseCollectors.values()) clearTimeout(collector.timer)
     this.responseCollectors.clear()
+    if (this._msgIdCleanupTimer) {
+      clearInterval(this._msgIdCleanupTimer)
+      this._msgIdCleanupTimer = null
+    }
     this._processedMsgIds.clear()
     this._sessionProcessQueues.clear()
     for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
@@ -128,7 +195,33 @@ class DingTalkBridge {
     }
   }
 
+  /**
+   * 销毁实例，解绑事件监听器
+   * 用于 DingTalkBridge 需要销毁重建时（如重新配置）
+   */
+  destroy() {
+    // 先停止连接和清理资源
+    this.stop()
+    // 解绑 AgentSessionManager 事件监听器（精确移除自身绑定的 listener）
+    if (this.agentSessionManager && this._listeners) {
+      for (const [event, fn] of Object.entries(this._listeners)) {
+        this.agentSessionManager.off(event, fn)
+      }
+      this._listeners = null
+    }
+    console.log('[DingTalk] Bridge destroyed, event listeners unbound')
+  }
+
   // ==================== 内部方法 ====================
+
+  /**
+   * 获取翻译文本
+   */
+  _t(key) {
+    const config = this.configManager.getConfig()
+    const locale = config?.settings?.locale || 'zh-CN'
+    return DINGTALK_I18N[locale]?.[key] || DINGTALK_I18N['zh-CN'][key]
+  }
 
   /**
    * 建立 WebSocket 连接
@@ -261,20 +354,22 @@ class DingTalkBridge {
     }
     const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle, conversationType } = data
 
+    console.log('[DingTalk] _handleDingTalkMessage: msgId:', msgId, 'msgtype:', msgtype, 'text:', text?.content?.substring(0, 50))
+
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
       console.log(`[DingTalk] Duplicate message ${msgId}, skipping`)
       return
     }
     if (msgId) {
-      this._processedMsgIds.add(msgId)
-      setTimeout(() => this._processedMsgIds.delete(msgId), this._MSG_ID_TTL)
+      this._processedMsgIds.set(msgId, Date.now())
     }
 
     // 命令拦截：文本消息以 / 开头时作为命令处理，不进入 Agent 对话
     if (msgtype !== 'picture' && msgtype !== 'richText') {
       const rawText = (text?.content || '').trim()
       if (rawText.startsWith('/')) {
+        console.log('[DingTalk] _handleDingTalkMessage: detected command:', rawText)
         const mapKey = `${senderStaffId}:${conversationId || 'default'}`
         await this._handleCommand(rawText, sessionWebhook, {
           robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, mapKey
@@ -379,18 +474,15 @@ class DingTalkBridge {
     this._notifyFrontend('dingtalk:messageReceived', notification)
 
     // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
-    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-    const currentTask = prevTask
-      .catch(() => {}) // 前一条出错不阻塞后续
-      .then(() => this._processOneMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
-      .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-    this._sessionProcessQueues.set(sessionId, currentTask)
+    this._enqueueMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
   }
 
   /**
    * 处理单条消息（在 promise chain 中串行执行，无竞态）
    */
   async _processOneMessage(sessionId, userMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType } = {}) {
+    console.log(`[DingTalk] _processOneMessage: sessionId=${sessionId}`)
+
     // 更新会话的最近 webhook（用于 CC 桌面介入时回传给钉钉）
     if (sessionWebhook) {
       this._sessionWebhooks.set(sessionId, { webhook: sessionWebhook, robotCode, senderStaffId, conversationId, conversationType })
@@ -401,7 +493,7 @@ class DingTalkBridge {
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     // 附带钉钉元数据，用于持久化来源信息
-    const meta = { source: 'dingtalk', senderNick }
+    const meta = { source: 'dingtalk', senderNick, conversationId }
     try {
       await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
@@ -444,25 +536,21 @@ class DingTalkBridge {
       if (!row) {
         // 会话已被物理删除 → 清除所有相关状态，走历史查询/新建流程
         console.log(`[DingTalk] Session ${sessionId} not found in DB, clearing mapping`)
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        this._clearSessionState(sessionId, mapKey)
       } else if (row.status === 'closed') {
         // CC 桌面主动关闭 → 清除所有相关状态，让用户重新选择
         console.log(`[DingTalk] Session ${sessionId} was closed by desktop, will ask user to choose`)
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        this._clearSessionState(sessionId, mapKey)
       } else {
         // 会话状态正常（idle/streaming）→ 恢复
         const session = this.agentSessionManager.reopen(sessionId)
-        if (session) return sessionId
-        this._sessionProcessQueues.delete(sessionId)
-        this.sessionMap.delete(mapKey)
-        this._sessionWebhooks.delete(sessionId)
-        this._desktopPendingBlocks.delete(sessionId)
+        if (session) {
+          // 更新会话的 conversationId（确保会话属于当前钉钉对话）
+          if (!session.meta) session.meta = {}
+          session.meta.conversationId = conversationId
+          return sessionId
+        }
+        this._clearSessionState(sessionId, mapKey)
       }
       // 三种情况均继续向下走：查询历史 → 触发选择菜单 或 新建
     }
@@ -470,7 +558,8 @@ class DingTalkBridge {
     // 从 DB 查历史会话
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
-      const sessions = db.getDingTalkSessions(staffId, conversationId)
+      const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
+      const sessions = db.getDingTalkSessions(staffId, conversationId, limit)
       if (sessions.length > 0) {
         // 有历史会话，交由用户选择（而非自动恢复）
         return { needsChoice: true, sessions }
@@ -493,7 +582,8 @@ class DingTalkBridge {
       type: 'dingtalk',
       title,
       cwd: cwd || undefined,
-      cwdSubDir: cwd ? undefined : 'dingtalk'
+      cwdSubDir: cwd ? undefined : 'dingtalk',
+      meta: { conversationId }
     })
 
     const sessionId = session.id
@@ -538,6 +628,30 @@ class DingTalkBridge {
   }
 
   /**
+   * 清理会话关联的所有内部状态（映射、队列、webhook、待发块）
+   * @param {string} sessionId
+   * @param {string} [mapKey] - 可选，提供时同时清理 sessionMap
+   */
+  _clearSessionState(sessionId, mapKey) {
+    this._sessionProcessQueues.delete(sessionId)
+    if (mapKey) this.sessionMap.delete(mapKey)
+    this._sessionWebhooks.delete(sessionId)
+    this._desktopPendingBlocks.delete(sessionId)
+  }
+
+  /**
+   * 将消息加入会话的串行处理队列（promise chain），确保同一会话无竞态
+   */
+  _enqueueMessage(sessionId, message, webhook, senderNick, opts) {
+    const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
+    const currentTask = prevTask
+      .catch(() => {})
+      .then(() => this._processOneMessage(sessionId, message, webhook, senderNick, opts))
+      .catch(err => console.error('[DingTalk] Queue processing error:', err))
+    this._sessionProcessQueues.set(sessionId, currentTask)
+  }
+
+  /**
    * 获取当前活跃的 sessionId。
    * 若 sessionMap 中有映射但 session 已被 CC 桌面关闭，自动清理过期映射并返回 null。
    */
@@ -553,10 +667,7 @@ class DingTalkBridge {
     const row = db && db.getAgentConversation(sessionId)
     if (!row || row.status === 'closed') {
       // CC 桌面已关闭或物理删除，清理过期映射
-      this.sessionMap.delete(mapKey)
-      this._sessionWebhooks.delete(sessionId)
-      this._sessionProcessQueues.delete(sessionId)
-      this._desktopPendingBlocks.delete(sessionId)
+      this._clearSessionState(sessionId, mapKey)
       return null
     }
 
@@ -566,16 +677,32 @@ class DingTalkBridge {
   /**
    * 向钉钉用户发送历史会话选择菜单
    */
-  async _sendChoiceMenu(webhook, sessions) {
+  async _sendChoiceMenu(webhook, sessions, currentSessionId = null) {
     const MAX_SESSIONS = 10
     const displaySessions = sessions.slice(0, MAX_SESSIONS)
     const lines = ['您有以下历史会话，请回复数字选择：\n']
     displaySessions.forEach((row, i) => {
       const timeStr = this._formatRelativeTime(row.updated_at)
+      const dir = row.cwd ? path.basename(row.cwd) : '-'
       const profileName = row.api_profile_id
         ? (this.configManager?.getAPIProfile(row.api_profile_id)?.name || '未知配置')
         : '默认配置'
-      lines.push(`${i + 1}. [${timeStr}] ${row.title}（${profileName}）`)
+
+      // 判断会话状态并添加标记
+      let marker = ''
+      const session = this.agentSessionManager.sessions.get(row.session_id)
+      if (currentSessionId && row.session_id === currentSessionId) {
+        // 当前连接的会话
+        marker = '✅ '
+      } else if (session && session.queryGenerator) {
+        // 激活但未连接的会话
+        marker = '🔵 '
+      } else {
+        // 未激活的会话
+        marker = '⭕ '
+      }
+
+      lines.push(`${i + 1}. ${marker}[${timeStr}] ${row.title} (${dir}) ${profileName}`)
     })
     if (sessions.length > MAX_SESSIONS) {
       lines.push(`\n（仅显示最近 ${MAX_SESSIONS} 条，共 ${sessions.length} 条）`)
@@ -587,6 +714,9 @@ class DingTalkBridge {
 
   /**
    * 处理用户的历史会话选择（0 = 新建，1~N = 恢复对应会话）
+   *
+   * 注意：如果用户输入非有效数字，会丢弃该输入，不会替换 originalMessage
+   * 这样可以避免用户误输入被当作消息发送给 Agent
    */
   async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType }) {
     const pending = this._pendingChoices.get(mapKey)
@@ -601,26 +731,57 @@ class DingTalkBridge {
     const isValid = !isNaN(choice) && choice >= 0 && choice <= sessions.length
 
     if (!isValid) {
-      // 非有效数字选项：用最新消息替换旧的 originalMessage（保留最后一条）
-      if (choiceText) {
-        pending.originalMessage = choiceText
-      }
-      await this._sendChoiceMenu(webhook, sessions)
+      // 非有效数字选项：丢弃该输入，重新发送选择菜单
+      // 不替换 originalMessage，避免误输入被发送给 Agent
+      console.log(`[DingTalk] Invalid choice "${choiceText}", re-sending menu`)
+      // 获取当前会话 ID 用于标记
+      const currentSessionId = this._resolveActiveSessionId(mapKey)
+      await this._sendChoiceMenu(webhook, sessions, currentSessionId)
       return
     }
 
     this._clearPendingChoice(mapKey)
 
+    // 获取当前活跃会话（如果有）
+    const currentSessionId = this._resolveActiveSessionId(mapKey)
+
     let sessionId
+    let needActivation = false  // 是否需要发送 hello 激活
+    let alreadySentPrompt = false  // 是否已发送提示（避免重复）
+    let isNewSession = false  // 是否是新建会话
 
     if (choice === 0) {
-      // 新建会话
+      // 新建会话（不关闭当前会话）
       sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
+      needActivation = true  // 新建会话需要激活
+      isNewSession = true  // 标记为新建会话
     } else {
-      // 恢复指定历史会话（reopen 会从 DB 恢复到内存，get 只查内存）
+      // 恢复指定历史会话
       const selectedRow = sessions[choice - 1]
+
+      // 如果选择的就是当前连接会话，只需提示
+      if (currentSessionId === selectedRow.session_id) {
+        const session = this.agentSessionManager.sessions.get(currentSessionId)
+        if (session?.queryGenerator) {
+          // 已经连接，直接提示
+          await this._replyToDingTalk(webhook, this._t('alreadyConnected'))
+          return
+        }
+      }
+
+      // 切换到目标会话（不关闭当前会话）
+      // 原则：只更新连接映射，不关闭其他会话，避免误关闭桌面端激活的会话
+
+      // 先检查目标会话是否已在内存中（可能已激活）
+      const existingSession = this.agentSessionManager.sessions.get(selectedRow.session_id)
+      const isActivated = existingSession && existingSession.queryGenerator != null
+
       const session = this.agentSessionManager.reopen(selectedRow.session_id)
       if (session) {
+        // 更新会话的 conversationId（确保会话属于当前钉钉对话）
+        if (!session.meta) session.meta = {}
+        session.meta.conversationId = conversationId
+
         sessionId = selectedRow.session_id
         this.sessionMap.set(mapKey, sessionId)
         console.log(`[DingTalk] Resumed session ${sessionId} for ${senderNick}(${senderStaffId})`)
@@ -628,15 +789,40 @@ class DingTalkBridge {
           sessionId, staffId: senderStaffId, nickname: senderNick,
           conversationId, conversationTitle, title: selectedRow.title
         })
+
+        // 发送切换提示
+        // 条件：从其他会话切换过来，或从无会话状态切换（currentSessionId 为 null）
+        if (!currentSessionId || currentSessionId !== selectedRow.session_id) {
+          if (isActivated) {
+            // 目标会话已激活 → 可以直接聊天
+            await this._replyToDingTalk(webhook, '✅ 已切换到目标对话，可以继续聊天了')
+            alreadySentPrompt = true
+          } else {
+            // 目标会话未激活 → 需要等待激活
+            await this._replyToDingTalk(webhook, this._t('sessionActivating'))
+            alreadySentPrompt = true
+          }
+        }
+
+        needActivation = !isActivated  // 未激活的会话需要激活
       } else {
         // 无法恢复，降级新建
         console.warn(`[DingTalk] Cannot restore session ${selectedRow.session_id}, creating new`)
         sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey)
+        needActivation = true  // 新建会话需要激活
       }
     }
 
     // 将触发菜单的原始消息投入队列处理
     if (originalMessage) {
+      console.log(`[DingTalk] _handlePendingChoice: will process message for sessionId=${sessionId}`)
+
+      // 如果需要激活会话且尚未发送提示，先发送提示
+      if (needActivation && !alreadySentPrompt) {
+        const promptKey = isNewSession ? 'sessionCreating' : 'sessionActivating'
+        await this._replyToDingTalk(webhook, this._t(promptKey))
+      }
+
       // 补发 dingtalk:messageReceived，让 CC 桌面前端渲染出用户消息气泡
       // （正常流程在 _handleDingTalkMessage 里发此通知，但 needsChoice 路径提前 return 了）
       const displayText = typeof originalMessage === 'string'
@@ -651,12 +837,25 @@ class DingTalkBridge {
       }
       this._notifyFrontend('dingtalk:messageReceived', notification)
 
-      const prevTask = this._sessionProcessQueues.get(sessionId) || Promise.resolve()
-      const currentTask = prevTask
-        .catch(() => {})
-        .then(() => this._processOneMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType }))
-        .catch(err => console.error(`[DingTalk] Queue processing error:`, err))
-      this._sessionProcessQueues.set(sessionId, currentTask)
+      this._enqueueMessage(sessionId, originalMessage, webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
+    } else if (needActivation) {
+      // 没有原始消息，但需要激活会话：先发送提示，再自动发送 "hello" 激活
+      console.log(`[DingTalk] _handlePendingChoice: auto-activating session ${sessionId} with "hello"`)
+
+      // 先发送提示消息（如果尚未发送）
+      if (!alreadySentPrompt) {
+        const promptKey = isNewSession ? 'sessionCreating' : 'sessionActivating'
+        await this._replyToDingTalk(webhook, this._t(promptKey))
+      }
+
+      // 补发 dingtalk:messageReceived，让桌面端显示用户消息
+      this._notifyFrontend('dingtalk:messageReceived', {
+        sessionId,
+        senderNick,
+        text: 'hello'
+      })
+
+      this._enqueueMessage(sessionId, 'hello', webhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
     }
   }
 
@@ -712,7 +911,7 @@ class DingTalkBridge {
     if (!collector) {
       // 非钉钉发起的消息 — 检查是否是 CC 桌面介入（有待转发块）
       const pending = this._desktopPendingBlocks.get(sessionId)
-      if (!pending) return false
+      if (!pending) return
 
       // 累积文本块，result 时一起打包发送
       const blocks = message?.content || []
@@ -724,7 +923,7 @@ class DingTalkBridge {
           this._extractImagePaths(block.input).forEach(p => pending.imagePaths.add(p))
         }
       }
-      return true
+      return
     }
 
     // 钉钉发起的消息：提取文本块立即发送，同时扫描 tool_use 图片路径
@@ -746,16 +945,23 @@ class DingTalkBridge {
         console.error(`[DingTalk] Immediate reply failed:`, err.message)
       })
     }
-
-    return true
   }
 
   /**
    * 接收 CC 桌面端用户消息（非钉钉来源的钉钉会话）
    * 记录用户输入，等待 onAgentResult 时一起发送完整 Q&A 块到钉钉
+   *
+   * 限制：只有当前连接的会话才能介入，避免多会话信息混乱
    */
   onUserMessage(sessionId, userInput, inputImages = null) {
     if (!this._sessionWebhooks.has(sessionId)) return
+
+    // 检查是否是当前连接的会话（在 sessionMap 中）
+    const isCurrentSession = [...this.sessionMap.values()].includes(sessionId)
+    if (!isCurrentSession) {
+      console.log(`[DingTalk] Desktop intervention blocked for session ${sessionId}: not current connected session`)
+      return
+    }
 
     console.log(`[DingTalk] Desktop intervention for session ${sessionId}: "${(userInput || '').substring(0, 50)}"${inputImages?.length ? ` + ${inputImages.length} image(s)` : ''}`)
     this._desktopPendingBlocks.set(sessionId, {
@@ -777,12 +983,12 @@ class DingTalkBridge {
     if (!collector) {
       // CC 桌面介入：发送完整 Q&A 块
       const pending = this._desktopPendingBlocks.get(sessionId)
-      if (!pending) return false
+      if (!pending) return
 
       this._desktopPendingBlocks.delete(sessionId)
 
       const webhookInfo = this._sessionWebhooks.get(sessionId)
-      if (!webhookInfo) return false
+      if (!webhookInfo) return
 
       const responseText = pending.textChunks.join('\n\n')
 
@@ -817,7 +1023,7 @@ class DingTalkBridge {
         })
       }
 
-      return true
+      return
     }
 
     clearTimeout(collector.timer)
@@ -838,8 +1044,6 @@ class DingTalkBridge {
         console.error('[DingTalk] Image forward failed:', err.message)
       })
     }
-
-    return true
   }
 
   /**
@@ -850,7 +1054,7 @@ class DingTalkBridge {
     if (!collector) {
       // 清理 CC 桌面介入的待发块
       this._desktopPendingBlocks.delete(sessionId)
-      return false
+      return
     }
 
     clearTimeout(collector.timer)
@@ -858,355 +1062,13 @@ class DingTalkBridge {
 
     this._replyToDingTalk(collector.webhook, `❌ ${error}`).catch(() => {})
     collector.resolve()
-    return true
-  }
-
-  /**
-   * 递归提取 tool_use input 中的图片文件绝对路径
-   */
-  _extractImagePaths(obj, depth = 0) {
-    if (depth > IMAGE_PATH_MAX_DEPTH) return []
-    const paths = []
-    if (typeof obj === 'string') {
-      if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:[/\\]/.test(obj))) {
-        paths.push(this._normalizePath(obj))
-      }
-    } else if (obj && typeof obj === 'object') {
-      for (const val of Object.values(obj)) {
-        paths.push(...this._extractImagePaths(val, depth + 1))
-      }
-    }
-    return paths
-  }
-
-  /**
-   * 归一化路径：将 MSYS 风格 /c/... 转为 Windows 风格 C:/...
-   */
-  _normalizePath(p) {
-    // MSYS: /c/workspace/... → C:/workspace/...
-    const msysMatch = p.match(/^\/([a-zA-Z])\/(.*)$/)
-    if (msysMatch) {
-      return `${msysMatch[1].toUpperCase()}:/${msysMatch[2]}`
-    }
-    return p
-  }
-
-  /**
-   * 遍历收集到的图片路径，逐个上传并通过接口方式发送到钉钉
-   */
-  async _sendCollectedImages(imagePaths, { robotCode, senderStaffId, conversationId, conversationType }) {
-    const token = await this._getAccessToken()
-    for (const filePath of imagePaths) {
-      try {
-        const stats = await fs.promises.stat(filePath).catch(() => null)
-        if (!stats || stats.size > IMAGE_MAX_SIZE || stats.size === 0) continue
-
-        const mediaId = await this._uploadImage(filePath, token)
-        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token })
-        console.log(`[DingTalk] Image forwarded: ${filePath}`)
-      } catch (err) {
-        console.error(`[DingTalk] Failed to forward image ${filePath}:`, err.message)
-      }
-    }
-  }
-
-  /**
-   * 发送 base64 图片列表到钉钉（桌面端介入时用户输入的截图等）
-   */
-  async _sendBase64Images(images, { robotCode, senderStaffId, conversationId, conversationType }) {
-    const token = await this._getAccessToken()
-    for (const img of images) {
-      try {
-        const mediaId = await this._uploadImageBase64(img.base64, img.mediaType, token)
-        await this._sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token })
-        console.log('[DingTalk] Input image forwarded to DingTalk')
-      } catch (err) {
-        console.error('[DingTalk] Failed to forward input image:', err.message)
-      }
-    }
-  }
-
-  /**
-   * 上传 Buffer 到钉钉 media API，返回 media_id（公共逻辑）
-   */
-  async _uploadBuffer(buffer, fileName, mediaType, token) {
-    const formData = new FormData()
-    formData.append('media', new Blob([buffer], { type: mediaType || 'application/octet-stream' }), fileName)
-
-    const response = await globalThis.fetch(
-      `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
-      { method: 'POST', body: formData }
-    )
-
-    if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
-    const result = await response.json()
-    if (result.errcode) throw new Error(`Upload error: ${result.errcode} ${result.errmsg}`)
-    return result.media_id
-  }
-
-  /**
-   * 上传本地图片到钉钉 media API，返回 media_id
-   */
-  async _uploadImage(filePath, token) {
-    const fileBuffer = await fs.promises.readFile(filePath)
-    return this._uploadBuffer(fileBuffer, path.basename(filePath), null, token)
-  }
-
-  /**
-   * 上传 base64 图片到钉钉 media API，返回 media_id
-   */
-  async _uploadImageBase64(base64, mediaType, token) {
-    const buffer = Buffer.from(base64, 'base64')
-    const ext = (mediaType || 'image/png').split('/')[1] || 'png'
-    return this._uploadBuffer(buffer, `image.${ext}`, mediaType || 'image/png', token)
-  }
-
-  /**
-   * 发送图片消息路由：群聊走 groupMessages/send，单聊走 oToMessages/batchSend
-   */
-  async _sendImageViaApi(mediaId, { robotCode, senderStaffId, conversationId, conversationType, token }) {
-    if (conversationType === '2' && conversationId) {
-      return this._sendImageToGroup(mediaId, { robotCode, openConversationId: conversationId, token })
-    }
-    // 单聊（conversationType === '1' 或未知）
-    const body = {
-      robotCode,
-      userIds: [senderStaffId],
-      msgKey: 'sampleImageMsg',
-      msgParam: JSON.stringify({ photoURL: mediaId })
-    }
-    const response = await globalThis.fetch(
-      'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-acs-dingtalk-access-token': token
-        },
-        body: JSON.stringify(body)
-      }
-    )
-
-    const result = await response.json()
-    if (!response.ok) {
-      throw new Error(`Image API failed: ${response.status} ${JSON.stringify(result)}`)
-    }
-  }
-
-  /**
-   * 发送图片消息到群聊
-   */
-  async _sendImageToGroup(mediaId, { robotCode, openConversationId, token }) {
-    const body = {
-      robotCode,
-      openConversationId,
-      msgKey: 'sampleImageMsg',
-      msgParam: JSON.stringify({ photoURL: mediaId })
-    }
-    const response = await globalThis.fetch(
-      'https://api.dingtalk.com/v1.0/robot/groupMessages/send',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-acs-dingtalk-access-token': token
-        },
-        body: JSON.stringify(body)
-      }
-    )
-
-    const result = await response.json()
-    if (!response.ok) {
-      throw new Error(`Group image API failed: ${response.status} ${JSON.stringify(result)}`)
-    }
-  }
-
-  // ============================================================
-  // P0 命令层
-  // 新增命令：在 _handleCommand 的 switch 里加 case，再写 _cmdXxx 方法
-  // ============================================================
-
-  /**
-   * 命令分发器
-   */
-  async _handleCommand(text, webhook, context) {
-    const parts = text.substring(1).trim().split(/\s+/)
-    const cmd = parts[0].toLowerCase()
-    const args = parts.slice(1)
-
-    let reply
-    switch (cmd) {
-      case 'help':     reply = this._cmdHelp(); break
-      case 'status':   reply = this._cmdStatus(); break
-      case 'sessions': reply = this._cmdSessions(); break
-      case 'close':    reply = await this._cmdClose(context); break
-      case 'new':      reply = await this._cmdNew(args, context); break
-      case 'resume':   reply = await this._cmdResume(args, context, webhook); break
-      case 'rename':   reply = this._cmdRename(args, context); break
-      default:         reply = `❓ 未知命令: /${cmd}\n\n输入 /help 查看可用命令`
-    }
-
-    if (reply != null) {
-      await this._replyToDingTalk(webhook, reply)
-    }
-  }
-
-  _cmdHelp() {
-    return [
-      '📋 可用命令：',
-      '',
-      '/help — 显示此帮助',
-      '/status — 系统状态',
-      '/sessions — 当前会话列表',
-      '/new [目录] — 新建会话（可选：目录名或绝对路径）',
-      '/resume [编号] — 恢复历史会话（不带编号显示列表）',
-      '/rename <名称> — 修改当前会话名称',
-      '/close — 关闭当前会话',
-      '',
-      '💬 不带 / 的消息直接发给 AI 助手'
-    ].join('\n\n')
-  }
-
-  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }, webhook) {
-    // 有活跃会话时不允许 resume
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (sessionId) {
-      const session = this.agentSessionManager.sessions.get(sessionId)
-      if (session?.status === 'streaming') return '⏳ AI 正在响应中，请等待完成后再操作'
-      return '⚠️ 当前有活跃会话，请先 /close 后再恢复历史会话'
-    }
-
-    // 查询历史会话
-    const db = this.agentSessionManager.sessionDatabase
-    if (!db || !conversationId) return '📭 没有历史会话记录'
-    const sessions = db.getDingTalkSessions(senderStaffId, conversationId)
-    if (!sessions || sessions.length === 0) return '📭 没有历史会话记录\n\n发送任意消息可开始新会话'
-
-    // 直接指定编号 → 立即恢复
-    const numArg = parseInt(args[0])
-    if (!isNaN(numArg) && numArg >= 1 && numArg <= sessions.length) {
-      const selectedRow = sessions[numArg - 1]
-      const session = this.agentSessionManager.reopen(selectedRow.session_id)
-      if (session) {
-        this.sessionMap.set(mapKey, selectedRow.session_id)
-        this._notifyFrontend('dingtalk:sessionCreated', {
-          sessionId: selectedRow.session_id, staffId: senderStaffId, nickname: senderNick,
-          conversationId, conversationTitle, title: selectedRow.title
-        })
-        return `✅ 已恢复会话：${selectedRow.title}\n\n现在可以继续对话了`
-      } else {
-        return `❌ 无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话`
-      }
-    }
-
-    // 无参数 → 显示选择菜单（originalMessage = null，不触发消息处理）
-    this._setPendingChoice(mapKey, { sessions, originalMessage: null, robotCode: null, senderStaffId })
-    await this._sendChoiceMenu(webhook, sessions)
-    return null  // 已由 _sendChoiceMenu 回复
-  }
-
-  _cmdRename(args, { mapKey }) {
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (!sessionId) return '当前没有活跃会话，无法重命名'
-
-    const newTitle = args.join(' ').trim()
-    if (!newTitle) return '请提供新名称，例如：/rename 我的项目'
-
-    this.agentSessionManager.rename(sessionId, newTitle)
-    return `✅ 会话已重命名为：${newTitle}`
-  }
-
-  _cmdStatus() {
-    const sessions = [...this.agentSessionManager.sessions.values()]
-    const streaming = sessions.filter(s => s.status === 'streaming').length
-    const idle = sessions.filter(s => s.status === 'idle').length
-    const config = this.configManager.getConfig()
-    const profiles = config?.apiProfiles || []
-    const defaultId = config?.defaultProfileId
-    const current = profiles.find(p => p.id === defaultId)
-
-    return [
-      '📊 系统状态',
-      `├─ 钉钉桥接: ✅ 已连接`,
-      `├─ 当前配置: ${current?.name || '未配置'}`,
-      `├─ 执行中: ${streaming} 个 / 空闲: ${idle} 个`,
-      `└─ 总会话数: ${sessions.length} 个`
-    ].join('\n\n')
-  }
-
-  _cmdSessions() {
-    const sessions = [...this.agentSessionManager.sessions.values()]
-    if (sessions.length === 0) return '📭 暂无活跃会话'
-
-    const lines = ['📋 活跃会话：', '']
-    sessions.forEach((s, i) => {
-      const icon = s.status === 'streaming' ? '🔄' : '💤'
-      const dir = s.cwd ? path.basename(s.cwd) : '-'
-      lines.push(`${i + 1}. ${icon} ${s.title || s.id.substring(0, 8)} (${dir})`)
-    })
-    lines.push('', '使用 /close 关闭当前会话')
-    return lines.join('\n\n')
-  }
-
-  async _cmdClose({ mapKey }) {
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (!sessionId) return '当前没有活跃会话，无需关闭\n\n发送任意消息可开始新会话'
-
-    const session = this.agentSessionManager.sessions.get(sessionId)
-    if (session?.status === 'streaming') {
-      return '⏳ AI 正在响应中，请等待完成后再关闭'
-    }
-
-    await this.agentSessionManager.close(sessionId)
-    this.sessionMap.delete(mapKey)
-    this._sessionWebhooks.delete(sessionId)
-    this._sessionProcessQueues.delete(sessionId)
-    this._desktopPendingBlocks.delete(sessionId)
-    this._clearPendingChoice(mapKey)
-    this._notifyFrontend('dingtalk:sessionClosed', { sessionId })
-
-    return '✅ 会话已关闭\n\n发送任意消息可开始新会话'
-  }
-
-  async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle }) {
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (sessionId) {
-      const session = this.agentSessionManager.sessions.get(sessionId)
-      if (session?.status === 'streaming') {
-        return '⏳ AI 正在响应中，请等待完成后再操作'
-      }
-      return '⚠️ 当前有活跃会话，请先发送 /close 关闭后再新建'
-    }
-
-    this._clearPendingChoice(mapKey)
-
-    const dirArg = args.join(' ').trim()
-    let cwd
-
-    if (dirArg) {
-      // 绝对路径直接使用，相对名称放在 dingtalk/ 子目录下
-      if (path.isAbsolute(dirArg) || /^[A-Za-z]:[/\\]/.test(dirArg)) {
-        cwd = dirArg
-      } else {
-        cwd = path.join(this.agentSessionManager._getOutputBaseDir(), 'dingtalk', dirArg)
-      }
-      try {
-        fs.mkdirSync(cwd, { recursive: true })
-      } catch (err) {
-        return `❌ 无法创建目录: ${err.message}`
-      }
-    }
-
-    await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey, { cwd })
-
-    const dirInfo = cwd ? `\n└─ 目录: ${path.basename(cwd)}` : ''
-    return `✅ 新会话已创建${dirInfo}\n\n现在可以开始对话了`
   }
 
   /**
    * 回复钉钉消息
    */
   async _replyToDingTalk(sessionWebhook, text) {
+    console.log('[DingTalk] _replyToDingTalk called, text length:', text?.length, 'preview:', text?.substring(0, 100))
     if (!sessionWebhook) {
       console.warn('[DingTalk] No sessionWebhook, cannot reply')
       return
@@ -1233,6 +1095,8 @@ class DingTalkBridge {
 
       if (!response.ok) {
         console.error(`[DingTalk] Reply failed: ${response.status} ${response.statusText}`)
+      } else {
+        console.log('[DingTalk] _replyToDingTalk: reply sent successfully')
       }
     } catch (err) {
       console.error('[DingTalk] Reply error:', err.message)
@@ -1270,52 +1134,6 @@ class DingTalkBridge {
   }
 
   /**
-   * 通过钉钉 API 下载图片，返回 { base64, mediaType }
-   */
-  async _downloadImage(downloadCode, robotCode) {
-    const token = await this._getAccessToken()
-
-    // 调用钉钉 API 获取图片下载地址
-    const response = await globalThis.fetch('https://api.dingtalk.com/v1.0/robot/messageFiles/download', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-acs-dingtalk-access-token': token
-      },
-      body: JSON.stringify({ downloadCode, robotCode })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Download API failed: ${response.status}`)
-    }
-
-    const result = await response.json()
-    const imageUrl = result.downloadUrl
-
-    if (!imageUrl) {
-      throw new Error('No downloadUrl in response')
-    }
-
-    // 下载实际图片
-    const imgResponse = await globalThis.fetch(imageUrl)
-    if (!imgResponse.ok) {
-      throw new Error(`Image fetch failed: ${imgResponse.status}`)
-    }
-
-    const buffer = Buffer.from(await imgResponse.arrayBuffer())
-    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
-    // 标准化 mediaType
-    const mediaType = contentType.split(';')[0].trim()
-
-    console.log(`[DingTalk] Image downloaded: ${buffer.length} bytes, type=${mediaType}`)
-
-    return {
-      base64: buffer.toString('base64'),
-      mediaType
-    }
-  }
-
-  /**
    * 安全发送消息到前端
    */
   _notifyFrontend(channel, data) {
@@ -1331,5 +1149,8 @@ class DingTalkBridge {
     }
   }
 }
+
+// 混入图片管道方法和命令系统方法
+Object.assign(DingTalkBridge.prototype, imageMixin, commandsMixin)
 
 module.exports = { DingTalkBridge }

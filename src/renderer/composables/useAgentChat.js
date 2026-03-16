@@ -54,13 +54,13 @@ export function useAgentChat(sessionId) {
   )
 
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
-  let hasActiveSession = false
+  const hasActiveSession = ref(false)
   // 用户是否主动取消了生成（用于抑制队列自动消费和错误显示）
   const isInterrupting = ref(false)
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
   watch(selectedModel, (newVal) => {
-    if (hasActiveSession && window.electronAPI?.setAgentModel) {
+    if (hasActiveSession.value && window.electronAPI?.setAgentModel) {
       window.electronAPI.setAgentModel(sessionId, newVal).catch(err =>
         console.warn('[useAgentChat] setModel failed (will use on next query):', err.message)
       )
@@ -310,7 +310,7 @@ export function useAgentChat(sessionId) {
   const handleInit = (data) => {
     if (data.sessionId !== sessionId) return
 
-    hasActiveSession = true
+    hasActiveSession.value = true
 
     if (data.slashCommands && Array.isArray(data.slashCommands)) {
       slashCommands.value = data.slashCommands
@@ -478,7 +478,7 @@ export function useAgentChat(sessionId) {
       }
       // CLI 进程退出时重置标记，下次发消息会重建 query
       if (data.cliExited) {
-        hasActiveSession = false
+        hasActiveSession.value = false
       }
     } else if (data.status === 'streaming') {
       isStreaming.value = true
@@ -562,7 +562,7 @@ export function useAgentChat(sessionId) {
     if (window.electronAPI.onAgentAllSessionsClosed) {
       cleanupFns.push(window.electronAPI.onAgentAllSessionsClosed(() => {
         isStreaming.value = false
-        hasActiveSession = false
+        hasActiveSession.value = false
       }))
     }
   }
@@ -647,6 +647,7 @@ export function useAgentChat(sessionId) {
     totalCostUsd,
     numTurns,
     isInterrupting,  // 暴露中断标志供父组件检查
+    hasActiveSession,  // 暴露激活状态供父组件判断
     loadMessages,
     sendMessage,
     cancelGeneration,

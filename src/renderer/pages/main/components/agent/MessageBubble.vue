@@ -125,8 +125,8 @@ const renderedContent = computed(() => {
   text = text.replace(/(\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)[^\s<>&"']+)/g,
     '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
-  // 相对路径（./... 或 ../...）
-  text = text.replace(/(\.\.?\/[^\s<>&"']+)/g,
+  // 相对路径（Unix: ./... 或 ../... | Windows: .\... 或 ..\...）
+  text = text.replace(/(\.\.?[/\\][^\s<>&"']+)/g,
     '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // ~ 路径（~/...）
@@ -149,7 +149,7 @@ const renderedContent = computed(() => {
       let linkType = ''
       if (/^https?:\/\//.test(trimmed)) {
         linkType = 'url'
-      } else if (/^[A-Z]:\\/.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?\//.test(trimmed) || /^~\//.test(trimmed)) {
+      } else if (/^[A-Z]:\\/.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?[/\\]/.test(trimmed) || /^~\//.test(trimmed)) {
         linkType = 'path'
       }
       if (linkType) {
@@ -166,7 +166,7 @@ const renderedContent = computed(() => {
     let linkType = ''
     if (/^https?:\/\//.test(code)) {
       linkType = 'url'
-    } else if (/^[A-Z]:\\/.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?\//.test(code) || /^~\//.test(code)) {
+    } else if (/^[A-Z]:\\/.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?[/\\]/.test(code) || /^~\//.test(code)) {
       linkType = 'path'
     }
     if (linkType) {
@@ -193,12 +193,19 @@ const handleLinkClick = async (e) => {
 
   if (!href) return
 
+  // 相对路径解析：基于当前会话的 cwd 转为绝对路径
+  let resolvedPath = href
+  if (type === 'path' && /^\.\.?[/\\]/.test(href) && props.sessionCwd) {
+    // 使用 Node.js path 模块解析（通过 IPC 调用后端）
+    resolvedPath = await window.electronAPI.resolvePath(props.sessionCwd, href)
+  }
+
   // Ctrl/Cmd+点击：在外部打开
   if (e.ctrlKey || e.metaKey) {
     if (type === 'url') {
       await window.electronAPI.openExternal(href)
     } else if (type === 'path') {
-      await window.electronAPI.openPath(href)
+      await window.electronAPI.openPath(resolvedPath)
     }
   }
   // 普通点击：预览
@@ -212,7 +219,7 @@ const handleLinkClick = async (e) => {
       })
     } else if (type === 'path') {
       // 文件路径：请求后端读取文件并预览（文件）或打开（目录）
-      emit('preview-path', href)
+      emit('preview-path', resolvedPath)
     }
   }
 }

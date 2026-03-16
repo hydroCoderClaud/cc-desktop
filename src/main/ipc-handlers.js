@@ -411,6 +411,24 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
   });
 
+  // 解析相对路径为绝对路径（基于指定的 base 目录）
+  ipcMain.handle('path:resolve', async (event, basePath, relativePath) => {
+    if (!basePath || !relativePath) {
+      return null;
+    }
+    try {
+      const path = require('path');
+      // 如果 relativePath 已经是绝对路径，直接返回
+      if (path.isAbsolute(relativePath)) {
+        return relativePath;
+      }
+      return path.resolve(basePath, relativePath);
+    } catch (err) {
+      console.error('[IPC] path:resolve error:', err);
+      return null;
+    }
+  });
+
   // 获取 Claude 配置文件路径
   ipcMain.handle('claude:getSettingsPath', async () => {
     const homedir = require('os').homedir();
@@ -683,6 +701,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       height: 600,
       title: '钉钉桥接设置 - CC Desktop',
       page: 'dingtalk-settings'
+    });
+    return { success: true };
+  });
+
+  // 打开 Notebook 工作台
+  ipcMain.handle('window:openNotebookWorkspace', async () => {
+    createSubWindow({
+      width: 1400,
+      height: 900,
+      title: 'Notebook - CC Desktop',
+      page: 'notebook'
     });
     return { success: true };
   });

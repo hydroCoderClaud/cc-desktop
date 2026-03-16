@@ -216,9 +216,8 @@ app.whenReady().then(async () => {
   // 初始化更新管理器
   updateManager = new UpdateManager(mainWindow, configManager)
 
-  // 初始化钉钉桥接
+  // 初始化钉钉桥接（构造函数内部自动绑定 agentSessionManager 事件）
   dingtalkBridge = new DingTalkBridge(configManager, agentSessionManager, mainWindow)
-  agentSessionManager.messageListener = dingtalkBridge
 
   // 设置 IPC 处理器
   setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge);

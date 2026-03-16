@@ -48,7 +48,7 @@ export default {
     settings: 'Settings',
     test: 'Test',
     testConnection: 'Test Connection',
-    connecting: 'Connecting...',
+    connecting: '"hi" sent, connecting...',
     connected: 'Connected',
     disconnected: 'Disconnected',
     connect: 'Connect',
@@ -784,7 +784,7 @@ export default {
     haikuModel: 'Haiku Model',
     customModels: 'Custom Models',
     manageModels: 'Manage Models',
-    testSuccess: 'Connection successful',
+    testSuccess: 'Connected! Response: ',
     testFailed: 'Connection failed',
     deleteConfirm: 'Are you sure you want to delete this profile?',
     deleteSuccess: 'Profile deleted',
@@ -1172,6 +1172,8 @@ export default {
     agentMode: 'Agent Mode',
     switchToAgent: 'Switch to Agent Mode',
     switchToDeveloper: 'Switch to Developer Mode',
+    switchToNotebook: 'Switch to Notebook',
+    notebook: 'Notebook',
     agentWelcome: 'Start conversations with AI Agent to accomplish various tasks without coding knowledge. Please click "New Conversation" or resume a previous conversation.'
   },
 
@@ -1240,6 +1242,7 @@ export default {
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+    historyHint: 'Above are historical messages. Type in the input box to activate this session',
     saveAsImage: 'Save as Image',
     imageSaved: 'Image saved',
     copySelection: 'Copy Selected Text',
@@ -1400,6 +1403,62 @@ export default {
     connectSuccess: 'DingTalk bridge connected',
     connectFailed: 'DingTalk bridge connection failed',
     disconnected: 'DingTalk bridge disconnected',
-    viewGuide: 'View Guide'
+    viewGuide: 'View Guide',
+    advancedSettings: 'Advanced Settings',
+    maxHistorySessions: 'History Sessions Limit',
+    maxHistorySessionsHint: 'Maximum number of history sessions shown when DingTalk user selects (1-20)',
+  },
+  notebook: {
+    nav: {
+      createNotebook: 'Create Notebook',
+      share: 'Share',
+      settings: 'Settings',
+      apps: 'Apps',
+      fullscreen: 'Fullscreen',
+      exitFullscreen: 'Exit Fullscreen',
+      editTitle: 'Click to edit title',
+    },
+    source: {
+      title: 'Sources',
+      add: 'Add source',
+      expand: 'Expand',
+      searchPlaceholder: 'Search the web for new sources',
+      selectAll: 'Select all sources',
+      guide: 'Source Guide',
+      openExternal: 'Open source externally',
+      web: 'Web',
+      fastResearch: 'Fast Research',
+    },
+    chat: {
+      title: 'Chat',
+      welcome: 'Welcome to Industry Agent',
+      subtitle: 'Intelligent workspace inspired by NotebookLM',
+      placeholder: 'Start typing...',
+      sources: '{count} sources',
+    },
+    studio: {
+      title: 'Studio',
+      expand: 'Expand',
+      generated: 'Generated',
+      sources: '{count} sources',
+      empty: 'No outputs yet',
+      emptyHint: 'Outputs will appear here after chatting',
+      export: 'Export',
+      copy: 'Copy',
+      delete: 'Delete',
+      play: 'Play',
+      betaBadge: 'Beta',
+    },
+    types: {
+      audio: 'Audio Overview',
+      presentation: 'Presentation',
+      video: 'Video Overview',
+      mindmap: 'Mind Map',
+      report: 'Report',
+      flashcard: 'Flashcards',
+      quiz: 'Quiz',
+      infographic: 'Infographic',
+      table: 'Data Table',
+    }
   }
 }

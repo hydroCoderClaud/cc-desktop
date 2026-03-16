@@ -74,6 +74,7 @@ class ConfigManager {
         appKey: '',
         appSecret: '',
         defaultCwd: '',
+        maxHistorySessions: 5,
       },
 
       settings: {
@@ -734,9 +735,113 @@ class ConfigManager {
   }
 
   /**
-   * 测试 API 连接
+   * 通过 Agent SDK 测试 API 连接（走 CLI 真实路径，兼容百炼等有来源校验的端点）
    */
-  async testAPIConnection(apiConfig) {
+  async testAPIConnectionViaSDK(apiConfig) {
+    console.log('[API Test SDK] ========== Starting SDK connection test ==========')
+    const startTime = Date.now()
+
+    const { buildClaudeEnvVars, buildBasicEnv } = require('./utils/env-builder')
+    const ClaudeCodeRunner = require('./runners/claude-code-runner')
+
+    const claudeEnv = buildClaudeEnvVars(apiConfig)
+    const env = buildBasicEnv(claudeEnv)
+
+    const runner = new ClaudeCodeRunner()
+
+    const globalTimeout = this.getTimeout()
+    const testTimeoutMs = globalTimeout.test || TIMEOUTS.API_TEST
+    const testTimeoutSec = testTimeoutMs / 1000
+
+    console.log(`[API Test SDK] Timeout: ${testTimeoutSec}s`)
+
+    const testPromise = (async () => {
+      try {
+        const queryFn = await runner._loadSDK()
+        const generator = queryFn({
+          prompt: 'hi',
+          options: {
+            maxTurns: 1,
+            env,
+            spawnClaudeCodeProcess: (spawnOpts) => {
+              const { spawn: cpSpawn } = require('child_process')
+              // 修正 CLI 路径：SDK 在 asar 里，需重定向到 unpacked
+              let cliPath = spawnOpts.args[0]
+              if (cliPath && /[\/\\]app\.asar[\/\\]/.test(cliPath) && !cliPath.includes('app.asar.unpacked')) {
+                cliPath = cliPath.replace(/[\/\\]app\.asar[\/\\]/g, (match) => {
+                  return match.replace('app.asar', 'app.asar.unpacked')
+                })
+                spawnOpts.args[0] = cliPath
+              }
+              return cpSpawn(spawnOpts.command, spawnOpts.args, {
+                cwd: spawnOpts.cwd,
+                env,
+                stdio: ['pipe', 'pipe', 'pipe'],
+                shell: false
+              })
+            }
+          }
+        })
+
+        let responseText = ''
+        for await (const msg of generator) {
+          // 从 assistant 消息中提取文本
+          if (msg.type === 'assistant' && msg.message?.content) {
+            for (const block of msg.message.content) {
+              if (block.type === 'text' && block.text) {
+                responseText += block.text
+              }
+            }
+          }
+          if (msg.type === 'result') {
+            const durationMs = Date.now() - startTime
+            if (msg.is_error) {
+              return {
+                success: false,
+                message: `API error: ${msg.result || 'Unknown error'}`,
+                durationMs
+              }
+            }
+            // 优先用累积的 assistant 文本，其次用 result 字段
+            const reply = responseText || msg.result || ''
+            return {
+              success: true,
+              message: reply,
+              durationMs
+            }
+          }
+        }
+
+        // generator 结束但没收到 result
+        const durationMs = Date.now() - startTime
+        return { success: true, message: responseText || '', durationMs }
+      } catch (error) {
+        const durationMs = Date.now() - startTime
+        console.error('[API Test SDK] Error:', error.message)
+        throw error
+      }
+    })()
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`SDK 连接超时（${testTimeoutSec}秒无响应）`)), testTimeoutMs)
+    })
+
+    try {
+      const result = await Promise.race([testPromise, timeoutPromise])
+      console.log('[API Test SDK] Result:', result.success ? 'SUCCESS' : 'FAILED')
+      console.log('[API Test SDK] ========== SDK connection test ended ==========\n')
+      return result
+    } catch (error) {
+      console.error('[API Test SDK] Failed:', error.message)
+      console.log('[API Test SDK] ========== SDK connection test ended ==========\n')
+      throw error
+    }
+  }
+
+  /**
+   * 通过 HTTP 直连测试 API 连接（fallback，CLI 未安装时使用）
+   */
+  async testAPIConnectionViaHTTP(apiConfig) {
     console.log('[API Test] ========== Starting new connection test ==========');
     console.log('[API Test] Config:', JSON.stringify({
       baseUrl: apiConfig.baseUrl,
