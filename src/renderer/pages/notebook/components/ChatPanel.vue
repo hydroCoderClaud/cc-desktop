@@ -1,43 +1,211 @@
 <template>
-  <div class="main-content">
-    <div class="chat-header">
-      <span class="chat-title">{{ t('notebook.chat.title') }}</span>
+  <div class="notebook-chat-panel">
+    <div class="panel-header">
+      <span class="panel-title">{{ t('notebook.chat.title') }}</span>
+      <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
     </div>
-    <div class="chat-content">
-      <div class="welcome-message">
+
+    <div class="messages-list" ref="messagesListRef">
+      <div v-if="messages.length === 0 && !isStreaming" class="welcome-message">
         <h2>{{ t('notebook.chat.welcome') }}</h2>
         <p class="welcome-subtitle">{{ t('notebook.chat.subtitle') }}</p>
       </div>
-    </div>
-    <div class="chat-input-area">
-      <div class="input-wrapper">
-        <input
-          type="text"
-          :placeholder="t('notebook.chat.placeholder')"
-          class="chat-input"
-          @keyup.enter="$emit('send')"
+
+      <template v-for="msg in messages" :key="msg.id">
+        <MessageBubble
+          v-if="msg.role === 'user' || msg.role === 'assistant'"
+          :message="msg"
+          :session-cwd="sessionCwd"
+          @preview-image="$emit('preview-image', $event)"
+          @preview-link="$emit('preview-link', $event)"
+          @preview-path="$emit('preview-path', $event)"
         />
-        <span class="sources-count">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
-        <button class="send-btn" @click="$emit('send')">
-          <Icon name="send" :size="18" />
-        </button>
+        <ToolCallCard
+          v-else-if="msg.role === 'tool'"
+          :message="msg"
+          @preview-path="$emit('preview-path', $event)"
+        />
+      </template>
+
+      <div v-if="isRestored && !isStreaming && messages.length > 0" class="restored-divider">
+        <span class="restored-line"></span>
+        <span class="restored-text">{{ t('agent.restoredHint') }}</span>
+        <span class="restored-line"></span>
       </div>
+
+      <StreamingIndicator
+        :visible="isStreaming"
+        :text="currentStreamText"
+        :elapsed="streamingElapsed"
+      />
+
+      <div v-if="error" class="error-banner">
+        <Icon name="xCircle" :size="16" />
+        <span>{{ error }}</span>
+      </div>
+
+      <div ref="scrollAnchor"></div>
     </div>
+
+    <div v-if="!hasActiveSession" class="status-hint-bar">
+      <Icon name="info" :size="14" />
+      <span>{{ t('agent.historyHint') }}</span>
+    </div>
+
+    <ChatInput
+      ref="chatInputRef"
+      :is-streaming="isStreaming"
+      :disabled="false"
+      :queue-enabled="false"
+      :placeholder="t('notebook.chat.placeholder')"
+      :context-tokens="contextTokens"
+      :slash-commands="slashCommands"
+      :active-model="activeModel"
+      v-model:model-value="selectedModel"
+      @send="handleSend"
+      @cancel="handleCancel"
+      @update:queue-enabled="noop"
+    />
   </div>
 </template>
 
 <script setup>
-import Icon from '@components/icons/Icon.vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
-
-defineProps({ selectedCount: { type: Number, default: 0 } })
-defineEmits(['send'])
+import { useAgentChat } from '@composables/useAgentChat'
+import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
+import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
+import StreamingIndicator from '@/pages/main/components/agent/StreamingIndicator.vue'
+import ChatInput from '@/pages/main/components/agent/ChatInput.vue'
+import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+
+const props = defineProps({
+  sessionId: {
+    type: String,
+    required: true
+  },
+  sessionCwd: {
+    type: String,
+    default: null
+  },
+  apiProfileId: {
+    type: String,
+    default: null
+  },
+  selectedCount: {
+    type: Number,
+    default: 0
+  }
+})
+
+const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done'])
+
+const {
+  messages,
+  isStreaming,
+  isRestored,
+  currentStreamText,
+  error,
+  selectedModel,
+  streamingElapsed,
+  contextTokens,
+  slashCommands,
+  activeModel,
+  hasActiveSession,
+  loadMessages,
+  sendMessage,
+  cancelGeneration,
+  setupStreamListeners,
+  initDefaultModel
+} = useAgentChat(props.sessionId)
+
+const messagesListRef = ref(null)
+const scrollAnchor = ref(null)
+const chatInputRef = ref(null)
+const userAtBottom = ref(true)
+const BOTTOM_THRESHOLD = 60
+let lastScrollTime = 0
+const SCROLL_THROTTLE_MS = 100
+
+const noop = () => {}
+
+const checkIfAtBottom = () => {
+  const el = messagesListRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD
+}
+
+const onMessagesScroll = () => {
+  userAtBottom.value = checkIfAtBottom()
+}
+
+const scrollToBottom = (instant = false, force = false) => {
+  if (!force && !userAtBottom.value) return
+  nextTick(() => {
+    if (scrollAnchor.value) {
+      scrollAnchor.value.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
+    }
+    userAtBottom.value = true
+  })
+}
+
+watch(messages, () => {
+  scrollToBottom()
+})
+
+watch(currentStreamText, () => {
+  if (!userAtBottom.value) return
+  const now = Date.now()
+  if (now - lastScrollTime >= SCROLL_THROTTLE_MS) {
+    lastScrollTime = now
+    scrollToBottom(true)
+  }
+})
+
+watch(isStreaming, (streaming, wasStreaming) => {
+  if (wasStreaming && !streaming) {
+    const msgs = messages.value
+    let startIdx = msgs.length - 1
+    while (startIdx > 0 && msgs[startIdx].role !== 'user') startIdx--
+    const filePaths = []
+    for (let i = startIdx + 1; i < msgs.length; i++) {
+      const msg = msgs[i]
+      const fp = msg.input?.file_path || msg.input?.filePath
+      if (fp) filePaths.push(fp)
+      if (msg.content) {
+        const unixPaths = msg.content.match(/\/(?:[\w\-. ]+\/)+[\w\-. ]+\.[\w]{1,10}/g) || []
+        const winPaths = msg.content.match(/[A-Za-z]:\\(?:[\w\-. ]+\\)+[\w\-. ]+\.[\w]{1,10}/g) || []
+        unixPaths.concat(winPaths).forEach(p => filePaths.push(p))
+      }
+    }
+    emit('agent-done', [...new Set(filePaths)])
+  }
+})
+
+const handleSend = async (text) => {
+  await sendMessage(text)
+  scrollToBottom(false, true)
+}
+
+const handleCancel = async () => {
+  await cancelGeneration()
+}
+
+onMounted(async () => {
+  setupStreamListeners()
+  await initDefaultModel(props.apiProfileId)
+  await loadMessages()
+  if (messagesListRef.value) {
+    messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
+  }
+  scrollToBottom(true, true)
+})
 </script>
 
 <style scoped>
-.main-content {
+.notebook-chat-panel {
   flex: 1;
   min-width: 300px;
   background: var(--bg-color-secondary);
@@ -45,34 +213,42 @@ const { t } = useLocale()
   border-radius: 16px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.chat-header {
+.panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 24px;
+  justify-content: space-between;
+  padding: 0 20px;
   height: 52px;
   min-height: 52px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  gap: 8px;
 }
 
-.chat-title {
+.panel-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
 }
 
-.chat-content {
+.panel-subtitle {
+  font-size: 12px;
+  color: var(--text-color-muted);
+  white-space: nowrap;
+}
+
+.messages-list {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 16px 0;
 }
 
 .welcome-message {
   text-align: center;
-  padding: 40px 20px;
+  padding: 64px 24px;
 }
 
 .welcome-message h2 {
@@ -88,50 +264,48 @@ const { t } = useLocale()
   margin: 0;
 }
 
-.chat-input-area { padding: 16px 20px; }
-
-.input-wrapper {
+.restored-divider {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 8px 16px 8px 20px;
-  background: var(--bg-color-tertiary);
-  border-radius: 28px;
+  padding: 12px 24px;
+  margin: 8px 0;
 }
 
-.chat-input {
+.restored-line {
   flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: var(--text-color);
-  outline: none;
+  height: 1px;
+  background: var(--border-color);
 }
 
-.chat-input::placeholder { color: var(--text-color-muted); }
-
-.sources-count {
+.restored-text {
   font-size: 12px;
   color: var(--text-color-muted);
   white-space: nowrap;
 }
 
-.send-btn {
-  width: 40px;
-  height: 40px;
+.status-hint-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--primary-color);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.15s;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--info-bg);
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-color-secondary);
   flex-shrink: 0;
 }
 
-.send-btn:hover { background: var(--primary-color-hover); }
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 8px 16px;
+  background: rgba(255, 77, 79, 0.1);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  border-radius: 8px;
+  color: #ff4d4f;
+  font-size: 13px;
+}
 </style>

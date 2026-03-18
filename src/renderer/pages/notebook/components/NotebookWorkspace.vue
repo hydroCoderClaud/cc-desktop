@@ -126,6 +126,9 @@
         :session-cwd="currentNotebook.notebookPath || ''"
         :selected-count="selectedSources.length"
         :api-profile-id="currentNotebook.apiProfileId"
+        @preview-image="handlePreviewImage"
+        @preview-link="handlePreviewLink"
+        @preview-path="handlePreviewPath"
       />
       <!-- 无会话时显示引导 -->
       <div v-else class="empty-chat-panel">
@@ -259,7 +262,7 @@ const stopEditTitle = async () => {
   }
   if (currentNotebook.value && newName !== currentNotebook.value.name) {
     try {
-      const updated = await window.electronAPI.notebookRename(currentNotebook.value.id, newName)
+      const updated = await window.electronAPI.notebookRename({ id: currentNotebook.value.id, name: newName })
       currentNotebook.value = { ...currentNotebook.value, ...updated }
     } catch (err) {
       message.error('重命名失败：' + err.message)
@@ -327,7 +330,7 @@ const confirmRename = async (nb) => {
   cancelRename()
   if (!newName || newName === nb.name) return
   try {
-    await window.electronAPI.notebookRename(nb.id, newName)
+    await window.electronAPI.notebookRename({ id: nb.id, name: newName })
     // 更新列表和当前笔记本标题
     const item = notebookList.value.find(n => n.id === nb.id)
     if (item) item.name = newName
@@ -421,16 +424,54 @@ const allSelected = computed(() => sources.value.length > 0 && sources.value.eve
 const toggleSelectAll = async () => {
   const newValue = !allSelected.value
   if (!currentNotebook.value) return
-  const updates = sources.value.map(s => window.electronAPI.notebookUpdateSource(currentNotebook.value.id, s.id, { selected: newValue }))
+  const updates = sources.value.map(s => window.electronAPI.notebookUpdateSource({ notebookId: currentNotebook.value.id, sourceId: s.id, updates: { selected: newValue } }))
   await Promise.all(updates).catch(() => {})
-  sources.value.forEach(s => s.selected = newValue)
+  sources.value.forEach(s => { s.selected = newValue })
 }
 
 const handleAddSource = () => message.info('添加来源功能开发中...')
 
 const handleOpenExternal = (source) => {
-  if (source.url) window.open(source.url, '_blank')
+  if (source.url) window.electronAPI.openExternal(source.url).catch(() => {})
   else message.info(`外部打开：${source.name}`)
+}
+
+const handlePreviewImage = (previewData) => {
+  if (previewData?.path) {
+    window.electronAPI.openPath(previewData.path).catch(() => {})
+  }
+}
+
+const handlePreviewLink = (linkData) => {
+  if (linkData?.url) {
+    window.electronAPI.openExternal(linkData.url).catch(() => {})
+  }
+}
+
+const handlePreviewPath = async (filePath) => {
+  if (!filePath) return
+  try {
+    const fileData = await window.electronAPI.readAbsolutePath({
+      filePath,
+      sessionId: currentNotebook.value?.sessionId,
+      confirmed: true
+    })
+
+    if (fileData?.error) {
+      message.error(fileData.error)
+      return
+    }
+
+    if (fileData?.type === 'directory') {
+      await window.electronAPI.openPath(filePath)
+      return
+    }
+
+    await window.electronAPI.openPath(filePath)
+  } catch (err) {
+    console.error('[Notebook] Failed to preview path:', err)
+    message.error('文件预览失败')
+  }
 }
 </script>
 

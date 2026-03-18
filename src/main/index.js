@@ -12,6 +12,7 @@ const { AgentSessionManager } = require('./agent-session-manager');
 const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
 const { DingTalkBridge } = require('./managers/dingtalk-bridge');
+const { NotebookManager } = require('./managers/notebook-manager');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -23,6 +24,7 @@ let agentSessionManager = null;
 let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
+let notebookManager = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 
@@ -219,8 +221,11 @@ app.whenReady().then(async () => {
   // 初始化钉钉桥接（构造函数内部自动绑定 agentSessionManager 事件）
   dingtalkBridge = new DingTalkBridge(configManager, agentSessionManager, mainWindow)
 
+  // 初始化 Notebook 管理器（需要 configManager 和 agentSessionManager）
+  notebookManager = new NotebookManager(configManager, agentSessionManager)
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager);
 
   // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')

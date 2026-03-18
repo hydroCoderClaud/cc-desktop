@@ -744,7 +744,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener(channel, listener);
       }
     ])
-  )
+  ),
+
+  // ========================================
+  // Notebook 管理
+  // ========================================
+  notebookCreate: (options) => ipcRenderer.invoke('notebook:create', options),
+  notebookList: () => ipcRenderer.invoke('notebook:list'),
+  notebookGet: (id) => ipcRenderer.invoke('notebook:get', id),
+  notebookRename: ({ id, name }) => ipcRenderer.invoke('notebook:rename', { id, name }),
+  notebookDelete: (id) => ipcRenderer.invoke('notebook:delete', id),
+  notebookBindSession: ({ id, sessionId }) => ipcRenderer.invoke('notebook:bindSession', { id, sessionId }),
+  notebookListSources: (notebookId) => ipcRenderer.invoke('notebook:listSources', notebookId),
+  notebookAddSource: ({ notebookId, sourceData }) => ipcRenderer.invoke('notebook:addSource', { notebookId, sourceData }),
+  notebookUpdateSource: ({ notebookId, sourceId, updates }) => ipcRenderer.invoke('notebook:updateSource', { notebookId, sourceId, updates }),
+  notebookDeleteSource: ({ notebookId, sourceId }) => ipcRenderer.invoke('notebook:deleteSource', { notebookId, sourceId }),
+  notebookListAchievements: (notebookId) => ipcRenderer.invoke('notebook:listAchievements', notebookId),
+  notebookAddAchievement: ({ notebookId, achievementData }) => ipcRenderer.invoke('notebook:addAchievement', { notebookId, achievementData }),
+  notebookUpdateAchievement: ({ notebookId, achievementId, updates }) => ipcRenderer.invoke('notebook:updateAchievement', { notebookId, achievementId, updates }),
+  notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId })
 });
 
 console.log('[Preload] ElectronAPI exposed to renderer successfully');
