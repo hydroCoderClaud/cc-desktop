@@ -3,31 +3,88 @@
     <!-- 顶部导航栏 -->
     <div class="top-nav">
       <div class="nav-left">
-        <div class="app-logo" @click="toggleFullscreen" :title="isFullscreen ? t('notebook.nav.exitFullscreen') : t('notebook.nav.fullscreen')">
+        <div class="app-logo" @click="switchMode('agent')" :title="t('notebook.nav.backToMain')">
           <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="16" cy="16" r="15" :stroke="primaryColor" stroke-width="1.5" :fill="primaryGhost"/>
             <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" :fill="primaryColor" opacity="0.85"/>
           </svg>
         </div>
-        <h1
-          v-if="!editingTitle"
-          class="notebook-title"
-          @click="startEditTitle"
-          :title="t('notebook.nav.editTitle')"
-        >{{ notebookTitle }}</h1>
-        <input
-          v-else
-          ref="titleInput"
-          v-model="notebookTitle"
-          class="notebook-title-input"
-          spellcheck="false"
-          @blur="stopEditTitle"
-          @keyup.enter="stopEditTitle"
-          @keyup.escape="stopEditTitle"
-        />
+
+        <!-- 标题 + 下拉切换 -->
+        <div class="title-group">
+          <h1
+            v-if="!editingTitle"
+            class="notebook-title"
+            @click="startEditTitle"
+            :title="t('notebook.nav.editTitle')"
+          >{{ notebookTitle || t('notebook.nav.createNotebook') }}</h1>
+          <input
+            v-else
+            ref="titleInput"
+            v-model="notebookTitle"
+            class="notebook-title-input"
+            spellcheck="false"
+            @blur="stopEditTitle"
+            @keyup.enter="stopEditTitle"
+            @keyup.escape="stopEditTitle"
+          />
+          <div class="dropdown-wrapper" v-if="!editingTitle">
+            <button class="dropdown-trigger" @click="toggleNotebookDropdown" :title="t('notebook.switchNotebook')">
+              <Icon name="chevronDown" :size="16" />
+            </button>
+            <div v-if="showNotebookDropdown" class="notebook-dropdown">
+              <div
+                v-for="nb in notebookList"
+                :key="nb.id"
+                class="dropdown-item"
+                :class="{ active: currentNotebook?.id === nb.id }"
+                @click="switchNotebook(nb)"
+              >
+                <Icon name="fileText" :size="14" />
+                <span v-if="renamingId !== nb.id" class="dropdown-item-name">{{ nb.name }}</span>
+                <input
+                  v-else
+                  class="dropdown-rename-input"
+                  v-model="renamingName"
+                  @click.stop
+                  @keydown.enter.stop="confirmRename(nb)"
+                  @keydown.escape.stop="cancelRename"
+                  @blur="cancelRename"
+                  :ref="el => { if (el) renamingInputRef = el }"
+                />
+                <Icon v-if="currentNotebook?.id === nb.id && renamingId !== nb.id" name="check" :size="14" class="dropdown-check" />
+                <div v-if="renamingId !== nb.id" class="dropdown-item-actions" @click.stop>
+                  <button
+                    v-if="currentNotebook?.id === nb.id"
+                    class="item-action-btn"
+                    @click.stop="closeNotebook"
+                    :title="t('notebook.closeNotebook')"
+                  >
+                    <Icon name="close" :size="12" />
+                  </button>
+                  <button class="item-action-btn" @click.stop="startRename(nb)" :title="t('common.rename')">
+                    <Icon name="edit" :size="12" />
+                  </button>
+                  <button class="item-action-btn" @click.stop="openNotebookDir(nb)" :title="t('notebook.openDir')">
+                    <Icon name="folder" :size="12" />
+                  </button>
+                  <button class="item-action-btn item-action-btn--danger" @click.stop="confirmDelete(nb)" :title="t('common.delete')">
+                    <Icon name="delete" :size="12" />
+                  </button>
+                </div>
+              </div>
+              <div v-if="notebookList.length === 0" class="dropdown-empty">{{ t('notebook.noNotebooks') }}</div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item dropdown-item-create" @click="handleCreateNotebook">
+                <Icon name="plus" :size="14" />
+                <span>{{ t('notebook.nav.createNotebook') }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="nav-right">
-        <button class="create-notebook-btn">
+        <button class="create-notebook-btn" @click="handleCreateNotebook">
           <Icon name="plus" :size="16" />
           <span>{{ t('notebook.nav.createNotebook') }}</span>
         </button>
@@ -61,63 +118,80 @@
 
       <div class="resize-handle" @mousedown="startResize('left', $event)"></div>
 
-      <ChatPanel :selected-count="selectedSources.length" @send="handleSendMessage" />
+      <!-- 有会话时用 key 强制重建，确保 useAgentChat 在 setup 顶层调用 -->
+      <ChatPanel
+        v-if="currentNotebook?.sessionId"
+        :key="currentNotebook.sessionId"
+        :session-id="currentNotebook.sessionId"
+        :session-cwd="currentNotebook.notebookPath || ''"
+        :selected-count="selectedSources.length"
+        :api-profile-id="currentNotebook.apiProfileId"
+      />
+      <!-- 无会话时显示引导 -->
+      <div v-else class="empty-chat-panel">
+        <div class="no-notebook-state">
+          <div class="no-notebook-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="23" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
+              <path d="M24 10 C24 10 14 21 14 27 a10 10 0 0 0 20 0 C34 21 24 10 24 10z" fill="currentColor" opacity="0.3"/>
+            </svg>
+          </div>
+          <p class="empty-chat-title">开始你的第一个笔记本</p>
+          <p class="empty-chat-hint">整理资料，用 AI 生成报告、视频、图表</p>
+          <button class="empty-chat-btn" @click="handleCreateNotebook">
+            <Icon name="plus" :size="16" />
+            <span>新建笔记本</span>
+          </button>
+        </div>
+      </div>
 
       <div class="resize-handle" @mousedown="startResize('right', $event)"></div>
 
       <StudioPanel :achievements="achievements" :available-types="availableTypes" />
     </div>
+
+    <!-- 新建笔记本弹窗 -->
+    <NotebookCreateModal
+      v-model:show="showCreateModal"
+      @created="handleNotebookCreated"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
+import { useAppMode } from '@composables/useAppMode'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import StudioPanel from './StudioPanel.vue'
+import NotebookCreateModal from './NotebookCreateModal.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useLocale()
 const { cssVars } = useTheme()
+const { switchMode } = useAppMode()
 const { startResize } = useNotebookLayout()
 
 const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90d9')
 const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
 
-const notebookTitle = ref('MCP HydroSSH 推广视频')
+// ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
+const currentNotebook = ref(null)   // { id, name, path, ... }
+const notebookTitle = ref('')
 const editingTitle = ref(false)
 const titleInput = ref(null)
 const isFullscreen = ref(false)
+const loading = ref(false)
 
-const startEditTitle = async () => {
-  editingTitle.value = true
-  await nextTick()
-  titleInput.value?.select()
-}
-
-const stopEditTitle = () => {
-  if (!notebookTitle.value.trim()) notebookTitle.value = 'MCP HydroSSH 推广视频'
-  editingTitle.value = false
-}
-
-const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen()
-    isFullscreen.value = true
-  } else {
-    document.exitFullscreen()
-    isFullscreen.value = false
-  }
-}
-
-const onFullscreenChange = () => { isFullscreen.value = !!document.fullscreenElement }
-onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
-onUnmounted(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
+// ─── 数据 ─────────────────────────────────────────────────────────────────────
+const sources = ref([])
+const achievements = ref([])
 
 const availableTypes = [
   { id: 'audio', icon: 'audio', beta: false, bgColor: '#E3F2FD', color: '#1976D2', tip: '生成一个由 AI 向您演示的解说音频' },
@@ -131,59 +205,233 @@ const availableTypes = [
   { id: 'table', icon: 'table', beta: false, bgColor: '#EDE7F6', color: '#512DA8', tip: '生成一份数据表格' }
 ]
 
-const sources = ref([
-  {
-    id: '1',
-    name: 'Page not found · GitHub · GitHub',
-    type: 'web',
-    selected: true,
-    url: 'https://github.com/not-found',
-    summary: '这份文档展示了一个典型的 GitHub 错误页面导航结构，在告知用户无法找到特定页面的同时，提供了全面的平台功能索引。',
-    tags: ['AI 代码生成', '开发者工具', '应用程序安全', '开源社区', '企业级解决方案'],
-    content: `Navigation Menu\nToggle navigation\nSign in\n· Platform\n  ○ AI CODE CREATION\n  ○ DEVELOPER WORKFLOWS`
-  },
-  {
-    id: '2',
-    name: 'mcp-hydrocoder-ssh-readme.md',
-    type: 'markdown',
-    selected: true,
-    summary: 'MCP HydroSSH 项目的 README 文档，介绍了 SSH 服务器管理工具的安装、配置和使用方法。',
-    tags: ['MCP', 'SSH', '服务器管理'],
-    content: `# MCP HydroSSH\n\nMCP HydroSSH 是一个基于 Model Context Protocol 的 SSH 服务器管理工具。`
-  },
-  {
-    id: '3',
-    name: 'mcpHydroSSH/README_CN.md',
-    type: 'web',
-    selected: true,
-    url: 'https://github.com/hydroCoderClaud/mcpHydroSSH/blob/main/README_CN.md',
-    summary: 'MCP HydroSSH 的中文文档，包含详细的使用说明和配置示例。',
-    tags: ['MCP', 'SSH', '中文文档'],
-    content: `# MCP HydroSSH 中文文档\n\n欢迎使用 MCP HydroSSH！`
+// ─── 加载 ─────────────────────────────────────────────────────────────────────
+const loadNotebook = async (notebook) => {
+  try {
+    const data = await window.electronAPI.notebookGet(notebook.id)
+    console.log('[NotebookWorkspace] notebookGet result:', {
+      id: data.id,
+      name: data.name,
+      sessionId: data.sessionId,
+      notebookPath: data.notebookPath
+    })
+    // 用 get() 的完整数据（含 sessionId、notebookPath）更新 currentNotebook
+    currentNotebook.value = data
+    notebookTitle.value = data.name
+    sources.value = data.sources || []
+    achievements.value = (data.achievements || []).map(a => ({
+      ...a,
+      icon: a.type,
+      color: availableTypes.find(t => t.id === a.type)?.color || '#888',
+      sourceCount: a.sourceIds?.length || 0,
+      time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }))
+  } catch (err) {
+    console.error('[Notebook] Failed to load notebook data:', err)
   }
-])
+}
 
-const achievements = ref([
-  { id: '1', type: 'video', name: 'MCP HydroSSH 推广视频', icon: 'video', color: '#388E3C', sourceCount: 1, time: '2 小时前' },
-  { id: '2', type: 'report', name: 'HydroCoder SSH 全栈管理指南', icon: 'fileText', color: '#FFA000', sourceCount: 3, time: '2 小时前' },
-  { id: '3', type: 'table', name: 'MCP 工具与功能规范', icon: 'table', color: '#512DA8', sourceCount: 3, time: '2 小时前' },
-  { id: '4', type: 'video', name: 'MCP HydroSSH：你的 SSH 助手', icon: 'video', color: '#388E3C', sourceCount: 1, time: '1 天前' }
-])
+onMounted(async () => {
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('click', handleGlobalClick, true)
+  // 启动时不自动选中任何笔记本，等待用户从下拉列表选择或新建
+  loading.value = false
+})
 
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('click', handleGlobalClick, true)
+})
+
+// ─── 标题编辑 ─────────────────────────────────────────────────────────────────
+const startEditTitle = async () => {
+  editingTitle.value = true
+  await nextTick()
+  titleInput.value?.select()
+}
+
+const stopEditTitle = async () => {
+  const newName = notebookTitle.value.trim()
+  if (!newName) {
+    notebookTitle.value = currentNotebook.value?.name || ''
+    editingTitle.value = false
+    return
+  }
+  if (currentNotebook.value && newName !== currentNotebook.value.name) {
+    try {
+      const updated = await window.electronAPI.notebookRename(currentNotebook.value.id, newName)
+      currentNotebook.value = { ...currentNotebook.value, ...updated }
+    } catch (err) {
+      message.error('重命名失败：' + err.message)
+      notebookTitle.value = currentNotebook.value.name
+    }
+  }
+  editingTitle.value = false
+}
+
+// ─── 新建笔记本弹窗 ──────────────────────────────────────────────────────────
+const showCreateModal = ref(false)
+
+const handleCreateNotebook = () => {
+  showNotebookDropdown.value = false
+  showCreateModal.value = true
+}
+
+const handleNotebookCreated = async (nb) => {
+  await loadNotebook(nb)
+  message.success(`已创建：${nb.name}`)
+}
+
+// ─── 笔记本下拉切换 ──────────────────────────────────────────────────────────
+const showNotebookDropdown = ref(false)
+const notebookList = ref([])
+
+const toggleNotebookDropdown = async () => {
+  if (showNotebookDropdown.value) {
+    showNotebookDropdown.value = false
+    return
+  }
+  try {
+    notebookList.value = await window.electronAPI.notebookList()
+  } catch (err) {
+    console.error('[Notebook] Failed to list notebooks:', err)
+  }
+  showNotebookDropdown.value = true
+}
+
+const switchNotebook = async (nb) => {
+  showNotebookDropdown.value = false
+  if (currentNotebook.value?.id === nb.id) return
+  await loadNotebook(nb)
+}
+
+// ─── 下拉列表内操作 ───────────────────────────────────────────────────────────
+const renamingId = ref(null)
+const renamingName = ref('')
+let renamingInputRef = null
+
+const startRename = async (nb) => {
+  renamingId.value = nb.id
+  renamingName.value = nb.name
+  await nextTick()
+  renamingInputRef?.select()
+}
+
+const cancelRename = () => {
+  renamingId.value = null
+  renamingName.value = ''
+}
+
+const confirmRename = async (nb) => {
+  const newName = renamingName.value.trim()
+  cancelRename()
+  if (!newName || newName === nb.name) return
+  try {
+    await window.electronAPI.notebookRename(nb.id, newName)
+    // 更新列表和当前笔记本标题
+    const item = notebookList.value.find(n => n.id === nb.id)
+    if (item) item.name = newName
+    if (currentNotebook.value?.id === nb.id) {
+      currentNotebook.value = { ...currentNotebook.value, name: newName }
+      notebookTitle.value = newName
+    }
+  } catch (err) {
+    message.error('重命名失败：' + err.message)
+  }
+}
+
+const openNotebookDir = async (nb) => {
+  const targetNb = nb.notebookPath
+    ? nb
+    : notebookList.value.find(n => n.id === nb.id)
+  const dirPath = targetNb?.notebookPath
+  if (!dirPath) return
+  window.electronAPI.openPath(dirPath).catch(() => {})
+}
+
+const closeNotebook = async () => {
+  showNotebookDropdown.value = false
+
+  // 关闭 Agent 会话，释放资源
+  if (currentNotebook.value?.sessionId) {
+    try {
+      await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
+    } catch (err) {
+      console.warn('[Notebook] Failed to close agent session:', err)
+    }
+  }
+
+  currentNotebook.value = null
+  notebookTitle.value = ''
+  sources.value = []
+}
+
+const confirmDelete = async (nb) => {
+  // 先关闭下拉菜单，避免删除过程中状态混乱
+  showNotebookDropdown.value = false
+
+  dialog.warning({
+    title: '删除笔记本',
+    content: `确定删除「${nb.name}」？此操作将删除笔记本目录及所有对话记录，不可恢复。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await window.electronAPI.notebookDelete(nb.id)
+        notebookList.value = notebookList.value.filter(n => n.id !== nb.id)
+        if (currentNotebook.value?.id === nb.id) {
+          currentNotebook.value = null
+          notebookTitle.value = ''
+          sources.value = []
+        }
+        message.success(`已删除：${nb.name}`)
+      } catch (err) {
+        console.error('[Notebook] Delete failed:', err)
+        message.error('删除失败：' + (err.message || '未知错误'))
+      }
+    }
+  })
+}
+
+// 点击外部关闭下拉
+const handleGlobalClick = (e) => {
+  if (showNotebookDropdown.value) {
+    const wrapper = e.target.closest('.dropdown-wrapper')
+    if (!wrapper) showNotebookDropdown.value = false
+  }
+}
+
+// ─── 全屏 ─────────────────────────────────────────────────────────────────────
+const toggleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+    isFullscreen.value = true
+  } else {
+    document.exitFullscreen()
+    isFullscreen.value = false
+  }
+}
+
+const onFullscreenChange = () => { isFullscreen.value = !!document.fullscreenElement }
+
+// ─── Sources ─────────────────────────────────────────────────────────────────
 const selectedSources = computed(() => sources.value.filter(s => s.selected))
 const allSelected = computed(() => sources.value.length > 0 && sources.value.every(s => s.selected))
 
-const toggleSelectAll = () => {
+const toggleSelectAll = async () => {
   const newValue = !allSelected.value
+  if (!currentNotebook.value) return
+  const updates = sources.value.map(s => window.electronAPI.notebookUpdateSource(currentNotebook.value.id, s.id, { selected: newValue }))
+  await Promise.all(updates).catch(() => {})
   sources.value.forEach(s => s.selected = newValue)
 }
 
 const handleAddSource = () => message.info('添加来源功能开发中...')
+
 const handleOpenExternal = (source) => {
   if (source.url) window.open(source.url, '_blank')
   else message.info(`外部打开：${source.name}`)
 }
-const handleSendMessage = () => message.info('发送消息功能开发中...')
 </script>
 
 <style scoped>
@@ -205,7 +453,6 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
   padding: 10px 24px 0;
   background: var(--bg-color);
   flex-shrink: 0;
-  overflow: hidden;
 }
 
 .nav-left { display: flex; align-items: center; gap: 8px; }
@@ -248,6 +495,144 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
   background: var(--bg-color-secondary);
   min-width: 200px;
 }
+
+.title-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dropdown-wrapper {
+  position: relative;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dropdown-trigger:hover { background: var(--hover-bg); color: var(--text-color); }
+
+.notebook-dropdown {
+  position: absolute;
+  top: 100%;
+  left: -80px;
+  margin-top: 6px;
+  min-width: 260px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  padding: 4px;
+}
+
+.dropdown-header {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-color);
+  transition: background 0.1s;
+}
+
+.dropdown-item:hover { background: var(--hover-bg); }
+
+.dropdown-item.active { background: var(--primary-ghost, rgba(74, 144, 217, 0.08)); }
+
+.dropdown-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-check { color: var(--primary-color); flex-shrink: 0; }
+
+/* hover 时显示操作按钮 */
+.dropdown-item-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.dropdown-item:hover .dropdown-item-actions {
+  display: flex;
+}
+
+.item-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.item-action-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.item-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.dropdown-rename-input {
+  flex: 1;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: var(--text-color);
+  background: var(--bg-color);
+  outline: none;
+}
+
+.dropdown-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-color-muted);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
+.dropdown-item-create { color: var(--primary-color); font-weight: 500; }
 
 .nav-right { display: flex; align-items: center; gap: 8px; }
 
@@ -321,4 +706,55 @@ const handleSendMessage = () => message.info('发送消息功能开发中...')
 }
 
 .resize-handle:hover { background: transparent; }
+
+.empty-chat-panel {
+  flex: 1;
+  min-width: 300px;
+  background: var(--bg-color-secondary);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-notebook-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.no-notebook-icon { color: var(--primary-color); }
+
+.empty-chat-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.empty-chat-hint {
+  font-size: 13px;
+  color: var(--text-color-muted);
+  margin: 0;
+}
+
+.empty-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  height: 38px;
+  padding: 0 22px;
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.empty-chat-btn:hover { background: var(--primary-color-hover); }
 </style>

@@ -1409,6 +1409,9 @@ export default {
     maxHistorySessionsHint: 'Maximum number of history sessions shown when DingTalk user selects (1-20)',
   },
   notebook: {
+    switchNotebook: 'Switch Notebook',
+    myNotebooks: 'My Notebooks',
+    noNotebooks: 'No notebooks yet',
     nav: {
       createNotebook: 'Create Notebook',
       share: 'Share',
@@ -1417,6 +1420,9 @@ export default {
       fullscreen: 'Fullscreen',
       exitFullscreen: 'Exit Fullscreen',
       editTitle: 'Click to edit title',
+      backToMain: 'Back to main',
+      openDir: 'Open directory',
+      closeNotebook: 'Close notebook',
     },
     source: {
       title: 'Sources',
@@ -1459,6 +1465,13 @@ export default {
       quiz: 'Quiz',
       infographic: 'Infographic',
       table: 'Data Table',
-    }
+    },
+    createTitle: 'New Notebook',
+    name: 'Notebook Name',
+    namePlaceholder: 'Enter notebook name',
+    nameRequired: 'Please enter a name',
+    storageDir: 'Storage Directory',
+    storageDirHint: 'Notebook will be created at',
+    createFailed: 'Creation failed',
   }
 }

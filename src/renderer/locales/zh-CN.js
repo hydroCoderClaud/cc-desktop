@@ -8,6 +8,7 @@ export default {
     cancel: '取消',
     confirm: '确认',
     delete: '删除',
+    rename: '重命名',
     edit: '编辑',
     view: '查看',
     add: '添加',
@@ -1414,6 +1415,9 @@ export default {
     maxHistorySessionsHint: '钉钉用户选择历史会话时显示的最大数量（1-20）',
   },
   notebook: {
+    switchNotebook: '切换笔记本',
+    myNotebooks: '我的笔记本',
+    noNotebooks: '还没有笔记本',
     nav: {
       createNotebook: '创建笔记本',
       share: '分享',
@@ -1422,6 +1426,9 @@ export default {
       fullscreen: '全屏',
       exitFullscreen: '退出全屏',
       editTitle: '点击编辑标题',
+      backToMain: '返回主界面',
+      openDir: '打开目录',
+      closeNotebook: '关闭笔记本',
     },
     source: {
       title: '来源',
@@ -1464,6 +1471,13 @@ export default {
       quiz: '测验',
       infographic: '信息图',
       table: '数据表格',
-    }
+    },
+    createTitle: '新建笔记本',
+    name: '笔记本名称',
+    namePlaceholder: '输入笔记本名称',
+    nameRequired: '请输入笔记本名称',
+    storageDir: '存储目录',
+    storageDirHint: '笔记本将创建在',
+    createFailed: '创建失败',
   }
 }
