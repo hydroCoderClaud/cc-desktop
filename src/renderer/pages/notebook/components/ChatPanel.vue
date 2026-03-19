@@ -1,5 +1,5 @@
 <template>
-  <div class="notebook-chat-panel">
+  <div class="notebook-chat-panel" ref="panelRef">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.chat.title') }}</span>
       <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
@@ -121,6 +121,7 @@ const {
   initDefaultModel
 } = useAgentChat(props.sessionId)
 
+const panelRef = ref(null)
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
@@ -201,6 +202,14 @@ onMounted(async () => {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
   scrollToBottom(true, true)
+
+  // Notebook 模式：缩小输入框初始高度（rows=3 → 1）
+  await nextTick()
+  const textarea = panelRef.value?.querySelector('textarea')
+  if (textarea) {
+    textarea.rows = 1
+    textarea.style.height = '32px'
+  }
 })
 </script>
 
@@ -214,6 +223,28 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-bottom: 12px;
+}
+
+.notebook-chat-panel :deep(.chat-input-area) {
+  background: transparent;
+  border-top: none;
+  padding: 4px 16px 0;
+}
+
+.notebook-chat-panel :deep(.input-wrapper) {
+  padding: 4px 12px;
+  align-items: center;
+}
+
+.notebook-chat-panel :deep(.send-btn),
+.notebook-chat-panel :deep(.stop-btn) {
+  border-radius: 50%;
+}
+
+.notebook-chat-panel :deep(.chat-textarea) {
+  max-height: 120px;
+  padding: 4px 0;
 }
 
 .panel-header {

@@ -1138,7 +1138,7 @@ const openApiProfileManager = async () => {
 }
 
 .notebook-mode-content :deep(.panels-container) {
-  padding: 0 12px;
+  padding: 0 12px 12px;
 }
 
 /* Terminal Container */
