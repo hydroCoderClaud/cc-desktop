@@ -107,6 +107,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useLocale } from '@composables/useLocale'
+import { useMessage } from 'naive-ui'
 import { useAgentChat } from '@composables/useAgentChat'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
 import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
@@ -115,6 +116,7 @@ import ChatInput from '@/pages/main/components/agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+const message = useMessage()
 
 const queueEnabled = ref(true)
 
@@ -294,8 +296,10 @@ const handleSwitchApi = async (profile) => {
     await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
     currentApiProfileId.value = profile.id
     await initDefaultModel(profile.id)
+    message.success(`已切换到 ${profile.name}，下条消息起生效`)
   } catch (err) {
     console.error('[ChatPanel] switchApiProfile failed:', err)
+    message.error('切换 API 失败：' + err.message)
   }
 }
 
