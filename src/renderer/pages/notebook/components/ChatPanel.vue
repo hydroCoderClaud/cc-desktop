@@ -22,6 +22,7 @@
               class="api-dropdown"
               :style="apiDropdownStyle"
             >
+              <div v-if="apiProfiles.length === 0" class="api-dropdown-empty">{{ t('notebook.chat.noProfiles') }}</div>
               <div
                 v-for="p in apiProfiles"
                 :key="p.id"
@@ -289,9 +290,18 @@ const toggleApiDropdown = () => {
   showApiDropdown.value = !showApiDropdown.value
 }
 
+const onWindowResize = () => {
+  if (showApiDropdown.value && apiSwitcherRef.value) {
+    const rect = apiSwitcherRef.value.getBoundingClientRect()
+    apiDropdownPos.value = { top: rect.bottom + 6, right: window.innerWidth - rect.right }
+  }
+}
+
+let isSwitchingApi = false
 const handleSwitchApi = async (profile) => {
   showApiDropdown.value = false
-  if (profile.id === currentApiProfileId.value) return
+  if (profile.id === currentApiProfileId.value || isSwitchingApi) return
+  isSwitchingApi = true
   try {
     await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
     currentApiProfileId.value = profile.id
@@ -300,6 +310,8 @@ const handleSwitchApi = async (profile) => {
   } catch (err) {
     console.error('[ChatPanel] switchApiProfile failed:', err)
     message.error(t('notebook.chat.apiSwitchFailed') + '：' + err.message)
+  } finally {
+    isSwitchingApi = false
   }
 }
 
@@ -337,8 +349,9 @@ watch(queueEnabled, (enabled, wasEnabled) => {
 onBeforeUnmount(() => {
   isUnmounting = true
   document.removeEventListener('click', onApiSwitcherClickOutside, true)
+  window.removeEventListener('resize', onWindowResize)
   if (messagesListRef.value) {
-    messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
+    messagesListRef.value.removeEventListener('scroll', onMessagesScroll, { passive: true })
   }
 })
 
@@ -349,6 +362,7 @@ onMounted(async () => {
   await loadApiProfiles()
   await loadMessages()
   document.addEventListener('click', onApiSwitcherClickOutside, true)
+  window.addEventListener('resize', onWindowResize)
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
@@ -483,6 +497,13 @@ onMounted(async () => {
 
 .api-dropdown-item:hover { background: var(--hover-bg); }
 .api-dropdown-item.active { color: var(--primary-color); }
+
+.api-dropdown-empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-color-muted);
+  text-align: center;
+}
 
 .api-check { color: var(--primary-color); flex-shrink: 0; }
 .api-check-placeholder { width: 14px; flex-shrink: 0; }

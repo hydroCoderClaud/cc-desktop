@@ -1453,7 +1453,9 @@ export default {
       sources: '{count} sources',
       apiSwitched: 'Switched to {name}, takes effect on next message',
       apiSwitchFailed: 'Failed to switch API',
+      noProfiles: 'No API profiles configured',
     },
+    studio: {
       title: 'Studio',
       expand: 'Expand',
       generated: 'Generated',

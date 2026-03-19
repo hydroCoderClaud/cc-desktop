@@ -737,7 +737,7 @@ class AgentSessionManager extends EventEmitter {
       session.messageQueue = null
     }
     if (session.queryGenerator) {
-      killProcessTree(session.cliPid)
+      try { killProcessTree(session.cliPid) } catch {}
       try { session.queryGenerator.close() } catch {}
       session.queryGenerator = null
       session.cliPid = null

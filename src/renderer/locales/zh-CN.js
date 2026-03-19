@@ -1459,6 +1459,7 @@ export default {
       sources: '{count} 个来源',
       apiSwitched: '已切换到 {name}，下条消息起生效',
       apiSwitchFailed: '切换 API 失败',
+      noProfiles: '暂无 API 配置',
     },
     studio: {
       title: 'Studio',

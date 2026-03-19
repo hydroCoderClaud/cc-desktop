@@ -190,10 +190,7 @@ const currentNotebook = ref(null)   // { id, name, path, ... }
 const notebookTitle = ref('')
 const editingTitle = ref(false)
 const titleInput = ref(null)
-const isFullscreen = ref(false)
 const loading = ref(false)
-
-// ─── 数据 ─────────────────────────────────────────────────────────────────────
 const sources = ref([])
 const achievements = ref([])
 
@@ -211,6 +208,14 @@ const availableTypes = [
 
 // ─── 加载 ─────────────────────────────────────────────────────────────────────
 const loadNotebook = async (notebook) => {
+  // 关闭当前会话（若有），释放 CLI 进程
+  if (currentNotebook.value?.sessionId) {
+    try {
+      await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
+    } catch (err) {
+      console.warn('[Notebook] Failed to close previous session:', err)
+    }
+  }
   try {
     const data = await window.electronAPI.notebookGet(notebook.id)
     console.log('[NotebookWorkspace] notebookGet result:', {
@@ -236,14 +241,12 @@ const loadNotebook = async (notebook) => {
 }
 
 onMounted(async () => {
-  document.addEventListener('fullscreenchange', onFullscreenChange)
   document.addEventListener('click', handleGlobalClick, true)
   // 启动时不自动选中任何笔记本，等待用户从下拉列表选择或新建
   loading.value = false
 })
 
 onUnmounted(() => {
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
   document.removeEventListener('click', handleGlobalClick, true)
 })
 
@@ -404,19 +407,6 @@ const handleGlobalClick = (e) => {
     if (!wrapper) showNotebookDropdown.value = false
   }
 }
-
-// ─── 全屏 ─────────────────────────────────────────────────────────────────────
-const toggleFullscreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen()
-    isFullscreen.value = true
-  } else {
-    document.exitFullscreen()
-    isFullscreen.value = false
-  }
-}
-
-const onFullscreenChange = () => { isFullscreen.value = !!document.fullscreenElement }
 
 // ─── Sources ─────────────────────────────────────────────────────────────────
 const selectedSources = computed(() => sources.value.filter(s => s.selected))
