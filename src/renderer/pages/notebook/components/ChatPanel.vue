@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
@@ -142,8 +142,11 @@ const {
   sendMessage,
   cancelGeneration,
   setupStreamListeners,
-  initDefaultModel
+  initDefaultModel,
+  isInterrupting
 } = useAgentChat(props.sessionId)
+
+let isUnmounting = false
 
 const panelRef = ref(null)
 const messagesListRef = ref(null)
@@ -215,6 +218,37 @@ const handleSend = async (text) => {
 const handleCancel = async () => {
   await cancelGeneration()
 }
+
+// --- 队列自动消费 ---
+const tryAutoConsumeQueue = () => {
+  if (isUnmounting) return
+  nextTick(async () => {
+    const next = chatInputRef.value?.dequeue()
+    if (next) {
+      await handleSend(next)
+    }
+  })
+}
+
+// 流式结束后自动消费队列
+watch(isStreaming, (streaming, wasStreaming) => {
+  if (wasStreaming && !streaming && queueEnabled.value) {
+    if (isInterrupting.value) return
+    if (error.value) return
+    tryAutoConsumeQueue()
+  }
+})
+
+// 队列从关闭切换到启用时，自动消费
+watch(queueEnabled, (enabled, wasEnabled) => {
+  if (!wasEnabled && enabled && !isStreaming.value) {
+    tryAutoConsumeQueue()
+  }
+})
+
+onBeforeUnmount(() => {
+  isUnmounting = true
+})
 
 onMounted(async () => {
   setupStreamListeners()
