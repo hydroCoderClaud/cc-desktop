@@ -56,7 +56,7 @@
       ref="chatInputRef"
       :is-streaming="isStreaming"
       :disabled="false"
-      :queue-enabled="false"
+      :queue-enabled="queueEnabled"
       :placeholder="t('notebook.chat.placeholder')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
@@ -64,7 +64,7 @@
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
-      @update:queue-enabled="noop"
+      @update:queue-enabled="handleToggleQueue"
     />
   </div>
 </template>
@@ -80,6 +80,30 @@ import ChatInput from '@/pages/main/components/agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+
+const queueEnabled = ref(true)
+
+const loadQueueSetting = async () => {
+  try {
+    const config = await window.electronAPI?.getConfig()
+    if (config?.settings?.agent?.messageQueue !== undefined) {
+      queueEnabled.value = config.settings.agent.messageQueue
+    }
+  } catch {}
+}
+
+const handleToggleQueue = async (enabled) => {
+  queueEnabled.value = enabled
+  try {
+    const config = await window.electronAPI?.getConfig()
+    if (config?.settings?.agent) {
+      config.settings.agent.messageQueue = enabled
+      await window.electronAPI?.saveConfig(JSON.parse(JSON.stringify(config)))
+    }
+  } catch (err) {
+    console.error('Failed to save queue setting:', err)
+  }
+}
 
 const props = defineProps({
   sessionId: {
@@ -129,8 +153,6 @@ const userAtBottom = ref(true)
 const BOTTOM_THRESHOLD = 60
 let lastScrollTime = 0
 const SCROLL_THROTTLE_MS = 100
-
-const noop = () => {}
 
 const checkIfAtBottom = () => {
   const el = messagesListRef.value
@@ -197,6 +219,7 @@ const handleCancel = async () => {
 onMounted(async () => {
   setupStreamListeners()
   await initDefaultModel(props.apiProfileId)
+  await loadQueueSetting()
   await loadMessages()
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
