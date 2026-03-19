@@ -242,6 +242,10 @@ onMounted(async () => {
   border-radius: 50%;
 }
 
+.notebook-chat-panel .status-hint-bar {
+  display: none;
+}
+
 .notebook-chat-panel :deep(.chat-textarea) {
   max-height: 120px;
   padding: 4px 0;
