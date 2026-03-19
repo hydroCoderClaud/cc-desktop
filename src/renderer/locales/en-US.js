@@ -1412,6 +1412,16 @@ export default {
     switchNotebook: 'Switch Notebook',
     myNotebooks: 'My Notebooks',
     noNotebooks: 'No notebooks yet',
+    renameFailed: 'Rename failed',
+    createSuccess: 'Created: {name}',
+    deleteSuccess: 'Deleted: {name}',
+    deleteFailed: 'Delete failed',
+    deleteConfirmTitle: 'Delete Notebook',
+    deleteConfirmContent: 'Are you sure you want to delete "{name}"? This will permanently delete the notebook directory and all conversation history.',
+    empty: {
+      title: 'Start your first notebook',
+      hint: 'Organize sources, generate reports, videos, and charts with AI',
+    },
     nav: {
       createNotebook: 'Create Notebook',
       share: 'Share',
@@ -1441,8 +1451,9 @@ export default {
       subtitle: 'Intelligent workspace inspired by NotebookLM',
       placeholder: 'Start typing...',
       sources: '{count} sources',
+      apiSwitched: 'Switched to {name}, takes effect on next message',
+      apiSwitchFailed: 'Failed to switch API',
     },
-    studio: {
       title: 'Studio',
       expand: 'Expand',
       generated: 'Generated',

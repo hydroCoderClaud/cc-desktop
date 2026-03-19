@@ -1418,6 +1418,16 @@ export default {
     switchNotebook: '切换笔记本',
     myNotebooks: '我的笔记本',
     noNotebooks: '还没有笔记本',
+    renameFailed: '重命名失败',
+    createSuccess: '已创建：{name}',
+    deleteSuccess: '已删除：{name}',
+    deleteFailed: '删除失败',
+    deleteConfirmTitle: '删除笔记本',
+    deleteConfirmContent: '确定删除「{name}」？此操作将删除笔记本目录及所有对话记录，不可恢复。',
+    empty: {
+      title: '开始你的第一个笔记本',
+      hint: '整理资料，用 AI 生成报告、视频、图表',
+    },
     nav: {
       createNotebook: '创建笔记本',
       share: '分享',
@@ -1447,6 +1457,8 @@ export default {
       subtitle: '基于 NotebookLM 理念的智能工作空间',
       placeholder: '开始输入...',
       sources: '{count} 个来源',
+      apiSwitched: '已切换到 {name}，下条消息起生效',
+      apiSwitchFailed: '切换 API 失败',
     },
     studio: {
       title: 'Studio',

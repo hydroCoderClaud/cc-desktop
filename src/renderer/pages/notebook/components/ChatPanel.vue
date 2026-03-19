@@ -296,10 +296,10 @@ const handleSwitchApi = async (profile) => {
     await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
     currentApiProfileId.value = profile.id
     await initDefaultModel(profile.id)
-    message.success(`已切换到 ${profile.name}，下条消息起生效`)
+    message.success(t('notebook.chat.apiSwitched', { name: profile.name }))
   } catch (err) {
     console.error('[ChatPanel] switchApiProfile failed:', err)
-    message.error('切换 API 失败：' + err.message)
+    message.error(t('notebook.chat.apiSwitchFailed') + '：' + err.message)
   }
 }
 
@@ -337,6 +337,9 @@ watch(queueEnabled, (enabled, wasEnabled) => {
 onBeforeUnmount(() => {
   isUnmounting = true
   document.removeEventListener('click', onApiSwitcherClickOutside, true)
+  if (messagesListRef.value) {
+    messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
+  }
 })
 
 onMounted(async () => {

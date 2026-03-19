@@ -59,14 +59,14 @@
                     v-if="currentNotebook?.id === nb.id"
                     class="item-action-btn"
                     @click.stop="closeNotebook"
-                    :title="t('notebook.closeNotebook')"
+                    :title="t('notebook.nav.closeNotebook')"
                   >
                     <Icon name="close" :size="12" />
                   </button>
                   <button class="item-action-btn" @click.stop="startRename(nb)" :title="t('common.rename')">
                     <Icon name="edit" :size="12" />
                   </button>
-                  <button class="item-action-btn" @click.stop="openNotebookDir(nb)" :title="t('notebook.openDir')">
+                  <button class="item-action-btn" @click.stop="openNotebookDir(nb)" :title="t('notebook.nav.openDir')">
                     <Icon name="folder" :size="12" />
                   </button>
                   <button class="item-action-btn item-action-btn--danger" @click.stop="confirmDelete(nb)" :title="t('common.delete')">
@@ -140,11 +140,11 @@
               <path d="M24 10 C24 10 14 21 14 27 a10 10 0 0 0 20 0 C34 21 24 10 24 10z" fill="currentColor" opacity="0.3"/>
             </svg>
           </div>
-          <p class="empty-chat-title">开始你的第一个笔记本</p>
-          <p class="empty-chat-hint">整理资料，用 AI 生成报告、视频、图表</p>
+          <p class="empty-chat-title">{{ t('notebook.empty.title') }}</p>
+          <p class="empty-chat-hint">{{ t('notebook.empty.hint') }}</p>
           <button class="empty-chat-btn" @click="handleCreateNotebook">
             <Icon name="plus" :size="16" />
-            <span>新建笔记本</span>
+            <span>{{ t('notebook.nav.createNotebook') }}</span>
           </button>
         </div>
       </div>
@@ -266,8 +266,8 @@ const stopEditTitle = async () => {
       const updated = await window.electronAPI.notebookRename({ id: currentNotebook.value.id, name: newName })
       currentNotebook.value = { ...currentNotebook.value, ...updated }
     } catch (err) {
-      message.error('重命名失败：' + err.message)
-      notebookTitle.value = currentNotebook.value.name
+    message.error(t('notebook.renameFailed') + '：' + err.message)
+    notebookTitle.value = currentNotebook.value.name
     }
   }
   editingTitle.value = false
@@ -283,7 +283,7 @@ const handleCreateNotebook = () => {
 
 const handleNotebookCreated = async (nb) => {
   await loadNotebook(nb)
-  message.success(`已创建：${nb.name}`)
+  message.success(t('notebook.createSuccess', { name: nb.name }))
 }
 
 // ─── 笔记本下拉切换 ──────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ const confirmRename = async (nb) => {
       notebookTitle.value = newName
     }
   } catch (err) {
-    message.error('重命名失败：' + err.message)
+    message.error(t('notebook.renameFailed') + '：' + err.message)
   }
 }
 
@@ -375,8 +375,8 @@ const confirmDelete = async (nb) => {
   showNotebookDropdown.value = false
 
   dialog.warning({
-    title: '删除笔记本',
-    content: `确定删除「${nb.name}」？此操作将删除笔记本目录及所有对话记录，不可恢复。`,
+    title: t('notebook.deleteConfirmTitle'),
+    content: t('notebook.deleteConfirmContent', { name: nb.name }),
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -388,10 +388,10 @@ const confirmDelete = async (nb) => {
           notebookTitle.value = ''
           sources.value = []
         }
-        message.success(`已删除：${nb.name}`)
+        message.success(t('notebook.deleteSuccess', { name: nb.name }))
       } catch (err) {
         console.error('[Notebook] Delete failed:', err)
-        message.error('删除失败：' + (err.message || '未知错误'))
+        message.error(t('notebook.deleteFailed') + '：' + (err.message || '未知错误'))
       }
     }
   })
