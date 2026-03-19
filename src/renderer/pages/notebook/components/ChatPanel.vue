@@ -12,7 +12,7 @@
             :title="currentProfileName"
             @click="toggleApiDropdown"
           >
-            <Icon name="zap" :size="14" :class="hasActiveSession ? 'cli-active' : 'cli-inactive'" />
+            <Icon name="api" :size="14" :class="hasActiveSession ? 'cli-active' : 'cli-inactive'" />
             <span class="api-name">{{ currentProfileName }}</span>
             <Icon name="chevronDown" :size="12" />
           </button>
