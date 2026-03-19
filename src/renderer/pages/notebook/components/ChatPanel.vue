@@ -16,19 +16,25 @@
             <span class="api-name">{{ currentProfileName }}</span>
             <Icon name="chevronDown" :size="12" />
           </button>
-          <div v-if="showApiDropdown" class="api-dropdown">
+          <Teleport to="body">
             <div
-              v-for="p in apiProfiles"
-              :key="p.id"
-              class="api-dropdown-item"
-              :class="{ active: p.id === currentApiProfileId }"
-              @click="handleSwitchApi(p)"
+              v-if="showApiDropdown"
+              class="api-dropdown"
+              :style="apiDropdownStyle"
             >
-              <Icon v-if="p.id === currentApiProfileId" name="check" :size="14" class="api-check" />
-              <span v-else class="api-check-placeholder"></span>
-              <span class="api-item-name">{{ p.name }}</span>
+              <div
+                v-for="p in apiProfiles"
+                :key="p.id"
+                class="api-dropdown-item"
+                :class="{ active: p.id === currentApiProfileId }"
+                @click="handleSwitchApi(p)"
+              >
+                <Icon v-if="p.id === currentApiProfileId" name="check" :size="14" class="api-check" />
+                <span v-else class="api-check-placeholder"></span>
+                <span class="api-item-name">{{ p.name }}</span>
+              </div>
             </div>
-          </div>
+          </Teleport>
         </div>
         <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
       </div>
@@ -253,6 +259,14 @@ const handleCancel = async () => {
 const apiProfiles = ref([])
 const currentApiProfileId = ref(props.apiProfileId)
 const showApiDropdown = ref(false)
+const apiDropdownPos = ref({ top: 0, right: 0 })
+
+const apiDropdownStyle = computed(() => ({
+  position: 'fixed',
+  top: apiDropdownPos.value.top + 'px',
+  right: apiDropdownPos.value.right + 'px',
+  zIndex: 9999
+}))
 
 const currentProfileName = computed(() => {
   const p = apiProfiles.value.find(p => p.id === currentApiProfileId.value)
@@ -266,6 +280,10 @@ const loadApiProfiles = async () => {
 }
 
 const toggleApiDropdown = () => {
+  if (!showApiDropdown.value && apiSwitcherRef.value) {
+    const rect = apiSwitcherRef.value.getBoundingClientRect()
+    apiDropdownPos.value = { top: rect.bottom + 6, right: window.innerWidth - rect.right }
+  }
   showApiDropdown.value = !showApiDropdown.value
 }
 
@@ -433,15 +451,11 @@ onMounted(async () => {
 }
 
 .api-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
   min-width: 180px;
   background: var(--bg-color-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  z-index: 200;
   padding: 4px;
 }
 
