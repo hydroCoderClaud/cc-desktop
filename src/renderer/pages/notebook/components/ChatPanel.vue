@@ -12,7 +12,7 @@
             :title="currentProfileName"
             @click="toggleApiDropdown"
           >
-            <Icon name="zap" :size="14" />
+            <Icon name="zap" :size="14" :class="hasActiveSession ? 'cli-active' : 'cli-inactive'" />
             <span class="api-name">{{ currentProfileName }}</span>
             <Icon name="chevronDown" :size="12" />
           </button>
@@ -416,6 +416,9 @@ onMounted(async () => {
 .api-switcher {
   position: relative;
 }
+
+.cli-active { color: #22c55e; }
+.cli-inactive { color: var(--text-color-muted); }
 
 .api-switcher-btn {
   display: flex;
