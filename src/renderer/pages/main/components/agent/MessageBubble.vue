@@ -25,14 +25,14 @@
       </div>
       <!-- 文字内容（过滤掉 [图片] 占位符） -->
       <div class="bubble-body" ref="bodyRef" v-html="renderedContent" @click="handleLinkClick"></div>
-      <!-- hover 操作栏（仅助手消息） -->
-      <div v-if="message.role === 'assistant'" class="bubble-actions">
-        <button class="bubble-action-btn" :title="t('agent.saveAsImage')" @click="saveAsImage">
-          <Icon name="download" :size="14" />
+      <div class="bubble-meta" v-if="message.timestamp || message.role === 'assistant'">
+        <span v-if="message.timestamp">{{ formatTime(message.timestamp) }}</span>
+        <button v-if="message.role === 'assistant'" class="bubble-save-btn" :title="t('agent.saveAsImage')" @click="saveAsImage">
+          <Icon name="download" :size="12" />
         </button>
-      </div>
-      <div class="bubble-meta" v-if="message.timestamp">
-        {{ formatTime(message.timestamp) }}
+        <button v-if="message.role === 'assistant'" class="bubble-save-btn" :title="t('agent.copyContent')" @click="copyContent">
+          <Icon name="copy" :size="12" />
+        </button>
       </div>
     </div>
   </div>
@@ -251,10 +251,14 @@ const contextMenuItems = ref([])
 
 const handleContextMenu = (event) => {
   const sel = window.getSelection()?.toString() || ''
-  contextMenuItems.value = [
+  const items = [
     { key: 'copy-selection', label: t('agent.copySelection'), disabled: !sel },
     { key: 'copy-content', label: t('agent.copyContent') }
   ]
+  if (props.message.role === 'assistant') {
+    items.push({ key: 'save-as-image', label: t('agent.saveAsImage') })
+  }
+  contextMenuItems.value = items
   contextMenuRef.value.show(event.clientX, event.clientY)
 }
 
@@ -263,6 +267,8 @@ const onContextMenuSelect = async (key) => {
     await navigator.clipboard.writeText(window.getSelection()?.toString() || '')
   } else if (key === 'copy-content') {
     await navigator.clipboard.writeText(props.message.content || '')
+  } else if (key === 'save-as-image') {
+    await saveAsImage()
   }
 }
 
@@ -303,6 +309,10 @@ const saveAsImage = async () => {
     console.error('[MessageBubble] Save as image failed:', err)
   }
 }
+
+const copyContent = async () => {
+  await navigator.clipboard.writeText(props.message.content || '')
+}
 </script>
 
 <style scoped>
@@ -314,7 +324,7 @@ const saveAsImage = async () => {
 }
 
 .message-bubble:hover {
-  background: var(--hover-bg);
+  background: unset;
 }
 
 .message-bubble.user {
@@ -351,6 +361,12 @@ const saveAsImage = async () => {
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.message-bubble:hover .bubble-body {
+  border-color: var(--primary-color);
 }
 
 .message-bubble.assistant .bubble-body {
@@ -417,51 +433,45 @@ const saveAsImage = async () => {
   border-bottom-color: white;
 }
 
-/* hover 操作栏 */
-.bubble-actions {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-
-.bubble-content:hover .bubble-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.bubble-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 6px;
-  background: var(--bg-color-tertiary);
-  color: var(--text-color-muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.bubble-action-btn:hover {
-  background: var(--primary-color);
-  color: white;
-}
+/* hover 操作栏 - 已移除，按钮内联到 bubble-meta */
 
 .bubble-meta {
   font-size: 11px;
   color: var(--text-color-muted);
   margin-top: 4px;
   padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .message-bubble.user .bubble-meta {
-  text-align: right;
+  justify-content: flex-end;
+}
+
+.bubble-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.bubble-content:hover .bubble-save-btn {
+  opacity: 1;
+}
+
+.bubble-save-btn:hover {
+  background: var(--bg-color-tertiary);
+  color: var(--primary-color);
 }
 
 /* 图片显示区域 */
