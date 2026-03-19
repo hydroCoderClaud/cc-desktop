@@ -15,8 +15,9 @@
           <h1
             v-if="!editingTitle"
             class="notebook-title"
-            @click="startEditTitle"
-            :title="t('notebook.nav.editTitle')"
+            :class="{ 'notebook-title--no-notebook': !currentNotebook }"
+            @click="currentNotebook ? startEditTitle() : handleCreateNotebook()"
+            :title="currentNotebook ? t('notebook.nav.editTitle') : t('notebook.nav.createNotebook')"
           >{{ notebookTitle || t('notebook.nav.createNotebook') }}</h1>
           <input
             v-else
@@ -523,6 +524,8 @@ const handlePreviewPath = async (filePath) => {
 }
 
 .notebook-title:hover { background: var(--hover-bg); }
+.notebook-title--no-notebook { color: var(--text-secondary); }
+.notebook-title--no-notebook:hover { color: var(--text-primary); }
 
 .notebook-title-input {
   font-size: 18px;
