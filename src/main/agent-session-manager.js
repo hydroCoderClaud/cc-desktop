@@ -722,6 +722,40 @@ class AgentSessionManager extends EventEmitter {
   }
 
   /**
+   * 切换 API Profile：终止当前 CLI 进程 + 更新 apiProfileId（下次发消息时用新 profile spawn）
+   */
+  async switchApiProfile(sessionId, newProfileId) {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error('Session not found')
+
+    const profile = this.configManager.getAPIProfile(newProfileId)
+    if (!profile) throw new Error('API Profile not found: ' + newProfileId)
+
+    // 终止当前 CLI 进程（若有）
+    if (session.messageQueue) {
+      session.messageQueue.end()
+      session.messageQueue = null
+    }
+    if (session.queryGenerator) {
+      killProcessTree(session.cliPid)
+      try { session.queryGenerator.close() } catch {}
+      session.queryGenerator = null
+      session.cliPid = null
+    }
+
+    // 更新 apiProfileId（内存 + DB）
+    session.apiProfileId = newProfileId
+    session.apiBaseUrl = profile.baseUrl || null
+    this.sessionDatabase.updateAgentConversation(sessionId, {
+      apiProfileId: newProfileId,
+      apiBaseUrl: profile.baseUrl || null
+    })
+
+    session.status = AgentStatus.IDLE
+    this._safeSend('agent:statusChange', { sessionId, status: AgentStatus.IDLE })
+  }
+
+  /**
    * 关闭会话（终止持久 CLI 进程 + DB 标记 closed + 内存移除）
    */
   async close(sessionId) {

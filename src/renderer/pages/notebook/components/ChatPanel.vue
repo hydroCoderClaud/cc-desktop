@@ -2,7 +2,36 @@
   <div class="notebook-chat-panel" ref="panelRef">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.chat.title') }}</span>
-      <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
+      <div class="header-right">
+        <!-- API 切换器 -->
+        <div class="api-switcher" ref="apiSwitcherRef">
+          <button
+            class="api-switcher-btn"
+            :class="{ disabled: isStreaming }"
+            :disabled="isStreaming"
+            :title="currentProfileName"
+            @click="toggleApiDropdown"
+          >
+            <Icon name="zap" :size="14" />
+            <span class="api-name">{{ currentProfileName }}</span>
+            <Icon name="chevronDown" :size="12" />
+          </button>
+          <div v-if="showApiDropdown" class="api-dropdown">
+            <div
+              v-for="p in apiProfiles"
+              :key="p.id"
+              class="api-dropdown-item"
+              :class="{ active: p.id === currentApiProfileId }"
+              @click="handleSwitchApi(p)"
+            >
+              <Icon v-if="p.id === currentApiProfileId" name="check" :size="14" class="api-check" />
+              <span v-else class="api-check-placeholder"></span>
+              <span class="api-item-name">{{ p.name }}</span>
+            </div>
+          </div>
+        </div>
+        <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
+      </div>
     </div>
 
     <div class="messages-list" ref="messagesListRef">
@@ -70,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
@@ -152,6 +181,7 @@ const panelRef = ref(null)
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
+const apiSwitcherRef = ref(null)
 const userAtBottom = ref(true)
 const BOTTOM_THRESHOLD = 60
 let lastScrollTime = 0
@@ -219,7 +249,43 @@ const handleCancel = async () => {
   await cancelGeneration()
 }
 
-// --- 队列自动消费 ---
+// ─── API 切换器 ────────────────────────────────────────────────────────────────
+const apiProfiles = ref([])
+const currentApiProfileId = ref(props.apiProfileId)
+const showApiDropdown = ref(false)
+
+const currentProfileName = computed(() => {
+  const p = apiProfiles.value.find(p => p.id === currentApiProfileId.value)
+  return p?.name || 'API'
+})
+
+const loadApiProfiles = async () => {
+  try {
+    apiProfiles.value = await window.electronAPI.listAPIProfiles()
+  } catch {}
+}
+
+const toggleApiDropdown = () => {
+  showApiDropdown.value = !showApiDropdown.value
+}
+
+const handleSwitchApi = async (profile) => {
+  showApiDropdown.value = false
+  if (profile.id === currentApiProfileId.value) return
+  try {
+    await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
+    currentApiProfileId.value = profile.id
+    await initDefaultModel(profile.id)
+  } catch (err) {
+    console.error('[ChatPanel] switchApiProfile failed:', err)
+  }
+}
+
+const onApiSwitcherClickOutside = (e) => {
+  if (showApiDropdown.value && apiSwitcherRef.value && !apiSwitcherRef.value.contains(e.target)) {
+    showApiDropdown.value = false
+  }
+}
 const tryAutoConsumeQueue = () => {
   if (isUnmounting) return
   nextTick(async () => {
@@ -248,13 +314,16 @@ watch(queueEnabled, (enabled, wasEnabled) => {
 
 onBeforeUnmount(() => {
   isUnmounting = true
+  document.removeEventListener('click', onApiSwitcherClickOutside, true)
 })
 
 onMounted(async () => {
   setupStreamListeners()
   await initDefaultModel(props.apiProfileId)
   await loadQueueSetting()
+  await loadApiProfiles()
   await loadMessages()
+  document.addEventListener('click', onApiSwitcherClickOutside, true)
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
@@ -318,6 +387,87 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
   gap: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-switcher {
+  position: relative;
+}
+
+.api-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  max-width: 130px;
+}
+
+.api-switcher-btn:hover:not(.disabled) {
+  background: var(--border-color);
+  color: var(--text-color);
+}
+
+.api-switcher-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.api-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  z-index: 200;
+  padding: 4px;
+}
+
+.api-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-color);
+  transition: background 0.1s;
+}
+
+.api-dropdown-item:hover { background: var(--hover-bg); }
+.api-dropdown-item.active { color: var(--primary-color); }
+
+.api-check { color: var(--primary-color); flex-shrink: 0; }
+.api-check-placeholder { width: 14px; flex-shrink: 0; }
+
+.api-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-title {

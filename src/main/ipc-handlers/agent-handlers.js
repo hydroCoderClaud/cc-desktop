@@ -74,6 +74,17 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 切换 API Profile（终止当前 CLI 进程，下次发消息用新 profile）
+  ipcMain.handle('agent:switchApiProfile', async (event, { sessionId, profileId }) => {
+    try {
+      await agentSessionManager.switchApiProfile(sessionId, profileId)
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] agent:switchApiProfile error:', err)
+      return { error: err.message }
+    }
+  })
+
   // 关闭会话
   ipcMain.handle('agent:close', async (event, sessionId) => {
     try {
