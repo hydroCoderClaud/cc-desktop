@@ -27,6 +27,7 @@
             class="type-card"
             :style="{ background: type.bgColor }"
             :title="type.tip"
+            @click="$emit('generate', type.id)"
           >
             <div class="type-card-top">
               <div class="type-icon-content" :style="{ color: type.color }">

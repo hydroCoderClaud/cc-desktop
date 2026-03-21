@@ -766,6 +766,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookBindSession: ({ id, sessionId }) => ipcRenderer.invoke('notebook:bindSession', { id, sessionId }),
   notebookListSources: (notebookId) => ipcRenderer.invoke('notebook:listSources', notebookId),
   notebookAddSource: ({ notebookId, sourceData }) => ipcRenderer.invoke('notebook:addSource', { notebookId, sourceData }),
+  notebookImportFiles: ({ notebookId, filePaths }) => ipcRenderer.invoke('notebook:importFiles', { notebookId, filePaths }),
   notebookUpdateSource: ({ notebookId, sourceId, updates }) => ipcRenderer.invoke('notebook:updateSource', { notebookId, sourceId, updates }),
   notebookDeleteSource: ({ notebookId, sourceId }) => ipcRenderer.invoke('notebook:deleteSource', { notebookId, sourceId }),
   notebookListAchievements: (notebookId) => ipcRenderer.invoke('notebook:listAchievements', notebookId),

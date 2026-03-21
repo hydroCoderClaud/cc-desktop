@@ -25,6 +25,7 @@
 
       <!-- 有会话时用 key 强制重建，确保 useAgentChat 在 setup 顶层调用 -->
       <ChatPanel
+        ref="chatPanelRef"
         v-if="currentNotebook?.sessionId"
         :key="currentNotebook.sessionId"
         :session-id="currentNotebook.sessionId"
@@ -34,6 +35,7 @@
         @preview-image="handlePreviewImage"
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
+        @agent-done="handleAgentDone"
       />
       <!-- 无会话时显示引导 -->
       <div v-else class="empty-chat-panel">
@@ -55,7 +57,11 @@
 
       <div class="resize-handle" @mousedown="startResize('right', $event)"></div>
 
-      <StudioPanel :achievements="achievements" :available-types="availableTypes" />
+      <StudioPanel
+        :achievements="achievements"
+        :available-types="availableTypes"
+        @generate="handleGenerateAchievement"
+      />
     </div>
 
     <!-- 新建笔记本弹窗 -->
@@ -82,10 +88,12 @@ import NotebookCreateModal from './NotebookCreateModal.vue'
 const message = useMessage()
 const { t } = useLocale()
 const { cssVars } = useTheme()
-const { startResize } = useNotebookLayout()
+const { startResize, showRightPanel } = useNotebookLayout()
 
 const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90d9')
 const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
+
+const chatPanelRef = ref(null)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
@@ -177,11 +185,83 @@ const toggleSelectAll = async () => {
   sources.value.forEach(s => { s.selected = newValue })
 }
 
-const handleAddSource = () => message.info('添加来源功能开发中...')
+const handleAddSource = async () => {
+  if (!currentNotebook.value) return
+  const filePaths = await window.electronAPI.selectFiles({
+    title: t('notebook.source.add'),
+    filters: [
+      { name: 'Sources', extensions: ['pdf', 'md', 'markdown', 'txt', 'js', 'ts', 'py', 'png', 'jpg', 'jpeg', 'json', 'vue', 'sh', 'ps1'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  })
+
+  if (filePaths && filePaths.length > 0) {
+    const loading = message.loading(t('common.loading'), { duration: 0 })
+    try {
+      await window.electronAPI.notebookImportFiles({
+        notebookId: currentNotebook.value.id,
+        filePaths
+      })
+      // 重新加载数据以刷新来源列表
+      await loadNotebook(currentNotebook.value)
+      message.success(t('common.success'))
+    } catch (err) {
+      console.error('[Notebook] Failed to import files:', err)
+      message.error(t('common.error'))
+    } finally {
+      loading.destroy()
+    }
+  }
+}
 
 const handleOpenExternal = (source) => {
   if (source.url) window.electronAPI.openExternal(source.url).catch(() => {})
   else message.info(`外部打开：${source.name}`)
+}
+
+// ─── Studio Achievements ──────────────────────────────────────────────────
+const handleGenerateAchievement = async (typeId) => {
+  if (!currentNotebook.value) return
+  if (selectedSources.value.length === 0) {
+    message.warning(t('notebook.chat.selectSourcesFirst') || '请先在左侧选择至少一个来源')
+    return
+  }
+
+  const type = availableTypes.find(t => t.id === typeId)
+  const typeName = t('notebook.types.' + typeId)
+  const sourceInfo = selectedSources.value.map(s => `- ${s.name} (路径: ${s.path})`).join('\n')
+
+  // 1. 创建成果记录（状态为 generating）
+  try {
+    await window.electronAPI.notebookAddAchievement({
+      notebookId: currentNotebook.value.id,
+      achievementData: {
+        name: `${typeName} - ${new Date().toLocaleDateString()}`,
+        type: typeId,
+        sourceIds: selectedSources.value.map(s => s.id)
+      }
+    })
+    // 刷新列表显示正在生成
+    await loadNotebook(currentNotebook.value)
+  } catch (err) {
+    console.error('[Notebook] Failed to create achievement record:', err)
+  }
+
+  // 2. 构建指令并发送给 Agent (包含路径以防幻觉)
+  const prompt = `请分析以下选中的来源文件：\n${sourceInfo}\n\n我的目标是：基于这些文件内容生成一份 ${typeName}。\n请直接输出 ${typeName} 的详细内容，如果是报告请保持结构完整，如果是思维导图请使用 Markdown 列表格式，如果是演示文稿请分页面描述。`
+
+  if (chatPanelRef.value) {
+    showRightPanel.value = true
+    await chatPanelRef.value.sendMessage(prompt)
+  }
+}
+
+const handleAgentDone = async (newFilePaths = []) => {
+  // Agent 完成后，如果生成了新文件，或者只是对话结束，我们刷新笔记本数据
+  // 以便获取可能更新的 achievements.json
+  if (currentNotebook.value) {
+    await loadNotebook(currentNotebook.value)
+  }
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────

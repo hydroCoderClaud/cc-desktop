@@ -360,6 +360,79 @@ class NotebookManager {
   }
 
   /**
+   * 导入文件作为来源
+   * @param {string} notebookId
+   * @param {string} filePath 外部文件路径
+   * @param {string} [type] 可选，手动指定类型
+   */
+  async importFile(notebookId, filePath, type) {
+    if (!fs.existsSync(filePath)) throw new Error(`文件不存在：${filePath}`)
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const stats = fs.statSync(filePath)
+    if (stats.isDirectory()) throw new Error('暂不支持导入目录')
+
+    const ext = path.extname(filePath).toLowerCase().slice(1)
+    const fileName = path.basename(filePath)
+
+    // 自动推断类型
+    let detectedType = type
+    if (!detectedType) {
+      if (['pdf'].includes(ext)) detectedType = 'pdf'
+      else if (['md', 'markdown'].includes(ext)) detectedType = 'markdown'
+      else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) detectedType = 'image'
+      else if (['js', 'ts', 'py', 'java', 'c', 'cpp', 'go', 'rs', 'html', 'css', 'json', 'vue', 'sh', 'ps1'].includes(ext)) detectedType = 'code'
+      else detectedType = 'text'
+    }
+
+    const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'text'
+    const relDir = path.join('sources', typeDir)
+    const targetDir = path.join(notebookPath, relDir)
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
+
+    // 避免重名
+    let targetFileName = fileName
+    let counter = 1
+    while (fs.existsSync(path.join(targetDir, targetFileName))) {
+      const parsed = path.parse(fileName)
+      targetFileName = `${parsed.name}_${counter}${parsed.ext}`
+      counter++
+    }
+
+    const targetPath = path.join(targetDir, targetFileName)
+    const relPath = path.join(relDir, targetFileName).replace(/\\/g, '/')
+
+    // 复制文件
+    fs.copyFileSync(filePath, targetPath)
+
+    // 添加到索引
+    return this.addSource(notebookId, {
+      name: fileName,
+      type: detectedType,
+      path: relPath,
+      summary: `Imported from ${filePath} at ${new Date().toLocaleString()}`
+    })
+  }
+
+  /**
+   * 批量导入文件
+   * @param {string} notebookId
+   * @param {string[]} filePaths
+   */
+  async importFiles(notebookId, filePaths) {
+    const results = []
+    for (const fp of filePaths) {
+      try {
+        const res = await this.importFile(notebookId, fp)
+        results.push(res)
+      } catch (err) {
+        console.error(`[NotebookManager] Failed to import file: ${fp}`, err)
+      }
+    }
+    return results
+  }
+
+  /**
    * 添加来源
    * @param {string} notebookId
    * @param {{ name, type, url?, tags?, summary?, content? }} sourceData

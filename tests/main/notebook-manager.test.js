@@ -138,6 +138,41 @@ describe('NotebookManager', () => {
     fs.rmdirSync = orig
   })
 
+  // ── import ─────────────────────────────────────────────────────────────
+
+  it('importFile: 复制文件到 sources 子目录并添加索引', async () => {
+    const nb = mgr.create({ name: 'import测试' })
+    const tmpFile = path.join(os.tmpdir(), 'test-doc.pdf')
+    fs.writeFileSync(tmpFile, 'dummy pdf content')
+
+    const src = await mgr.importFile(nb.id, tmpFile)
+    expect(src.name).toBe('test-doc.pdf')
+    expect(src.type).toBe('pdf')
+    expect(src.path).toBe('sources/pdf/test-doc.pdf')
+
+    // 验证物理文件是否存在
+    const targetPath = path.join(nb.notebookPath, 'sources/pdf/test-doc.pdf')
+    expect(fs.existsSync(targetPath)).toBe(true)
+    expect(fs.readFileSync(targetPath, 'utf-8')).toBe('dummy pdf content')
+
+    fs.unlinkSync(tmpFile)
+  })
+
+  it('importFile: 重名时自动重命名', async () => {
+    const nb = mgr.create({ name: '重名测试' })
+    const tmpFile = path.join(os.tmpdir(), 'dup.txt')
+    fs.writeFileSync(tmpFile, 'v1')
+
+    await mgr.importFile(nb.id, tmpFile)
+    fs.writeFileSync(tmpFile, 'v2')
+    const src2 = await mgr.importFile(nb.id, tmpFile)
+
+    expect(src2.path).toBe('sources/text/dup_1.txt')
+    expect(fs.existsSync(path.join(nb.notebookPath, 'sources/text/dup_1.txt'))).toBe(true)
+
+    fs.unlinkSync(tmpFile)
+  })
+
   // ── sources CRUD ─────────────────────────────────────────────────────────
 
   it('addSource / listSources / updateSource / deleteSource', () => {

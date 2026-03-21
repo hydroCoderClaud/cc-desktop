@@ -330,6 +330,11 @@ const tryAutoConsumeQueue = () => {
   })
 }
 
+// 暴露方法给父组件
+defineExpose({
+  sendMessage: handleSend
+})
+
 // 流式结束后自动消费队列
 watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming && queueEnabled.value) {

@@ -85,6 +85,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:importFiles', async (_e, { notebookId, filePaths }) => {
+    try {
+      return await notebookManager.importFiles(notebookId, filePaths)
+    } catch (err) {
+      console.error('[IPC] notebook:importFiles error:', err)
+      throw err
+    }
+  })
+
   ipcMain.handle('notebook:updateSource', async (_e, { notebookId, sourceId, updates }) => {
     try {
       return notebookManager.updateSource(notebookId, sourceId, updates)
