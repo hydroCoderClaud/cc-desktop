@@ -158,7 +158,8 @@ const getSourceAbsPath = (source) => {
   return source.path
 }
 
-const getSourceIcon = (type) => {  const map = { web: 'globe', markdown: 'fileText', pdf: 'file', text: 'file', code: 'file', image: 'image', video: 'video', audio: 'audio' }
+const getSourceIcon = (type) => {
+  const map = { web: 'globe', markdown: 'fileText', pdf: 'file', text: 'file', code: 'file', image: 'image', video: 'video', audio: 'audio' }
   return map[type] || 'file'
 }
 

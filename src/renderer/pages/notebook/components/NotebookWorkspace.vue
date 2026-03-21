@@ -321,18 +321,13 @@ const handleUpdateSource = async (sourceId, updates) => {
 
 const handleToggleCopySourceFiles = async () => {
   if (!currentNotebook.value) return
+  const notebookId = currentNotebook.value.id
   const newValue = !currentNotebook.value.copySourceFiles
-  // 本地立即更新
   currentNotebook.value = { ...currentNotebook.value, copySourceFiles: newValue }
-  // 持久化
   try {
-    await window.electronAPI.notebookSetCopySourceFiles({
-      notebookId: currentNotebook.value.id,
-      value: newValue
-    })
+    await window.electronAPI.notebookSetCopySourceFiles({ notebookId, value: newValue })
   } catch (err) {
     console.error('[Notebook] Failed to set copySourceFiles:', err)
-    // 回滚
     currentNotebook.value = { ...currentNotebook.value, copySourceFiles: !newValue }
     message.error(t('common.error'))
   }

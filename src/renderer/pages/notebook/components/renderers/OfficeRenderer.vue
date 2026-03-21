@@ -88,7 +88,7 @@ const currentSheetData = computed(() => {
   if (!data || !data.length) return []
 
   // 计算最大列数，确保空单元格也能渲染
-  const maxCols = Math.max(...data.map(row => row?.length || 0))
+  const maxCols = data.reduce((m, row) => Math.max(m, row?.length || 0), 0)
   return data.map(row => {
     const normalizedRow = Array.isArray(row) ? [...row] : []
     while (normalizedRow.length < maxCols) {

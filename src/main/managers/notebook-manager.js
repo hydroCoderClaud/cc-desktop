@@ -400,14 +400,14 @@ class NotebookManager {
       const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'text'
       const relDir = path.join('sources', typeDir)
       const targetDir = path.join(notebookPath, relDir)
-      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
+      fs.mkdirSync(targetDir, { recursive: true })
 
       // 避免重名
+      const parsedName = path.parse(fileName)
       targetFileName = fileName
       let counter = 1
       while (fs.existsSync(path.join(targetDir, targetFileName))) {
-        const parsed = path.parse(fileName)
-        targetFileName = `${parsed.name}_${counter}${parsed.ext}`
+        targetFileName = `${parsedName.name}_${counter}${parsedName.ext}`
         counter++
       }
 
@@ -421,8 +421,6 @@ class NotebookManager {
         params: { path: filePath, time: new Date().toLocaleString(), currentPath: targetPath }
       })
     } else {
-      // 不复制模式：直接记录原始绝对路径
-      // 不复制模式：直接记录原始绝对路径
       storedPath = filePath
       summary = JSON.stringify({
         i18nKey: 'notebook.source.importInfo',
