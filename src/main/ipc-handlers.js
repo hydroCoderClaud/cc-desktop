@@ -23,6 +23,7 @@ const { SessionFileWatcher } = safeRequire('./session-file-watcher', 'SessionFil
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
 const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
+const projectFilesHandlersMod = safeRequire('./ipc-handlers/project-files-handlers', 'project-files-handlers');
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
@@ -38,6 +39,7 @@ const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
+const setupProjectFilesHandlers = projectFilesHandlersMod?.setupProjectFilesHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
@@ -617,6 +619,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (setupProjectHandlers) {
     setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
+  }
+
+  // ========================================
+  // 工程文件浏览管理
+  // ========================================
+  if (setupProjectFilesHandlers) {
+    setupProjectFilesHandlers(ipcMain);
   }
 
   // ========================================

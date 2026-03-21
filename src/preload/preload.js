@@ -597,6 +597,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
 
   // 文件浏览（AgentRightPanel）
+  listProjectDir: ({ rootPath, relativePath, showHidden }) => ipcRenderer.invoke('project:listDir', { rootPath, relativePath, showHidden }),
+  readProjectFile: ({ rootPath, relativePath }) => ipcRenderer.invoke('project:readFile', { rootPath, relativePath }),
+  saveProjectFile: ({ rootPath, relativePath, content }) => ipcRenderer.invoke('project:saveFile', { rootPath, relativePath, content }),
+  createProjectFile: ({ rootPath, parentPath, name, isDirectory }) => ipcRenderer.invoke('project:createFile', { rootPath, parentPath, name, isDirectory }),
+  renameProjectFile: ({ rootPath, oldPath, newName }) => ipcRenderer.invoke('project:renameFile', { rootPath, oldPath, newName }),
+  deleteProjectFile: ({ rootPath, path }) => ipcRenderer.invoke('project:deleteFile', { rootPath, path }),
+  searchProjectFiles: ({ rootPath, keyword, showHidden }) => ipcRenderer.invoke('project:searchFiles', { rootPath, keyword, showHidden }),
+
   listAgentDir: ({ sessionId, relativePath, showHidden }) =>
     ipcRenderer.invoke('agent:listDir', { sessionId, relativePath, showHidden }),
   readAgentFile: ({ sessionId, relativePath }) =>

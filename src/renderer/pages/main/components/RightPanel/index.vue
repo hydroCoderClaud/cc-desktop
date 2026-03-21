@@ -21,13 +21,13 @@
       <!-- 其他 Tab（v-show + KeepAlive 保持所有状态） -->
       <div v-show="activeTab !== 'queue'" class="tab-content-wrapper">
         <KeepAlive>
-          <component
-            :is="currentTabComponent"
+          <component :is="currentTabComponent"
             ref="tabContentRef"
             :current-project="currentProject"
             :terminal-busy="terminalBusy"
             @send-command="handleSendToTerminal"
             @insert-to-input="handleInsertToInput"
+              @insert-path="handleInsertToInput"
             @add-to-queue="handleAddToQueue"
             @save-as-prompt="handleCreatePrompt"
           />
@@ -64,6 +64,7 @@ import SkillsTab from './tabs/SkillsTab.vue'
 import HooksTab from './tabs/HooksTab.vue'
 import MCPTab from './tabs/MCPTab.vue'
 import AgentsTab from './tabs/AgentsTab.vue'
+import FilesTab from './tabs/FilesTab.vue'
 import PromptsTab from './tabs/PromptsTab.vue'
 import SettingsTab from './tabs/SettingsTab.vue'
 // import AITab from './tabs/AITab.vue' // 暂时禁用
@@ -80,14 +81,18 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  currentSessionUuid: {
+  activeTabCwd: {
+      type: String,
+      default: null
+    },
+    currentSessionUuid: {
     type: String,
     default: ''
   }
 })
 
 // Emits
-const emit = defineEmits(['collapse', 'send-to-terminal'])
+const emit = defineEmits(['collapse', 'send-to-terminal', 'insert-path'])
 
 // Refs
 const quickInputRef = ref(null)
@@ -99,6 +104,7 @@ const { addToQueue } = window.electronAPI
 
 // Tab definitions
 const tabs = computed(() => [
+  { id: 'files', icon: 'folder', label: t('rightPanel.tabs.files') },
   { id: 'prompts', icon: 'prompt', label: t('rightPanel.tabs.prompts') },
   { id: 'queue', icon: 'queue', label: t('rightPanel.tabs.queue') },
   { id: 'skills', icon: 'letterS', label: t('rightPanel.tabs.skills') },
@@ -112,6 +118,7 @@ const tabs = computed(() => [
 
 // Tab components map (queue 使用 MessageQueue 直接渲染)
 const tabComponents = {
+  files: markRaw(FilesTab),
   prompts: markRaw(PromptsTab),
   plugins: markRaw(PluginsTab),
   skills: markRaw(SkillsTab),
@@ -123,7 +130,7 @@ const tabComponents = {
 }
 
 // Active tab state
-const activeTab = ref('prompts')
+const activeTab = ref('files')
 
 // Current tab component
 const currentTabComponent = computed(() => {

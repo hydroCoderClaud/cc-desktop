@@ -280,6 +280,14 @@ const activeAgentCwd = computed(() => {
   return (tab?.type === 'agent-chat') ? (tab.cwd || null) : null
 })
 
+// 计算当前活动的目录（Agent会话优先使用cwd，否则使用当前项目路径）
+const activeTabCwd = computed(() => {
+  if (activeTabId.value === 'welcome') return currentProject.value?.path || null
+  const tab = allTabs.value.find(t => t.id === activeTabId.value)
+  if (tab?.type === 'agent-chat' && tab.cwd) return tab.cwd
+  return currentProject.value?.path || null
+})
+
 // 各模式最后的 activeTabId，切换模式时保存/恢复
 let lastDeveloperTabId = 'welcome'
 let lastAgentTabId = 'welcome'
@@ -348,6 +356,19 @@ watch(activeTabId, (newTabId) => {
   if (!newTabId || newTabId === 'welcome') return
   const tab = allTabs.value.find(t => t.id === newTabId)
   if (!tab) return
+
+  // 更新 currentProject，以便 RightPanel (FilesTab) 能随当前会话切换
+  if (tab.projectId && tab.projectId !== currentProject.value?.id) {
+    const targetProject = projects.value.find(p => p.id === tab.projectId)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  } else if (tab.type === 'agent-chat' && tab.cwd && tab.cwd !== currentProject.value?.path) {
+    const targetProject = projects.value.find(p => p.path === tab.cwd)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  }
 
   // 同步左侧面板焦点（按 tab 类型区分）
   if (tab.type === 'agent-chat') {
@@ -905,12 +926,16 @@ const handleAgentTabReady = ({ sessionId }) => {
 const handleInsertPath = (relativePath) => {
   if (!activeTabId.value) return
 
-  // 获取当前活动的 AgentChatTab 引用
-  const activeTabRef = agentChatTabRefs.value[activeTabId.value]
-  if (!activeTabRef || !activeTabRef.insertText) return
-
-  // 插入路径到输入框
-  activeTabRef.insertText(relativePath + '\n')
+  if (isDeveloperMode.value) {
+    if (rightPanelRef.value && rightPanelRef.value.insertToInput) {
+      rightPanelRef.value.insertToInput(relativePath)
+    }
+  } else if (isAgentMode.value) {
+    const activeTabRef = agentChatTabRefs.value[activeTabId.value]
+    if (activeTabRef && activeTabRef.insertText) {
+      activeTabRef.insertText(relativePath + '\n')
+    }
+  }
 }
 
 // 处理图片预览请求

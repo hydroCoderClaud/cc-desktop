@@ -106,6 +106,7 @@ export default {
     comingSoon: 'More features coming soon',
     // Tabs
     tabs: {
+      files: 'Files',
       queue: 'Queue',
       plugins: 'Plugins',
       skills: 'Skills',
