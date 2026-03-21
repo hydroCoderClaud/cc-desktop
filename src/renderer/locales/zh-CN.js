@@ -1450,7 +1450,9 @@ export default {
       selectAll: '选择所有来源',
       invertSelection: '反选',
       guide: '来源指南',
-      openExternal: '在外部打开源',
+      importInfo: '导入自 {path}，时间 {time}',
+      openExternal: '外部打开',
+
       web: 'Web',
       fastResearch: 'Fast Research',
     },

@@ -229,9 +229,27 @@ const handleAddSource = async () => {
   }
 }
 
-const handleOpenExternal = (source) => {
-  if (source.url) window.electronAPI.openExternal(source.url).catch(() => {})
-  else message.info(`外部打开：${source.name}`)
+const handleOpenExternal = async (source) => {
+  if (!source) return
+  
+  // 1. 如果是网页链接
+  if (source.url) {
+    window.electronAPI.openExternal(source.url).catch(() => {})
+    return
+  }
+
+  // 2. 如果是本地文件
+  if (source.path && currentNotebook.value?.notebookPath) {
+    try {
+      const absPath = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, source.path)
+      await window.electronAPI.openPath(absPath)
+    } catch (err) {
+      console.error('[Notebook] Failed to open path:', err)
+      message.error(t('common.error'))
+    }
+  } else {
+    message.warning(t('messages.loadFailed'))
+  }
 }
 
 const handleToggleSelectAll = async () => {

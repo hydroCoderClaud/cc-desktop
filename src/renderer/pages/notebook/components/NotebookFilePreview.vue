@@ -41,14 +41,15 @@
         </span>
         <Icon :name="summaryCollapsed ? 'chevronDown' : 'chevronUp'" :size="14" class="summary-toggle-icon" />
       </div>
+<template v-if="!summaryCollapsed">
+  <!-- Source Summary -->
+  <template v-if="type === 'source'">
+    <p class="detail-summary-text">{{ formatSummary(item.summary) }}</p>
+    <div class="detail-tags" v-if="item.tags?.length">
+      <span v-for="tag in item.tags" :key="tag" class="detail-tag">{{ tag }}</span>
+    </div>
+  </template>
 
-      <template v-if="!summaryCollapsed">
-        <template v-if="type === 'source'">
-          <p class="detail-summary-text">{{ item.summary }}</p>
-          <div class="detail-tags" v-if="item.tags?.length">
-            <span v-for="tag in item.tags" :key="tag" class="detail-tag">{{ tag }}</span>
-          </div>
-        </template>
         <template v-else>
           <div class="achievement-detail-meta">
             <span>{{ t('notebook.studio.sources', { count: item.sourceCount || 0 }) }}</span>
@@ -166,6 +167,29 @@ const handleOpenExternal = () => {
     // 这里需要获取绝对路径并打开，或者触发外部打开事件
     emit('open-external', props.item)
   }
+}
+
+const formatSummary = (summary) => {
+  if (!summary) return ''
+  
+  // 1. 尝试解析新版的结构化 JSON
+  try {
+    const data = JSON.parse(summary)
+    if (data.i18nKey) {
+      return t(data.i18nKey, data.params || {})
+    }
+  } catch (e) {
+    // 不是 JSON，继续后续逻辑
+  }
+
+  // 2. 兼容旧版的硬编码英文格式： "Imported from [path] at [time]"
+  const legacyRegex = /^Imported from (.*) at (.*)$/
+  const match = summary.match(legacyRegex)
+  if (match) {
+    return t('notebook.source.importInfo', { path: match[1], time: match[2] })
+  }
+
+  return summary
 }
 
 onMounted(loadContent)

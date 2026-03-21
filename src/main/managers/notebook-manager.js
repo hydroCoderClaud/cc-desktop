@@ -413,7 +413,10 @@ class NotebookManager {
       name: fileName,
       type: detectedType,
       path: relPath,
-      summary: `Imported from ${filePath} at ${new Date().toLocaleString()}`
+      summary: JSON.stringify({
+        i18nKey: 'notebook.source.importInfo',
+        params: { path: filePath, time: new Date().toLocaleString() }
+      })
     })
   }
 
@@ -658,6 +661,47 @@ class NotebookManager {
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
         const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+        // 智能日期转换逻辑
+        if (data.length > 1) {
+          const headers = data[0]
+          const dateCols = []
+          // 识别包含日期/时间关键字的列
+          headers.forEach((h, i) => {
+            if (h && /date|time|timestamp|at$|时间|日期/i.test(h.toString().trim())) {
+              dateCols.push(i)
+            }
+          })
+
+          if (dateCols.length > 0) {
+            for (let r = 1; r < data.length; r++) {
+              dateCols.forEach(cIdx => {
+                let val = data[r][cIdx]
+                if (val === undefined || val === null) return
+                
+                // 尝试转换为数字
+                const numVal = typeof val === 'number' ? val : parseFloat(val)
+                
+                // 如果是数字且在合理的 Excel 日期范围内
+                if (!isNaN(numVal) && numVal > 25569 && numVal < 60000) {
+                  try {
+                    // Excel 序列化日期转日期字符串 (纠正时区差异)
+                    const d = new Date(Math.round((numVal - 25569) * 86400 * 1000))
+                    // 获取本地时间字符串
+                    const year = d.getFullYear()
+                    const month = String(d.getMonth() + 1).padStart(2, '0')
+                    const day = String(d.getDate()).padStart(2, '0')
+                    const hours = String(d.getHours()).padStart(2, '0')
+                    const minutes = String(d.getMinutes()).padStart(2, '0')
+                    const seconds = String(d.getSeconds()).padStart(2, '0')
+                    data[r][cIdx] = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+                  } catch (e) {}
+                }
+              })
+            }
+          }
+        }
+
         return { type: 'excel', content: JSON.stringify(data), meta: { sheetNames: workbook.SheetNames } }
       } catch (err) {
         console.error('[NotebookManager] Excel parse error:', err)

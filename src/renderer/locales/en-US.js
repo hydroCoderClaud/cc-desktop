@@ -1443,8 +1443,11 @@ export default {
       expand: 'Expand',
       searchPlaceholder: 'Search the web for new sources',
       selectAll: 'Select all sources',
+      invertSelection: 'Invert',
       guide: 'Source Guide',
-      openExternal: 'Open source externally',
+      importInfo: 'Imported from {path} at {time}',
+      openExternal: 'Open External',
+
       web: 'Web',
       fastResearch: 'Fast Research',
     },
