@@ -224,16 +224,12 @@ const previewImage = (previewData) => {
 
 // 处理路径插入：拼接完整路径
 const handleInsertPath = (relativePath) => {
-  const cwd = projectFiles.cwd.value
+  let cwd = projectFiles.cwd.value || rootPath.value
   if (!cwd || !relativePath) return
 
-  // 判断路径分隔符（Windows 使用 \，Unix 使用 /）
   const separator = cwd.includes('\\') ? '\\' : '/'
-
-  // 拼接完整路径
   const fullPath = cwd + separator + relativePath.replace(/\//g, separator)
 
-  // emit 完整路径
   emit('insert-path', fullPath)
 }
 
