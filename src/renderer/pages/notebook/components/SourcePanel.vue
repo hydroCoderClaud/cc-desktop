@@ -2,12 +2,14 @@
   <div v-if="showLeftPanel" class="left-panel" :style="{ width: leftWidth + 'px' }">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.source.title') }}</span>
-      <button v-if="expandedSource" class="header-btn" :title="t('common.back')" @click="closeDetail">
-        <Icon name="chevronLeft" :size="18" :strokeWidth="1.8" />
-      </button>
-      <button v-else class="header-btn" :title="t('common.collapse')" @click="showLeftPanel = false">
-        <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
-      </button>
+      <div class="header-actions">
+        <button v-if="expandedSource" class="header-btn" :title="t('common.back')" @click="closeDetail">
+          <Icon name="chevronLeft" :size="18" :strokeWidth="1.8" />
+        </button>
+        <button v-else class="header-btn" :title="t('common.collapse')" @click="showLeftPanel = false">
+          <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
+        </button>
+      </div>
     </div>
 
     <div class="panel-content">
@@ -19,6 +21,7 @@
         </button>
 
         <div class="search-section">
+          <!-- ...保持原样... -->
           <div class="search-box">
             <Icon name="search" :size="18" class="search-icon" />
             <input type="text" :placeholder="t('notebook.source.searchPlaceholder')" class="search-input" />
@@ -41,11 +44,29 @@
         </div>
 
         <div class="select-all">
-          <span>{{ t('notebook.source.selectAll') }}</span>
-          <label class="checkbox-label">
-            <input type="checkbox" :checked="allSelected" @change="$emit('toggle-select-all')" />
-            <span class="checkmark"></span>
-          </label>
+          <div class="select-all-left">
+            <span class="select-all-label">{{ t('notebook.source.selectAll') }}</span>
+          </div>
+          <div class="select-all-right">
+            <!-- 批量删除按钮 -->
+            <button 
+              v-if="selectedIds.length > 0"
+              class="row-delete-btn" 
+              @click="$emit('delete-sources', selectedIds)"
+              :title="t('common.delete')"
+            >
+              <Icon name="delete" :size="16" />
+              <span class="btn-badge">{{ selectedIds.length }}</span>
+            </button>
+            <!-- 反选按钮：放在删除图标后面 -->
+            <button class="invert-select-btn" @click="$emit('invert-selection')" :title="t('notebook.source.invertSelection')">
+              <Icon name="invert" :size="14" />
+            </button>
+            <label class="checkbox-label">
+              <input type="checkbox" :checked="allSelected" @change="$emit('toggle-select-all')" />
+              <span class="checkmark"></span>
+            </label>
+          </div>
         </div>
 
         <div class="source-list">
@@ -60,7 +81,11 @@
               <span class="source-name">{{ source.name }}</span>
             </div>
             <label class="checkbox-label" @click.stop>
-              <input type="checkbox" v-model="source.selected" />
+              <input 
+                type="checkbox" 
+                :checked="source.selected" 
+                @change="$emit('update-source', source.id, { selected: $event.target.checked })"
+              />
               <span class="checkmark"></span>
             </label>
           </div>
@@ -69,81 +94,39 @@
 
       <!-- 详情视图 -->
       <template v-else>
-        <div class="detail-header">
-          <button class="detail-back-btn" @click="closeDetail" :title="t('common.back')">
-            <Icon name="chevronLeft" :size="16" />
-          </button>
-          <span class="detail-title">{{ expandedSource.name }}</span>
-          <button class="detail-external-btn" @click="$emit('open-external', expandedSource)" :title="t('notebook.source.openExternal')">
-            <Icon name="externalLink" :size="16" />
-          </button>
-        </div>
-
-        <div class="detail-summary-section">
-          <div class="detail-summary-header" @click="summaryCollapsed = !summaryCollapsed">
-            <Icon name="lightning" :size="14" color="#5c6bc0" />
-            <span class="detail-summary-title">{{ t('notebook.source.guide') }}</span>
-            <Icon :name="summaryCollapsed ? 'chevronDown' : 'chevronUp'" :size="14" class="summary-toggle-icon" />
-          </div>
-          <template v-if="!summaryCollapsed">
-            <p class="detail-summary-text">{{ expandedSource.summary }}</p>
-            <div class="detail-tags">
-              <span v-for="tag in expandedSource.tags" :key="tag" class="detail-tag">{{ tag }}</span>
-            </div>
-          </template>
-        </div>
-
-        <div class="detail-content-section">
-          <template v-if="expandedSource.type === 'web'">
-            <a v-if="expandedSource.url" :href="expandedSource.url" class="detail-source-url" target="_blank">{{ expandedSource.url }}</a>
-            <pre class="detail-raw-text">{{ expandedSource.content }}</pre>
-          </template>
-          <template v-else-if="expandedSource.type === 'markdown'">
-            <pre class="detail-raw-text detail-markdown">{{ expandedSource.content }}</pre>
-          </template>
-          <template v-else>
-            <pre class="detail-raw-text">{{ expandedSource.content }}</pre>
-          </template>
-        </div>
+        <NotebookFilePreview
+          :item="expandedSource"
+          type="source"
+          @back="closeDetail"
+          @open-external="$emit('open-external', $event)"
+        />
       </template>
-    </div>
-  </div>
-
-  <!-- 折叠条 -->
-  <div v-else class="panel-collapsed-strip">
-    <div class="strip-header">
-      <button class="header-btn" @click="showLeftPanel = true" :title="t('notebook.source.expand')">
-        <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
-      </button>
-    </div>
-    <div class="strip-body">
-      <div class="strip-content">
-        <div v-for="source in sources" :key="source.id" class="strip-icon-item" :title="source.name">
-          <Icon :name="getSourceIcon(source.type)" :size="20" :color="getSourceColor(source.type)" />
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
+import NotebookFilePreview from './NotebookFilePreview.vue'
 
-defineProps({ sources: { type: Array, default: () => [] }, allSelected: Boolean })
-defineEmits(['add-source', 'toggle-select-all', 'open-external'])
+const props = defineProps({ 
+  sources: { type: Array, default: () => [] }, 
+  allSelected: Boolean 
+})
+defineEmits(['add-source', 'toggle-select-all', 'invert-selection', 'open-external', 'delete-sources', 'update-source'])
 
 const { t } = useLocale()
 const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
 const expandedSource = ref(null)
-const summaryCollapsed = ref(false)
+
+const selectedIds = computed(() => props.sources.filter(s => s.selected).map(s => s.id))
 
 const openDetail = (source) => {
   expandedSource.value = source
-  summaryCollapsed.value = false
   expandPanel('left')
 }
 
@@ -168,6 +151,26 @@ const getSourceColor = (type) => {
 </style>
 
 <style scoped>
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
+.header-btn.danger:hover { background: rgba(255, 77, 79, 0.1); color: #ff4d4f; }
+
+.btn-badge {
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -4px;
+  margin-top: -10px;
+  padding: 0 4px;
+  font-weight: bold;
+}
+
 .left-panel {
   flex-shrink: 0;
   background: var(--bg-color-secondary);
@@ -340,5 +343,60 @@ const getSourceColor = (type) => {
   margin-bottom: 8px;
   font-size: 12px;
   color: var(--text-color-muted);
+}
+
+.select-all-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.invert-select-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.invert-select-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+.select-all-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.row-delete-btn:hover {
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+}
+
+.row-delete-btn .btn-badge {
+  background: #ff4d4f;
+  margin-top: -12px;
+  margin-left: -6px;
 }
 </style>

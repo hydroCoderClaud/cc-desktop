@@ -37,7 +37,6 @@
             </div>
           </Teleport>
         </div>
-        <span v-if="selectedCount > 0" class="panel-subtitle">{{ t('notebook.chat.sources', { count: selectedCount }) }}</span>
       </div>
     </div>
 
@@ -101,7 +100,14 @@
       @send="handleSend"
       @cancel="handleCancel"
       @update:queue-enabled="handleToggleQueue"
-    />
+    >
+      <template #suffix>
+        <div v-if="selectedCount > 0" class="input-source-count" :title="t('notebook.chat.sources', { count: selectedCount })">
+          <Icon name="fileText" :size="12" />
+          <span>{{ selectedCount }}</span>
+        </div>
+      </template>
+    </ChatInput>
   </div>
 </template>
 
@@ -599,5 +605,21 @@ onMounted(async () => {
   border-radius: 8px;
   color: #ff4d4f;
   font-size: 13px;
+}
+
+.input-source-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--primary-ghost, rgba(0, 0, 0, 0.05));
+  border-radius: 12px;
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 4px;
+  margin-bottom: 6px; /* 配合 align-items: flex-end */
+  user-select: none;
+  border: 1px solid var(--primary-color-alpha, rgba(var(--primary-color-rgb), 0.1));
 }
 </style>

@@ -17,8 +17,11 @@
         :sources="sources"
         :all-selected="allSelected"
         @add-source="handleAddSource"
-        @toggle-select-all="toggleSelectAll"
+        @toggle-select-all="handleToggleSelectAll"
+        @invert-selection="handleInvertSelection"
+        @update-source="handleUpdateSource"
         @open-external="handleOpenExternal"
+        @delete-sources="handleDeleteSources"
       />
 
       <div class="resize-handle" @mousedown="startResize('left', $event)"></div>
@@ -61,6 +64,10 @@
         :achievements="achievements"
         :available-types="availableTypes"
         @generate="handleGenerateAchievement"
+        @toggle-select-all="handleToggleSelectAllAchievements"
+        @invert-selection="handleInvertSelectionAchievements"
+        @update-achievement="handleUpdateAchievement"
+        @delete-achievements="handleDeleteAchievements"
       />
     </div>
 
@@ -74,7 +81,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
@@ -86,6 +93,7 @@ import StudioPanel from './StudioPanel.vue'
 import NotebookCreateModal from './NotebookCreateModal.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const { t } = useLocale()
 const { cssVars } = useTheme()
 const { startResize, showRightPanel } = useNotebookLayout()
@@ -125,6 +133,8 @@ const loadNotebook = async (notebook) => {
   try {
     const data = await window.electronAPI.notebookGet(notebook.id)
     currentNotebook.value = data
+    // 注入全局 ID 供预览组件使用
+    window.currentNotebookId = data.id
     sources.value = data.sources || []
     achievements.value = (data.achievements || []).map(a => ({
       ...a,
@@ -190,7 +200,12 @@ const handleAddSource = async () => {
   const filePaths = await window.electronAPI.selectFiles({
     title: t('notebook.source.add'),
     filters: [
-      { name: 'Sources', extensions: ['pdf', 'md', 'markdown', 'txt', 'js', 'ts', 'py', 'png', 'jpg', 'jpeg', 'json', 'vue', 'sh', 'ps1'] },
+      { name: 'All Supported', extensions: ['pdf', 'docx', 'xlsx', 'xls', 'csv', 'pptx', 'ppt', 'md', 'markdown', 'txt', 'html', 'htm', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov', 'mp3', 'wav', 'js', 'ts', 'py', 'java', 'c', 'cpp', 'json', 'vue', 'sh', 'ps1'] },
+      { name: 'Office Documents', extensions: ['docx', 'xlsx', 'xls', 'csv', 'pptx', 'ppt'] },
+      { name: 'Documents', extensions: ['pdf', 'md', 'markdown', 'txt', 'html', 'htm', 'csv'] },
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'] },
+      { name: 'Media', extensions: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] },
+      { name: 'Code', extensions: ['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'json', 'yaml', 'yml', 'toml', 'vue', 'sh', 'ps1', 'sql', 'rb', 'php', 'swift', 'kt'] },
       { name: 'All Files', extensions: ['*'] }
     ]
   })
@@ -217,6 +232,170 @@ const handleAddSource = async () => {
 const handleOpenExternal = (source) => {
   if (source.url) window.electronAPI.openExternal(source.url).catch(() => {})
   else message.info(`外部打开：${source.name}`)
+}
+
+const handleToggleSelectAll = async () => {
+  if (!currentNotebook.value) return
+  const allSelected = sources.value.every(s => s.selected)
+  const newValue = !allSelected
+  
+  // 本地更新 UI
+  sources.value.forEach(s => { s.selected = newValue })
+  
+  // 同步到后端
+  try {
+    const promises = sources.value.map(s => 
+      window.electronAPI.notebookUpdateSource({
+        notebookId: currentNotebook.value.id,
+        sourceId: s.id,
+        updates: { selected: newValue }
+      })
+    )
+    await Promise.all(promises)
+  } catch (err) {
+    console.error('[Notebook] Failed to sync select all:', err)
+  }
+}
+
+const handleInvertSelection = async () => {
+  if (!currentNotebook.value) return
+  
+  // 本地更新 UI
+  sources.value.forEach(s => { s.selected = !s.selected })
+  
+  // 同步到后端
+  try {
+    const promises = sources.value.map(s => 
+      window.electronAPI.notebookUpdateSource({
+        notebookId: currentNotebook.value.id,
+        sourceId: s.id,
+        updates: { selected: s.selected }
+      })
+    )
+    await Promise.all(promises)
+  } catch (err) {
+    console.error('[Notebook] Failed to sync invert selection:', err)
+  }
+}
+
+const handleUpdateSource = async (sourceId, updates) => {
+  if (!currentNotebook.value) return
+  
+  // 本地更新 UI
+  const source = sources.value.find(s => s.id === sourceId)
+  if (source) Object.assign(source, updates)
+  
+  // 同步到后端
+  try {
+    await window.electronAPI.notebookUpdateSource({
+      notebookId: currentNotebook.value.id,
+      sourceId,
+      updates
+    })
+  } catch (err) {
+    console.error('[Notebook] Failed to update source:', err)
+    message.error(t('common.error'))
+  }
+}
+
+const handleDeleteSources = async (sourceIds) => {
+  if (!currentNotebook.value || !sourceIds.length) return
+  
+  dialog.warning({
+    title: t('common.delete'),
+    content: t('messages.confirmDelete'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await window.electronAPI.notebookDeleteSources({
+          notebookId: currentNotebook.value.id,
+          sourceIds
+        })
+        // 本地过滤掉已删除项
+        sources.value = sources.value.filter(s => !sourceIds.includes(s.id))
+        message.success(t('common.deleteSuccess'))
+      } catch (err) {
+        console.error('[Notebook] Failed to delete sources:', err)
+        message.error(t('common.deleteFailed'))
+      }
+    }
+  })
+}
+
+// ─── Studio Achievements 持久化同步 ───────────────────────────────────────────
+const handleToggleSelectAllAchievements = async () => {
+  if (!currentNotebook.value) return
+  const allSelected = achievements.value.every(a => a.selected)
+  const newValue = !allSelected
+  achievements.value.forEach(a => { a.selected = newValue })
+  try {
+    const promises = achievements.value.map(a => 
+      window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: a.id,
+        updates: { selected: newValue }
+      })
+    )
+    await Promise.all(promises)
+  } catch (err) {
+    console.error('[Notebook] Sync achievements select all failed:', err)
+  }
+}
+
+const handleInvertSelectionAchievements = async () => {
+  if (!currentNotebook.value) return
+  achievements.value.forEach(a => { a.selected = !a.selected })
+  try {
+    const promises = achievements.value.map(a => 
+      window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: a.id,
+        updates: { selected: a.selected }
+      })
+    )
+    await Promise.all(promises)
+  } catch (err) {
+    console.error('[Notebook] Sync achievements invert failed:', err)
+  }
+}
+
+const handleUpdateAchievement = async (achievementId, updates) => {
+  if (!currentNotebook.value) return
+  const ach = achievements.value.find(a => a.id === achievementId)
+  if (ach) Object.assign(ach, updates)
+  try {
+    await window.electronAPI.notebookUpdateAchievement({
+      notebookId: currentNotebook.value.id,
+      achievementId,
+      updates
+    })
+  } catch (err) {
+    console.error('[Notebook] Update achievement failed:', err)
+  }
+}
+
+const handleDeleteAchievements = async (achievementIds) => {
+  if (!currentNotebook.value || !achievementIds.length) return
+  dialog.warning({
+    title: t('common.delete'),
+    content: t('messages.confirmDelete'),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await window.electronAPI.notebookDeleteAchievements({
+          notebookId: currentNotebook.value.id,
+          achievementIds
+        })
+        achievements.value = achievements.value.filter(a => !achievementIds.includes(a.id))
+        message.success(t('common.deleteSuccess'))
+      } catch (err) {
+        console.error('[Notebook] Batch delete achievements failed:', err)
+        message.error(t('common.deleteFailed'))
+      }
+    }
+  })
 }
 
 // ─── Studio Achievements ──────────────────────────────────────────────────

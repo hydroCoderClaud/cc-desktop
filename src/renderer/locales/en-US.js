@@ -67,7 +67,8 @@ export default {
     today: 'Today',
     older: 'Older',
     deleteSuccess: 'Deleted successfully',
-    deleteFailed: 'Delete failed'
+    deleteFailed: 'Delete failed',
+    openInSystem: 'Open in System'
   },
 
   // Main Page
@@ -1152,6 +1153,7 @@ export default {
     connectionFailed: 'Connection failed',
     operationSuccess: 'Operation successful',
     operationFailed: 'Operation failed',
+    confirmDelete: 'Are you sure you want to delete? This will only remove the record, not the actual file.',
     pleaseSelectProject: 'Please select a project first',
     projectAdded: 'Project added',
     projectOpened: 'Project opened',
@@ -1468,6 +1470,7 @@ export default {
       delete: 'Delete',
       play: 'Play',
       betaBadge: 'Beta',
+      cannotPreviewOffice: 'Word and Excel preview are supported. Please open PPT externally.',
     },
     types: {
       audio: 'Audio Overview',

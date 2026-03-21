@@ -218,6 +218,10 @@
           </div>
         </Transition>
       </div>
+
+      <!-- Suffix Slot (e.g. for Notebook Source Count) -->
+      <slot name="suffix"></slot>
+
       <!-- 停止/发送按钮 -->
       <button
         v-if="isStreaming"

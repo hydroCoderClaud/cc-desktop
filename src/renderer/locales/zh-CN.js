@@ -68,7 +68,8 @@ export default {
     today: '今天',
     older: '更早',
     deleteSuccess: '删除成功',
-    deleteFailed: '删除失败'
+    deleteFailed: '删除失败',
+    openInSystem: '在系统中打开'
   },
 
   // 主页面
@@ -1157,6 +1158,7 @@ export default {
     connectionFailed: '连接失败',
     operationSuccess: '操作成功',
     operationFailed: '操作失败',
+    confirmDelete: '确定要删除吗？此操作仅移除记录，不会物理删除文件。',
     pleaseSelectProject: '请先选择项目',
     projectAdded: '项目已添加',
     projectOpened: '项目已打开',
@@ -1446,6 +1448,7 @@ export default {
       expand: '展开',
       searchPlaceholder: '在网络中搜索新来源',
       selectAll: '选择所有来源',
+      invertSelection: '反选',
       guide: '来源指南',
       openExternal: '在外部打开源',
       web: 'Web',
@@ -1462,7 +1465,7 @@ export default {
       noProfiles: '暂无 API 配置',
     },
     studio: {
-      title: 'Studio',
+      title: '创作中心',
       expand: '展开',
       generated: '已生成',
       sources: '{count} 个来源',
@@ -1473,7 +1476,9 @@ export default {
       delete: '删除',
       play: '播放',
       betaBadge: 'Beta 版',
+      cannotPreviewOffice: '目前支持 Word 和 Excel 深度预览。PPT 请在外部打开。',
     },
+
     types: {
       audio: '音频概览',
       presentation: '演示文稿',

@@ -45,7 +45,29 @@
         <div class="panel-divider"></div>
 
         <div class="achievements-section">
-          <div class="section-title">{{ t('notebook.studio.generated') }}</div>
+          <div class="section-header">
+            <div class="section-title">{{ t('notebook.studio.generated') }}</div>
+            <!-- 批量操作区 -->
+            <div class="batch-actions" v-if="achievements.length > 0">
+              <button 
+                v-if="selectedIds.length > 0"
+                class="batch-delete-btn" 
+                @click="$emit('delete-achievements', selectedIds)"
+                :title="t('common.delete')"
+              >
+                <Icon name="delete" :size="14" />
+                <span class="badge">{{ selectedIds.length }}</span>
+              </button>
+              <button class="batch-icon-btn" @click="$emit('invert-selection')" :title="t('notebook.source.invertSelection')">
+                <Icon name="refresh" :size="14" />
+              </button>
+              <label class="checkbox-label mini">
+                <input type="checkbox" :checked="allSelected" @change="$emit('toggle-select-all')" />
+                <span class="checkmark"></span>
+              </label>
+            </div>
+          </div>
+
           <div v-if="achievements.length === 0" class="empty-achievements">
             <p>{{ t('notebook.studio.empty') }}</p>
             <p class="hint">{{ t('notebook.studio.emptyHint') }}</p>
@@ -55,24 +77,32 @@
               v-for="achievement in achievements"
               :key="achievement.id"
               class="achievement-item"
+              :class="{ selected: achievement.selected }"
               @click="openDetail(achievement)"
             >
-              <Icon :name="achievement.icon" :size="20" :color="achievement.color" />
+              <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
               <div class="achievement-info">
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
-                  <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount }) }}</span>
+                  <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount || 0 }) }}</span>
                   <span class="dot">•</span>
                   <span>{{ achievement.time }}</span>
                 </div>
               </div>
-              <div class="achievement-actions">
-                <button v-if="achievement.type === 'video' || achievement.type === 'audio'" class="action-icon-btn" @click.stop>
-                  <Icon name="play" :size="16" />
-                </button>
-                <button class="action-icon-btn" @click.stop>
-                  <Icon name="moreVertical" :size="16" />
-                </button>
+              <div class="achievement-right">
+                <div class="achievement-actions">
+                  <button v-if="achievement.type === 'video' || achievement.type === 'audio'" class="action-icon-btn" @click.stop>
+                    <Icon name="play" :size="16" />
+                  </button>
+                </div>
+                <label class="checkbox-label mini" @click.stop>
+                  <input 
+                    type="checkbox" 
+                    :checked="achievement.selected" 
+                    @change="$emit('update-achievement', achievement.id, { selected: $event.target.checked })" 
+                  />
+                  <span class="checkmark"></span>
+                </label>
               </div>
             </div>
           </div>
@@ -81,88 +111,43 @@
 
       <!-- 详情视图 -->
       <template v-else>
-        <div class="detail-header">
-          <button class="detail-back-btn" @click="closeDetail" :title="t('common.back')">
-            <Icon name="chevronLeft" :size="16" />
-          </button>
-          <span class="detail-title">{{ expandedAchievement.name }}</span>
-          <button class="detail-external-btn" :title="t('notebook.studio.export')">
-            <Icon name="export" :size="16" />
-          </button>
-          <button class="detail-external-btn" :title="t('notebook.studio.copy')">
-            <Icon name="copy" :size="16" />
-          </button>
-          <button class="detail-external-btn danger" :title="t('notebook.studio.delete')">
-            <Icon name="delete" :size="16" />
-          </button>
-        </div>
-
-        <div class="detail-summary-section">
-          <div class="detail-summary-header">
-            <Icon :name="expandedAchievement.icon" :size="14" :color="expandedAchievement.color" />
-            <span class="detail-summary-title">{{ expandedAchievement.name }}</span>
-          </div>
-          <div class="achievement-detail-meta">
-            <span>{{ t('notebook.studio.sources', { count: expandedAchievement.sourceCount }) }}</span>
-            <span class="dot">•</span>
-            <span>{{ expandedAchievement.time }}</span>
-          </div>
-        </div>
-
-        <div class="detail-content-section">
-          <pre class="detail-raw-text">{{ expandedAchievement.content || t('notebook.studio.empty') }}</pre>
-        </div>
+        <NotebookFilePreview
+          :item="expandedAchievement"
+          type="achievement"
+          @back="closeDetail"
+          @export="$emit('export', $event)"
+          @copy="$emit('copy', $event)"
+          @delete="$emit('delete', $event)"
+        />
       </template>
-    </div>
-  </div>
-
-  <!-- 折叠条 -->
-  <div v-else class="panel-collapsed-strip panel-collapsed-right">
-    <div class="strip-header">
-      <button class="header-btn" @click="showRightPanel = true" :title="t('notebook.studio.expand')">
-        <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
-      </button>
-    </div>
-    <div class="strip-body">
-      <div class="strip-content strip-content-top">
-        <div
-          v-for="type in availableTypes"
-          :key="type.id"
-          class="strip-icon-item type-icon-item"
-          :style="{ background: type.bgColor }"
-          :title="t('notebook.types.' + type.id)"
-        >
-          <div class="type-icon-small" :style="{ color: type.color }">
-            <Icon :name="type.icon" :size="18" />
-          </div>
-          <span class="type-plus">+</span>
-        </div>
-      </div>
-      <div class="strip-divider"></div>
-      <div class="strip-content strip-content-bottom">
-        <div v-for="achievement in achievements" :key="achievement.id" class="strip-icon-item" :title="achievement.name">
-          <Icon :name="achievement.icon" :size="20" :color="achievement.color" />
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
+import NotebookFilePreview from './NotebookFilePreview.vue'
 
-defineProps({
+const props = defineProps({
   achievements: { type: Array, default: () => [] },
   availableTypes: { type: Array, default: () => [] }
 })
+
+defineEmits([
+  'generate', 'export', 'copy', 'delete', 
+  'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements'
+])
 
 const { t } = useLocale()
 const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
 const expandedAchievement = ref(null)
+
+const selectedIds = computed(() => props.achievements.filter(a => a.selected).map(a => a.id))
+const allSelected = computed(() => props.achievements.length > 0 && props.achievements.every(a => a.selected))
 
 const openDetail = (achievement) => {
   expandedAchievement.value = achievement
@@ -175,6 +160,11 @@ const closeDetail = () => {
 }
 
 const getTypeName = (typeId) => t('notebook.types.' + typeId)
+
+const getAchievementIcon = (type) => {
+  const map = { audio: 'audio', video: 'video', report: 'fileText', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table' }
+  return map[type] || 'fileText'
+}
 </script>
 
 <style>
@@ -215,39 +205,11 @@ const getTypeName = (typeId) => t('notebook.types.' + typeId)
 }
 
 .type-card:hover { transform: translateY(-1px); box-shadow: 0 3px 10px var(--shadow-color); }
-
 .type-card-top { display: flex; align-items: center; gap: 6px; }
+.type-icon-content { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.type-name { font-size: 12px; font-weight: 500; color: var(--text-color); text-align: left; line-height: 1.3; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.type-icon-content {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.type-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-color);
-  text-align: left;
-  line-height: 1.3;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.beta-badge {
-  font-size: 9px;
-  background: var(--text-color);
-  color: var(--bg-color-secondary);
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-weight: 600;
-  white-space: nowrap;
-}
+.beta-badge { font-size: 9px; background: var(--text-color); color: var(--bg-color-secondary); padding: 2px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
 
 .type-edit-btn {
   position: absolute;
@@ -267,12 +229,18 @@ const getTypeName = (typeId) => t('notebook.types.' + typeId)
   transition: opacity 0.15s;
   color: var(--text-color-muted);
 }
-
 .type-card:hover .type-edit-btn { opacity: 1; }
 
 .panel-divider { height: 1px; background: var(--border-color); margin: 0 0 20px; }
 
 .achievements-section { margin-bottom: 20px; }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
 
 .section-title {
   font-size: 11px;
@@ -280,7 +248,54 @@ const getTypeName = (typeId) => t('notebook.types.' + typeId)
   color: var(--text-color-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 12px;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+.batch-icon-btn:hover { color: var(--primary-color); background: var(--hover-bg); }
+
+.batch-delete-btn {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  position: relative;
+}
+.batch-delete-btn:hover { color: #ff4d4f; background: rgba(255, 77, 79, 0.1); }
+.batch-delete-btn .badge {
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 9px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  padding: 0 3px;
+  font-weight: bold;
 }
 
 .empty-achievements { padding: 30px 20px; text-align: center; color: var(--text-color-muted); }
@@ -297,38 +312,27 @@ const getTypeName = (typeId) => t('notebook.types.' + typeId)
   background: var(--bg-color-tertiary);
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s;
+  border: 1.5px solid transparent;
 }
-
 .achievement-item:hover { background: var(--hover-bg); }
+.achievement-item.selected { border-color: var(--primary-color-alpha, rgba(var(--primary-color-rgb), 0.2)); background: var(--hover-bg); }
 
 .achievement-info { flex: 1; min-width: 0; }
+.achievement-name { font-size: 13px; font-weight: 500; color: var(--text-color); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.achievement-meta { font-size: 11px; color: var(--text-color-muted); display: flex; align-items: center; gap: 6px; }
+.dot { font-size: 8px; }
 
-.achievement-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin-bottom: 4px;
-}
-
-.achievement-meta {
-  font-size: 11px;
-  color: var(--text-color-muted);
+.achievement-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-
-.dot { font-size: 8px; }
 
 .achievement-actions {
   display: flex;
   gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
-
-.achievement-item:hover .achievement-actions { opacity: 1; }
 
 .action-icon-btn {
   width: 28px;
@@ -343,37 +347,30 @@ const getTypeName = (typeId) => t('notebook.types.' + typeId)
   color: var(--text-color-muted);
   transition: background 0.15s;
 }
-
 .action-icon-btn:hover { background: var(--border-color); color: var(--text-color); }
 
-.achievement-detail-meta {
-  font-size: 12px;
-  color: var(--text-color-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.type-icon-item { width: 36px; height: 36px; border-radius: 8px; }
-.type-icon-item:hover { transform: scale(1.05); }
-
-.type-icon-small { display: flex; align-items: center; justify-content: center; }
-
-.type-plus {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  font-size: 10px;
-  font-weight: bold;
-  color: var(--text-color-muted);
+/* Checkbox Styles (Mini version) */
+.checkbox-label.mini { width: 16px; height: 16px; cursor: pointer; position: relative; }
+.checkbox-label.mini input { display: none; }
+.checkbox-label.mini .checkmark {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 4px;
   background: var(--bg-color-secondary);
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
+}
+.checkbox-label.mini input:checked + .checkmark { background: var(--primary-color); border-color: var(--primary-color); }
+.checkbox-label.mini input:checked + .checkmark::after {
+  content: '';
+  width: 4px;
+  height: 7px;
+  border-right: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  transform: rotate(45deg) translate(-1px, -1px);
 }
 
 .panel-collapsed-right { border-left: none; border-right: none; }

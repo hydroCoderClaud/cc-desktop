@@ -9,11 +9,13 @@ export const iconPaths = {
   // 操作类
   // 紧凑循环：双弧 + 箭头，半径6更紧凑
   refresh: '<path d="M4 10a6 6 0 0 1 6-6"/><path d="M16 10a6 6 0 0 1-6 6"/><path d="M10 4l2.5 1.5-2.5 1.5"/><path d="M10 16l-2.5-1.5 2.5-1.5"/>',
+  invert: '<path d="m3 7 2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"/>',
   search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/>',
   add: '<path d="M10 4v12M4 10h12"/>',
   close: '<path d="M5 5l10 10M15 5L5 15"/>',
   edit: '<path d="M12 3l5 5-9 9H3v-5l9-9z"/>',
   delete: '<path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/>',
+  trash: '<path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>',
   copy: '<rect x="6" y="6" width="11" height="11" rx="1"/><path d="M3 14V4a1 1 0 0 1 1-1h10"/>',
 
   // 市场/商店

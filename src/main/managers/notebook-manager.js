@@ -16,7 +16,7 @@ const path = require('path')
 const os = require('os')
 const { v4: uuidv4 } = require('uuid')
 
-const SOURCE_DIRS = ['pdf', 'markdown', 'web', 'image', 'text', 'code']
+const SOURCE_DIRS = ['pdf', 'markdown', 'web', 'image', 'text', 'code', 'audio', 'video']
 const ACHIEVEMENT_DIRS = ['audio', 'video', 'report', 'presentation', 'mindmap', 'flashcard', 'quiz', 'infographic', 'table']
 
 class NotebookManager {
@@ -380,8 +380,11 @@ class NotebookManager {
     if (!detectedType) {
       if (['pdf'].includes(ext)) detectedType = 'pdf'
       else if (['md', 'markdown'].includes(ext)) detectedType = 'markdown'
-      else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) detectedType = 'image'
-      else if (['js', 'ts', 'py', 'java', 'c', 'cpp', 'go', 'rs', 'html', 'css', 'json', 'vue', 'sh', 'ps1'].includes(ext)) detectedType = 'code'
+      else if (['html', 'htm'].includes(ext)) detectedType = 'web'
+      else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) detectedType = 'image'
+      else if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) detectedType = 'audio'
+      else if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) detectedType = 'video'
+      else if (['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'go', 'rs', 'html', 'css', 'json', 'yaml', 'yml', 'toml', 'vue', 'sh', 'ps1', 'sql', 'rb', 'php', 'swift', 'kt'].includes(ext)) detectedType = 'code'
       else detectedType = 'text'
     }
 
@@ -484,6 +487,21 @@ class NotebookManager {
     return data.sources[idx]
   }
 
+  /** 批量删除来源（不删除磁盘文件） */
+  deleteSources(notebookId, sourceIds) {
+    if (!Array.isArray(sourceIds) || sourceIds.length === 0) return { success: true }
+    const indexPath = this._sourceIndexPath(notebookId)
+    const data = this._readJson(indexPath)
+    
+    const originalCount = data.sources.length
+    data.sources = data.sources.filter(s => !sourceIds.includes(s.id))
+    
+    if (data.sources.length === originalCount) return { success: true }
+    
+    this._writeJsonAtomic(indexPath, data)
+    return { success: true, count: originalCount - data.sources.length }
+  }
+
   /** 删除来源（不删除磁盘文件） */
   deleteSource(notebookId, sourceId) {
     const indexPath = this._sourceIndexPath(notebookId)
@@ -526,6 +544,7 @@ class NotebookManager {
       sourceIds: achievementData.sourceIds || [],
       prompt: achievementData.prompt || '',
       status: 'generating',
+      selected: true,
       createdAt: now
     }
 
@@ -545,10 +564,22 @@ class NotebookManager {
     const data = this._readJson(indexPath)
     const idx = data.achievements.findIndex(a => a.id === achievementId)
     if (idx === -1) throw new Error(`成果不存在：${achievementId}`)
-    const allowed = ['name', 'status', 'path', 'category', 'prompt', 'sourceIds']
+    const allowed = ['name', 'status', 'path', 'category', 'prompt', 'sourceIds', 'selected']
     allowed.forEach(k => { if (k in updates) data.achievements[idx][k] = updates[k] })
     this._writeJsonAtomic(indexPath, data)
     return data.achievements[idx]
+  }
+
+  /** 批量删除成果（不删除磁盘文件） */
+  deleteAchievements(notebookId, achievementIds) {
+    if (!Array.isArray(achievementIds) || achievementIds.length === 0) return { success: true }
+    const indexPath = this._achievementIndexPath(notebookId)
+    const data = this._readJson(indexPath)
+    const originalCount = data.achievements.length
+    data.achievements = data.achievements.filter(a => !achievementIds.includes(a.id))
+    if (data.achievements.length === originalCount) return { success: true }
+    this._writeJsonAtomic(indexPath, data)
+    return { success: true, count: originalCount - data.achievements.length }
   }
 
   /** 删除成果（不删除磁盘文件） */
@@ -560,6 +591,93 @@ class NotebookManager {
     data.achievements.splice(idx, 1)
     this._writeJsonAtomic(indexPath, data)
     return { success: true }
+  }
+
+  /**
+   * 读取笔记本内的文件内容
+   * @param {string} notebookId 
+   * @param {string} relPath 相对路径（如 sources/pdf/xxx.pdf）
+   * @returns {Promise<{ content: string, type: 'text'|'image'|'binary' }>}
+   */
+  async readFileContent(notebookId, relPath) {
+    const notebookPath = this._getNotebookPath(notebookId)
+    const fullPath = path.join(notebookPath, relPath)
+    if (!fs.existsSync(fullPath)) throw new Error(`文件不存在：${relPath}`)
+
+    const ext = path.extname(fullPath).toLowerCase().slice(1)
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)
+    const isAudio = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)
+    const isVideo = ['mp4', 'webm', 'ogv', 'mov', 'avi', 'mkv'].includes(ext)
+
+    const isPdf = ext === 'pdf'
+    const isHtml = ext === 'html'
+    const isWord = ['docx'].includes(ext)
+    const isExcel = ['xlsx', 'xls', 'csv'].includes(ext)
+    const isPpt = ['pptx', 'ppt'].includes(ext)
+
+    if (isImage || isAudio || isVideo) {
+      const buffer = fs.readFileSync(fullPath)
+      let mimeType = ''
+      if (isImage) {
+        mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+      } else if (isAudio) {
+        mimeType = `audio/${ext === 'mp3' ? 'mpeg' : ext}`
+      } else {
+        mimeType = `video/${ext === 'mov' ? 'quicktime' : ext}`
+      }
+      return {
+        type: isImage ? 'image' : (isAudio ? 'audio' : 'video'),
+        content: `data:${mimeType};base64,${buffer.toString('base64')}`
+      }
+    }
+
+    if (isPdf || isHtml) {
+      return {
+        type: isPdf ? 'pdf' : 'html',
+        content: fullPath // 保持绝对路径，供 webview 使用
+      }
+    }
+
+    // Word 预览 (docx -> html)
+    if (isWord) {
+      try {
+        const mammoth = require('mammoth')
+        const result = await mammoth.convertToHtml({ path: fullPath })
+        return { type: 'word', content: result.value }
+      } catch (err) {
+        console.error('[NotebookManager] Word parse error:', err)
+        throw new Error(`Word 文件解析失败：${err.message}`)
+      }
+    }
+
+    // Excel 预览 (xlsx -> json)
+    if (isExcel) {
+      try {
+        const XLSX = require('xlsx')
+        const workbook = XLSX.readFile(fullPath)
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+        return { type: 'excel', content: JSON.stringify(data), meta: { sheetNames: workbook.SheetNames } }
+      } catch (err) {
+        console.error('[NotebookManager] Excel parse error:', err)
+        throw new Error(`Excel 文件解析失败：${err.message}`)
+      }
+    }
+
+    // PPT 预览 (暂不支持深度解析，返回占位)
+    if (isPpt) {
+      return { type: 'pptx', content: fullPath }
+    }
+
+    // 默认作为文本读取
+    try {
+      const content = fs.readFileSync(fullPath, 'utf-8')
+      return { type: 'text', content }
+    } catch (err) {
+      // 若读取失败（如二进制文件），返回路径
+      return { type: 'binary', content: fullPath }
+    }
   }
 }
 

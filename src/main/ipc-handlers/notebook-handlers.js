@@ -112,6 +112,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:deleteSources', async (_e, { notebookId, sourceIds }) => {
+    try {
+      return notebookManager.deleteSources(notebookId, sourceIds)
+    } catch (err) {
+      console.error('[IPC] notebook:deleteSources error:', err)
+      throw err
+    }
+  })
+
   // ─── Achievements ─────────────────────────────────────────────────────────
 
   ipcMain.handle('notebook:listAchievements', async (_e, notebookId) => {
@@ -146,6 +155,24 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       return notebookManager.deleteAchievement(notebookId, achievementId)
     } catch (err) {
       console.error('[IPC] notebook:deleteAchievement error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:deleteAchievements', async (_e, { notebookId, achievementIds }) => {
+    try {
+      return notebookManager.deleteAchievements(notebookId, achievementIds)
+    } catch (err) {
+      console.error('[IPC] notebook:deleteAchievements error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:readFileContent', async (_e, { notebookId, relPath }) => {
+    try {
+      return await notebookManager.readFileContent(notebookId, relPath)
+    } catch (err) {
+      console.error('[IPC] notebook:readFileContent error:', err)
       throw err
     }
   })

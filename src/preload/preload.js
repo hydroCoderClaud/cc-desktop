@@ -769,10 +769,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookImportFiles: ({ notebookId, filePaths }) => ipcRenderer.invoke('notebook:importFiles', { notebookId, filePaths }),
   notebookUpdateSource: ({ notebookId, sourceId, updates }) => ipcRenderer.invoke('notebook:updateSource', { notebookId, sourceId, updates }),
   notebookDeleteSource: ({ notebookId, sourceId }) => ipcRenderer.invoke('notebook:deleteSource', { notebookId, sourceId }),
+  notebookDeleteSources: ({ notebookId, sourceIds }) => ipcRenderer.invoke('notebook:deleteSources', { notebookId, sourceIds }),
   notebookListAchievements: (notebookId) => ipcRenderer.invoke('notebook:listAchievements', notebookId),
   notebookAddAchievement: ({ notebookId, achievementData }) => ipcRenderer.invoke('notebook:addAchievement', { notebookId, achievementData }),
   notebookUpdateAchievement: ({ notebookId, achievementId, updates }) => ipcRenderer.invoke('notebook:updateAchievement', { notebookId, achievementId, updates }),
-  notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId })
-});
+  notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId }),
+  notebookDeleteAchievements: ({ notebookId, achievementIds }) => ipcRenderer.invoke('notebook:deleteAchievements', { notebookId, achievementIds }),
+  notebookReadFileContent: ({ notebookId, relPath }) => ipcRenderer.invoke('notebook:readFileContent', { notebookId, relPath })
+  })
+;
 
 console.log('[Preload] ElectronAPI exposed to renderer successfully');
