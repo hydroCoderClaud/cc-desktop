@@ -1446,6 +1446,9 @@ export default {
       invertSelection: 'Invert',
       guide: 'Source Guide',
       importInfo: 'Imported from {path} at {time}',
+      importInfoWithCopy: 'Imported from {path} at {time}, current path is {currentPath}',
+      copyModeOn: 'Copy mode on (files are copied to notebook directory on import)',
+      copyModeOff: 'Copy mode off (only original path is recorded on import)',
       openExternal: 'Open External',
 
       web: 'Web',

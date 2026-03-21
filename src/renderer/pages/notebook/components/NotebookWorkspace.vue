@@ -16,12 +16,15 @@
       <SourcePanel
         :sources="sources"
         :all-selected="allSelected"
+        :copy-source-files="currentNotebook?.copySourceFiles ?? false"
+        :notebook-path="currentNotebook?.notebookPath ?? ''"
         @add-source="handleAddSource"
         @toggle-select-all="handleToggleSelectAll"
         @invert-selection="handleInvertSelection"
         @update-source="handleUpdateSource"
         @open-external="handleOpenExternal"
         @delete-sources="handleDeleteSources"
+        @toggle-copy-source-files="handleToggleCopySourceFiles"
       />
 
       <div class="resize-handle" @mousedown="startResize('left', $event)"></div>
@@ -298,11 +301,11 @@ const handleInvertSelection = async () => {
 
 const handleUpdateSource = async (sourceId, updates) => {
   if (!currentNotebook.value) return
-  
+
   // 本地更新 UI
   const source = sources.value.find(s => s.id === sourceId)
   if (source) Object.assign(source, updates)
-  
+
   // 同步到后端
   try {
     await window.electronAPI.notebookUpdateSource({
@@ -312,6 +315,25 @@ const handleUpdateSource = async (sourceId, updates) => {
     })
   } catch (err) {
     console.error('[Notebook] Failed to update source:', err)
+    message.error(t('common.error'))
+  }
+}
+
+const handleToggleCopySourceFiles = async () => {
+  if (!currentNotebook.value) return
+  const newValue = !currentNotebook.value.copySourceFiles
+  // 本地立即更新
+  currentNotebook.value = { ...currentNotebook.value, copySourceFiles: newValue }
+  // 持久化
+  try {
+    await window.electronAPI.notebookSetCopySourceFiles({
+      notebookId: currentNotebook.value.id,
+      value: newValue
+    })
+  } catch (err) {
+    console.error('[Notebook] Failed to set copySourceFiles:', err)
+    // 回滚
+    currentNotebook.value = { ...currentNotebook.value, copySourceFiles: !newValue }
     message.error(t('common.error'))
   }
 }

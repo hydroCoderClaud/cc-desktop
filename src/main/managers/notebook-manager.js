@@ -388,36 +388,71 @@ class NotebookManager {
       else detectedType = 'text'
     }
 
-    const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'text'
-    const relDir = path.join('sources', typeDir)
-    const targetDir = path.join(notebookPath, relDir)
-    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
+    // 读取笔记本级别的复制开关
+    const metaFile = path.join(notebookPath, 'notebook.json')
+    const meta = this._readJson(metaFile)
+    const copyFiles = !!meta.copySourceFiles
 
-    // 避免重名
-    let targetFileName = fileName
-    let counter = 1
-    while (fs.existsSync(path.join(targetDir, targetFileName))) {
-      const parsed = path.parse(fileName)
-      targetFileName = `${parsed.name}_${counter}${parsed.ext}`
-      counter++
-    }
+    let storedPath, summary, targetFileName
 
-    const targetPath = path.join(targetDir, targetFileName)
-    const relPath = path.join(relDir, targetFileName).replace(/\\/g, '/')
+    if (copyFiles) {
+      // 复制模式：将文件拷贝到笔记本子目录
+      const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'text'
+      const relDir = path.join('sources', typeDir)
+      const targetDir = path.join(notebookPath, relDir)
+      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
 
-    // 复制文件
-    fs.copyFileSync(filePath, targetPath)
+      // 避免重名
+      targetFileName = fileName
+      let counter = 1
+      while (fs.existsSync(path.join(targetDir, targetFileName))) {
+        const parsed = path.parse(fileName)
+        targetFileName = `${parsed.name}_${counter}${parsed.ext}`
+        counter++
+      }
 
-    // 添加到索引
-    return this.addSource(notebookId, {
-      name: fileName,
-      type: detectedType,
-      path: relPath,
-      summary: JSON.stringify({
+      const targetPath = path.join(targetDir, targetFileName)
+      const relPath = path.join(relDir, targetFileName).replace(/\\/g, '/')
+      fs.copyFileSync(filePath, targetPath)
+
+      storedPath = relPath
+      summary = JSON.stringify({
+        i18nKey: 'notebook.source.importInfoWithCopy',
+        params: { path: filePath, time: new Date().toLocaleString(), currentPath: targetPath }
+      })
+    } else {
+      // 不复制模式：直接记录原始绝对路径
+      // 不复制模式：直接记录原始绝对路径
+      storedPath = filePath
+      summary = JSON.stringify({
         i18nKey: 'notebook.source.importInfo',
         params: { path: filePath, time: new Date().toLocaleString() }
       })
+    }
+
+    // 添加到索引：复制模式用实际落盘的文件名，不复制模式用原始文件名
+    const sourceName = copyFiles ? targetFileName : fileName
+    return this.addSource(notebookId, {
+      name: sourceName,
+      type: detectedType,
+      path: storedPath,
+      summary
     })
+  }
+
+  /**
+   * 设置笔记本的复制来源文件开关，并持久化到 notebook.json
+   * @param {string} notebookId
+   * @param {boolean} value
+   */
+  setCopySourceFiles(notebookId, value) {
+    const notebookPath = this._getNotebookPath(notebookId)
+    const metaFile = path.join(notebookPath, 'notebook.json')
+    const meta = this._readJson(metaFile)
+    meta.copySourceFiles = !!value
+    meta.updatedAt = this._now()
+    this._writeJsonAtomic(metaFile, meta)
+    return { success: true, copySourceFiles: meta.copySourceFiles }
   }
 
   /**
@@ -604,7 +639,8 @@ class NotebookManager {
    */
   async readFileContent(notebookId, relPath) {
     const notebookPath = this._getNotebookPath(notebookId)
-    const fullPath = path.join(notebookPath, relPath)
+    // 不复制模式下 relPath 存的是绝对路径，复制模式下是相对路径
+    const fullPath = path.isAbsolute(relPath) ? relPath : path.join(notebookPath, relPath)
     if (!fs.existsSync(fullPath)) throw new Error(`文件不存在：${relPath}`)
 
     const ext = path.extname(fullPath).toLowerCase().slice(1)
@@ -658,51 +694,56 @@ class NotebookManager {
       try {
         const XLSX = require('xlsx')
         const workbook = XLSX.readFile(fullPath)
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
-        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-        // 智能日期转换逻辑
-        if (data.length > 1) {
-          const headers = data[0]
-          const dateCols = []
-          // 识别包含日期/时间关键字的列
-          headers.forEach((h, i) => {
-            if (h && /date|time|timestamp|at$|时间|日期/i.test(h.toString().trim())) {
-              dateCols.push(i)
-            }
-          })
+        // 解析所有 sheet 数据
+        const sheetsData = {}
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName]
+          const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-          if (dateCols.length > 0) {
-            for (let r = 1; r < data.length; r++) {
-              dateCols.forEach(cIdx => {
-                let val = data[r][cIdx]
-                if (val === undefined || val === null) return
-                
-                // 尝试转换为数字
-                const numVal = typeof val === 'number' ? val : parseFloat(val)
-                
-                // 如果是数字且在合理的 Excel 日期范围内
-                if (!isNaN(numVal) && numVal > 25569 && numVal < 60000) {
-                  try {
-                    // Excel 序列化日期转日期字符串 (纠正时区差异)
-                    const d = new Date(Math.round((numVal - 25569) * 86400 * 1000))
-                    // 获取本地时间字符串
-                    const year = d.getFullYear()
-                    const month = String(d.getMonth() + 1).padStart(2, '0')
-                    const day = String(d.getDate()).padStart(2, '0')
-                    const hours = String(d.getHours()).padStart(2, '0')
-                    const minutes = String(d.getMinutes()).padStart(2, '0')
-                    const seconds = String(d.getSeconds()).padStart(2, '0')
-                    data[r][cIdx] = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-                  } catch (e) {}
-                }
-              })
+          // 智能日期转换逻辑
+          if (data.length > 1) {
+            const headers = data[0]
+            const dateCols = []
+            headers.forEach((h, i) => {
+              if (h && /date|time|timestamp|at$|时间|日期/i.test(h.toString().trim())) {
+                dateCols.push(i)
+              }
+            })
+
+            if (dateCols.length > 0) {
+              for (let r = 1; r < data.length; r++) {
+                dateCols.forEach(cIdx => {
+                  let val = data[r][cIdx]
+                  if (val === undefined || val === null) return
+
+                  const numVal = typeof val === 'number' ? val : parseFloat(val)
+
+                  if (!isNaN(numVal) && numVal > 25569 && numVal < 60000) {
+                    try {
+                      const d = new Date(Math.round((numVal - 25569) * 86400 * 1000))
+                      const year = d.getFullYear()
+                      const month = String(d.getMonth() + 1).padStart(2, '0')
+                      const day = String(d.getDate()).padStart(2, '0')
+                      const hours = String(d.getHours()).padStart(2, '0')
+                      const minutes = String(d.getMinutes()).padStart(2, '0')
+                      const seconds = String(d.getSeconds()).padStart(2, '0')
+                      data[r][cIdx] = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+                    } catch (e) {}
+                  }
+                })
+              }
             }
           }
+
+          sheetsData[sheetName] = data
         }
 
-        return { type: 'excel', content: JSON.stringify(data), meta: { sheetNames: workbook.SheetNames } }
+        return {
+          type: 'excel',
+          content: JSON.stringify(sheetsData),
+          meta: { sheetNames: workbook.SheetNames }
+        }
       } catch (err) {
         console.error('[NotebookManager] Excel parse error:', err)
         throw new Error(`Excel 文件解析失败：${err.message}`)

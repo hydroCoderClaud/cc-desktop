@@ -5,18 +5,19 @@
 
     <!-- Excel Renderer -->
     <div v-else-if="type === 'excel'" class="excel-container">
-      <div class="excel-toolbar" v-if="meta?.sheetNames?.length > 1">
+      <div class="excel-toolbar" v-if="sheetNames.length > 1">
         <span class="sheet-label">Sheets:</span>
-        <span 
-          v-for="name in meta.sheetNames" 
-          :key="name" 
+        <span
+          v-for="name in sheetNames"
+          :key="name"
           class="sheet-tab"
           :class="{ active: currentSheet === name }"
+          @click="currentSheet = name"
         >{{ name }}</span>
       </div>
       <div class="table-wrapper">
         <table class="excel-table">
-          <tr v-for="(row, rowIndex) in excelData" :key="rowIndex">
+          <tr v-for="(row, rowIndex) in currentSheetData" :key="rowIndex">
             <td v-for="(cell, cellIndex) in row" :key="cellIndex">{{ cell }}</td>
           </tr>
         </table>
@@ -38,7 +39,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 
@@ -52,15 +53,49 @@ const props = defineProps({
 defineEmits(['open-external'])
 
 const { t } = useLocale()
-const currentSheet = ref(props.meta?.sheetNames?.[0] || '')
 
-const excelData = computed(() => {
-  if (props.type !== 'excel') return []
+// 解析所有 sheet 数据
+const sheetsData = computed(() => {
+  if (props.type !== 'excel' || !props.content) return {}
   try {
     return JSON.parse(props.content)
   } catch (e) {
-    return []
+    console.error('[OfficeRenderer] Parse error:', e)
+    return {}
   }
+})
+
+// sheet 名称列表
+const sheetNames = computed(() => {
+  return props.meta?.sheetNames || []
+})
+
+// 当前选中的 sheet（手动切换时记录）
+const currentSheet = ref('')
+
+// 初始化或重置当前 sheet：props 变化时重置，确保始终指向有效 sheet
+watch(sheetNames, (names) => {
+  if (names.length > 0 && (!currentSheet.value || !names.includes(currentSheet.value))) {
+    currentSheet.value = names[0]
+  }
+}, { immediate: true })
+
+// 当前 sheet 的数据
+const currentSheetData = computed(() => {
+  // 当前激活的 sheet 名：优先用手动选中的，否则取第一个
+  const activeSheet = currentSheet.value || sheetNames.value[0] || ''
+  const data = sheetsData.value[activeSheet]
+  if (!data || !data.length) return []
+
+  // 计算最大列数，确保空单元格也能渲染
+  const maxCols = Math.max(...data.map(row => row?.length || 0))
+  return data.map(row => {
+    const normalizedRow = Array.isArray(row) ? [...row] : []
+    while (normalizedRow.length < maxCols) {
+      normalizedRow.push('')
+    }
+    return normalizedRow
+  })
 })
 </script>
 
@@ -125,6 +160,8 @@ const excelData = computed(() => {
   border: 1px solid #ddd;
   padding: 6px 12px;
   white-space: nowrap;
+  min-width: 40px;
+  min-height: 22px;
 }
 
 .excel-table tr:nth-child(even) { background: #fafafa; }

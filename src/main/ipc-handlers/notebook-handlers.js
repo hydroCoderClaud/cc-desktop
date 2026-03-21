@@ -176,6 +176,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       throw err
     }
   })
+
+  ipcMain.handle('notebook:setCopySourceFiles', async (_e, { notebookId, value }) => {
+    try {
+      return notebookManager.setCopySourceFiles(notebookId, value)
+    } catch (err) {
+      console.error('[IPC] notebook:setCopySourceFiles error:', err)
+      throw err
+    }
+  })
 }
 
 module.exports = { setupNotebookHandlers }

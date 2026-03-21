@@ -1451,6 +1451,9 @@ export default {
       invertSelection: '反选',
       guide: '来源指南',
       importInfo: '导入自 {path}，时间 {time}',
+      importInfoWithCopy: '导入自 {path}，时间 {time}，当前路径是 {currentPath}',
+      copyModeOn: '已开启复制模式（导入时复制文件到笔记本目录）',
+      copyModeOff: '未开启复制模式（导入时仅记录原始路径）',
       openExternal: '外部打开',
 
       web: 'Web',

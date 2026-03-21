@@ -15,10 +15,20 @@
     <div class="panel-content">
       <!-- 列表视图 -->
       <template v-if="!expandedSource">
-        <button class="add-source-btn" @click="$emit('add-source')">
-          <Icon name="plus" :size="16" />
-          <span>{{ t('notebook.source.add') }}</span>
-        </button>
+        <div class="add-source-row">
+          <button class="add-source-btn" @click="$emit('add-source')">
+            <Icon name="plus" :size="16" />
+            <span>{{ t('notebook.source.add') }}</span>
+          </button>
+          <button
+            class="copy-toggle-btn"
+            :class="{ active: copySourceFiles }"
+            :title="copySourceFiles ? t('notebook.source.copyModeOn') : t('notebook.source.copyModeOff')"
+            @click="$emit('toggle-copy-source-files')"
+          >
+            <Icon name="copy" :size="14" />
+          </button>
+        </div>
 
         <div class="search-section">
           <!-- ...保持原样... -->
@@ -74,6 +84,7 @@
             v-for="source in sources"
             :key="source.id"
             class="source-item"
+            :title="getSourceAbsPath(source)"
             @click="openDetail(source)"
           >
             <div class="source-left">
@@ -112,11 +123,13 @@ import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
-const props = defineProps({ 
-  sources: { type: Array, default: () => [] }, 
-  allSelected: Boolean 
+const props = defineProps({
+  sources: { type: Array, default: () => [] },
+  allSelected: Boolean,
+  copySourceFiles: { type: Boolean, default: false },
+  notebookPath: { type: String, default: '' }
 })
-defineEmits(['add-source', 'toggle-select-all', 'invert-selection', 'open-external', 'delete-sources', 'update-source'])
+defineEmits(['add-source', 'toggle-select-all', 'invert-selection', 'open-external', 'delete-sources', 'update-source', 'toggle-copy-source-files'])
 
 const { t } = useLocale()
 const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout()
@@ -135,8 +148,17 @@ const closeDetail = () => {
   collapsePanel('left')
 }
 
-const getSourceIcon = (type) => {
-  const map = { web: 'globe', markdown: 'fileText', pdf: 'file', text: 'file', code: 'file', image: 'image', video: 'video', audio: 'audio' }
+// 计算来源的绝对路径用于 tooltip
+const getSourceAbsPath = (source) => {
+  if (!source.path) return source.url || ''
+  // 不复制模式：path 本身就是绝对路径
+  if (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/')) return source.path
+  // 复制模式：path 是相对路径，拼接 notebookPath
+  if (props.notebookPath) return props.notebookPath + '/' + source.path
+  return source.path
+}
+
+const getSourceIcon = (type) => {  const map = { web: 'globe', markdown: 'fileText', pdf: 'file', text: 'file', code: 'file', image: 'image', video: 'video', audio: 'audio' }
   return map[type] || 'file'
 }
 
@@ -183,12 +205,12 @@ const getSourceColor = (type) => {
 }
 
 .add-source-btn {
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 10px 16px;
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 24px;
@@ -196,11 +218,40 @@ const getSourceColor = (type) => {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 16px;
   transition: all 0.15s;
 }
 
 .add-source-btn:hover { background: var(--hover-bg); }
+
+.add-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.copy-toggle-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copy-toggle-btn:hover { background: var(--hover-bg); }
+
+.copy-toggle-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
 
 .search-section {
   background: var(--bg-color-tertiary);
