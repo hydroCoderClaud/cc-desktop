@@ -30,8 +30,9 @@
           </button>
         </div>
 
+        <!-- TODO: 网络搜索功能暂缓实现 -->
+        <!--
         <div class="search-section">
-          <!-- ...保持原样... -->
           <div class="search-box">
             <Icon name="search" :size="18" class="search-icon" />
             <input type="text" :placeholder="t('notebook.source.searchPlaceholder')" class="search-input" />
@@ -52,6 +53,7 @@
             </button>
           </div>
         </div>
+        -->
 
         <div class="select-all">
           <div class="select-all-left">
