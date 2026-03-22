@@ -7,20 +7,26 @@ const fs = require('fs')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 
-const SOURCE_DIRS = ['pdf', 'markdown', 'web', 'image', 'text', 'code', 'audio', 'video']
+const SOURCE_DIRS = [
+  'document', 'spreadsheet', 'presentation',
+  'markdown', 'web', 'code', 'data',
+  'image', 'audio', 'video', 'other'
+]
 
 /** 根据扩展名推断来源类型 */
 function detectSourceType(ext) {
-  if (['pdf'].includes(ext)) return 'pdf'
+  if (['pdf', 'docx', 'doc', 'txt', 'rtf', 'odt'].includes(ext)) return 'document'
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return 'spreadsheet'
+  if (['pptx', 'ppt'].includes(ext)) return 'presentation'
   if (['md', 'markdown'].includes(ext)) return 'markdown'
   if (['html', 'htm'].includes(ext)) return 'web'
+  if (['json', 'yaml', 'yml', 'toml', 'xml'].includes(ext)) return 'data'
+  if (['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'go', 'rs',
+    'css', 'vue', 'sh', 'ps1', 'sql', 'rb', 'php', 'swift', 'kt'].includes(ext)) return 'code'
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'image'
   if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) return 'audio'
   if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video'
-  if (['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'go', 'rs',
-    'html', 'css', 'json', 'yaml', 'yml', 'toml', 'vue', 'sh', 'ps1', 'sql',
-    'rb', 'php', 'swift', 'kt'].includes(ext)) return 'code'
-  return 'text'
+  return 'other'
 }
 
 const notebookSourceMixin = {
@@ -56,7 +62,7 @@ const notebookSourceMixin = {
     let storedPath, summary, targetFileName
 
     if (copyFiles) {
-      const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'text'
+      const typeDir = SOURCE_DIRS.includes(detectedType) ? detectedType : 'other'
       const relDir = path.join('sources', typeDir)
       const targetDir = path.join(notebookPath, relDir)
       fs.mkdirSync(targetDir, { recursive: true })
@@ -122,7 +128,7 @@ const notebookSourceMixin = {
 
     // 确保子目录存在
     const notebookPath = this._getNotebookPath(notebookId)
-    const typeDir = SOURCE_DIRS.includes(sourceData.type) ? sourceData.type : sourceData.type
+    const typeDir = SOURCE_DIRS.includes(sourceData.type) ? sourceData.type : 'other'
     fs.mkdirSync(path.join(notebookPath, 'sources', typeDir), { recursive: true })
 
     const source = {

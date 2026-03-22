@@ -159,12 +159,24 @@ const getSourceAbsPath = (source) => {
 }
 
 const getSourceIcon = (type) => {
-  const map = { web: 'globe', markdown: 'fileText', pdf: 'file', text: 'file', code: 'file', image: 'image', video: 'video', audio: 'audio' }
+  const map = {
+    document: 'fileText', spreadsheet: 'table', presentation: 'presentation',
+    markdown: 'fileText', web: 'globe', code: 'file', data: 'file',
+    image: 'image', audio: 'audio', video: 'video', other: 'file',
+    // 兼容旧记录
+    pdf: 'file', text: 'file'
+  }
   return map[type] || 'file'
 }
 
 const getSourceColor = (type) => {
-  const map = { web: 'var(--text-color-muted)', markdown: '#2da44e', pdf: '#dc3545', text: 'var(--text-color-muted)', code: '#0366d6', image: '#e85d2a', video: '#388E3C', audio: '#7B1FA2' }
+  const map = {
+    document: '#e53935', spreadsheet: '#2da44e', presentation: '#F57C00',
+    markdown: '#2da44e', web: 'var(--text-color-muted)', code: '#0366d6', data: '#0097A7',
+    image: '#e85d2a', audio: '#7B1FA2', video: '#388E3C', other: 'var(--text-color-muted)',
+    // 兼容旧记录
+    pdf: '#dc3545', text: 'var(--text-color-muted)'
+  }
   return map[type] || 'var(--text-color-muted)'
 }
 </script>
