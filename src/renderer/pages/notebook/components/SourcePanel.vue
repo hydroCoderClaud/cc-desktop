@@ -246,11 +246,6 @@ const getSourceColor = (type) => {
   white-space: nowrap;
   letter-spacing: 0.05em;
 }
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
 
 .add-source-btn {
   flex: 1;
