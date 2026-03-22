@@ -125,7 +125,9 @@
     <div class="strip-body">
       <div class="strip-content">
         <div v-for="source in sources" :key="source.id" class="strip-icon-item" :title="source.name">
-          <Icon :name="getSourceIcon(source.type)" :size="20" :color="getSourceColor(source.type)" />
+          <div @click="openDetail(source)" class="strip-icon-wrapper">
+            <Icon :name="getSourceIcon(source.type)" :size="20" :color="getSourceColor(source.type)" />
+          </div>
         </div>
       </div>
     </div>
@@ -156,6 +158,7 @@ const selectedIds = computed(() => props.sources.filter(s => s.selected).map(s =
 
 const openDetail = (source) => {
   expandedSource.value = source
+  showLeftPanel.value = true
   expandPanel('left')
 }
 
@@ -197,11 +200,23 @@ const getSourceColor = (type) => {
 }
 </script>
 
-<style>
-@import '../notebook-shared.css';
-</style>
-
 <style scoped>
+@import '../notebook-shared.css';
+
+.strip-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+  padding: 4px;
+}
+
+.strip-icon-wrapper:hover {
+  background: var(--hover-bg);
+}
+
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
 .header-btn.danger:hover { background: rgba(255, 77, 79, 0.1); color: #ff4d4f; }
