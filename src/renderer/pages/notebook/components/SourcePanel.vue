@@ -115,10 +115,20 @@
     </div>
   </div>
 
-  <!-- 折叠态：竖向窄条，点击展开 -->
-  <div v-else class="left-panel-collapsed" @click="showLeftPanel = true" :title="t('notebook.source.title')">
-    <Icon name="panelLeft" :size="16" color="var(--text-color-muted)" />
-    <span class="collapsed-title">{{ t('notebook.source.title') }}</span>
+  <!-- 折叠条 -->
+  <div v-else class="panel-collapsed-strip">
+    <div class="strip-header">
+      <button class="header-btn" @click="showLeftPanel = true" :title="t('notebook.source.expand')">
+        <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
+      </button>
+    </div>
+    <div class="strip-body">
+      <div class="strip-content">
+        <div v-for="source in sources" :key="source.id" class="strip-icon-item" :title="source.name">
+          <Icon :name="getSourceIcon(source.type)" :size="20" :color="getSourceColor(source.type)" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -238,14 +248,6 @@ const getSourceColor = (type) => {
 }
 
 .left-panel-collapsed:hover { background: var(--hover-bg); }
-
-.collapsed-title {
-  writing-mode: vertical-rl;
-  font-size: 12px;
-  color: var(--text-color-muted);
-  white-space: nowrap;
-  letter-spacing: 0.05em;
-}
 
 .add-source-btn {
   flex: 1;

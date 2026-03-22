@@ -123,10 +123,35 @@
     </div>
   </div>
 
-  <!-- 折叠态：竖向窄条，点击展开 -->
-  <div v-else class="right-panel-collapsed" @click="showRightPanel = true" :title="t('notebook.studio.title')">
-    <Icon name="panelRight" :size="16" color="var(--text-color-muted)" />
-    <span class="collapsed-title">{{ t('notebook.studio.title') }}</span>
+  <!-- 折叠条 -->
+  <div v-else class="panel-collapsed-strip panel-collapsed-right">
+    <div class="strip-header">
+      <button class="header-btn" @click="showRightPanel = true" :title="t('notebook.studio.expand')">
+        <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
+      </button>
+    </div>
+    <div class="strip-body">
+      <div class="strip-content strip-content-top">
+        <div
+          v-for="type in availableTypes"
+          :key="type.id"
+          class="strip-icon-item type-icon-item"
+          :style="{ background: type.bgColor }"
+          :title="t('notebook.types.' + type.id)"
+        >
+          <div class="type-icon-small" :style="{ color: type.color }">
+            <Icon :name="type.icon" :size="18" />
+          </div>
+          <span class="type-plus">+</span>
+        </div>
+      </div>
+      <div class="strip-divider"></div>
+      <div class="strip-content strip-content-bottom">
+        <div v-for="achievement in achievements" :key="achievement.id" class="strip-icon-item" :title="achievement.name">
+          <Icon :name="achievement.icon" :size="20" :color="achievement.color" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -187,30 +212,6 @@ const getAchievementIcon = (type) => {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-}
-
-.right-panel-collapsed {
-  flex-shrink: 0;
-  width: 32px;
-  background: var(--bg-color-secondary);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0 16px;
-  gap: 10px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.right-panel-collapsed:hover { background: var(--hover-bg); }
-
-.collapsed-title {
-  writing-mode: vertical-rl;
-  font-size: 12px;
-  color: var(--text-color-muted);
-  white-space: nowrap;
-  letter-spacing: 0.05em;
 }
 
 .type-grid {
