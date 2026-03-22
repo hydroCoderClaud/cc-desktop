@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 
@@ -70,21 +70,19 @@ const sheetNames = computed(() => {
   return props.meta?.sheetNames || []
 })
 
-// 当前选中的 sheet（手动切换时记录）
-const currentSheet = ref('')
+// 用户手动选中的 sheet（null 表示未手动选，跟随第一个）
+const currentSheet = ref(null)
 
-// 初始化或重置当前 sheet：props 变化时重置，确保始终指向有效 sheet
-watch(sheetNames, (names) => {
-  if (names.length > 0 && (!currentSheet.value || !names.includes(currentSheet.value))) {
-    currentSheet.value = names[0]
-  }
-}, { immediate: true })
+// 当前激活的 sheet：手动选中且有效则用，否则取第一个
+const activeSheet = computed(() =>
+  (currentSheet.value && sheetNames.value.includes(currentSheet.value))
+    ? currentSheet.value
+    : sheetNames.value[0] || ''
+)
 
 // 当前 sheet 的数据
 const currentSheetData = computed(() => {
-  // 当前激活的 sheet 名：优先用手动选中的，否则取第一个
-  const activeSheet = currentSheet.value || sheetNames.value[0] || ''
-  const data = sheetsData.value[activeSheet]
+  const data = sheetsData.value[activeSheet.value]
   if (!data || !data.length) return []
 
   // 计算最大列数，确保空单元格也能渲染
