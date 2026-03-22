@@ -26,6 +26,7 @@ class CapabilityManager {
     this.skillsManager = skillsManager
     this.agentsManager = agentsManager
     this.mcpManager = mcpManager
+    this.sessionDatabase = null
     this._legacyCleaned = false
     this._capabilityCachePath = null
     this.hasCapabilityUpdate = false
@@ -37,6 +38,23 @@ class CapabilityManager {
     this.pluginsDir = path.join(this.claudeDir, 'plugins')
     this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
     this.settingsPath = path.join(this.claudeDir, 'settings.json')
+  }
+
+  setSessionDatabase(db) {
+    this.sessionDatabase = db
+  }
+
+  /**
+   * 批量检测组件状态 (Notebook 专用)
+   * @param {Array<{type, id}>} components 
+   * @returns {Object} { id: status }
+   */
+  checkComponentsBatch(components) {
+    const result = {}
+    for (const { type, id } of components) {
+      result[id] = this.checkComponentInstalled(type, id)
+    }
+    return result
   }
 
   /**
@@ -273,6 +291,11 @@ class CapabilityManager {
           if (!this._checkPluginInstalled(id)) return false
           if (this._checkPluginDisabled(id)) return 'disabled'
           return 'installed'
+        }
+        case 'prompt': {
+          if (!this.sessionDatabase) return false
+          const p = this.sessionDatabase.getPromptByMarketId(id)
+          return p ? 'installed' : false
         }
         case 'mcp': {
           if (!this.mcpManager) return false

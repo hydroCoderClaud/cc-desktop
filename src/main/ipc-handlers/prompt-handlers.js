@@ -41,6 +41,18 @@ function registerPromptHandlers(sessionDB, configManager) {
   })
 
   /**
+   * Get prompt by Market ID (Notebook mode)
+   */
+  ipcMain.handle('prompts:getByMarketId', async (event, marketId) => {
+    try {
+      return sessionDB.getPromptByMarketId(marketId)
+    } catch (error) {
+      console.error('[IPC] prompts:getByMarketId error:', error)
+      throw error
+    }
+  })
+
+  /**
    * Create a new prompt
    * @param {Object} promptData - { name, content, scope, project_id, tagIds }
    */

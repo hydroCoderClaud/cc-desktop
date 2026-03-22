@@ -90,7 +90,51 @@ class SessionDatabaseBase {
     // Run migrations for existing databases
     this.runMigrations()
 
+    // 注入初始默认数据
+    this._seedDefaultData()
+
     console.log('[SessionDB] Database initialized successfully')
+  }
+
+  /**
+   * 注入初始系统数据（如 Notebook 专用 Prompt 模板）
+   */
+  _seedDefaultData() {
+    try {
+      // 检查并注入笔记总结模板
+      const notebookId = 'sys-notebook-notes'
+      const existing = this.db.prepare(
+        'SELECT id FROM market_installed_prompts WHERE market_id = ?'
+      ).get(notebookId)
+
+      if (!existing) {
+        console.log('[SessionDB] Seeding default notebook prompt:', notebookId)
+        const now = Date.now()
+        // 1. 插入 prompts 表
+        const res = this.db.prepare(`
+          INSERT INTO prompts (name, content, scope, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).run('笔记总结模板', `# 角色设定
+你是一个顶级知识管理专家和高效笔记官。
+
+# 上下文资料 (Sources)
+{{sources}}
+
+# 任务目标
+请基于上述资料，完成一份结构严谨的【笔记总结】。
+请确保最终内容保存到路径：\`{{expected_path}}\`。`, 'notebook', now, now)
+
+        const promptId = res.lastInsertRowid
+
+        // 2. 插入 market 关联表
+        this.db.prepare(`
+          INSERT INTO market_installed_prompts (market_id, local_prompt_id, registry_url, version, installed_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(notebookId, promptId, 'system-builtin', '1.0.0', now)
+      }
+    } catch (err) {
+      console.warn('[SessionDB] Seed default data failed:', err.message)
+    }
   }
 
   /**

@@ -91,6 +91,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   if (agentSessionManager) {
     agentSessionManager.setSessionDatabase(sessionDatabase);
   }
+  if (capabilityManager) {
+    capabilityManager.setSessionDatabase(sessionDatabase);
+  }
   if (sessionFileWatcher) {
     sessionFileWatcher.setDependencies({
       sessionDatabase,

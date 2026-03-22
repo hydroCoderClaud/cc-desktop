@@ -97,6 +97,18 @@ export function usePrompts() {
   }
 
   /**
+   * 通过 Market ID 获取提示词 (Notebook 模式专用)
+   */
+  const getPromptByMarketId = async (marketId) => {
+    try {
+      return await invoke('getPromptByMarketId', marketId)
+    } catch (err) {
+      console.error('Failed to get prompt by market id:', err)
+      throw err
+    }
+  }
+
+  /**
    * 创建提示词
    */
   const createPrompt = async (promptData) => {

@@ -386,6 +386,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   listPrompts: (options) => ipcRenderer.invoke('prompts:list', options),
   getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
+  getPromptByMarketId: (marketId) => ipcRenderer.invoke('prompts:getByMarketId', marketId),
   createPrompt: (promptData) => ipcRenderer.invoke('prompts:create', promptData),
   updatePrompt: ({ promptId, updates }) => ipcRenderer.invoke('prompts:update', promptId, updates),
   deletePrompt: (promptId) => ipcRenderer.invoke('prompts:delete', promptId),
@@ -635,6 +636,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
   getCapabilitiesUpdateStatus: () => ipcRenderer.invoke('capabilities:getUpdateStatus'),
   clearCapabilitiesUpdateBadge: () => ipcRenderer.invoke('capabilities:clearUpdateBadge'),
+  checkComponentsBatchStatus: (components) => ipcRenderer.invoke('capabilities:checkBatchStatus', components),
   onCapabilitiesUpdateAvailable: (callback) => {
     const listener = () => callback()
     ipcRenderer.on('capabilities-update-available', listener)
@@ -776,7 +778,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId }),
   notebookDeleteAchievements: ({ notebookId, achievementIds }) => ipcRenderer.invoke('notebook:deleteAchievements', { notebookId, achievementIds }),
   notebookReadFileContent: ({ notebookId, relPath }) => ipcRenderer.invoke('notebook:readFileContent', { notebookId, relPath }),
-  notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value })
+  notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
+  
+  // Notebook Tools
+  notebookListTools: () => ipcRenderer.invoke('notebook:listTools'),
+  notebookUpdateTool: ({ toolId, updates }) => ipcRenderer.invoke('notebook:updateTool', { toolId, updates }),
+  notebookAddTool: (toolData) => ipcRenderer.invoke('notebook:addTool', toolData),
+  notebookDeleteTool: (toolId) => ipcRenderer.invoke('notebook:deleteTool', toolId)
   })
 ;
 

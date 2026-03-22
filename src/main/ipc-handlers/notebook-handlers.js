@@ -185,6 +185,43 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       throw err
     }
   })
+
+  // ─── Tools (Scenario Tools) ────────────────────────────────────────────────
+  ipcMain.handle('notebook:listTools', async () => {
+    try {
+      return notebookManager.listTools()
+    } catch (err) {
+      console.error('[IPC] notebook:listTools error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:updateTool', async (_e, { toolId, updates }) => {
+    try {
+      return notebookManager.updateTool(toolId, updates)
+    } catch (err) {
+      console.error('[IPC] notebook:updateTool error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:addTool', async (_e, toolData) => {
+    try {
+      return notebookManager.addTool(toolData)
+    } catch (err) {
+      console.error('[IPC] notebook:addTool error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:deleteTool', async (_e, toolId) => {
+    try {
+      return notebookManager.deleteTool(toolId)
+    } catch (err) {
+      console.error('[IPC] notebook:deleteTool error:', err)
+      throw err
+    }
+  })
 }
 
 module.exports = { setupNotebookHandlers }

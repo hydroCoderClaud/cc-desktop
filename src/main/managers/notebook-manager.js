@@ -18,6 +18,7 @@ const { v4: uuidv4 } = require('uuid')
 
 const { notebookSourceMixin, SOURCE_DIRS } = require('./notebook-source-mixin')
 const { notebookAchievementMixin, ACHIEVEMENT_DIRS } = require('./notebook-achievement-mixin')
+const { notebookToolsMixin } = require('./notebook-tools-mixin')
 const { readFileContent } = require('./notebook-file-reader')
 
 class NotebookManager {
@@ -283,5 +284,6 @@ function _deleteRecursive(dirPath) {
 // 混入 sources / achievements 功能
 Object.assign(NotebookManager.prototype, notebookSourceMixin)
 Object.assign(NotebookManager.prototype, notebookAchievementMixin)
+Object.assign(NotebookManager.prototype, notebookToolsMixin)
 
 module.exports = { NotebookManager }

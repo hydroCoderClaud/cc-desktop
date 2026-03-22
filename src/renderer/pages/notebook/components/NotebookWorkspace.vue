@@ -71,6 +71,7 @@
         @invert-selection="handleInvertSelectionAchievements"
         @update-achievement="handleUpdateAchievement"
         @delete-achievements="handleDeleteAchievements"
+        @edit-tool="handleEditTool"
       />
     </div>
 
@@ -79,11 +80,18 @@
       v-model:show="showCreateModal"
       @created="handleNotebookCreated"
     />
+
+    <!-- 工具配置弹窗 -->
+    <ToolConfigModal
+      v-model:visible="showToolConfig"
+      :tool="editingToolData"
+      @save="handleSaveTool"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
@@ -94,6 +102,7 @@ import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import StudioPanel from './StudioPanel.vue'
 import NotebookCreateModal from './NotebookCreateModal.vue'
+import ToolConfigModal from './ToolConfigModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -111,17 +120,68 @@ const currentNotebook = ref(null)
 const sources = ref([])
 const achievements = ref([])
 
-const availableTypes = [
-  { id: 'audio', icon: 'audio', beta: false, bgColor: '#E3F2FD', color: '#1976D2', tip: '生成一个由 AI 向您演示的解说音频' },
-  { id: 'presentation', icon: 'presentation', beta: true, bgColor: '#FFF3E0', color: '#F57C00', tip: '生成一份演示文稿' },
-  { id: 'video', icon: 'video', beta: false, bgColor: '#E8F5E9', color: '#388E3C', tip: '生成一个由 AI 向您演示的解说视频' },
-  { id: 'mindmap', icon: 'mindmap', beta: false, bgColor: '#F3E5F5', color: '#7B1FA2', tip: '生成一张思维导图' },
-  { id: 'report', icon: 'fileText', beta: false, bgColor: '#FFF8E1', color: '#FFA000', tip: '生成一份详细报告' },
-  { id: 'flashcard', icon: 'heart', beta: false, bgColor: '#FCE4EC', color: '#C2185B', tip: '生成学习闪卡' },
-  { id: 'quiz', icon: 'clipboard', beta: true, bgColor: '#FBE9E7', color: '#D84315', tip: '生成一份测验题目' },
-  { id: 'infographic', icon: 'image', beta: true, bgColor: '#E0F7FA', color: '#0097A7', tip: '生成一张信息图' },
-  { id: 'table', icon: 'table', beta: false, bgColor: '#EDE7F6', color: '#512DA8', tip: '生成一份数据表格' }
-]
+const availableTypes = ref([])
+const showToolConfig = ref(false)
+const editingToolData = ref(null)
+
+const loadTools = async () => {
+  try {
+    const tools = await window.electronAPI.notebookListTools()
+    const defaultStyles = {
+      image: { bgColor: '#E0F7FA', color: '#0097A7' },
+      video: { bgColor: '#E8F5E9', color: '#388E3C' },
+      notes: { bgColor: '#FFF8E1', color: '#FFA000' },
+      pdf: { bgColor: '#FCE4EC', color: '#C2185B' },
+      presentation: { bgColor: '#FFF3E0', color: '#F57C00' },
+      word: { bgColor: '#E3F2FD', color: '#1976D2' },
+      web: { bgColor: '#F3E5F5', color: '#7B1FA2' },
+      data: { bgColor: '#EDE7F6', color: '#512DA8' }
+    }
+    
+    availableTypes.value = (tools || []).map(t => ({
+      ...t,
+      bgColor: t.bgColor || defaultStyles[t.id]?.bgColor || '#f5f5f5',
+      color: t.color || defaultStyles[t.id]?.color || '#666'
+    }))
+  } catch (err) {
+    console.error('[Notebook] Failed to load tools:', err)
+  }
+}
+
+const handleEditTool = (tool) => {
+  editingToolData.value = tool
+  showToolConfig.value = true
+}
+
+const handleSaveTool = async (updatedTool) => {
+  if (!updatedTool || !updatedTool.id) return
+  
+  try {
+    // 强制转换为普通 JS 对象，解决 Vue Proxy 传参可能导致的序列化问题
+    const plainUpdates = JSON.parse(JSON.stringify(updatedTool))
+    console.log('[Notebook] Saving plain tool config:', plainUpdates)
+    
+    await window.electronAPI.notebookUpdateTool({ toolId: updatedTool.id, updates: plainUpdates })
+    await loadTools()
+    showToolConfig.value = false
+    
+    if (message) {
+      message.success('工具配置已保存')
+    }
+  } catch (err) {
+    console.error('[Notebook] Failed to save tool:', err)
+    const errorMsg = '保存失败：' + (err.message || '未知错误')
+    if (message) {
+      message.error(errorMsg)
+    } else {
+      alert(errorMsg)
+    }
+  }
+}
+
+onMounted(() => {
+  loadTools()
+})
 
 // ─── 加载笔记本 ───────────────────────────────────────────────────────────────
 const loadNotebook = async (notebook) => {
@@ -139,13 +199,16 @@ const loadNotebook = async (notebook) => {
     // 注入全局 ID 供预览组件使用
     window.currentNotebookId = data.id
     sources.value = data.sources || []
-    achievements.value = (data.achievements || []).map(a => ({
-      ...a,
-      icon: a.type,
-      color: availableTypes.find(t => t.id === a.type)?.color || '#888',
-      sourceCount: a.sourceIds?.length || 0,
-      time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    }))
+    achievements.value = (data.achievements || []).map(a => {
+      const tool = (availableTypes.value || []).find(t => t.id === a.type)
+      return {
+        ...a,
+        icon: a.type,
+        color: tool?.color || '#888',
+        sourceCount: a.sourceIds?.length || 0,
+        time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      }
+    })
   } catch (err) {
     console.error('[Notebook] Failed to load notebook data:', err)
   }
@@ -436,14 +499,22 @@ const handleDeleteAchievements = async (achievementIds) => {
 // ─── Studio Achievements ──────────────────────────────────────────────────
 const handleGenerateAchievement = async (typeId) => {
   if (!currentNotebook.value) return
-  if (selectedSources.value.length === 0) {
-    message.warning(t('notebook.chat.selectSourcesFirst') || '请先在左侧选择至少一个来源')
-    return
-  }
 
-  const type = availableTypes.find(t => t.id === typeId)
-  const typeName = t('notebook.types.' + typeId)
-  const sourceInfo = selectedSources.value.map(s => `- ${s.name} (路径: ${s.path})`).join('\n')
+  // 从动态配置中查找工具
+  const tool = availableTypes.value.find(t => t.id === typeId)
+  if (!tool) return
+
+  const typeName = tool.name
+  const outputType = tool.outputType || 'text'
+  const promptTemplateId = tool.promptTemplateId
+
+  const hasSources = selectedSources.value.length > 0
+  const sourceInfo = hasSources ? selectedSources.value.map(s => `- ${s.name} (路径: ${s.path})`).join('\n') : ''
+
+  // 预分配目标路径
+  const expectedExt = { markdown: 'md', document: 'docx', code: 'html', text: 'txt', image: 'png', video: 'mp4', pdf: 'pdf', csv: 'csv' }[outputType] || 'txt'
+  const expectedFileName = `${typeName}-${Date.now()}.${expectedExt}`
+  const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
 
   // 1. 创建成果记录（状态为 generating）
   try {
@@ -451,31 +522,99 @@ const handleGenerateAchievement = async (typeId) => {
       notebookId: currentNotebook.value.id,
       achievementData: {
         name: `${typeName} - ${new Date().toLocaleDateString()}`,
-        type: typeId,
+        type: outputType,
+        path: expectedRelPath,
         sourceIds: selectedSources.value.map(s => s.id)
       }
     })
-    // 刷新列表显示正在生成
     await loadNotebook(currentNotebook.value)
   } catch (err) {
     console.error('[Notebook] Failed to create achievement record:', err)
   }
 
-  // 2. 构建指令并发送给 Agent (包含路径以防幻觉)
-  const prompt = `请分析以下选中的来源文件：\n${sourceInfo}\n\n我的目标是：基于这些文件内容生成一份 ${typeName}。\n请直接输出 ${typeName} 的详细内容，如果是报告请保持结构完整，如果是思维导图请使用 Markdown 列表格式，如果是演示文稿请分页面描述。`
+  // 2. 获取 Prompt 模板并组装
+  let finalPrompt = ''
+  let templateContent = ''
+
+  if (promptTemplateId) {
+    try {
+      const promptRecord = await window.electronAPI.getPromptByMarketId(promptTemplateId)
+      templateContent = promptRecord?.content || ''
+    } catch (e) {
+      console.warn(`[Notebook] Failed to fetch prompt template [${promptTemplateId}], falling back to default.`)
+    }
+  }
+
+  if (templateContent) {
+    // 执行占位符替换
+    finalPrompt = templateContent
+      .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
+      .replace(/\{\{expected_path\}\}/g, expectedRelPath)
+  } else {
+    // 兜底硬编码模板
+    const instruction = `我的目标是：使用【${typeName}】功能，生成一份成果。
+请将最终成果保存到指定路径：${expectedRelPath}。
+如果你是一个只能输出纯文本的工具，请直接在对话中输出内容，系统会自动为你保存。
+请确保最终生成的文件符合 ${outputType} 类型（或对应扩展名的文件），如果是报告请保持结构完整，不要使用省略号。`
+
+    if (hasSources) {
+      finalPrompt = `请分析以下选中的来源文件：\n${sourceInfo}\n\n${instruction}`
+    } else {
+      finalPrompt = `请根据我们当前的对话上下文。\n\n${instruction}`
+    }
+  }
 
   if (chatPanelRef.value) {
     showRightPanel.value = true
-    await chatPanelRef.value.sendMessage(prompt)
+    await chatPanelRef.value.sendMessage(finalPrompt)
   }
 }
 
 const handleAgentDone = async (newFilePaths = []) => {
-  // Agent 完成后，如果生成了新文件，或者只是对话结束，我们刷新笔记本数据
-  // 以便获取可能更新的 achievements.json
-  if (currentNotebook.value) {
-    await loadNotebook(currentNotebook.value)
+  if (!currentNotebook.value) return
+
+  // 找出正在生成的记录
+  const generatingList = achievements.value.filter(a => a.status === 'generating')
+
+  for (const ach of generatingList) {
+    if (!ach.path) continue
+
+    const absPath = `${currentNotebook.value.notebookPath}/${ach.path}`
+    let fileExists = false
+
+    // 检查文件是否已被 Agent 成功写入
+    try {
+      const fileData = await window.electronAPI.readAbsolutePath({ filePath: absPath, confirmed: true })
+      if (!fileData?.error) fileExists = true
+    } catch (e) {}
+
+    if (fileExists) {
+      // 文件已存在，直接将状态标为 done
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'done' }
+      })
+    } else {
+      // 兜底逻辑：Agent 没有写文件，而是直接输出了文本。前端截获最后一条助手消息并替它写入。
+      if (chatPanelRef.value) {
+        // 由于 chatPanelRef.value 目前不暴露 messages，我们尝试从外部无法直接获取内容。
+        // 但可以通过组件的 `messages` 若暴露。如果没暴露，我们只能做简单处理：
+        // 这里我们可以发起 IPC 调用获取该 session 的历史，但这过于复杂。
+        // 目前简化为：只更新 status，不强制兜底文本，或标记为失败。
+      }
+      
+      // 暂时如果未写文件，标为 failed 或 done（为了不卡死界面）
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'failed' } // 或者设为 done 以允许用户查看
+      })
+    }
   }
+
+  // 刷新以反映最终状态
+  await loadNotebook(currentNotebook.value)
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────

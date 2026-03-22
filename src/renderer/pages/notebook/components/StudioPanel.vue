@@ -35,8 +35,8 @@
               </div>
               <span v-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
             </div>
-            <span class="type-name">{{ t('notebook.types.' + type.id) }}</span>
-            <button class="type-edit-btn">
+            <span class="type-name">{{ t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
+            <button class="type-edit-btn" @click.stop="$emit('edit-tool', type)">
               <Icon name="edit" :size="14" />
             </button>
           </div>
@@ -77,19 +77,24 @@
               v-for="achievement in achievements"
               :key="achievement.id"
               class="achievement-item"
-              :class="{ selected: achievement.selected }"
-              @click="openDetail(achievement)"
+              :class="{ selected: achievement.selected, generating: achievement.status === 'generating' }"
+              @click="achievement.status !== 'generating' && openDetail(achievement)"
             >
-              <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
+              <div v-if="achievement.status === 'generating'" class="generating-spinner"></div>
+              <Icon v-else :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
+              
               <div class="achievement-info">
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
-                  <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount || 0 }) }}</span>
-                  <span class="dot">•</span>
-                  <span>{{ achievement.time }}</span>
+                  <span v-if="achievement.status === 'generating'" class="status-text generating-text">生成中...</span>
+                  <template v-else>
+                    <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount || 0 }) }}</span>
+                    <span class="dot">•</span>
+                    <span>{{ achievement.time }}</span>
+                  </template>
                 </div>
               </div>
-              <div class="achievement-right">
+              <div class="achievement-right" v-if="achievement.status !== 'generating'">
                 <div class="achievement-actions">
                   <button v-if="achievement.type === 'video' || achievement.type === 'audio'" class="action-icon-btn" @click.stop>
                     <Icon name="play" :size="16" />
@@ -137,7 +142,7 @@
           :key="type.id"
           class="strip-icon-item type-icon-item"
           :style="{ background: type.bgColor }"
-          :title="t('notebook.types.' + type.id)"
+          :title="t('notebook.tools.' + type.id) || t('notebook.types.' + type.id)"
         >
           <div class="type-icon-small" :style="{ color: type.color }">
             <Icon :name="type.icon" :size="18" />
@@ -148,7 +153,7 @@
       <div class="strip-divider"></div>
       <div class="strip-content strip-content-bottom">
         <div v-for="achievement in achievements" :key="achievement.id" class="strip-icon-item" :title="achievement.name">
-          <Icon :name="achievement.icon" :size="20" :color="achievement.color" />
+          <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
         </div>
       </div>
     </div>
@@ -169,7 +174,8 @@ const props = defineProps({
 
 defineEmits([
   'generate', 'export', 'copy', 'delete', 
-  'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements'
+  'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
+  'edit-tool'
 ])
 
 const { t } = useLocale()
@@ -190,10 +196,22 @@ const closeDetail = () => {
   collapsePanel('right')
 }
 
-const getTypeName = (typeId) => t('notebook.types.' + typeId)
+const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.types.' + typeId)
 
 const getAchievementIcon = (type) => {
-  const map = { audio: 'audio', video: 'video', report: 'fileText', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table' }
+  const map = { 
+    image: 'image', 
+    video: 'video', 
+    markdown: 'fileText', 
+    pdf: 'file', 
+    document: 'fileText', 
+    code: 'globe', 
+    web: 'globe', 
+    text: 'fileText', 
+    csv: 'table',
+    // 兼容老数据
+    audio: 'audio', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table' 
+  }
   return map[type] || 'fileText'
 }
 </script>
@@ -405,4 +423,40 @@ const getAchievementIcon = (type) => {
 }
 
 .panel-collapsed-right { border-left: none; border-right: none; }
+
+/* Generating State Styles */
+.achievement-item.generating {
+  opacity: 0.8;
+  cursor: wait;
+}
+.achievement-item.generating:hover {
+  background: var(--bg-color-tertiary); /* 禁用 hover 效果 */
+}
+
+.generating-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+.status-text.generating-text {
+  color: var(--primary-color);
+  font-weight: 500;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
 </style>

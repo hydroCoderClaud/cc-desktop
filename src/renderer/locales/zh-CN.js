@@ -1484,6 +1484,16 @@ export default {
       cannotPreviewOffice: '目前支持 Word 和 Excel 深度预览。PPT 请在外部打开。',
     },
 
+    tools: {
+      image: '图片生成',
+      video: '视频制作',
+      notes: '笔记总结',
+      pdf: 'PDF 报告',
+      presentation: '演示文稿',
+      word: '长文文档',
+      web: '网页制作',
+      data: '数据提取',
+    },
     types: {
       audio: '音频概览',
       presentation: '演示文稿',

@@ -1478,6 +1478,16 @@ export default {
       betaBadge: 'Beta',
       cannotPreviewOffice: 'Word and Excel preview are supported. Please open PPT externally.',
     },
+    tools: {
+      image: 'Image Generation',
+      video: 'Video Creation',
+      notes: 'Notes & Summary',
+      pdf: 'PDF Report',
+      presentation: 'Presentation',
+      word: 'Word Document',
+      web: 'Web Page',
+      data: 'Data Extraction',
+    },
     types: {
       audio: 'Audio Overview',
       presentation: 'Presentation',
