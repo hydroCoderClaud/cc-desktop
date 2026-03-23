@@ -225,20 +225,22 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
 
   ipcMain.handle('notebook:fetchRemoteTools', async () => {
     try {
-      const config = configManager.getConfig()
+      const config = notebookManager.configManager.getConfig()
       const registryUrl = config.market?.registryUrl
       const mirrorUrl = config.market?.registryMirrorUrl
       if (!registryUrl) return { success: false, error: '未配置市场源' }
 
       const { httpGet, httpGetWithMirror } = require('../utils/http-client')
       const baseUrl = registryUrl.replace(/\/+$/, '')
-      const url = baseUrl + '/notebook-tools.json'
+      const url = `${baseUrl}/notebook-tools.json?t=${Date.now()}`
       
       const body = mirrorUrl 
         ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
         : await httpGet(url)
       
-      return { success: true, data: JSON.parse(body) }
+      // 清理可能存在的 BOM 字符和前后空格，防止解析失败
+      const cleanBody = body.trim().replace(/^\uFEFF/, '')
+      return { success: true, data: JSON.parse(cleanBody) }
     } catch (err) {
       console.error('[IPC] notebook:fetchRemoteTools error:', err)
       return { success: false, error: err.message }

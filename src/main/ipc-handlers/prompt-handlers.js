@@ -3,12 +3,11 @@
  */
 
 const { ipcMain } = require('electron')
-const { httpGet, httpGetWithMirror, classifyHttpError, isValidMarketId, isSafeFilename } = require('../utils/http-client')
+const { classifyHttpError } = require('../utils/http-client')
+const { fetchMarketPromptContent } = require('../utils/prompt-utils')
 
 /**
  * Register prompt-related IPC handlers
- * @param {SessionDatabase} sessionDB - Database instance
- * @param {ConfigManager} configManager - Config manager instance
  */
 function registerPromptHandlers(sessionDB, configManager) {
   // ========================================
@@ -200,51 +199,10 @@ function registerPromptHandlers(sessionDB, configManager) {
   // Prompts 市场 IPC Handlers
   // ========================================
 
-  /**
-   * 下载市场 Prompt 内容（公共逻辑）
-   */
-  async function _downloadPromptContent(registryUrl, prompt, mirrorUrl) {
-    if (!registryUrl || !prompt || !prompt.id) {
-      return { success: false, error: '参数不完整' }
-    }
-
-    if (!isValidMarketId(prompt.id)) {
-      return { success: false, error: `非法的 Prompt ID: "${prompt.id}"` }
-    }
-
-    const baseUrl = registryUrl.replace(/\/+$/, '')
-    const file = prompt.file || `${prompt.id}.md`
-
-    if (!isSafeFilename(file)) {
-      return { success: false, error: `非法的文件名: "${file}"` }
-    }
-    const fileUrl = `${baseUrl}/prompts/${file}`
-
-    console.log(`[IPC] prompts:market downloading: ${fileUrl}`)
-    const content = mirrorUrl
-      ? await httpGetWithMirror(fileUrl, baseUrl, mirrorUrl)
-      : await httpGet(fileUrl)
-
-    if (!content || content.trim().length === 0) {
-      return { success: false, error: 'Prompt 文件内容为空' }
-    }
-
-    return {
-      success: true,
-      params: {
-        marketId: prompt.id,
-        registryUrl: baseUrl,
-        version: prompt.version || '0.0.0',
-        name: prompt.name || prompt.id,
-        content: content.trim()
-      }
-    }
-  }
-
   ipcMain.handle('prompts:market:install', async (event, { registryUrl, prompt }) => {
     try {
       const mirrorUrl = configManager?.getMarketConfig()?.registryMirrorUrl
-      const dl = await _downloadPromptContent(registryUrl, prompt, mirrorUrl)
+      const dl = await fetchMarketPromptContent(registryUrl, prompt, mirrorUrl)
       if (!dl.success) return dl
       return sessionDB.installMarketPrompt(dl.params)
     } catch (err) {
@@ -256,7 +214,7 @@ function registerPromptHandlers(sessionDB, configManager) {
   ipcMain.handle('prompts:market:installForce', async (event, { registryUrl, prompt }) => {
     try {
       const mirrorUrl = configManager?.getMarketConfig()?.registryMirrorUrl
-      const dl = await _downloadPromptContent(registryUrl, prompt, mirrorUrl)
+      const dl = await fetchMarketPromptContent(registryUrl, prompt, mirrorUrl)
       if (!dl.success) return dl
       return sessionDB.installMarketPromptForce(dl.params)
     } catch (err) {

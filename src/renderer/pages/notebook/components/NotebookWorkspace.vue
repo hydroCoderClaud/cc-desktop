@@ -87,6 +87,14 @@
       v-model:visible="showToolConfig"
       :tool="editingToolData"
       @save="handleSaveTool"
+      @open-prompt-editor="handleOpenPromptEditor"
+    />
+
+    <!-- 提示词模板编辑器 -->
+    <PromptEditModal
+      v-model:show="showPromptEditor"
+      :market-id="editingPromptMarketId"
+      :runtime-placeholders="editingPromptRuntimePlaceholders"
     />
   </div>
 </template>
@@ -104,6 +112,7 @@ import ChatPanel from './ChatPanel.vue'
 import StudioPanel from './StudioPanel.vue'
 import NotebookCreateModal from './NotebookCreateModal.vue'
 import ToolConfigModal from './ToolConfigModal.vue'
+import PromptEditModal from './PromptEditModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -124,6 +133,11 @@ const achievements = ref([])
 const availableTypes = ref([])
 const showToolConfig = ref(false)
 const editingToolData = ref(null)
+
+// 提示词编辑器状态
+const showPromptEditor = ref(false)
+const editingPromptMarketId = ref('')
+const editingPromptRuntimePlaceholders = ref({})
 
 const remoteTools = ref([])
 
@@ -151,9 +165,13 @@ const loadTools = async () => {
 
     // 2. 尝试拉取远程工具清单进行比对
     try {
+      console.log('[Notebook] Fetching remote tools from market...')
       const remoteRes = await window.electronAPI.notebookFetchRemoteTools()
+      console.log('[Notebook] Remote tools response:', remoteRes)
+
       if (remoteRes.success && remoteRes.data && remoteRes.data.tools) {
         remoteTools.value = remoteRes.data.tools
+        console.log('[Notebook] Successfully synced remote tools count:', remoteRes.data.tools.length)
         
         // 找出远程有但本地没有的工具
         const newTools = remoteRes.data.tools
@@ -165,12 +183,17 @@ const loadTools = async () => {
             color: rt.color || '#999'
           }))
         
+        console.log('[Notebook] New tools to be shown as downloadable:', newTools.length)
         availableTypes.value = [...localMapped, ...newTools]
       } else {
+        const errorMsg = remoteRes.error || '返回数据格式错误'
+        console.warn('[Notebook] Remote sync failed:', errorMsg)
+        // 只有在真的出错时才提示，空数据不提示
+        if (remoteRes.error) message.info(`远程工具同步跳过: ${errorMsg}`)
         availableTypes.value = localMapped
       }
     } catch (e) {
-      console.warn('[Notebook] Failed to sync remote tools, using local only.')
+      console.error('[Notebook] Failed to sync remote tools exception:', e)
       availableTypes.value = localMapped
     }
   } catch (err) {
@@ -183,48 +206,49 @@ const handleEditTool = (tool) => {
   showToolConfig.value = true
 }
 
+const handleOpenPromptEditor = (data) => {
+  console.log('[Notebook] Opening prompt editor for:', data.promptTemplateId)
+  editingPromptMarketId.value = data.promptTemplateId
+  editingPromptRuntimePlaceholders.value = data.runtimePlaceholders || {}
+  showPromptEditor.value = true
+}
+
 const handleDownloadTool = async (tool) => {
   const loading = message.loading(`正在安装场景工具：${tool.name}...`, { duration: 0 })
   try {
-    // 1. 安装底层组件依赖 (Skills/MCPs/Plugins)
+    // 1. 安装底层组件依赖 (Skills/MCPs/Plugins/Prompts)
     if (tool.installDependencies && tool.installDependencies.length > 0) {
-      console.log('[Notebook] Installing tool dependencies:', tool.installDependencies)
-      
-      // 我们需要从远程 index.json 中查找到完整的 capability 对象才能调用 install
-      const marketRes = await window.electronAPI.fetchMarketIndex()
-      if (!marketRes.success) throw new Error('无法连接组件市场')
-
-      const allMarketItems = [
-        ...(marketRes.data.skills || []),
-        ...(marketRes.data.agents || []),
-        ...(marketRes.data.prompts || []),
-        ...(marketRes.data.mcps || [])
-      ]
-
       for (const dep of tool.installDependencies) {
-        const item = allMarketItems.find(i => i.id === dep.id)
-        if (item) {
-          console.log(`[Notebook] Installing dependency: ${dep.id}`)
-          await window.electronAPI.installCapability(item.id, item)
-        }
+        console.log(`[Notebook] Installing dependency: ${dep.id} (${dep.type})`)
+        const capability = JSON.parse(JSON.stringify({
+          type: dep.type,
+          componentId: dep.id,
+          marketplace: dep.marketplaceSource // 自动注册市场源
+        }))
+        const res = await window.electronAPI.installCapability(dep.id, capability, { scope: 'notebook' })
+        if (!res.success) throw new Error(`组件 ${dep.id} 安装失败: ${res.error}`)
       }
     }
 
-    // 2. 安装配套提示词模板 (Prompt)
+    // 2. 安装配套提示词模板
     if (tool.promptTemplateId) {
-      console.log(`[Notebook] Installing prompt template: ${tool.promptTemplateId}`)
-      // 复用提示词市场的安装逻辑
-      await window.electronAPI.installMarketPrompt({
-        marketId: tool.promptTemplateId,
-        scope: 'notebook' // 强行指定为 notebook 作用域，实现隔离
-      })
+      const alreadyInstalled = tool.installDependencies?.find(d => d.type === 'prompt' && d.id === tool.promptTemplateId)
+      if (!alreadyInstalled) {
+        console.log(`[Notebook] Installing prompt template: ${tool.promptTemplateId}`)
+        const capability = JSON.parse(JSON.stringify({
+          type: 'prompt',
+          componentId: tool.promptTemplateId
+        }))
+        const res = await window.electronAPI.installCapability(tool.promptTemplateId, capability, { scope: 'notebook' })
+        if (!res.success) throw new Error(`提示词模板 ${tool.promptTemplateId} 安装失败: ${res.error}`)
+      }
     }
 
     // 3. 将工具定义正式写入本地持久化配置
-    await window.electronAPI.notebookAddTool({
+    await window.electronAPI.notebookAddTool(JSON.parse(JSON.stringify({
       ...tool,
-      installed: true // 记录到本地后即视为已安装
-    })
+      installed: true
+    })))
 
     await loadTools()
     message.success(`${tool.name} 安装成功！`)
