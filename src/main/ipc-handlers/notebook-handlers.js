@@ -222,6 +222,28 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       throw err
     }
   })
+
+  ipcMain.handle('notebook:fetchRemoteTools', async () => {
+    try {
+      const config = configManager.getConfig()
+      const registryUrl = config.market?.registryUrl
+      const mirrorUrl = config.market?.registryMirrorUrl
+      if (!registryUrl) return { success: false, error: '未配置市场源' }
+
+      const { httpGet, httpGetWithMirror } = require('../utils/http-client')
+      const baseUrl = registryUrl.replace(/\/+$/, '')
+      const url = baseUrl + '/notebook-tools.json'
+      
+      const body = mirrorUrl 
+        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
+        : await httpGet(url)
+      
+      return { success: true, data: JSON.parse(body) }
+    } catch (err) {
+      console.error('[IPC] notebook:fetchRemoteTools error:', err)
+      return { success: false, error: err.message }
+    }
+  })
 }
 
 module.exports = { setupNotebookHandlers }

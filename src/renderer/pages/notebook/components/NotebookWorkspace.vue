@@ -72,6 +72,7 @@
         @update-achievement="handleUpdateAchievement"
         @delete-achievements="handleDeleteAchievements"
         @edit-tool="handleEditTool"
+        @download-tool="handleDownloadTool"
       />
     </div>
 
@@ -124,9 +125,12 @@ const availableTypes = ref([])
 const showToolConfig = ref(false)
 const editingToolData = ref(null)
 
+const remoteTools = ref([])
+
 const loadTools = async () => {
   try {
-    const tools = await window.electronAPI.notebookListTools()
+    // 1. 获取本地已配置的工��
+    const localTools = await window.electronAPI.notebookListTools()
     const defaultStyles = {
       image: { bgColor: '#E0F7FA', color: '#0097A7' },
       video: { bgColor: '#E8F5E9', color: '#388E3C' },
@@ -138,11 +142,37 @@ const loadTools = async () => {
       data: { bgColor: '#EDE7F6', color: '#512DA8' }
     }
     
-    availableTypes.value = (tools || []).map(t => ({
+    const localMapped = (localTools || []).map(t => ({
       ...t,
       bgColor: t.bgColor || defaultStyles[t.id]?.bgColor || '#f5f5f5',
-      color: t.color || defaultStyles[t.id]?.color || '#666'
+      color: t.color || defaultStyles[t.id]?.color || '#666',
+      installed: true
     }))
+
+    // 2. 尝试拉取远程工具清单进行比对
+    try {
+      const remoteRes = await window.electronAPI.notebookFetchRemoteTools()
+      if (remoteRes.success && remoteRes.data && remoteRes.data.tools) {
+        remoteTools.value = remoteRes.data.tools
+        
+        // 找出远程有但本地没有的工具
+        const newTools = remoteRes.data.tools
+          .filter(rt => !localMapped.find(lt => lt.id === rt.id))
+          .map(rt => ({
+            ...rt,
+            installed: false, // 标记为未安装
+            bgColor: rt.bgColor || '#f0f0f0',
+            color: rt.color || '#999'
+          }))
+        
+        availableTypes.value = [...localMapped, ...newTools]
+      } else {
+        availableTypes.value = localMapped
+      }
+    } catch (e) {
+      console.warn('[Notebook] Failed to sync remote tools, using local only.')
+      availableTypes.value = localMapped
+    }
   } catch (err) {
     console.error('[Notebook] Failed to load tools:', err)
   }
@@ -151,6 +181,59 @@ const loadTools = async () => {
 const handleEditTool = (tool) => {
   editingToolData.value = tool
   showToolConfig.value = true
+}
+
+const handleDownloadTool = async (tool) => {
+  const loading = message.loading(`正在安装场景工具：${tool.name}...`, { duration: 0 })
+  try {
+    // 1. 安装底层组件依赖 (Skills/MCPs/Plugins)
+    if (tool.installDependencies && tool.installDependencies.length > 0) {
+      console.log('[Notebook] Installing tool dependencies:', tool.installDependencies)
+      
+      // 我们需要从远程 index.json 中查找到完整的 capability 对象才能调用 install
+      const marketRes = await window.electronAPI.fetchMarketIndex()
+      if (!marketRes.success) throw new Error('无法连接组件市场')
+
+      const allMarketItems = [
+        ...(marketRes.data.skills || []),
+        ...(marketRes.data.agents || []),
+        ...(marketRes.data.prompts || []),
+        ...(marketRes.data.mcps || [])
+      ]
+
+      for (const dep of tool.installDependencies) {
+        const item = allMarketItems.find(i => i.id === dep.id)
+        if (item) {
+          console.log(`[Notebook] Installing dependency: ${dep.id}`)
+          await window.electronAPI.installCapability(item.id, item)
+        }
+      }
+    }
+
+    // 2. 安装配套提示词模板 (Prompt)
+    if (tool.promptTemplateId) {
+      console.log(`[Notebook] Installing prompt template: ${tool.promptTemplateId}`)
+      // 复用提示词市场的安装逻辑
+      await window.electronAPI.installMarketPrompt({
+        marketId: tool.promptTemplateId,
+        scope: 'notebook' // 强行指定为 notebook 作用域，实现隔离
+      })
+    }
+
+    // 3. 将工具定义正式写入本地持久化配置
+    await window.electronAPI.notebookAddTool({
+      ...tool,
+      installed: true // 记录到本地后即视为已安装
+    })
+
+    await loadTools()
+    message.success(`${tool.name} 安装成功！`)
+  } catch (err) {
+    console.error('[Notebook] Installation failed:', err)
+    message.error(`安装失败：${err.message}`)
+  } finally {
+    loading.destroy()
+  }
 }
 
 const handleSaveTool = async (updatedTool) => {
@@ -546,10 +629,21 @@ const handleGenerateAchievement = async (typeId) => {
   }
 
   if (templateContent) {
-    // 执行占位符替换
-    finalPrompt = templateContent
+    // 1. 执行通用占位符替换
+    let assembledPrompt = templateContent
       .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
       .replace(/\{\{expected_path\}\}/g, expectedRelPath)
+    
+    // 2. 执行运行时能力占位符替换 (Runtime Placeholders)
+    // 用于解决“安装是大包，执行是具体功能”的问题
+    if (tool.runtimePlaceholders) {
+      Object.entries(tool.runtimePlaceholders).forEach(([key, value]) => {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+        assembledPrompt = assembledPrompt.replace(regex, value)
+      })
+    }
+    
+    finalPrompt = assembledPrompt
   } else {
     // 兜底硬编码模板
     const instruction = `我的目标是：使用【${typeName}】功能，生成一份成果。

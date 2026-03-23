@@ -25,18 +25,22 @@
             v-for="type in availableTypes"
             :key="type.id"
             class="type-card"
+            :class="{ 'not-installed': type.installed === false }"
             :style="{ background: type.bgColor }"
-            :title="type.tip"
-            @click="$emit('generate', type.id)"
+            :title="type.tip || type.description"
+            @click="type.installed !== false ? $emit('generate', type.id) : $emit('download-tool', type)"
           >
             <div class="type-card-top">
               <div class="type-icon-content" :style="{ color: type.color }">
                 <Icon :name="type.icon" :size="16" />
               </div>
-              <span v-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
+              <div v-if="type.installed === false" class="download-badge" :title="t('market.install')">
+                <Icon name="download" :size="10" />
+              </div>
+              <span v-else-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
             </div>
-            <span class="type-name">{{ t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
-            <button class="type-edit-btn" @click.stop="$emit('edit-tool', type)">
+            <span class="type-name">{{ type.name || t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
+            <button v-if="type.installed !== false" class="type-edit-btn" @click.stop="$emit('edit-tool', type)">
               <Icon name="edit" :size="14" />
             </button>
           </div>
@@ -279,6 +283,38 @@ const getAchievementIcon = (type) => {
   color: var(--text-color-muted);
 }
 .type-card:hover .type-edit-btn { opacity: 1; }
+
+/* Not Installed State */
+.type-card.not-installed {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+}
+.type-card.not-installed:hover {
+  opacity: 0.9;
+  filter: none;
+}
+
+.download-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  animation: pulse-download 2s infinite;
+}
+
+@keyframes pulse-download {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
 
 .panel-divider { height: 1px; background: var(--border-color); margin: 0 0 20px; }
 
