@@ -11,8 +11,9 @@
       </template>
       <template v-else>
         <span class="panel-title">{{ t('notebook.studio.title') }}</span>
-        <button class="header-btn" @click="$emit('open-market')" :title="t('notebook.market.title')">
+        <button class="header-btn market-btn" @click="$emit('open-market')" :title="t('notebook.market.title')">
           <Icon name="store" :size="16" :strokeWidth="1.8" />
+          <span v-if="hasNewTools" class="market-dot"></span>
         </button>
         <button class="header-btn" style="margin-left:auto" :title="t('common.collapse')" @click="showRightPanel = false">
           <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
@@ -176,7 +177,8 @@ import NotebookFilePreview from './NotebookFilePreview.vue'
 
 const props = defineProps({
   achievements: { type: Array, default: () => [] },
-  availableTypes: { type: Array, default: () => [] }
+  availableTypes: { type: Array, default: () => [] },
+  hasNewTools: { type: Boolean, default: false }
 })
 
 defineEmits([
@@ -462,6 +464,18 @@ const getAchievementIcon = (type) => {
 }
 
 .panel-collapsed-right { border-left: none; border-right: none; }
+
+.market-btn { position: relative; }
+.market-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  background: #ff4d4f;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg-color-secondary);
+}
 
 /* Generating State Styles */
 .achievement-item.generating {

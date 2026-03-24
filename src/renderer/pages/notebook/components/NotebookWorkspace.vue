@@ -66,6 +66,7 @@
       <StudioPanel
         :achievements="achievements"
         :available-types="availableTypes"
+        :has-new-tools="hasNewTools"
         @generate="handleGenerateAchievement"
         @toggle-select-all="handleToggleSelectAllAchievements"
         @invert-selection="handleInvertSelectionAchievements"
@@ -151,6 +152,17 @@ const editingPromptRuntimePlaceholders = ref({})
 
 const remoteTools = ref([])
 const showMarketModal = ref(false)
+
+// 有新工具可安装或可更新时，市场图标显示红点
+const hasNewTools = computed(() => {
+  if (!remoteTools.value.length) return false
+  return remoteTools.value.some(rt => {
+    const lt = availableTypes.value.find(t => t.id === rt.id && t.installed === true)
+    if (!lt) return true // 未安装的新工具
+    if (rt.version && (!lt.version || lt.version !== rt.version)) return true // 可更新
+    return false
+  })
+})
 
 const loadTools = async () => {
   try {
