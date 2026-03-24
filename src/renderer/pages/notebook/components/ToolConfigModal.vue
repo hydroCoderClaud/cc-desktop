@@ -49,7 +49,7 @@
             />
           </n-form-item>
           <n-form-item :label="t('notebook.toolConfig.iconId')" class="flex-1">
-            <n-input v-model:value="editingTool.icon" readonly placeholder="Icon name" />
+            <n-input v-model:value="editingTool.icon" disabled placeholder="Icon name" />
           </n-form-item>
         </div>
 
@@ -59,7 +59,7 @@
         </n-divider>
 
         <div class="prompt-link-row">
-          <n-input v-model:value="editingTool.promptTemplateId" readonly placeholder="ID" />
+          <n-input v-model:value="editingTool.promptTemplateId" disabled placeholder="ID" />
           <n-button ghost type="primary" @click="openPromptEditor">
             <template #icon><Icon name="edit" :size="14" /></template>
             {{ t('notebook.toolConfig.editContent') }}
@@ -104,7 +104,7 @@
           <div v-if="!Object.keys(editingTool.runtimePlaceholders || {}).length" class="empty-placeholder">{{ t('notebook.toolConfig.noMappings') }}</div>
           <div v-for="(val, key) in editingTool.runtimePlaceholders" :key="'rt-'+key" class="mapping-item">
             <n-tag :bordered="false" size="small" class="key-tag">{{ key }}:</n-tag>
-            <n-input size="small" :value="editingTool.runtimePlaceholders[key]" readonly class="flex-1" />
+            <n-input size="small" :value="editingTool.runtimePlaceholders[key]" disabled class="flex-1" />
           </div>
         </div>
       </n-form>
@@ -223,9 +223,7 @@ const openPromptEditor = () => {
 .mapping-item { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
 .key-tag { color: var(--text-color); min-width: 80px; justify-content: center; }
 
-/* 只读/禁用组件不响应 hover */
-:deep(.n-input--readonly .n-input__border),
-:deep(.n-input--readonly .n-input__state-border),
+/* 禁用组件：不响应 hover，文字保持正常颜色 */
 :deep(.n-input--disabled .n-input__border),
 :deep(.n-input--disabled .n-input__state-border),
 :deep(.n-base-selection--disabled .n-base-selection__border),
@@ -233,10 +231,14 @@ const openPromptEditor = () => {
   border-color: var(--border-color) !important;
   box-shadow: none !important;
 }
-:deep(.n-input--readonly),
 :deep(.n-input--disabled),
 :deep(.n-base-selection--disabled) {
   cursor: default;
+}
+:deep(.n-input--disabled .n-input__input-el),
+:deep(.n-input--disabled .n-input__textarea-el) {
+  color: var(--text-color) !important;
+  -webkit-text-fill-color: var(--text-color) !important;
 }
 
 .modal-footer-box { display: flex; justify-content: space-between; align-items: center; width: 100%; }
