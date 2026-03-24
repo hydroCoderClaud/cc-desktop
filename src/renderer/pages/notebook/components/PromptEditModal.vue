@@ -56,7 +56,7 @@
                 <span class="var-bracket" v-text="'}}'"></span>
                 <span class="var-tooltip">{{ t('notebook.promptEditor.varNotebookPath') }}</span>
               </div>
-              <div v-for="(val, key) in runtimePlaceholders" :key="key" class="var-tag custom" @click="insertVar(key)">
+              <div v-for="(val, key) in runtimePlaceholders" :key="key" class="var-tag system" @click="insertVar(key)">
                 <span class="var-bracket" v-text="'{{'"></span>
                 <span class="var-name">{{ key }}</span>
                 <span class="var-bracket" v-text="'}}'"></span>
@@ -220,8 +220,6 @@ const insertVar = (key) => {
 }
 
 .var-tag.system { border-left: 4px solid var(--primary-color); }
-.var-tag.custom { border-left: 4px solid #52c41a; }
-.var-tag.custom .var-name { color: #52c41a; }
 
 .modal-footer-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .footer-hint { font-size: 12px; color: var(--text-color-muted); font-style: italic; }
