@@ -1,7 +1,7 @@
 # Notebook 工程结构设计
 
 > 日期：2026-03-17
-> 状态：已确认
+> 状态：已确认（后续已按当前实现更新关键结构说明）
 
 ## 概述
 
@@ -49,20 +49,12 @@
 │   ├── code/
 │   └── {用户自定义}/
 └── achievements/
-    ├── audio/
-    ├── video/
-    ├── report/
-    ├── presentation/
-    ├── mindmap/
-    ├── flashcard/
-    ├── quiz/
-    ├── infographic/
-    ├── table/
+    ├── {toolId}/
     └── {用户自定义}/
 ```
 
 - `sources/` 子目录按文件类型自动创建，也支持用户自定义子目录
-- `achievements/` 子目录按成果类型自动创建（对应 9 种输出类型），也支持用户自定义子目录
+- `achievements/` 目录按 **toolId** 按需创建，不再按成果类型预先铺设固定目录
 - 索引文件是唯一数据源，目录仅做物理存储组织
 
 ## 3. notebook.json — 工程元数据
@@ -130,8 +122,8 @@
       "id": "ach-001",
       "name": "MCP HydroSSH 推广视频",
       "type": "video",
-      "path": "achievements/video/hydrossh-promo.mp4",
-      "category": "video",
+      "toolId": "notes",
+      "path": "achievements/notes/hydrossh-promo.mp4",
       "sourceIds": ["src-001", "src-002"],
       "prompt": "根据这两份资料生成一个3分钟的推广视频",
       "status": "done",
@@ -141,24 +133,16 @@
 }
 ```
 
-- `category`：所在目录名，默认等于 `type`，用户移动到自定义目录时更新
+- `toolId`：成果所属工具目录，目录按 `toolId` 按需创建
 - `sourceIds`：生成时引用的源 ID 列表，便于溯源
 - `prompt`：保留生成指令，方便重新生成或调整
 - `status`：`done` | `generating` | `failed`
 
-### 支持的成果类型
+### 成果存储规则
 
-| type | 说明 | 自动目录 |
-|------|------|---------|
-| audio | 解说音频 | achievements/audio/ |
-| video | 解说视频 | achievements/video/ |
-| report | 详细报告 | achievements/report/ |
-| presentation | 演示文稿 | achievements/presentation/ |
-| mindmap | 思维导图 | achievements/mindmap/ |
-| flashcard | 学习闪卡 | achievements/flashcard/ |
-| quiz | 测验题目 | achievements/quiz/ |
-| infographic | 信息图 | achievements/infographic/ |
-| table | 数据表格 | achievements/table/ |
+- `type` 仍表示成果类型（如 `audio` / `video` / `markdown` 等）
+- 物理目录不再按 `type` 展开，而是按 `toolId` 组织：`achievements/{toolId}/...`
+- 目录按需创建，不预建整棵成果类型目录树
 
 ## 6. 数据关系
 
@@ -196,8 +180,8 @@ achievement ──N:N──▶ source（通过 sourceIds 引用）
 - 自定义目录名不能与类型默认目录名冲突（如不能创建名为 `pdf` 的自定义源目录）
 
 ### 索引与磁盘不一致
-- 索引是唯一数据源，不做自动扫描同步
-- 文件被外部删除时，索引条目保留，UI 上标记为"文件缺失"
+- 启动时会做一致性扫描与清理（如 `sanitizeAchievements`），修正明显失配项
+- 索引仍是主要数据源，但不会再假设“完全不做自动扫描同步”
 
 ### url 字段
 - web 类型必填，其他类型为 null

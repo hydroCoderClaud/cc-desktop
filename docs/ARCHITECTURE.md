@@ -6,13 +6,13 @@
 
 ## 设计理念
 
-> **Desktop = Claude Code CLI Launcher + Terminal Emulator**
+> **Desktop = Claude Code CLI 的本地桌面宿主 + AI 工作台**
 
-CC Desktop 是完全独立的 Electron 桌面应用，作为 Claude Code CLI 的图形化启动器和终端模拟器。
+CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本地桌面工作流、Agent 对话、Notebook 工作台和钉钉桥接能力。
 
 **核心原则**：
 - **单用户无认证** -- 无 JWT、无用户管理，所有数据纯本地
-- **双模式架构** -- Developer 模式（PTY 终端）+ Agent 模式（SDK 对话）
+- **多模式架构** -- Developer 模式 + Agent 模式 + Notebook 模式（feature-gated）
 - **直接 IPC 通信** -- 无 WebSocket，主进程与渲染进程通过 Electron IPC 直连
 - **CLI 依赖** -- Terminal/Agent 模式及 MCP 服务器均依赖 Claude Code CLI
 
