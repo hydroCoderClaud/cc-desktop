@@ -1483,6 +1483,7 @@ export default {
       title: 'Tool Market',
       searchPlaceholder: 'Search by name or description...',
       found: '{count} tools found',
+      empty: 'No matching tools found',
       install: 'Install',
       installed: 'Installed',
       update: 'Update',

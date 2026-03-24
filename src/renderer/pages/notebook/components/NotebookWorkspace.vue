@@ -262,18 +262,10 @@ const handleSaveTool = async (updatedTool) => {
     await window.electronAPI.notebookUpdateTool({ toolId: updatedTool.id, updates: plainUpdates })
     await loadTools()
     showToolConfig.value = false
-    
-    if (message) {
-      message.success('工具配置已保存')
-    }
+    message.success(t('notebook.toolConfig.saveSuccess'))
   } catch (err) {
     console.error('[Notebook] Failed to save tool:', err)
-    const errorMsg = '保存失败：' + (err.message || '未知错误')
-    if (message) {
-      message.error(errorMsg)
-    } else {
-      alert(errorMsg)
-    }
+    message.error(t('notebook.toolConfig.saveFailed', { error: err.message || '未知错误' }))
   }
 }
 

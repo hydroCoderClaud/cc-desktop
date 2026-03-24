@@ -1488,6 +1488,7 @@ export default {
       title: '创作工具市场',
       searchPlaceholder: '搜索工具名称或描述...',
       found: '已发现 {count} 个创作工具',
+      empty: '没有找到匹配的工具',
       install: '安装',
       installed: '已安装',
       update: '更新版本',

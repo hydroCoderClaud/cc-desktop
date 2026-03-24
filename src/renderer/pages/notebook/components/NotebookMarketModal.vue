@@ -64,7 +64,7 @@
             </div>
           </div>
           <div v-else-if="!loading" class="empty-state">
-            <n-empty :description="t('notebook.market.searchPlaceholder')" />
+            <n-empty :description="t('notebook.market.empty')" />
           </div>
         </div>
       </n-spin>
@@ -119,7 +119,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
-import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
@@ -129,7 +128,6 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'install', 'uninstall'])
 const { t } = useLocale()
-const message = useMessage()
 
 const loading = ref(false)
 const searchQuery = ref('')
@@ -166,6 +164,11 @@ watch(() => props.show, (val) => {
   if (val) loadRemoteTools()
 })
 
+// 父组件 loadTools 刷新后 localTools 变化，清除安装 loading
+watch(() => props.localTools, () => {
+  installingId.value = null
+})
+
 const isInstalled = (id) => {
   if (!id || !props.localTools) return false
   return props.localTools.some(lt =>
@@ -193,13 +196,12 @@ const openDetail = (tool) => {
   showDetail.value = true
 }
 
-const handleInstall = async (tool) => {
+const handleInstall = (tool) => {
   installingId.value = tool.id
-  try {
-    emit('install', tool)
-  } finally {
-    setTimeout(() => { installingId.value = null }, 1000)
-  }
+  emit('install', tool)
+  // loading 由父组件安装完成后 loadTools 刷新 prop 时自动清除
+  // 添加兜底超时，防止父组件异常时 loading 卡死
+  setTimeout(() => { installingId.value = null }, 30000)
 }
 
 const handleUninstall = (tool) => {
