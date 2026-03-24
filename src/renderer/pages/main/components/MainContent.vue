@@ -991,8 +991,10 @@ const handlePreviewPath = async (filePath) => {
     }
 
     // 如果是目录，直接打开文件夹
+    const effectivePath = fileData.path || fileData.filePath || filePath
+
     if (fileData.type === 'directory') {
-      await window.electronAPI.openPath(filePath)
+      await window.electronAPI.openPath(effectivePath)
       return
     }
 
@@ -1005,7 +1007,7 @@ const handlePreviewPath = async (filePath) => {
     nextTick(async () => {
       if (!agentRightPanelRef.value) return
       // 优先尝试在文件树中定位（仅对 cwd 内的文件有效）
-      const revealed = await agentRightPanelRef.value.revealInTree?.(filePath, { preview: true })
+      const revealed = await agentRightPanelRef.value.revealInTree?.(effectivePath, { preview: true })
       // 如果文件不在 cwd 内（revealInTree 返回 false/undefined），直接展示预览
       if (!revealed) {
         agentRightPanelRef.value.previewImage?.({ ...fileData, isExternalFile: true })

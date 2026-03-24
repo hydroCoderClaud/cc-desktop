@@ -685,7 +685,8 @@ const handlePreviewPath = async (filePath) => {
       confirmed: true
     })
     if (fileData?.error) { message.error(fileData.error); return }
-    await window.electronAPI.openPath(filePath)
+    const effectivePath = fileData.path || fileData.filePath || filePath
+    await window.electronAPI.openPath(effectivePath)
   } catch (err) {
     console.error('[Notebook] Failed to preview path:', err)
     message.error('文件预览失败')

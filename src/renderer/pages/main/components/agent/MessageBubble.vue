@@ -62,6 +62,19 @@ const props = defineProps({
 const emit = defineEmits(['preview-image', 'preview-link', 'preview-path'])
 
 const bodyRef = ref(null)
+const TRAILING_SENTENCE_PUNCTUATION = /[。．，,；;：:！!？?]+$/
+const UNMATCHED_TRAILING_BRACKETS = {
+  '）': '（',
+  ')': '(',
+  '】': '【',
+  ']': '[',
+  '」': '「',
+  '』': '『',
+  '》': '《',
+  '〉': '〈',
+  '}': '{',
+  '>': '<'
+}
 
 /**
  * HTML 转义函数
@@ -73,6 +86,63 @@ const escapeHtml = (str) => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
+}
+
+const trimTrailingPathPunctuation = (value) => {
+  if (!value) return value
+
+  let trimmed = value.replace(TRAILING_SENTENCE_PUNCTUATION, '')
+  while (trimmed) {
+    const trailingChar = trimmed.at(-1)
+    const openingChar = UNMATCHED_TRAILING_BRACKETS[trailingChar]
+    if (!openingChar) break
+
+    const openingCount = [...trimmed].filter(char => char === openingChar).length
+    const closingCount = [...trimmed].filter(char => char === trailingChar).length
+    if (closingCount > openingCount) {
+      trimmed = trimmed.slice(0, -1)
+      continue
+    }
+    break
+  }
+
+  return trimmed
+}
+
+const wrapPathLink = (rawPath) => {
+  const cleanPath = trimTrailingPathPunctuation(rawPath)
+  if (!cleanPath) return rawPath
+
+  const trailing = escapeHtml(rawPath.slice(cleanPath.length))
+  const escapedPath = escapeHtml(cleanPath)
+  return `<a class="clickable-link" data-link-type="path" data-href="${escapedPath}" title="单击预览 · Ctrl+单击打开">${escapedPath}</a>${trailing}`
+}
+
+const normalizePathForAction = async (rawPath) => {
+  if (!rawPath) return rawPath
+
+  let normalizedPath = trimTrailingPathPunctuation(rawPath)
+  if (!normalizedPath) return rawPath
+
+  if (/^\.\.?[/\\]/.test(normalizedPath) && props.sessionCwd) {
+    normalizedPath = await window.electronAPI.resolvePath(props.sessionCwd, normalizedPath)
+  }
+
+  const sessionId = props.message?.sessionId || props.message?.conversationId || props.message?.conversation_id
+  try {
+    const fileData = await window.electronAPI.readAbsolutePath({
+      filePath: normalizedPath,
+      sessionId,
+      confirmed: true
+    })
+    if (!fileData?.error) {
+      return fileData.path || fileData.filePath || normalizedPath
+    }
+  } catch {
+    // ignore and fall back to normalized path
+  }
+
+  return normalizedPath
 }
 
 /**
@@ -118,20 +188,20 @@ const renderedContent = computed(() => {
     '<a class="clickable-link" data-link-type="url" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
   // Windows 绝对路径（C:\... D:\...）
-  text = text.replace(/([A-Z]):(\\[^\s<>&"',:*?]+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1:$2" title="单击预览 · Ctrl+单击打开">$1:$2</a>')
+  text = text.replace(/([A-Z]:(?:\\[^\n<>&"':*?]+)+)/g,
+    (_, pathText) => wrapPathLink(pathText))
 
   // Unix 绝对路径（/home/... /usr/... /tmp/... 等）
-  text = text.replace(/(\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)[^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
+  text = text.replace(/(\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)[^\n<>&"']*)/g,
+    (_, pathText) => wrapPathLink(pathText))
 
   // 相对路径（Unix: ./... 或 ../... | Windows: .\... 或 ..\...）
-  text = text.replace(/(\.\.?[/\\][^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
+  text = text.replace(/(\.\.?[/\\][^\n<>&"']*)/g,
+    (_, pathText) => wrapPathLink(pathText))
 
   // ~ 路径（~/...）
-  text = text.replace(/(~\/[^\s<>&"']+)/g,
-    '<a class="clickable-link" data-link-type="path" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
+  text = text.replace(/(~\/[^\n<>&"']*)/g,
+    (_, pathText) => wrapPathLink(pathText))
 
   // 换行
   text = text.replace(/\n/g, '<br>')
@@ -153,8 +223,10 @@ const renderedContent = computed(() => {
         linkType = 'path'
       }
       if (linkType) {
-        const escaped = escapeHtml(trimmed)
-        return `<pre><code><a class="clickable-link" data-link-type="${linkType}" data-href="${escaped}" title="单击预览 · Ctrl+单击打开">${escaped}</a></code></pre>`
+        const cleanPath = linkType === 'path' ? trimTrailingPathPunctuation(trimmed) : trimmed
+        const escaped = escapeHtml(cleanPath)
+        const trailing = linkType === 'path' ? escapeHtml(trimmed.slice(cleanPath.length)) : ''
+        return `<pre><code><a class="clickable-link" data-link-type="${linkType}" data-href="${escaped}" title="单击预览 · Ctrl+单击打开">${escaped}</a>${trailing}</code></pre>`
       }
     }
     return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
@@ -170,8 +242,10 @@ const renderedContent = computed(() => {
       linkType = 'path'
     }
     if (linkType) {
-      const escapedCode = escapeHtml(code)
-      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${escapedCode}" title="单击预览 · Ctrl+单击打开">${escapedCode}</a></code>`
+      const cleanCode = linkType === 'path' ? trimTrailingPathPunctuation(code) : code
+      const escapedCode = escapeHtml(cleanCode)
+      const trailing = linkType === 'path' ? escapeHtml(code.slice(cleanCode.length)) : ''
+      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${escapedCode}" title="单击预览 · Ctrl+单击打开">${escapedCode}</a>${trailing}</code>`
     }
     return `<code>${escapeHtml(code)}</code>`
   })
@@ -193,11 +267,9 @@ const handleLinkClick = async (e) => {
 
   if (!href) return
 
-  // 相对路径解析：基于当前会话的 cwd 转为绝对路径
   let resolvedPath = href
-  if (type === 'path' && /^\.\.?[/\\]/.test(href) && props.sessionCwd) {
-    // 使用 Node.js path 模块解析（通过 IPC 调用后端）
-    resolvedPath = await window.electronAPI.resolvePath(props.sessionCwd, href)
+  if (type === 'path') {
+    resolvedPath = await normalizePathForAction(href)
   }
 
   // Ctrl/Cmd+点击：在外部打开
