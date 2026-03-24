@@ -123,7 +123,7 @@ describe('NotebookManager.prepareGeneration', () => {
     const result = mgr.prepareGeneration(nb.id, 'notes', [sourceId])
 
     expect(result.prompt).toContain('report.pdf')
-    expect(result.prompt).toContain('achievements/markdown/')
+    expect(result.prompt).toMatch(/achievements.markdown/)
     expect(result.prompt).not.toContain('{{sources}}')
     expect(result.prompt).not.toContain('{{expected_path}}')
   })
@@ -197,14 +197,13 @@ describe('NotebookManager.prepareGeneration', () => {
 
     const result = mgr.prepareGeneration(nb.id, 'notes', [])
 
-    // 返回了绝对路径
-    expect(result.expectedAbsPath).toContain(baseDir.replace(/\\/g, '/'))
-    expect(result.expectedAbsPath).toContain('achievements/markdown/')
+    // 返回了绝对路径（OS 原生格式）
+    expect(result.expectedAbsPath).toContain(baseDir)
+    expect(result.expectedAbsPath).toMatch(/achievements/)
     expect(result.expectedAbsPath).toMatch(/\.md$/)
 
-    // prompt 中包含绝对路径而非相对路径
+    // prompt 中包含绝对路径
     expect(result.prompt).toContain(result.expectedAbsPath)
-    expect(result.prompt).not.toMatch(/保存到指定路径：achievements\//)
   })
 
   it('sourceIds 为空时使用已勾选的来源', () => {

@@ -47,7 +47,7 @@ const notebookGenerationMixin = {
     const safeId = toolId.replace(/[^a-zA-Z0-9_-]/g, '-')
     const expectedFileName = `${safeId}-${Date.now()}.${ext}`
     const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
-    const expectedAbsPath = path.join(notebookPath, expectedRelPath).replace(/\\/g, '/')
+    const expectedAbsPath = path.join(notebookPath, expectedRelPath)
 
     // 4. 加载 Prompt 模板
     let templateContent = ''
@@ -68,7 +68,7 @@ const notebookGenerationMixin = {
       prompt = templateContent
         .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
         .replace(/\{\{expected_path\}\}/g, expectedAbsPath)
-        .replace(/\{\{notebook_path\}\}/g, notebookPath.replace(/\\/g, '/'))
+        .replace(/\{\{notebook_path\}\}/g, notebookPath)
 
       // 运行时能力占位符替换
       if (tool.runtimePlaceholders) {
