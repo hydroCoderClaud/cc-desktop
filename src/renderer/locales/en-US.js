@@ -1479,6 +1479,23 @@ export default {
       cannotPreviewOffice: 'Word and Excel preview are supported. Please open PPT externally.',
     },
 
+    market: {
+      title: 'Tool Market',
+      searchPlaceholder: 'Search by name or description...',
+      found: '{count} tools found',
+      install: 'Install',
+      installed: 'Installed',
+      update: 'Update',
+      uninstall: 'Uninstall',
+      detailTitle: 'Details',
+      detailDeps: 'Dependencies (read-only)',
+      detailRuntime: 'Runtime Variables',
+      installSuccess: '{name} installed',
+      installFailed: 'Install failed: {error}',
+      uninstallSuccess: '{name} uninstalled',
+      uninstallFailed: 'Uninstall failed: {error}',
+    },
+
     toolConfig: {
       title: 'Configure Tool: {id}',
       sectionVisual: 'Visual & Basic Settings',

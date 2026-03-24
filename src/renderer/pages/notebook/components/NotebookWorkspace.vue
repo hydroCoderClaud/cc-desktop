@@ -73,6 +73,7 @@
         @delete-achievements="handleDeleteAchievements"
         @edit-tool="handleEditTool"
         @download-tool="handleDownloadTool"
+        @open-market="showMarketModal = true"
       />
     </div>
 
@@ -96,6 +97,14 @@
       :market-id="editingPromptMarketId"
       :runtime-placeholders="editingPromptRuntimePlaceholders"
     />
+
+    <!-- 创作工具市场 -->
+    <NotebookMarketModal
+      v-model:show="showMarketModal"
+      :local-tools="availableTypes"
+      @install="handleDownloadTool"
+      @uninstall="handleUninstallTool"
+    />
   </div>
 </template>
 
@@ -113,6 +122,7 @@ import StudioPanel from './StudioPanel.vue'
 import NotebookCreateModal from './NotebookCreateModal.vue'
 import ToolConfigModal from './ToolConfigModal.vue'
 import PromptEditModal from './PromptEditModal.vue'
+import NotebookMarketModal from './NotebookMarketModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -140,6 +150,7 @@ const editingPromptMarketId = ref('')
 const editingPromptRuntimePlaceholders = ref({})
 
 const remoteTools = ref([])
+const showMarketModal = ref(false)
 
 const loadTools = async () => {
   try {
@@ -219,12 +230,24 @@ const handleDownloadTool = async (tool) => {
     const res = await window.electronAPI.notebookInstallTool(JSON.parse(JSON.stringify(tool)))
     if (!res.success) throw new Error(res.error)
     await loadTools()
-    message.success(`${tool.name} 安装成功！`)
+    message.success(t('notebook.market.installSuccess', { name: tool.name }))
   } catch (err) {
     console.error('[Notebook] Installation failed:', err)
-    message.error(`安装失败：${err.message}`)
+    message.error(t('notebook.market.installFailed', { error: err.message }))
   } finally {
     loading.destroy()
+  }
+}
+
+const handleUninstallTool = async (toolId) => {
+  try {
+    const res = await window.electronAPI.notebookUninstallTool(toolId)
+    if (!res.success) throw new Error(res.error)
+    await loadTools()
+    message.success(t('notebook.market.uninstallSuccess', { name: toolId }))
+  } catch (err) {
+    console.error('[Notebook] Uninstall failed:', err)
+    message.error(t('notebook.market.uninstallFailed', { error: err.message }))
   }
 }
 

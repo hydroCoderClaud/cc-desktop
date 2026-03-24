@@ -11,6 +11,9 @@
       </template>
       <template v-else>
         <span class="panel-title">{{ t('notebook.studio.title') }}</span>
+        <button class="header-btn" @click="$emit('open-market')" :title="t('notebook.market.title')">
+          <Icon name="store" :size="16" :strokeWidth="1.8" />
+        </button>
         <button class="header-btn" style="margin-left:auto" :title="t('common.collapse')" @click="showRightPanel = false">
           <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
         </button>
@@ -177,7 +180,7 @@ const props = defineProps({
 })
 
 defineEmits([
-  'generate', 'export', 'copy', 'delete', 'download-tool',
+  'generate', 'export', 'copy', 'delete', 'download-tool', 'open-market',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
   'edit-tool'
 ])

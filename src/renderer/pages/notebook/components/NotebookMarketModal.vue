@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    :title="t('market.title') + ' - Notebook 创作工具市场'"
+    :title="t('notebook.market.title')"
     style="width: 1000px;"
     :mask-closable="false"
     @update:show="$emit('update:show', $event)"
@@ -10,23 +10,22 @@
     <div class="market-v2-container">
       <!-- 顶部搜索 -->
       <div class="market-header">
-        <n-input v-model:value="searchQuery" placeholder="搜索工具名称或描述..." class="search-bar">
+        <n-input v-model:value="searchQuery" :placeholder="t('notebook.market.searchPlaceholder')" class="search-bar">
           <template #prefix><Icon name="search" :size="16" /></template>
         </n-input>
-        <div class="market-stats">已发现 {{ filteredTools.length }} 个创作工具</div>
+        <div class="market-stats">{{ t('notebook.market.found', { count: filteredTools.length }) }}</div>
       </div>
 
       <!-- 工具网格 -->
       <n-spin :show="loading" :description="t('market.fetching')">
         <div class="market-scroll-area">
           <div v-if="!loading && filteredTools.length > 0" class="tool-grid">
-            <div 
-              v-for="tool in filteredTools" 
-              :key="tool.id" 
+            <div
+              v-for="tool in filteredTools"
+              :key="tool.id"
               class="market-tool-card"
               @click="openDetail(tool)"
             >
-              <!-- 顶部：图标 + 名称/版本 -->
               <div class="card-header">
                 <div class="tool-icon-box" :style="{ background: tool.bgColor, color: tool.color }">
                   <Icon :name="tool.icon" :size="24" />
@@ -36,37 +35,36 @@
                   <div class="tool-version">v{{ tool.version || '1.0.0' }}</div>
                 </div>
               </div>
-              
-              <!-- 中部：描述 -->
+
               <div class="card-body">
                 <p class="tool-desc">{{ tool.description }}</p>
               </div>
 
-              <!-- 底部：动作按钮 -->
               <div class="card-actions">
-                <n-button 
-                  type="primary" 
-                  size="small" 
+                <n-button
+                  type="primary"
+                  size="small"
                   class="flex-1"
                   :loading="installingId === tool.id"
+                  :disabled="isInstalled(tool.id) && !isUpdatable(tool)"
                   @click.stop="handleInstall(tool)"
                 >
                   {{ getInstallButtonText(tool) }}
                 </n-button>
-                <n-button 
+                <n-button
                   v-if="isInstalled(tool.id)"
-                  type="error" 
-                  size="small" 
+                  type="error"
+                  size="small"
                   quaternary
                   @click.stop="handleUninstall(tool)"
                 >
-                  卸载
+                  {{ t('notebook.market.uninstall') }}
                 </n-button>
               </div>
             </div>
           </div>
-          <div v-else class="empty-state">
-            <n-empty description="没有找到匹配的工具" />
+          <div v-else-if="!loading" class="empty-state">
+            <n-empty :description="t('notebook.market.searchPlaceholder')" />
           </div>
         </div>
       </n-spin>
@@ -87,29 +85,28 @@
           </div>
           <div class="title-meta">
             <div class="name">ID: {{ selectedTool.id }}</div>
-            <div class="ver">最新版本: {{ selectedTool.version || '1.0.0' }}</div>
+            <div class="ver">v{{ selectedTool.version || '1.0.0' }}</div>
           </div>
         </div>
         <n-divider />
         <div class="detail-section">
-          <div class="label">功能详情</div>
+          <div class="label">{{ t('notebook.market.detailTitle') }}</div>
           <p class="content">{{ selectedTool.description }}</p>
         </div>
-        <div class="detail-section">
-          <div class="label">安装依赖 (只读)</div>
+        <div class="detail-section" v-if="selectedTool.installDependencies?.length">
+          <div class="label">{{ t('notebook.market.detailDeps') }}</div>
           <div class="dep-list">
             <div v-for="dep in selectedTool.installDependencies" :key="dep.id" class="dep-row">
               <n-tag size="small" :bordered="false" type="info">{{ dep.type.toUpperCase() }}</n-tag>
-              <code>{{ dep.id }}</code>
+              <span>{{ dep.id }}</span>
             </div>
           </div>
         </div>
-        <div class="detail-section">
-          <div class="label">运行时指令变量</div>
+        <div class="detail-section" v-if="selectedTool.runtimePlaceholders && Object.keys(selectedTool.runtimePlaceholders).length">
+          <div class="label">{{ t('notebook.market.detailRuntime') }}</div>
           <div class="mapping-list">
             <div v-for="(v, k) in selectedTool.runtimePlaceholders" :key="k" class="mapping-row">
-              <span class="key">{{ k }}</span>
-              <Icon name="chevronRight" :size="12" />
+              <span class="key">{{ k }}:</span>
               <span class="val">{{ v }}</span>
             </div>
           </div>
@@ -144,8 +141,8 @@ const installingId = ref(null)
 const filteredTools = computed(() => {
   if (!searchQuery.value) return remoteTools.value
   const q = searchQuery.value.toLowerCase()
-  return remoteTools.value.filter(t => 
-    t.name.toLowerCase().includes(q) || 
+  return remoteTools.value.filter(t =>
+    t.name.toLowerCase().includes(q) ||
     t.description.toLowerCase().includes(q) ||
     t.id.toLowerCase().includes(q)
   )
@@ -168,10 +165,10 @@ const loadRemoteTools = async () => {
 watch(() => props.show, (val) => {
   if (val) loadRemoteTools()
 })
+
 const isInstalled = (id) => {
   if (!id || !props.localTools) return false
-  // 宽松匹配：只要 ID 一致且标记为已安装
-  return props.localTools.some(lt => 
+  return props.localTools.some(lt =>
     lt.id.trim() === id.trim() && lt.installed === true
   )
 }
@@ -180,19 +177,15 @@ const isUpdatable = (rt) => {
   if (!rt || !rt.id) return false
   const lt = props.localTools.find(lt => lt.id.trim() === rt.id.trim() && lt.installed === true)
   if (!lt) return false
-  
-  // 如果远程版本号存在，但本地没有版本号，或者版本号不一致，则判定为可更新
-  if (rt.version && (!lt.version || lt.version !== rt.version)) {
-    return true
-  }
+  if (rt.version && (!lt.version || lt.version !== rt.version)) return true
   return false
 }
 
 const getInstallButtonText = (tool) => {
   const installed = isInstalled(tool.id)
-  if (!installed) return '安装'
-  if (isUpdatable(tool)) return '更新版本'
-  return '已安装'
+  if (!installed) return t('notebook.market.install')
+  if (isUpdatable(tool)) return t('notebook.market.update')
+  return t('notebook.market.installed')
 }
 
 const openDetail = (tool) => {
@@ -229,7 +222,6 @@ const handleUninstall = (tool) => {
   gap: 20px;
 }
 
-/* 3:2 比例卡片设计 */
 .market-tool-card {
   background: var(--bg-color-secondary);
   border: 1px solid var(--border-color);
@@ -273,6 +265,6 @@ const handleUninstall = (tool) => {
 
 .dep-list, .mapping-list { display: flex; flex-direction: column; gap: 6px; }
 .dep-row, .mapping-row { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
-.mapping-row .key { font-weight: 700; color: var(--primary-color); min-width: 70px; }
+.mapping-row .key { font-weight: 600; color: var(--text-color); min-width: 70px; }
 .mapping-row .val { font-family: monospace; opacity: 0.8; }
 </style>

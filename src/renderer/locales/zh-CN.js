@@ -1484,6 +1484,23 @@ export default {
       cannotPreviewOffice: '目前支持 Word 和 Excel 深度预览。PPT 请在外部打开。',
     },
 
+    market: {
+      title: '创作工具市场',
+      searchPlaceholder: '搜索工具名称或描述...',
+      found: '已发现 {count} 个创作工具',
+      install: '安装',
+      installed: '已安装',
+      update: '更新版本',
+      uninstall: '卸载',
+      detailTitle: '功能详情',
+      detailDeps: '安装依赖 (只读)',
+      detailRuntime: '运行时指令变量',
+      installSuccess: '{name} 安装成功',
+      installFailed: '安装失败：{error}',
+      uninstallSuccess: '{name} 已卸载',
+      uninstallFailed: '卸载失败：{error}',
+    },
+
     toolConfig: {
       title: '配置创作工具: {id}',
       sectionVisual: '基础与视觉定义',
