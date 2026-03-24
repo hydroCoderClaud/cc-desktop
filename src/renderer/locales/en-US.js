@@ -1471,6 +1471,7 @@ export default {
       sources: '{count} sources',
       empty: 'No outputs yet',
       emptyHint: 'Outputs will appear here after chatting',
+      generating: 'Generating...',
       export: 'Export',
       copy: 'Copy',
       delete: 'Delete',

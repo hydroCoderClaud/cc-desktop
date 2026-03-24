@@ -1476,6 +1476,7 @@ export default {
       sources: '{count} 个来源',
       empty: '暂无成果',
       emptyHint: '与智能体对话后将在此生成',
+      generating: '生成中...',
       export: '导出',
       copy: '复制',
       delete: '删除',

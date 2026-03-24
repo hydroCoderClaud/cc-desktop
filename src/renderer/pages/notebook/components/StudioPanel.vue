@@ -86,15 +86,16 @@
               :key="achievement.id"
               class="achievement-item"
               :class="{ selected: achievement.selected, generating: achievement.status === 'generating' }"
+              :title="achievement.path || ''"
               @click="achievement.status !== 'generating' && openDetail(achievement)"
             >
               <div v-if="achievement.status === 'generating'" class="generating-spinner"></div>
               <Icon v-else :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
-              
+
               <div class="achievement-info">
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
-                  <span v-if="achievement.status === 'generating'" class="status-text generating-text">生成中...</span>
+                  <span v-if="achievement.status === 'generating'" class="status-text generating-text">{{ t('notebook.studio.generating') }}</span>
                   <template v-else>
                     <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount || 0 }) }}</span>
                     <span class="dot">•</span>
