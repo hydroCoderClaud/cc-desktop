@@ -191,16 +191,6 @@ const save = async () => {
   }
 }
 
-const addRuntimePlaceholder = () => {
-  const key = window.prompt('请输入变量名 (如 PDF_CMD):', 'NEW_CMD')
-  if (key) {
-    if (!editingTool.value.runtimePlaceholders) editingTool.value.runtimePlaceholders = {}
-    editingTool.value.runtimePlaceholders[key] = ''
-  }
-}
-
-const removeRuntimePlaceholder = (key) => { delete editingTool.value.runtimePlaceholders[key] }
-
 const goToMarket = (dep) => { alert(`前往市场下载: ${dep.id}`) }
 const openPromptEditor = () => {
   emit('open-prompt-editor', {

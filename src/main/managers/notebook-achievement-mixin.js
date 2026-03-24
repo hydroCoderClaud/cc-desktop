@@ -3,6 +3,7 @@
  * 成果 CRUD
  */
 
+const fs = require('fs')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 
@@ -81,24 +82,46 @@ const notebookAchievementMixin = {
     return data.achievements[idx]
   },
 
-  /** 批量删除成果（不删除磁盘文件） */
+  /** 尝试删除成果关联的物理文件（失败不阻断） */
+  _tryDeleteAchievementFile(notebookId, achievement) {
+    if (!achievement.path) return
+    const absPath = path.join(this._getNotebookPath(notebookId), achievement.path)
+    try {
+      if (fs.existsSync(absPath)) {
+        fs.unlinkSync(absPath)
+        console.log(`[NotebookManager] Deleted achievement file: ${absPath}`)
+      }
+    } catch (err) {
+      console.warn(`[NotebookManager] Failed to delete achievement file: ${absPath}`, err.message)
+    }
+  },
+
+  /** 批量删除成果（同步删除磁盘文件） */
   deleteAchievements(notebookId, achievementIds) {
     if (!Array.isArray(achievementIds) || achievementIds.length === 0) return { success: true }
     const indexPath = this._achievementIndexPath(notebookId)
     const data = this._readJson(indexPath)
-    const originalCount = data.achievements.length
+    const toDelete = data.achievements.filter(a => achievementIds.includes(a.id))
+    if (toDelete.length === 0) return { success: true }
+
+    // 先删物理文件
+    toDelete.forEach(a => this._tryDeleteAchievementFile(notebookId, a))
+
+    // 再删索引
     data.achievements = data.achievements.filter(a => !achievementIds.includes(a.id))
-    if (data.achievements.length === originalCount) return { success: true }
     this._writeJsonAtomic(indexPath, data)
-    return { success: true, count: originalCount - data.achievements.length }
+    return { success: true, count: toDelete.length }
   },
 
-  /** 删除单条成果（不删除磁盘文件） */
+  /** 删除单条成果（同步删除磁盘文件） */
   deleteAchievement(notebookId, achievementId) {
     const indexPath = this._achievementIndexPath(notebookId)
     const data = this._readJson(indexPath)
     const idx = data.achievements.findIndex(a => a.id === achievementId)
     if (idx === -1) throw new Error(`成果不存在：${achievementId}`)
+
+    this._tryDeleteAchievementFile(notebookId, data.achievements[idx])
+
     data.achievements.splice(idx, 1)
     this._writeJsonAtomic(indexPath, data)
     return { success: true }

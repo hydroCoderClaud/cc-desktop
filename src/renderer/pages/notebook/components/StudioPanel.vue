@@ -177,7 +177,7 @@ const props = defineProps({
 })
 
 defineEmits([
-  'generate', 'export', 'copy', 'delete', 
+  'generate', 'export', 'copy', 'delete', 'download-tool',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
   'edit-tool'
 ])
