@@ -47,8 +47,8 @@ const notebookToolsMixin = {
     console.log(`[NotebookManager] Updating tool: ${toolId}`, updates)
     
     const allowedFields = [
-      'name', 'description', 'icon', 'outputType', 'promptTemplateId', 
-      'installDependencies', 'runtimePlaceholders', 'bgColor', 'color', 'beta'
+      'name', 'description', 'icon', 'outputType', 'promptTemplateId',
+      'installDependencies', 'runtimePlaceholders', 'bgColor', 'color', 'beta', 'version'
     ]
     allowedFields.forEach(k => {
       if (updates && k in updates) {
@@ -83,7 +83,8 @@ const notebookToolsMixin = {
       installDependencies: toolData.installDependencies || [],
       runtimePlaceholders: toolData.runtimePlaceholders || {},
       bgColor: toolData.bgColor || '#f5f5f5',
-      color: toolData.color || '#666'
+      color: toolData.color || '#666',
+      version: toolData.version || '1.0.0'
     }
     tools.push(newTool)
     this._writeJsonAtomic(configPath, { version: '1.0', tools })

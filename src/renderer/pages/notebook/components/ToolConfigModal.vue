@@ -9,6 +9,7 @@
   >
     <template #header-extra>
       <div class="header-extra-box">
+        <span v-if="editingTool?.version" class="version-label">v{{ editingTool.version }}</span>
         <div class="tool-icon-preview" :style="{ background: editingTool?.bgColor, color: editingTool?.color }">
           <Icon :name="editingTool?.icon || 'settings'" :size="18" />
         </div>
@@ -196,6 +197,7 @@ const openPromptEditor = () => {
 
 <style scoped>
 .header-extra-box { display: flex; align-items: center; gap: 12px; }
+.version-label { font-size: 12px; font-weight: normal; color: var(--text-color-muted); }
 .tool-icon-preview { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
 
 .modal-scroll-content { max-height: 65vh; overflow-y: auto; padding-right: 12px; }
