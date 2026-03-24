@@ -7,14 +7,7 @@ const fs = require('fs')
 const path = require('path')
 
 const DEFAULT_TOOLS = [
-  { id: 'image', name: '图片生成', description: '生成一张图片', icon: 'image', outputType: 'image', promptTemplateId: '', dependencies: [], bgColor: '#E0F7FA', color: '#0097A7' },
-  { id: 'video', name: '视频制作', description: '生成一个解说视频', icon: 'video', outputType: 'video', promptTemplateId: '', dependencies: [], beta: true, bgColor: '#E8F5E9', color: '#388E3C' },
-  { id: 'notes', name: '笔记总结', description: '提取核心要点生成笔记', icon: 'fileText', outputType: 'markdown', promptTemplateId: 'sys-notebook-notes', dependencies: [], bgColor: '#FFF8E1', color: '#FFA000' },
-  { id: 'pdf', name: 'PDF 报告', description: '生成排版精美的 PDF 报告', icon: 'file', outputType: 'pdf', promptTemplateId: '', dependencies: [], bgColor: '#FCE4EC', color: '#C2185B' },
-  { id: 'presentation', name: '演示文稿', description: '生成一份演示文稿 (PPTX)', icon: 'presentation', outputType: 'document', promptTemplateId: '', dependencies: [], beta: true, bgColor: '#FFF3E0', color: '#F57C00' },
-  { id: 'word', name: '长文文档', description: '生成一份长文文档 (DOCX)', icon: 'fileText', outputType: 'document', promptTemplateId: '', dependencies: [], bgColor: '#E3F2FD', color: '#1976D2' },
-  { id: 'web', name: '网页制作', description: '生成单页网页', icon: 'globe', outputType: 'code', promptTemplateId: '', dependencies: [], beta: true, bgColor: '#F3E5F5', color: '#7B1FA2' },
-  { id: 'data', name: '数据提取', description: '提取数据到 CSV', icon: 'table', outputType: 'text', promptTemplateId: '', dependencies: [], bgColor: '#EDE7F6', color: '#512DA8' }
+  { id: 'notes', name: '笔记总结', description: '提取核心要点生成笔记', icon: 'fileText', outputType: 'markdown', promptTemplateId: 'sys-notebook-notes', dependencies: [], bgColor: '#FFF8E1', color: '#FFA000' }
 ]
 
 const notebookToolsMixin = {

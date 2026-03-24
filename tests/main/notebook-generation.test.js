@@ -86,26 +86,23 @@ describe('NotebookManager.prepareGeneration', () => {
 
   // ── 路径计算 ──────────────────────────────────────────────────────────────
 
-  it('不同 outputType 生成正确的扩展名', () => {
+  it('outputType 决定正确的扩展名', () => {
     const mgr = makeManager(baseDir)
     const nb = mgr.create({ name: 'ext-test' })
 
-    const extMap = {
-      notes: 'md',       // outputType: markdown
-      pdf: 'pdf',
-      word: 'docx',      // outputType: document
-      web: 'html',       // outputType: code
-      data: 'txt',       // outputType: text
-      image: 'png',
-      video: 'mp4'
-    }
+    // notes 工具 outputType=markdown → .md
+    const result = mgr.prepareGeneration(nb.id, 'notes', [])
+    expect(result.prompt).toBeDefined()
+    const ach = mgr.listAchievements(nb.id).at(-1)
+    expect(ach.path).toContain('.md')
+    expect(ach.path).toContain('achievements/markdown/')
 
-    for (const [toolId, expectedExt] of Object.entries(extMap)) {
-      const result = mgr.prepareGeneration(nb.id, toolId, [])
-      expect(result.prompt).toBeDefined()
-      const ach = mgr.listAchievements(nb.id).at(-1)
-      expect(ach.path).toContain(`.${expectedExt}`)
-    }
+    // 手动添加一个 pdf 工具验证其他扩展名
+    mgr.addTool({ id: 'test-pdf', name: 'PDF', outputType: 'pdf' })
+    const result2 = mgr.prepareGeneration(nb.id, 'test-pdf', [])
+    const ach2 = mgr.listAchievements(nb.id).at(-1)
+    expect(ach2.path).toContain('.pdf')
+    expect(ach2.path).toContain('achievements/pdf/')
   })
 
   // ── Prompt 模板 ───────────────────────────────────────────────────────────

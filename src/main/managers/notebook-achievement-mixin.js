@@ -18,6 +18,29 @@ const notebookAchievementMixin = {
   },
 
   /**
+   * 一致性扫描：清理异常状态的成果记录
+   * - generating → done（意外退出后残留的幽灵记录）
+   * 在 get() 打开笔记本时自动调用
+   */
+  sanitizeAchievements(notebookId) {
+    const indexPath = this._achievementIndexPath(notebookId)
+    const data = this._readJson(indexPath)
+    let changed = false
+
+    for (const ach of data.achievements) {
+      if (ach.status === 'generating') {
+        ach.status = 'done'
+        changed = true
+      }
+    }
+
+    if (changed) {
+      this._writeJsonAtomic(indexPath, data)
+      console.log(`[NotebookManager] sanitizeAchievements: cleaned up stale generating records for ${notebookId}`)
+    }
+  },
+
+  /**
    * 添加成果（status 默认 generating）
    * @param {string} notebookId
    * @param {{ name, type, sourceIds?, prompt? }} achievementData

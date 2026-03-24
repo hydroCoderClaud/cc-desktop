@@ -186,6 +186,9 @@ class NotebookManager {
       }
     }
 
+    // 一致性扫描：清理意外退出残留的 generating 记录
+    this.sanitizeAchievements(id)
+
     const sources = this._readJson(path.join(notebookPath, 'sources.json'))
     const achievements = this._readJson(path.join(notebookPath, 'achievements.json'))
     return { ...meta, path: entry.path, notebookPath, sources: sources.sources, achievements: achievements.achievements }
