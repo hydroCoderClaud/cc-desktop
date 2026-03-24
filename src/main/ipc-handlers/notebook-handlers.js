@@ -256,6 +256,25 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       throw err
     }
   })
+
+  // ─── Install / Uninstall ──────────────────────────────────────────────────
+  ipcMain.handle('notebook:installTool', async (_e, tool) => {
+    try {
+      return await notebookManager.installTool(tool)
+    } catch (err) {
+      console.error('[IPC] notebook:installTool error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('notebook:uninstallTool', async (_e, toolId) => {
+    try {
+      return notebookManager.uninstallTool(toolId)
+    } catch (err) {
+      console.error('[IPC] notebook:uninstallTool error:', err)
+      return { success: false, error: err.message }
+    }
+  })
 }
 
 module.exports = { setupNotebookHandlers }

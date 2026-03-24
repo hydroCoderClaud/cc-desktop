@@ -20,6 +20,7 @@ const { notebookSourceMixin, SOURCE_DIRS } = require('./notebook-source-mixin')
 const { notebookAchievementMixin, ACHIEVEMENT_DIRS } = require('./notebook-achievement-mixin')
 const { notebookToolsMixin } = require('./notebook-tools-mixin')
 const { notebookGenerationMixin } = require('./notebook-generation-mixin')
+const { notebookInstallMixin } = require('./notebook-install-mixin')
 const { readFileContent } = require('./notebook-file-reader')
 
 class NotebookManager {
@@ -31,11 +32,17 @@ class NotebookManager {
     this.configManager = configManager
     this.agentSessionManager = agentSessionManager
     this.sessionDatabase = null
+    this.capabilityManager = null
   }
 
   /** 延迟注入 SessionDatabase（在 setupIPCHandlers 中调用） */
   setSessionDatabase(db) {
     this.sessionDatabase = db
+  }
+
+  /** 延迟注入 CapabilityManager（在 setupIPCHandlers 中调用） */
+  setCapabilityManager(cm) {
+    this.capabilityManager = cm
   }
 
   // ─────────────────────────────── helpers ────────────────────────────────
@@ -296,5 +303,6 @@ Object.assign(NotebookManager.prototype, notebookSourceMixin)
 Object.assign(NotebookManager.prototype, notebookAchievementMixin)
 Object.assign(NotebookManager.prototype, notebookToolsMixin)
 Object.assign(NotebookManager.prototype, notebookGenerationMixin)
+Object.assign(NotebookManager.prototype, notebookInstallMixin)
 
 module.exports = { NotebookManager }

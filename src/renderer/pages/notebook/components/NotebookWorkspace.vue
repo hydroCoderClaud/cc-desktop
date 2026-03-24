@@ -216,40 +216,8 @@ const handleOpenPromptEditor = (data) => {
 const handleDownloadTool = async (tool) => {
   const loading = message.loading(`正在安装场景工具：${tool.name}...`, { duration: 0 })
   try {
-    // 1. 安装底层组件依赖 (Skills/MCPs/Plugins/Prompts)
-    if (tool.installDependencies && tool.installDependencies.length > 0) {
-      for (const dep of tool.installDependencies) {
-        console.log(`[Notebook] Installing dependency: ${dep.id} (${dep.type})`)
-        const capability = JSON.parse(JSON.stringify({
-          type: dep.type,
-          componentId: dep.id,
-          marketplace: dep.marketplaceSource // 自动注册市场源
-        }))
-        const res = await window.electronAPI.installCapability(dep.id, capability, { scope: 'notebook' })
-        if (!res.success) throw new Error(`组件 ${dep.id} 安装失败: ${res.error}`)
-      }
-    }
-
-    // 2. 安装配套提示词模板
-    if (tool.promptTemplateId) {
-      const alreadyInstalled = tool.installDependencies?.find(d => d.type === 'prompt' && d.id === tool.promptTemplateId)
-      if (!alreadyInstalled) {
-        console.log(`[Notebook] Installing prompt template: ${tool.promptTemplateId}`)
-        const capability = JSON.parse(JSON.stringify({
-          type: 'prompt',
-          componentId: tool.promptTemplateId
-        }))
-        const res = await window.electronAPI.installCapability(tool.promptTemplateId, capability, { scope: 'notebook' })
-        if (!res.success) throw new Error(`提示词模板 ${tool.promptTemplateId} 安装失败: ${res.error}`)
-      }
-    }
-
-    // 3. 将工具定义正式写入本地持久化配置
-    await window.electronAPI.notebookAddTool(JSON.parse(JSON.stringify({
-      ...tool,
-      installed: true
-    })))
-
+    const res = await window.electronAPI.notebookInstallTool(JSON.parse(JSON.stringify(tool)))
+    if (!res.success) throw new Error(res.error)
     await loadTools()
     message.success(`${tool.name} 安装成功！`)
   } catch (err) {

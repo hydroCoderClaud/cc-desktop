@@ -713,6 +713,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (notebookManager && setupNotebookHandlers) {
     notebookManager.setSessionDatabase(sessionDatabase);
+    notebookManager.setCapabilityManager(capabilityManager);
     setupNotebookHandlers(ipcMain, notebookManager);
   }
 

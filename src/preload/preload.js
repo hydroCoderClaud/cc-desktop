@@ -788,7 +788,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookFetchRemoteTools: () => ipcRenderer.invoke('notebook:fetchRemoteTools'),
 
   // Notebook Generation
-  notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds })
+  notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds }),
+
+  // Notebook Install
+  notebookInstallTool: (tool) => ipcRenderer.invoke('notebook:installTool', tool),
+  notebookUninstallTool: (toolId) => ipcRenderer.invoke('notebook:uninstallTool', toolId)
   })
 ;
 
