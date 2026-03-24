@@ -154,6 +154,15 @@ const syncDOMTheme = (dark) => {
   }
 }
 
+const toRgbTriplet = (hex) => {
+  const normalized = hex?.replace('#', '')
+  if (!normalized || normalized.length !== 6) return '0, 0, 0'
+
+  return [0, 2, 4]
+    .map(offset => parseInt(normalized.slice(offset, offset + 2), 16))
+    .join(', ')
+}
+
 /**
  * 构建 CSS 变量对象
  * 提取为独立函数，供 cssVars computed 和 syncCSSVarsToRoot 共用
@@ -161,6 +170,7 @@ const syncDOMTheme = (dark) => {
 const buildCSSVars = (dark, colors) => {
   const fontMono = '"JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", "Monaco", "Ubuntu Mono", monospace'
   const fontLogo = '"Crimson Pro", "Georgia", "Times New Roman", serif'
+  const primaryRgb = toRgbTriplet(colors.primary)
 
   if (dark) {
     return {
@@ -175,6 +185,7 @@ const buildCSSVars = (dark, colors) => {
       '--border-color': '#333333',
       '--border-color-light': '#404040',
       '--primary-color': colors.primary,
+      '--primary-color-rgb': primaryRgb,
       '--primary-color-hover': colors.primaryHover,
       '--primary-ghost': colors.ghost,
       '--primary-ghost-hover': colors.ghostHover,
@@ -201,6 +212,7 @@ const buildCSSVars = (dark, colors) => {
     '--border-color': '#e5e5e0',
     '--border-color-light': '#e0e0e0',
     '--primary-color': colors.primary,
+    '--primary-color-rgb': primaryRgb,
     '--primary-color-hover': colors.primaryHover,
     '--primary-ghost': colors.ghost,
     '--primary-ghost-hover': colors.ghostHover,

@@ -55,21 +55,20 @@
         <div class="achievements-section">
           <div class="section-header">
             <div class="section-title">{{ t('notebook.studio.generated') }}</div>
-            <!-- 批量操作区 -->
-            <div class="batch-actions" v-if="achievements.length > 0">
-              <button 
+            <div class="select-all-right" v-if="achievements.length > 0">
+              <button
                 v-if="selectedIds.length > 0"
-                class="batch-delete-btn" 
+                class="row-delete-btn"
                 @click="$emit('delete-achievements', selectedIds)"
                 :title="t('common.delete')"
               >
-                <Icon name="delete" :size="14" />
-                <span class="badge">{{ selectedIds.length }}</span>
+                <Icon name="delete" :size="16" />
+                <span class="btn-badge">{{ selectedIds.length }}</span>
               </button>
-              <button class="batch-icon-btn" @click="$emit('invert-selection')" :title="t('notebook.source.invertSelection')">
-                <Icon name="refresh" :size="14" />
+              <button class="invert-select-btn" @click="$emit('invert-selection')" :title="t('notebook.source.invertSelection')">
+                <Icon name="invert" :size="14" />
               </button>
-              <label class="checkbox-label mini">
+              <label class="checkbox-label" @click.stop>
                 <input type="checkbox" :checked="allSelected" @change="$emit('toggle-select-all')" />
                 <span class="checkmark"></span>
               </label>
@@ -109,11 +108,11 @@
                     <Icon name="play" :size="16" />
                   </button>
                 </div>
-                <label class="checkbox-label mini" @click.stop>
-                  <input 
-                    type="checkbox" 
-                    :checked="achievement.selected" 
-                    @change="$emit('update-achievement', achievement.id, { selected: $event.target.checked })" 
+                <label class="checkbox-label" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="achievement.selected"
+                    @change="$emit('update-achievement', achievement.id, { selected: $event.target.checked })"
                   />
                   <span class="checkmark"></span>
                 </label>
@@ -341,51 +340,62 @@ const getAchievementIcon = (type) => {
   letter-spacing: 0.5px;
 }
 
-.batch-actions {
+.select-all-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.batch-icon-btn {
+.invert-select-btn {
   background: transparent;
   border: none;
   color: var(--text-color-muted);
   cursor: pointer;
   padding: 2px;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s;
-}
-.batch-icon-btn:hover { color: var(--primary-color); background: var(--hover-bg); }
-
-.batch-delete-btn {
-  display: flex;
-  align-items: center;
-  background: transparent;
-  border: none;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
-  position: relative;
-}
-.batch-delete-btn:hover { color: #ff4d4f; background: rgba(255, 77, 79, 0.1); }
-.batch-delete-btn .badge {
-  background: #ff4d4f;
-  color: #fff;
-  font-size: 9px;
-  min-width: 14px;
-  height: 14px;
-  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  padding: 0 3px;
+  transition: all 0.2s;
+}
+
+.invert-select-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+.row-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.row-delete-btn:hover {
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+}
+
+.btn-badge {
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -6px;
+  margin-top: -12px;
+  padding: 0 4px;
   font-weight: bold;
 }
 
@@ -407,7 +417,9 @@ const getAchievementIcon = (type) => {
   border: 1.5px solid transparent;
 }
 .achievement-item:hover { background: var(--hover-bg); }
-.achievement-item.selected { border-color: var(--primary-color-alpha, rgba(var(--primary-color-rgb), 0.2)); background: var(--hover-bg); }
+.achievement-item.selected {
+  background: var(--hover-bg);
+}
 
 .achievement-info { flex: 1; min-width: 0; }
 .achievement-name { font-size: 13px; font-weight: 500; color: var(--text-color); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -417,11 +429,13 @@ const getAchievementIcon = (type) => {
 .achievement-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .achievement-actions {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
 
@@ -440,12 +454,21 @@ const getAchievementIcon = (type) => {
 }
 .action-icon-btn:hover { background: var(--border-color); color: var(--text-color); }
 
-/* Checkbox Styles (Mini version) */
-.checkbox-label.mini { width: 16px; height: 16px; cursor: pointer; position: relative; }
-.checkbox-label.mini input { display: none; }
-.checkbox-label.mini .checkmark {
-  width: 16px;
-  height: 16px;
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.checkbox-label input { display: none; }
+
+.checkbox-label .checkmark {
+  width: 18px;
+  height: 18px;
   border: 1.5px solid var(--border-color);
   border-radius: 4px;
   background: var(--bg-color-secondary);
@@ -453,14 +476,20 @@ const getAchievementIcon = (type) => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  position: relative;
 }
-.checkbox-label.mini input:checked + .checkmark { background: var(--primary-color); border-color: var(--primary-color); }
-.checkbox-label.mini input:checked + .checkmark::after {
+
+.checkbox-label input:checked + .checkmark {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.checkbox-label input:checked + .checkmark::after {
   content: '';
-  width: 4px;
-  height: 7px;
-  border-right: 1.5px solid #fff;
-  border-bottom: 1.5px solid #fff;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 
