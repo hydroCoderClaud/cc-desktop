@@ -66,6 +66,7 @@ const notebookGenerationMixin = {
       prompt = templateContent
         .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
         .replace(/\{\{expected_path\}\}/g, expectedAbsPath)
+        .replace(/\{\{notebook_path\}\}/g, notebookPath.replace(/\\/g, '/'))
 
       // 运行时能力占位符替换
       if (tool.runtimePlaceholders) {

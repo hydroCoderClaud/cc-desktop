@@ -37,35 +37,30 @@
               <span>{{ t('notebook.promptEditor.variableHelper') }}</span>
             </div>
 
-            <div class="variable-groups">
-              <div class="group-box system">
-                <div class="group-label">{{ t('notebook.promptEditor.systemVars') }}</div>
-                <div class="tags-flex">
-                  <div class="var-tag system" @click="insertVar('sources')">
-                    <span class="var-bracket" v-text="'{{'"></span>
-                    <span class="var-name">sources</span>
-                    <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">{{ t('notebook.promptEditor.varSources') }}</span>
-                  </div>
-                  <div class="var-tag system" @click="insertVar('expected_path')">
-                    <span class="var-bracket" v-text="'{{'"></span>
-                    <span class="var-name">expected_path</span>
-                    <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">{{ t('notebook.promptEditor.varExpectedPath') }}</span>
-                  </div>
-                </div>
+            <div class="tags-flex">
+              <div class="var-tag system" @click="insertVar('sources')">
+                <span class="var-bracket" v-text="'{{'"></span>
+                <span class="var-name">sources</span>
+                <span class="var-bracket" v-text="'}}'"></span>
+                <span class="var-tooltip">{{ t('notebook.promptEditor.varSources') }}</span>
               </div>
-
-              <div class="group-box custom" v-if="Object.keys(runtimePlaceholders).length">
-                <div class="group-label">{{ t('notebook.promptEditor.runtimeVars') }}</div>
-                <div class="tags-flex">
-                  <div v-for="(val, key) in runtimePlaceholders" :key="key" class="var-tag custom" @click="insertVar(key)">
-                    <span class="var-bracket" v-text="'{{'"></span>
-                    <span class="var-name">{{ key }}</span>
-                    <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">{{ t('notebook.promptEditor.varRuntimePrefix') }}: {{ val }}</span>
-                  </div>
-                </div>
+              <div class="var-tag system" @click="insertVar('expected_path')">
+                <span class="var-bracket" v-text="'{{'"></span>
+                <span class="var-name">expected_path</span>
+                <span class="var-bracket" v-text="'}}'"></span>
+                <span class="var-tooltip">{{ t('notebook.promptEditor.varExpectedPath') }}</span>
+              </div>
+              <div class="var-tag system" @click="insertVar('notebook_path')">
+                <span class="var-bracket" v-text="'{{'"></span>
+                <span class="var-name">notebook_path</span>
+                <span class="var-bracket" v-text="'}}'"></span>
+                <span class="var-tooltip">{{ t('notebook.promptEditor.varNotebookPath') }}</span>
+              </div>
+              <div v-for="(val, key) in runtimePlaceholders" :key="key" class="var-tag custom" @click="insertVar(key)">
+                <span class="var-bracket" v-text="'{{'"></span>
+                <span class="var-name">{{ key }}</span>
+                <span class="var-bracket" v-text="'}}'"></span>
+                <span class="var-tooltip">{{ t('notebook.promptEditor.varRuntimePrefix') }}: {{ val }}</span>
               </div>
             </div>
           </div>
@@ -194,13 +189,9 @@ const insertVar = (key) => {
   display: flex; flex-direction: column; gap: 14px;
 }
 
-.helper-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-color); }
+.helper-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-color); margin-bottom: 12px; }
 
-.variable-groups { display: flex; flex-direction: column; gap: 16px; }
-.group-box { display: flex; flex-direction: column; gap: 8px; }
-.group-label { font-size: 11px; font-weight: 700; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
-.tags-flex { display: flex; flex-wrap: wrap; gap: 12px; }
+.tags-flex { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .var-tag {
   display: flex; align-items: center; cursor: pointer;
