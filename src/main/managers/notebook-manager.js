@@ -19,6 +19,7 @@ const { v4: uuidv4 } = require('uuid')
 const { notebookSourceMixin, SOURCE_DIRS } = require('./notebook-source-mixin')
 const { notebookAchievementMixin, ACHIEVEMENT_DIRS } = require('./notebook-achievement-mixin')
 const { notebookToolsMixin } = require('./notebook-tools-mixin')
+const { notebookGenerationMixin } = require('./notebook-generation-mixin')
 const { readFileContent } = require('./notebook-file-reader')
 
 class NotebookManager {
@@ -29,6 +30,12 @@ class NotebookManager {
   constructor(configManager, agentSessionManager) {
     this.configManager = configManager
     this.agentSessionManager = agentSessionManager
+    this.sessionDatabase = null
+  }
+
+  /** 延迟注入 SessionDatabase（在 setupIPCHandlers 中调用） */
+  setSessionDatabase(db) {
+    this.sessionDatabase = db
   }
 
   // ─────────────────────────────── helpers ────────────────────────────────
@@ -285,5 +292,6 @@ function _deleteRecursive(dirPath) {
 Object.assign(NotebookManager.prototype, notebookSourceMixin)
 Object.assign(NotebookManager.prototype, notebookAchievementMixin)
 Object.assign(NotebookManager.prototype, notebookToolsMixin)
+Object.assign(NotebookManager.prototype, notebookGenerationMixin)
 
 module.exports = { NotebookManager }

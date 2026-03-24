@@ -30,7 +30,7 @@ const notebookAchievementMixin = {
       id: 'ach-' + uuidv4().replace(/-/g, '').slice(0, 8),
       name: achievementData.name || 'achievement',
       type: achievementData.type || 'report',
-      path: null,
+      path: achievementData.path || null,
       category: achievementData.type || 'report',
       sourceIds: achievementData.sourceIds || [],
       prompt: achievementData.prompt || '',

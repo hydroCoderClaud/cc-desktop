@@ -246,6 +246,16 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       return { success: false, error: err.message }
     }
   })
+
+  // ─── Generation ─────────────────────────────────────────────────────────
+  ipcMain.handle('notebook:prepareGeneration', async (_e, { notebookId, toolId, sourceIds }) => {
+    try {
+      return notebookManager.prepareGeneration(notebookId, toolId, sourceIds)
+    } catch (err) {
+      console.error('[IPC] notebook:prepareGeneration error:', err)
+      throw err
+    }
+  })
 }
 
 module.exports = { setupNotebookHandlers }

@@ -607,84 +607,26 @@ const handleDeleteAchievements = async (achievementIds) => {
 const handleGenerateAchievement = async (typeId) => {
   if (!currentNotebook.value) return
 
-  // 从动态配置中查找工具
-  const tool = availableTypes.value.find(t => t.id === typeId)
-  if (!tool) return
+  const sourceIds = selectedSources.value.map(s => s.id)
 
-  const typeName = tool.name
-  const outputType = tool.outputType || 'text'
-  const promptTemplateId = tool.promptTemplateId
-
-  const hasSources = selectedSources.value.length > 0
-  const sourceInfo = hasSources ? selectedSources.value.map(s => `- ${s.name} (路径: ${s.path})`).join('\n') : ''
-
-  // 预分配目标路径
-  const expectedExt = { markdown: 'md', document: 'docx', code: 'html', text: 'txt', image: 'png', video: 'mp4', pdf: 'pdf', csv: 'csv' }[outputType] || 'txt'
-  const expectedFileName = `${typeName}-${Date.now()}.${expectedExt}`
-  const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
-
-  // 1. 创建成果记录（状态为 generating）
   try {
-    await window.electronAPI.notebookAddAchievement({
+    const { achievementId, prompt } = await window.electronAPI.notebookPrepareGeneration({
       notebookId: currentNotebook.value.id,
-      achievementData: {
-        name: `${typeName} - ${new Date().toLocaleDateString()}`,
-        type: outputType,
-        path: expectedRelPath,
-        sourceIds: selectedSources.value.map(s => s.id)
-      }
+      toolId: typeId,
+      sourceIds
     })
+
+    // 刷新 UI 以显示 generating 状态的 achievement
     await loadNotebook(currentNotebook.value)
+
+    // 发送到 Agent
+    if (chatPanelRef.value) {
+      showRightPanel.value = true
+      await chatPanelRef.value.sendMessage(prompt)
+    }
   } catch (err) {
-    console.error('[Notebook] Failed to create achievement record:', err)
-  }
-
-  // 2. 获取 Prompt 模板并组装
-  let finalPrompt = ''
-  let templateContent = ''
-
-  if (promptTemplateId) {
-    try {
-      const promptRecord = await window.electronAPI.getPromptByMarketId(promptTemplateId)
-      templateContent = promptRecord?.content || ''
-    } catch (e) {
-      console.warn(`[Notebook] Failed to fetch prompt template [${promptTemplateId}], falling back to default.`)
-    }
-  }
-
-  if (templateContent) {
-    // 1. 执行通用占位符替换
-    let assembledPrompt = templateContent
-      .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
-      .replace(/\{\{expected_path\}\}/g, expectedRelPath)
-    
-    // 2. 执行运行时能力占位符替换 (Runtime Placeholders)
-    // 用于解决“安装是大包，执行是具体功能”的问题
-    if (tool.runtimePlaceholders) {
-      Object.entries(tool.runtimePlaceholders).forEach(([key, value]) => {
-        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-        assembledPrompt = assembledPrompt.replace(regex, value)
-      })
-    }
-    
-    finalPrompt = assembledPrompt
-  } else {
-    // 兜底硬编码模板
-    const instruction = `我的目标是：使用【${typeName}】功能，生成一份成果。
-请将最终成果保存到指定路径：${expectedRelPath}。
-如果你是一个只能输出纯文本的工具，请直接在对话中输出内容，系统会自动为你保存。
-请确保最终生成的文件符合 ${outputType} 类型（或对应扩展名的文件），如果是报告请保持结构完整，不要使用省略号。`
-
-    if (hasSources) {
-      finalPrompt = `请分析以下选中的来源文件：\n${sourceInfo}\n\n${instruction}`
-    } else {
-      finalPrompt = `请根据我们当前的对话上下文。\n\n${instruction}`
-    }
-  }
-
-  if (chatPanelRef.value) {
-    showRightPanel.value = true
-    await chatPanelRef.value.sendMessage(finalPrompt)
+    console.error('[Notebook] Generation failed:', err)
+    message.error(err.message || '生成准备失败')
   }
 }
 
