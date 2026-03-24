@@ -630,47 +630,39 @@ const handleGenerateAchievement = async (typeId) => {
   }
 }
 
-const handleAgentDone = async (newFilePaths = []) => {
+const handleAgentDone = async (filePaths = []) => {
   if (!currentNotebook.value) return
 
-  // 找出正在生成的记录
   const generatingList = achievements.value.filter(a => a.status === 'generating')
+  if (!generatingList.length) return
+
+  // 标准化路径为正斜杠格式，便于比较
+  const normalize = (p) => p?.replace(/\\/g, '/') || ''
+  const normalizedFilePaths = filePaths.map(normalize)
 
   for (const ach of generatingList) {
-    if (!ach.path) continue
+    let matched = false
 
-    const absPath = `${currentNotebook.value.notebookPath}/${ach.path}`
-    let fileExists = false
+    if (ach.path) {
+      // 构造预期绝对路径并标准化
+      const expectedAbs = normalize(`${currentNotebook.value.notebookPath}/${ach.path}`)
 
-    // 检查文件是否已被 Agent 成功写入
-    try {
-      const fileData = await window.electronAPI.readAbsolutePath({ filePath: absPath, confirmed: true })
-      if (!fileData?.error) fileExists = true
-    } catch (e) {}
-
-    if (fileExists) {
-      // 文件已存在，直接将状态标为 done
-      await window.electronAPI.notebookUpdateAchievement({
-        notebookId: currentNotebook.value.id,
-        achievementId: ach.id,
-        updates: { status: 'done' }
-      })
-    } else {
-      // 兜底逻辑：Agent 没有写文件，而是直接输出了文本。前端截获最后一条助手消息并替它写入。
-      if (chatPanelRef.value) {
-        // 由于 chatPanelRef.value 目前不暴露 messages，我们尝试从外部无法直接获取内容。
-        // 但可以通过组件的 `messages` 若暴露。如果没暴露，我们只能做简单处理：
-        // 这里我们可以发起 IPC 调用获取该 session 的历史，但这过于复杂。
-        // 目前简化为：只更新 status，不强制兜底文本，或标记为失败。
-      }
-      
-      // 暂时如果未写文件，标为 failed 或 done（为了不卡死界面）
-      await window.electronAPI.notebookUpdateAchievement({
-        notebookId: currentNotebook.value.id,
-        achievementId: ach.id,
-        updates: { status: 'failed' } // 或者设为 done 以允许用户查看
-      })
+      // 精确匹配：filePaths 中有完全一致或 endsWith 匹配的
+      matched = normalizedFilePaths.some(fp =>
+        fp === expectedAbs || fp.endsWith(normalize(ach.path))
+      )
     }
+
+    // 无论是否匹配到文件，都标为 done：
+    // - matched=true：Agent 写入了预期文件
+    // - matched=false + filePaths 非空：Agent 写到了其他位置（罕见）
+    // - matched=false + filePaths 为空：Agent 直接输出了文本（内容已在对话中）
+    // 以上都是合法的完成状态，不应标 failed
+    await window.electronAPI.notebookUpdateAchievement({
+      notebookId: currentNotebook.value.id,
+      achievementId: ach.id,
+      updates: { status: 'done' }
+    })
   }
 
   // 刷新以反映最终状态
