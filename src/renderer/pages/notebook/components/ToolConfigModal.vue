@@ -78,8 +78,8 @@
           <div v-if="!editingTool.installDependencies?.length" class="empty-placeholder">{{ t('notebook.toolConfig.noDeps') }}</div>
           <div v-for="(dep, index) in editingTool.installDependencies" :key="'inst-'+index" class="dep-item-card">
             <div class="dep-main">
-              <n-tag :bordered="false" size="small" type="info" class="type-badge">{{ dep.type.toUpperCase() }}</n-tag>
-              <code class="id-text">{{ dep.id }}</code>
+              <n-tag :bordered="false" size="small" type="info" class="type-badge">{{ dep.type.toUpperCase() }}:</n-tag>
+              <span class="id-text">{{ dep.id }}</span>
               <div class="status-box">
                 <n-tag v-if="statusMap[dep.id] === 'installed'" size="small" type="success" :bordered="false">{{ t('notebook.toolConfig.installed') }}</n-tag>
                 <n-button v-else-if="dep.id" size="tiny" type="primary" secondary @click="goToMarket(dep)">{{ t('notebook.toolConfig.download') }}</n-button>
@@ -103,8 +103,7 @@
         <div class="mapping-container">
           <div v-if="!Object.keys(editingTool.runtimePlaceholders || {}).length" class="empty-placeholder">{{ t('notebook.toolConfig.noMappings') }}</div>
           <div v-for="(val, key) in editingTool.runtimePlaceholders" :key="'rt-'+key" class="mapping-item">
-            <n-tag :bordered="false" size="small" class="key-tag">{{ key }}</n-tag>
-            <Icon name="chevronRight" :size="12" />
+            <n-tag :bordered="false" size="small" class="key-tag">{{ key }}:</n-tag>
             <n-input size="small" :value="editingTool.runtimePlaceholders[key]" readonly class="flex-1" />
           </div>
         </div>
@@ -216,7 +215,7 @@ const openPromptEditor = () => {
 .dep-item-card { background: var(--bg-color-tertiary); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 6px; }
 .dep-main { display: flex; align-items: center; gap: 10px; }
 .type-badge { min-width: 55px; justify-content: center; }
-.id-text { flex: 1; font-family: monospace; font-size: 13px; }
+.id-text { flex: 1; font-size: 13px; }
 .status-box { width: 60px; display: flex; justify-content: center; }
 .dep-sub { border-top: 1px dashed var(--border-color); padding-top: 6px; font-size: 11px; display: flex; gap: 8px; }
 .dep-sub .sub-value { font-family: monospace; color: var(--primary-color); }
