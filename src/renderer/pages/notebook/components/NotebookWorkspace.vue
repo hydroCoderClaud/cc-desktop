@@ -337,6 +337,7 @@ const handleCloseNotebook = async () => {
   }
   currentNotebook.value = null
   sources.value = []
+  achievements.value = []
 }
 
 const handleRenamed = ({ id, name }) => {
@@ -349,6 +350,7 @@ const handleDeleted = (id) => {
   if (currentNotebook.value?.id === id) {
     currentNotebook.value = null
     sources.value = []
+    achievements.value = []
   }
 }
 
