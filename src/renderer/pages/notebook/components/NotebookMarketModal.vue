@@ -89,7 +89,7 @@
             <div class="ver">v{{ selectedTool.version || '1.0.0' }}</div>
           </div>
         </div>
-        <n-divider />
+        <n-divider style="margin: 10px 0" />
         <div class="detail-section">
           <div class="label">{{ t('notebook.market.detailTitle') }}</div>
           <p class="content">{{ selectedTool.description }}</p>
@@ -100,6 +100,7 @@
             <div v-for="dep in selectedTool.installDependencies" :key="dep.id" class="dep-row">
               <n-tag size="small" :bordered="false" type="info">{{ dep.type.toUpperCase() }}</n-tag>
               <span>{{ dep.id }}</span>
+              <span v-if="dep.marketplaceSource" class="dep-market">{{ dep.marketplaceSource }}</span>
             </div>
           </div>
         </div>
@@ -258,7 +259,7 @@ const handleUninstall = (tool) => {
 .flex-1 { flex: 1; }
 
 /* 详情样式 */
-.tool-detail-v2 { display: flex; flex-direction: column; gap: 16px; }
+.tool-detail-v2 { display: flex; flex-direction: column; gap: 10px; }
 .detail-header-v2 { display: flex; align-items: center; gap: 16px; }
 .tool-icon-large { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 .title-meta .name { font-size: 12px; color: var(--text-color-muted); }
@@ -269,6 +270,7 @@ const handleUninstall = (tool) => {
 
 .dep-list, .mapping-list { display: flex; flex-direction: column; gap: 6px; }
 .dep-row, .mapping-row { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.dep-market { margin-left: auto; font-size: 11px; color: var(--primary-color); }
 .mapping-row .key { font-weight: 600; color: var(--text-color); min-width: 70px; }
 .mapping-row .val { font-family: monospace; opacity: 0.8; }
 </style>
