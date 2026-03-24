@@ -1486,6 +1486,7 @@ export default {
       empty: 'No matching tools found',
       install: 'Install',
       installed: 'Installed',
+      reinstall: 'Reinstall',
       update: 'Update',
       uninstall: 'Uninstall',
       detailTitle: 'Details',

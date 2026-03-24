@@ -47,7 +47,6 @@
                   size="small"
                   class="flex-1"
                   :loading="installingId === tool.id"
-                  :disabled="isInstalled(tool.id) && !isUpdatable(tool)"
                   @click.stop="handleInstall(tool)"
                 >
                   {{ getInstallButtonText(tool) }}
@@ -190,7 +189,7 @@ const getInstallButtonText = (tool) => {
   const installed = isInstalled(tool.id)
   if (!installed) return t('notebook.market.install')
   if (isUpdatable(tool)) return t('notebook.market.update')
-  return t('notebook.market.installed')
+  return t('notebook.market.reinstall')
 }
 
 const openDetail = (tool) => {

@@ -1491,6 +1491,7 @@ export default {
       empty: '没有找到匹配的工具',
       install: '安装',
       installed: '已安装',
+      reinstall: '重新安装',
       update: '更新版本',
       uninstall: '卸载',
       detailTitle: '功能详情',
