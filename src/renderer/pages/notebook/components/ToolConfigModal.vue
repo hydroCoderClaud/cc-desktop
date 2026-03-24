@@ -221,7 +221,7 @@ const openPromptEditor = () => {
 .dep-sub .sub-value { font-family: monospace; color: var(--primary-color); }
 
 .mapping-item { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
-.key-tag { font-weight: 700; color: var(--primary-color); min-width: 80px; justify-content: center; }
+.key-tag { color: var(--text-color); min-width: 80px; justify-content: center; }
 
 .modal-footer-box { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .btn-group { display: flex; gap: 12px; }
