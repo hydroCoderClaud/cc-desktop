@@ -1,8 +1,8 @@
 <template>
   <n-modal
-    :show="visible"
+    :show="show"
     preset="card"
-    :title="'全面配置场景工具: ' + (editingTool?.id || '')"
+    :title="t('notebook.toolConfig.title', { id: editingTool?.id || '' })"
     style="width: 650px;"
     :mask-closable="false"
     @update:show="close"
@@ -20,50 +20,50 @@
       <n-form label-placement="left" label-width="100" label-align="right">
         <!-- 1. 基础定义 -->
         <n-divider title-placement="left">
-          <div class="divider-title"><Icon name="settings" :size="14" /> 基础与视觉定义</div>
+          <div class="divider-title"><Icon name="settings" :size="14" /> {{ t('notebook.toolConfig.sectionVisual') }}</div>
         </n-divider>
-        
-        <n-form-item label="显示名称">
-          <n-input v-model:value="editingTool.name" placeholder="例如：PDF 报告生成" />
+
+        <n-form-item :label="t('notebook.toolConfig.displayName')">
+          <n-input v-model:value="editingTool.name" :placeholder="t('notebook.toolConfig.displayNamePlaceholder')" />
         </n-form-item>
-        
-        <n-form-item label="工具描述">
-          <n-input v-model:value="editingTool.description" placeholder="一句话描述该工具的作用" />
+
+        <n-form-item :label="t('notebook.toolConfig.description')">
+          <n-input v-model:value="editingTool.description" :placeholder="t('notebook.toolConfig.descriptionPlaceholder')" />
         </n-form-item>
 
         <div class="form-row">
-          <n-form-item label="背景颜色" class="flex-1">
+          <n-form-item :label="t('notebook.toolConfig.bgColor')" class="flex-1">
             <n-color-picker v-model:value="editingTool.bgColor" :show-alpha="false" />
           </n-form-item>
-          <n-form-item label="图标颜色" class="flex-1">
+          <n-form-item :label="t('notebook.toolConfig.iconColor')" class="flex-1">
             <n-color-picker v-model:value="editingTool.color" :show-alpha="false" />
           </n-form-item>
         </div>
 
         <div class="form-row">
-          <n-form-item label="输出格式" class="flex-1">
+          <n-form-item :label="t('notebook.toolConfig.outputType')" class="flex-1">
             <n-select
               v-model:value="editingTool.outputType"
               :options="outputTypeOptions"
               disabled
             />
           </n-form-item>
-          <n-form-item label="图标 ID" class="flex-1">
+          <n-form-item :label="t('notebook.toolConfig.iconId')" class="flex-1">
             <n-input v-model:value="editingTool.icon" readonly placeholder="Icon name" />
           </n-form-item>
         </div>
 
         <!-- 2. 执行逻辑 -->
         <n-divider title-placement="left">
-          <div class="divider-title"><Icon name="fileText" :size="14" /> 核心执行逻辑 (Prompt)</div>
+          <div class="divider-title"><Icon name="fileText" :size="14" /> {{ t('notebook.toolConfig.sectionPrompt') }}</div>
         </n-divider>
 
-        <n-form-item label="提示词模板">
+        <n-form-item :label="t('notebook.toolConfig.promptTemplate')">
           <div class="prompt-link-row">
-            <n-input v-model:value="editingTool.promptTemplateId" readonly placeholder="模板 ID" />
+            <n-input v-model:value="editingTool.promptTemplateId" readonly placeholder="ID" />
             <n-button ghost type="primary" @click="openPromptEditor">
               <template #icon><Icon name="edit" :size="14" /></template>
-              编辑内容
+              {{ t('notebook.toolConfig.editContent') }}
             </n-button>
           </div>
         </n-form-item>
@@ -71,24 +71,24 @@
         <!-- 3. 安装依赖 -->
         <n-divider title-placement="left">
           <div class="divider-title">
-            <Icon name="download" :size="14" /> 安装依赖库 (Installation)
-            <span class="sub-label">由市场定义，只读</span>
+            <Icon name="download" :size="14" /> {{ t('notebook.toolConfig.sectionDeps') }}
+            <span class="sub-label">{{ t('notebook.toolConfig.marketDefined') }}</span>
           </div>
         </n-divider>
 
         <div class="dep-container">
-          <div v-if="!editingTool.installDependencies?.length" class="empty-placeholder">暂无安装依赖项</div>
+          <div v-if="!editingTool.installDependencies?.length" class="empty-placeholder">{{ t('notebook.toolConfig.noDeps') }}</div>
           <div v-for="(dep, index) in editingTool.installDependencies" :key="'inst-'+index" class="dep-item-card">
             <div class="dep-main">
               <n-tag :bordered="false" size="small" type="info" class="type-badge">{{ dep.type.toUpperCase() }}</n-tag>
               <code class="id-text">{{ dep.id }}</code>
               <div class="status-box">
-                <n-tag v-if="statusMap[dep.id] === 'installed'" size="small" type="success" :bordered="false">已安装</n-tag>
-                <n-button v-else-if="dep.id" size="tiny" type="primary" secondary @click="goToMarket(dep)">下载</n-button>
+                <n-tag v-if="statusMap[dep.id] === 'installed'" size="small" type="success" :bordered="false">{{ t('notebook.toolConfig.installed') }}</n-tag>
+                <n-button v-else-if="dep.id" size="tiny" type="primary" secondary @click="goToMarket(dep)">{{ t('notebook.toolConfig.download') }}</n-button>
               </div>
             </div>
             <div v-if="dep.type === 'plugin' && dep.marketplaceSource" class="dep-sub">
-              <span class="sub-label">市场源:</span>
+              <span class="sub-label">{{ t('notebook.toolConfig.marketSource') }}:</span>
               <span class="sub-value">{{ dep.marketplaceSource }}</span>
             </div>
           </div>
@@ -97,13 +97,13 @@
         <!-- 4. 运行映射 -->
         <n-divider title-placement="left">
           <div class="divider-title">
-            <Icon name="play" :size="14" /> 运行指令映射 (Runtime)
-            <span class="sub-label">由市场定义，只读</span>
+            <Icon name="play" :size="14" /> {{ t('notebook.toolConfig.sectionRuntime') }}
+            <span class="sub-label">{{ t('notebook.toolConfig.marketDefined') }}</span>
           </div>
         </n-divider>
 
         <div class="mapping-container">
-          <div v-if="!Object.keys(editingTool.runtimePlaceholders || {}).length" class="empty-placeholder">暂无指令映射关系</div>
+          <div v-if="!Object.keys(editingTool.runtimePlaceholders || {}).length" class="empty-placeholder">{{ t('notebook.toolConfig.noMappings') }}</div>
           <div v-for="(val, key) in editingTool.runtimePlaceholders" :key="'rt-'+key" class="mapping-item">
             <n-tag :bordered="false" size="small" class="key-tag">{{ key }}</n-tag>
             <Icon name="chevronRight" :size="12" />
@@ -117,11 +117,11 @@
       <div class="modal-footer-box">
         <div class="footer-left-info">
           <Icon name="info" :size="12" />
-          <span>修改背景和颜色可自定义工具栏的外观。</span>
+          <span>{{ t('notebook.toolConfig.footerHint') }}</span>
         </div>
         <div class="btn-group">
-          <n-button @click="close">取消</n-button>
-          <n-button type="primary" :loading="saving" @click="save">保存工具配置</n-button>
+          <n-button @click="close">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" :loading="saving" @click="save">{{ t('notebook.toolConfig.save') }}</n-button>
         </div>
       </div>
     </template>
@@ -129,16 +129,19 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps({
-  visible: { type: Boolean, default: false },
+  show: { type: Boolean, default: false },
   tool: { type: Object, default: null }
 })
 
-const emit = defineEmits(['update:visible', 'save', 'open-prompt-editor'])
+const emit = defineEmits(['update:show', 'save', 'open-prompt-editor'])
 const message = useMessage()
 
 const editingTool = ref(null)
@@ -146,14 +149,8 @@ const saving = ref(false)
 const statusMap = ref({})
 
 const outputTypeOptions = [
-  { label: 'Markdown 笔记 (.md)', value: 'markdown' },
-  { label: 'PDF 专业报告 (.pdf)', value: 'pdf' },
-  { label: '办公文档 (.docx)', value: 'document' },
-  { label: '图片生成 (.png)', value: 'image' },
-  { label: '视频制作 (.mp4)', value: 'video' },
-  { label: '代码/网页 (.html)', value: 'code' },
-  { label: '纯文本 (.txt)', value: 'text' }
-]
+  'markdown', 'pdf', 'document', 'image', 'video', 'code', 'text'
+].map(v => ({ label: t(`notebook.toolConfig.outputTypes.${v}`), value: v }))
 
 const checkStatuses = async () => {
   if (!editingTool.value?.installDependencies?.length) return
@@ -168,7 +165,7 @@ const checkStatuses = async () => {
   } catch (err) { console.error('Status check failed:', err) }
 }
 
-watch(() => props.visible, async (val) => {
+watch(() => props.show, async (val) => {
   if (val && props.tool) {
     editingTool.value = JSON.parse(JSON.stringify(props.tool))
     if (!editingTool.value.installDependencies) editingTool.value.installDependencies = []
@@ -179,7 +176,7 @@ watch(() => props.visible, async (val) => {
   }
 })
 
-const close = () => { if (!saving.value) emit('update:visible', false) }
+const close = () => { if (!saving.value) emit('update:show', false) }
 
 const save = async () => {
   if (saving.value || !editingTool.value) return
@@ -191,7 +188,7 @@ const save = async () => {
   }
 }
 
-const goToMarket = (dep) => { alert(`前往市场下载: ${dep.id}`) }
+const goToMarket = (dep) => { message.info(t('notebook.toolConfig.goToMarket', { id: dep.id })) }
 const openPromptEditor = () => {
   emit('open-prompt-editor', {
     promptTemplateId: editingTool.value.promptTemplateId,
@@ -228,8 +225,6 @@ const openPromptEditor = () => {
 
 .mapping-item { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
 .key-tag { font-weight: 700; color: var(--primary-color); min-width: 80px; justify-content: center; }
-
-.add-btn-inline { font-size: 12px; margin-left: auto; }
 
 .modal-footer-box { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .btn-group { display: flex; gap: 12px; }

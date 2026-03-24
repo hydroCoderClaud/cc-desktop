@@ -84,7 +84,7 @@
 
     <!-- 工具配置弹窗 -->
     <ToolConfigModal
-      v-model:visible="showToolConfig"
+      v-model:show="showToolConfig"
       :tool="editingToolData"
       @save="handleSaveTool"
       @open-prompt-editor="handleOpenPromptEditor"

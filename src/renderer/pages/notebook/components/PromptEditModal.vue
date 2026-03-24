@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    :title="'编辑场景提示词: ' + (promptData?.name || marketId)"
+    :title="t('notebook.promptEditor.title', { name: promptData?.name || marketId })"
     style="width: 850px;"
     :mask-closable="false"
     :z-index="11000"
@@ -12,69 +12,69 @@
       <div class="prompt-editor-layout">
         <n-form v-if="formData">
           <div class="form-row">
-            <n-form-item label="模板名称" class="flex-1">
-              <n-input :value="formData.name" readonly disabled placeholder="输入模板名称" />
+            <n-form-item :label="t('notebook.promptEditor.templateName')" class="flex-1">
+              <n-input :value="formData.name" readonly disabled :placeholder="t('notebook.promptEditor.templateNamePlaceholder')" />
             </n-form-item>
-            <n-form-item label="市场 ID" class="flex-1">
+            <n-form-item :label="t('notebook.promptEditor.marketId')" class="flex-1">
               <n-input :value="marketId" readonly disabled />
             </n-form-item>
           </div>
 
-          <n-form-item label="提示词正文内容 (Markdown 格式)">
+          <n-form-item :label="t('notebook.promptEditor.contentLabel')">
             <n-input
               ref="editorRef"
               v-model:value="formData.content"
               type="textarea"
-              :placeholder="placeholder"
+              :placeholder="t('notebook.promptEditor.contentPlaceholder')"
               :autosize="{ minRows: 14, maxRows: 22 }"
               class="markdown-editor-input"
             />
           </n-form-item>
-          
+
           <div class="variable-helper-panel">
             <div class="helper-head">
               <Icon name="info" :size="14" />
-              <span>智能变量助手 (点击标签插入到当前光标处)</span>
+              <span>{{ t('notebook.promptEditor.variableHelper') }}</span>
             </div>
-            
+
             <div class="variable-groups">
               <div class="group-box system">
-                <div class="group-label">系统内置变量</div>
+                <div class="group-label">{{ t('notebook.promptEditor.systemVars') }}</div>
                 <div class="tags-flex">
                   <div class="var-tag system" @click="insertVar('sources')">
                     <span class="var-bracket" v-text="'{{'"></span>
                     <span class="var-name">sources</span>
                     <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">选中的来源文件内容</span>
+                    <span class="var-tooltip">{{ t('notebook.promptEditor.varSources') }}</span>
                   </div>
                   <div class="var-tag system" @click="insertVar('expected_path')">
                     <span class="var-bracket" v-text="'{{'"></span>
                     <span class="var-name">expected_path</span>
                     <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">自动保存的相对路径</span>
+                    <span class="var-tooltip">{{ t('notebook.promptEditor.varExpectedPath') }}</span>
                   </div>
                 </div>
               </div>
 
               <div class="group-box custom" v-if="Object.keys(runtimePlaceholders).length">
-                <div class="group-label">运行时指令映射 (Runtime)</div>
+                <div class="group-label">{{ t('notebook.promptEditor.runtimeVars') }}</div>
                 <div class="tags-flex">
                   <div v-for="(val, key) in runtimePlaceholders" :key="key" class="var-tag custom" @click="insertVar(key)">
                     <span class="var-bracket" v-text="'{{'"></span>
                     <span class="var-name">{{ key }}</span>
                     <span class="var-bracket" v-text="'}}'"></span>
-                    <span class="var-tooltip">执行指令: {{ val }}</span>
+                    <span class="var-tooltip">{{ t('notebook.promptEditor.varRuntimePrefix') }}: {{ val }}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </n-form>
-        
+
         <div v-else-if="!loading" class="error-container">
-          <n-result status="404" title="暂未找到模板" description="该 ID 关联的提示词模板可能尚未安装。">
+          <n-result status="404" :title="t('notebook.promptEditor.notFound')" :description="t('notebook.promptEditor.notFoundDesc')">
             <template #footer>
-              <n-button type="primary" @click="loadPrompt">重试加载</n-button>
+              <n-button type="primary" @click="loadPrompt">{{ t('notebook.promptEditor.retry') }}</n-button>
             </template>
           </n-result>
         </div>
@@ -83,11 +83,11 @@
 
     <template #footer>
       <div class="modal-footer-row">
-        <div class="footer-hint">提示：请确保提示词中包含必要的占位符，否则 AI 可能无法找到处理目标。</div>
+        <div class="footer-hint">{{ t('notebook.promptEditor.footerHint') }}</div>
         <div class="footer-btns">
-          <n-button @click="$emit('update:show', false)">取消</n-button>
+          <n-button @click="$emit('update:show', false)">{{ t('common.cancel') }}</n-button>
           <n-button type="primary" :loading="saving" :disabled="!formData" @click="handleSave">
-            确认并保存模板
+            {{ t('notebook.promptEditor.save') }}
           </n-button>
         </div>
       </div>
@@ -99,6 +99,9 @@
 import { ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
+import { useLocale } from '@composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps({
   show: Boolean,
@@ -115,8 +118,6 @@ const promptData = ref(null)
 const formData = ref(null)
 const editorRef = ref(null)
 
-const placeholder = `# 角色设定\n你是一个专业的分析师...\n\n# 任务目标\n基于 {{sources}} 完成任务...`
-
 const loadPrompt = async () => {
   if (!props.marketId) return
   loading.value = true
@@ -129,7 +130,7 @@ const loadPrompt = async () => {
       promptData.value = null; formData.value = null
     }
   } catch (err) {
-    message.error('模板加载失败')
+    message.error(t('notebook.promptEditor.loadFailed'))
   } finally { loading.value = false }
 }
 
@@ -139,7 +140,6 @@ const handleSave = async () => {
   if (!promptData.value?.id) return
   saving.value = true
   try {
-    // 必须按照 preload.js 定义的格式传参：{ promptId, updates }
     await window.electronAPI.updatePrompt({
       promptId: promptData.value.id,
       updates: {
@@ -147,10 +147,10 @@ const handleSave = async () => {
         content: formData.value.content
       }
     })
-    message.success('更新成功')
+    message.success(t('notebook.promptEditor.saveSuccess'))
     emit('saved'); emit('update:show', false)
   } catch (err) {
-    message.error('保存失败: ' + err.message)
+    message.error(t('notebook.promptEditor.saveFailed', { error: err.message }))
   } finally { saving.value = false }
 }
 
@@ -158,25 +158,21 @@ const handleSave = async () => {
 const insertVar = (key) => {
   if (!formData.value) return
   const textToInsert = '{{' + key + '}}'
-  
-  // 获取底层的 textarea DOM
+
   const textarea = editorRef.value?.$el?.querySelector('textarea')
   if (textarea) {
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
     const content = formData.value.content || ''
-    
-    // 执行插入
+
     formData.value.content = content.substring(0, start) + textToInsert + content.substring(end)
-    
-    // 在下一个 tick 恢复焦点并设置光标位置
+
     setTimeout(() => {
       textarea.focus()
       const newPos = start + textToInsert.length
       textarea.setSelectionRange(newPos, newPos)
     }, 0)
   } else {
-    // 降级处理：直接追加
     formData.value.content = (formData.value.content || '') + textToInsert
   }
 }
