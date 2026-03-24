@@ -428,6 +428,11 @@ const copyContent = async () => {
   border-bottom-color: rgba(255, 255, 255, 0.5);
 }
 
+.message-bubble.user .bubble-body :deep(code:not(pre code)) {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.95);
+}
+
 .message-bubble.user .bubble-body :deep(.clickable-link:hover) {
   color: white;
   border-bottom-color: white;

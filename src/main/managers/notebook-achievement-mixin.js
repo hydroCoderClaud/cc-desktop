@@ -20,18 +20,24 @@ const notebookAchievementMixin = {
 
   /**
    * 一致性扫描：清理异常状态的成果记录
-   * - generating → done（意外退出后残留的幽灵记录）
+   * - 超过 5 分钟仍为 generating 的记录 → done（意外退出残留的幽灵记录）
+   * - 刚创建的 generating 记录不动（可能正在生成中）
    * 在 get() 打开笔记本时自动调用
    */
   sanitizeAchievements(notebookId) {
     const indexPath = this._achievementIndexPath(notebookId)
     const data = this._readJson(indexPath)
     let changed = false
+    const staleThreshold = 5 * 60 * 1000 // 5 分钟
+    const now = Date.now()
 
     for (const ach of data.achievements) {
       if (ach.status === 'generating') {
-        ach.status = 'done'
-        changed = true
+        const age = now - new Date(ach.createdAt).getTime()
+        if (age > staleThreshold) {
+          ach.status = 'done'
+          changed = true
+        }
       }
     }
 
