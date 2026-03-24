@@ -223,6 +223,22 @@ const openPromptEditor = () => {
 .mapping-item { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
 .key-tag { color: var(--text-color); min-width: 80px; justify-content: center; }
 
+/* 只读/禁用组件不响应 hover */
+:deep(.n-input--readonly .n-input__border),
+:deep(.n-input--readonly .n-input__state-border),
+:deep(.n-input--disabled .n-input__border),
+:deep(.n-input--disabled .n-input__state-border),
+:deep(.n-base-selection--disabled .n-base-selection__border),
+:deep(.n-base-selection--disabled .n-base-selection__state-border) {
+  border-color: var(--border-color) !important;
+  box-shadow: none !important;
+}
+:deep(.n-input--readonly),
+:deep(.n-input--disabled),
+:deep(.n-base-selection--disabled) {
+  cursor: default;
+}
+
 .modal-footer-box { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .btn-group { display: flex; gap: 12px; }
 </style>
