@@ -32,6 +32,7 @@
                 </div>
                 <div class="title-group">
                   <div class="tool-name">{{ tool.name }}</div>
+                  <div class="tool-id">ID: {{ tool.id }}</div>
                   <div class="tool-version">v{{ tool.version || '1.0.0' }}</div>
                 </div>
               </div>
@@ -245,9 +246,10 @@ const handleUninstall = (tool) => {
 .card-header { display: flex; align-items: center; gap: 12px; height: 44px; }
 .tool-icon-box { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-.title-group { flex: 1; display: flex; flex-direction: column; justify-content: center; height: 44px; overflow: hidden; }
+.title-group { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
 .tool-name { font-size: 15px; font-weight: 700; color: var(--text-color); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-version { font-size: 11px; color: var(--text-color-muted); font-family: monospace; line-height: 1.2; margin-top: 2px; }
+.tool-id { font-size: 11px; color: var(--text-color-muted); line-height: 1.2; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-version { font-size: 12px; color: var(--primary-color); font-weight: 600; line-height: 1.2; margin-top: 2px; }
 
 .card-body { flex: 1; overflow: hidden; margin-top: 8px; }
 .tool-desc { font-size: 12px; color: var(--text-color-muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
