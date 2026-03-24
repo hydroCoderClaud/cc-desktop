@@ -3,6 +3,7 @@
  * 生成管线：工具查找 → 路径计算 → Prompt 组装 → Achievement 创建
  */
 
+const fs = require('fs')
 const path = require('path')
 
 const EXT_MAP = {
@@ -40,14 +41,19 @@ const notebookGenerationMixin = {
       ? selectedSources.map(s => `- ${s.name} (路径: ${s.path})`).join('\n')
       : ''
 
-    // 3. 计算预期输出路径（相对路径存索引，绝对路径进 Prompt）
+    // 3. 计算预期输出路径（按 toolId 分目录，按需创建）
     const notebookPath = this._getNotebookPath(notebookId)
     const ext = EXT_MAP[outputType] || 'txt'
-    // 文件名用 tool.id（纯 ASCII）而非 tool.name（可能含空格/中文），确保跨平台兼容
     const safeId = toolId.replace(/[^a-zA-Z0-9_-]/g, '-')
     const expectedFileName = `${safeId}-${Date.now()}.${ext}`
-    const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
+    const expectedRelPath = `achievements/${safeId}/${expectedFileName}`
     const expectedAbsPath = path.join(notebookPath, expectedRelPath)
+
+    // 确保目标目录存在（按需创建）
+    const targetDir = path.dirname(expectedAbsPath)
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true })
+    }
 
     // 4. 加载 Prompt 模板
     let templateContent = ''

@@ -17,7 +17,7 @@ const os = require('os')
 const { v4: uuidv4 } = require('uuid')
 
 const { notebookSourceMixin, SOURCE_DIRS } = require('./notebook-source-mixin')
-const { notebookAchievementMixin, ACHIEVEMENT_DIRS } = require('./notebook-achievement-mixin')
+const { notebookAchievementMixin } = require('./notebook-achievement-mixin')
 const { notebookToolsMixin } = require('./notebook-tools-mixin')
 const { notebookGenerationMixin } = require('./notebook-generation-mixin')
 const { notebookInstallMixin } = require('./notebook-install-mixin')
@@ -123,7 +123,7 @@ class NotebookManager {
     try {
       fs.mkdirSync(notebookPath, { recursive: true })
       SOURCE_DIRS.forEach(d => fs.mkdirSync(path.join(notebookPath, 'sources', d), { recursive: true }))
-      ACHIEVEMENT_DIRS.forEach(d => fs.mkdirSync(path.join(notebookPath, 'achievements', d), { recursive: true }))
+      fs.mkdirSync(path.join(notebookPath, 'achievements'), { recursive: true })
       directoryCreated = true
 
       if (this.agentSessionManager) {

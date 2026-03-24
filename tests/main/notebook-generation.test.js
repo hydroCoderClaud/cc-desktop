@@ -70,7 +70,7 @@ describe('NotebookManager.prepareGeneration', () => {
     const achievements = mgr.listAchievements(nb.id)
     expect(achievements).toHaveLength(1)
     expect(achievements[0].status).toBe('generating')
-    expect(achievements[0].path).toContain('achievements/markdown/')
+    expect(achievements[0].path).toContain('achievements/notes/')
     expect(achievements[0].path).toMatch(/\.md$/)
   })
 
@@ -95,14 +95,14 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(result.prompt).toBeDefined()
     const ach = mgr.listAchievements(nb.id).at(-1)
     expect(ach.path).toContain('.md')
-    expect(ach.path).toContain('achievements/markdown/')
+    expect(ach.path).toContain('achievements/notes/')
 
     // 手动添加一个 pdf 工具验证其他扩展名
     mgr.addTool({ id: 'test-pdf', name: 'PDF', outputType: 'pdf' })
     const result2 = mgr.prepareGeneration(nb.id, 'test-pdf', [])
     const ach2 = mgr.listAchievements(nb.id).at(-1)
     expect(ach2.path).toContain('.pdf')
-    expect(ach2.path).toContain('achievements/pdf/')
+    expect(ach2.path).toContain('achievements/test-pdf/')
   })
 
   // ── Prompt 模板 ───────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ describe('NotebookManager.prepareGeneration', () => {
     const result = mgr.prepareGeneration(nb.id, 'notes', [sourceId])
 
     expect(result.prompt).toContain('report.pdf')
-    expect(result.prompt).toMatch(/achievements.markdown/)
+    expect(result.prompt).toMatch(/achievements.notes/)
     expect(result.prompt).not.toContain('{{sources}}')
     expect(result.prompt).not.toContain('{{expected_path}}')
   })
