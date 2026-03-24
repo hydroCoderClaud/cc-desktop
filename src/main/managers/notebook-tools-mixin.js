@@ -1,6 +1,6 @@
 /**
  * NotebookManager — Tools mixin
- * 场景工具的配置读写 (全局 notebook-tools.json)
+ * 创作工具的配置读写 (全局 notebook-tools.json)
  */
 
 const fs = require('fs')

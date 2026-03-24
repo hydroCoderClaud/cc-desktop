@@ -214,7 +214,7 @@ const handleOpenPromptEditor = (data) => {
 }
 
 const handleDownloadTool = async (tool) => {
-  const loading = message.loading(`正在安装场景工具：${tool.name}...`, { duration: 0 })
+  const loading = message.loading(`正在安装创作工具：${tool.name}...`, { duration: 0 })
   try {
     const res = await window.electronAPI.notebookInstallTool(JSON.parse(JSON.stringify(tool)))
     if (!res.success) throw new Error(res.error)

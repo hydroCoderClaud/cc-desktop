@@ -1485,7 +1485,7 @@ export default {
     },
 
     toolConfig: {
-      title: '配置场景工具: {id}',
+      title: '配置创作工具: {id}',
       sectionVisual: '基础与视觉定义',
       sectionPrompt: '核心执行逻辑 (Prompt)',
       sectionDeps: '安装依赖库 (Installation)',
@@ -1523,7 +1523,7 @@ export default {
     },
 
     promptEditor: {
-      title: '编辑场景提示词: {name}',
+      title: '编辑创作提示词: {name}',
       templateName: '模板名称',
       templateNamePlaceholder: '输入模板名称',
       marketId: '市场 ID',

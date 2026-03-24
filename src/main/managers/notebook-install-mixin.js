@@ -1,12 +1,12 @@
 /**
  * NotebookManager — Install mixin
- * 场景工具安装编排：依赖安装 + Prompt 安装 + 工具配置写入
+ * 创作工具安装编排：依赖安装 + Prompt 安装 + 工具配置写入
  * 内部复用 CapabilityManager.installCapability()
  */
 
 const notebookInstallMixin = {
   /**
-   * 安装场景工具：依次安装底层依赖 → 安装 Prompt 模板 → 写入工具配置
+   * 安装创作工具：依次安装底层依赖 → 安装 Prompt 模板 → 写入工具配置
    * @param {Object} tool - 远程工具定义（含 installDependencies, promptTemplateId 等）
    * @returns {{ success: boolean, error?: string }}
    */
@@ -64,7 +64,7 @@ const notebookInstallMixin = {
   },
 
   /**
-   * 卸载场景工具：从配置中移除（不卸载底层组件，因为可能被其他工具共用）
+   * 卸载创作工具：从配置中移除（不卸载底层组件，因为可能被其他工具共用）
    * @param {string} toolId
    * @returns {{ success: boolean }}
    */
