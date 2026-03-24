@@ -195,6 +195,21 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(result.prompt).not.toContain('b.txt')
   })
 
+  it('prompt 和返回值中包含绝对路径', () => {
+    const { mgr, nb } = setupNotebookWithSource(baseDir)
+
+    const result = mgr.prepareGeneration(nb.id, 'notes', [])
+
+    // 返回了绝对路径
+    expect(result.expectedAbsPath).toContain(baseDir.replace(/\\/g, '/'))
+    expect(result.expectedAbsPath).toContain('achievements/markdown/')
+    expect(result.expectedAbsPath).toMatch(/\.md$/)
+
+    // prompt 中包含绝对路径而非相对路径
+    expect(result.prompt).toContain(result.expectedAbsPath)
+    expect(result.prompt).not.toMatch(/保存到指定路径：achievements\//)
+  })
+
   it('sourceIds 为空时使用已勾选的来源', () => {
     const mgr = makeManager(baseDir)
     const nb = mgr.create({ name: 'selected-test' })

@@ -3,6 +3,8 @@
  * 生成管线：工具查找 → 路径计算 → Prompt 组装 → Achievement 创建
  */
 
+const path = require('path')
+
 const EXT_MAP = {
   markdown: 'md', document: 'docx', code: 'html', text: 'txt',
   image: 'png', video: 'mp4', pdf: 'pdf', csv: 'csv'
@@ -38,10 +40,12 @@ const notebookGenerationMixin = {
       ? selectedSources.map(s => `- ${s.name} (路径: ${s.path})`).join('\n')
       : ''
 
-    // 3. 计算预期输出路径
+    // 3. 计算预期输出路径（相对路径存索引，绝对路径进 Prompt）
+    const notebookPath = this._getNotebookPath(notebookId)
     const ext = EXT_MAP[outputType] || 'txt'
     const expectedFileName = `${typeName}-${Date.now()}.${ext}`
     const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
+    const expectedAbsPath = path.join(notebookPath, expectedRelPath).replace(/\\/g, '/')
 
     // 4. 加载 Prompt 模板
     let templateContent = ''
@@ -61,7 +65,7 @@ const notebookGenerationMixin = {
       // 通用占位符替换
       prompt = templateContent
         .replace(/\{\{sources\}\}/g, hasSources ? sourceInfo : '（未勾选特定来源，请根据对话上下文生成）')
-        .replace(/\{\{expected_path\}\}/g, expectedRelPath)
+        .replace(/\{\{expected_path\}\}/g, expectedAbsPath)
 
       // 运行时能力占位符替换
       if (tool.runtimePlaceholders) {
@@ -72,7 +76,7 @@ const notebookGenerationMixin = {
     } else {
       // 兜底硬编码模板
       const instruction = `我的目标是：使用【${typeName}】功能，生成一份成果。
-请将最终成果保存到指定路径：${expectedRelPath}。
+请将最终成果保存到指定路径：${expectedAbsPath}。
 如果你是一个只能输出纯文本的工具，请直接在对话中输出内容，系统会自动为你保存。
 请确保最终生成的文件符合 ${outputType} 类型（或对应扩展名的文件），如果是报告请保持结构完整，不要使用省略号。`
 
@@ -95,6 +99,7 @@ const notebookGenerationMixin = {
 
     return {
       achievementId: achievement.id,
+      expectedAbsPath,
       prompt
     }
   }
