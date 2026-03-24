@@ -43,7 +43,9 @@ const notebookGenerationMixin = {
     // 3. 计算预期输出路径（相对路径存索引，绝对路径进 Prompt）
     const notebookPath = this._getNotebookPath(notebookId)
     const ext = EXT_MAP[outputType] || 'txt'
-    const expectedFileName = `${typeName}-${Date.now()}.${ext}`
+    // 文件名用 tool.id（纯 ASCII）而非 tool.name（可能含空格/中文），确保跨平台兼容
+    const safeId = toolId.replace(/[^a-zA-Z0-9_-]/g, '-')
+    const expectedFileName = `${safeId}-${Date.now()}.${ext}`
     const expectedRelPath = `achievements/${outputType}/${expectedFileName}`
     const expectedAbsPath = path.join(notebookPath, expectedRelPath).replace(/\\/g, '/')
 

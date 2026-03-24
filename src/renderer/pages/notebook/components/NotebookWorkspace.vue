@@ -302,7 +302,8 @@ const loadNotebook = async (notebook) => {
     window.currentNotebookId = data.id
     sources.value = data.sources || []
     achievements.value = (data.achievements || []).map(a => {
-      const tool = (availableTypes.value || []).find(t => t.id === a.type)
+      // a.type 是 outputType（如 markdown, pdf），匹配工具的 outputType 取颜色
+      const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
       return {
         ...a,
         icon: a.type,
