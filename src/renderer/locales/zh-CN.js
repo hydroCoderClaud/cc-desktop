@@ -1523,7 +1523,7 @@ export default {
     },
 
     promptEditor: {
-      title: '编辑创作提示词: {name}',
+      title: '编辑提示词模板: {name}',
       templateName: '模板名称',
       templateNamePlaceholder: '输入模板名称',
       marketId: '市场 ID',

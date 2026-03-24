@@ -1518,7 +1518,7 @@ export default {
     },
 
     promptEditor: {
-      title: 'Edit Prompt: {name}',
+      title: 'Edit Prompt Template: {name}',
       templateName: 'Template Name',
       templateNamePlaceholder: 'Enter template name',
       marketId: 'Market ID',
