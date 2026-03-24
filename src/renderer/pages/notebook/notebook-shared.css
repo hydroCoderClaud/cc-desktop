@@ -128,6 +128,8 @@
   line-height: 1.7;
   color: var(--text-color-secondary);
   margin: 0 0 12px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
