@@ -1482,7 +1482,7 @@ export default {
     toolConfig: {
       title: 'Configure Tool: {id}',
       sectionVisual: 'Visual & Basic Settings',
-      sectionPrompt: 'Core Prompt Logic',
+      sectionPrompt: 'Prompt Template',
       sectionDeps: 'Install Dependencies',
       sectionRuntime: 'Runtime Command Mapping',
       marketDefined: 'Defined by market, read-only',

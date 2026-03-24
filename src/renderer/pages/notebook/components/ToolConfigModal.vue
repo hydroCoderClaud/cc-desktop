@@ -58,15 +58,13 @@
           <div class="divider-title"><Icon name="fileText" :size="14" /> {{ t('notebook.toolConfig.sectionPrompt') }}</div>
         </n-divider>
 
-        <n-form-item :label="t('notebook.toolConfig.promptTemplate')">
-          <div class="prompt-link-row">
-            <n-input v-model:value="editingTool.promptTemplateId" readonly placeholder="ID" />
-            <n-button ghost type="primary" @click="openPromptEditor">
-              <template #icon><Icon name="edit" :size="14" /></template>
-              {{ t('notebook.toolConfig.editContent') }}
-            </n-button>
-          </div>
-        </n-form-item>
+        <div class="prompt-link-row">
+          <n-input v-model:value="editingTool.promptTemplateId" readonly placeholder="ID" />
+          <n-button ghost type="primary" @click="openPromptEditor">
+            <template #icon><Icon name="edit" :size="14" /></template>
+            {{ t('notebook.toolConfig.editContent') }}
+          </n-button>
+        </div>
 
         <!-- 3. 安装依赖 -->
         <n-divider title-placement="left">

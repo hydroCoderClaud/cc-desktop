@@ -1487,7 +1487,7 @@ export default {
     toolConfig: {
       title: '配置创作工具: {id}',
       sectionVisual: '基础与视觉定义',
-      sectionPrompt: '核心执行逻辑 (Prompt)',
+      sectionPrompt: '提示词模板 (Prompt)',
       sectionDeps: '安装依赖库 (Installation)',
       sectionRuntime: '运行指令映射 (Runtime)',
       marketDefined: '由市场定义，只读',
