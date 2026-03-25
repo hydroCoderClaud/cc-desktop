@@ -15,6 +15,7 @@ const notebookInstallMixin = {
     if (!this.capabilityManager) throw new Error('CapabilityManager 未注入')
 
     const dependencyOptions = installOptions.dependencyOptions || {}
+    let requiresSessionRestart = false
 
     console.log(`[NotebookManager] installTool: ${tool.id} (${tool.name})`)
 
@@ -40,6 +41,9 @@ const notebookInstallMixin = {
         const res = await this.capabilityManager.installCapability(capability, capOptions)
         if (!res.success) {
           throw new Error(`组件 ${dep.id} 安装失败: ${res.error}`)
+        }
+        if (dep.type === 'mcp' && res.requiresRestart) {
+          requiresSessionRestart = true
         }
       }
     }
@@ -76,7 +80,7 @@ const notebookInstallMixin = {
     }
 
     console.log(`[NotebookManager] installTool done: ${tool.id}`)
-    return { success: true }
+    return { success: true, requiresSessionRestart }
   },
 
   /**

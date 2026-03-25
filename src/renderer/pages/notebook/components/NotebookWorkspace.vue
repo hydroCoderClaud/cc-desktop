@@ -111,7 +111,6 @@
       v-model="showMcpEnvConfig"
       :mcp-name="pendingMcpDep?.id || ''"
       :env-vars="pendingMcpEnvVars"
-      :initial-use-proxy="pendingMcpUseProxy"
       :proxy-available="false"
       @confirm="onMcpEnvConfigConfirm"
       @cancel="onMcpEnvConfigCancel"
@@ -169,7 +168,6 @@ const showMcpEnvConfig = ref(false)
 const pendingInstallTool = ref(null)
 const pendingMcpDep = ref(null)
 const pendingMcpEnvVars = ref([])
-const pendingMcpUseProxy = ref(false)
 
 // 仅当已安装工具可更新时，市场图标显示红点
 const hasNewTools = computed(() => {
@@ -243,6 +241,31 @@ const handleOpenPromptEditor = (data) => {
   showPromptEditor.value = true
 }
 
+const restartNotebookSession = async () => {
+  const notebook = currentNotebook.value
+  if (!notebook?.id || !notebook?.notebookPath || !notebook?.sessionId) return
+
+  try {
+    await window.electronAPI.closeAgentSession(notebook.sessionId)
+  } catch (err) {
+    console.warn('[Notebook] Failed to close notebook session before restart:', err)
+  }
+
+  const newSession = await window.electronAPI.createAgentSession({
+    type: 'notebook',
+    title: notebook.name,
+    cwd: notebook.notebookPath,
+    apiProfileId: notebook.apiProfileId || null
+  })
+
+  if (!newSession?.id) {
+    throw new Error('重建 Notebook 会话失败')
+  }
+
+  await window.electronAPI.notebookBindSession({ id: notebook.id, sessionId: newSession.id })
+  await loadNotebook({ id: notebook.id })
+}
+
 const handleDownloadTool = async (tool, installOptions = {}) => {
   const loading = message.loading(`正在安装创作工具：${tool.name}...`, { duration: 0 })
   try {
@@ -251,6 +274,9 @@ const handleDownloadTool = async (tool, installOptions = {}) => {
       options: installOptions
     })
     if (!res.success) throw new Error(res.error)
+    if (res.requiresSessionRestart && currentNotebook.value?.sessionId) {
+      await restartNotebookSession()
+    }
     await loadTools()
     message.success(t('notebook.market.installSuccess', { name: tool.name }))
   } catch (err) {
@@ -294,18 +320,17 @@ const handleInstallWithMcpConfig = async (tool) => {
   }
 }
 
-const onMcpEnvConfigConfirm = async (envOverrides, useProxy) => {
+const onMcpEnvConfigConfirm = async (envOverrides) => {
   const tool = pendingInstallTool.value
   const mcpDep = pendingMcpDep.value
   pendingInstallTool.value = null
   pendingMcpDep.value = null
   pendingMcpEnvVars.value = []
-  pendingMcpUseProxy.value = !!useProxy
   if (!tool || !mcpDep) return
 
   await handleDownloadTool(tool, {
     dependencyOptions: {
-      [`mcp:${mcpDep.id}`]: { envOverrides, useProxy }
+      [`mcp:${mcpDep.id}`]: { envOverrides }
     }
   })
 }
@@ -348,13 +373,6 @@ const handleSaveTool = async (updatedTool) => {
 
 onMounted(async () => {
   loadTools()
-  try {
-    const proxyConfig = await window.electronAPI.getMcpProxyConfig()
-    pendingMcpUseProxy.value = !!proxyConfig?.enabled
-  } catch (err) {
-    console.warn('[Notebook] Failed to load MCP proxy config:', err)
-    pendingMcpUseProxy.value = false
-  }
 })
 
 // ─── 加载笔记本 ───────────────────────────────────────────────────────────────

@@ -1546,7 +1546,7 @@ export default {
       title: '编辑提示词模板: {name}',
       templateName: '模板名称',
       templateNamePlaceholder: '输入模板名称',
-      marketId: '市场 ID',
+      marketId: '工具ID',
       contentLabel: '提示词正文内容 (Markdown 格式)',
       contentPlaceholder: '# 角色设定\n你是一个专业的分析师...\n\n# 任务目标\n基于来源完成任务...',
       variableHelper: '智能变量助手 (点击标签插入到当前光标处)',

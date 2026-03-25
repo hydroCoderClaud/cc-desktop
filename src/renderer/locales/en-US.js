@@ -1541,7 +1541,7 @@ export default {
       title: 'Edit Prompt Template: {name}',
       templateName: 'Template Name',
       templateNamePlaceholder: 'Enter template name',
-      marketId: 'Market ID',
+      marketId: 'Tool ID',
       contentLabel: 'Prompt Content (Markdown)',
       contentPlaceholder: '# Role\nYou are a professional analyst...\n\n# Goal\nBased on the sources, complete the task...',
       variableHelper: 'Variable Helper (click a tag to insert at cursor)',
