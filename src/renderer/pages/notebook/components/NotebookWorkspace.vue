@@ -116,6 +116,7 @@ import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
+import { isNewerVersion } from '../utils/version'
 import NotebookTopNav from './NotebookTopNav.vue'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -153,14 +154,13 @@ const editingPromptRuntimePlaceholders = ref({})
 const remoteTools = ref([])
 const showMarketModal = ref(false)
 
-// 有新工具可安装或可更新时，市场图标显示红点
+// 仅当已安装工具可更新时，市场图标显示红点
 const hasNewTools = computed(() => {
   if (!remoteTools.value.length) return false
   return remoteTools.value.some(rt => {
     const lt = availableTypes.value.find(t => t.id === rt.id && t.installed === true)
-    if (!lt) return true // 未安装的新工具
-    if (rt.version && (!lt.version || lt.version !== rt.version)) return true // 可更新
-    return false
+    if (!lt) return false
+    return isNewerVersion(rt.version, lt.version)
   })
 })
 
@@ -195,20 +195,9 @@ const loadTools = async () => {
       if (remoteRes.success && remoteRes.data && remoteRes.data.tools) {
         remoteTools.value = remoteRes.data.tools
         console.log('[Notebook] Successfully synced remote tools count:', remoteRes.data.tools.length)
-        
-        // 找出远程有但本地没有的工具
-        const newTools = remoteRes.data.tools
-          .filter(rt => !localMapped.find(lt => lt.id === rt.id))
-          .map(rt => ({
-            ...rt,
-            installed: false, // 标记为未安装
-            bgColor: rt.bgColor || '#f0f0f0',
-            color: rt.color || '#999'
-          }))
-        
-        console.log('[Notebook] New tools to be shown as downloadable:', newTools.length)
-        availableTypes.value = [...localMapped, ...newTools]
+        availableTypes.value = localMapped
       } else {
+        remoteTools.value = []
         const errorMsg = remoteRes.error || '返回数据格式错误'
         console.warn('[Notebook] Remote sync failed:', errorMsg)
         // 只有在真的出错时才提示，空数据不提示
@@ -217,6 +206,7 @@ const loadTools = async () => {
       }
     } catch (e) {
       console.error('[Notebook] Failed to sync remote tools exception:', e)
+      remoteTools.value = []
       availableTypes.value = localMapped
     }
   } catch (err) {

@@ -121,6 +121,7 @@
 import { ref, watch, computed } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import { isNewerVersion } from '../utils/version'
 
 const props = defineProps({
   show: Boolean,
@@ -153,9 +154,12 @@ const loadRemoteTools = async () => {
     const res = await window.electronAPI.notebookFetchRemoteTools()
     if (res.success && res.data?.tools) {
       remoteTools.value = res.data.tools
+    } else {
+      remoteTools.value = []
     }
   } catch (err) {
     console.error('Failed to load remote tools:', err)
+    remoteTools.value = []
   } finally {
     loading.value = false
   }
@@ -181,8 +185,7 @@ const isUpdatable = (rt) => {
   if (!rt || !rt.id) return false
   const lt = props.localTools.find(lt => lt.id.trim() === rt.id.trim() && lt.installed === true)
   if (!lt) return false
-  if (rt.version && (!lt.version || lt.version !== rt.version)) return true
-  return false
+  return isNewerVersion(rt.version, lt.version)
 }
 
 const getInstallButtonText = (tool) => {
