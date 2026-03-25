@@ -65,7 +65,7 @@ const notebookAchievementMixin = {
       sourceIds: achievementData.sourceIds || [],
       prompt: achievementData.prompt || '',
       status: 'generating',
-      selected: true,
+      selected: false,
       createdAt: this._now()
     }
 

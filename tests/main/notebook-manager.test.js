@@ -203,6 +203,7 @@ describe('NotebookManager', () => {
 
     const ach = mgr.addAchievement(nb.id, { name: '报告1', type: 'report' })
     expect(ach.status).toBe('generating')
+    expect(ach.selected).toBe(false)
     expect(mgr.listAchievements(nb.id)).toHaveLength(1)
 
     mgr.updateAchievement(nb.id, ach.id, { status: 'done', path: '/tmp/report.pdf' })
