@@ -10,9 +10,11 @@ const notebookInstallMixin = {
    * @param {Object} tool - 远程工具定义（含 installDependencies, promptTemplateId 等）
    * @returns {{ success: boolean, error?: string }}
    */
-  async installTool(tool) {
+  async installTool(tool, installOptions = {}) {
     if (!tool || !tool.id) throw new Error('工具定义无效')
     if (!this.capabilityManager) throw new Error('CapabilityManager 未注入')
+
+    const dependencyOptions = installOptions.dependencyOptions || {}
 
     console.log(`[NotebookManager] installTool: ${tool.id} (${tool.name})`)
 
@@ -20,13 +22,22 @@ const notebookInstallMixin = {
     if (tool.installDependencies?.length > 0) {
       for (const dep of tool.installDependencies) {
         if (!dep.id || !dep.type) continue
+        const currentStatus = this.capabilityManager.checkComponentInstalled(dep.type, dep.id)
+        if (currentStatus === 'installed' || currentStatus === 'disabled') {
+          console.log(`[NotebookManager] Dependency already present, skip install: ${dep.id} (${dep.type}) status=${currentStatus}`)
+          continue
+        }
         console.log(`[NotebookManager] Installing dependency: ${dep.id} (${dep.type})`)
         const capability = {
           type: dep.type,
           componentId: dep.id,
           marketplace: dep.marketplaceSource || undefined
         }
-        const res = await this.capabilityManager.installCapability(capability, { scope: 'notebook' })
+        const capOptions = {
+          scope: 'notebook',
+          ...(dependencyOptions[`${dep.type}:${dep.id}`] || {})
+        }
+        const res = await this.capabilityManager.installCapability(capability, capOptions)
         if (!res.success) {
           throw new Error(`组件 ${dep.id} 安装失败: ${res.error}`)
         }
@@ -39,13 +50,18 @@ const notebookInstallMixin = {
         d => d.type === 'prompt' && d.id === tool.promptTemplateId
       )
       if (!alreadyInDeps) {
-        console.log(`[NotebookManager] Installing prompt template: ${tool.promptTemplateId}`)
-        const res = await this.capabilityManager.installCapability(
-          { type: 'prompt', componentId: tool.promptTemplateId },
-          { scope: 'notebook' }
-        )
-        if (!res.success) {
-          throw new Error(`提示词模板 ${tool.promptTemplateId} 安装失败: ${res.error}`)
+        const promptStatus = this.capabilityManager.checkComponentInstalled('prompt', tool.promptTemplateId)
+        if (promptStatus !== 'installed') {
+          console.log(`[NotebookManager] Installing prompt template: ${tool.promptTemplateId}`)
+          const res = await this.capabilityManager.installCapability(
+            { type: 'prompt', componentId: tool.promptTemplateId },
+            { scope: 'notebook' }
+          )
+          if (!res.success) {
+            throw new Error(`提示词模板 ${tool.promptTemplateId} 安装失败: ${res.error}`)
+          }
+        } else {
+          console.log(`[NotebookManager] Prompt already installed, skip install: ${tool.promptTemplateId}`)
         }
       }
     }

@@ -33,6 +33,10 @@
             </template>
           </n-form-item>
         </div>
+
+        <n-form-item v-if="proxyAvailable" :label="t('mcp.proxy.useProxy')" class="env-form-item proxy-form-item">
+          <n-switch v-model:value="useProxy" />
+        </n-form-item>
       </n-form>
 
     </div>
@@ -47,7 +51,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NButton, NTag, useMessage } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NButton, NTag, NSwitch, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -56,7 +60,9 @@ const message = useMessage()
 
 const props = defineProps({
   mcpName: { type: String, default: '' },
-  envVars: { type: Array, default: () => [] }
+  envVars: { type: Array, default: () => [] },
+  initialUseProxy: { type: Boolean, default: false },
+  proxyAvailable: { type: Boolean, default: false }
 })
 
 const visible = defineModel({ type: Boolean, default: false })
@@ -64,13 +70,21 @@ const emit = defineEmits(['confirm', 'cancel'])
 
 const envList = ref([])
 const confirming = ref(false)
+const useProxy = ref(false)
 
 watch(() => props.envVars, (vars) => {
   envList.value = vars.map(v => ({ ...v }))
 }, { immediate: true })
 
+watch(() => props.initialUseProxy, (value) => {
+  useProxy.value = !!value
+}, { immediate: true })
+
 watch(visible, (show) => {
-  if (show) confirming.value = false
+  if (show) {
+    confirming.value = false
+    useProxy.value = !!props.initialUseProxy
+  }
 })
 
 const isSecretKey = (key) => /key|secret|token|password|credential/i.test(key)
@@ -101,7 +115,7 @@ const buildEnvOverrides = () => {
 const handleConfirm = () => {
   const overrides = buildEnvOverrides()
   visible.value = false
-  emit('confirm', overrides)
+  emit('confirm', overrides, useProxy.value)
 }
 
 const handleCancel = () => {
@@ -172,5 +186,9 @@ const handleCancel = () => {
 .env-footer-right {
   display: flex;
   gap: 8px;
+}
+
+.proxy-form-item :deep(.n-form-item-blank) {
+  justify-content: flex-start;
 }
 </style>

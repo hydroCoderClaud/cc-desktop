@@ -103,8 +103,18 @@
     <NotebookMarketModal
       v-model:show="showMarketModal"
       :local-tools="availableTypes"
-      @install="handleDownloadTool"
+      @install="handleInstallWithMcpConfig"
       @uninstall="handleUninstallTool"
+    />
+
+    <McpEnvConfigModal
+      v-model="showMcpEnvConfig"
+      :mcp-name="pendingMcpDep?.id || ''"
+      :env-vars="pendingMcpEnvVars"
+      :initial-use-proxy="pendingMcpUseProxy"
+      :proxy-available="false"
+      @confirm="onMcpEnvConfigConfirm"
+      @cancel="onMcpEnvConfigCancel"
     />
   </div>
 </template>
@@ -117,6 +127,7 @@ import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
 import { isNewerVersion } from '../utils/version'
+import { extractAllEnvVars } from '@/utils/mcp-env-utils'
 import NotebookTopNav from './NotebookTopNav.vue'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -125,6 +136,7 @@ import NotebookCreateModal from './NotebookCreateModal.vue'
 import ToolConfigModal from './ToolConfigModal.vue'
 import PromptEditModal from './PromptEditModal.vue'
 import NotebookMarketModal from './NotebookMarketModal.vue'
+import McpEnvConfigModal from '../../main/components/RightPanel/tabs/skills/McpEnvConfigModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -153,6 +165,11 @@ const editingPromptRuntimePlaceholders = ref({})
 
 const remoteTools = ref([])
 const showMarketModal = ref(false)
+const showMcpEnvConfig = ref(false)
+const pendingInstallTool = ref(null)
+const pendingMcpDep = ref(null)
+const pendingMcpEnvVars = ref([])
+const pendingMcpUseProxy = ref(false)
 
 // 仅当已安装工具可更新时，市场图标显示红点
 const hasNewTools = computed(() => {
@@ -226,10 +243,13 @@ const handleOpenPromptEditor = (data) => {
   showPromptEditor.value = true
 }
 
-const handleDownloadTool = async (tool) => {
+const handleDownloadTool = async (tool, installOptions = {}) => {
   const loading = message.loading(`正在安装创作工具：${tool.name}...`, { duration: 0 })
   try {
-    const res = await window.electronAPI.notebookInstallTool(JSON.parse(JSON.stringify(tool)))
+    const res = await window.electronAPI.notebookInstallTool({
+      tool: JSON.parse(JSON.stringify(tool)),
+      options: installOptions
+    })
     if (!res.success) throw new Error(res.error)
     await loadTools()
     message.success(t('notebook.market.installSuccess', { name: tool.name }))
@@ -239,6 +259,61 @@ const handleDownloadTool = async (tool) => {
   } finally {
     loading.destroy()
   }
+}
+
+const handleInstallWithMcpConfig = async (tool) => {
+  const mcpDep = tool?.installDependencies?.find(dep => dep.type === 'mcp' && dep.id)
+  if (!mcpDep) {
+    await handleDownloadTool(tool)
+    return
+  }
+
+  try {
+    const mcpStatus = await window.electronAPI.checkCapabilityInstalled('mcp', mcpDep.id)
+    if (mcpStatus === 'installed' || mcpStatus === 'disabled') {
+      await handleDownloadTool(tool)
+      return
+    }
+
+    const marketConfig = await window.electronAPI.getMarketConfig()
+    const preview = await window.electronAPI.previewMarketMcpConfig({
+      registryUrl: marketConfig.registryUrl,
+      mcp: { id: mcpDep.id }
+    })
+    if (!preview.success) {
+      throw new Error(preview.error || 'MCP 配置预览失败')
+    }
+    const vars = preview.config ? extractAllEnvVars(preview.config) : []
+    pendingInstallTool.value = tool
+    pendingMcpDep.value = mcpDep
+    pendingMcpEnvVars.value = vars
+    showMcpEnvConfig.value = true
+  } catch (err) {
+    console.error('[Notebook] MCP preview failed:', err)
+    message.error(t('notebook.market.installFailed', { error: err.message }))
+  }
+}
+
+const onMcpEnvConfigConfirm = async (envOverrides, useProxy) => {
+  const tool = pendingInstallTool.value
+  const mcpDep = pendingMcpDep.value
+  pendingInstallTool.value = null
+  pendingMcpDep.value = null
+  pendingMcpEnvVars.value = []
+  pendingMcpUseProxy.value = !!useProxy
+  if (!tool || !mcpDep) return
+
+  await handleDownloadTool(tool, {
+    dependencyOptions: {
+      [`mcp:${mcpDep.id}`]: { envOverrides, useProxy }
+    }
+  })
+}
+
+const onMcpEnvConfigCancel = () => {
+  pendingInstallTool.value = null
+  pendingMcpDep.value = null
+  pendingMcpEnvVars.value = []
 }
 
 const handleUninstallTool = async (toolId) => {
@@ -271,8 +346,15 @@ const handleSaveTool = async (updatedTool) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadTools()
+  try {
+    const proxyConfig = await window.electronAPI.getMcpProxyConfig()
+    pendingMcpUseProxy.value = !!proxyConfig?.enabled
+  } catch (err) {
+    console.warn('[Notebook] Failed to load MCP proxy config:', err)
+    pendingMcpUseProxy.value = false
+  }
 })
 
 // ─── 加载笔记本 ───────────────────────────────────────────────────────────────

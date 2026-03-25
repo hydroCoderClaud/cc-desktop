@@ -634,6 +634,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:enable', id, capability, sessionId),
   disableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:disable', id, capability, sessionId),
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
+  checkCapabilityInstalled: (type, id, projectPath) => ipcRenderer.invoke('capabilities:checkInstalled', type, id, projectPath),
   getCapabilitiesUpdateStatus: () => ipcRenderer.invoke('capabilities:getUpdateStatus'),
   clearCapabilitiesUpdateBadge: () => ipcRenderer.invoke('capabilities:clearUpdateBadge'),
   checkComponentsBatchStatus: (components) => ipcRenderer.invoke('capabilities:checkBatchStatus', components),
@@ -791,7 +792,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds }),
 
   // Notebook Install
-  notebookInstallTool: (tool) => ipcRenderer.invoke('notebook:installTool', tool),
+  notebookInstallTool: ({ tool, options }) => ipcRenderer.invoke('notebook:installTool', { tool, options }),
   notebookUninstallTool: (toolId) => ipcRenderer.invoke('notebook:uninstallTool', toolId)
   })
 ;

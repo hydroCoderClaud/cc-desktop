@@ -258,9 +258,9 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
   })
 
   // ─── Install / Uninstall ──────────────────────────────────────────────────
-  ipcMain.handle('notebook:installTool', async (_e, tool) => {
+  ipcMain.handle('notebook:installTool', async (_e, { tool, options } = {}) => {
     try {
-      return await notebookManager.installTool(tool)
+      return await notebookManager.installTool(tool, options)
     } catch (err) {
       console.error('[IPC] notebook:installTool error:', err)
       return { success: false, error: err.message }
