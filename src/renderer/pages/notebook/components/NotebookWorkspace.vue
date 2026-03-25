@@ -14,6 +14,7 @@
     <!-- 三栏面板 -->
     <div class="panels-container">
       <SourcePanel
+        :key="currentNotebook?.id || 'no-notebook-source'"
         :sources="sources"
         :all-selected="allSelected"
         :copy-source-files="currentNotebook?.copySourceFiles ?? false"
@@ -64,6 +65,7 @@
       <div class="resize-handle" @mousedown="startResize('right', $event)"></div>
 
       <StudioPanel
+        :key="currentNotebook?.id || 'no-notebook-studio'"
         :achievements="achievements"
         :available-types="availableTypes"
         :has-new-tools="hasNewTools"
@@ -426,6 +428,7 @@ const handleCloseNotebook = async () => {
     }
   }
   currentNotebook.value = null
+  window.currentNotebookId = null
   sources.value = []
   achievements.value = []
 }
@@ -439,6 +442,7 @@ const handleRenamed = ({ id, name }) => {
 const handleDeleted = (id) => {
   if (currentNotebook.value?.id === id) {
     currentNotebook.value = null
+    window.currentNotebookId = null
     sources.value = []
     achievements.value = []
   }
