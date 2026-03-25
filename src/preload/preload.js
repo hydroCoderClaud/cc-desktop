@@ -778,6 +778,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookUpdateAchievement: ({ notebookId, achievementId, updates }) => ipcRenderer.invoke('notebook:updateAchievement', { notebookId, achievementId, updates }),
   notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId }),
   notebookDeleteAchievements: ({ notebookId, achievementIds }) => ipcRenderer.invoke('notebook:deleteAchievements', { notebookId, achievementIds }),
+  notebookAddAchievementToSource: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:addAchievementToSource', { notebookId, achievementId }),
+  notebookExportAchievement: ({ notebookId, achievementId, targetDir }) => ipcRenderer.invoke('notebook:exportAchievement', { notebookId, achievementId, targetDir }),
   notebookReadFileContent: ({ notebookId, relPath }) => ipcRenderer.invoke('notebook:readFileContent', { notebookId, relPath }),
   notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
   

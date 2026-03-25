@@ -214,6 +214,50 @@ describe('NotebookManager', () => {
     expect(mgr.listAchievements(nb.id)).toHaveLength(0)
   })
 
+  it('achievement -> source: 始终复制到 sources 目录并写入索引', async () => {
+    const nb = mgr.create({ name: '成果转来源测试' })
+    const achievementDir = path.join(nb.notebookPath, 'achievements', 'generate-image')
+    fs.mkdirSync(achievementDir, { recursive: true })
+    const achievementPath = path.join(achievementDir, 'generate-image-1.png')
+    fs.writeFileSync(achievementPath, 'image-binary')
+
+    const ach = mgr.addAchievement(nb.id, {
+      name: '图片成果',
+      type: 'image',
+      path: 'achievements/generate-image/generate-image-1.png'
+    })
+    mgr.updateAchievement(nb.id, ach.id, { status: 'done' })
+
+    const src = await mgr.addAchievementToSource(nb.id, ach.id)
+    expect(src.type).toBe('image')
+    expect(src.path).toBe('sources/image/generate-image-1.png')
+    expect(fs.existsSync(path.join(nb.notebookPath, src.path))).toBe(true)
+    expect(fs.readFileSync(path.join(nb.notebookPath, src.path), 'utf-8')).toBe('image-binary')
+  })
+
+  it('exportAchievement: 重名时自动重命名', () => {
+    const nb = mgr.create({ name: '成果导出测试' })
+    const achievementDir = path.join(nb.notebookPath, 'achievements', 'notes')
+    fs.mkdirSync(achievementDir, { recursive: true })
+    const achievementPath = path.join(achievementDir, 'notes-1.md')
+    fs.writeFileSync(achievementPath, '# hello')
+
+    const ach = mgr.addAchievement(nb.id, {
+      name: '笔记成果',
+      type: 'markdown',
+      path: 'achievements/notes/notes-1.md'
+    })
+    mgr.updateAchievement(nb.id, ach.id, { status: 'done' })
+
+    const exportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notebook-export-'))
+    fs.writeFileSync(path.join(exportDir, 'notes-1.md'), 'existing')
+
+    const result = mgr.exportAchievement(nb.id, ach.id, exportDir)
+    expect(result.success).toBe(true)
+    expect(path.basename(result.path)).toBe('notes-1_1.md')
+    expect(fs.readFileSync(result.path, 'utf-8')).toBe('# hello')
+  })
+
   // ── 中文路径 ─────────────────────────────────────────────────────────────
 
   it('中文路径：创建和删除正常工作', async () => {

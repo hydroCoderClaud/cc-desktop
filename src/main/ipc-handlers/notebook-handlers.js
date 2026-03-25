@@ -168,6 +168,24 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:addAchievementToSource', async (_e, { notebookId, achievementId }) => {
+    try {
+      return await notebookManager.addAchievementToSource(notebookId, achievementId)
+    } catch (err) {
+      console.error('[IPC] notebook:addAchievementToSource error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:exportAchievement', async (_e, { notebookId, achievementId, targetDir }) => {
+    try {
+      return notebookManager.exportAchievement(notebookId, achievementId, targetDir)
+    } catch (err) {
+      console.error('[IPC] notebook:exportAchievement error:', err)
+      throw err
+    }
+  })
+
   ipcMain.handle('notebook:readFileContent', async (_e, { notebookId, relPath }) => {
     try {
       return await notebookManager.readFileContent(notebookId, relPath)

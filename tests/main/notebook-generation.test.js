@@ -105,6 +105,16 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(ach2.path).toContain('achievements/test-pdf/')
   })
 
+  it('prepareGeneration 不提前创建成果子目录', () => {
+    const mgr = makeManager(baseDir)
+    const nb = mgr.create({ name: 'no-empty-achievement-dir' })
+
+    const result = mgr.prepareGeneration(nb.id, 'notes', [])
+
+    expect(result.prompt).toBeDefined()
+    expect(fs.existsSync(path.join(nb.notebookPath, 'achievements', 'notes'))).toBe(false)
+  })
+
   // ── Prompt 模板 ───────────────────────────────────────────────────────────
 
   it('有 sessionDatabase 时使用模板并替换占位符', () => {

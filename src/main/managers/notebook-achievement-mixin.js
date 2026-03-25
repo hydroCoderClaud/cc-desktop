@@ -102,6 +102,37 @@ const notebookAchievementMixin = {
     }
   },
 
+  exportAchievement(notebookId, achievementId, targetDir) {
+    if (!targetDir) throw new Error('目标目录不能为空')
+    if (!fs.existsSync(targetDir)) throw new Error(`目标目录不存在：${targetDir}`)
+
+    const achievement = this.listAchievements(notebookId).find(a => a.id === achievementId)
+    if (!achievement) throw new Error(`成果不存在：${achievementId}`)
+    if (achievement.status !== 'done') throw new Error('仅已完成的成果可导出')
+    if (!achievement.path) throw new Error('成果文件路径不存在')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.isAbsolute(achievement.path)
+      ? achievement.path
+      : path.join(notebookPath, achievement.path)
+
+    if (!fs.existsSync(absPath)) {
+      throw new Error(`成果文件不存在：${absPath}`)
+    }
+
+    const parsedName = path.parse(path.basename(absPath))
+    let targetFileName = `${parsedName.name}${parsedName.ext}`
+    let counter = 1
+    while (fs.existsSync(path.join(targetDir, targetFileName))) {
+      targetFileName = `${parsedName.name}_${counter}${parsedName.ext}`
+      counter++
+    }
+
+    const finalPath = path.join(targetDir, targetFileName)
+    fs.copyFileSync(absPath, finalPath)
+    return { success: true, path: finalPath }
+  },
+
   /** 批量删除成果（同步删除磁盘文件） */
   deleteAchievements(notebookId, achievementIds) {
     if (!Array.isArray(achievementIds) || achievementIds.length === 0) return { success: true }

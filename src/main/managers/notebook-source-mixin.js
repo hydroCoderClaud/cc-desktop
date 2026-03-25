@@ -44,7 +44,7 @@ const notebookSourceMixin = {
    * @param {string} filePath 外部文件路径
    * @param {string} [type] 可选，手动指定类型
    */
-  async importFile(notebookId, filePath, type) {
+  async importFile(notebookId, filePath, type, options = {}) {
     if (!fs.existsSync(filePath)) throw new Error(`文件不存在：${filePath}`)
 
     const notebookPath = this._getNotebookPath(notebookId)
@@ -55,9 +55,9 @@ const notebookSourceMixin = {
     const fileName = path.basename(filePath)
     const detectedType = type || detectSourceType(ext)
 
-    // 读取笔记本级别的复制开关
+    // 读取笔记本级别的复制开关；forceCopy=true 时始终复制
     const meta = this._readJson(path.join(notebookPath, 'notebook.json'))
-    const copyFiles = !!meta.copySourceFiles
+    const copyFiles = options.forceCopy === true ? true : !!meta.copySourceFiles
 
     let storedPath, summary, targetFileName
 
@@ -115,6 +115,24 @@ const notebookSourceMixin = {
       }
     }
     return results
+  },
+
+  async addAchievementToSource(notebookId, achievementId) {
+    const achievement = this.listAchievements(notebookId).find(a => a.id === achievementId)
+    if (!achievement) throw new Error(`成果不存在：${achievementId}`)
+    if (achievement.status !== 'done') throw new Error('仅已完成的成果可添加到来源')
+    if (!achievement.path) throw new Error('成果文件路径不存在')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.isAbsolute(achievement.path)
+      ? achievement.path
+      : path.join(notebookPath, achievement.path)
+
+    if (!fs.existsSync(absPath)) {
+      throw new Error(`成果文件不存在：${absPath}`)
+    }
+
+    return this.importFile(notebookId, absPath, undefined, { forceCopy: true })
   },
 
   /**

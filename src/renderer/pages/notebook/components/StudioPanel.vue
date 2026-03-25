@@ -107,6 +107,11 @@
                   <button v-if="achievement.type === 'video' || achievement.type === 'audio'" class="action-icon-btn" @click.stop>
                     <Icon name="play" :size="16" />
                   </button>
+                  <n-dropdown :options="getAchievementMenuOptions(achievement)" trigger="click" @select="(key) => handleAchievementMenuSelect(key, achievement)">
+                    <button class="action-icon-btn" @click.stop>
+                      <Icon name="moreHorizontal" :size="16" />
+                    </button>
+                  </n-dropdown>
                 </div>
                 <label class="checkbox-label" @click.stop>
                   <input
@@ -170,6 +175,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
@@ -181,12 +187,6 @@ const props = defineProps({
   hasNewTools: { type: Boolean, default: false }
 })
 
-defineEmits([
-  'generate', 'export', 'copy', 'delete', 'download-tool', 'open-market',
-  'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool'
-])
-
 const { t } = useLocale()
 const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
@@ -194,6 +194,21 @@ const expandedAchievement = ref(null)
 
 const selectedIds = computed(() => props.achievements.filter(a => a.selected).map(a => a.id))
 const allSelected = computed(() => props.achievements.length > 0 && props.achievements.every(a => a.selected))
+const emit = defineEmits([
+  'generate', 'export', 'copy', 'delete', 'download-tool', 'open-market',
+  'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
+  'edit-tool', 'add-to-source'
+])
+
+const getAchievementMenuOptions = () => ([
+  { label: t('notebook.studio.addToSource'), key: 'add-to-source' },
+  { label: t('notebook.studio.export'), key: 'export' }
+])
+
+const handleAchievementMenuSelect = (key, achievement) => {
+  if (key === 'add-to-source') emit('add-to-source', achievement)
+  if (key === 'export') emit('export', achievement)
+}
 
 const openDetail = (achievement) => {
   expandedAchievement.value = achievement

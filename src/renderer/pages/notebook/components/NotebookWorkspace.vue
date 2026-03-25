@@ -76,6 +76,8 @@
         @delete-achievements="handleDeleteAchievements"
         @edit-tool="handleEditTool"
         @download-tool="handleDownloadTool"
+        @add-to-source="handleAddAchievementToSource"
+        @export="handleExportAchievement"
         @open-market="showMarketModal = true"
       />
     </div>
@@ -266,6 +268,42 @@ const restartNotebookSession = async () => {
 
   await window.electronAPI.notebookBindSession({ id: notebook.id, sessionId: newSession.id })
   await loadNotebook({ id: notebook.id })
+}
+
+const handleAddAchievementToSource = async (achievement) => {
+  if (!currentNotebook.value?.id || !achievement?.id) return
+  const loading = message.loading(t('common.loading'), { duration: 0 })
+  try {
+    await window.electronAPI.notebookAddAchievementToSource({
+      notebookId: currentNotebook.value.id,
+      achievementId: achievement.id
+    })
+    sources.value = await window.electronAPI.notebookListSources(currentNotebook.value.id)
+    message.success(t('notebook.studio.addToSourceSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to add achievement to source:', err)
+    message.error(t('notebook.studio.addToSourceFailed', { error: err.message }))
+  } finally {
+    loading.destroy()
+  }
+}
+
+const handleExportAchievement = async (achievement) => {
+  if (!currentNotebook.value?.id || !achievement?.id) return
+  try {
+    const targetDir = await window.electronAPI.selectFolder()
+    if (!targetDir) return
+    const result = await window.electronAPI.notebookExportAchievement({
+      notebookId: currentNotebook.value.id,
+      achievementId: achievement.id,
+      targetDir
+    })
+    const exportedName = result?.path ? result.path.split(/[/\\]/).pop() : ''
+    message.success(exportedName ? `${t('notebook.studio.exportSuccess')}: ${exportedName}` : t('notebook.studio.exportSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to export achievement:', err)
+    message.error(t('notebook.studio.exportFailed', { error: err.message }))
+  }
 }
 
 const handleDownloadTool = async (tool, installOptions = {}) => {
