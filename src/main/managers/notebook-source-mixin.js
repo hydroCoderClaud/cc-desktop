@@ -34,6 +34,30 @@ const notebookSourceMixin = {
     return path.join(this._getNotebookPath(notebookId), 'sources.json')
   },
 
+  _isNotebookManagedSource(notebookId, source) {
+    if (!source?.path || path.isAbsolute(source.path)) return false
+    const normalized = source.path.replace(/\\/g, '/').replace(/^\.\//, '')
+    if (!normalized.startsWith('sources/')) return false
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.resolve(notebookPath, source.path)
+    const sourcesRoot = path.resolve(path.join(notebookPath, 'sources'))
+    return absPath === sourcesRoot || absPath.startsWith(`${sourcesRoot}${path.sep}`)
+  },
+
+  _tryDeleteSourceFile(notebookId, source) {
+    if (!this._isNotebookManagedSource(notebookId, source)) return
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.resolve(notebookPath, source.path)
+    try {
+      if (fs.existsSync(absPath)) {
+        fs.unlinkSync(absPath)
+        console.log(`[NotebookManager] Deleted source file: ${absPath}`)
+      }
+    } catch (err) {
+      console.warn(`[NotebookManager] Failed to delete source file: ${absPath}`, err.message)
+    }
+  },
+
   listSources(notebookId) {
     return this._readJson(this._sourceIndexPath(notebookId)).sources
   },
@@ -180,24 +204,28 @@ const notebookSourceMixin = {
     return data.sources[idx]
   },
 
-  /** 批量删除来源（不删除磁盘文件） */
+  /** 批量删除来源（内部来源同步删除物理文件，外部来源仅删除索引） */
   deleteSources(notebookId, sourceIds) {
     if (!Array.isArray(sourceIds) || sourceIds.length === 0) return { success: true }
     const indexPath = this._sourceIndexPath(notebookId)
     const data = this._readJson(indexPath)
-    const originalCount = data.sources.length
+    const toDelete = data.sources.filter(s => sourceIds.includes(s.id))
+    if (toDelete.length === 0) return { success: true }
+
+    toDelete.forEach(source => this._tryDeleteSourceFile(notebookId, source))
+
     data.sources = data.sources.filter(s => !sourceIds.includes(s.id))
-    if (data.sources.length === originalCount) return { success: true }
     this._writeJsonAtomic(indexPath, data)
-    return { success: true, count: originalCount - data.sources.length }
+    return { success: true, count: toDelete.length }
   },
 
-  /** 删除单条来源（不删除磁盘文件） */
+  /** 删除单条来源（内部来源同步删除物理文件，外部来源仅删除索引） */
   deleteSource(notebookId, sourceId) {
     const indexPath = this._sourceIndexPath(notebookId)
     const data = this._readJson(indexPath)
     const idx = data.sources.findIndex(s => s.id === sourceId)
     if (idx === -1) throw new Error(`来源不存在：${sourceId}`)
+    this._tryDeleteSourceFile(notebookId, data.sources[idx])
     data.sources.splice(idx, 1)
     this._writeJsonAtomic(indexPath, data)
     return { success: true }

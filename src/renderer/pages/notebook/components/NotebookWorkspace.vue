@@ -655,12 +655,33 @@ const handleToggleCopySourceFiles = async () => {
   }
 }
 
+const isNotebookManagedSource = (source) => {
+  const sourcePath = source?.path || ''
+  if (!sourcePath) return false
+  if (sourcePath.match(/^[A-Za-z]:[/\\]/) || sourcePath.startsWith('/')) return false
+  const normalized = sourcePath.replace(/\\/g, '/').replace(/^\.\//, '')
+  return normalized.startsWith('sources/')
+}
+
 const handleDeleteSources = async (sourceIds) => {
   if (!currentNotebook.value || !sourceIds.length) return
-  
+
+  const selectedSources = sources.value.filter(s => sourceIds.includes(s.id))
+  const physicalCount = selectedSources.filter(isNotebookManagedSource).length
+  const referenceCount = selectedSources.length - physicalCount
+
+  let confirmKey = 'notebook.source.deleteConfirmIndexOnly'
+  let confirmParams = {}
+  if (physicalCount > 0 && referenceCount > 0) {
+    confirmKey = 'notebook.source.deleteConfirmMixed'
+    confirmParams = { physicalCount, referenceCount }
+  } else if (physicalCount > 0) {
+    confirmKey = 'notebook.source.deleteConfirmPhysical'
+  }
+
   dialog.warning({
     title: t('common.delete'),
-    content: t('messages.confirmDelete'),
+    content: t(confirmKey, confirmParams),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {

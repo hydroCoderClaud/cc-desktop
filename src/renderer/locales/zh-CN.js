@@ -1455,6 +1455,9 @@ export default {
       copyModeOn: '已开启复制模式（导入时复制文件到笔记本目录）',
       copyModeOff: '未开启复制模式（导入时仅记录原始路径）',
       openExternal: '外部打开',
+      deleteConfirmIndexOnly: '确定删除所选来源吗？此操作仅移除索引引用，不会物理删除文件。',
+      deleteConfirmPhysical: '确定删除所选来源吗？此操作会同时删除 Notebook sources 目录中的物理文件，且不可恢复。',
+      deleteConfirmMixed: '确定删除所选来源吗？其中 {physicalCount} 项会删除物理文件，{referenceCount} 项仅删除索引引用。',
 
       web: 'Web',
       fastResearch: 'Fast Research',

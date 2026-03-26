@@ -1450,6 +1450,9 @@ export default {
       copyModeOn: 'Copy mode on (files are copied to notebook directory on import)',
       copyModeOff: 'Copy mode off (only original path is recorded on import)',
       openExternal: 'Open External',
+      deleteConfirmIndexOnly: 'Are you sure you want to delete the selected sources? This will only remove indexed references and will not delete physical files.',
+      deleteConfirmPhysical: 'Are you sure you want to delete the selected sources? This will also delete the physical files stored in the notebook sources directory and cannot be undone.',
+      deleteConfirmMixed: 'Are you sure you want to delete the selected sources? {physicalCount} item(s) will delete physical files, and {referenceCount} item(s) will only remove indexed references.',
 
       web: 'Web',
       fastResearch: 'Fast Research',
