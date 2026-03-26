@@ -2,7 +2,8 @@
  * IPC handlers for Notebook management
  */
 
-const { ipcMain } = require('electron')
+const { ipcMain, clipboard, nativeImage } = require('electron')
+const { MAX_IMG_SIZE } = require('../utils/agent-constants')
 
 /**
  * @param {import('electron').IpcMain} _ipcMain
@@ -195,6 +196,43 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:writeFileContent', async (_e, { notebookId, relPath, content }) => {
+    try {
+      return await notebookManager.writeFileContent(notebookId, relPath, content)
+    } catch (err) {
+      console.error('[IPC] notebook:writeFileContent error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:copyImageToClipboard', async (_e, { dataUrl }) => {
+    try {
+      if (!dataUrl || typeof dataUrl !== 'string') {
+        throw new Error('图片数据不能为空')
+      }
+      if (!/^data:image\/(png|jpeg|jpg|gif|webp|bmp|ico|x-icon|vnd\.microsoft\.icon|svg\+xml);base64,/i.test(dataUrl)) {
+        throw new Error('仅支持复制图片内容')
+      }
+      const normalizedDataUrl = /^data:image\/svg\+xml;base64,/i.test(dataUrl)
+        ? await rasterizeSvgDataUrl(dataUrl)
+        : dataUrl
+      const base64 = normalizedDataUrl.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, '')
+      const estimatedBytes = Math.floor((base64.length * 3) / 4)
+      if (estimatedBytes > MAX_IMG_SIZE) {
+        throw new Error('图片体积超出限制')
+      }
+      const image = nativeImage.createFromDataURL(normalizedDataUrl)
+      if (image.isEmpty()) {
+        throw new Error('无效的图片数据')
+      }
+      clipboard.writeImage(image)
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC] notebook:copyImageToClipboard error:', err)
+      throw err
+    }
+  })
+
   ipcMain.handle('notebook:setCopySourceFiles', async (_e, { notebookId, value }) => {
     try {
       return notebookManager.setCopySourceFiles(notebookId, value)
@@ -293,6 +331,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       return { success: false, error: err.message }
     }
   })
+}
+
+async function rasterizeSvgDataUrl(dataUrl) {
+  const svgBuffer = Buffer.from(dataUrl.replace(/^data:image\/svg\+xml;base64,/i, ''), 'base64')
+  const svgImage = nativeImage.createFromBuffer(svgBuffer)
+  if (svgImage.isEmpty()) {
+    throw new Error('SVG 图片转换失败')
+  }
+  return svgImage.toDataURL()
 }
 
 module.exports = { setupNotebookHandlers }

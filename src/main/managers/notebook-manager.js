@@ -275,6 +275,28 @@ class NotebookManager {
     const fullPath = path.isAbsolute(relPath) ? relPath : path.join(notebookPath, relPath)
     return readFileContent(fullPath)
   }
+
+  writeFileContent(notebookId, relPath, content) {
+    if (!relPath) {
+      throw new Error('文件路径不能为空')
+    }
+    const notebookPath = this._getNotebookPath(notebookId)
+    const isAbsolute = path.isAbsolute(relPath)
+    const fullPath = isAbsolute ? relPath : path.resolve(notebookPath, relPath)
+
+    if (!isAbsolute) {
+      const normalizedNotebookPath = path.resolve(notebookPath)
+      if (!(fullPath === normalizedNotebookPath || fullPath.startsWith(`${normalizedNotebookPath}${path.sep}`))) {
+        throw new Error('不允许写入笔记本目录之外的文件')
+      }
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`文件不存在：${relPath}`)
+    }
+    fs.writeFileSync(fullPath, content, 'utf-8')
+    return { success: true, path: fullPath }
+  }
 }
 
 /** 递归删除目录（避免 fs.rmSync 在 Windows 中文路径上的 bug） */

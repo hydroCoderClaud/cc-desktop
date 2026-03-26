@@ -1492,6 +1492,20 @@ export default {
       cannotPreviewOffice: 'Word and Excel preview are supported. Please open PPT externally.',
     },
 
+    textEditor: {
+      unsaved: 'Unsaved',
+      saved: 'Saved',
+      shortcutHint: 'Ctrl/Cmd+S to save, Esc to cancel changes',
+      discardConfirm: 'You have unsaved changes. Discard them and go back?',
+      saveFailed: 'Save failed: {error}'
+    },
+
+    preview: {
+      copyImage: 'Copy image',
+      fitToWindow: 'Fit to window',
+      actualSize: 'Actual size'
+    },
+
     market: {
       title: 'Tool Market',
       searchPlaceholder: 'Search by name or description...',

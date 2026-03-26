@@ -109,6 +109,7 @@
       <template v-else>
         <NotebookFilePreview
           :item="expandedSource"
+          :notebook-id="props.notebookId"
           type="source"
           @back="closeDetail"
           @open-external="$emit('open-external', $event)"
@@ -147,7 +148,8 @@ const props = defineProps({
   sources: { type: Array, default: () => [] },
   allSelected: Boolean,
   copySourceFiles: { type: Boolean, default: false },
-  notebookPath: { type: String, default: '' }
+  notebookPath: { type: String, default: '' },
+  notebookId: { type: String, default: null }
 })
 defineEmits(['add-source', 'toggle-select-all', 'invert-selection', 'open-external', 'delete-sources', 'update-source', 'toggle-copy-source-files'])
 

@@ -202,6 +202,8 @@ export const iconPaths = {
   panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
   maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',
   restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>',
+  fitWindow: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M8 6H6v2M12 6h2v2M6 12v2h2M14 12v2h-2"/>',
+  actualSize: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 6v8M13 6v8"/>',
   panelLeft: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M7 4v12"/>',
   panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>'
 }

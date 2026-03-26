@@ -2,7 +2,7 @@
   <div class="notebook-file-preview">
     <!-- Header -->
     <div class="detail-header">
-      <button class="detail-back-btn" @click="$emit('back')" :title="t('common.back')">
+      <button class="detail-back-btn" @click="handleBack" :title="t('common.back')">
         <Icon name="chevronLeft" :size="16" />
       </button>
       <span class="detail-title">{{ item.name }}</span>
@@ -107,7 +107,18 @@
 
         <!-- Renderers -->
         <template v-else>
-          <TextRenderer v-if="contentType === 'text'" :content="content" :type="item.type" />
+          <TextRenderer
+            v-if="contentType === 'text'"
+            :content="editableContent"
+            :type="item.type"
+            :editable="isTextEditable"
+            :dirty="isTextDirty"
+            :saving="savingText"
+            :save-success="saveSuccess"
+            @update:content="editableContent = $event"
+            @save="handleSaveText"
+            @cancel="handleCancelEdit"
+          />
           <ImageRenderer v-else-if="contentType === 'image'" :content="content" :name="item.name" />
           <PdfRenderer v-else-if="contentType === 'pdf'" :content="content" />
           <HtmlRenderer v-else-if="contentType === 'html'" :content="content" />
@@ -133,6 +144,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useMessage, useDialog } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 
@@ -146,21 +158,35 @@ import OfficeRenderer from './renderers/OfficeRenderer.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
-  type: { type: String, default: 'source' }
+  type: { type: String, default: 'source' },
+  notebookId: { type: String, default: null }
 })
 
 const emit = defineEmits(['back', 'open-external', 'export'])
 
 const { t } = useLocale()
+const message = useMessage()
+const dialog = useDialog()
 const summaryCollapsed = ref(false)
 const sourcesExpanded = ref(false)
 const content = ref('')
+const editableContent = ref('')
+const originalContent = ref('')
 const contentType = ref('text')
 const meta = ref({})
 const loading = ref(false)
+const savingText = ref(false)
+const saveSuccess = ref(false)
 const error = ref('')
 
-const getNotebookId = () => props.item.notebookId || window.currentNotebookId
+const isTextEditable = computed(() => {
+  if (contentType.value !== 'text') return false
+  return !!props.item?.path
+})
+
+const isTextDirty = computed(() => editableContent.value !== originalContent.value)
+
+const getNotebookId = () => props.notebookId || props.item.notebookId || window.currentNotebookId
 
 const fullSourceNamesText = computed(() => {
   const names = props.item.sourceNames || []
@@ -188,6 +214,8 @@ const loadContent = async () => {
   const notebookId = getNotebookId()
   if (!notebookId || !props.item.path) {
     content.value = props.item.content || ''
+    editableContent.value = content.value
+    originalContent.value = content.value
     contentType.value = 'text'
     return
   }
@@ -200,6 +228,9 @@ const loadContent = async () => {
       relPath: props.item.path
     })
     content.value = result.content
+    editableContent.value = result.content
+    originalContent.value = result.content
+    saveSuccess.value = false
     contentType.value = result.type
     meta.value = result.meta || {}
   } catch (err) {
@@ -215,6 +246,46 @@ const handleOpenExternal = () => {
     // 这里需要获取绝对路径并打开，或者触发外部打开事件
     emit('open-external', props.item)
   }
+}
+
+const handleSaveText = async () => {
+  const notebookId = getNotebookId()
+  if (!notebookId || !props.item?.path || !isTextEditable.value || savingText.value) return
+  try {
+    savingText.value = true
+    await window.electronAPI.notebookWriteFileContent({
+      notebookId,
+      relPath: props.item.path,
+      content: editableContent.value
+    })
+    content.value = editableContent.value
+    originalContent.value = editableContent.value
+    saveSuccess.value = true
+    setTimeout(() => { saveSuccess.value = false }, 1500)
+  } catch (err) {
+    console.error('[NotebookPreview] Failed to save text:', err)
+    message.error(t('notebook.textEditor.saveFailed', { error: err.message }))
+  } finally {
+    savingText.value = false
+  }
+}
+
+const handleCancelEdit = () => {
+  editableContent.value = originalContent.value
+}
+
+const handleBack = () => {
+  if (isTextEditable.value && isTextDirty.value) {
+    dialog.warning({
+      title: t('common.confirm'),
+      content: t('notebook.textEditor.discardConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => emit('back')
+    })
+    return
+  }
+  emit('back')
 }
 
 const formatSummary = (summary) => {
@@ -243,6 +314,9 @@ const formatSummary = (summary) => {
 onMounted(loadContent)
 watch(() => props.item.id, () => {
   sourcesExpanded.value = false
+  editableContent.value = ''
+  originalContent.value = ''
+  saveSuccess.value = false
   loadContent()
 })
 

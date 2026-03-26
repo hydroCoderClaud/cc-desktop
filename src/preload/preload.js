@@ -781,6 +781,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookAddAchievementToSource: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:addAchievementToSource', { notebookId, achievementId }),
   notebookExportAchievement: ({ notebookId, achievementId, targetDir }) => ipcRenderer.invoke('notebook:exportAchievement', { notebookId, achievementId, targetDir }),
   notebookReadFileContent: ({ notebookId, relPath }) => ipcRenderer.invoke('notebook:readFileContent', { notebookId, relPath }),
+  notebookWriteFileContent: ({ notebookId, relPath, content }) => ipcRenderer.invoke('notebook:writeFileContent', { notebookId, relPath, content }),
+  notebookCopyImageToClipboard: ({ dataUrl }) => ipcRenderer.invoke('notebook:copyImageToClipboard', { dataUrl }),
   notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
   
   // Notebook Tools

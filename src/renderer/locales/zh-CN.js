@@ -1497,6 +1497,20 @@ export default {
       cannotPreviewOffice: '目前支持 Word 和 Excel 深度预览。PPT 请在外部打开。',
     },
 
+    textEditor: {
+      unsaved: '未保存',
+      saved: '已保存',
+      shortcutHint: 'Ctrl/Cmd+S 保存，Esc 取消修改',
+      discardConfirm: '当前文本有未保存修改，确认放弃并返回吗？',
+      saveFailed: '保存失败：{error}'
+    },
+
+    preview: {
+      copyImage: '复制图片',
+      fitToWindow: '恢复自适应',
+      actualSize: '1:1 显示'
+    },
+
     market: {
       title: '创作工具市场',
       searchPlaceholder: '搜索工具名称或描述...',

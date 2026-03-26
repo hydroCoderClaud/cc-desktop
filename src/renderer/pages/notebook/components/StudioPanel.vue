@@ -131,6 +131,7 @@
       <template v-else>
         <NotebookFilePreview
           :item="currentExpandedAchievement"
+          :notebook-id="props.notebookId"
           type="achievement"
           @back="closeDetail"
           @open-external="$emit('open-external', $event)"
@@ -183,7 +184,8 @@ import NotebookFilePreview from './NotebookFilePreview.vue'
 const props = defineProps({
   achievements: { type: Array, default: () => [] },
   availableTypes: { type: Array, default: () => [] },
-  hasNewTools: { type: Boolean, default: false }
+  hasNewTools: { type: Boolean, default: false },
+  notebookId: { type: String, default: null }
 })
 
 const { t } = useLocale()
@@ -365,7 +367,8 @@ const getAchievementIcon = (type) => {
 .select-all-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding-right: 2px;
 }
 
 .invert-select-btn {

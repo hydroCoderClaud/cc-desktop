@@ -258,6 +258,23 @@ describe('NotebookManager', () => {
     expect(fs.readFileSync(result.path, 'utf-8')).toBe('# hello')
   })
 
+  it('writeFileContent: 可写回 notebook 内相对路径文本文件', () => {
+    const nb = mgr.create({ name: 'write文本测试' })
+    const relPath = 'sources/text/editable.txt'
+    const fullPath = path.join(nb.notebookPath, relPath)
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true })
+    fs.writeFileSync(fullPath, 'before')
+
+    const result = mgr.writeFileContent(nb.id, relPath, 'after')
+    expect(result.success).toBe(true)
+    expect(fs.readFileSync(fullPath, 'utf-8')).toBe('after')
+  })
+
+  it('writeFileContent: 拒绝越界路径', () => {
+    const nb = mgr.create({ name: 'write越界测试' })
+    expect(() => mgr.writeFileContent(nb.id, '../outside.txt', 'x')).toThrow('不允许写入笔记本目录之外的文件')
+  })
+
   // ── 中文路径 ─────────────────────────────────────────────────────────────
 
   it('中文路径：创建和删除正常工作', async () => {
