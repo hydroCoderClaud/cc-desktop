@@ -18,11 +18,8 @@
           <button class="detail-external-btn" @click="$emit('export', item)" :title="t('notebook.studio.export')">
             <Icon name="export" :size="16" />
           </button>
-          <button class="detail-external-btn" @click="$emit('copy', item)" :title="t('notebook.studio.copy')">
-            <Icon name="copy" :size="16" />
-          </button>
-          <button class="detail-external-btn danger" @click="$emit('delete', item)" :title="t('notebook.studio.delete')">
-            <Icon name="delete" :size="16" />
+          <button class="detail-external-btn" @click="handleOpenExternal" :title="t('common.openInSystem')">
+            <Icon name="externalLink" :size="16" />
           </button>
         </template>
       </div>
@@ -37,7 +34,7 @@
           :color="type === 'source' ? '#5c6bc0' : getAchievementColor(item.type)" 
         />
         <span class="detail-summary-title">
-          {{ type === 'source' ? t('notebook.source.guide') : item.name }}
+          {{ type === 'source' ? t('notebook.source.guide') : t('notebook.studio.summaryTitle') }}
         </span>
         <Icon :name="summaryCollapsed ? 'chevronDown' : 'chevronUp'" :size="14" class="summary-toggle-icon" />
       </div>
@@ -52,9 +49,37 @@
 
         <template v-else>
           <div class="achievement-detail-meta">
-            <span>{{ t('notebook.studio.sources', { count: item.sourceCount || 0 }) }}</span>
-            <span class="dot">•</span>
-            <span>{{ item.time }}</span>
+            <div class="achievement-detail-top">
+              <div v-if="item.absolutePath" class="achievement-detail-row achievement-detail-path-row">
+                <span class="achievement-detail-label">{{ t('notebook.studio.pathLabel') }}</span>
+                <span class="achievement-detail-value path" :title="item.absolutePath">{{ item.absolutePath }}</span>
+              </div>
+              <div class="achievement-detail-row achievement-detail-time-row">
+                <span class="achievement-detail-label">{{ t('notebook.studio.timeLabel') }}</span>
+                <span class="achievement-detail-value">{{ item.time }}</span>
+              </div>
+            </div>
+            <div class="achievement-detail-bottom">
+              <div class="achievement-detail-row achievement-detail-sources-row">
+                <span class="achievement-detail-label">{{ t('notebook.studio.sourcesLabel') }}</span>
+                <div class="achievement-detail-sources-block">
+                  <span class="achievement-detail-sources-count">{{ t('notebook.studio.sources', { count: item.sourceCount || 0 }) }}</span>
+                  <div class="achievement-detail-source-list" :title="fullSourceNamesText">
+                    <span class="achievement-detail-source-primary">{{ primarySourceName }}</span>
+                    <button
+                      v-if="hasMoreSources"
+                      class="achievement-detail-source-more"
+                      @click="sourcesExpanded = !sourcesExpanded"
+                    >
+                      {{ sourcesExpanded ? t('common.collapse') : t('common.expand') }}
+                    </button>
+                  </div>
+                  <div v-if="sourcesExpanded && hasMoreSources" class="achievement-detail-source-extra">
+                    {{ extraSourceNamesText }}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <p v-if="item.prompt" class="detail-summary-text" style="margin-top: 10px; font-style: italic; opacity: 0.8;">
             "{{ item.prompt }}"
@@ -107,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 
@@ -124,10 +149,11 @@ const props = defineProps({
   type: { type: String, default: 'source' }
 })
 
-const emit = defineEmits(['back', 'open-external', 'export', 'copy', 'delete'])
+const emit = defineEmits(['back', 'open-external', 'export'])
 
 const { t } = useLocale()
 const summaryCollapsed = ref(false)
+const sourcesExpanded = ref(false)
 const content = ref('')
 const contentType = ref('text')
 const meta = ref({})
@@ -135,6 +161,28 @@ const loading = ref(false)
 const error = ref('')
 
 const getNotebookId = () => props.item.notebookId || window.currentNotebookId
+
+const fullSourceNamesText = computed(() => {
+  const names = props.item.sourceNames || []
+  if (names.length) return names.join('、')
+  return t('notebook.studio.sources', { count: props.item.sourceCount || 0 })
+})
+
+const primarySourceName = computed(() => {
+  const names = props.item.sourceNames || []
+  if (names.length) return names[0]
+  return t('notebook.studio.sources', { count: props.item.sourceCount || 0 })
+})
+
+const hasMoreSources = computed(() => {
+  const names = props.item.sourceNames || []
+  return names.length > 1
+})
+
+const extraSourceNamesText = computed(() => {
+  const names = props.item.sourceNames || []
+  return names.slice(1).join('、')
+})
 
 const loadContent = async () => {
   const notebookId = getNotebookId()
@@ -193,7 +241,10 @@ const formatSummary = (summary) => {
 }
 
 onMounted(loadContent)
-watch(() => props.item.id, loadContent)
+watch(() => props.item.id, () => {
+  sourcesExpanded.value = false
+  loadContent()
+})
 
 const getAchievementIcon = (type) => {
   const map = { audio: 'audio', video: 'video', report: 'fileText', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table' }
@@ -213,7 +264,19 @@ const getAchievementColor = (type) => {
 <style scoped>
 .notebook-file-preview { display: flex; flex-direction: column; height: 100%; }
 .header-actions { display: flex; align-items: center; gap: 4px; }
-.achievement-detail-meta { font-size: 12px; color: var(--text-color-muted); display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.achievement-detail-meta { display: flex; flex-direction: column; gap: 10px; }
+.achievement-detail-top,
+.achievement-detail-bottom { display: flex; flex-direction: column; gap: 8px; }
+.achievement-detail-row { display: flex; align-items: flex-start; gap: 10px; }
+.achievement-detail-label { flex-shrink: 0; width: 64px; font-size: 12px; color: var(--text-color-muted); }
+.achievement-detail-value { font-size: 12px; color: var(--text-color); line-height: 1.5; word-break: break-all; }
+.achievement-detail-value.path { opacity: 0.88; }
+.achievement-detail-sources-block { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.achievement-detail-sources-count { font-size: 12px; color: var(--text-color-muted); }
+.achievement-detail-source-list { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.achievement-detail-source-primary { font-size: 12px; color: var(--text-color); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.achievement-detail-source-more { border: none; background: transparent; color: var(--primary-color); cursor: pointer; padding: 0; font-size: 12px; flex-shrink: 0; }
+.achievement-detail-source-extra { font-size: 12px; color: var(--text-color-muted); line-height: 1.5; word-break: break-word; }
 .dot { font-size: 8px; }
 .content-container { max-height: 600px; overflow-y: auto; }
 .preview-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 60px 20px; color: var(--text-color-muted); font-size: 13px; }

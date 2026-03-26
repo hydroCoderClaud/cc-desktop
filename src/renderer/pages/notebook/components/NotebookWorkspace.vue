@@ -74,10 +74,13 @@
         @invert-selection="handleInvertSelectionAchievements"
         @update-achievement="handleUpdateAchievement"
         @delete-achievements="handleDeleteAchievements"
+        @delete="handleDeleteAchievement"
+        @rename="handleRenameAchievement"
         @edit-tool="handleEditTool"
         @download-tool="handleDownloadTool"
         @add-to-source="handleAddAchievementToSource"
         @export="handleExportAchievement"
+        @open-external="handleOpenExternal"
         @open-market="showMarketModal = true"
       />
     </div>
@@ -123,8 +126,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted, nextTick, h } from 'vue'
+import { useMessage, useDialog, NInput } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
@@ -431,14 +434,33 @@ const loadNotebook = async (notebook) => {
     // 注入全局 ID 供预览组件使用
     window.currentNotebookId = data.id
     sources.value = data.sources || []
+    const sourceMetaMap = new Map((data.sources || []).map(s => [s.id, s]))
     achievements.value = (data.achievements || []).map(a => {
       // a.type 是 outputType（如 markdown, pdf），匹配工具的 outputType 取颜色
       const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
+      const relativePath = a.path || ''
+      const absolutePath = relativePath
+        ? (relativePath.match(/^[A-Za-z]:[/\\]/) || relativePath.startsWith('/')
+            ? relativePath
+            : `${data.notebookPath}/${relativePath}`)
+        : ''
+      const sourceDisplayPaths = (a.sourceIds || []).map(id => {
+        const source = sourceMetaMap.get(id)
+        if (!source) return t('common.deleted')
+        if (source.path) {
+          return (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/'))
+            ? source.path
+            : `${data.notebookPath}/${source.path}`
+        }
+        return source.url || source.name || t('common.deleted')
+      }).filter(Boolean)
       return {
         ...a,
         icon: a.type,
         color: tool?.color || '#888',
         sourceCount: a.sourceIds?.length || 0,
+        sourceNames: sourceDisplayPaths,
+        absolutePath,
         time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       }
     })
@@ -728,6 +750,37 @@ const handleDeleteAchievements = async (achievementIds) => {
       } catch (err) {
         console.error('[Notebook] Batch delete achievements failed:', err)
         message.error(t('common.deleteFailed'))
+      }
+    }
+  })
+}
+
+const handleDeleteAchievement = async (achievement) => {
+  if (!currentNotebook.value || !achievement?.id) return
+  await handleDeleteAchievements([achievement.id])
+}
+
+const handleRenameAchievement = (achievement) => {
+  if (!currentNotebook.value || !achievement?.id) return
+  const nextName = ref(achievement.name || '')
+  dialog.create({
+    title: t('common.rename'),
+    content: () => h(NInput, {
+      value: nextName.value,
+      placeholder: t('common.rename'),
+      onUpdateValue: (value) => { nextName.value = value }
+    }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      const trimmed = nextName.value.trim()
+      if (!trimmed || trimmed === achievement.name) return
+      try {
+        await handleUpdateAchievement(achievement.id, { name: trimmed })
+        message.success(t('common.saveSuccess'))
+      } catch (err) {
+        console.error('[Notebook] Rename achievement failed:', err)
+        message.error(t('common.saveFailed'))
       }
     }
   })

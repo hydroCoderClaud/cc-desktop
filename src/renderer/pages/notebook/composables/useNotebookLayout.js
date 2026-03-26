@@ -10,9 +10,18 @@ export function useNotebookLayout() {
   const expandPanel = (side) => {
     const container = document.querySelector('.panels-container')
     const containerWidth = container?.offsetWidth || window.innerWidth
-    const targetWidth = Math.round(containerWidth * 2 / 5)
-    if (side === 'left') leftWidth.value = targetWidth
-    else rightWidth.value = targetWidth
+    const fixedOverhead = 56
+    const minMiddle = 300
+    const minWidth = Math.round(containerWidth / 5)
+    const desiredWidth = Math.round(containerWidth * 2 / 5)
+
+    if (side === 'left') {
+      const maxLeft = containerWidth - fixedOverhead - rightWidth.value - minMiddle
+      leftWidth.value = Math.min(maxLeft, Math.max(minWidth, desiredWidth))
+    } else {
+      const maxRight = containerWidth - fixedOverhead - leftWidth.value - minMiddle
+      rightWidth.value = Math.min(maxRight, Math.max(minWidth, desiredWidth))
+    }
   }
 
   const collapsePanel = (side) => {

@@ -130,12 +130,11 @@
       <!-- 详情视图 -->
       <template v-else>
         <NotebookFilePreview
-          :item="expandedAchievement"
+          :item="currentExpandedAchievement"
           type="achievement"
           @back="closeDetail"
+          @open-external="$emit('open-external', $event)"
           @export="$emit('export', $event)"
-          @copy="$emit('copy', $event)"
-          @delete="$emit('delete', $event)"
         />
       </template>
     </div>
@@ -191,23 +190,31 @@ const { t } = useLocale()
 const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout()
 
 const expandedAchievement = ref(null)
+const currentExpandedAchievement = computed(() => {
+  if (!expandedAchievement.value) return null
+  return props.achievements.find(a => a.id === expandedAchievement.value.id) || expandedAchievement.value
+})
 
 const selectedIds = computed(() => props.achievements.filter(a => a.selected).map(a => a.id))
 const allSelected = computed(() => props.achievements.length > 0 && props.achievements.every(a => a.selected))
 const emit = defineEmits([
-  'generate', 'export', 'copy', 'delete', 'download-tool', 'open-market',
+  'generate', 'export', 'delete', 'download-tool', 'open-market', 'open-external',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool', 'add-to-source'
+  'edit-tool', 'add-to-source', 'rename'
 ])
 
 const getAchievementMenuOptions = () => ([
+  { label: t('common.rename'), key: 'rename' },
   { label: t('notebook.studio.addToSource'), key: 'add-to-source' },
-  { label: t('notebook.studio.export'), key: 'export' }
+  { label: t('notebook.studio.export'), key: 'export' },
+  { label: t('notebook.studio.delete'), key: 'delete' }
 ])
 
 const handleAchievementMenuSelect = (key, achievement) => {
+  if (key === 'rename') emit('rename', achievement)
   if (key === 'add-to-source') emit('add-to-source', achievement)
   if (key === 'export') emit('export', achievement)
+  if (key === 'delete') emit('delete', achievement)
 }
 
 const openDetail = (achievement) => {
