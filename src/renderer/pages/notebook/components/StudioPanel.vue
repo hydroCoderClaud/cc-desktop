@@ -43,8 +43,17 @@
               </div>
               <span v-else-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
             </div>
-            <span class="type-name">{{ type.name || t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
-            <button v-if="type.installed !== false" class="type-edit-btn" @click.stop="$emit('edit-tool', type)">
+            <span class="type-name" :style="{ color: type.color }">{{ type.name || t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
+            <button
+              v-if="type.installed !== false"
+              class="type-edit-btn"
+              :style="{
+                color: type.color,
+                background: `${type.color}22`,
+                borderColor: `${type.color}55`
+              }"
+              @click.stop="$emit('edit-tool', type)"
+            >
               <Icon name="edit" :size="14" />
             </button>
           </div>
@@ -289,9 +298,9 @@ const getAchievementIcon = (type) => {
 .type-card:hover { transform: translateY(-1px); box-shadow: 0 3px 10px var(--shadow-color); }
 .type-card-top { display: flex; align-items: center; gap: 6px; }
 .type-icon-content { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.type-name { font-size: 12px; font-weight: 500; color: var(--text-color); text-align: left; line-height: 1.3; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.type-name { font-size: 12px; font-weight: 500; text-align: left; line-height: 1.3; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.beta-badge { font-size: 9px; background: var(--text-color); color: var(--bg-color-secondary); padding: 2px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+.beta-badge { font-size: 9px; background: rgba(255, 255, 255, 0.92); color: #1f2937; padding: 2px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
 
 .type-edit-btn {
   position: absolute;
@@ -303,13 +312,13 @@ const getAchievementIcon = (type) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-color-secondary);
-  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid transparent;
   border-radius: 50%;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s;
-  color: var(--text-color-muted);
+  color: rgba(255, 255, 255, 0.96);
 }
 .type-card:hover .type-edit-btn { opacity: 1; }
 
