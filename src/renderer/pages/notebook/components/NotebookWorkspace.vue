@@ -414,6 +414,59 @@ onMounted(async () => {
 })
 
 // ─── 加载笔记本 ───────────────────────────────────────────────────────────────
+/**
+ * 处理 achievements 原始数据，添加前端需要的计算字段
+ */
+const processAchievements = (rawAchievements, notebookPath, sourceMetaMap) => {
+  return rawAchievements.map(a => {
+    const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
+    const relativePath = a.path || ''
+    const absolutePath = relativePath
+      ? (relativePath.match(/^[A-Za-z]:[/\\]/) || relativePath.startsWith('/')
+          ? relativePath
+          : `${notebookPath}/${relativePath}`)
+      : ''
+    const sourceDisplayPaths = (a.sourceIds || []).map(id => {
+      const source = sourceMetaMap.get(id)
+      if (!source) return t('common.deleted')
+      if (source.path) {
+        return (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/'))
+          ? source.path
+          : `${notebookPath}/${source.path}`
+      }
+      return source.url || source.name || t('common.deleted')
+    }).filter(Boolean)
+    return {
+      ...a,
+      icon: a.type,
+      color: tool?.color || '#888',
+      sourceCount: a.sourceIds?.length || 0,
+      sourceNames: sourceDisplayPaths,
+      absolutePath,
+      time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }
+  })
+}
+
+/**
+ * 只刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
+ * 用于生成过程中的 UI 更新
+ */
+const refreshAchievements = async () => {
+  if (!currentNotebook.value) return
+  try {
+    const rawAchievements = await window.electronAPI.notebookListAchievements(currentNotebook.value.id)
+    const sourceMetaMap = new Map(sources.value.map(s => [s.id, s]))
+    achievements.value = processAchievements(rawAchievements, currentNotebook.value.notebookPath, sourceMetaMap)
+  } catch (err) {
+    console.error('[Notebook] Failed to refresh achievements:', err)
+  }
+}
+
+/**
+ * 加载笔记本（会关闭旧会话，触发 sanitizeAchievements）
+ * 仅用于：1. 首次打开笔记本  2. 切换笔记本
+ */
 const loadNotebook = async (notebook) => {
   // 关闭当前会话（若有），释放 CLI 进程
   if (currentNotebook.value?.sessionId) {
@@ -430,35 +483,7 @@ const loadNotebook = async (notebook) => {
     window.currentNotebookId = data.id
     sources.value = data.sources || []
     const sourceMetaMap = new Map((data.sources || []).map(s => [s.id, s]))
-    achievements.value = (data.achievements || []).map(a => {
-      // a.type 是 outputType（如 markdown, pdf），匹配工具的 outputType 取颜色
-      const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
-      const relativePath = a.path || ''
-      const absolutePath = relativePath
-        ? (relativePath.match(/^[A-Za-z]:[/\\]/) || relativePath.startsWith('/')
-            ? relativePath
-            : `${data.notebookPath}/${relativePath}`)
-        : ''
-      const sourceDisplayPaths = (a.sourceIds || []).map(id => {
-        const source = sourceMetaMap.get(id)
-        if (!source) return t('common.deleted')
-        if (source.path) {
-          return (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/'))
-            ? source.path
-            : `${data.notebookPath}/${source.path}`
-        }
-        return source.url || source.name || t('common.deleted')
-      }).filter(Boolean)
-      return {
-        ...a,
-        icon: a.type,
-        color: tool?.color || '#888',
-        sourceCount: a.sourceIds?.length || 0,
-        sourceNames: sourceDisplayPaths,
-        absolutePath,
-        time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      }
-    })
+    achievements.value = processAchievements(data.achievements || [], data.notebookPath, sourceMetaMap)
   } catch (err) {
     console.error('[Notebook] Failed to load notebook data:', err)
   }
@@ -537,8 +562,8 @@ const handleAddSource = async () => {
         notebookId: currentNotebook.value.id,
         filePaths
       })
-      // 重新加载数据以刷新来源列表
-      await loadNotebook(currentNotebook.value)
+      // 刷新来源列表（不关闭会话，不触发 sanitizeAchievements）
+      sources.value = await window.electronAPI.notebookListSources(currentNotebook.value.id)
       message.success(t('common.success'))
     } catch (err) {
       console.error('[Notebook] Failed to import files:', err)
@@ -815,8 +840,8 @@ const handleGenerateAchievement = async (typeId) => {
       sourceIds
     })
 
-    // 刷新 UI 以显示 generating 状态的 achievement
-    await loadNotebook(currentNotebook.value)
+    // 刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
+    await refreshAchievements()
 
     // 发送到 Agent
     if (chatPanelRef.value) {
@@ -864,8 +889,8 @@ const handleAgentDone = async (filePaths = []) => {
     })
   }
 
-  // 刷新以反映最终状态
-  await loadNotebook(currentNotebook.value)
+  // 刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
+  await refreshAchievements()
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────

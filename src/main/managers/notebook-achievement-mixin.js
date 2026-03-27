@@ -19,31 +19,50 @@ const notebookAchievementMixin = {
   },
 
   /**
-   * 一致性扫描：清理异常状态的成果记录
-   * - 超过 5 分钟仍为 generating 的记录 → done（意外退出残留的幽灵记录）
-   * - 刚创建的 generating 记录不动（可能正在生成中）
+   * 一致性扫描：清理异常状态的成果记录（仅在打开笔记本时调用）
+   * 打开笔记本时不可能有正在生成的成果，因此做全量严格检查：
+   * - 任何 generating 状态的记录 → 删除（意外退出残留）
+   * - 成果文件不存在的记录 → 删除索引
    * 在 get() 打开笔记本时自动调用
    */
   sanitizeAchievements(notebookId) {
     const indexPath = this._achievementIndexPath(notebookId)
     const data = this._readJson(indexPath)
-    let changed = false
-    const staleThreshold = 5 * 60 * 1000 // 5 分钟
-    const now = Date.now()
+    const notebookPath = this._getNotebookPath(notebookId)
+    const toDelete = []
 
     for (const ach of data.achievements) {
+      let shouldDelete = false
+      let reason = ''
+
+      // 1. 删除所有 generating 状态的记录（打开时不可能有正在生成的）
       if (ach.status === 'generating') {
-        const age = now - new Date(ach.createdAt).getTime()
-        if (age > staleThreshold) {
-          ach.status = 'done'
-          changed = true
+        shouldDelete = true
+        reason = 'stale generating status'
+      }
+      // 2. 检查成果文件是否存在
+      else if (ach.path) {
+        const absPath = path.isAbsolute(ach.path)
+          ? ach.path
+          : path.join(notebookPath, ach.path)
+
+        if (!fs.existsSync(absPath)) {
+          shouldDelete = true
+          reason = 'file not found'
         }
+      }
+
+      if (shouldDelete) {
+        toDelete.push(ach.id)
+        console.log(`[NotebookManager] sanitizeAchievements: marking for deletion (${reason}): ${ach.id} - ${ach.path || 'no path'}`)
       }
     }
 
-    if (changed) {
+    // 删除不合法的成果索引
+    if (toDelete.length > 0) {
+      data.achievements = data.achievements.filter(a => !toDelete.includes(a.id))
       this._writeJsonAtomic(indexPath, data)
-      console.log(`[NotebookManager] sanitizeAchievements: cleaned up stale generating records for ${notebookId}`)
+      console.log(`[NotebookManager] sanitizeAchievements: removed ${toDelete.length} invalid achievements for ${notebookId}`)
     }
   },
 
