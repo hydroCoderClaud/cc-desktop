@@ -168,7 +168,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session'])
+const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done', 'agent-cancelled', 'request-clear-session'])
 
 const {
   messages,
@@ -266,6 +266,8 @@ const handleSend = async (text) => {
 
 const handleCancel = async () => {
   await cancelGeneration()
+  // 通知父组件清理未完成的 generating 记录
+  emit('agent-cancelled')
 }
 
 // ─── API 切换器 ────────────────────────────────────────────────────────────────

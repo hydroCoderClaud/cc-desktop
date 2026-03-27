@@ -44,6 +44,7 @@
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
         @agent-done="handleAgentDone"
+        @agent-cancelled="handleAgentCancelled"
         @request-clear-session="handleClearSession"
       />
       <!-- 无会话时显示引导 -->
@@ -891,6 +892,31 @@ const handleAgentDone = async (filePaths = []) => {
 
   // 刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
   await refreshAchievements()
+}
+
+/**
+ * Agent 取消生成时的处理
+ * 清理所有 generating 状态的成果记录
+ */
+const handleAgentCancelled = async () => {
+  if (!currentNotebook.value) return
+
+  const generatingList = achievements.value.filter(a => a.status === 'generating')
+  if (!generatingList.length) return
+
+  try {
+    // 删除所有 generating 状态的成果
+    const achievementIds = generatingList.map(a => a.id)
+    await window.electronAPI.notebookDeleteAchievements({
+      notebookId: currentNotebook.value.id,
+      achievementIds
+    })
+
+    // 刷新 UI
+    await refreshAchievements()
+  } catch (err) {
+    console.error('[Notebook] Failed to clean up cancelled achievements:', err)
+  }
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────
