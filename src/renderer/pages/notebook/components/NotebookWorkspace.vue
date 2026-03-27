@@ -40,6 +40,7 @@
         :session-cwd="currentNotebook.notebookPath || ''"
         :selected-count="selectedSources.length"
         :api-profile-id="currentNotebook.apiProfileId"
+        :generation-token="activeGenerationToken"
         @preview-image="handlePreviewImage"
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
@@ -158,6 +159,8 @@ const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90
 const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
 
 const chatPanelRef = ref(null)
+const activeGenerationAchievementId = ref(null)
+const activeGenerationToken = ref(0)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
@@ -259,10 +262,14 @@ const restartNotebookSession = async () => {
   const result = await window.electronAPI.notebookRestartSession(notebook.id)
   if (!result) return
 
+  activeGenerationAchievementId.value = null
+  activeGenerationToken.value = 0
+
   // 更新本地状态
   currentNotebook.value = result
-  sources.value = result.sources
-  achievements.value = result.achievements
+  sources.value = result.sources || []
+  const sourceMetaMap = new Map((result.sources || []).map(s => [s.id, s]))
+  achievements.value = processAchievements(result.achievements || [], result.notebookPath, sourceMetaMap)
 }
 
 const handleClearSession = async () => {
@@ -469,6 +476,8 @@ const refreshAchievements = async () => {
  * 仅用于：1. 首次打开笔记本  2. 切换笔记本
  */
 const loadNotebook = async (notebook) => {
+  activeGenerationAchievementId.value = null
+  activeGenerationToken.value = 0
   // 关闭当前会话（若有），释放 CLI 进程
   if (currentNotebook.value?.sessionId) {
     try {
@@ -501,6 +510,8 @@ const handleNotebookCreated = async (nb) => {
 }
 
 const handleCloseNotebook = async () => {
+  activeGenerationAchievementId.value = null
+  activeGenerationToken.value = 0
   if (currentNotebook.value?.sessionId) {
     try {
       await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
@@ -522,6 +533,8 @@ const handleRenamed = ({ id, name }) => {
 
 const handleDeleted = (id) => {
   if (currentNotebook.value?.id === id) {
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
     currentNotebook.value = null
     window.currentNotebookId = null
     sources.value = []
@@ -831,6 +844,10 @@ const handleRenameAchievement = (achievement) => {
 // ─── Studio Achievements ──────────────────────────────────────────────────
 const handleGenerateAchievement = async (typeId) => {
   if (!currentNotebook.value) return
+  if (activeGenerationAchievementId.value) {
+    message.warning('当前已有生成任务，请等待完成或先停止')
+    return
+  }
 
   const sourceIds = selectedSources.value.map(s => s.id)
 
@@ -840,6 +857,9 @@ const handleGenerateAchievement = async (typeId) => {
       toolId: typeId,
       sourceIds
     })
+
+    activeGenerationAchievementId.value = achievementId
+    activeGenerationToken.value += 1
 
     // 刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
     await refreshAchievements()
@@ -851,43 +871,84 @@ const handleGenerateAchievement = async (typeId) => {
     }
   } catch (err) {
     console.error('[Notebook] Generation failed:', err)
+    const rollbackAchievementId = activeGenerationAchievementId.value
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
+
+    if (rollbackAchievementId && currentNotebook.value) {
+      try {
+        await window.electronAPI.notebookDeleteAchievements({
+          notebookId: currentNotebook.value.id,
+          achievementIds: [rollbackAchievementId]
+        })
+        await refreshAchievements()
+      } catch (rollbackErr) {
+        console.error('[Notebook] Failed to rollback generation achievement:', rollbackErr)
+      }
+    }
+
     message.error(err.message || '生成准备失败')
   }
 }
 
-const handleAgentDone = async (filePaths = []) => {
+const handleAgentDone = async (payload = {}) => {
   if (!currentNotebook.value) return
 
-  const generatingList = achievements.value.filter(a => a.status === 'generating')
-  if (!generatingList.length) return
+  const { filePaths = [], generationToken = 0 } = payload
+  if (generationToken !== activeGenerationToken.value || !generationToken) return
+
+  const achievementId = activeGenerationAchievementId.value
+  if (!achievementId) return
+
+  const ach = achievements.value.find(a => a.id === achievementId && a.status === 'generating')
+  if (!ach) {
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
+    return
+  }
 
   // 标准化路径为正斜杠格式，便于比较
   const normalize = (p) => p?.replace(/\\/g, '/') || ''
   const normalizedFilePaths = filePaths.map(normalize)
 
-  for (const ach of generatingList) {
-    let matched = false
+  let hasOutputFile = false
+  if (ach.path) {
+    const expectedAbs = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, ach.path)
+    const normalizedExpectedAbs = normalize(expectedAbs)
+    const matched = normalizedFilePaths.some(fp => fp === normalizedExpectedAbs || fp.endsWith(normalize(ach.path)))
 
-    if (ach.path) {
-      // 构造预期绝对路径并标准化
-      const expectedAbs = normalize(`${currentNotebook.value.notebookPath}/${ach.path}`)
-
-      // 精确匹配：filePaths 中有完全一致或 endsWith 匹配的
-      matched = normalizedFilePaths.some(fp =>
-        fp === expectedAbs || fp.endsWith(normalize(ach.path))
-      )
+    if (matched) {
+      try {
+        const fileData = await window.electronAPI.readAbsolutePath({
+          filePath: expectedAbs,
+          sessionId: currentNotebook.value?.sessionId,
+          confirmed: true
+        })
+        hasOutputFile = !fileData?.error
+      } catch {
+        hasOutputFile = false
+      }
     }
+  }
 
-    // 无论是否匹配到文件，都标为 done：
-    // - matched=true：Agent 写入了预期文件
-    // - matched=false + filePaths 非空：Agent 写到了其他位置（罕见）
-    // - matched=false + filePaths 为空：Agent 直接输出了文本（内容已在对话中）
-    // 以上都是合法的完成状态，不应标 failed
-    await window.electronAPI.notebookUpdateAchievement({
-      notebookId: currentNotebook.value.id,
-      achievementId: ach.id,
-      updates: { status: 'done' }
-    })
+  try {
+    if (hasOutputFile) {
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'done' }
+      })
+    } else {
+      await window.electronAPI.notebookDeleteAchievements({
+        notebookId: currentNotebook.value.id,
+        achievementIds: [ach.id]
+      })
+    }
+  } catch (err) {
+    console.error('[Notebook] Failed to finalize achievement:', err)
+  } finally {
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
   }
 
   // 刷新 achievements 列表（不关闭会话，不触发 sanitizeAchievements）
@@ -896,27 +957,38 @@ const handleAgentDone = async (filePaths = []) => {
 
 /**
  * Agent 取消生成时的处理
- * 清理所有 generating 状态的成果记录
+ * 只清理当前 active generation 对应的成果记录
  */
-const handleAgentCancelled = async () => {
+const handleAgentCancelled = async (payload = {}) => {
   if (!currentNotebook.value) return
 
-  const generatingList = achievements.value.filter(a => a.status === 'generating')
-  if (!generatingList.length) return
+  const { generationToken = 0 } = payload
+  if (generationToken !== activeGenerationToken.value || !generationToken) return
+
+  const achievementId = activeGenerationAchievementId.value
+  if (!achievementId) return
+
+  const ach = achievements.value.find(a => a.id === achievementId && a.status === 'generating')
+  if (!ach) {
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
+    return
+  }
 
   try {
-    // 删除所有 generating 状态的成果
-    const achievementIds = generatingList.map(a => a.id)
     await window.electronAPI.notebookDeleteAchievements({
       notebookId: currentNotebook.value.id,
-      achievementIds
+      achievementIds: [achievementId]
     })
-
-    // 刷新 UI
-    await refreshAchievements()
   } catch (err) {
-    console.error('[Notebook] Failed to clean up cancelled achievements:', err)
+    console.error('[Notebook] Failed to clean up cancelled achievement:', err)
+  } finally {
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
   }
+
+  // 刷新 UI
+  await refreshAchievements()
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────

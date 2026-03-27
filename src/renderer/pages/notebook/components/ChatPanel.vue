@@ -126,6 +126,7 @@ const { t } = useLocale()
 const message = useMessage()
 
 const queueEnabled = ref(true)
+const activeGenerationToken = ref(null)
 
 const loadQueueSetting = async () => {
   try {
@@ -163,6 +164,10 @@ const props = defineProps({
     default: null
   },
   selectedCount: {
+    type: Number,
+    default: 0
+  },
+  generationToken: {
     type: Number,
     default: 0
   }
@@ -241,6 +246,8 @@ watch(currentStreamText, () => {
 
 watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming) {
+    if (isInterrupting.value) return
+    const finishedToken = activeGenerationToken.value
     const msgs = messages.value
     let startIdx = msgs.length - 1
     while (startIdx > 0 && msgs[startIdx].role !== 'user') startIdx--
@@ -255,19 +262,22 @@ watch(isStreaming, (streaming, wasStreaming) => {
         unixPaths.concat(winPaths).forEach(p => filePaths.push(p))
       }
     }
-    emit('agent-done', [...new Set(filePaths)])
+    emit('agent-done', { filePaths: [...new Set(filePaths)], generationToken: finishedToken })
   }
 })
 
 const handleSend = async (text) => {
+  activeGenerationToken.value = props.generationToken
   await sendMessage(text)
   scrollToBottom(false, true)
 }
 
 const handleCancel = async () => {
-  await cancelGeneration()
-  // 通知父组件清理未完成的 generating 记录
-  emit('agent-cancelled')
+  const cancelled = await cancelGeneration()
+  if (cancelled) {
+    // 通知父组件清理本次未完成的 generating 记录
+    emit('agent-cancelled', { generationToken: activeGenerationToken.value })
+  }
 }
 
 // ─── API 切换器 ────────────────────────────────────────────────────────────────

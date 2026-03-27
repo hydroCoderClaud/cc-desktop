@@ -311,9 +311,11 @@ export function useAgentChat(sessionId, options = {}) {
       isInterrupting.value = true
       console.log('[useAgentChat] 🛑 User interrupting, blocking auto-consume')
       await window.electronAPI.cancelAgentGeneration(sessionId)
+      return true
     } catch (err) {
       console.error('[useAgentChat] cancel error:', err)
       isInterrupting.value = false  // 取消失败，重置标志
+      return false
     }
   }
 
