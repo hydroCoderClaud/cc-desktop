@@ -23,7 +23,8 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
 
   ipcMain.handle('notebook:get', async (_e, id) => {
     try {
-      return notebookManager.get(id)
+      // 仅在“打开笔记本”入口执行一致性清理
+      return notebookManager.get(id, { sanitizeOnOpen: true })
     } catch (err) {
       console.error('[IPC] notebook:get error:', err)
       throw err

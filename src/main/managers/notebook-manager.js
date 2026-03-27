@@ -168,8 +168,12 @@ class NotebookManager {
     })
   }
 
-  /** 获取单个笔记本（含索引文件内容） */
-  get(id) {
+  /**
+   * 获取单个笔记本（含索引文件内容）
+   * @param {string} id
+   * @param {{ sanitizeOnOpen?: boolean }} [options]
+   */
+  get(id, { sanitizeOnOpen = false } = {}) {
     const entry = this._getRegistry().find(n => n.id === id)
     if (!entry) throw new Error(`笔记本不存在：${id}`)
     const notebookPath = this._resolvePath(entry.path)
@@ -193,8 +197,10 @@ class NotebookManager {
       }
     }
 
-    // 一致性扫描：清理意外退出残留的 generating 记录
-    this.sanitizeAchievements(id)
+    // 打开笔记本时的一致性扫描：清理意外退出残留的 generating 记录
+    if (sanitizeOnOpen) {
+      this.sanitizeAchievements(id)
+    }
 
     const sources = this._readJson(path.join(notebookPath, 'sources.json'))
     const achievements = this._readJson(path.join(notebookPath, 'achievements.json'))
