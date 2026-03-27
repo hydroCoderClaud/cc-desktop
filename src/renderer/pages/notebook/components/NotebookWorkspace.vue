@@ -285,6 +285,7 @@ const handleAddAchievementToSource = async (achievement) => {
       achievementId: achievement.id
     })
     sources.value = await window.electronAPI.notebookListSources(currentNotebook.value.id)
+    recomputeAchievementsPresentation()
     message.success(t('notebook.studio.addToSourceSuccess'))
   } catch (err) {
     console.error('[Notebook] Failed to add achievement to source:', err)
@@ -454,6 +455,16 @@ const processAchievements = (rawAchievements, notebookPath, sourceMetaMap) => {
       time: new Date(a.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
   })
+}
+
+/**
+ * 基于当前 sources 重新计算 achievements 的展示派生字段
+ * 不访问后端，只修正前端展示层的一致性
+ */
+const recomputeAchievementsPresentation = () => {
+  if (!currentNotebook.value) return
+  const sourceMetaMap = new Map(sources.value.map(s => [s.id, s]))
+  achievements.value = processAchievements(achievements.value, currentNotebook.value.notebookPath, sourceMetaMap)
 }
 
 /**
@@ -660,7 +671,10 @@ const handleUpdateSource = async (sourceId, updates) => {
 
   // 本地更新 UI
   const source = sources.value.find(s => s.id === sourceId)
-  if (source) Object.assign(source, updates)
+  if (source) {
+    Object.assign(source, updates)
+    recomputeAchievementsPresentation()
+  }
 
   // 同步到后端
   try {
@@ -669,6 +683,7 @@ const handleUpdateSource = async (sourceId, updates) => {
       sourceId,
       updates
     })
+    recomputeAchievementsPresentation()
   } catch (err) {
     console.error('[Notebook] Failed to update source:', err)
     message.error(t('common.error'))
@@ -726,6 +741,7 @@ const handleDeleteSources = async (sourceIds) => {
         })
         // 本地过滤掉已删除项
         sources.value = sources.value.filter(s => !sourceIds.includes(s.id))
+        recomputeAchievementsPresentation()
         message.success(t('common.deleteSuccess'))
       } catch (err) {
         console.error('[Notebook] Failed to delete sources:', err)
