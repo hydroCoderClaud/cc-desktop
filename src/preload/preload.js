@@ -579,6 +579,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAgentMessages: (sessionId) => ipcRenderer.invoke('agent:getMessages', sessionId),
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
   compactAgentConversation: (sessionId) => ipcRenderer.invoke('agent:compact', sessionId),
+  clearAndRecreateAgentSession: ({ sessionId, overrides }) => ipcRenderer.invoke('agent:clearAndRecreate', { sessionId, overrides }),
 
   // 队列持久化
   saveAgentQueue: ({ sessionId, queue }) => ipcRenderer.invoke('agent:saveQueue', { sessionId, queue }),
@@ -767,6 +768,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookRename: ({ id, name }) => ipcRenderer.invoke('notebook:rename', { id, name }),
   notebookDelete: (id) => ipcRenderer.invoke('notebook:delete', id),
   notebookBindSession: ({ id, sessionId }) => ipcRenderer.invoke('notebook:bindSession', { id, sessionId }),
+  notebookRestartSession: (id) => ipcRenderer.invoke('notebook:restartSession', id),
   notebookListSources: (notebookId) => ipcRenderer.invoke('notebook:listSources', notebookId),
   notebookAddSource: ({ notebookId, sourceData }) => ipcRenderer.invoke('notebook:addSource', { notebookId, sourceData }),
   notebookImportFiles: ({ notebookId, filePaths }) => ipcRenderer.invoke('notebook:importFiles', { notebookId, filePaths }),

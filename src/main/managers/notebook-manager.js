@@ -268,6 +268,49 @@ class NotebookManager {
     return { success: true }
   }
 
+  /**
+   * 重启会话：清空并重建 Agent 会话，更新 notebook.json 绑定
+   * @param {string} id - Notebook ID
+   * @returns {object} 完整 notebook 数据（含新 sessionId）
+   */
+  async restartSession(id) {
+    const entry = this._getRegistry().find(n => n.id === id)
+    if (!entry) throw new Error(`笔记本不存在：${id}`)
+
+    const notebookPath = this._resolvePath(entry.path)
+    const metaFile = path.join(notebookPath, 'notebook.json')
+    const meta = this._readJson(metaFile)
+
+    if (!meta.sessionId) {
+      throw new Error('当前笔记本未绑定会话')
+    }
+
+    if (!this.agentSessionManager) {
+      throw new Error('AgentSessionManager 未初始化')
+    }
+
+    // 调用核心方法：清空并重建会话
+    const newSession = await this.agentSessionManager.clearAndRecreate(meta.sessionId, {
+      type: 'notebook',
+      title: '', // 新会话默认空标题，由首条消息触发自动命名
+      cwd: notebookPath,
+      cwdSubDir: 'notebook'
+    })
+
+    // 更新 notebook.json
+    meta.sessionId = newSession.id
+    meta.apiProfileId = newSession.apiProfileId
+    meta.updatedAt = this._now()
+    this._writeJsonAtomic(metaFile, meta)
+
+    console.log(`[NotebookManager] Restarted session for notebook ${id}: ${meta.sessionId}`)
+
+    // 返回完整 notebook 数据
+    const sources = this._readJson(path.join(notebookPath, 'sources.json'))
+    const achievements = this._readJson(path.join(notebookPath, 'achievements.json'))
+    return { ...meta, path: entry.path, notebookPath, sources: sources.sources, achievements: achievements.achievements }
+  }
+
   /** 读取笔记本内的文件内容（代理到 notebook-file-reader） */
   async readFileContent(notebookId, relPath) {
     const notebookPath = this._getNotebookPath(notebookId)

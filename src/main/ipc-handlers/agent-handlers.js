@@ -152,6 +152,17 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 清空并重建会话（用于 /clear 命令）
+  ipcMain.handle('agent:clearAndRecreate', async (event, { sessionId, overrides }) => {
+    try {
+      const newSession = await agentSessionManager.clearAndRecreate(sessionId, overrides || {})
+      return { success: true, session: newSession }
+    } catch (err) {
+      console.error('[IPC] agent:clearAndRecreate error:', err)
+      return { error: err.message }
+    }
+  })
+
   // ========================================
   // Streaming Input 控制方法
   // ========================================

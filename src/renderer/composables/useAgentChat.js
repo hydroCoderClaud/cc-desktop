@@ -6,6 +6,10 @@
  * - CLI 进程常驻，通过 MessageQueue 推送消息
  * - 模型切换使用 setModel() 实时生效
  * - 取消使用 interrupt() 不杀进程
+ *
+ * @param {string} sessionId - Agent 会话 ID
+ * @param {object} options - 可选配置
+ * @param {function} options.onClearRequested - /clear 命令回调（Notebook 模式使用）
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useLocale } from './useLocale'
@@ -20,11 +24,7 @@ export const MessageRole = {
   TOOL: 'tool'
 }
 
-/**
- * Agent 对话状态管理
- * @param {string} sessionId - Agent 会话 ID
- */
-export function useAgentChat(sessionId) {
+export function useAgentChat(sessionId, options = {}) {
   const { t } = useLocale()
 
   const messages = ref([])
@@ -163,10 +163,11 @@ export function useAgentChat(sessionId) {
   /**
    * 本地处理 slash 命令（不发送到 SDK）
    * /compact 走 IPC compactConversation
-   * /status, /cost, /help, /clear 前端本地处理
+   * /status, /cost, /help 前端本地处理
+   * /clear 触发回调（Notebook 模式）或前端本地处理（Agent 模式）
    * @returns {boolean} 是否已处理
    */
-  const handleLocalSlashCommand = (cmd) => {
+  const handleLocalSlashCommand = async (cmd) => {
     const lower = cmd.toLowerCase()
 
     if (lower === '/compact') {
@@ -198,7 +199,7 @@ export function useAgentChat(sessionId) {
         '  /compact - Compress conversation context',
         '  /status  - Show session status',
         '  /cost    - Show total cost',
-        '  /clear   - Clear message display',
+        '  /clear   - Start a new session',
         '  /help    - Show this help'
       ]
       addAssistantMessage(lines.join('\n'))
@@ -206,6 +207,12 @@ export function useAgentChat(sessionId) {
     }
 
     if (lower === '/clear') {
+      // Notebook 模式：触发回调重建会话
+      if (options.onClearRequested) {
+        options.onClearRequested()
+        return true
+      }
+      // Agent 模式：仅清空前端显示（兼容旧行为）
       messages.value = []
       currentStreamText.value = ''
       return true
@@ -230,14 +237,20 @@ export function useAgentChat(sessionId) {
     }
 
     // 必须有文本内容或图片
-    if ((!textContent.trim() && !hasImages) || isStreaming.value) return
+    if ((!textContent.trim() && !hasImages) || isStreaming.value) {
+      return
+    }
 
     const trimmed = textContent.trim()
 
     // 本地 slash 命令拦截（仅对纯文本消息）
     if (trimmed && trimmed.startsWith('/')) {
+      // /clear 比较特殊，不添加到消息列表（因为会重建 session）
+      if (trimmed.toLowerCase() === '/clear') {
+        return await handleLocalSlashCommand(trimmed)
+      }
       addUserMessage(trimmed)
-      if (handleLocalSlashCommand(trimmed)) {
+      if (await handleLocalSlashCommand(trimmed)) {
         return
       }
       // 未识别的 slash 命令，照常发送给 SDK

@@ -168,7 +168,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done'])
+const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session'])
 
 const {
   messages,
@@ -188,7 +188,11 @@ const {
   setupStreamListeners,
   initDefaultModel,
   isInterrupting
-} = useAgentChat(props.sessionId)
+} = useAgentChat(props.sessionId, {
+  onClearRequested: () => {
+    emit('request-clear-session')
+  }
+})
 
 let isUnmounting = false
 

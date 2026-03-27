@@ -756,6 +756,40 @@ class AgentSessionManager extends EventEmitter {
   }
 
   /**
+   * 清空并重建会话：新建 fresh session 并切换过去，旧会话保留历史但退出当前上下文
+   * @param {string} sessionId - 旧会话 ID
+   * @param {object} overrides - 可选覆盖参数 { type, title, cwd, cwdSubDir }
+   * @returns {object} 新会话的 JSON 表示
+   */
+  async clearAndRecreate(sessionId, overrides = {}) {
+    const oldSession = this.sessions.get(sessionId)
+    if (!oldSession) {
+      throw new Error(`Agent session ${sessionId} not found`)
+    }
+
+    // 继承必要配置
+    const newType = overrides.type || oldSession.type
+    const newTitle = overrides.title !== undefined ? overrides.title : '' // 新会话默认空标题，由首条消息触发自动命名
+    const newCwd = overrides.cwd || oldSession.cwd
+    const newApiProfileId = oldSession.apiProfileId
+
+    // 软关闭旧会话（保留历史）
+    await this.close(sessionId)
+
+    // 创建全新会话（新 session.id，新 DB 记录）
+    const newSession = this.create({
+      type: newType,
+      title: newTitle,
+      cwd: newCwd,
+      apiProfileId: newApiProfileId,
+      cwdSubDir: overrides.cwdSubDir
+    })
+
+    console.log(`[AgentSession] Cleared and recreated session: ${sessionId} -> ${newSession.id}`)
+    return newSession
+  }
+
+  /**
    * 关闭会话（终止持久 CLI 进程 + DB 标记 closed + 内存移除）
    */
   async close(sessionId) {

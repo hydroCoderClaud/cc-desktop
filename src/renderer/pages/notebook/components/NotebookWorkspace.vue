@@ -44,6 +44,7 @@
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
         @agent-done="handleAgentDone"
+        @request-clear-session="handleClearSession"
       />
       <!-- 无会话时显示引导 -->
       <div v-else class="empty-chat-panel">
@@ -252,27 +253,19 @@ const handleOpenPromptEditor = (data) => {
 
 const restartNotebookSession = async () => {
   const notebook = currentNotebook.value
-  if (!notebook?.id || !notebook?.notebookPath || !notebook?.sessionId) return
+  if (!notebook?.id || !notebook?.sessionId) return
 
-  try {
-    await window.electronAPI.closeAgentSession(notebook.sessionId)
-  } catch (err) {
-    console.warn('[Notebook] Failed to close notebook session before restart:', err)
-  }
+  const result = await window.electronAPI.notebookRestartSession(notebook.id)
+  if (!result) return
 
-  const newSession = await window.electronAPI.createAgentSession({
-    type: 'notebook',
-    title: notebook.name,
-    cwd: notebook.notebookPath,
-    apiProfileId: notebook.apiProfileId || null
-  })
+  // 更新本地状态
+  currentNotebook.value = result
+  sources.value = result.sources
+  achievements.value = result.achievements
+}
 
-  if (!newSession?.id) {
-    throw new Error('重建 Notebook 会话失败')
-  }
-
-  await window.electronAPI.notebookBindSession({ id: notebook.id, sessionId: newSession.id })
-  await loadNotebook({ id: notebook.id })
+const handleClearSession = async () => {
+  await restartNotebookSession()
 }
 
 const handleAddAchievementToSource = async (achievement) => {

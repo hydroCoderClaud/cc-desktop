@@ -66,6 +66,16 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  // 重启会话（/clear 命令）
+  ipcMain.handle('notebook:restartSession', async (_e, id) => {
+    try {
+      return await notebookManager.restartSession(id)
+    } catch (err) {
+      console.error('[IPC] notebook:restartSession error:', err)
+      throw err
+    }
+  })
+
   // ─── Sources ──────────────────────────────────────────────────────────────
 
   ipcMain.handle('notebook:listSources', async (_e, notebookId) => {
