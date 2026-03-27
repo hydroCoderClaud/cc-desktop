@@ -918,22 +918,26 @@ class AgentSessionManager extends EventEmitter {
 
   /**
    * 获取所有会话列表（合并内存活跃 + DB 历史，去重）
+   * 仅返回 type === 'agent' 的会话，与 Notebook 模式隔离
    */
   list() {
-    // 1. 内存中的活跃会话
+    // 1. 内存中的活跃会话（仅 agent 类型）
     const activeIds = new Set()
     const result = []
 
     for (const session of this.sessions.values()) {
-      result.push(session.toJSON())
-      activeIds.add(session.id)
+      if (session.type === 'agent') {
+        result.push(session.toJSON())
+        activeIds.add(session.id)
+      }
     }
 
-    // 2. 从 DB 加载历史会话（非 closed 的也在内存中，这里主要取 closed 的历史）
+    // 2. 从 DB 加载历史会话（仅 agent 类型）
     if (this.sessionDatabase) {
       try {
         const dbConversations = this.sessionDatabase.listAllAgentConversations({ limit: 100 })
         for (const row of dbConversations) {
+          if (row.type !== 'agent') continue  // 过滤 notebook 类型
           if (activeIds.has(row.session_id)) continue  // 去重
           result.push({
             id: row.session_id,
