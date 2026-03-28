@@ -27,10 +27,10 @@
         <!-- 文字内容（过滤掉 [图片] 占位符） -->
         <div
           class="bubble-body"
-          :class="{ 'user-clamped': shouldClampUserMessage && isUserCollapsed }"
+          :class="{ 'user-clamped': shouldClampUserMessage && isUserCollapsed, 'user-toggleable': shouldClampUserMessage }"
           ref="bodyRef"
           v-html="renderedContent"
-          @click="handleLinkClick"
+          @click="handleBubbleBodyClick"
         ></div>
         <div v-if="shouldClampUserMessage" class="bubble-expand-row">
           <button class="bubble-expand-btn" @click="toggleUserCollapse">
@@ -340,6 +340,24 @@ onMounted(() => {
   measureUserClampState()
 })
 
+const handleBubbleBodyClick = async (e) => {
+  const link = e.target.closest('.clickable-link')
+  if (link) {
+    await handleLinkClick(e)
+    return
+  }
+
+  if (!(isNotebookMode.value && props.message.role === 'user' && isUserOverflowing.value)) {
+    return
+  }
+
+  // 选中文本时不触发展开收起
+  const selection = window.getSelection()
+  if (selection && !selection.isCollapsed) return
+
+  toggleUserCollapse()
+}
+
 /**
  * 点击事件委托：普通点击预览，Ctrl+点击外部打开
  */
@@ -587,6 +605,10 @@ const copyContentToAchievement = async () => {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 10;
   overflow: hidden;
+}
+
+.message-bubble.user .bubble-body.user-toggleable {
+  cursor: pointer;
 }
 
 .bubble-expand-row {
