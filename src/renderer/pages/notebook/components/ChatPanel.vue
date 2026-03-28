@@ -51,9 +51,14 @@
           v-if="msg.role === 'user' || msg.role === 'assistant'"
           :message="msg"
           :session-cwd="sessionCwd"
+          chat-mode="notebook"
           @preview-image="$emit('preview-image', $event)"
           @preview-link="$emit('preview-link', $event)"
           @preview-path="$emit('preview-path', $event)"
+          @save-image-to-source="$emit('save-image-to-source', $event)"
+          @save-image-to-achievement="$emit('save-image-to-achievement', $event)"
+          @copy-content-to-source="$emit('copy-content-to-source', $event)"
+          @copy-content-to-achievement="$emit('copy-content-to-achievement', $event)"
         />
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
@@ -173,7 +178,18 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['preview-image', 'preview-link', 'preview-path', 'agent-done', 'agent-cancelled', 'request-clear-session'])
+const emit = defineEmits([
+  'preview-image',
+  'preview-link',
+  'preview-path',
+  'agent-done',
+  'agent-cancelled',
+  'request-clear-session',
+  'save-image-to-source',
+  'save-image-to-achievement',
+  'copy-content-to-source',
+  'copy-content-to-achievement'
+])
 
 const {
   messages,

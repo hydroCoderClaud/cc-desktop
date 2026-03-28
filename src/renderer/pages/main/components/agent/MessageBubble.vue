@@ -4,35 +4,67 @@
       <Icon :name="message.role === 'user' ? 'user' : 'robot'" :size="16" />
     </div>
     <div class="bubble-content">
-      <!-- 钉钉来源标识 -->
-      <div v-if="message.source === 'dingtalk' && message.senderNick" class="dingtalk-sender">
-        {{ message.senderNick }}{{ t('agent.dingtalkSuffix') }}
-      </div>
-      <!-- 图片区域（如果消息包含图片） -->
-      <div v-if="message.images && message.images.length > 0" class="bubble-images">
+      <div class="bubble-capture" ref="captureRef">
+        <!-- 钉钉来源标识 -->
+        <div v-if="message.source === 'dingtalk' && message.senderNick" class="dingtalk-sender">
+          {{ message.senderNick }}{{ t('agent.dingtalkSuffix') }}
+        </div>
+        <!-- 图片区域（如果消息包含图片） -->
+        <div v-if="message.images && message.images.length > 0" class="bubble-images">
+          <div
+            v-for="(img, index) in message.images"
+            :key="index"
+            class="bubble-image-item"
+            @click="handleImageClick(img)"
+          >
+            <img
+              :src="`data:${img.mediaType};base64,${img.base64}`"
+              :alt="`Image ${index + 1}`"
+              class="bubble-image"
+            />
+          </div>
+        </div>
+        <!-- 文字内容（过滤掉 [图片] 占位符） -->
         <div
-          v-for="(img, index) in message.images"
-          :key="index"
-          class="bubble-image-item"
-          @click="handleImageClick(img)"
-        >
-          <img
-            :src="`data:${img.mediaType};base64,${img.base64}`"
-            :alt="`Image ${index + 1}`"
-            class="bubble-image"
-          />
+          class="bubble-body"
+          :class="{ 'user-clamped': shouldClampUserMessage && isUserCollapsed }"
+          ref="bodyRef"
+          v-html="renderedContent"
+          @click="handleLinkClick"
+        ></div>
+        <div v-if="shouldClampUserMessage" class="bubble-expand-row">
+          <button class="bubble-expand-btn" @click="toggleUserCollapse">
+            {{ isUserCollapsed ? t('common.expand') : t('common.collapse') }}
+          </button>
         </div>
       </div>
-      <!-- 文字内容（过滤掉 [图片] 占位符） -->
-      <div class="bubble-body" ref="bodyRef" v-html="renderedContent" @click="handleLinkClick"></div>
-      <div class="bubble-meta" v-if="message.timestamp || message.role === 'assistant'">
+      <div class="bubble-meta" :class="{ 'notebook-actions': isNotebookAssistant }" v-if="message.timestamp || message.role === 'assistant'">
         <span v-if="message.timestamp">{{ formatTime(message.timestamp) }}</span>
-        <button v-if="message.role === 'assistant'" class="bubble-save-btn" :title="t('agent.saveAsImage')" @click="saveAsImage">
-          <Icon name="download" :size="12" />
-        </button>
-        <button v-if="message.role === 'assistant'" class="bubble-save-btn" :title="t('agent.copyContent')" @click="copyContent">
-          <Icon name="copy" :size="12" />
-        </button>
+        <template v-if="message.role === 'assistant' && !isNotebookMode">
+          <button class="bubble-save-btn" :title="t('agent.saveAsImage')" @click="saveAsImage">
+            <Icon name="download" :size="12" />
+          </button>
+          <button class="bubble-save-btn" :title="t('agent.copyContent')" @click="copyContent">
+            <Icon name="copy" :size="12" />
+          </button>
+        </template>
+        <template v-else-if="isNotebookAssistant">
+          <button class="bubble-save-btn" :title="t('notebook.chat.saveImageToSource')" @click="emitNotebookImageAction('save-image-to-source')">
+            <Icon name="image" :size="12" />
+          </button>
+          <button class="bubble-save-btn" :title="t('notebook.chat.saveImageToAchievement')" @click="emitNotebookImageAction('save-image-to-achievement')">
+            <Icon name="download" :size="12" />
+          </button>
+          <button class="bubble-save-btn" :title="t('agent.copyContent')" @click="copyContent">
+            <Icon name="copy" :size="12" />
+          </button>
+          <button class="bubble-save-btn" :title="t('notebook.chat.copyContentToSource')" @click="copyContentToSource">
+            <Icon name="plus" :size="12" />
+          </button>
+          <button class="bubble-save-btn" :title="t('notebook.chat.copyContentToAchievement')" @click="copyContentToAchievement">
+            <Icon name="fileText" :size="12" />
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -40,13 +72,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch, nextTick } from 'vue'
+import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
 import { useLocale } from '@composables/useLocale'
 import { extractLatex, restoreLatex } from '@utils/latex-utils'
 
 const { t } = useLocale()
+const messageApi = useMessage()
 
 const props = defineProps({
   message: {
@@ -56,12 +90,30 @@ const props = defineProps({
   sessionCwd: {
     type: String,
     default: null
+  },
+  chatMode: {
+    type: String,
+    default: 'agent'
   }
 })
 
-const emit = defineEmits(['preview-image', 'preview-link', 'preview-path'])
+const emit = defineEmits([
+  'preview-image',
+  'preview-link',
+  'preview-path',
+  'save-image-to-source',
+  'save-image-to-achievement',
+  'copy-content-to-source',
+  'copy-content-to-achievement'
+])
 
 const bodyRef = ref(null)
+const captureRef = ref(null)
+const isUserCollapsed = ref(true)
+const isUserOverflowing = ref(false)
+const isNotebookMode = computed(() => props.chatMode === 'notebook')
+const isNotebookAssistant = computed(() => isNotebookMode.value && props.message.role === 'assistant')
+const shouldClampUserMessage = computed(() => isNotebookMode.value && props.message.role === 'user' && isUserOverflowing.value)
 const TRAILING_SENTENCE_PUNCTUATION = /[。．，,；;：:！!？?]+$/
 const UNMATCHED_TRAILING_BRACKETS = {
   '）': '（',
@@ -253,6 +305,41 @@ const renderedContent = computed(() => {
   return text
 })
 
+const measureUserClampState = async () => {
+  if (!isNotebookMode.value || props.message.role !== 'user') {
+    isUserOverflowing.value = false
+    isUserCollapsed.value = true
+    return
+  }
+  await nextTick()
+  const el = bodyRef.value
+  if (!el) return
+  const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight) || 22.4
+  const maxHeight = lineHeight * 10 + 2
+  const overflow = el.scrollHeight > maxHeight
+  isUserOverflowing.value = overflow
+  isUserCollapsed.value = overflow
+}
+
+const toggleUserCollapse = () => {
+  if (!isUserOverflowing.value) return
+  isUserCollapsed.value = !isUserCollapsed.value
+}
+
+watch(() => props.message.content, () => {
+  isUserCollapsed.value = true
+  measureUserClampState()
+})
+
+watch(() => props.chatMode, () => {
+  isUserCollapsed.value = true
+  measureUserClampState()
+})
+
+onMounted(() => {
+  measureUserClampState()
+})
+
 /**
  * 点击事件委托：普通点击预览，Ctrl+点击外部打开
  */
@@ -328,7 +415,16 @@ const handleContextMenu = (event) => {
     { key: 'copy-content', label: t('agent.copyContent') }
   ]
   if (props.message.role === 'assistant') {
-    items.push({ key: 'save-as-image', label: t('agent.saveAsImage') })
+    if (isNotebookMode.value) {
+      items.push(
+        { key: 'save-image-to-source', label: t('notebook.chat.saveImageToSource') },
+        { key: 'save-image-to-achievement', label: t('notebook.chat.saveImageToAchievement') },
+        { key: 'copy-content-to-source', label: t('notebook.chat.copyContentToSource') },
+        { key: 'copy-content-to-achievement', label: t('notebook.chat.copyContentToAchievement') }
+      )
+    } else {
+      items.push({ key: 'save-as-image', label: t('agent.saveAsImage') })
+    }
   }
   contextMenuItems.value = items
   contextMenuRef.value.show(event.clientX, event.clientY)
@@ -338,27 +434,40 @@ const onContextMenuSelect = async (key) => {
   if (key === 'copy-selection') {
     await navigator.clipboard.writeText(window.getSelection()?.toString() || '')
   } else if (key === 'copy-content') {
-    await navigator.clipboard.writeText(props.message.content || '')
+    await copyContent()
   } else if (key === 'save-as-image') {
     await saveAsImage()
+  } else if (key === 'save-image-to-source') {
+    await emitNotebookImageAction('save-image-to-source')
+  } else if (key === 'save-image-to-achievement') {
+    await emitNotebookImageAction('save-image-to-achievement')
+  } else if (key === 'copy-content-to-source') {
+    await copyContentToSource()
+  } else if (key === 'copy-content-to-achievement') {
+    await copyContentToAchievement()
   }
 }
 
 /**
  * 保存消息气泡为图片
  */
-const saveAsImage = async () => {
-  const el = bodyRef.value
-  if (!el) return
+const captureBubbleAsDataUrl = async () => {
+  const el = captureRef.value || bodyRef.value
+  if (!el) return null
 
+  const html2canvas = (await import('html2canvas')).default
+  const canvas = await html2canvas(el, {
+    backgroundColor: getComputedStyle(el).backgroundColor || '#ffffff',
+    scale: 2,
+    useCORS: true
+  })
+  return canvas.toDataURL('image/png')
+}
+
+const saveAsImage = async () => {
   try {
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(el, {
-      backgroundColor: getComputedStyle(el).backgroundColor || '#ffffff',
-      scale: 2,
-      useCORS: true
-    })
-    const dataUrl = canvas.toDataURL('image/png')
+    const dataUrl = await captureBubbleAsDataUrl()
+    if (!dataUrl) return
     const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const filename = `message-${timestamp}.png`
@@ -376,14 +485,34 @@ const saveAsImage = async () => {
         size: Math.round((base64.length * 3) / 4),
         ext: '.png'
       })
+      messageApi.success(t('agent.imageSaved'))
     }
   } catch (err) {
     console.error('[MessageBubble] Save as image failed:', err)
   }
 }
 
+const emitNotebookImageAction = async (eventName) => {
+  try {
+    const dataUrl = await captureBubbleAsDataUrl()
+    if (!dataUrl) return
+    emit(eventName, { dataUrl, message: props.message })
+  } catch (err) {
+    console.error(`[MessageBubble] ${eventName} failed:`, err)
+  }
+}
+
 const copyContent = async () => {
   await navigator.clipboard.writeText(props.message.content || '')
+  messageApi.success(t('common.copySuccess'))
+}
+
+const copyContentToSource = async () => {
+  emit('copy-content-to-source', { content: props.message.content || '', message: props.message })
+}
+
+const copyContentToAchievement = async () => {
+  emit('copy-content-to-achievement', { content: props.message.content || '', message: props.message })
 }
 </script>
 
@@ -453,6 +582,32 @@ const copyContent = async () => {
   border-top-right-radius: 4px;
 }
 
+.message-bubble.user .bubble-body.user-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 10;
+  overflow: hidden;
+}
+
+.bubble-expand-row {
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.message-bubble.user .bubble-expand-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bubble-expand-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
 .bubble-body :deep(pre) {
   background: var(--bg-color-tertiary);
   padding: 10px;
@@ -520,6 +675,11 @@ const copyContent = async () => {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bubble-meta.notebook-actions {
+  gap: 6px;
 }
 
 .message-bubble.user .bubble-meta {
@@ -543,6 +703,10 @@ const copyContent = async () => {
 }
 
 .bubble-content:hover .bubble-save-btn {
+  opacity: 1;
+}
+
+.bubble-meta.notebook-actions .bubble-save-btn {
   opacity: 1;
 }
 

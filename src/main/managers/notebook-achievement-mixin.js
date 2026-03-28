@@ -7,7 +7,22 @@ const fs = require('fs')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 
-const ACHIEVEMENT_DIRS = ['audio', 'video', 'report', 'presentation', 'mindmap', 'flashcard', 'quiz', 'infographic', 'table']
+const ACHIEVEMENT_DIRS = ['audio', 'video', 'report', 'presentation', 'mindmap', 'flashcard', 'quiz', 'infographic', 'table', 'fromchat']
+
+function sanitizeChatBaseName(filename, fallback) {
+  const raw = (filename || '').trim()
+  const ext = path.extname(raw)
+  const base = ext ? raw.slice(0, -ext.length) : raw
+  const normalized = (base || fallback || 'chat')
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return normalized || fallback || 'chat'
+}
+
+function buildChatTimestamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+}
 
 const notebookAchievementMixin = {
   _achievementIndexPath(notebookId) {
@@ -91,6 +106,74 @@ const notebookAchievementMixin = {
     data.achievements.push(achievement)
     this._writeJsonAtomic(indexPath, data)
     return achievement
+  },
+
+  _ensureUniqueNotebookAchievementFile(targetDir, fileName) {
+    const parsedName = path.parse(fileName)
+    let uniqueName = fileName
+    let counter = 1
+    while (fs.existsSync(path.join(targetDir, uniqueName))) {
+      uniqueName = `${parsedName.name}_${counter}${parsedName.ext}`
+      counter++
+    }
+    return uniqueName
+  },
+
+  _saveNotebookAchievementBinaryFile(targetDir, fileName, buffer) {
+    fs.mkdirSync(targetDir, { recursive: true })
+    const uniqueName = this._ensureUniqueNotebookAchievementFile(targetDir, fileName)
+    const finalPath = path.join(targetDir, uniqueName)
+    fs.writeFileSync(finalPath, buffer)
+    return { fileName: uniqueName, fullPath: finalPath }
+  },
+
+  _saveNotebookAchievementTextFile(targetDir, fileName, content) {
+    fs.mkdirSync(targetDir, { recursive: true })
+    const uniqueName = this._ensureUniqueNotebookAchievementFile(targetDir, fileName)
+    const finalPath = path.join(targetDir, uniqueName)
+    fs.writeFileSync(finalPath, content, 'utf-8')
+    return { fileName: uniqueName, fullPath: finalPath }
+  },
+
+  async saveChatImageToAchievement(notebookId, { filename, dataUrl, sourceIds = [] } = {}) {
+    if (!dataUrl || typeof dataUrl !== 'string') throw new Error('图片数据不能为空')
+    if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl)) throw new Error('无效的图片数据')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const targetDir = path.join(notebookPath, 'achievements', 'fromchat')
+    const baseName = sanitizeChatBaseName(filename, `chat-image-${buildChatTimestamp()}`)
+    const { fileName } = this._saveNotebookAchievementBinaryFile(
+      targetDir,
+      `${baseName}.png`,
+      Buffer.from(dataUrl.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, ''), 'base64')
+    )
+
+    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const achievement = this.addAchievement(notebookId, {
+      name: fileName,
+      type: 'fromchat',
+      path: relPath,
+      sourceIds
+    })
+    return this.updateAchievement(notebookId, achievement.id, { status: 'done', path: relPath, sourceIds })
+  },
+
+  saveChatMarkdownToAchievement(notebookId, { filename, content, sourceIds = [] } = {}) {
+    if (typeof content !== 'string' || !content.trim()) throw new Error('消息内容不能为空')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const targetDir = path.join(notebookPath, 'achievements', 'fromchat')
+    const baseName = sanitizeChatBaseName(filename, `chat-markdown-${buildChatTimestamp()}`)
+    const { fileName } = this._saveNotebookAchievementTextFile(targetDir, `${baseName}.md`, content)
+
+    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const achievement = this.addAchievement(notebookId, {
+      name: fileName,
+      type: 'fromchat',
+      path: relPath,
+      sourceIds
+    })
+    return this.updateAchievement(notebookId, achievement.id, { status: 'done', path: relPath, sourceIds })
   },
 
   /**

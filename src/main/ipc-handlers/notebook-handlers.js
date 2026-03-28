@@ -244,6 +244,42 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:saveChatImageToSource', async (_e, { notebookId, filename, dataUrl }) => {
+    try {
+      return await notebookManager.saveChatImageToSource(notebookId, { filename, dataUrl })
+    } catch (err) {
+      console.error('[IPC] notebook:saveChatImageToSource error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:saveChatImageToAchievement', async (_e, { notebookId, filename, dataUrl, sourceIds }) => {
+    try {
+      return await notebookManager.saveChatImageToAchievement(notebookId, { filename, dataUrl, sourceIds })
+    } catch (err) {
+      console.error('[IPC] notebook:saveChatImageToAchievement error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:saveChatMarkdownToSource', async (_e, { notebookId, filename, content }) => {
+    try {
+      return notebookManager.saveChatMarkdownToSource(notebookId, { filename, content })
+    } catch (err) {
+      console.error('[IPC] notebook:saveChatMarkdownToSource error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:saveChatMarkdownToAchievement', async (_e, { notebookId, filename, content, sourceIds }) => {
+    try {
+      return notebookManager.saveChatMarkdownToAchievement(notebookId, { filename, content, sourceIds })
+    } catch (err) {
+      console.error('[IPC] notebook:saveChatMarkdownToAchievement error:', err)
+      throw err
+    }
+  })
+
   ipcMain.handle('notebook:setCopySourceFiles', async (_e, { notebookId, value }) => {
     try {
       return notebookManager.setCopySourceFiles(notebookId, value)

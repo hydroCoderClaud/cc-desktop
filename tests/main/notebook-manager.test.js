@@ -140,35 +140,35 @@ describe('NotebookManager', () => {
 
   // ── import ─────────────────────────────────────────────────────────────
 
-  it('importFile: 复制文件到 sources 子目录并添加索引', async () => {
+  it('importFile: forceCopy 时复制文件到 sources 子目录并添加索引', async () => {
     const nb = mgr.create({ name: 'import测试' })
     const tmpFile = path.join(os.tmpdir(), 'test-doc.pdf')
     fs.writeFileSync(tmpFile, 'dummy pdf content')
 
-    const src = await mgr.importFile(nb.id, tmpFile)
+    const src = await mgr.importFile(nb.id, tmpFile, undefined, { forceCopy: true })
     expect(src.name).toBe('test-doc.pdf')
-    expect(src.type).toBe('pdf')
-    expect(src.path).toBe('sources/pdf/test-doc.pdf')
+    expect(src.type).toBe('document')
+    expect(src.path).toBe('sources/document/test-doc.pdf')
 
     // 验证物理文件是否存在
-    const targetPath = path.join(nb.notebookPath, 'sources/pdf/test-doc.pdf')
+    const targetPath = path.join(nb.notebookPath, 'sources/document/test-doc.pdf')
     expect(fs.existsSync(targetPath)).toBe(true)
     expect(fs.readFileSync(targetPath, 'utf-8')).toBe('dummy pdf content')
 
     fs.unlinkSync(tmpFile)
   })
 
-  it('importFile: 重名时自动重命名', async () => {
+  it('importFile: forceCopy 重名时自动重命名', async () => {
     const nb = mgr.create({ name: '重名测试' })
     const tmpFile = path.join(os.tmpdir(), 'dup.txt')
     fs.writeFileSync(tmpFile, 'v1')
 
-    await mgr.importFile(nb.id, tmpFile)
+    await mgr.importFile(nb.id, tmpFile, undefined, { forceCopy: true })
     fs.writeFileSync(tmpFile, 'v2')
-    const src2 = await mgr.importFile(nb.id, tmpFile)
+    const src2 = await mgr.importFile(nb.id, tmpFile, undefined, { forceCopy: true })
 
-    expect(src2.path).toBe('sources/text/dup_1.txt')
-    expect(fs.existsSync(path.join(nb.notebookPath, 'sources/text/dup_1.txt'))).toBe(true)
+    expect(src2.path).toBe('sources/document/dup_1.txt')
+    expect(fs.existsSync(path.join(nb.notebookPath, 'sources/document/dup_1.txt'))).toBe(true)
 
     fs.unlinkSync(tmpFile)
   })
@@ -233,6 +233,55 @@ describe('NotebookManager', () => {
     expect(src.path).toBe('sources/image/generate-image-1.png')
     expect(fs.existsSync(path.join(nb.notebookPath, src.path))).toBe(true)
     expect(fs.readFileSync(path.join(nb.notebookPath, src.path), 'utf-8')).toBe('image-binary')
+  })
+
+  it('saveChatImageToSource: 写入 sources/image 并新增索引', async () => {
+    const nb = mgr.create({ name: '聊天图片到来源' })
+    const dataUrl = 'data:image/png;base64,' + Buffer.from('png-binary').toString('base64')
+
+    const source = await mgr.saveChatImageToSource(nb.id, { filename: 'chat-shot', dataUrl })
+    expect(source.type).toBe('image')
+    expect(source.path).toBe('sources/image/chat-shot.png')
+    expect(fs.readFileSync(path.join(nb.notebookPath, source.path), 'utf-8')).toBe('png-binary')
+  })
+
+  it('saveChatMarkdownToSource: 写入 sources/markdown 并新增索引', () => {
+    const nb = mgr.create({ name: '聊天文本到来源' })
+
+    const source = mgr.saveChatMarkdownToSource(nb.id, { filename: 'chat-note', content: '# hello' })
+    expect(source.type).toBe('markdown')
+    expect(source.path).toBe('sources/markdown/chat-note.md')
+    expect(fs.readFileSync(path.join(nb.notebookPath, source.path), 'utf-8')).toBe('# hello')
+  })
+
+  it('saveChatImageToAchievement: 写入 achievements/fromchat 并新增 done 索引', async () => {
+    const nb = mgr.create({ name: '聊天图片到成果' })
+    const dataUrl = 'data:image/png;base64,' + Buffer.from('chat-image').toString('base64')
+
+    const achievement = await mgr.saveChatImageToAchievement(nb.id, {
+      filename: 'chat-image',
+      dataUrl,
+      sourceIds: ['src-a']
+    })
+
+    expect(achievement.type).toBe('fromchat')
+    expect(achievement.status).toBe('done')
+    expect(achievement.path).toBe('achievements/fromchat/chat-image.png')
+    expect(achievement.sourceIds).toEqual(['src-a'])
+    expect(fs.readFileSync(path.join(nb.notebookPath, achievement.path), 'utf-8')).toBe('chat-image')
+  })
+
+  it('saveChatMarkdownToAchievement: 重名时自动避让', () => {
+    const nb = mgr.create({ name: '聊天文本到成果' })
+
+    const first = mgr.saveChatMarkdownToAchievement(nb.id, { filename: 'chat-note', content: '# first' })
+    const second = mgr.saveChatMarkdownToAchievement(nb.id, { filename: 'chat-note', content: '# second' })
+
+    expect(first.path).toBe('achievements/fromchat/chat-note.md')
+    expect(second.path).toBe('achievements/fromchat/chat-note_1.md')
+    expect(second.type).toBe('fromchat')
+    expect(second.status).toBe('done')
+    expect(fs.readFileSync(path.join(nb.notebookPath, second.path), 'utf-8')).toBe('# second')
   })
 
   it('exportAchievement: 重名时自动重命名', () => {

@@ -241,18 +241,19 @@ const closeDetail = () => {
 const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.types.' + typeId)
 
 const getAchievementIcon = (type) => {
-  const map = { 
-    image: 'image', 
-    video: 'video', 
-    markdown: 'fileText', 
-    pdf: 'file', 
-    document: 'fileText', 
-    code: 'globe', 
-    web: 'globe', 
-    text: 'fileText', 
+  const map = {
+    image: 'image',
+    video: 'video',
+    markdown: 'fileText',
+    pdf: 'file',
+    document: 'fileText',
+    code: 'globe',
+    web: 'globe',
+    text: 'fileText',
     csv: 'table',
+    fromchat: 'fileText',
     // 兼容老数据
-    audio: 'audio', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table' 
+    audio: 'audio', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table'
   }
   return map[type] || 'fileText'
 }

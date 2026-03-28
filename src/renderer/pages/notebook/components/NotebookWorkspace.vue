@@ -47,6 +47,10 @@
         @agent-done="handleAgentDone"
         @agent-cancelled="handleAgentCancelled"
         @request-clear-session="handleClearSession"
+        @save-image-to-source="handleSaveChatImageToSource"
+        @save-image-to-achievement="handleSaveChatImageToAchievement"
+        @copy-content-to-source="handleCopyChatContentToSource"
+        @copy-content-to-achievement="handleCopyChatContentToAchievement"
       />
       <!-- 无会话时显示引导 -->
       <div v-else class="empty-chat-panel">
@@ -274,6 +278,93 @@ const restartNotebookSession = async () => {
 
 const handleClearSession = async () => {
   await restartNotebookSession()
+}
+
+const buildChatAssetName = (message, suffix) => {
+  const firstLine = (message?.content || '')
+    .split('\n')
+    .map(line => line.trim())
+    .find(Boolean)
+  const base = (firstLine || suffix || 'chat')
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 48)
+  return base || suffix || 'chat'
+}
+
+const refreshSources = async () => {
+  if (!currentNotebook.value?.id) return
+  sources.value = await window.electronAPI.notebookListSources(currentNotebook.value.id)
+  recomputeAchievementsPresentation()
+}
+
+const getSelectedSourceIdsForChat = () => selectedSources.value.map(s => s.id)
+
+const handleSaveChatImageToSource = async ({ dataUrl, message: chatMessage } = {}) => {
+  if (!currentNotebook.value?.id) return
+  try {
+    await window.electronAPI.notebookSaveChatImageToSource({
+      notebookId: currentNotebook.value.id,
+      filename: buildChatAssetName(chatMessage, 'chat-image'),
+      dataUrl
+    })
+    await refreshSources()
+    message.success(t('notebook.chat.saveImageToSourceSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to save chat image to source:', err)
+    message.error(t('notebook.chat.saveImageToSourceFailed', { error: err.message }))
+  }
+}
+
+const handleSaveChatImageToAchievement = async ({ dataUrl, message: chatMessage } = {}) => {
+  if (!currentNotebook.value?.id) return
+  try {
+    await window.electronAPI.notebookSaveChatImageToAchievement({
+      notebookId: currentNotebook.value.id,
+      filename: buildChatAssetName(chatMessage, 'chat-image'),
+      dataUrl,
+      sourceIds: getSelectedSourceIdsForChat()
+    })
+    await refreshAchievements()
+    message.success(t('notebook.chat.saveImageToAchievementSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to save chat image to achievement:', err)
+    message.error(t('notebook.chat.saveImageToAchievementFailed', { error: err.message }))
+  }
+}
+
+const handleCopyChatContentToSource = async ({ content, message: chatMessage } = {}) => {
+  if (!currentNotebook.value?.id) return
+  try {
+    await window.electronAPI.notebookSaveChatMarkdownToSource({
+      notebookId: currentNotebook.value.id,
+      filename: buildChatAssetName(chatMessage, 'chat-markdown'),
+      content
+    })
+    await refreshSources()
+    message.success(t('notebook.chat.copyContentToSourceSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to copy chat content to source:', err)
+    message.error(t('notebook.chat.copyContentToSourceFailed', { error: err.message }))
+  }
+}
+
+const handleCopyChatContentToAchievement = async ({ content, message: chatMessage } = {}) => {
+  if (!currentNotebook.value?.id) return
+  try {
+    await window.electronAPI.notebookSaveChatMarkdownToAchievement({
+      notebookId: currentNotebook.value.id,
+      filename: buildChatAssetName(chatMessage, 'chat-markdown'),
+      content,
+      sourceIds: getSelectedSourceIdsForChat()
+    })
+    await refreshAchievements()
+    message.success(t('notebook.chat.copyContentToAchievementSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to copy chat content to achievement:', err)
+    message.error(t('notebook.chat.copyContentToAchievementFailed', { error: err.message }))
+  }
 }
 
 const handleAddAchievementToSource = async (achievement) => {
