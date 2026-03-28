@@ -317,6 +317,12 @@ class NotebookManager {
     return { ...meta, path: entry.path, notebookPath, sources: sources.sources, achievements: achievements.achievements }
   }
 
+  sanitizeIndexes(id) {
+    const sourcesRemoved = this.sanitizeSources(id)
+    const achievementsRemoved = this.sanitizeAchievements(id, { removeGenerating: false })
+    return { success: true, sourcesRemoved, achievementsRemoved }
+  }
+
   /** 读取笔记本内的文件内容（代理到 notebook-file-reader） */
   async readFileContent(notebookId, relPath) {
     const notebookPath = this._getNotebookPath(notebookId)

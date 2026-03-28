@@ -1442,6 +1442,9 @@ export default {
       backToMain: '返回主界面',
       openDir: '打开目录',
       closeNotebook: '关闭笔记本',
+      cleanup: '一键整理',
+      cleanupSuccess: '整理完成：已移除 {sources} 个来源索引，{achievements} 个成果索引',
+      cleanupFailed: '整理失败：{error}'
     },
     source: {
       title: '来源',

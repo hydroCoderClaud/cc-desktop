@@ -77,6 +77,40 @@ const notebookSourceMixin = {
     return this._readJson(this._sourceIndexPath(notebookId)).sources
   },
 
+  sanitizeSources(notebookId) {
+    const indexPath = this._sourceIndexPath(notebookId)
+    const data = this._readJson(indexPath)
+    const notebookPath = this._getNotebookPath(notebookId)
+    const validSources = []
+    let removedCount = 0
+
+    for (const source of data.sources) {
+      if (!source?.path) {
+        validSources.push(source)
+        continue
+      }
+
+      const fullPath = path.isAbsolute(source.path)
+        ? source.path
+        : path.join(notebookPath, source.path)
+
+      if (fs.existsSync(fullPath)) {
+        validSources.push(source)
+        continue
+      }
+
+      removedCount++
+      console.log(`[NotebookManager] sanitizeSources: removed missing source ${source.id} - ${source.path}`)
+    }
+
+    if (removedCount > 0) {
+      data.sources = validSources
+      this._writeJsonAtomic(indexPath, data)
+    }
+
+    return removedCount
+  },
+
   /**
    * 导入文件作为来源
    * @param {string} notebookId

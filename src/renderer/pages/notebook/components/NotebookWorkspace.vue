@@ -7,6 +7,7 @@
       @create="handleCreateNotebook"
       @switch="loadNotebook"
       @close="handleCloseNotebook"
+      @cleanup="handleCleanupIndexes"
       @renamed="handleRenamed"
       @deleted="handleDeleted"
     />
@@ -570,6 +571,25 @@ const refreshAchievements = async () => {
     achievements.value = processAchievements(rawAchievements, currentNotebook.value.notebookPath, sourceMetaMap)
   } catch (err) {
     console.error('[Notebook] Failed to refresh achievements:', err)
+  }
+}
+
+const handleCleanupIndexes = async () => {
+  if (!currentNotebook.value?.id) return
+  const loading = message.loading(t('common.loading'), { duration: 0 })
+  try {
+    const result = await window.electronAPI.notebookSanitizeIndexes(currentNotebook.value.id)
+    await refreshSources()
+    await refreshAchievements()
+    message.success(t('notebook.nav.cleanupSuccess', {
+      sources: result?.sourcesRemoved || 0,
+      achievements: result?.achievementsRemoved || 0
+    }))
+  } catch (err) {
+    console.error('[Notebook] Failed to cleanup indexes:', err)
+    message.error(t('notebook.nav.cleanupFailed', { error: err.message }))
+  } finally {
+    loading.destroy()
   }
 }
 

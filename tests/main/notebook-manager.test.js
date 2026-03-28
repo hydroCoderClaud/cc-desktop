@@ -191,6 +191,31 @@ describe('NotebookManager', () => {
     expect(mgr.listSources(nb.id)).toHaveLength(0)
   })
 
+  it('sanitizeSources: 保留仅 URL 的来源索引', () => {
+    const nb = mgr.create({ name: 'source-url保留测试' })
+    mgr.addSource(nb.id, { name: '网页来源', type: 'web', url: 'https://example.com' })
+
+    const removed = mgr.sanitizeSources(nb.id)
+    const sources = mgr.listSources(nb.id)
+    expect(removed).toBe(0)
+    expect(sources).toHaveLength(1)
+    expect(sources[0].url).toBe('https://example.com')
+  })
+
+  it('sanitizeSources: 删除指向不存在文件的来源索引', () => {
+    const nb = mgr.create({ name: 'source清理测试' })
+    mgr.addSource(nb.id, { name: '有效来源', type: 'markdown', path: 'sources/markdown/valid.md' })
+    mgr.addSource(nb.id, { name: '失效来源', type: 'markdown', path: 'sources/markdown/missing.md' })
+    fs.mkdirSync(path.join(nb.notebookPath, 'sources', 'markdown'), { recursive: true })
+    fs.writeFileSync(path.join(nb.notebookPath, 'sources/markdown/valid.md'), '# ok')
+
+    const removed = mgr.sanitizeSources(nb.id)
+    const sources = mgr.listSources(nb.id)
+    expect(removed).toBe(1)
+    expect(sources).toHaveLength(1)
+    expect(sources[0].name).toBe('有效来源')
+  })
+
   it('updateSource: 不存在时抛出错误', () => {
     const nb = mgr.create({ name: 'src错误' })
     expect(() => mgr.updateSource(nb.id, 'src-notexist', {})).toThrow('来源不存在')
@@ -282,6 +307,31 @@ describe('NotebookManager', () => {
     expect(second.type).toBe('fromchat')
     expect(second.status).toBe('done')
     expect(fs.readFileSync(path.join(nb.notebookPath, second.path), 'utf-8')).toBe('# second')
+  })
+
+  it('sanitizeIndexes: 同时清理失效来源与成果索引，并保留生成中的成果', () => {
+    const nb = mgr.create({ name: '统一整理测试' })
+    mgr.addSource(nb.id, { name: '失效来源', type: 'markdown', path: 'sources/markdown/missing.md' })
+    const missingAchievement = mgr.addAchievement(nb.id, {
+      name: '失效成果',
+      type: 'fromchat',
+      path: 'achievements/fromchat/missing.md'
+    })
+    mgr.updateAchievement(nb.id, missingAchievement.id, { status: 'done' })
+    mgr.addAchievement(nb.id, {
+      name: '生成中成果',
+      type: 'fromchat',
+      path: 'achievements/fromchat/generating.md'
+    })
+
+    const result = mgr.sanitizeIndexes(nb.id)
+    expect(result.success).toBe(true)
+    expect(result.sourcesRemoved).toBe(1)
+    expect(result.achievementsRemoved).toBe(1)
+    expect(mgr.listSources(nb.id)).toHaveLength(0)
+    const achievements = mgr.listAchievements(nb.id)
+    expect(achievements).toHaveLength(1)
+    expect(achievements[0].status).toBe('generating')
   })
 
   it('exportAchievement: 重名时自动重命名', () => {

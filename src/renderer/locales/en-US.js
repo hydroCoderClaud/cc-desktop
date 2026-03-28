@@ -1437,6 +1437,9 @@ export default {
       backToMain: 'Back to main',
       openDir: 'Open directory',
       closeNotebook: 'Close notebook',
+      cleanup: 'Cleanup',
+      cleanupSuccess: 'Cleanup complete: removed {sources} source indexes and {achievements} achievement indexes',
+      cleanupFailed: 'Cleanup failed: {error}'
     },
     source: {
       title: 'Sources',

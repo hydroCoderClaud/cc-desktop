@@ -88,28 +88,39 @@
         <Icon name="plus" :size="16" />
         <span>{{ t('notebook.nav.createNotebook') }}</span>
       </button>
-      <button class="nav-btn" :title="t('notebook.nav.share')">
-        <Icon name="link" :size="16" />
-        <span>{{ t('notebook.nav.share') }}</span>
+      <button
+        class="nav-btn"
+        :class="{ disabled: !currentNotebook }"
+        :disabled="!currentNotebook"
+        :title="t('notebook.nav.closeNotebook')"
+        @click="handleCloseNotebook"
+      >
+        <Icon name="close" :size="16" />
+        <span>{{ t('common.close') }}</span>
       </button>
-      <button class="nav-btn" :title="t('notebook.nav.settings')">
-        <Icon name="settings" :size="16" />
-        <span>{{ t('notebook.nav.settings') }}</span>
+      <button
+        class="nav-btn"
+        :class="{ disabled: !currentNotebook }"
+        :disabled="!currentNotebook"
+        :title="t('notebook.nav.cleanup')"
+        @click="handleCleanupIndexes"
+      >
+        <Icon name="refresh" :size="16" />
+        <span>{{ t('notebook.nav.cleanup') }}</span>
       </button>
-      <button class="nav-btn" :title="t('notebook.nav.apps')">
-        <Icon name="grip" :size="16" />
-        <span>{{ t('notebook.nav.apps') }}</span>
-      </button>
-      <div class="user-avatar">
-        <Icon name="user" :size="20" />
-      </div>
+      <n-dropdown :options="settingsOptions" :render-label="renderSettingsLabel" @select="handleSettingsSelect">
+        <button class="nav-btn" :title="t('notebook.nav.settings')">
+          <Icon name="settings" :size="16" />
+          <span>{{ t('notebook.nav.settings') }}</span>
+        </button>
+      </n-dropdown>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed, h } from 'vue'
+import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useAppMode } from '@composables/useAppMode'
@@ -120,7 +131,7 @@ const props = defineProps({
   primaryGhost: { type: String, default: '#e8f4ff' }
 })
 
-const emit = defineEmits(['create', 'switch', 'close', 'renamed', 'deleted'])
+const emit = defineEmits(['create', 'switch', 'close', 'cleanup', 'renamed', 'deleted'])
 
 const message = useMessage()
 const dialog = useDialog()
@@ -228,9 +239,57 @@ const openNotebookDir = (nb) => {
   }
 }
 
+const renderMenuIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
+
+const settingsOptions = computed(() => [
+  { label: t('settingsMenu.apiConfig'), key: 'api-config', icon: renderMenuIcon('key') },
+  { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
+  { label: t('settingsMenu.dingtalkBridge'), key: 'dingtalk-settings', icon: renderMenuIcon('robot') },
+  { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
+  { type: 'divider', key: 'd1' },
+  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
+  { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
+  { label: t('settingsMenu.appUpdate'), key: 'app-update', icon: renderMenuIcon('download') }
+])
+
+const renderSettingsLabel = (option) => (typeof option.label === 'function' ? option.label() : option.label)
+
+const handleSettingsSelect = (key) => {
+  if (!window.electronAPI) return
+
+  switch (key) {
+    case 'api-config':
+      window.electronAPI.openProfileManager()
+      break
+    case 'provider-manager':
+      window.electronAPI.openProviderManager()
+      break
+    case 'global-settings':
+      window.electronAPI.openGlobalSettings()
+      break
+    case 'appearance-settings':
+      window.electronAPI.openAppearanceSettings()
+      break
+    case 'session-history':
+      window.electronAPI.openSessionManager()
+      break
+    case 'dingtalk-settings':
+      window.electronAPI.openDingTalkSettings()
+      break
+    case 'app-update':
+      window.electronAPI.openUpdateManager()
+      break
+  }
+}
+
 const handleCloseNotebook = () => {
   showNotebookDropdown.value = false
   emit('close')
+}
+
+const handleCleanupIndexes = () => {
+  showNotebookDropdown.value = false
+  emit('cleanup')
 }
 
 const confirmDelete = (nb) => {
@@ -486,17 +545,12 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
 
 .nav-btn:hover { background: var(--border-color); }
 
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-  margin-left: 8px;
-  border: 2px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.nav-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nav-btn.disabled:hover {
   background: var(--hover-bg);
-  color: var(--text-color-muted);
 }
 </style>

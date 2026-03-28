@@ -40,7 +40,7 @@ const notebookAchievementMixin = {
    * - 成果文件不存在的记录 → 删除索引
    * 在 get() 打开笔记本时自动调用
    */
-  sanitizeAchievements(notebookId) {
+  sanitizeAchievements(notebookId, { removeGenerating = true } = {}) {
     const indexPath = this._achievementIndexPath(notebookId)
     const data = this._readJson(indexPath)
     const notebookPath = this._getNotebookPath(notebookId)
@@ -52,8 +52,10 @@ const notebookAchievementMixin = {
 
       // 1. 删除所有 generating 状态的记录（打开时不可能有正在生成的）
       if (ach.status === 'generating') {
-        shouldDelete = true
-        reason = 'stale generating status'
+        if (removeGenerating) {
+          shouldDelete = true
+          reason = 'stale generating status'
+        }
       }
       // 2. 检查成果文件是否存在
       else if (ach.path) {
@@ -79,6 +81,8 @@ const notebookAchievementMixin = {
       this._writeJsonAtomic(indexPath, data)
       console.log(`[NotebookManager] sanitizeAchievements: removed ${toDelete.length} invalid achievements for ${notebookId}`)
     }
+
+    return toDelete.length
   },
 
   /**

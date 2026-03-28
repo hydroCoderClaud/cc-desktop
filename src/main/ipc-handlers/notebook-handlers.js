@@ -289,6 +289,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:sanitizeIndexes', async (_e, notebookId) => {
+    try {
+      return notebookManager.sanitizeIndexes(notebookId)
+    } catch (err) {
+      console.error('[IPC] notebook:sanitizeIndexes error:', err)
+      throw err
+    }
+  })
+
   // ─── Tools (Scenario Tools) ────────────────────────────────────────────────
   ipcMain.handle('notebook:listTools', async () => {
     try {
