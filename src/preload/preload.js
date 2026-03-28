@@ -791,6 +791,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookSaveChatMarkdownToAchievement: ({ notebookId, filename, content, sourceIds }) => ipcRenderer.invoke('notebook:saveChatMarkdownToAchievement', { notebookId, filename, content, sourceIds }),
   notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
   notebookSanitizeIndexes: (notebookId) => ipcRenderer.invoke('notebook:sanitizeIndexes', notebookId),
+  notebookAddPathToSource: ({ notebookId, filePath, preferredName }) => ipcRenderer.invoke('notebook:addPathToSource', { notebookId, filePath, preferredName }),
+  notebookAddPathToAchievement: ({ notebookId, filePath, preferredName }) => ipcRenderer.invoke('notebook:addPathToAchievement', { notebookId, filePath, preferredName }),
+  notebookExportSource: ({ notebookId, sourceId, targetDir }) => ipcRenderer.invoke('notebook:exportSource', { notebookId, sourceId, targetDir }),
 
   // Notebook Tools
   notebookListTools: () => ipcRenderer.invoke('notebook:listTools'),

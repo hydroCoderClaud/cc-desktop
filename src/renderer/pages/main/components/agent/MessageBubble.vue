@@ -16,6 +16,7 @@
             :key="index"
             class="bubble-image-item"
             @click="handleImageClick(img)"
+            @contextmenu.prevent.stop="handleImageContextMenu($event, img)"
           >
             <img
               :src="`data:${img.mediaType};base64,${img.base64}`"
@@ -104,7 +105,9 @@ const emit = defineEmits([
   'save-image-to-source',
   'save-image-to-achievement',
   'copy-content-to-source',
-  'copy-content-to-achievement'
+  'copy-content-to-achievement',
+  'add-path-to-source',
+  'add-path-to-achievement'
 ])
 
 const bodyRef = ref(null)
@@ -420,18 +423,69 @@ const handleImageClick = (img) => {
   })
 }
 
+const buildImagePreviewPayload = (img) => ({
+  dataUrl: `data:${img.mediaType};base64,${img.base64}`,
+  message: props.message,
+  filename: img.fileName || 'image.png'
+})
+
 /**
  * 右键菜单
  */
 const contextMenuRef = ref(null)
 const contextMenuItems = ref([])
+const contextMenuPath = ref(null)
+const contextMenuImageData = ref(null)
 
-const handleContextMenu = (event) => {
+const handleImageContextMenu = (event, img) => {
+  if (!isNotebookMode.value) {
+    handleContextMenu(event)
+    return
+  }
+
+  contextMenuPath.value = null
+  contextMenuImageData.value = buildImagePreviewPayload(img)
+  contextMenuItems.value = [
+    { key: 'save-image-to-source', label: t('notebook.chat.saveImageToSource') },
+    { key: 'save-image-to-achievement', label: t('notebook.chat.saveImageToAchievement') }
+  ]
+  contextMenuRef.value.show(event.clientX, event.clientY)
+}
+
+const handleContextMenu = async (event) => {
   const sel = window.getSelection()?.toString() || ''
+  const link = event.target?.closest?.('.clickable-link')
+  const linkType = link?.dataset?.linkType
+  const linkHref = link?.dataset?.href
+  contextMenuPath.value = null
+  contextMenuImageData.value = null
   const items = [
     { key: 'copy-selection', label: t('agent.copySelection'), disabled: !sel },
     { key: 'copy-content', label: t('agent.copyContent') }
   ]
+
+  if (isNotebookMode.value && linkType === 'path' && linkHref) {
+    const resolvedPath = await normalizePathForAction(linkHref)
+    const sessionId = props.message?.sessionId || props.message?.conversationId || props.message?.conversation_id
+    try {
+      const fileData = await window.electronAPI.readAbsolutePath({
+        filePath: resolvedPath,
+        sessionId,
+        confirmed: true
+      })
+
+      if (!fileData?.error && fileData?.type !== 'directory') {
+        contextMenuPath.value = fileData.path || fileData.filePath || resolvedPath
+        items.push(
+          { key: 'add-path-to-source', label: t('notebook.chat.addLinkToSource') },
+          { key: 'add-path-to-achievement', label: t('notebook.chat.addLinkToAchievement') }
+        )
+      }
+    } catch {
+      contextMenuPath.value = null
+    }
+  }
+
   if (props.message.role === 'assistant') {
     if (isNotebookMode.value) {
       items.push(
@@ -456,13 +510,28 @@ const onContextMenuSelect = async (key) => {
   } else if (key === 'save-as-image') {
     await saveAsImage()
   } else if (key === 'save-image-to-source') {
-    await emitNotebookImageAction('save-image-to-source')
+    if (contextMenuImageData.value) {
+      emit('save-image-to-source', contextMenuImageData.value)
+    } else {
+      await emitNotebookImageAction('save-image-to-source')
+    }
   } else if (key === 'save-image-to-achievement') {
-    await emitNotebookImageAction('save-image-to-achievement')
+    if (contextMenuImageData.value) {
+      emit('save-image-to-achievement', contextMenuImageData.value)
+    } else {
+      await emitNotebookImageAction('save-image-to-achievement')
+    }
   } else if (key === 'copy-content-to-source') {
     await copyContentToSource()
   } else if (key === 'copy-content-to-achievement') {
     await copyContentToAchievement()
+  } else if (key === 'add-path-to-source' || key === 'add-path-to-achievement') {
+    if (!contextMenuPath.value) return
+    const resolvedPath = await normalizePathForAction(contextMenuPath.value)
+    emit(key === 'add-path-to-source' ? 'add-path-to-source' : 'add-path-to-achievement', {
+      filePath: resolvedPath,
+      message: props.message
+    })
   }
 }
 

@@ -93,14 +93,21 @@
               <Icon :name="getSourceIcon(source.type)" :size="20" :color="getSourceColor(source.type)" />
               <span class="source-name">{{ source.name }}</span>
             </div>
-            <label class="checkbox-label" @click.stop>
-              <input 
-                type="checkbox" 
-                :checked="source.selected" 
-                @change="$emit('update-source', source.id, { selected: $event.target.checked })"
-              />
-              <span class="checkmark"></span>
-            </label>
+            <div class="source-right">
+              <n-dropdown :options="getSourceMenuOptions(source)" trigger="click" @select="(key) => handleSourceMenuSelect(key, source)">
+                <button class="action-icon-btn" @click.stop>
+                  <Icon name="moreHorizontal" :size="16" />
+                </button>
+              </n-dropdown>
+              <label class="checkbox-label" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="source.selected"
+                  @change="$emit('update-source', source.id, { selected: $event.target.checked })"
+                />
+                <span class="checkmark"></span>
+              </label>
+            </div>
           </div>
         </div>
       </template>
@@ -139,6 +146,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
@@ -151,7 +159,19 @@ const props = defineProps({
   notebookPath: { type: String, default: '' },
   notebookId: { type: String, default: null }
 })
-defineEmits(['add-source', 'toggle-select-all', 'invert-selection', 'open-external', 'delete-sources', 'update-source', 'toggle-copy-source-files'])
+const emit = defineEmits([
+  'add-source',
+  'toggle-select-all',
+  'invert-selection',
+  'open-external',
+  'delete-sources',
+  'update-source',
+  'toggle-copy-source-files',
+  'rename-source',
+  'export-source',
+  'add-to-achievement',
+  'delete-source'
+])
 
 const { t } = useLocale()
 const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout()
@@ -159,6 +179,20 @@ const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayo
 const expandedSource = ref(null)
 
 const selectedIds = computed(() => props.sources.filter(s => s.selected).map(s => s.id))
+
+const getSourceMenuOptions = (source) => ([
+  { label: t('common.rename'), key: 'rename' },
+  { label: t('notebook.source.addToAchievement'), key: 'add-to-achievement', disabled: !source.path },
+  { label: t('notebook.source.export'), key: 'export', disabled: !source.path },
+  { label: t('common.delete'), key: 'delete' }
+])
+
+const handleSourceMenuSelect = (key, source) => {
+  if (key === 'rename') emit('rename-source', source)
+  if (key === 'add-to-achievement') emit('add-to-achievement', source)
+  if (key === 'export') emit('export-source', source)
+  if (key === 'delete') emit('delete-source', source)
+}
 
 const openDetail = (source) => {
   expandedSource.value = source
@@ -404,6 +438,31 @@ const getSourceColor = (type) => {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+}
+
+.source-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.action-icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
 }
 
 .source-name {

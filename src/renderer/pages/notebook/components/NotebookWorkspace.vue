@@ -28,6 +28,10 @@
         @open-external="handleOpenExternal"
         @delete-sources="handleDeleteSources"
         @toggle-copy-source-files="handleToggleCopySourceFiles"
+        @rename-source="handleRenameSource"
+        @export-source="handleExportSource"
+        @add-to-achievement="handleAddSourceToAchievement"
+        @delete-source="handleDeleteSource"
       />
 
       <div class="resize-handle" @mousedown="startResize('left', $event)"></div>
@@ -52,6 +56,8 @@
         @save-image-to-achievement="handleSaveChatImageToAchievement"
         @copy-content-to-source="handleCopyChatContentToSource"
         @copy-content-to-achievement="handleCopyChatContentToAchievement"
+        @add-path-to-source="handleAddPathToSource"
+        @add-path-to-achievement="handleAddPathToAchievement"
       />
       <!-- 无会话时显示引导 -->
       <div v-else class="empty-chat-panel">
@@ -93,6 +99,20 @@
         @open-external="handleOpenExternal"
         @open-market="showMarketModal = true"
       />
+    </div>
+
+    <div v-if="previewImageData" class="image-preview-backdrop" @click="closePreviewImage">
+      <div class="image-preview-drawer" @click.stop>
+        <div class="image-preview-header">
+          <span class="image-preview-title">{{ previewImageData.name }}</span>
+          <button class="image-preview-close" @click="closePreviewImage" :title="t('common.close')">
+            <Icon name="close" :size="16" />
+          </button>
+        </div>
+        <div class="image-preview-body">
+          <ImageRenderer :content="previewImageData.content" :name="previewImageData.name" />
+        </div>
+      </div>
     </div>
 
     <!-- 新建笔记本弹窗 -->
@@ -152,6 +172,7 @@ import NotebookCreateModal from './NotebookCreateModal.vue'
 import ToolConfigModal from './ToolConfigModal.vue'
 import PromptEditModal from './PromptEditModal.vue'
 import NotebookMarketModal from './NotebookMarketModal.vue'
+import ImageRenderer from './renderers/ImageRenderer.vue'
 import McpEnvConfigModal from '../../main/components/RightPanel/tabs/skills/McpEnvConfigModal.vue'
 
 const message = useMessage()
@@ -166,6 +187,7 @@ const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4
 const chatPanelRef = ref(null)
 const activeGenerationAchievementId = ref(null)
 const activeGenerationToken = ref(0)
+const previewImageData = ref(null)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
@@ -302,12 +324,12 @@ const refreshSources = async () => {
 
 const getSelectedSourceIdsForChat = () => selectedSources.value.map(s => s.id)
 
-const handleSaveChatImageToSource = async ({ dataUrl, message: chatMessage } = {}) => {
+const handleSaveChatImageToSource = async ({ dataUrl, message: chatMessage, filename } = {}) => {
   if (!currentNotebook.value?.id) return
   try {
     await window.electronAPI.notebookSaveChatImageToSource({
       notebookId: currentNotebook.value.id,
-      filename: buildChatAssetName(chatMessage, 'chat-image'),
+      filename: filename || buildChatAssetName(chatMessage, 'chat-image'),
       dataUrl
     })
     await refreshSources()
@@ -318,12 +340,12 @@ const handleSaveChatImageToSource = async ({ dataUrl, message: chatMessage } = {
   }
 }
 
-const handleSaveChatImageToAchievement = async ({ dataUrl, message: chatMessage } = {}) => {
+const handleSaveChatImageToAchievement = async ({ dataUrl, message: chatMessage, filename } = {}) => {
   if (!currentNotebook.value?.id) return
   try {
     await window.electronAPI.notebookSaveChatImageToAchievement({
       notebookId: currentNotebook.value.id,
-      filename: buildChatAssetName(chatMessage, 'chat-image'),
+      filename: filename || buildChatAssetName(chatMessage, 'chat-image'),
       dataUrl,
       sourceIds: getSelectedSourceIdsForChat()
     })
@@ -365,6 +387,36 @@ const handleCopyChatContentToAchievement = async ({ content, message: chatMessag
   } catch (err) {
     console.error('[Notebook] Failed to copy chat content to achievement:', err)
     message.error(t('notebook.chat.copyContentToAchievementFailed', { error: err.message }))
+  }
+}
+
+const handleAddPathToSource = async ({ filePath } = {}) => {
+  if (!currentNotebook.value?.id || !filePath) return
+  try {
+    await window.electronAPI.notebookAddPathToSource({
+      notebookId: currentNotebook.value.id,
+      filePath
+    })
+    await refreshSources()
+    message.success(t('notebook.chat.addLinkToSourceSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to add linked file to source:', err)
+    message.error(t('notebook.chat.addLinkToSourceFailed', { error: err.message }))
+  }
+}
+
+const handleAddPathToAchievement = async ({ filePath } = {}) => {
+  if (!currentNotebook.value?.id || !filePath) return
+  try {
+    await window.electronAPI.notebookAddPathToAchievement({
+      notebookId: currentNotebook.value.id,
+      filePath
+    })
+    await refreshAchievements()
+    message.success(t('notebook.chat.addLinkToAchievementSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to add linked file to achievement:', err)
+    message.error(t('notebook.chat.addLinkToAchievementFailed', { error: err.message }))
   }
 }
 
@@ -712,7 +764,7 @@ const handleAddSource = async () => {
 
 const handleOpenExternal = async (source) => {
   if (!source) return
-  
+
   // 1. 如果是网页链接
   if (source.url) {
     window.electronAPI.openExternal(source.url).catch(() => {})
@@ -730,6 +782,78 @@ const handleOpenExternal = async (source) => {
     }
   } else {
     message.warning(t('messages.loadFailed'))
+  }
+}
+
+const resolveSourceAbsolutePath = async (source) => {
+  if (!source?.path) throw new Error('该来源没有可用文件路径')
+  if (!currentNotebook.value?.notebookPath) throw new Error('当前笔记本路径不存在')
+  return window.electronAPI.resolvePath(currentNotebook.value.notebookPath, source.path)
+}
+
+const handleRenameSource = (source) => {
+  if (!currentNotebook.value || !source?.id) return
+  const nextName = ref(source.name || '')
+  dialog.create({
+    title: t('common.rename'),
+    content: () => h(NInput, {
+      value: nextName.value,
+      placeholder: t('common.rename'),
+      onUpdateValue: (value) => { nextName.value = value }
+    }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      const trimmed = nextName.value.trim()
+      if (!trimmed || trimmed === source.name) return
+      try {
+        await handleUpdateSource(source.id, { name: trimmed })
+        message.success(t('common.saveSuccess'))
+      } catch (err) {
+        console.error('[Notebook] Rename source failed:', err)
+        message.error(t('common.saveFailed'))
+      }
+    }
+  })
+}
+
+const handleDeleteSource = async (source) => {
+  if (!source?.id) return
+  await handleDeleteSources([source.id])
+}
+
+const handleExportSource = async (source) => {
+  if (!currentNotebook.value?.id || !source?.id) return
+  try {
+    const targetDir = await window.electronAPI.selectFolder()
+    if (!targetDir) return
+    const result = await window.electronAPI.notebookExportSource({
+      notebookId: currentNotebook.value.id,
+      sourceId: source.id,
+      targetDir
+    })
+    const exportedName = result?.path ? result.path.split(/[/\\]/).pop() : ''
+    message.success(exportedName ? `${t('notebook.source.exportSuccess')}: ${exportedName}` : t('notebook.source.exportSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to export source:', err)
+    message.error(t('notebook.source.exportFailed', { error: err.message }))
+  }
+}
+
+const handleAddSourceToAchievement = async (source) => {
+  if (!currentNotebook.value?.id || !source) return
+  try {
+    const filePath = await resolveSourceAbsolutePath(source)
+    await window.electronAPI.notebookAddPathToAchievement({
+      notebookId: currentNotebook.value.id,
+      filePath,
+      preferredName: source.name
+    })
+    await refreshAchievements()
+    message.success(t('notebook.source.addToAchievementSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to add source to achievement:', err)
+    message.error(t('notebook.source.addToAchievementFailed', { error: err.message }))
   }
 }
 
@@ -918,7 +1042,7 @@ const handleDeleteAchievements = async (achievementIds) => {
   if (!currentNotebook.value || !achievementIds.length) return
   dialog.warning({
     title: t('common.delete'),
-    content: t('messages.confirmDelete'),
+    content: t('notebook.studio.deleteConfirmPhysical'),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
@@ -1119,7 +1243,15 @@ const handleAgentCancelled = async (payload = {}) => {
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────
+const closePreviewImage = () => {
+  previewImageData.value = null
+}
+
 const handlePreviewImage = (previewData) => {
+  if (previewData?.content) {
+    previewImageData.value = previewData
+    return
+  }
   if (previewData?.path) window.electronAPI.openPath(previewData.path).catch(() => {})
 }
 
@@ -1175,6 +1307,63 @@ const handlePreviewPath = async (filePath) => {
 }
 
 .resize-handle:hover { background: transparent; }
+
+.image-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.image-preview-drawer {
+  width: min(42vw, 720px);
+  height: 100%;
+  background: var(--bg-color-secondary);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.image-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.image-preview-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-preview-close {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-color-muted);
+  cursor: pointer;
+}
+
+.image-preview-close:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.image-preview-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
+}
 
 .empty-chat-panel {
   flex: 1;

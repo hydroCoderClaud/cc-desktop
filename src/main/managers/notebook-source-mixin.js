@@ -166,7 +166,7 @@ const notebookSourceMixin = {
     }
 
     return this.addSource(notebookId, {
-      name: copyFiles ? targetFileName : fileName,
+      name: options.preferredName || (copyFiles ? targetFileName : fileName),
       type: detectedType,
       path: storedPath,
       summary
@@ -205,7 +205,44 @@ const notebookSourceMixin = {
       throw new Error(`成果文件不存在：${absPath}`)
     }
 
-    return this.importFile(notebookId, absPath, undefined, { forceCopy: true })
+    return this.importFile(notebookId, absPath, undefined, { forceCopy: true, preferredName: achievement.name })
+  },
+
+  async addPathToSource(notebookId, filePath, options = {}) {
+    if (!filePath || !fs.existsSync(filePath)) {
+      throw new Error(`文件不存在：${filePath}`)
+    }
+    return this.importFile(notebookId, filePath, undefined, { forceCopy: true, preferredName: options.preferredName })
+  },
+
+  exportSource(notebookId, sourceId, targetDir) {
+    if (!targetDir) throw new Error('目标目录不能为空')
+    if (!fs.existsSync(targetDir)) throw new Error(`目标目录不存在：${targetDir}`)
+
+    const source = this.listSources(notebookId).find(s => s.id === sourceId)
+    if (!source) throw new Error(`来源不存在：${sourceId}`)
+    if (!source.path) throw new Error('该来源没有可导出的文件路径')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.isAbsolute(source.path)
+      ? source.path
+      : path.join(notebookPath, source.path)
+
+    if (!fs.existsSync(absPath)) {
+      throw new Error(`来源文件不存在：${absPath}`)
+    }
+
+    const parsedName = path.parse(path.basename(absPath))
+    let targetFileName = `${parsedName.name}${parsedName.ext}`
+    let counter = 1
+    while (fs.existsSync(path.join(targetDir, targetFileName))) {
+      targetFileName = `${parsedName.name}_${counter}${parsedName.ext}`
+      counter++
+    }
+
+    const finalPath = path.join(targetDir, targetFileName)
+    fs.copyFileSync(absPath, finalPath)
+    return { success: true, path: finalPath }
   },
 
   /**

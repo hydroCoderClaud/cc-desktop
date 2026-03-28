@@ -254,6 +254,7 @@ describe('NotebookManager', () => {
     mgr.updateAchievement(nb.id, ach.id, { status: 'done' })
 
     const src = await mgr.addAchievementToSource(nb.id, ach.id)
+    expect(src.name).toBe('图片成果')
     expect(src.type).toBe('image')
     expect(src.path).toBe('sources/image/generate-image-1.png')
     expect(fs.existsSync(path.join(nb.notebookPath, src.path))).toBe(true)
@@ -309,6 +310,44 @@ describe('NotebookManager', () => {
     expect(fs.readFileSync(path.join(nb.notebookPath, second.path), 'utf-8')).toBe('# second')
   })
 
+  it('addPathToSource: 复制外部文件到 sources 并写入索引', async () => {
+    const nb = mgr.create({ name: '路径添加到来源' })
+    const tmpFile = path.join(os.tmpdir(), `notebook-add-path-source-${Date.now()}.txt`)
+    fs.writeFileSync(tmpFile, 'path-source-content')
+
+    const source = await mgr.addPathToSource(nb.id, tmpFile)
+    expect(source.path.startsWith('sources/')).toBe(true)
+    expect(fs.readFileSync(path.join(nb.notebookPath, source.path), 'utf-8')).toBe('path-source-content')
+  })
+
+  it('addPathToAchievement: 复制外部文件到 achievements/fromchat 并写入 done 索引', () => {
+    const nb = mgr.create({ name: '路径添加到成果' })
+    const tmpFile = path.join(os.tmpdir(), `notebook-add-path-achievement-${Date.now()}.txt`)
+    fs.writeFileSync(tmpFile, 'path-achievement-content')
+
+    const achievement = mgr.addPathToAchievement(nb.id, tmpFile, { preferredName: '自定义成果名' })
+    expect(achievement.name).toBe('自定义成果名')
+    expect(achievement.type).toBe('fromchat')
+    expect(achievement.status).toBe('done')
+    expect(achievement.path).toBe('achievements/fromchat/' + path.basename(tmpFile))
+    expect(fs.readFileSync(path.join(nb.notebookPath, achievement.path), 'utf-8')).toBe('path-achievement-content')
+  })
+
+  it('addPathToAchievement: 目录路径应报错', () => {
+    const nb = mgr.create({ name: '路径目录成果报错' })
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notebook-add-path-dir-'))
+
+    expect(() => mgr.addPathToAchievement(nb.id, tmpDir)).toThrow('暂不支持添加目录到成果')
+  })
+
+  it('addPathToSource / addPathToAchievement: 文件不存在应报错', async () => {
+    const nb = mgr.create({ name: '路径不存在报错' })
+    const missingPath = path.join(os.tmpdir(), `notebook-missing-${Date.now()}.txt`)
+
+    await expect(mgr.addPathToSource(nb.id, missingPath)).rejects.toThrow(`文件不存在：${missingPath}`)
+    expect(() => mgr.addPathToAchievement(nb.id, missingPath)).toThrow(`文件不存在：${missingPath}`)
+  })
+
   it('sanitizeIndexes: 同时清理失效来源与成果索引，并保留生成中的成果', () => {
     const nb = mgr.create({ name: '统一整理测试' })
     mgr.addSource(nb.id, { name: '失效来源', type: 'markdown', path: 'sources/markdown/missing.md' })
@@ -332,6 +371,26 @@ describe('NotebookManager', () => {
     const achievements = mgr.listAchievements(nb.id)
     expect(achievements).toHaveLength(1)
     expect(achievements[0].status).toBe('generating')
+  })
+
+  it('exportSource: 导出来源文件并自动避让重名', () => {
+    const nb = mgr.create({ name: '来源导出测试' })
+    const sourceDir = path.join(nb.notebookPath, 'sources', 'markdown')
+    fs.mkdirSync(sourceDir, { recursive: true })
+    fs.writeFileSync(path.join(sourceDir, 'notes.md'), '# source')
+    const source = mgr.addSource(nb.id, {
+      name: 'notes.md',
+      type: 'markdown',
+      path: 'sources/markdown/notes.md'
+    })
+
+    const exportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'source-export-'))
+    fs.writeFileSync(path.join(exportDir, 'notes.md'), 'existing')
+
+    const result = mgr.exportSource(nb.id, source.id, exportDir)
+    expect(result.success).toBe(true)
+    expect(path.basename(result.path)).toBe('notes_1.md')
+    expect(fs.readFileSync(result.path, 'utf-8')).toBe('# source')
   })
 
   it('exportAchievement: 重名时自动重命名', () => {

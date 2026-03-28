@@ -298,6 +298,33 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:addPathToSource', async (_e, { notebookId, filePath, preferredName }) => {
+    try {
+      return await notebookManager.addPathToSource(notebookId, filePath, { preferredName })
+    } catch (err) {
+      console.error('[IPC] notebook:addPathToSource error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:addPathToAchievement', async (_e, { notebookId, filePath, preferredName }) => {
+    try {
+      return notebookManager.addPathToAchievement(notebookId, filePath, { preferredName })
+    } catch (err) {
+      console.error('[IPC] notebook:addPathToAchievement error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:exportSource', async (_e, { notebookId, sourceId, targetDir }) => {
+    try {
+      return notebookManager.exportSource(notebookId, sourceId, targetDir)
+    } catch (err) {
+      console.error('[IPC] notebook:exportSource error:', err)
+      throw err
+    }
+  })
+
   // ─── Tools (Scenario Tools) ────────────────────────────────────────────────
   ipcMain.handle('notebook:listTools', async () => {
     try {

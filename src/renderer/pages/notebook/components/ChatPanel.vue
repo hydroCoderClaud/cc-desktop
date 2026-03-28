@@ -59,6 +59,8 @@
           @save-image-to-achievement="$emit('save-image-to-achievement', $event)"
           @copy-content-to-source="$emit('copy-content-to-source', $event)"
           @copy-content-to-achievement="$emit('copy-content-to-achievement', $event)"
+          @add-path-to-source="$emit('add-path-to-source', $event)"
+          @add-path-to-achievement="$emit('add-path-to-achievement', $event)"
         />
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
@@ -188,7 +190,9 @@ const emit = defineEmits([
   'save-image-to-source',
   'save-image-to-achievement',
   'copy-content-to-source',
-  'copy-content-to-achievement'
+  'copy-content-to-achievement',
+  'add-path-to-source',
+  'add-path-to-achievement'
 ])
 
 const {

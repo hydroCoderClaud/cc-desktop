@@ -180,6 +180,29 @@ const notebookAchievementMixin = {
     return this.updateAchievement(notebookId, achievement.id, { status: 'done', path: relPath, sourceIds })
   },
 
+  addPathToAchievement(notebookId, filePath, options = {}) {
+    if (!filePath || !fs.existsSync(filePath)) {
+      throw new Error(`文件不存在：${filePath}`)
+    }
+
+    const stats = fs.statSync(filePath)
+    if (stats.isDirectory()) {
+      throw new Error('暂不支持添加目录到成果')
+    }
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const targetDir = path.join(notebookPath, 'achievements', 'fromchat')
+    const { fileName } = this._saveNotebookAchievementBinaryFile(targetDir, path.basename(filePath), fs.readFileSync(filePath))
+
+    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const achievement = this.addAchievement(notebookId, {
+      name: options.preferredName || fileName,
+      type: 'fromchat',
+      path: relPath
+    })
+    return this.updateAchievement(notebookId, achievement.id, { status: 'done', path: relPath, name: options.preferredName || fileName })
+  },
+
   /**
    * 更新成果（status、path 等）
    */
