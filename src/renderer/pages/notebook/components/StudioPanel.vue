@@ -188,6 +188,7 @@ import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
+import { getAchievementIcon } from '../utils/helpers.js'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
 const props = defineProps({
@@ -239,24 +240,6 @@ const closeDetail = () => {
 }
 
 const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.types.' + typeId)
-
-const getAchievementIcon = (type) => {
-  const map = {
-    image: 'image',
-    video: 'video',
-    markdown: 'fileText',
-    pdf: 'file',
-    document: 'fileText',
-    code: 'globe',
-    web: 'globe',
-    text: 'fileText',
-    csv: 'table',
-    fromchat: 'fileText',
-    // 兼容老数据
-    audio: 'audio', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table'
-  }
-  return map[type] || 'fileText'
-}
 </script>
 
 <style>

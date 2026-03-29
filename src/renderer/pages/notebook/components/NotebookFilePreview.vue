@@ -147,6 +147,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
+import { getAchievementIcon, getAchievementColor } from '../utils/helpers.js'
 
 // Import Renderers
 import TextRenderer from './renderers/TextRenderer.vue'
@@ -319,16 +320,6 @@ watch(() => props.item.id, () => {
   saveSuccess.value = false
   loadContent()
 })
-
-const getAchievementIcon = (type) => {
-  const map = { audio: 'audio', video: 'video', report: 'fileText', presentation: 'presentation', mindmap: 'mindmap', flashcard: 'heart', quiz: 'clipboard', infographic: 'image', table: 'table', fromchat: 'fileText' }
-  return map[type] || 'fileText'
-}
-
-const getAchievementColor = (type) => {
-  const map = { audio: '#1976D2', video: '#388E3C', report: '#FFA000', presentation: '#F57C00', mindmap: '#7B1FA2', flashcard: '#C2185B', quiz: '#D84315', infographic: '#0097A7', table: '#512DA8', fromchat: '#5c6bc0' }
-  return map[type] || 'var(--text-color-muted)'
-}
 </script>
 
 <style>

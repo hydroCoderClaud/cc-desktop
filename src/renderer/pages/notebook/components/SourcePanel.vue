@@ -30,31 +30,6 @@
           </button>
         </div>
 
-        <!-- TODO: 网络搜索功能暂缓实现 -->
-        <!--
-        <div class="search-section">
-          <div class="search-box">
-            <Icon name="search" :size="18" class="search-icon" />
-            <input type="text" :placeholder="t('notebook.source.searchPlaceholder')" class="search-input" />
-          </div>
-          <div class="search-options">
-            <button class="option-btn">
-              <Icon name="globe" :size="14" />
-              <span>{{ t('notebook.source.web') }}</span>
-              <Icon name="chevronDown" :size="14" />
-            </button>
-            <button class="option-btn">
-              <Icon name="lightning" :size="14" />
-              <span>{{ t('notebook.source.fastResearch') }}</span>
-              <Icon name="chevronDown" :size="14" />
-            </button>
-            <button class="search-submit">
-              <Icon name="arrowRight" :size="16" />
-            </button>
-          </div>
-        </div>
-        -->
-
         <div class="select-all">
           <div class="select-all-left">
             <span class="select-all-label">{{ t('notebook.source.selectAll') }}</span>
@@ -150,6 +125,7 @@ import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
+import { getSourceIcon, getSourceColor } from '../utils/helpers.js'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
 const props = defineProps({
@@ -213,28 +189,6 @@ const getSourceAbsPath = (source) => {
   // 复制模式：path 是相对路径，拼接 notebookPath
   if (props.notebookPath) return props.notebookPath + '/' + source.path
   return source.path
-}
-
-const getSourceIcon = (type) => {
-  const map = {
-    document: 'fileText', spreadsheet: 'table', presentation: 'presentation',
-    markdown: 'fileText', web: 'globe', code: 'file', data: 'file',
-    image: 'image', audio: 'audio', video: 'video', other: 'file',
-    // 兼容旧记录
-    pdf: 'file', text: 'file'
-  }
-  return map[type] || 'file'
-}
-
-const getSourceColor = (type) => {
-  const map = {
-    document: '#e53935', spreadsheet: '#2da44e', presentation: '#F57C00',
-    markdown: '#2da44e', web: 'var(--text-color-muted)', code: '#0366d6', data: '#0097A7',
-    image: '#e85d2a', audio: '#7B1FA2', video: '#388E3C', other: 'var(--text-color-muted)',
-    // 兼容旧记录
-    pdf: '#dc3545', text: 'var(--text-color-muted)'
-  }
-  return map[type] || 'var(--text-color-muted)'
 }
 </script>
 
