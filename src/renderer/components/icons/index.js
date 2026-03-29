@@ -42,8 +42,8 @@ export const iconPaths = {
   fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
   // 图片图标
   image: '<rect x="3" y="3" width="14" height="14" rx="2"/><circle cx="7.5" cy="7.5" r="1.5"/><path d="M17 13l-5-5-7 7"/>',
-  // 视频图标（带播放按钮的矩形屏幕）
-  video: '<rect x="3" y="4" width="14" height="10" rx="2"/><path d="M8 9l4 2-4 2V9z"/>',
+  // 视频图标（电影胶片 + 播放按钮）
+  video: '<rect x="3" y="5" width="14" height="10" rx="1.5"/><path d="M9 8v4l4-2-4-2z"/><path d="M6 3v2M14 3v2M6 15v2M14 15v2"/>',
 
   // 终端类
   terminal: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>',
