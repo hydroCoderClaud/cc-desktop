@@ -6,27 +6,19 @@
 const fs = require('fs')
 const path = require('path')
 const { v4: uuidv4 } = require('uuid')
+const {
+  sanitizeChatBaseName,
+  buildChatTimestamp,
+  ensureUniqueNotebookFile,
+  saveNotebookBinaryFile,
+  saveNotebookTextFile
+} = require('../utils/notebook-helpers')
 
 const SOURCE_DIRS = [
   'document', 'spreadsheet', 'presentation',
   'markdown', 'web', 'code', 'data',
   'image', 'audio', 'video', 'other'
 ]
-
-function sanitizeChatBaseName(filename, fallback) {
-  const raw = (filename || '').trim()
-  const ext = path.extname(raw)
-  const base = ext ? raw.slice(0, -ext.length) : raw
-  const normalized = (base || fallback || 'chat')
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return normalized || fallback || 'chat'
-}
-
-function buildChatTimestamp() {
-  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-}
 
 /** 根据扩展名推断来源类型 */
 function detectSourceType(ext) {
@@ -276,32 +268,6 @@ const notebookSourceMixin = {
     return source
   },
 
-  _ensureUniqueNotebookFile(targetDir, fileName) {
-    const parsedName = path.parse(fileName)
-    let uniqueName = fileName
-    let counter = 1
-    while (fs.existsSync(path.join(targetDir, uniqueName))) {
-      uniqueName = `${parsedName.name}_${counter}${parsedName.ext}`
-      counter++
-    }
-    return uniqueName
-  },
-
-  _saveNotebookBinaryFile(targetDir, fileName, buffer) {
-    fs.mkdirSync(targetDir, { recursive: true })
-    const uniqueName = this._ensureUniqueNotebookFile(targetDir, fileName)
-    const finalPath = path.join(targetDir, uniqueName)
-    fs.writeFileSync(finalPath, buffer)
-    return { fileName: uniqueName, fullPath: finalPath }
-  },
-
-  _saveNotebookTextFile(targetDir, fileName, content) {
-    fs.mkdirSync(targetDir, { recursive: true })
-    const uniqueName = this._ensureUniqueNotebookFile(targetDir, fileName)
-    const finalPath = path.join(targetDir, uniqueName)
-    fs.writeFileSync(finalPath, content, 'utf-8')
-    return { fileName: uniqueName, fullPath: finalPath }
-  },
 
   async saveChatImageToSource(notebookId, { filename, dataUrl } = {}) {
     if (!dataUrl || typeof dataUrl !== 'string') throw new Error('图片数据不能为空')
@@ -310,7 +276,7 @@ const notebookSourceMixin = {
     const notebookPath = this._getNotebookPath(notebookId)
     const targetDir = path.join(notebookPath, 'sources', 'image')
     const baseName = sanitizeChatBaseName(filename, `chat-image-${buildChatTimestamp()}`)
-    const { fileName } = this._saveNotebookBinaryFile(
+    const { fileName } = saveNotebookBinaryFile(
       targetDir,
       `${baseName}.png`,
       Buffer.from(dataUrl.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, ''), 'base64')
@@ -329,7 +295,7 @@ const notebookSourceMixin = {
     const notebookPath = this._getNotebookPath(notebookId)
     const targetDir = path.join(notebookPath, 'sources', 'markdown')
     const baseName = sanitizeChatBaseName(filename, `chat-markdown-${buildChatTimestamp()}`)
-    const { fileName } = this._saveNotebookTextFile(targetDir, `${baseName}.md`, content)
+    const { fileName } = saveNotebookTextFile(targetDir, `${baseName}.md`, content)
 
     return this.addSource(notebookId, {
       name: fileName,
