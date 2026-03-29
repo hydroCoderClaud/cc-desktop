@@ -11,7 +11,8 @@ const {
   buildChatTimestamp,
   ensureUniqueNotebookFile,
   saveNotebookBinaryFile,
-  saveNotebookTextFile
+  saveNotebookTextFile,
+  normalizeNotebookPath
 } = require('../utils/notebook-helpers')
 
 const ACHIEVEMENT_DIRS = ['audio', 'video', 'report', 'presentation', 'mindmap', 'flashcard', 'quiz', 'infographic', 'table', 'fromchat']
@@ -118,7 +119,7 @@ const notebookAchievementMixin = {
       Buffer.from(dataUrl.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, ''), 'base64')
     )
 
-    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const relPath = normalizeNotebookPath(path.join('achievements', 'fromchat', fileName))
     const achievement = this.addAchievement(notebookId, {
       name: fileName,
       type: 'fromchat',
@@ -136,7 +137,7 @@ const notebookAchievementMixin = {
     const baseName = sanitizeChatBaseName(filename, `chat-markdown-${buildChatTimestamp()}`)
     const { fileName } = saveNotebookTextFile(targetDir, `${baseName}.md`, content)
 
-    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const relPath = normalizeNotebookPath(path.join('achievements', 'fromchat', fileName))
     const achievement = this.addAchievement(notebookId, {
       name: fileName,
       type: 'fromchat',
@@ -160,7 +161,7 @@ const notebookAchievementMixin = {
     const targetDir = path.join(notebookPath, 'achievements', 'fromchat')
     const { fileName } = saveNotebookBinaryFile(targetDir, path.basename(filePath), fs.readFileSync(filePath))
 
-    const relPath = path.join('achievements', 'fromchat', fileName).replace(/\\/g, '/')
+    const relPath = normalizeNotebookPath(path.join('achievements', 'fromchat', fileName))
     const achievement = this.addAchievement(notebookId, {
       name: options.preferredName || fileName,
       type: 'fromchat',

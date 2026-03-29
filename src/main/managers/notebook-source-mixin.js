@@ -11,7 +11,8 @@ const {
   buildChatTimestamp,
   ensureUniqueNotebookFile,
   saveNotebookBinaryFile,
-  saveNotebookTextFile
+  saveNotebookTextFile,
+  normalizeNotebookPath
 } = require('../utils/notebook-helpers')
 
 const SOURCE_DIRS = [
@@ -144,7 +145,7 @@ const notebookSourceMixin = {
       const targetPath = path.join(targetDir, targetFileName)
       fs.copyFileSync(filePath, targetPath)
 
-      storedPath = path.join(relDir, targetFileName).replace(/\\/g, '/')
+      storedPath = normalizeNotebookPath(path.join(relDir, targetFileName))
       summary = JSON.stringify({
         i18nKey: 'notebook.source.importInfoWithCopy',
         params: { path: filePath, time: new Date().toLocaleString(), currentPath: targetPath }
@@ -285,7 +286,7 @@ const notebookSourceMixin = {
     return this.addSource(notebookId, {
       name: fileName,
       type: 'image',
-      path: path.join('sources', 'image', fileName).replace(/\\/g, '/')
+      path: normalizeNotebookPath(path.join('sources', 'image', fileName))
     })
   },
 
@@ -300,7 +301,7 @@ const notebookSourceMixin = {
     return this.addSource(notebookId, {
       name: fileName,
       type: 'markdown',
-      path: path.join('sources', 'markdown', fileName).replace(/\\/g, '/')
+      path: normalizeNotebookPath(path.join('sources', 'markdown', fileName))
     })
   },
 

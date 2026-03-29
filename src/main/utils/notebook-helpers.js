@@ -88,10 +88,20 @@ function pathExists(dir, fileName) {
   return fs.existsSync(path.join(dir, fileName))
 }
 
+/**
+ * 标准化笔记本内部路径（统一使用 Unix 风格 / ）
+ * @param {string} p - 路径
+ * @returns {string} 标准化后的路径
+ */
+function normalizeNotebookPath(p) {
+  return p.replace(/\\/g, '/')
+}
+
 module.exports = {
   sanitizeChatBaseName,
   buildChatTimestamp,
   ensureUniqueNotebookFile,
   saveNotebookBinaryFile,
-  saveNotebookTextFile
+  saveNotebookTextFile,
+  normalizeNotebookPath
 }
