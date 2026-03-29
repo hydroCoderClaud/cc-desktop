@@ -5,6 +5,20 @@
 
 const fs = require('fs')
 const path = require('path')
+const iconv = require('iconv-lite')
+
+/**
+ * 检测文本是否包含常见乱码字符
+ */
+function containsMojibake(text) {
+  // 常见 GBK 被误读为 UTF-8 的乱码模式
+  const mojibakePatterns = [
+    /[\uFFFD]/,  // 替换字符
+    /[锟斤拷]/,   // 经典 UTF-8 误读
+    /[澶氱牬]/,  // 常见中文乱码开头
+  ]
+  return mojibakePatterns.some(p => p.test(text))
+}
 
 /**
  * 读取文件内容，根据扩展名返回对应的预览数据
@@ -83,7 +97,18 @@ async function readFileContent(fullPath) {
 
   // 默认作为文本读取
   try {
-    return { type: 'text', content: fs.readFileSync(fullPath, 'utf-8') }
+    // 先尝试 UTF-8 读取
+    const content = fs.readFileSync(fullPath, 'utf-8')
+
+    // 检测是否包含乱码
+    if (containsMojibake(content)) {
+      // 如果是乱码，尝试用 GBK 重新读取
+      const buffer = fs.readFileSync(fullPath)
+      const gbkContent = iconv.decode(buffer, 'gbk')
+      return { type: 'text', content: gbkContent }
+    }
+
+    return { type: 'text', content }
   } catch {
     return { type: 'binary', content: fullPath }
   }

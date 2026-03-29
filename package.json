@@ -38,6 +38,7 @@
     "electron-updater": "^6.7.3",
     "html2canvas": "^1.4.1",
     "https-proxy-agent": "^7.0.6",
+    "iconv-lite": "^0.7.2",
     "js-yaml": "^4.1.1",
     "katex": "^0.16.37",
     "mammoth": "^1.12.0",
