@@ -1168,7 +1168,21 @@ const handleAgentDone = async (payload = {}) => {
   if (ach.path) {
     const expectedAbs = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, ach.path)
     const normalizedExpectedAbs = normalize(expectedAbs)
-    const matched = normalizedFilePaths.some(fp => fp === normalizedExpectedAbs || fp.endsWith(normalize(ach.path)))
+
+    // 匹配逻辑：
+    // 1. 精确匹配绝对路径
+    // 2. 或者 MCP 输出的文件名与预期文件名匹配（basename 比较）
+    const expectedFileName = normalizedExpectedAbs.split('/').pop()
+    const matched = normalizedFilePaths.some(fp => {
+      // 精确匹配
+      if (fp === normalizedExpectedAbs) return true
+      // 文件名匹配（处理 MCP 输出到不同目录的场景）
+      const actualFileName = fp.split('/').pop()
+      if (actualFileName === expectedFileName) return true
+      // 或者路径包含预期的相对路径段
+      if (fp.endsWith(normalize(ach.path))) return true
+      return false
+    })
 
     if (matched) {
       try {
