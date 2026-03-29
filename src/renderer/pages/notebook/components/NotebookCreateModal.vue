@@ -137,13 +137,9 @@ const handleCreate = async () => {
   if (!name) { message.warning(t('notebook.nameRequired')); return }
 
   try {
-    // 如果用户选了自定义目录，先保存到 config
-    if (customBaseDir.value) {
-      await window.electronAPI.updateSettings({ notebook: { baseDir: customBaseDir.value } })
-    }
-
     const nb = await window.electronAPI.notebookCreate({
       name,
+      basePath: customBaseDir.value || null,
       apiProfileId: selectedProfileId.value || null
     })
     emit('created', nb)

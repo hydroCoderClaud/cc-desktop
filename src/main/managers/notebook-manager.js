@@ -58,9 +58,47 @@ class NotebookManager {
       : path.join(os.homedir(), 'cc-desktop-notebooks')
   }
 
+  /**
+   * 获取指定笔记本的基础目录（支持多目录）
+   * @param {string} notebookId
+   * @returns {string} basePath
+   */
+  _getNotebookBaseDir(notebookId) {
+    const entry = this._getRegistry().find(n => n.id === notebookId)
+    if (!entry) {
+      // 新笔记本尚未创建时，使用全局 baseDir
+      return this._getBaseDir()
+    }
+    // 优先使用 entry.basePath，兼容旧数据回退到全局 baseDir
+    if (entry.basePath) {
+      return entry.basePath.replace(/^~/, os.homedir())
+    }
+    return this._getBaseDir()
+  }
+
   _resolvePath(notebookPath) {
     if (path.isAbsolute(notebookPath)) return notebookPath
     return path.join(this._getBaseDir(), notebookPath)
+  }
+
+  /**
+   * 解析笔记本的完整路径（基于 basePath + path）
+   * @param {string} notebookId
+   * @param {{ basePath?: string, path: string }} entry - 注册表条目
+   * @returns {string} 绝对路径
+   */
+  _resolveNotebookPath(notebookId, entry) {
+    if (!entry) {
+      entry = this._getRegistry().find(n => n.id === notebookId)
+      if (!entry) throw new Error(`笔记本不存在：${notebookId}`)
+    }
+    // 如果有 basePath，直接拼接
+    if (entry.basePath) {
+      const basePath = entry.basePath.replace(/^~/, os.homedir())
+      return path.join(basePath, entry.path)
+    }
+    // 兼容旧数据：使用全局 baseDir
+    return this._resolvePath(entry.path)
   }
 
   _readJson(filePath) {
@@ -85,7 +123,7 @@ class NotebookManager {
   _getNotebookPath(notebookId) {
     const entry = this._getRegistry().find(n => n.id === notebookId)
     if (!entry) throw new Error(`笔记本不存在：${notebookId}`)
-    return this._resolvePath(entry.path)
+    return this._resolveNotebookPath(notebookId, entry)
   }
 
   // ─────────────────────────── config registry ─────────────────────────────
@@ -106,14 +144,16 @@ class NotebookManager {
 
   /**
    * 创建新笔记本（带事务保护）
-   * @param {{ name: string, path?: string, apiProfileId?: string }} options
+   * @param {{ name: string, path?: string, basePath?: string, apiProfileId?: string }} options
    */
-  create({ name, path: relPath, apiProfileId }) {
+  create({ name, path: relPath, basePath, apiProfileId }) {
     if (!name || !name.trim()) throw new Error('名称不能为空')
 
     const id = 'nb-' + uuidv4().replace(/-/g, '').slice(0, 8)
     const safeName = relPath || name.replace(/[\\/:*?"<>|]/g, '-').trim()
-    const notebookPath = path.join(this._getBaseDir(), safeName)
+    // 使用 basePath（如果有）或全局 baseDir
+    const actualBaseDir = basePath || this._getBaseDir()
+    const notebookPath = path.join(actualBaseDir, safeName)
 
     if (fs.existsSync(notebookPath)) throw new Error(`目录已存在：${notebookPath}`)
 
@@ -146,10 +186,10 @@ class NotebookManager {
       this._writeJson(path.join(notebookPath, 'achievements.json'), { version: '1.0', achievements: [] })
 
       const registry = this._getRegistry()
-      registry.push({ id, name, path: safeName })
+      registry.push({ id, name, path: safeName, basePath: actualBaseDir })
       this._saveRegistry(registry)
 
-      return { id, name, path: safeName, notebookPath, sessionId }
+      return { id, name, path: safeName, basePath: actualBaseDir, notebookPath, sessionId }
     } catch (err) {
       if (directoryCreated && fs.existsSync(notebookPath)) {
         try { fs.rmSync(notebookPath, { recursive: true, force: true }) } catch { /* ignore */ }
@@ -161,7 +201,7 @@ class NotebookManager {
   /** 列举所有笔记本（含元数据） */
   list() {
     return this._getRegistry().map(entry => {
-      const notebookPath = this._resolvePath(entry.path)
+      const notebookPath = this._resolveNotebookPath(null, entry)
       let meta = {}
       try { meta = this._readJson(path.join(notebookPath, 'notebook.json')) } catch { /* 目录缺失时仍返回注册信息 */ }
       return { ...entry, ...meta, notebookPath }
@@ -176,7 +216,7 @@ class NotebookManager {
   get(id, { sanitizeOnOpen = false } = {}) {
     const entry = this._getRegistry().find(n => n.id === id)
     if (!entry) throw new Error(`笔记本不存在：${id}`)
-    const notebookPath = this._resolvePath(entry.path)
+    const notebookPath = this._resolveNotebookPath(id, entry)
     const metaFile = path.join(notebookPath, 'notebook.json')
     const meta = this._readJson(metaFile)
 
@@ -215,7 +255,7 @@ class NotebookManager {
     if (idx === -1) throw new Error(`笔记本不存在：${id}`)
 
     const entry = registry[idx]
-    const notebookPath = this._resolvePath(entry.path)
+    const notebookPath = this._resolveNotebookPath(id, entry)
     const metaFile = path.join(notebookPath, 'notebook.json')
     const meta = this._readJson(metaFile)
     meta.name = newName
@@ -233,7 +273,7 @@ class NotebookManager {
     const idx = registry.findIndex(n => n.id === id)
     if (idx === -1) throw new Error(`笔记本不存在：${id}`)
 
-    const notebookPath = this._resolvePath(registry[idx].path)
+    const notebookPath = this._resolveNotebookPath(id, registry[idx])
     const registryBackup = [...registry]
 
     try {
@@ -283,7 +323,7 @@ class NotebookManager {
     const entry = this._getRegistry().find(n => n.id === id)
     if (!entry) throw new Error(`笔记本不存在：${id}`)
 
-    const notebookPath = this._resolvePath(entry.path)
+    const notebookPath = this._resolveNotebookPath(id, entry)
     const metaFile = path.join(notebookPath, 'notebook.json')
     const meta = this._readJson(metaFile)
 
