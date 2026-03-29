@@ -200,12 +200,61 @@ class NotebookManager {
 
   /** 列举所有笔记本（含元数据） */
   list() {
+    // 迁移：为旧笔记本自动设置 basePath
+    this._migrateLegacyNotebooks()
+
     return this._getRegistry().map(entry => {
       const notebookPath = this._resolveNotebookPath(null, entry)
       let meta = {}
       try { meta = this._readJson(path.join(notebookPath, 'notebook.json')) } catch { /* 目录缺失时仍返回注册信息 */ }
       return { ...entry, ...meta, notebookPath }
     })
+  }
+
+  /**
+   * 迁移旧笔记本记录：为没有 basePath 的笔记本自动设置 basePath
+   * 通过扫描笔记本目录中的 notebook.json 来确认实际存储位置
+   */
+  _migrateLegacyNotebooks() {
+    const registry = this._getRegistry()
+    let needsSave = false
+
+    for (const entry of registry) {
+      // 已有 basePath 的跳过
+      if (entry.basePath) continue
+
+      // 尝试在当前 baseDir 下查找
+      const baseDir = this._getBaseDir()
+      const expectedPath = path.join(baseDir, entry.path)
+      const notebookJsonPath = path.join(expectedPath, 'notebook.json')
+
+      if (fs.existsSync(notebookJsonPath)) {
+        // 在当前 baseDir 下找到，设置 basePath
+        entry.basePath = baseDir
+        needsSave = true
+        console.log(`[NotebookManager] Migrated legacy notebook: ${entry.name} → basePath=${baseDir}`)
+      } else {
+        // 不在当前 baseDir 下，尝试在用户常见目录中扫描
+        const searchDirs = [
+          path.join(os.homedir(), 'cc-desktop-notebooks'),
+          path.join(os.homedir(), 'Documents', 'cc-desktop-notebooks')
+        ]
+
+        for (const searchDir of searchDirs) {
+          const searchPath = path.join(searchDir, entry.path, 'notebook.json')
+          if (fs.existsSync(searchPath)) {
+            entry.basePath = searchDir
+            needsSave = true
+            console.log(`[NotebookManager] Migrated legacy notebook: ${entry.name} → basePath=${searchDir}`)
+            break
+          }
+        }
+      }
+    }
+
+    if (needsSave) {
+      this._saveRegistry(registry)
+    }
   }
 
   /**
