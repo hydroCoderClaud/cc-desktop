@@ -42,8 +42,8 @@ export const iconPaths = {
   fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
   // 图片图标
   image: '<rect x="3" y="3" width="14" height="14" rx="2"/><circle cx="7.5" cy="7.5" r="1.5"/><path d="M17 13l-5-5-7 7"/>',
-  // 视频图标（电影胶片条）
-  video: '<rect x="4" y="3" width="12" height="14" rx="1"/><path d="M7 3v14M13 3v14"/><path d="M7 6h2M7 9h2M7 12h2M13 6h2M13 9h2M13 12h2"/>',
+  // 视频图标（简洁播放三角）
+  video: '<path d="M6 4l10 6-10 6V4z"/>',
 
   // 终端类
   terminal: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>',
