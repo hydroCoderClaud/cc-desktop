@@ -102,7 +102,7 @@
     </div>
 
     <div v-if="previewImageData" class="image-preview-backdrop" @click="closePreviewImage">
-      <div class="image-preview-drawer" @click.stop>
+      <div class="image-preview-modal" @click.stop>
         <div class="image-preview-header">
           <span class="image-preview-title">{{ previewImageData.name }}</span>
           <button class="image-preview-close" @click="closePreviewImage" :title="t('common.close')">
@@ -1310,19 +1310,25 @@ const handlePreviewPath = async (filePath) => {
 .image-preview-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 1000;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
 }
 
-.image-preview-drawer {
-  width: min(42vw, 720px);
+.image-preview-modal {
+  width: 100%;
+  max-width: min(90vw, 1200px);
   height: 100%;
+  max-height: min(90vh, 800px);
   background: var(--bg-color-secondary);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .image-preview-header {
