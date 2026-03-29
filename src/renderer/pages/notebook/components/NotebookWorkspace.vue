@@ -1320,9 +1320,9 @@ const handlePreviewPath = async (filePath) => {
 
 .image-preview-modal {
   width: 100%;
-  max-width: min(90vw, 1200px);
+  max-width: min(68vw, 900px);
   height: 100%;
-  max-height: min(90vh, 800px);
+  max-height: min(68vh, 600px);
   background: var(--bg-color-secondary);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
