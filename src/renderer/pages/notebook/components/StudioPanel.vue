@@ -198,7 +198,7 @@ const props = defineProps({
 })
 
 const { t } = useLocale()
-const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout()
+const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout(props.notebookId)
 
 const expandedAchievement = ref(null)
 const currentExpandedAchievement = computed(() => {

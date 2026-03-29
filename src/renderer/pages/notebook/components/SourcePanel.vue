@@ -174,7 +174,7 @@ const emit = defineEmits([
 ])
 
 const { t } = useLocale()
-const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout()
+const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout(props.notebookId)
 
 const expandedSource = ref(null)
 

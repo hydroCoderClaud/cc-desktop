@@ -179,7 +179,6 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
 const { cssVars } = useTheme()
-const { startResize, showRightPanel } = useNotebookLayout()
 
 const primaryColor = computed(() => cssVars.value?.['--primary-color'] || '#4a90d9')
 const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4ff')
@@ -191,6 +190,9 @@ const previewImageData = ref(null)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
+// 布局状态（需要 notebookId 实现 per-notebook 隔离）
+const notebookLayoutId = computed(() => currentNotebook.value?.id)
+const { startResize, showRightPanel } = useNotebookLayout(notebookLayoutId)
 const sources = ref([])
 const achievements = ref([])
 
