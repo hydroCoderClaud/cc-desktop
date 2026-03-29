@@ -6,7 +6,7 @@
         <Icon name="chevronRight" :size="14" class="breadcrumb-icon" />
         <span class="panel-title">{{ getTypeName(expandedAchievement.type) }}</span>
         <button class="header-btn" style="margin-left:auto" :title="t('common.back')" @click="closeDetail">
-          <Icon name="chevronRight" :size="18" :strokeWidth="1.8" />
+          <Icon name="chevronLeft" :size="18" :strokeWidth="1.8" />
         </button>
       </template>
       <template v-else>
