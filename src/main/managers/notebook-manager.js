@@ -325,9 +325,22 @@ class NotebookManager {
 
   /** 读取笔记本内的文件内容（代理到 notebook-file-reader） */
   async readFileContent(notebookId, relPath) {
+    if (!relPath) {
+      throw new Error('文件路径不能为空')
+    }
     const notebookPath = this._getNotebookPath(notebookId)
     // 不复制模式下 relPath 是绝对路径，复制模式下是相对路径
-    const fullPath = path.isAbsolute(relPath) ? relPath : path.join(notebookPath, relPath)
+    const isAbsolute = path.isAbsolute(relPath)
+    const fullPath = isAbsolute ? relPath : path.resolve(notebookPath, relPath)
+
+    // 安全检查：防止路径遍历攻击（如 ../../../etc/passwd）
+    if (!isAbsolute) {
+      const normalizedNotebookPath = path.resolve(notebookPath)
+      if (!(fullPath === normalizedNotebookPath || fullPath.startsWith(`${normalizedNotebookPath}${path.sep}`))) {
+        throw new Error('不允许读取笔记本目录之外的文件')
+      }
+    }
+
     return readFileContent(fullPath)
   }
 

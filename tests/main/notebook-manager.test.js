@@ -441,4 +441,23 @@ describe('NotebookManager', () => {
     await mgr.delete(nb.id)
     expect(fs.existsSync(nb.notebookPath)).toBe(false)
   })
+
+  // ── readFileContent 安全测试 ─────────────────────────────────────────────
+
+  it('readFileContent: 拒绝越界路径遍历', async () => {
+    const nb = mgr.create({ name: 'read 越界测试' })
+    await expect(mgr.readFileContent(nb.id, '../outside.txt'))
+      .rejects.toThrow('不允许读取笔记本目录之外的文件')
+  })
+
+  it('readFileContent: 允许读取笔记本内相对路径', async () => {
+    const nb = mgr.create({ name: 'read 内部测试' })
+    const relPath = 'sources/text/test.txt'
+    const fullPath = path.join(nb.notebookPath, relPath)
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true })
+    fs.writeFileSync(fullPath, 'test content')
+
+    const result = await mgr.readFileContent(nb.id, relPath)
+    expect(result.content).toBe('test content')
+  })
 })

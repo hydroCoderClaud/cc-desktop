@@ -43,7 +43,8 @@ async function readFileContent(fullPath) {
   if (ext === 'docx') {
     try {
       const mammoth = require('mammoth')
-      const result = await mammoth.convertToHtml({ path: fullPath })
+      // 启用 sanitize 过滤危险的 HTML 标签和属性，防止 XSS
+      const result = await mammoth.convertToHtml({ path: fullPath }, { sanitizeXml: true })
       return { type: 'word', content: result.value }
     } catch (err) {
       console.error('[NotebookManager] Word parse error:', err)
