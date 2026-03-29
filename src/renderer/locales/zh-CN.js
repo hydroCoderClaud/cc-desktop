@@ -1590,7 +1590,7 @@ export default {
         markdown: 'Markdown 笔记 (.md)',
         pdf: 'PDF 专业报告 (.pdf)',
         document: '办公文档 (.docx)',
-        image: '图片生成 (.png)',
+        image: '图片生成 (.jpg)',
         video: '视频制作 (.mp4)',
         code: '代码/网页 (.html)',
         text: '纯文本 (.txt)',

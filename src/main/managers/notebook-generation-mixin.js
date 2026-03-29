@@ -7,7 +7,7 @@ const path = require('path')
 
 const EXT_MAP = {
   markdown: 'md', document: 'docx', code: 'html', text: 'txt',
-  image: 'png', video: 'mp4', pdf: 'pdf', csv: 'csv'
+  image: 'jpg', video: 'mp4', pdf: 'pdf', csv: 'csv'
 }
 
 const notebookGenerationMixin = {

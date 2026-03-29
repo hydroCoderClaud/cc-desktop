@@ -1585,7 +1585,7 @@ export default {
         markdown: 'Markdown Notes (.md)',
         pdf: 'PDF Report (.pdf)',
         document: 'Office Document (.docx)',
-        image: 'Image (.png)',
+        image: 'Image (.jpg)',
         video: 'Video (.mp4)',
         code: 'Code / Web Page (.html)',
         text: 'Plain Text (.txt)',
