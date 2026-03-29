@@ -1162,39 +1162,22 @@ const handleAgentDone = async (payload = {}) => {
 
   // 标准化路径为正斜杠格式，便于比较
   const normalize = (p) => p?.replace(/\\/g, '/') || ''
-  const normalizedFilePaths = filePaths.map(normalize)
 
   let hasOutputFile = false
   if (ach.path) {
     const expectedAbs = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, ach.path)
-    const normalizedExpectedAbs = normalize(expectedAbs)
 
-    // 匹配逻辑：
-    // 1. 精确匹配绝对路径
-    // 2. 或者 MCP 输出的文件名与预期文件名匹配（basename 比较）
-    const expectedFileName = normalizedExpectedAbs.split('/').pop()
-    const matched = normalizedFilePaths.some(fp => {
-      // 精确匹配
-      if (fp === normalizedExpectedAbs) return true
-      // 文件名匹配（处理 MCP 输出到不同目录的场景）
-      const actualFileName = fp.split('/').pop()
-      if (actualFileName === expectedFileName) return true
-      // 或者路径包含预期的相对路径段
-      if (fp.endsWith(normalize(ach.path))) return true
-      return false
-    })
-
-    if (matched) {
-      try {
-        const fileData = await window.electronAPI.readAbsolutePath({
-          filePath: expectedAbs,
-          sessionId: currentNotebook.value?.sessionId,
-          confirmed: true
-        })
-        hasOutputFile = !fileData?.error
-      } catch {
-        hasOutputFile = false
-      }
+    // 直接检查预期路径的文件是否存在（最可靠的判断方式）
+    // 无论 Claude 是否在对话中提到该路径，只要文件在那里就判定成功
+    try {
+      const fileData = await window.electronAPI.readAbsolutePath({
+        filePath: expectedAbs,
+        sessionId: currentNotebook.value?.sessionId,
+        confirmed: true
+      })
+      hasOutputFile = !fileData?.error
+    } catch {
+      hasOutputFile = false
     }
   }
 
