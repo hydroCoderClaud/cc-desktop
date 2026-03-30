@@ -88,6 +88,9 @@
         :key="currentNotebook?.id || 'no-notebook-studio'"
         :achievements="achievements"
         :available-types="availableTypes"
+        :filtered-available-types="filteredAvailableTypes"
+        :available-tags="studioAvailableTags"
+        :selected-tags="studioSelectedTags"
         :has-new-tools="hasNewTools"
         :notebook-id="currentNotebook?.id || null"
         :rightWidth="rightWidth"
@@ -107,6 +110,8 @@
         @export="handleExportAchievement"
         @open-external="handleOpenExternal"
         @open-market="showMarketModal = true"
+        @toggle-tag="toggleStudioTag"
+        @clear-tag-filters="clearStudioTagFilters"
         @update:showRightPanel="showRightPanel = $event"
       />
     </div>
@@ -212,8 +217,21 @@ const sources = ref([])
 const achievements = ref([])
 
 const availableTypes = ref([])
+const studioSelectedTags = ref([])
 const showToolConfig = ref(false)
 const editingToolData = ref(null)
+
+const studioAvailableTags = computed(() => {
+  const tags = availableTypes.value.flatMap(tool => tool.tags || [])
+  return [...new Set(tags)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+})
+
+const filteredAvailableTypes = computed(() => {
+  if (studioSelectedTags.value.length === 0) return availableTypes.value
+  return availableTypes.value.filter(tool =>
+    studioSelectedTags.value.some(tag => (tool.tags || []).includes(tag))
+  )
+})
 
 // 提示词编辑器状态
 const showPromptEditor = ref(false)
@@ -243,6 +261,18 @@ const normalizeToolTags = (tool) => ({
     ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
     : []
 })
+
+const clearStudioTagFilters = () => {
+  studioSelectedTags.value = []
+}
+
+const toggleStudioTag = (tag) => {
+  if (studioSelectedTags.value.includes(tag)) {
+    studioSelectedTags.value = studioSelectedTags.value.filter(item => item !== tag)
+  } else {
+    studioSelectedTags.value = [...studioSelectedTags.value, tag]
+  }
+}
 
 const loadTools = async () => {
   try {
@@ -275,7 +305,11 @@ const loadTools = async () => {
       if (remoteRes.success && remoteRes.data && remoteRes.data.tools) {
         remoteTools.value = remoteRes.data.tools.map(normalizeToolTags)
         console.log('[Notebook] Successfully synced remote tools count:', remoteRes.data.tools.length)
-        availableTypes.value = localMapped
+        const remoteTagMap = new Map(remoteTools.value.map(tool => [tool.id, tool.tags || []]))
+        availableTypes.value = localMapped.map(tool => normalizeToolTags({
+          ...tool,
+          tags: remoteTagMap.get(tool.id) || tool.tags || []
+        }))
       } else {
         remoteTools.value = []
         const errorMsg = remoteRes.error || '返回数据格式错误'
@@ -676,6 +710,7 @@ const handleCleanupIndexes = async () => {
 const loadNotebook = async (notebook) => {
   activeGenerationAchievementId.value = null
   activeGenerationToken.value = 0
+  clearStudioTagFilters()
   // 关闭当前会话（若有），释放 CLI 进程
   if (currentNotebook.value?.sessionId) {
     try {
@@ -710,6 +745,7 @@ const handleNotebookCreated = async (nb) => {
 const handleCloseNotebook = async () => {
   activeGenerationAchievementId.value = null
   activeGenerationToken.value = 0
+  clearStudioTagFilters()
   if (currentNotebook.value?.sessionId) {
     try {
       await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
@@ -733,6 +769,7 @@ const handleDeleted = (id) => {
   if (currentNotebook.value?.id === id) {
     activeGenerationAchievementId.value = null
     activeGenerationToken.value = 0
+    clearStudioTagFilters()
     currentNotebook.value = null
     window.currentNotebookId = null
     sources.value = []

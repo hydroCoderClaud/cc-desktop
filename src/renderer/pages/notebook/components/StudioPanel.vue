@@ -11,6 +11,35 @@
       </template>
       <template v-else>
         <span class="panel-title">{{ t('notebook.studio.title') }}</span>
+        <n-popover trigger="click" placement="bottom-end">
+          <template #trigger>
+            <button class="header-btn filter-trigger-btn" :class="{ active: selectedTags.length > 0 }" :title="t('notebook.market.filterTags')">
+              <Icon name="filter" :size="16" :strokeWidth="1.8" />
+              <span class="filter-trigger-label">{{ filterTriggerLabel }}</span>
+              <span v-if="selectedTags.length > 0" class="filter-badge">{{ selectedTags.length }}</span>
+            </button>
+          </template>
+          <div class="tag-filter-panel">
+            <div class="tag-filter-header">
+              <span class="tag-filter-title">{{ t('notebook.market.filterTags') }}</span>
+              <button v-if="selectedTags.length > 0" class="clear-filters-btn" @click="clearTagFilters">
+                {{ t('notebook.market.clearFilters') }}
+              </button>
+            </div>
+            <div v-if="availableTags.length" class="tag-filter-list">
+              <button
+                v-for="tag in availableTags"
+                :key="tag"
+                class="tag-chip"
+                :class="{ active: selectedTags.includes(tag) }"
+                @click="toggleTag(tag)"
+              >
+                {{ tag }}
+              </button>
+            </div>
+            <div v-else class="tag-filter-empty">{{ t('notebook.market.tagsEmpty') }}</div>
+          </div>
+        </n-popover>
         <button class="header-btn market-btn" @click="$emit('open-market')" :title="t('notebook.market.title')">
           <Icon name="store" :size="16" :strokeWidth="1.8" />
           <span v-if="hasNewTools" class="market-dot"></span>
@@ -26,7 +55,7 @@
       <template v-if="!expandedAchievement">
         <div class="type-grid">
           <div
-            v-for="type in availableTypes"
+            v-for="type in filteredTypes"
             :key="type.id"
             class="type-card"
             :class="{ 'not-installed': type.installed === false }"
@@ -160,7 +189,7 @@
     <div class="strip-body">
       <div class="strip-content strip-content-top">
         <div
-          v-for="type in availableTypes"
+          v-for="type in filteredTypes"
           :key="type.id"
           class="strip-icon-item type-icon-item"
           :style="{ background: type.bgColor }"
@@ -184,7 +213,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { NDropdown } from 'naive-ui'
+import { NDropdown, NPopover } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { getAchievementIcon } from '../utils/helpers.js'
@@ -193,6 +222,9 @@ import NotebookFilePreview from './NotebookFilePreview.vue'
 const props = defineProps({
   achievements: { type: Array, default: () => [] },
   availableTypes: { type: Array, default: () => [] },
+  filteredAvailableTypes: { type: Array, default: () => [] },
+  availableTags: { type: Array, default: () => [] },
+  selectedTags: { type: Array, default: () => [] },
   hasNewTools: { type: Boolean, default: false },
   notebookId: { type: String, default: null },
   rightWidth: { type: Number, required: true },
@@ -203,9 +235,19 @@ const props = defineProps({
 
 const { t } = useLocale()
 const expandedAchievement = ref(null)
+
 const currentExpandedAchievement = computed(() => {
   if (!expandedAchievement.value) return null
   return props.achievements.find(a => a.id === expandedAchievement.value.id) || expandedAchievement.value
+})
+
+const availableTags = computed(() => props.availableTags)
+const selectedTags = computed(() => props.selectedTags)
+const filteredTypes = computed(() => props.filteredAvailableTypes)
+
+const filterTriggerLabel = computed(() => {
+  if (selectedTags.value.length === 0) return t('notebook.market.allTags')
+  return t('notebook.market.filterTags')
 })
 
 const selectedIds = computed(() => props.achievements.filter(a => a.selected).map(a => a.id))
@@ -213,9 +255,10 @@ const allSelected = computed(() => props.achievements.length > 0 && props.achiev
 const emit = defineEmits([
   'generate', 'export', 'delete', 'download-tool', 'open-market', 'open-external',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool', 'add-to-source', 'rename',
+  'edit-tool', 'add-to-source', 'rename', 'toggle-tag', 'clear-tag-filters',
   'update:showRightPanel'
 ])
+
 
 const getAchievementMenuOptions = () => ([
   { label: t('common.rename'), key: 'rename' },
@@ -223,6 +266,14 @@ const getAchievementMenuOptions = () => ([
   { label: t('notebook.studio.export'), key: 'export' },
   { label: t('notebook.studio.delete'), key: 'delete' }
 ])
+
+const toggleTag = (tag) => {
+  emit('toggle-tag', tag)
+}
+
+const clearTagFilters = () => {
+  emit('clear-tag-filters')
+}
 
 const handleAchievementMenuSelect = (key, achievement) => {
   if (key === 'rename') emit('rename', achievement)
@@ -258,6 +309,103 @@ const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.typ
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+}
+
+.filter-trigger-btn {
+  position: relative;
+  width: auto;
+  min-width: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+}
+
+.filter-trigger-label {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.filter-trigger-btn.active {
+  color: var(--primary-color);
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+}
+
+.filter-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.tag-filter-panel {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tag-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tag-filter-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.clear-filters-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.tag-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  border: 1px solid var(--border-color);
+  background: var(--bg-color-secondary);
+  color: var(--text-color-muted);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-chip:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.tag-chip.active {
+  border-color: var(--primary-color);
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+  color: var(--primary-color);
+}
+
+.tag-filter-empty {
+  font-size: 12px;
+  color: var(--text-color-muted);
 }
 
 .type-grid {
