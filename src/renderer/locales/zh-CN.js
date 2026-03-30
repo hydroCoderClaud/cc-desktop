@@ -1542,9 +1542,15 @@ export default {
 
     market: {
       title: '创作工具市场',
-      searchPlaceholder: '搜索工具名称或描述...',
+      searchPlaceholder: '搜索工具名称、描述或标签...',
       found: '已发现 {count} 个创作工具',
       empty: '没有找到匹配的工具',
+      tags: '标签',
+      filterTags: '按标签筛选',
+      allTags: '全部标签',
+      tagsEmpty: '暂无可筛选标签',
+      clearFilters: '清空筛选',
+      noTagMatches: '没有匹配当前搜索或标签筛选的工具',
       install: '安装',
       installed: '已安装',
       reinstall: '重新安装',

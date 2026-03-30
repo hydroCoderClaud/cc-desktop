@@ -1537,9 +1537,15 @@ export default {
 
     market: {
       title: 'Tool Market',
-      searchPlaceholder: 'Search by name or description...',
+      searchPlaceholder: 'Search by name, description, or tag...',
       found: '{count} tools found',
       empty: 'No matching tools found',
+      tags: 'Tags',
+      filterTags: 'Filter by Tags',
+      allTags: 'All Tags',
+      tagsEmpty: 'No tags available',
+      clearFilters: 'Clear Filters',
+      noTagMatches: 'No tools match the current search or tag filters',
       install: 'Install',
       installed: 'Installed',
       reinstall: 'Reinstall',

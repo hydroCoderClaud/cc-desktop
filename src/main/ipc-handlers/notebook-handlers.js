@@ -379,7 +379,16 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       
       // 清理可能存在的 BOM 字符和前后空格，防止解析失败
       const cleanBody = body.trim().replace(/^\uFEFF/, '')
-      return { success: true, data: JSON.parse(cleanBody) }
+      const parsed = JSON.parse(cleanBody)
+      const tools = Array.isArray(parsed?.tools)
+        ? parsed.tools.map(tool => ({
+            ...tool,
+            tags: Array.isArray(tool?.tags)
+              ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+              : []
+          }))
+        : []
+      return { success: true, data: { ...parsed, tools } }
     } catch (err) {
       console.error('[IPC] notebook:fetchRemoteTools error:', err)
       return { success: false, error: err.message }

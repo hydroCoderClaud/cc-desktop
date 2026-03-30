@@ -7,8 +7,32 @@ const fs = require('fs')
 const path = require('path')
 
 const DEFAULT_TOOLS = [
-  { id: 'notes', name: '笔记总结', description: '提取核心要点生成笔记', icon: 'fileText', outputType: 'markdown', promptTemplateId: 'sys-notebook-notes', dependencies: [], bgColor: '#FFF8E1', color: '#FFA000' }
+  {
+    id: 'notes',
+    name: '笔记总结',
+    description: '提取核心要点生成笔记',
+    icon: 'fileText',
+    outputType: 'markdown',
+    promptTemplateId: 'sys-notebook-notes',
+    dependencies: [],
+    bgColor: '#FFF8E1',
+    color: '#FFA000',
+    tags: ['总结', '写作']
+  }
 ]
+
+function normalizeToolTags(tool) {
+  return {
+    ...tool,
+    tags: Array.isArray(tool?.tags)
+      ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+      : []
+  }
+}
+
+function normalizeTools(tools) {
+  return Array.isArray(tools) ? tools.map(normalizeToolTags) : []
+}
 
 const notebookToolsMixin = {
   _getToolsConfigPath() {
@@ -24,13 +48,13 @@ const notebookToolsMixin = {
   listTools() {
     const configPath = this._getToolsConfigPath()
     if (!fs.existsSync(configPath)) {
-      const initialData = { version: '1.0', tools: DEFAULT_TOOLS }
+      const initialData = { version: '1.0', tools: normalizeTools(DEFAULT_TOOLS) }
       this._writeJsonAtomic(configPath, initialData)
       return initialData.tools
     }
     try {
       const data = this._readJson(configPath)
-      return data.tools || []
+      return normalizeTools(data.tools)
     } catch (err) {
       console.error('[NotebookManager] Failed to read tools config:', err)
       return DEFAULT_TOOLS
@@ -48,7 +72,7 @@ const notebookToolsMixin = {
     
     const allowedFields = [
       'name', 'description', 'icon', 'outputType', 'promptTemplateId',
-      'installDependencies', 'runtimePlaceholders', 'bgColor', 'color', 'beta', 'version'
+      'installDependencies', 'runtimePlaceholders', 'bgColor', 'color', 'beta', 'version', 'tags'
     ]
     allowedFields.forEach(k => {
       if (updates && k in updates) {
@@ -61,10 +85,12 @@ const notebookToolsMixin = {
       }
     })
 
-    const finalData = { version: '1.0', tools }
+    tools[idx] = normalizeToolTags(tools[idx])
+
+    const finalData = { version: '1.0', tools: normalizeTools(tools) }
     this._writeJsonAtomic(configPath, finalData)
     console.log(`[NotebookManager] Tool ${toolId} saved successfully to ${configPath}`)
-    return tools[idx]
+    return finalData.tools[idx]
   },
 
   addTool(toolData) {
@@ -73,7 +99,7 @@ const notebookToolsMixin = {
     if (tools.find(t => t.id === toolData.id)) {
       throw new Error(`工具 ID 已存在：${toolData.id}`)
     }
-    const newTool = {
+    const newTool = normalizeToolTags({
       id: toolData.id,
       name: toolData.name || toolData.id,
       description: toolData.description || '',
@@ -84,11 +110,13 @@ const notebookToolsMixin = {
       runtimePlaceholders: toolData.runtimePlaceholders || {},
       bgColor: toolData.bgColor || '#f5f5f5',
       color: toolData.color || '#666',
-      version: toolData.version || '1.0.0'
-    }
+      version: toolData.version || '1.0.0',
+      tags: toolData.tags || []
+    })
     tools.push(newTool)
-    this._writeJsonAtomic(configPath, { version: '1.0', tools })
-    return newTool
+    const finalData = { version: '1.0', tools: normalizeTools(tools) }
+    this._writeJsonAtomic(configPath, finalData)
+    return finalData.tools[finalData.tools.length - 1]
   },
 
   deleteTool(toolId) {
@@ -99,7 +127,7 @@ const notebookToolsMixin = {
     if (tools.length === originalLength) {
       throw new Error(`工具不存在：${toolId}`)
     }
-    this._writeJsonAtomic(configPath, { version: '1.0', tools })
+    this._writeJsonAtomic(configPath, { version: '1.0', tools: normalizeTools(tools) })
     return { success: true }
   }
 }

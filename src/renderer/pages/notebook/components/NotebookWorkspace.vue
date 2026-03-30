@@ -237,6 +237,13 @@ const hasNewTools = computed(() => {
   })
 })
 
+const normalizeToolTags = (tool) => ({
+  ...tool,
+  tags: Array.isArray(tool?.tags)
+    ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+    : []
+})
+
 const loadTools = async () => {
   try {
     // 1. 获取本地已配置的工��
@@ -252,7 +259,7 @@ const loadTools = async () => {
       data: { bgColor: '#EDE7F6', color: '#512DA8' }
     }
     
-    const localMapped = (localTools || []).map(t => ({
+    const localMapped = (localTools || []).map(t => normalizeToolTags({
       ...t,
       bgColor: t.bgColor || defaultStyles[t.id]?.bgColor || '#f5f5f5',
       color: t.color || defaultStyles[t.id]?.color || '#666',
@@ -266,7 +273,7 @@ const loadTools = async () => {
       console.log('[Notebook] Remote tools response:', remoteRes)
 
       if (remoteRes.success && remoteRes.data && remoteRes.data.tools) {
-        remoteTools.value = remoteRes.data.tools
+        remoteTools.value = remoteRes.data.tools.map(normalizeToolTags)
         console.log('[Notebook] Successfully synced remote tools count:', remoteRes.data.tools.length)
         availableTypes.value = localMapped
       } else {

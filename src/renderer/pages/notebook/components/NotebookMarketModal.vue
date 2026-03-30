@@ -5,15 +5,60 @@
     :title="t('notebook.market.title')"
     style="width: 1000px;"
     :mask-closable="false"
-    @update:show="$emit('update:show', $event)"
+    @update:show="handleMarketVisibilityChange"
   >
     <div class="market-v2-container">
       <!-- 顶部搜索 -->
       <div class="market-header">
-        <n-input v-model:value="searchQuery" :placeholder="t('notebook.market.searchPlaceholder')" class="search-bar">
-          <template #prefix><Icon name="search" :size="16" /></template>
-        </n-input>
+        <div class="market-controls">
+          <n-input v-model:value="searchQuery" :placeholder="t('notebook.market.searchPlaceholder')" class="search-bar">
+            <template #prefix><Icon name="search" :size="16" /></template>
+          </n-input>
+          <n-popover trigger="click" placement="bottom-end">
+            <template #trigger>
+              <button class="filter-trigger-btn" :class="{ active: selectedTags.length > 0 }" :title="t('notebook.market.filterTags')">
+                <Icon name="filter" :size="16" />
+                <span class="filter-trigger-label">{{ filterTriggerLabel }}</span>
+                <span v-if="selectedTags.length > 0" class="filter-badge">{{ selectedTags.length }}</span>
+              </button>
+            </template>
+            <div class="tag-filter-panel">
+              <div class="tag-filter-header">
+                <span class="tag-filter-title">{{ t('notebook.market.filterTags') }}</span>
+                <button v-if="selectedTags.length > 0" class="clear-filters-btn" @click="clearTagFilters">
+                  {{ t('notebook.market.clearFilters') }}
+                </button>
+              </div>
+              <div v-if="availableTags.length" class="tag-filter-list">
+                <button
+                  v-for="tag in availableTags"
+                  :key="tag"
+                  class="tag-chip"
+                  :class="{ active: selectedTags.includes(tag) }"
+                  @click="toggleTag(tag)"
+                >
+                  {{ tag }}
+                </button>
+              </div>
+              <div v-else class="tag-filter-empty">{{ t('notebook.market.tagsEmpty') }}</div>
+            </div>
+          </n-popover>
+        </div>
         <div class="market-stats">{{ t('notebook.market.found', { count: filteredTools.length }) }}</div>
+      </div>
+
+      <div v-if="selectedTags.length > 0" class="active-tags-row">
+        <n-tag
+          v-for="tag in selectedTags"
+          :key="tag"
+          size="small"
+          round
+          closable
+          type="info"
+          @close="removeTag(tag)"
+        >
+          {{ tag }}
+        </n-tag>
       </div>
 
       <!-- 工具网格 -->
@@ -39,6 +84,15 @@
 
               <div class="card-body">
                 <p class="tool-desc">{{ tool.description }}</p>
+                <div v-if="tool.tags?.length" class="tool-tags">
+                  <span
+                    v-for="tag in tool.tags"
+                    :key="`${tool.id}-${tag}`"
+                    class="tool-tag-chip"
+                  >
+                    {{ tag }}
+                  </span>
+                </div>
               </div>
 
               <div class="card-actions">
@@ -64,7 +118,7 @@
             </div>
           </div>
           <div v-else-if="!loading" class="empty-state">
-            <n-empty :description="t('notebook.market.empty')" />
+            <n-empty :description="emptyDescription" />
           </div>
         </div>
       </n-spin>
@@ -72,11 +126,12 @@
 
     <!-- 详情子弹窗 -->
     <n-modal
-      v-model:show="showDetail"
+      :show="show && showDetail"
       preset="card"
       :title="selectedTool?.name"
       style="width: 500px;"
       :z-index="12000"
+      @update:show="handleDetailVisibilityChange"
     >
       <div v-if="selectedTool" class="tool-detail-v2">
         <div class="detail-header-v2">
@@ -92,6 +147,18 @@
         <div class="detail-section">
           <div class="label">{{ t('notebook.market.detailTitle') }}</div>
           <p class="content">{{ selectedTool.description }}</p>
+        </div>
+        <div class="detail-section" v-if="selectedTool.tags?.length">
+          <div class="label">{{ t('notebook.market.tags') }}</div>
+          <div class="detail-tags">
+            <span
+              v-for="tag in selectedTool.tags"
+              :key="tag"
+              class="tool-tag-chip"
+            >
+              {{ tag }}
+            </span>
+          </div>
         </div>
         <div class="detail-section" v-if="selectedTool.installDependencies?.length">
           <div class="label">{{ t('notebook.market.detailDeps') }}</div>
@@ -119,6 +186,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { NPopover } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import { isNewerVersion } from '../utils/version'
@@ -134,18 +202,48 @@ const { t } = useLocale()
 const loading = ref(false)
 const searchQuery = ref('')
 const remoteTools = ref([])
+const selectedTags = ref([])
 const selectedTool = ref(null)
 const showDetail = ref(false)
 const installingId = ref(null)
 
+const normalizeToolTags = (tool) => ({
+  ...tool,
+  tags: Array.isArray(tool?.tags)
+    ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+    : []
+})
+
+const availableTags = computed(() => {
+  const tags = remoteTools.value.flatMap(tool => tool.tags || [])
+  return [...new Set(tags)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+})
+
 const filteredTools = computed(() => {
-  if (!searchQuery.value) return remoteTools.value
-  const q = searchQuery.value.toLowerCase()
-  return remoteTools.value.filter(t =>
-    t.name.toLowerCase().includes(q) ||
-    t.description.toLowerCase().includes(q) ||
-    t.id.toLowerCase().includes(q)
-  )
+  const q = searchQuery.value.trim().toLowerCase()
+
+  return remoteTools.value.filter((tool) => {
+    const matchesSearch = !q ||
+      tool.name.toLowerCase().includes(q) ||
+      tool.description.toLowerCase().includes(q) ||
+      tool.id.toLowerCase().includes(q) ||
+      (tool.tags || []).some(tag => tag.toLowerCase().includes(q))
+
+    const matchesTags = selectedTags.value.length === 0 ||
+      selectedTags.value.some(tag => (tool.tags || []).includes(tag))
+
+    return matchesSearch && matchesTags
+  })
+})
+
+const emptyDescription = computed(() => {
+  if (selectedTags.value.length > 0 || searchQuery.value.trim()) return t('notebook.market.noTagMatches')
+  return t('notebook.market.empty')
+})
+
+const filterTriggerLabel = computed(() => {
+  if (selectedTags.value.length === 0) return t('notebook.market.allTags')
+  return t('notebook.market.filterTags')
 })
 
 const loadRemoteTools = async () => {
@@ -153,7 +251,7 @@ const loadRemoteTools = async () => {
   try {
     const res = await window.electronAPI.notebookFetchRemoteTools()
     if (res.success && res.data?.tools) {
-      remoteTools.value = res.data.tools
+      remoteTools.value = res.data.tools.map(normalizeToolTags)
     } else {
       remoteTools.value = []
     }
@@ -165,14 +263,52 @@ const loadRemoteTools = async () => {
   }
 }
 
+const resetMarketState = () => {
+  searchQuery.value = ''
+  selectedTags.value = []
+  selectedTool.value = null
+  showDetail.value = false
+  loading.value = false
+}
+
+const handleMarketVisibilityChange = (value) => {
+  if (!value) resetMarketState()
+  emit('update:show', value)
+}
+
+const handleDetailVisibilityChange = (value) => {
+  showDetail.value = value
+  if (!value) selectedTool.value = null
+}
+
 watch(() => props.show, (val) => {
-  if (val) loadRemoteTools()
+  if (val) {
+    resetMarketState()
+    loadRemoteTools()
+  } else {
+    resetMarketState()
+  }
 })
 
-// 父组件 loadTools 刷新后 localTools 变化，清除安装 loading
 watch(() => props.localTools, () => {
   installingId.value = null
 })
+
+const clearTagFilters = () => {
+  selectedTags.value = []
+}
+
+const toggleTag = (tag) => {
+  if (selectedTags.value.includes(tag)) {
+    selectedTags.value = selectedTags.value.filter(item => item !== tag)
+  } else {
+    selectedTags.value = [...selectedTags.value, tag]
+  }
+}
+
+const removeTag = (tag) => {
+  selectedTags.value = selectedTags.value.filter(item => item !== tag)
+}
 
 const isInstalled = (id) => {
   if (!id || !props.localTools) return false
@@ -203,22 +339,90 @@ const openDetail = (tool) => {
 const handleInstall = (tool) => {
   installingId.value = tool.id
   emit('install', tool)
-  // loading 由父组件安装完成后 loadTools 刷新 prop 时自动清除
-  // 添加兜底超时，防止父组件异常时 loading 卡死
   setTimeout(() => { installingId.value = null }, 30000)
 }
 
 const handleUninstall = (tool) => {
   emit('uninstall', tool.id)
   showDetail.value = false
+  selectedTool.value = null
 }
 </script>
 
 <style scoped>
-.market-v2-container { display: flex; flex-direction: column; gap: 20px; height: 65vh; }
+.market-v2-container { display: flex; flex-direction: column; gap: 16px; height: 65vh; }
 .market-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-.search-bar { flex: 1; max-width: 400px; }
+.market-controls { display: flex; align-items: center; gap: 12px; flex: 1; max-width: 520px; }
+.search-bar { flex: 1; }
 .market-stats { font-size: 12px; color: var(--text-color-muted); }
+.filter-trigger-btn {
+  position: relative;
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color-secondary);
+  color: var(--text-color-muted);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0 10px;
+}
+.filter-trigger-label { font-size: 12px; }
+.filter-trigger-btn:hover { background: var(--hover-bg); color: var(--text-color); }
+.filter-trigger-btn.active {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+}
+.filter-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.tag-filter-panel { width: 280px; display: flex; flex-direction: column; gap: 12px; }
+.tag-filter-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tag-filter-title { font-size: 13px; font-weight: 600; color: var(--text-color); }
+.clear-filters-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+.tag-filter-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip {
+  border: 1px solid var(--border-color);
+  background: var(--bg-color-secondary);
+  color: var(--text-color-muted);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tag-chip:hover { background: var(--hover-bg); color: var(--text-color); }
+.tag-chip.active {
+  border-color: var(--primary-color);
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+  color: var(--primary-color);
+}
+.tag-filter-empty { font-size: 12px; color: var(--text-color-muted); }
+.active-tags-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .market-scroll-area { flex: 1; overflow-y: auto; padding: 4px; }
 
@@ -256,6 +460,25 @@ const handleUninstall = (tool) => {
 
 .card-body { flex: 1; overflow: hidden; margin-top: 8px; }
 .tool-desc { font-size: 12px; color: var(--text-color-muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 12px;
+}
+.tool-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--primary-color);
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+  white-space: nowrap;
+}
 
 .card-actions { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 12px; }
 .flex-1 { flex: 1; }
@@ -269,6 +492,7 @@ const handleUninstall = (tool) => {
 
 .detail-section .label { font-size: 12px; font-weight: 700; color: var(--text-color-muted); text-transform: uppercase; margin-bottom: 6px; }
 .detail-section .content { font-size: 14px; line-height: 1.6; margin: 0; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .dep-list, .mapping-list { display: flex; flex-direction: column; gap: 6px; }
 .dep-row, .mapping-row { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
