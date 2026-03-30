@@ -257,6 +257,9 @@ const hasNewTools = computed(() => {
 
 const normalizeToolTags = (tool) => ({
   ...tool,
+  id: String(tool?.id || '').trim(),
+  name: String(tool?.name || tool?.id || '').trim(),
+  description: String(tool?.description || '').trim(),
   tags: Array.isArray(tool?.tags)
     ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
     : []
@@ -308,6 +311,7 @@ const loadTools = async () => {
         const remoteTagMap = new Map(remoteTools.value.map(tool => [tool.id, tool.tags || []]))
         availableTypes.value = localMapped.map(tool => normalizeToolTags({
           ...tool,
+          // 标签以远程市场定义为准；本地无 tags 时用远程 tags 回填展示与筛选
           tags: remoteTagMap.get(tool.id) || tool.tags || []
         }))
       } else {

@@ -209,6 +209,9 @@ const installingId = ref(null)
 
 const normalizeToolTags = (tool) => ({
   ...tool,
+  id: String(tool?.id || '').trim(),
+  name: String(tool?.name || tool?.id || '').trim(),
+  description: String(tool?.description || '').trim(),
   tags: Array.isArray(tool?.tags)
     ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
     : []

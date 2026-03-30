@@ -380,13 +380,19 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       // 清理可能存在的 BOM 字符和前后空格，防止解析失败
       const cleanBody = body.trim().replace(/^\uFEFF/, '')
       const parsed = JSON.parse(cleanBody)
+      const normalizeRemoteTool = (tool) => ({
+        ...tool,
+        id: String(tool?.id || '').trim(),
+        name: String(tool?.name || tool?.id || '').trim(),
+        description: String(tool?.description || '').trim(),
+        tags: Array.isArray(tool?.tags)
+          ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+          : []
+      })
       const tools = Array.isArray(parsed?.tools)
-        ? parsed.tools.map(tool => ({
-            ...tool,
-            tags: Array.isArray(tool?.tags)
-              ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
-              : []
-          }))
+        ? parsed.tools
+            .map(normalizeRemoteTool)
+            .filter(tool => tool.id && tool.name)
         : []
       return { success: true, data: { ...parsed, tools } }
     } catch (err) {
