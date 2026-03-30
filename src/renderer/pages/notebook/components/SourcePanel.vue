@@ -176,12 +176,12 @@ const handleSourceMenuSelect = (key, source) => {
 const openDetail = (source) => {
   expandedSource.value = source
   emit('update:showLeftPanel', true)
-  expandPanel('left')
+  props.expandPanel('left')
 }
 
 const closeDetail = () => {
   expandedSource.value = null
-  collapsePanel('left')
+  props.collapsePanel('left')
 }
 
 // 计算来源的绝对路径用于 tooltip

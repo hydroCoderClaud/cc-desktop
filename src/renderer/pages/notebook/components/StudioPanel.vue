@@ -233,12 +233,12 @@ const handleAchievementMenuSelect = (key, achievement) => {
 
 const openDetail = (achievement) => {
   expandedAchievement.value = achievement
-  expandPanel('right')
+  props.expandPanel('right')
 }
 
 const closeDetail = () => {
   expandedAchievement.value = null
-  collapsePanel('right')
+  props.collapsePanel('right')
 }
 
 const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.types.' + typeId)

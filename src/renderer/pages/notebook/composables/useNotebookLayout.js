@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 
 const STORAGE_KEY = 'notebook-layout-state'
 
@@ -25,6 +25,29 @@ function saveState(state) {
   }
 }
 
+function getContainerMetrics(leftWidth, rightWidth) {
+  const container = document.querySelector('.panels-container')
+  const containerWidth = container?.offsetWidth || window.innerWidth
+  const fixedOverhead = 56
+  const minMiddle = 300
+  const minSide = Math.round(containerWidth / 5)
+  const maxLeft = Math.max(minSide, containerWidth - fixedOverhead - rightWidth - minMiddle)
+  const maxRight = Math.max(minSide, containerWidth - fixedOverhead - leftWidth - minMiddle)
+
+  return {
+    containerWidth,
+    fixedOverhead,
+    minMiddle,
+    minSide,
+    maxLeft,
+    maxRight
+  }
+}
+
+function clampWidth(width, minWidth, maxWidth) {
+  return Math.min(maxWidth, Math.max(minWidth, width))
+}
+
 /**
  * Notebook 布局 Composable
  *
@@ -49,6 +72,10 @@ export function useNotebookLayout(notebookId) {
   const showLeftPanel = ref(notebookState.showLeftPanel)
   const showRightPanel = ref(notebookState.showRightPanel)
 
+  // 预览展开前的侧栏宽度（仅用于当前会话内恢复，不持久化）
+  const leftWidthBeforePreview = ref(null)
+  const rightWidthBeforePreview = ref(null)
+
   // 状态变化时持久化
   watch([leftWidth, rightWidth, showLeftPanel, showRightPanel], () => {
     const allState = loadState() || {}
@@ -62,25 +89,31 @@ export function useNotebookLayout(notebookId) {
   })
 
   const expandPanel = (side) => {
-    const container = document.querySelector('.panels-container')
-    const containerWidth = container?.offsetWidth || window.innerWidth
-    const fixedOverhead = 56
-    const minMiddle = 300
-    const minWidth = Math.round(containerWidth / 5)
-    const desiredWidth = Math.round(containerWidth * 2 / 5)
+    const { containerWidth, fixedOverhead, minSide, maxLeft, maxRight } = getContainerMetrics(leftWidth.value, rightWidth.value)
 
     if (side === 'left') {
-      const maxLeft = containerWidth - fixedOverhead - rightWidth.value - minMiddle
-      leftWidth.value = Math.min(maxLeft, Math.max(minWidth, desiredWidth))
+      if (leftWidthBeforePreview.value == null) leftWidthBeforePreview.value = leftWidth.value
+      const previewTarget = Math.round((containerWidth - fixedOverhead - rightWidth.value) / 2)
+      leftWidth.value = clampWidth(previewTarget, minSide, maxLeft)
     } else {
-      const maxRight = containerWidth - fixedOverhead - leftWidth.value - minMiddle
-      rightWidth.value = Math.min(maxRight, Math.max(minWidth, desiredWidth))
+      if (rightWidthBeforePreview.value == null) rightWidthBeforePreview.value = rightWidth.value
+      const previewTarget = Math.round((containerWidth - fixedOverhead - leftWidth.value) / 2)
+      rightWidth.value = clampWidth(previewTarget, minSide, maxRight)
     }
   }
 
   const collapsePanel = (side) => {
-    if (side === 'left') leftWidth.value = 320
-    else rightWidth.value = 340
+    if (side === 'left') {
+      const restoreWidth = leftWidthBeforePreview.value ?? leftWidth.value
+      const { minSide, maxLeft } = getContainerMetrics(leftWidth.value, rightWidth.value)
+      leftWidth.value = clampWidth(restoreWidth, minSide, maxLeft)
+      leftWidthBeforePreview.value = null
+    } else {
+      const restoreWidth = rightWidthBeforePreview.value ?? rightWidth.value
+      const { minSide, maxRight } = getContainerMetrics(leftWidth.value, rightWidth.value)
+      rightWidth.value = clampWidth(restoreWidth, minSide, maxRight)
+      rightWidthBeforePreview.value = null
+    }
   }
 
   const startResize = (side, e) => {
