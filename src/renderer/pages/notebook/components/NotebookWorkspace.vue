@@ -21,6 +21,10 @@
         :copy-source-files="currentNotebook?.copySourceFiles ?? false"
         :notebook-id="currentNotebook?.id || null"
         :notebook-path="currentNotebook?.notebookPath ?? ''"
+        :leftWidth="leftWidth"
+        :showLeftPanel="showLeftPanel"
+        :expandPanel="expandPanel"
+        :collapsePanel="collapsePanel"
         @add-source="handleAddSource"
         @toggle-select-all="handleToggleSelectAll"
         @invert-selection="handleInvertSelection"
@@ -32,6 +36,7 @@
         @export-source="handleExportSource"
         @add-to-achievement="handleAddSourceToAchievement"
         @delete-source="handleDeleteSource"
+        @update:showLeftPanel="showLeftPanel = $event"
       />
 
       <div class="resize-handle" @mousedown="startResize('left', $event)"></div>
@@ -85,6 +90,10 @@
         :available-types="availableTypes"
         :has-new-tools="hasNewTools"
         :notebook-id="currentNotebook?.id || null"
+        :rightWidth="rightWidth"
+        :showRightPanel="showRightPanel"
+        :expandPanel="expandPanel"
+        :collapsePanel="collapsePanel"
         @generate="handleGenerateAchievement"
         @toggle-select-all="handleToggleSelectAllAchievements"
         @invert-selection="handleInvertSelectionAchievements"
@@ -98,6 +107,7 @@
         @export="handleExportAchievement"
         @open-external="handleOpenExternal"
         @open-market="showMarketModal = true"
+        @update:showRightPanel="showRightPanel = $event"
       />
     </div>
 
@@ -192,7 +202,12 @@ const previewImageData = ref(null)
 const currentNotebook = ref(null)
 // 布局状态（需要 notebookId 实现 per-notebook 隔离）
 const notebookLayoutId = computed(() => currentNotebook.value?.id)
-const { startResize, showRightPanel } = useNotebookLayout(notebookLayoutId)
+const {
+  leftWidth, rightWidth,
+  showLeftPanel, showRightPanel,
+  expandPanel, collapsePanel,
+  startResize
+} = useNotebookLayout(notebookLayoutId)
 const sources = ref([])
 const achievements = ref([])
 

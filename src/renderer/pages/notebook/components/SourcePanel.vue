@@ -1,12 +1,12 @@
 <template>
-  <div v-if="showLeftPanel" class="left-panel" :style="{ width: leftWidth + 'px' }">
+  <div v-if="props.showLeftPanel" class="left-panel" :style="{ width: props.leftWidth + 'px' }">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.source.title') }}</span>
       <div class="header-actions">
         <button v-if="expandedSource" class="header-btn" :title="t('common.back')" @click="closeDetail">
           <Icon name="chevronLeft" :size="18" :strokeWidth="1.8" />
         </button>
-        <button v-else class="header-btn" :title="t('common.collapse')" @click="showLeftPanel = false">
+        <button v-else class="header-btn" :title="t('common.collapse')" @click="$emit('update:showLeftPanel', false)">
           <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
         </button>
       </div>
@@ -103,7 +103,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip">
     <div class="strip-header">
-      <button class="header-btn" @click="showLeftPanel = true" :title="t('notebook.source.expand')">
+      <button class="header-btn" @click="$emit('update:showLeftPanel', true)" :title="t('notebook.source.expand')">
         <Icon name="panelLeft" :size="18" :strokeWidth="1.8" />
       </button>
     </div>
@@ -124,7 +124,6 @@ import { ref, computed } from 'vue'
 import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { useNotebookLayout } from '../composables/useNotebookLayout'
 import { getSourceIcon, getSourceColor } from '../utils/helpers.js'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
@@ -133,8 +132,13 @@ const props = defineProps({
   allSelected: Boolean,
   copySourceFiles: { type: Boolean, default: false },
   notebookPath: { type: String, default: '' },
-  notebookId: { type: String, default: null }
+  notebookId: { type: String, default: null },
+  leftWidth: { type: Number, required: true },
+  showLeftPanel: { type: Boolean, default: true },
+  expandPanel: { type: Function, required: true },
+  collapsePanel: { type: Function, required: true }
 })
+
 const emit = defineEmits([
   'add-source',
   'toggle-select-all',
@@ -146,12 +150,11 @@ const emit = defineEmits([
   'rename-source',
   'export-source',
   'add-to-achievement',
-  'delete-source'
+  'delete-source',
+  'update:showLeftPanel'
 ])
 
 const { t } = useLocale()
-const { leftWidth, showLeftPanel, expandPanel, collapsePanel } = useNotebookLayout(props.notebookId)
-
 const expandedSource = ref(null)
 
 const selectedIds = computed(() => props.sources.filter(s => s.selected).map(s => s.id))
@@ -172,7 +175,7 @@ const handleSourceMenuSelect = (key, source) => {
 
 const openDetail = (source) => {
   expandedSource.value = source
-  showLeftPanel.value = true
+  emit('update:showLeftPanel', true)
   expandPanel('left')
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showRightPanel" class="right-panel" :style="{ width: rightWidth + 'px' }">
+  <div v-if="props.showRightPanel" class="right-panel" :style="{ width: props.rightWidth + 'px' }">
     <div class="panel-header">
       <template v-if="expandedAchievement">
         <span class="panel-title">{{ t('notebook.studio.title') }}</span>
@@ -15,7 +15,7 @@
           <Icon name="store" :size="16" :strokeWidth="1.8" />
           <span v-if="hasNewTools" class="market-dot"></span>
         </button>
-        <button class="header-btn" style="margin-left:auto" :title="t('common.collapse')" @click="showRightPanel = false">
+        <button class="header-btn" style="margin-left:auto" :title="t('common.collapse')" @click="$emit('update:showRightPanel', false)">
           <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
         </button>
       </template>
@@ -153,7 +153,7 @@
   <!-- 折叠条 -->
   <div v-else class="panel-collapsed-strip panel-collapsed-right">
     <div class="strip-header">
-      <button class="header-btn" @click="showRightPanel = true" :title="t('notebook.studio.expand')">
+      <button class="header-btn" @click="$emit('update:showRightPanel', true)" :title="t('notebook.studio.expand')">
         <Icon name="panelRight" :size="18" :strokeWidth="1.8" />
       </button>
     </div>
@@ -187,7 +187,6 @@ import { ref, computed } from 'vue'
 import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { useNotebookLayout } from '../composables/useNotebookLayout'
 import { getAchievementIcon } from '../utils/helpers.js'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
@@ -195,12 +194,14 @@ const props = defineProps({
   achievements: { type: Array, default: () => [] },
   availableTypes: { type: Array, default: () => [] },
   hasNewTools: { type: Boolean, default: false },
-  notebookId: { type: String, default: null }
+  notebookId: { type: String, default: null },
+  rightWidth: { type: Number, required: true },
+  showRightPanel: { type: Boolean, default: true },
+  expandPanel: { type: Function, required: true },
+  collapsePanel: { type: Function, required: true }
 })
 
 const { t } = useLocale()
-const { rightWidth, showRightPanel, expandPanel, collapsePanel } = useNotebookLayout(props.notebookId)
-
 const expandedAchievement = ref(null)
 const currentExpandedAchievement = computed(() => {
   if (!expandedAchievement.value) return null
@@ -212,7 +213,8 @@ const allSelected = computed(() => props.achievements.length > 0 && props.achiev
 const emit = defineEmits([
   'generate', 'export', 'delete', 'download-tool', 'open-market', 'open-external',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool', 'add-to-source', 'rename'
+  'edit-tool', 'add-to-source', 'rename',
+  'update:showRightPanel'
 ])
 
 const getAchievementMenuOptions = () => ([
