@@ -193,18 +193,22 @@
           :key="type.id"
           class="strip-icon-item type-icon-item"
           :style="{ background: type.bgColor }"
-          :title="t('notebook.tools.' + type.id) || t('notebook.types.' + type.id)"
+          :title="type.tip || type.description || type.name || getTypeName(type.id)"
         >
-          <div class="type-icon-small" :style="{ color: type.color }">
-            <Icon :name="type.icon" :size="18" />
+          <div class="strip-icon-wrapper" @click="handleCollapsedTypeClick(type)">
+            <div class="type-icon-small" :style="{ color: type.color }">
+              <Icon :name="type.icon" :size="18" />
+            </div>
+            <span class="type-plus">+</span>
           </div>
-          <span class="type-plus">+</span>
         </div>
       </div>
       <div class="strip-divider"></div>
       <div class="strip-content strip-content-bottom">
         <div v-for="achievement in achievements" :key="achievement.id" class="strip-icon-item" :title="achievement.name">
-          <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
+          <div class="strip-icon-wrapper" @click="openDetail(achievement)">
+            <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
+          </div>
         </div>
       </div>
     </div>
@@ -282,8 +286,15 @@ const handleAchievementMenuSelect = (key, achievement) => {
   if (key === 'delete') emit('delete', achievement)
 }
 
+const handleCollapsedTypeClick = (type) => {
+  emit('update:showRightPanel', true)
+  props.expandPanel('right')
+  emit('generate', type.id)
+}
+
 const openDetail = (achievement) => {
   expandedAchievement.value = achievement
+  emit('update:showRightPanel', true)
   props.expandPanel('right')
 }
 
@@ -373,6 +384,20 @@ const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.typ
   cursor: pointer;
   font-size: 12px;
   padding: 0;
+}
+
+.strip-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+  padding: 4px;
+}
+
+.strip-icon-wrapper:hover {
+  background: var(--hover-bg);
 }
 
 .tag-filter-list {

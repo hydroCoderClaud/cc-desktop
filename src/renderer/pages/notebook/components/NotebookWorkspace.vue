@@ -279,7 +279,7 @@ const toggleStudioTag = (tag) => {
 
 const loadTools = async () => {
   try {
-    // 1. 获取本地已配置的工��
+    // 1. 获取本地已配置的工具
     const localTools = await window.electronAPI.notebookListTools()
     const defaultStyles = {
       image: { bgColor: '#E0F7FA', color: '#0097A7' },
@@ -291,7 +291,7 @@ const loadTools = async () => {
       web: { bgColor: '#F3E5F5', color: '#7B1FA2' },
       data: { bgColor: '#EDE7F6', color: '#512DA8' }
     }
-    
+
     const localMapped = (localTools || []).map(t => normalizeToolTags({
       ...t,
       bgColor: t.bgColor || defaultStyles[t.id]?.bgColor || '#f5f5f5',
@@ -299,7 +299,10 @@ const loadTools = async () => {
       installed: true
     }))
 
-    // 2. 尝试拉取远程工具清单进行比对
+    // 本地工具先显示，不阻塞右侧卡片首屏
+    availableTypes.value = localMapped
+
+    // 2. 异步拉取远程工具清单进行比对与标签补齐
     try {
       console.log('[Notebook] Fetching remote tools from market...')
       const remoteRes = await window.electronAPI.notebookFetchRemoteTools()
@@ -320,12 +323,10 @@ const loadTools = async () => {
         console.warn('[Notebook] Remote sync failed:', errorMsg)
         // 只有在真的出错时才提示，空数据不提示
         if (remoteRes.error) message.info(`远程工具同步跳过: ${errorMsg}`)
-        availableTypes.value = localMapped
       }
     } catch (e) {
       console.error('[Notebook] Failed to sync remote tools exception:', e)
       remoteTools.value = []
-      availableTypes.value = localMapped
     }
   } catch (err) {
     console.error('[Notebook] Failed to load tools:', err)
