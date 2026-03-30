@@ -108,7 +108,7 @@
         <Icon name="refresh" :size="16" />
         <span>{{ t('notebook.nav.cleanup') }}</span>
       </button>
-      <n-dropdown :options="settingsOptions" :render-label="renderSettingsLabel" @select="handleSettingsSelect">
+      <n-dropdown trigger="click" :options="settingsOptions" :render-label="renderSettingsLabel" @select="handleSettingsSelect">
         <button class="nav-btn" :title="t('notebook.nav.settings')">
           <Icon name="settings" :size="16" />
           <span>{{ t('notebook.nav.settings') }}</span>
