@@ -1524,6 +1524,7 @@ export default {
       play: '播放',
       betaBadge: 'Beta 版',
       cannotPreviewOffice: '目前支持 Word 和 Excel 深度预览。PPT 请在外部打开。',
+      videoLoadFailedHint: '加载失败，可能是文件过大或当前格式暂不支持，建议使用外部打开。'
     },
 
     textEditor: {

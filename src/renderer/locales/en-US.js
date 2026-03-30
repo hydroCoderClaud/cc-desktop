@@ -1519,6 +1519,7 @@ export default {
       play: 'Play',
       betaBadge: 'Beta',
       cannotPreviewOffice: 'Word and Excel preview are supported. Please open PPT externally.',
+      videoLoadFailedHint: 'Failed to load. The file may be too large or the format may not be supported. Please open it externally.'
     },
 
     textEditor: {

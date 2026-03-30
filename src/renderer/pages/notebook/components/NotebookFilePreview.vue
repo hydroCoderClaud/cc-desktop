@@ -102,7 +102,7 @@
         </div>
         <div v-else-if="error" class="preview-placeholder">
           <Icon name="warning" :size="32" color="var(--danger-color)" />
-          <span>{{ error }}</span>
+          <span>{{ previewErrorText }}</span>
         </div>
 
         <!-- Renderers -->
@@ -209,6 +209,14 @@ const hasMoreSources = computed(() => {
 const extraSourceNamesText = computed(() => {
   const names = props.item.sourceNames || []
   return names.slice(1).join('、')
+})
+
+const previewErrorText = computed(() => {
+  if (!error.value) return ''
+  if (contentType.value === 'video' || props.item?.type === 'video') {
+    return t('notebook.studio.videoLoadFailedHint')
+  }
+  return error.value
 })
 
 const loadContent = async () => {
