@@ -206,7 +206,11 @@
       <div class="strip-divider"></div>
       <div class="strip-content strip-content-bottom">
         <div v-for="achievement in achievements" :key="achievement.id" class="strip-icon-item" :title="achievement.name">
-          <div class="strip-icon-wrapper" @click="openDetail(achievement)">
+          <div
+            class="strip-icon-wrapper"
+            :class="{ disabled: achievement.status === 'generating' }"
+            @click="achievement.status !== 'generating' && openDetail(achievement)"
+          >
             <Icon :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
           </div>
         </div>
@@ -398,6 +402,15 @@ const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.typ
 
 .strip-icon-wrapper:hover {
   background: var(--hover-bg);
+}
+
+.strip-icon-wrapper.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.strip-icon-wrapper.disabled:hover {
+  background: transparent;
 }
 
 .tag-filter-list {
