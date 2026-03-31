@@ -81,7 +81,7 @@ const notebookAchievementMixin = {
   /**
    * 添加成果（status 默认 generating）
    * @param {string} notebookId
-   * @param {{ name, type, sourceIds?, prompt? }} achievementData
+   * @param {{ name, type, toolId?, toolName?, sourceIds?, prompt? }} achievementData
    */
   addAchievement(notebookId, achievementData) {
     const indexPath = this._achievementIndexPath(notebookId)
@@ -91,6 +91,8 @@ const notebookAchievementMixin = {
       id: 'ach-' + uuidv4().replace(/-/g, '').slice(0, 8),
       name: achievementData.name || 'achievement',
       type: achievementData.type || 'report',
+      toolId: achievementData.toolId || null,
+      toolName: achievementData.toolName || null,
       path: achievementData.path || null,
       category: achievementData.type || 'report',
       sourceIds: achievementData.sourceIds || [],
@@ -178,7 +180,7 @@ const notebookAchievementMixin = {
     const data = this._readJson(indexPath)
     const idx = data.achievements.findIndex(a => a.id === achievementId)
     if (idx === -1) throw new Error(`成果不存在：${achievementId}`)
-    const allowed = ['name', 'status', 'path', 'category', 'prompt', 'sourceIds', 'selected']
+    const allowed = ['name', 'status', 'path', 'category', 'prompt', 'sourceIds', 'selected', 'toolId', 'toolName']
     allowed.forEach(k => { if (k in updates) data.achievements[idx][k] = updates[k] })
     this._writeJsonAtomic(indexPath, data)
     return data.achievements[idx]

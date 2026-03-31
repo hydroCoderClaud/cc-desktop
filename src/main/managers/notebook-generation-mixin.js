@@ -93,6 +93,8 @@ const notebookGenerationMixin = {
     const achievement = this.addAchievement(notebookId, {
       name: `${typeName} - ${new Date().toLocaleDateString()}`,
       type: outputType,
+      toolId,
+      toolName: typeName,
       path: expectedRelPath,
       sourceIds: selectedSources.map(s => s.id)
     })

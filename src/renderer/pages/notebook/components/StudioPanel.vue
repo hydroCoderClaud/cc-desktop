@@ -4,7 +4,7 @@
       <template v-if="expandedAchievement">
         <span class="panel-title">{{ t('notebook.studio.title') }}</span>
         <Icon name="chevronRight" :size="14" class="breadcrumb-icon" />
-        <span class="panel-title">{{ getTypeName(expandedAchievement.type) }}</span>
+        <span class="panel-title">{{ getAchievementHeaderName(currentExpandedAchievement) }}</span>
         <button class="header-btn" style="margin-left:auto" :title="t('common.back')" @click="closeDetail">
           <Icon name="chevronRight" :size="18" :strokeWidth="1.8" />
         </button>
@@ -253,6 +253,12 @@ const availableTags = computed(() => props.availableTags)
 const selectedTags = computed(() => props.selectedTags)
 const filteredTypes = computed(() => props.filteredAvailableTypes)
 
+const getToolNameById = (toolId) => {
+  if (!toolId) return ''
+  const tool = props.availableTypes.find(t => t.id === toolId)
+  return tool?.name || ''
+}
+
 const filterTriggerLabel = computed(() => {
   if (selectedTags.value.length === 0) return t('notebook.market.allTags')
   return t('notebook.market.filterTags')
@@ -309,7 +315,20 @@ const closeDetail = () => {
   props.collapsePanel('right')
 }
 
-const getTypeName = (typeId) => t('notebook.tools.' + typeId) || t('notebook.types.' + typeId)
+const translateIfExists = (key) => {
+  const value = t(key)
+  return value === key ? '' : value
+}
+
+const getTypeName = (typeId) => {
+  if (!typeId) return ''
+  return translateIfExists('notebook.tools.' + typeId) || translateIfExists('notebook.types.' + typeId) || typeId
+}
+
+const getAchievementHeaderName = (achievement) => {
+  if (!achievement) return ''
+  return achievement.toolName || getToolNameById(achievement.toolId) || getTypeName(achievement.toolId) || getTypeName(achievement.type) || achievement.name || ''
+}
 </script>
 
 <style>
