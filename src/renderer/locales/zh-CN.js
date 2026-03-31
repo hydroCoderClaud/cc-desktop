@@ -58,6 +58,7 @@ export default {
     saved: '已保存',
     deleted: '已删除',
     copyFailed: '复制失败',
+    copySuccess: '复制成功',
     openFailed: '打开失败',
     openFile: '打开文件',
     all: '全部',

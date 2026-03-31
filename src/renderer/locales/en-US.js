@@ -57,6 +57,7 @@ export default {
     saved: 'Saved',
     deleted: 'Deleted',
     copyFailed: 'Copy failed',
+    copySuccess: 'Copied successfully',
     openFailed: 'Failed to open',
     openFile: 'Open File',
     all: 'All',
