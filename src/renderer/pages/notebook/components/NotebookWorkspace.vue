@@ -35,6 +35,7 @@
         @rename-source="handleRenameSource"
         @export-source="handleExportSource"
         @add-to-achievement="handleAddSourceToAchievement"
+        @open-folder="handleOpenFolder"
         @delete-source="handleDeleteSource"
         @update:showLeftPanel="showLeftPanel = $event"
       />
@@ -462,8 +463,42 @@ const handleAddSource = async () => {
   }
 }
 
+const handleOpenFolder = async (item) => {
+  if (!item) return
+
+  const candidatePath = item.absolutePath || item.path
+  if (!candidatePath) {
+    message.warning(t('messages.loadFailed'))
+    return
+  }
+
+  try {
+    let absPath = candidatePath
+
+    if (!(candidatePath.match(/^[A-Za-z]:[/\\]/) || candidatePath.startsWith('/'))) {
+      if (!currentNotebook.value?.notebookPath) {
+        message.warning(t('messages.loadFailed'))
+        return
+      }
+      absPath = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, candidatePath)
+    }
+
+    const normalized = absPath.replace(/\\/g, '/')
+    const folderPath = normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : normalized
+    await window.electronAPI.openPath(folderPath || normalized)
+  } catch (err) {
+    console.error('[Notebook] Failed to open folder:', err)
+    message.error(t('common.error'))
+  }
+}
+
 const handleOpenExternal = async (source) => {
   if (!source) return
+
+  if (source.openFolderOnly) {
+    await handleOpenFolder(source)
+    return
+  }
 
   // 1. 如果是网页链接
   if (source.url) {

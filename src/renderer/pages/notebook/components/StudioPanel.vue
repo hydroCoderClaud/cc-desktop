@@ -271,6 +271,7 @@ const emit = defineEmits([
 const getAchievementMenuOptions = () => ([
   { label: t('common.rename'), key: 'rename' },
   { label: t('notebook.studio.addToSource'), key: 'add-to-source' },
+  { label: t('project.openFolder'), key: 'open-folder' },
   { label: t('notebook.studio.export'), key: 'export' },
   { label: t('notebook.studio.delete'), key: 'delete' }
 ])
@@ -286,6 +287,7 @@ const clearTagFilters = () => {
 const handleAchievementMenuSelect = (key, achievement) => {
   if (key === 'rename') emit('rename', achievement)
   if (key === 'add-to-source') emit('add-to-source', achievement)
+  if (key === 'open-folder') emit('open-external', { ...achievement, openFolderOnly: true })
   if (key === 'export') emit('export', achievement)
   if (key === 'delete') emit('delete', achievement)
 }
