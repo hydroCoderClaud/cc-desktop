@@ -178,6 +178,7 @@ import { useLocale } from '@composables/useLocale'
 import { useTheme } from '@composables/useTheme'
 import { useNotebookLayout } from '../composables/useNotebookLayout'
 import { useNotebookTools } from '../composables/useNotebookTools'
+import { useNotebookChatAssets } from '../composables/useNotebookChatAssets'
 import NotebookTopNav from './NotebookTopNav.vue'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -200,7 +201,6 @@ const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4
 const chatPanelRef = ref(null)
 const activeGenerationAchievementId = ref(null)
 const activeGenerationToken = ref(0)
-const previewImageData = ref(null)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
@@ -285,103 +285,29 @@ const refreshSources = async () => {
   recomputeAchievementsPresentation()
 }
 
-const getSelectedSourceIdsForChat = () => selectedSources.value.map(s => s.id)
+const selectedSources = computed(() => sources.value.filter(s => s.selected))
+const allSelected = computed(() => sources.value.length > 0 && sources.value.every(s => s.selected))
 
-const handleSaveChatImageToSource = async ({ dataUrl, message: chatMessage, filename } = {}) => {
-  if (!currentNotebook.value?.id) return
-  try {
-    await window.electronAPI.notebookSaveChatImageToSource({
-      notebookId: currentNotebook.value.id,
-      filename: filename || buildChatAssetName(chatMessage, 'chat-image'),
-      dataUrl
-    })
-    await refreshSources()
-    message.success(t('notebook.chat.saveImageToSourceSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to save chat image to source:', err)
-    message.error(t('notebook.chat.saveImageToSourceFailed', { error: err.message }))
-  }
-}
-
-const handleSaveChatImageToAchievement = async ({ dataUrl, message: chatMessage, filename } = {}) => {
-  if (!currentNotebook.value?.id) return
-  try {
-    await window.electronAPI.notebookSaveChatImageToAchievement({
-      notebookId: currentNotebook.value.id,
-      filename: filename || buildChatAssetName(chatMessage, 'chat-image'),
-      dataUrl,
-      sourceIds: getSelectedSourceIdsForChat()
-    })
-    await refreshAchievements()
-    message.success(t('notebook.chat.saveImageToAchievementSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to save chat image to achievement:', err)
-    message.error(t('notebook.chat.saveImageToAchievementFailed', { error: err.message }))
-  }
-}
-
-const handleCopyChatContentToSource = async ({ content, message: chatMessage } = {}) => {
-  if (!currentNotebook.value?.id) return
-  try {
-    await window.electronAPI.notebookSaveChatMarkdownToSource({
-      notebookId: currentNotebook.value.id,
-      filename: buildChatAssetName(chatMessage, 'chat-markdown'),
-      content
-    })
-    await refreshSources()
-    message.success(t('notebook.chat.copyContentToSourceSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to copy chat content to source:', err)
-    message.error(t('notebook.chat.copyContentToSourceFailed', { error: err.message }))
-  }
-}
-
-const handleCopyChatContentToAchievement = async ({ content, message: chatMessage } = {}) => {
-  if (!currentNotebook.value?.id) return
-  try {
-    await window.electronAPI.notebookSaveChatMarkdownToAchievement({
-      notebookId: currentNotebook.value.id,
-      filename: buildChatAssetName(chatMessage, 'chat-markdown'),
-      content,
-      sourceIds: getSelectedSourceIdsForChat()
-    })
-    await refreshAchievements()
-    message.success(t('notebook.chat.copyContentToAchievementSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to copy chat content to achievement:', err)
-    message.error(t('notebook.chat.copyContentToAchievementFailed', { error: err.message }))
-  }
-}
-
-const handleAddPathToSource = async ({ filePath } = {}) => {
-  if (!currentNotebook.value?.id || !filePath) return
-  try {
-    await window.electronAPI.notebookAddPathToSource({
-      notebookId: currentNotebook.value.id,
-      filePath
-    })
-    await refreshSources()
-    message.success(t('notebook.chat.addLinkToSourceSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to add linked file to source:', err)
-    message.error(t('notebook.chat.addLinkToSourceFailed', { error: err.message }))
-  }
-}
-
-const handleAddPathToAchievement = async ({ filePath } = {}) => {
-  if (!currentNotebook.value?.id || !filePath) return
-  try {
-    await window.electronAPI.notebookAddPathToAchievement({
-      notebookId: currentNotebook.value.id,
-      filePath
-    })
-    await refreshAchievements()
-    message.success(t('notebook.chat.addLinkToAchievementSuccess'))
-  } catch (err) {
-    console.error('[Notebook] Failed to add linked file to achievement:', err)
-    message.error(t('notebook.chat.addLinkToAchievementFailed', { error: err.message }))
-  }
-}
+const {
+  previewImageData,
+  handleSaveChatImageToSource,
+  handleSaveChatImageToAchievement,
+  handleCopyChatContentToSource,
+  handleCopyChatContentToAchievement,
+  handleAddPathToSource,
+  handleAddPathToAchievement,
+  closePreviewImage,
+  handlePreviewImage,
+  handlePreviewLink,
+  handlePreviewPath
+} = useNotebookChatAssets({
+  currentNotebook,
+  selectedSources,
+  refreshSources,
+  refreshAchievements: async () => refreshAchievements(),
+  message,
+  t
+})
 
 const handleAddAchievementToSource = async (achievement) => {
   if (!currentNotebook.value?.id || !achievement?.id) return
@@ -574,9 +500,6 @@ const handleDeleted = (id) => {
 }
 
 // ─── Sources ─────────────────────────────────────────────────────────────────
-const selectedSources = computed(() => sources.value.filter(s => s.selected))
-const allSelected = computed(() => sources.value.length > 0 && sources.value.every(s => s.selected))
-
 const toggleSelectAll = async () => {
   const newValue = !allSelected.value
   if (!currentNotebook.value) return
@@ -1097,38 +1020,6 @@ const handleAgentCancelled = async (payload = {}) => {
 }
 
 // ─── 预览处理 ─────────────────────────────────────────────────────────────────
-const closePreviewImage = () => {
-  previewImageData.value = null
-}
-
-const handlePreviewImage = (previewData) => {
-  if (previewData?.content) {
-    previewImageData.value = previewData
-    return
-  }
-  if (previewData?.path) window.electronAPI.openPath(previewData.path).catch(() => {})
-}
-
-const handlePreviewLink = (linkData) => {
-  if (linkData?.url) window.electronAPI.openExternal(linkData.url).catch(() => {})
-}
-
-const handlePreviewPath = async (filePath) => {
-  if (!filePath) return
-  try {
-    const fileData = await window.electronAPI.readAbsolutePath({
-      filePath,
-      sessionId: currentNotebook.value?.sessionId,
-      confirmed: true
-    })
-    if (fileData?.error) { message.error(fileData.error); return }
-    const effectivePath = fileData.path || fileData.filePath || filePath
-    await window.electronAPI.openPath(effectivePath)
-  } catch (err) {
-    console.error('[Notebook] Failed to preview path:', err)
-    message.error('文件预览失败')
-  }
-}
 </script>
 
 <style scoped>
