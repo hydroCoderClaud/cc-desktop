@@ -20,7 +20,6 @@
               @click="selectModel(m.value)"
             >
               <span class="option-name">{{ m.label }}</span>
-              <span class="option-desc">{{ m.desc }}</span>
               <Icon v-if="modelValue === m.value" name="check" :size="14" class="check-icon" />
             </div>
           </div>
@@ -95,7 +94,7 @@
       </div>
 
       <div class="toolbar-right">
-        <span v-if="activeModel" class="active-model" :title="activeModel">{{ activeModel }}</span>
+        <span v-if="showActiveModel" class="active-model" :title="activeModel">{{ activeModel }}</span>
         <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
           {{ formatTokens(contextTokens) }} tokens
         </span>
@@ -218,6 +217,10 @@
           </div>
         </Transition>
       </div>
+
+      <!-- Suffix Slot (e.g. for Notebook Source Count) -->
+      <slot name="suffix"></slot>
+
       <!-- 停止/发送按钮 -->
       <button
         v-if="isStreaming"
@@ -286,6 +289,10 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  modelMapping: {
+    type: Object,
+    default: () => ({})
+  },
   queueEnabled: {
     type: Boolean,
     default: true
@@ -306,16 +313,28 @@ const formatTokens = (n) => {
 // ============================
 // 模型选择
 // ============================
-const modelOptions = [
-  { value: 'sonnet', label: 'Sonnet', desc: t('agent.modelBalanced') },
-  { value: 'opus', label: 'Opus', desc: t('agent.modelPowerful') },
-  { value: 'haiku', label: 'Haiku', desc: t('agent.modelFast') }
-]
+const getTierFallbackLabel = (tier) => {
+  const labels = {
+    opus: t('agent.tierPowerful'),
+    sonnet: t('agent.tierBalanced'),
+    haiku: t('agent.tierFast')
+  }
+  return labels[tier] || t('agent.tierBalanced')
+}
 
-const modelDisplayName = computed(() => {
-  const found = modelOptions.find(m => m.value === props.modelValue)
-  return found ? found.label : 'Sonnet'
-})
+const getTierDisplayName = (tier) => {
+  const mapped = props.modelMapping?.[tier]?.trim()
+  return mapped || getTierFallbackLabel(tier)
+}
+
+const modelOptions = computed(() => [
+  { value: 'sonnet', label: getTierDisplayName('sonnet') },
+  { value: 'opus', label: getTierDisplayName('opus') },
+  { value: 'haiku', label: getTierDisplayName('haiku') }
+])
+
+const modelDisplayName = computed(() => getTierDisplayName(props.modelValue))
+const showActiveModel = computed(() => Boolean(props.activeModel) && props.activeModel !== modelDisplayName.value)
 
 const showDropdown = ref(false)
 const selectorRef = ref(null)
@@ -993,12 +1012,6 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText })
   font-size: 13px;
   font-weight: 500;
   color: var(--text-color);
-}
-
-.option-desc {
-  font-size: 11px;
-  color: var(--text-color-muted);
-  flex: 1;
 }
 
 .check-icon {

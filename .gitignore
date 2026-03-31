@@ -55,8 +55,11 @@ nul
 # Claude Code CLI artifacts
 .claude/*
 !.claude/skills/
+.claude/skills/gitnexus/
+AGENTS.md
 .serena/
 
 # Release artifacts
 release/
 *.tar.gz
+.gitnexus

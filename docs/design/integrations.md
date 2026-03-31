@@ -1,6 +1,6 @@
 # 集成系统设计
 
-> CC Desktop v1.6.91 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
+> CC Desktop v1.6.99 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
 
 本文档覆盖 CC Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
 
@@ -8,7 +8,9 @@
 
 ## 钉钉桥接
 
-> 核心文件：`src/main/managers/dingtalk-bridge.js` (1335 行)
+> 当前钉钉桥接已包含命令拦截与图片发送能力；历史命令规划见 `../DINGTALK-COMMAND-PLAN.md`，但该文档仅作历史参考，现行行为以代码为准。
+
+> 核心文件：`src/main/managers/dingtalk-bridge.js`
 
 ### 架构概述
 

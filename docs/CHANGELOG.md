@@ -2,6 +2,27 @@
 
 ---
 
+## v1.7.0 - 2026-03-28
+
+### 新增 (Feat)
+- Notebook 来源列表右键菜单：重命名、删除、导出、添加到成果
+- Notebook 对话区文件路径链接支持右键归档到来源/成果
+- Notebook 用户气泡图片支持左键滑出预览、右键归档到来源/成果
+- 来源/成果互转时保留原始名称（使用 `preferredName` 参数）
+- Notebook 顶部一键整理入口（清理失效来源与成果索引）
+
+### 修复 (Fix)
+- 成果删除提示文案修正（明确会同时删除物理文件且不可恢复）
+- 目录路径右键不显示无效操作项（仅文件来源可归档/导出）
+- 路径链接/图片右键菜单增加存在性校验
+- 修复路径遍历安全问题（`readFileContent` / `writeFileContent` 增加边界检查）
+
+### 测试 (Test)
+- 新增来源导出、路径归档等 backend 测试
+- `notebook-manager.test.js` 新增 `exportSource`、`addPathToAchievement` 等用例
+
+---
+
 ## v1.6.99 - 2026-03-17
 
 ### 新增 (Feat)

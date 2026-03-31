@@ -75,6 +75,7 @@
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
       :active-model="activeModel"
+      :model-mapping="modelMapping"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
@@ -135,6 +136,7 @@ const {
   contextTokens,
   isCompacting,
   slashCommands,
+  modelMapping,
   activeModel,
   isInterrupting,  // 中断标志，用于阻止队列自动消费
   hasActiveSession,  // 激活状态，用于显示提示文字

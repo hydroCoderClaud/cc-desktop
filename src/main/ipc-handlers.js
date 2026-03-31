@@ -23,6 +23,7 @@ const { SessionFileWatcher } = safeRequire('./session-file-watcher', 'SessionFil
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
 const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
+const projectFilesHandlersMod = safeRequire('./ipc-handlers/project-files-handlers', 'project-files-handlers');
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
@@ -32,11 +33,13 @@ const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-han
 const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 'capability-handlers');
 const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-handlers');
 const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
+const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
+const setupProjectFilesHandlers = projectFilesHandlersMod?.setupProjectFilesHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
@@ -46,6 +49,7 @@ const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
 const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
 const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
+const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -66,7 +70,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager) {
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -86,6 +90,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   }
   if (agentSessionManager) {
     agentSessionManager.setSessionDatabase(sessionDatabase);
+  }
+  if (capabilityManager) {
+    capabilityManager.setSessionDatabase(sessionDatabase);
   }
   if (sessionFileWatcher) {
     sessionFileWatcher.setDependencies({
@@ -229,6 +236,21 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
     return { success: false, error: 'Main window not available' };
   });
+
+  ipcMain.handle('window:setMainTitleByMode', async (_event, mode) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { success: false, error: 'Main window not available' }
+    }
+
+    const title = mode === 'agent'
+      ? 'Hydro Agent'
+      : mode === 'notebook'
+        ? 'Hydro Notebook'
+        : 'Hydro Coder'
+
+    mainWindow.setTitle(title)
+    return { success: true }
+  })
 
   // 打开应用更新窗口（防止重复打开）
   let updateManagerWindow = null
@@ -618,6 +640,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   }
 
   // ========================================
+  // 工程文件浏览管理
+  // ========================================
+  if (setupProjectFilesHandlers) {
+    setupProjectFilesHandlers(ipcMain);
+  }
+
+  // ========================================
   // Terminal 相关
   // ========================================
 
@@ -692,6 +721,15 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (dingtalkBridge && setupDingTalkHandlers) {
     setupDingTalkHandlers(ipcMain, dingtalkBridge, configManager);
+  }
+
+  // ========================================
+  // Notebook 管理
+  // ========================================
+  if (notebookManager && setupNotebookHandlers) {
+    notebookManager.setSessionDatabase(sessionDatabase);
+    notebookManager.setCapabilityManager(capabilityManager);
+    setupNotebookHandlers(ipcMain, notebookManager);
   }
 
   // 打开钉钉桥接设置窗口

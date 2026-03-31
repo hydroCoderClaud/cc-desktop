@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> CC Desktop v1.6.91 | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> CC Desktop v1.6.99 | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
@@ -14,7 +14,7 @@
 
 | 页面 | 用途 |
 |------|------|
-| **main** | 主窗口，承载 Developer 模式（终端）和 Agent 模式（对话）的全部交互 |
+| **main** | 主窗口，承载 Developer、Agent、Notebook 三种模式的核心交互 |
 
 ### 8 个独立窗口
 
@@ -60,17 +60,20 @@
 
 ### 模式隔离
 
-MainContent 使用 **`v-show`（非 `v-if`）** 切换 Developer/Agent 内容区：
+MainContent 当前承载 **Developer / Agent / Notebook** 三种模式。Developer 与 Agent 区域继续使用 **`v-show`（非 `v-if`）** 避免切换时 remount；Notebook 作为独立工作台区域纳入主窗口模式切换。
 
 ```html
 <div v-show="isDeveloperMode" class="mode-content">  <!-- 终端区 -->
-<div v-show="!isDeveloperMode" class="mode-content">  <!-- Agent 对话区 -->
+<div v-show="isAgentMode" class="mode-content">      <!-- Agent 对话区 -->
+<div v-show="isNotebookMode" class="mode-content">   <!-- Notebook 工作台 -->
 ```
 
 **设计原因**：`v-if` 会销毁组件，导致：
 1. xterm.js 终端 buffer（屏幕内容 + 历史滚动）丢失
 2. Agent 模式的 IPC 流式事件监听器断开
 3. 两种模式的滚动位置、输入状态无法保留
+
+Notebook 模式入口默认受 `config.settings.enableNotebook` 控制，未开启时不对普通用户暴露。
 
 TabBar 按模式过滤只显示当前模式的 Tab：
 

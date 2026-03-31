@@ -9,7 +9,8 @@ import { ref, computed, readonly } from 'vue'
  */
 export const AppMode = {
   DEVELOPER: 'developer',
-  AGENT: 'agent'
+  AGENT: 'agent',
+  NOTEBOOK: 'notebook'
 }
 
 // 全局共享状态（模块级单例）
@@ -19,6 +20,7 @@ const initialized = ref(false)
 export function useAppMode() {
   const isDeveloperMode = computed(() => appMode.value === AppMode.DEVELOPER)
   const isAgentMode = computed(() => appMode.value === AppMode.AGENT)
+  const isNotebookMode = computed(() => appMode.value === AppMode.NOTEBOOK)
 
   /**
    * 从配置初始化模式
@@ -32,6 +34,7 @@ export function useAppMode() {
         const savedMode = config?.settings?.appMode
         if (savedMode && Object.values(AppMode).includes(savedMode)) {
           appMode.value = savedMode
+          await window.electronAPI.setMainWindowTitleByMode(savedMode)
         }
       }
     } catch (err) {
@@ -59,6 +62,7 @@ export function useAppMode() {
     try {
       if (window.electronAPI) {
         await window.electronAPI.updateSettings({ appMode: mode })
+        await window.electronAPI.setMainWindowTitleByMode(mode)
       }
     } catch (err) {
       console.error('[useAppMode] Failed to save mode to config:', err)
@@ -66,7 +70,7 @@ export function useAppMode() {
   }
 
   /**
-   * 切换模式（在两种模式之间切换）
+   * 切换模式（在开发者模式和 Agent 模式之间切换）
    */
   const toggleMode = async () => {
     const nextMode = appMode.value === AppMode.DEVELOPER
@@ -79,6 +83,7 @@ export function useAppMode() {
     appMode: readonly(appMode),
     isDeveloperMode,
     isAgentMode,
+    isNotebookMode,
     initMode,
     switchMode,
     toggleMode

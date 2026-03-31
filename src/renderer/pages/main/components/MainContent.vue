@@ -2,7 +2,7 @@
   <div class="app-container" :class="{ 'dark-theme': isDark }" :style="cssVars">
     <!-- Left Panel Collapsed Strip -->
     <div
-      v-if="!showLeftPanel"
+      v-if="!showLeftPanel && !isNotebookMode"
       class="panel-collapsed-strip panel-collapsed-left"
     >
       <button
@@ -23,7 +23,7 @@
 
     <!-- Left Panel (Project Selector + Sessions) -->
     <LeftPanel
-      v-if="showLeftPanel"
+      v-if="showLeftPanel && !isNotebookMode"
       ref="leftPanelRef"
       :projects="projects"
       :current-project="currentProject"
@@ -40,7 +40,6 @@
       @terminal-created="onTerminalCreated"
       @collapse="showLeftPanel = false"
       @toggle-both-panels="toggleBothPanels"
-      @mode-changed="handleModeChanged"
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
@@ -50,6 +49,7 @@
     <div class="main-content">
       <!-- Tab Bar -->
       <TabBar
+        v-if="!isNotebookMode"
         :tabs="currentModeTabs"
         :active-tab-id="activeTabId"
         :current-project="currentProject"
@@ -59,7 +59,7 @@
       />
 
       <!-- Main Area -->
-      <div class="main-area">
+      <div class="main-area" :class="{ 'notebook-main-area': isNotebookMode }">
         <!-- Developer Mode Content (v-show 保持组件活跃，避免终端 buffer 丢失) -->
         <div v-show="isDeveloperMode" class="mode-content">
           <!-- Welcome Page -->
@@ -99,7 +99,7 @@
         </div>
 
         <!-- Agent Mode Content (v-show 保持组件活跃，避免 IPC 监听丢失和重复加载) -->
-        <div v-show="!isDeveloperMode" class="mode-content">
+        <div v-show="!isDeveloperMode && !isNotebookMode" class="mode-content">
           <!-- Agent Welcome -->
           <div v-show="!hasAgentTabs || activeTabId === 'welcome'" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
@@ -128,19 +128,24 @@
             />
           </div>
         </div>
+
+        <!-- Notebook Mode Content -->
+        <div v-show="isNotebookMode" class="mode-content notebook-mode-content">
+          <NotebookWorkspace />
+        </div>
       </div>
     </div>
 
     <!-- Resize Handle -->
     <div
-      v-if="showRightPanel"
+      v-if="showRightPanel && !isNotebookMode"
       class="resize-handle"
       @mousedown="startResize"
       :title="t('panel.dragToResize')"
     />
 
     <!-- Right Panel: Developer 模式用配置面板，Agent 模式用文件浏览面板 -->
-    <template v-if="showRightPanel">
+    <template v-if="showRightPanel && !isNotebookMode">
       <RightPanel
         v-show="isDeveloperMode"
         ref="rightPanelRef"
@@ -163,7 +168,7 @@
 
     <!-- Right Panel Collapsed Strip -->
     <div
-      v-if="!showRightPanel"
+      v-if="!showRightPanel && !isNotebookMode"
       class="panel-collapsed-strip panel-collapsed-right"
       @click="showRightPanel = true"
       :title="t('panel.showRight')"
@@ -200,12 +205,13 @@ import TerminalTab from './TerminalTab.vue'
 import AgentChatTab from './AgentChatTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
+import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
 
 const message = useMessage()
 const dialog = useDialog()
 const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
 const { t, initLocale } = useLocale()
-const { isDeveloperMode, isAgentMode, initMode, switchMode } = useAppMode()
+const { isDeveloperMode, isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
 
 // Use composables
 const {
@@ -249,30 +255,43 @@ const developerTabs = computed(() => allTabs.value.filter(t => t.type !== 'agent
 const agentTabs = computed(() => allTabs.value.filter(t => t.type === 'agent-chat'))
 const hasAgentTabs = computed(() => agentTabs.value.length > 0)
 
-// TabBar 只显示当前模式的 tabs（隔离两种模式，防止跨模式误操作）
+// TabBar 只显示当前模式的 tabs（隔离三种模式，防止跨模式误操作）
 const currentModeTabs = computed(() => {
-  return isDeveloperMode.value
-    ? tabs.value.filter(t => t.type !== 'agent-chat')
-    : tabs.value.filter(t => t.type === 'agent-chat')
+  if (isDeveloperMode.value) {
+    return tabs.value.filter(t => t.type !== 'agent-chat')
+  }
+  if (isAgentMode.value) {
+    return tabs.value.filter(t => t.type === 'agent-chat')
+  }
+  return []
 })
 
 // Agent 模式下当前活动会话的 sessionId（用于 AgentRightPanel）
 const activeAgentSessionId = computed(() => {
-  if (isDeveloperMode.value || activeTabId.value === 'welcome') return null
+  if (!isAgentMode.value || activeTabId.value === 'welcome') return null
   const tab = allTabs.value.find(t => t.id === activeTabId.value)
   return (tab?.type === 'agent-chat') ? tab.sessionId : null
 })
 
 // Agent 模式下当前活动会话的工作目录（用于 MCP 启闭）
 const activeAgentCwd = computed(() => {
-  if (isDeveloperMode.value || activeTabId.value === 'welcome') return null
+  if (!isAgentMode.value || activeTabId.value === 'welcome') return null
   const tab = allTabs.value.find(t => t.id === activeTabId.value)
   return (tab?.type === 'agent-chat') ? (tab.cwd || null) : null
+})
+
+// 计算当前活动的目录（Agent会话优先使用cwd，否则使用当前项目路径）
+const activeTabCwd = computed(() => {
+  if (activeTabId.value === 'welcome') return currentProject.value?.path || null
+  const tab = allTabs.value.find(t => t.id === activeTabId.value)
+  if (tab?.type === 'agent-chat' && tab.cwd) return tab.cwd
+  return currentProject.value?.path || null
 })
 
 // 各模式最后的 activeTabId，切换模式时保存/恢复
 let lastDeveloperTabId = 'welcome'
 let lastAgentTabId = 'welcome'
+let lastMode = AppMode.DEVELOPER
 
 /**
  * 确保 activeTabId 指向当前模式内的 tab
@@ -289,9 +308,11 @@ const ensureActiveTabInCurrentMode = () => {
   if (isDeveloperMode.value && isAgentTab) {
     const devTabs = tabs.value.filter(t => t.type !== 'agent-chat')
     activeTabId.value = devTabs.length > 0 ? devTabs[devTabs.length - 1].id : 'welcome'
-  } else if (!isDeveloperMode.value && !isAgentTab) {
+  } else if (isAgentMode.value && !isAgentTab) {
     const agTabs = tabs.value.filter(t => t.type === 'agent-chat')
     activeTabId.value = agTabs.length > 0 ? agTabs[agTabs.length - 1].id : 'welcome'
+  } else if (isNotebookMode.value) {
+    activeTabId.value = 'welcome'
   }
 }
 
@@ -336,6 +357,19 @@ watch(activeTabId, (newTabId) => {
   const tab = allTabs.value.find(t => t.id === newTabId)
   if (!tab) return
 
+  // 更新 currentProject，以便 RightPanel (FilesTab) 能随当前会话切换
+  if (tab.projectId && tab.projectId !== currentProject.value?.id) {
+    const targetProject = projects.value.find(p => p.id === tab.projectId)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  } else if (tab.type === 'agent-chat' && tab.cwd && tab.cwd !== currentProject.value?.path) {
+    const targetProject = projects.value.find(p => p.path === tab.cwd)
+    if (targetProject) {
+      currentProject.value = targetProject
+    }
+  }
+
   // 同步左侧面板焦点（按 tab 类型区分）
   if (tab.type === 'agent-chat') {
     if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
@@ -351,6 +385,7 @@ watch(activeTabId, (newTabId) => {
 // Panel visibility
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)  // 默认显示右侧面板
+let leftPanelVisibleBeforeNotebook = true
 
 // 一键切换两侧面板
 const toggleBothPanels = () => {
@@ -828,18 +863,34 @@ const handleSendToTerminal = (command) => {
   })
 }
 
-// Mode changed handler：保存当前模式的 tabId，恢复目标模式的 tabId
-const handleModeChanged = (mode) => {
-  if (mode === 'developer') {
-    lastAgentTabId = activeTabId.value
-    activeTabId.value = lastDeveloperTabId
-  } else {
+// 模式切换：保存当前模式 tab 并恢复目标模式 tab
+watch(appMode, (mode) => {
+  if (mode === lastMode) return
+
+  if (lastMode === AppMode.DEVELOPER) {
     lastDeveloperTabId = activeTabId.value
-    activeTabId.value = lastAgentTabId
+  } else if (lastMode === AppMode.AGENT) {
+    lastAgentTabId = activeTabId.value
   }
-  // 统一校验：saved tab 可能已被关闭，自动 fallback
+
+  if (mode === AppMode.DEVELOPER) {
+    activeTabId.value = lastDeveloperTabId
+    showLeftPanel.value = leftPanelVisibleBeforeNotebook
+    showRightPanel.value = true
+  } else if (mode === AppMode.AGENT) {
+    activeTabId.value = lastAgentTabId
+    showLeftPanel.value = leftPanelVisibleBeforeNotebook
+    showRightPanel.value = true
+  } else if (mode === AppMode.NOTEBOOK) {
+    leftPanelVisibleBeforeNotebook = showLeftPanel.value
+    activeTabId.value = 'welcome'
+    showLeftPanel.value = false
+    showRightPanel.value = false
+  }
+
+  lastMode = mode
   ensureActiveTabInCurrentMode()
-}
+})
 
 // ========================================
 // Agent event handlers
@@ -875,12 +926,16 @@ const handleAgentTabReady = ({ sessionId }) => {
 const handleInsertPath = (relativePath) => {
   if (!activeTabId.value) return
 
-  // 获取当前活动的 AgentChatTab 引用
-  const activeTabRef = agentChatTabRefs.value[activeTabId.value]
-  if (!activeTabRef || !activeTabRef.insertText) return
-
-  // 插入路径到输入框
-  activeTabRef.insertText(relativePath + '\n')
+  if (isDeveloperMode.value) {
+    if (rightPanelRef.value && rightPanelRef.value.insertToInput) {
+      rightPanelRef.value.insertToInput(relativePath)
+    }
+  } else if (isAgentMode.value) {
+    const activeTabRef = agentChatTabRefs.value[activeTabId.value]
+    if (activeTabRef && activeTabRef.insertText) {
+      activeTabRef.insertText(relativePath + '\n')
+    }
+  }
 }
 
 // 处理图片预览请求
@@ -936,8 +991,10 @@ const handlePreviewPath = async (filePath) => {
     }
 
     // 如果是目录，直接打开文件夹
+    const effectivePath = fileData.path || fileData.filePath || filePath
+
     if (fileData.type === 'directory') {
-      await window.electronAPI.openPath(filePath)
+      await window.electronAPI.openPath(effectivePath)
       return
     }
 
@@ -950,7 +1007,7 @@ const handlePreviewPath = async (filePath) => {
     nextTick(async () => {
       if (!agentRightPanelRef.value) return
       // 优先尝试在文件树中定位（仅对 cwd 内的文件有效）
-      const revealed = await agentRightPanelRef.value.revealInTree?.(filePath, { preview: true })
+      const revealed = await agentRightPanelRef.value.revealInTree?.(effectivePath, { preview: true })
       // 如果文件不在 cwd 内（revealInTree 返回 false/undefined），直接展示预览
       if (!revealed) {
         agentRightPanelRef.value.previewImage?.({ ...fileData, isExternalFile: true })
@@ -1018,6 +1075,12 @@ const openApiProfileManager = async () => {
   border: 1px solid var(--primary-color);
   border-radius: 4px;
   margin-bottom: 8px;
+}
+
+.notebook-main-area {
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
 }
 
 /* Empty State */
@@ -1091,6 +1154,18 @@ const openApiProfileManager = async () => {
   left: 0;
   right: 0;
   bottom: 0;
+}
+
+.notebook-mode-content {
+  background: var(--bg-color);
+}
+
+.notebook-mode-content :deep(.notebook-workspace) {
+  height: 100%;
+}
+
+.notebook-mode-content :deep(.panels-container) {
+  padding: 0 12px 12px;
 }
 
 /* Terminal Container */

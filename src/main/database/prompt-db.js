@@ -94,8 +94,12 @@ function withPromptOperations(BaseClass) {
         // 只显示当前项目的提示词
         conditions.push("p.scope = 'project' AND p.project_id = ?")
         params.push(projectId)
+      } else if (scope === 'notebook') {
+        conditions.push("p.scope = 'notebook'")
+      } else if (scope === 'all') {
+        // 'all' 默认只显示全局和项目的，排除 notebook 专用模板以防干扰开发者模式
+        conditions.push("p.scope IN ('global', 'project')")
       }
-      // scope === 'all' 时不加条件，显示所有提示词
 
       if (conditions.length > 0) {
         sql += ' WHERE ' + conditions.join(' AND ')
@@ -111,6 +115,23 @@ function withPromptOperations(BaseClass) {
       }
 
       return prompts
+    }
+
+    /**
+     * 通过 Market ID 获取 Prompt (Notebook 模式专用)
+     * @param {string} marketId
+     */
+    getPromptByMarketId(marketId) {
+      if (!marketId) return null
+      const row = this.db.prepare(`
+        SELECT p.*, mip.market_id FROM prompts p
+        JOIN market_installed_prompts mip ON mip.local_prompt_id = p.id
+        WHERE mip.market_id = ?
+      `).get(marketId)
+      if (row) {
+        row.tags = this.getPromptTags(row.id)
+      }
+      return row
     }
 
     /**

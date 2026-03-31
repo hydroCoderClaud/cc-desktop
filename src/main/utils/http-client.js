@@ -8,8 +8,8 @@ const https = require('https')
 const http = require('http')
 const { URL } = require('url')
 
-const HTTP_TIMEOUT = 30000
-const MIRROR_PRIMARY_TIMEOUT = 8000  // 有镜像时主地址的快速超时
+const HTTP_TIMEOUT = 10000
+const MIRROR_PRIMARY_TIMEOUT = 5000  // 有镜像时主地址的快速超时
 const MAX_REDIRECTS = 5
 const MAX_CONTENT_LENGTH = 1024 * 1024  // 1MB
 
@@ -19,25 +19,43 @@ const MAX_CONTENT_LENGTH = 1024 * 1024  // 1MB
  * @returns {Promise<string|null>} 代理地址或 null
  */
 async function resolveSystemProxy(url) {
-  try {
-    const { session } = require('electron')
-    const proxyStr = await session.defaultSession.resolveProxy(url)
-    // resolveProxy 返回格式: "PROXY host:port" 或 "DIRECT"
-    if (!proxyStr || proxyStr === 'DIRECT') return null
-    const match = proxyStr.match(/^PROXY\s+(.+)$/)
-    if (match) {
-      const proxyAddr = match[1]
-      // 补全协议前缀
-      if (proxyAddr.startsWith('http://') || proxyAddr.startsWith('https://')) {
-        return proxyAddr
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.warn('[HttpClient] resolveSystemProxy timeout');
+      resolve(null);
+    }, 2000);
+
+    try {
+      const { session } = require('electron');
+      if (!session || !session.defaultSession) {
+        clearTimeout(timeout);
+        return resolve(null);
       }
-      return `http://${proxyAddr}`
+      
+      session.defaultSession.resolveProxy(url).then(proxyStr => {
+        clearTimeout(timeout);
+        // resolveProxy 返回格式: "PROXY host:port" 或 "DIRECT"
+        if (!proxyStr || proxyStr === 'DIRECT') return resolve(null);
+        const match = proxyStr.match(/^PROXY\s+(.+)$/);
+        if (match) {
+          const proxyAddr = match[1];
+          if (proxyAddr.startsWith('http://') || proxyAddr.startsWith('https://')) {
+            return resolve(proxyAddr);
+          }
+          return resolve(`http://${proxyAddr}`);
+        }
+        resolve(null);
+      }).catch(e => {
+        clearTimeout(timeout);
+        console.warn('[HttpClient] resolveProxy error:', e.message);
+        resolve(null);
+      });
+    } catch (e) {
+      clearTimeout(timeout);
+      console.warn('[HttpClient] Failed to resolve system proxy:', e.message);
+      resolve(null);
     }
-    return null
-  } catch (e) {
-    console.warn('[HttpClient] Failed to resolve system proxy:', e.message)
-    return null
-  }
+  });
 }
 
 /**
@@ -48,14 +66,14 @@ async function resolveSystemProxy(url) {
  */
 async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
   if (_redirectCount > MAX_REDIRECTS) {
-    const err = new Error('重定向次数超限')
-    err.code = 'TOO_MANY_REDIRECTS'
-    throw err
+    const err = new Error('重定向次数超限');
+    err.code = 'TOO_MANY_REDIRECTS';
+    throw err;
   }
 
-  const parsedUrl = new URL(url)
-  const isHttps = parsedUrl.protocol === 'https:'
-  const httpModule = isHttps ? https : http
+  const parsedUrl = new URL(url);
+  const isHttps = parsedUrl.protocol === 'https:';
+  const httpModule = isHttps ? https : http;
 
   const options = {
     hostname: parsedUrl.hostname,
@@ -68,17 +86,17 @@ async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
       'Pragma': 'no-cache'
     },
     timeout: _timeout
-  }
+  };
 
   // 使用系统代理
-  const proxyUrl = await resolveSystemProxy(url)
+  const proxyUrl = await resolveSystemProxy(url);
   if (proxyUrl && isHttps) {
     try {
-      const { HttpsProxyAgent } = require('https-proxy-agent')
-      options.agent = new HttpsProxyAgent(proxyUrl)
-      console.log('[HttpClient] Using system proxy:', proxyUrl)
+      const { HttpsProxyAgent } = require('https-proxy-agent');
+      options.agent = new HttpsProxyAgent(proxyUrl);
+      console.log('[HttpClient] Using system proxy:', proxyUrl);
     } catch (e) {
-      console.warn('[HttpClient] https-proxy-agent not available, direct connection')
+      // 忽略找不到 agent 的警告
     }
   }
 
@@ -86,47 +104,48 @@ async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
     const req = httpModule.request(options, (res) => {
       // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume() // 消费响应体，释放 socket
-        httpGet(res.headers.location, _redirectCount + 1, _timeout).then(resolve).catch(reject)
-        return
+        res.resume();
+        httpGet(res.headers.location, _redirectCount + 1, _timeout).then(resolve).catch(reject);
+        return;
       }
 
       if (res.statusCode !== 200) {
-        const err = new Error(`HTTP ${res.statusCode}`)
-        err.statusCode = res.statusCode
-        reject(err)
-        return
+        res.resume(); // 必须消费响应体以释放 socket
+        const err = new Error(`HTTP ${res.statusCode}`);
+        err.statusCode = res.statusCode;
+        reject(err);
+        return;
       }
 
-      let data = ''
-      let totalLength = 0
-      let settled = false
+      let data = '';
+      let totalLength = 0;
+      let settled = false;
       res.on('data', chunk => {
-        if (settled) return
-        totalLength += chunk.length
+        if (settled) return;
+        totalLength += chunk.length;
         if (totalLength > MAX_CONTENT_LENGTH) {
-          settled = true
-          res.destroy()
-          const err = new Error('响应内容过大')
-          err.code = 'CONTENT_TOO_LARGE'
-          reject(err)
-          return
+          settled = true;
+          res.destroy();
+          const err = new Error('响应内容过大');
+          err.code = 'CONTENT_TOO_LARGE';
+          reject(err);
+          return;
         }
-        data += chunk
-      })
-      res.on('end', () => { if (!settled) resolve(data) })
-    })
+        data += chunk;
+      });
+      res.on('end', () => { if (!settled) resolve(data); });
+    });
 
-    req.on('error', reject)
+    req.on('error', reject);
     req.on('timeout', () => {
-      req.destroy()
-      const err = new Error('连接超时')
-      err.code = 'TIMEOUT'
-      reject(err)
-    })
+      req.destroy();
+      const err = new Error('连接超时');
+      err.code = 'TIMEOUT';
+      reject(err);
+    });
 
-    req.end()
-  })
+    req.end();
+  });
 }
 
 /**
@@ -238,12 +257,13 @@ async function fetchRegistryIndex(registryUrl, mirrorUrl) {
 
   const baseUrl = registryUrl.replace(/\/+$/, '')
   const url = baseUrl + '/index.json'
-  console.log('[HttpClient] Fetching registry index:', url)
+  console.log(`[HttpClient] START fetching index: ${url} (Mirror: ${mirrorUrl || 'none'})`)
 
   try {
     const body = mirrorUrl
       ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
       : await httpGet(url)
+    console.log(`[HttpClient] SUCCESS received body: ${body.length} chars`)
     const data = JSON.parse(body)
 
     return {
@@ -256,7 +276,7 @@ async function fetchRegistryIndex(registryUrl, mirrorUrl) {
       }
     }
   } catch (err) {
-    console.error('[HttpClient] Failed to fetch registry index:', err.message)
+    console.error('[HttpClient] FAILED fetch index:', err.message)
     return { success: false, error: classifyHttpError(err) }
   }
 }

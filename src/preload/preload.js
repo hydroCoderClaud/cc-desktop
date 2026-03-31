@@ -162,6 +162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
   openNotebookWorkspace: () => ipcRenderer.invoke('window:openNotebookWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
+  setMainWindowTitleByMode: (mode) => ipcRenderer.invoke('window:setMainTitleByMode', mode),
 
   // ========================================
   // 服务商定义管理
@@ -386,6 +387,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   listPrompts: (options) => ipcRenderer.invoke('prompts:list', options),
   getPrompt: (promptId) => ipcRenderer.invoke('prompts:get', promptId),
+  getPromptByMarketId: (marketId) => ipcRenderer.invoke('prompts:getByMarketId', marketId),
   createPrompt: (promptData) => ipcRenderer.invoke('prompts:create', promptData),
   updatePrompt: ({ promptId, updates }) => ipcRenderer.invoke('prompts:update', promptId, updates),
   deletePrompt: (promptId) => ipcRenderer.invoke('prompts:delete', promptId),
@@ -568,6 +570,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendAgentMessage: ({ sessionId, message, modelTier, maxTurns }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message, modelTier, maxTurns }),
   cancelAgentGeneration: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
   closeAgentSession: (sessionId) => ipcRenderer.invoke('agent:close', sessionId),
+  switchAgentApiProfile: ({ sessionId, profileId }) => ipcRenderer.invoke('agent:switchApiProfile', { sessionId, profileId }),
   reopenAgentSession: (sessionId) => ipcRenderer.invoke('agent:reopen', sessionId),
   getAgentSession: (sessionId) => ipcRenderer.invoke('agent:get', sessionId),
   listAgentSessions: () => ipcRenderer.invoke('agent:list'),
@@ -577,6 +580,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAgentMessages: (sessionId) => ipcRenderer.invoke('agent:getMessages', sessionId),
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
   compactAgentConversation: (sessionId) => ipcRenderer.invoke('agent:compact', sessionId),
+  clearAndRecreateAgentSession: ({ sessionId, overrides }) => ipcRenderer.invoke('agent:clearAndRecreate', { sessionId, overrides }),
 
   // 队列持久化
   saveAgentQueue: ({ sessionId, queue }) => ipcRenderer.invoke('agent:saveQueue', { sessionId, queue }),
@@ -596,6 +600,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentOutputFiles: (sessionId) => ipcRenderer.invoke('agent:listOutputFiles', sessionId),
 
   // 文件浏览（AgentRightPanel）
+  listProjectDir: ({ rootPath, relativePath, showHidden }) => ipcRenderer.invoke('project:listDir', { rootPath, relativePath, showHidden }),
+  readProjectFile: ({ rootPath, relativePath }) => ipcRenderer.invoke('project:readFile', { rootPath, relativePath }),
+  saveProjectFile: ({ rootPath, relativePath, content }) => ipcRenderer.invoke('project:saveFile', { rootPath, relativePath, content }),
+  createProjectFile: ({ rootPath, parentPath, name, isDirectory }) => ipcRenderer.invoke('project:createFile', { rootPath, parentPath, name, isDirectory }),
+  renameProjectFile: ({ rootPath, oldPath, newName }) => ipcRenderer.invoke('project:renameFile', { rootPath, oldPath, newName }),
+  deleteProjectFile: ({ rootPath, path }) => ipcRenderer.invoke('project:deleteFile', { rootPath, path }),
+  searchProjectFiles: ({ rootPath, keyword, showHidden }) => ipcRenderer.invoke('project:searchFiles', { rootPath, keyword, showHidden }),
+
   listAgentDir: ({ sessionId, relativePath, showHidden }) =>
     ipcRenderer.invoke('agent:listDir', { sessionId, relativePath, showHidden }),
   readAgentFile: ({ sessionId, relativePath }) =>
@@ -624,8 +636,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:enable', id, capability, sessionId),
   disableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:disable', id, capability, sessionId),
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
+  checkCapabilityInstalled: (type, id, projectPath) => ipcRenderer.invoke('capabilities:checkInstalled', type, id, projectPath),
   getCapabilitiesUpdateStatus: () => ipcRenderer.invoke('capabilities:getUpdateStatus'),
   clearCapabilitiesUpdateBadge: () => ipcRenderer.invoke('capabilities:clearUpdateBadge'),
+  checkComponentsBatchStatus: (components) => ipcRenderer.invoke('capabilities:checkBatchStatus', components),
   onCapabilitiesUpdateAvailable: (callback) => {
     const listener = () => callback()
     ipcRenderer.on('capabilities-update-available', listener)
@@ -744,7 +758,58 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener(channel, listener);
       }
     ])
-  )
-});
+  ),
+
+  // ========================================
+  // Notebook 管理
+  // ========================================
+  notebookCreate: (options) => ipcRenderer.invoke('notebook:create', options),
+  notebookList: () => ipcRenderer.invoke('notebook:list'),
+  notebookGet: (id) => ipcRenderer.invoke('notebook:get', id),
+  notebookRename: ({ id, name }) => ipcRenderer.invoke('notebook:rename', { id, name }),
+  notebookDelete: (id) => ipcRenderer.invoke('notebook:delete', id),
+  notebookBindSession: ({ id, sessionId }) => ipcRenderer.invoke('notebook:bindSession', { id, sessionId }),
+  notebookRestartSession: (id) => ipcRenderer.invoke('notebook:restartSession', id),
+  notebookListSources: (notebookId) => ipcRenderer.invoke('notebook:listSources', notebookId),
+  notebookAddSource: ({ notebookId, sourceData }) => ipcRenderer.invoke('notebook:addSource', { notebookId, sourceData }),
+  notebookImportFiles: ({ notebookId, filePaths }) => ipcRenderer.invoke('notebook:importFiles', { notebookId, filePaths }),
+  notebookUpdateSource: ({ notebookId, sourceId, updates }) => ipcRenderer.invoke('notebook:updateSource', { notebookId, sourceId, updates }),
+  notebookDeleteSource: ({ notebookId, sourceId }) => ipcRenderer.invoke('notebook:deleteSource', { notebookId, sourceId }),
+  notebookDeleteSources: ({ notebookId, sourceIds }) => ipcRenderer.invoke('notebook:deleteSources', { notebookId, sourceIds }),
+  notebookListAchievements: (notebookId) => ipcRenderer.invoke('notebook:listAchievements', notebookId),
+  notebookAddAchievement: ({ notebookId, achievementData }) => ipcRenderer.invoke('notebook:addAchievement', { notebookId, achievementData }),
+  notebookUpdateAchievement: ({ notebookId, achievementId, updates }) => ipcRenderer.invoke('notebook:updateAchievement', { notebookId, achievementId, updates }),
+  notebookDeleteAchievement: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:deleteAchievement', { notebookId, achievementId }),
+  notebookDeleteAchievements: ({ notebookId, achievementIds }) => ipcRenderer.invoke('notebook:deleteAchievements', { notebookId, achievementIds }),
+  notebookAddAchievementToSource: ({ notebookId, achievementId }) => ipcRenderer.invoke('notebook:addAchievementToSource', { notebookId, achievementId }),
+  notebookExportAchievement: ({ notebookId, achievementId, targetDir }) => ipcRenderer.invoke('notebook:exportAchievement', { notebookId, achievementId, targetDir }),
+  notebookReadFileContent: ({ notebookId, relPath }) => ipcRenderer.invoke('notebook:readFileContent', { notebookId, relPath }),
+  notebookWriteFileContent: ({ notebookId, relPath, content }) => ipcRenderer.invoke('notebook:writeFileContent', { notebookId, relPath, content }),
+  notebookCopyImageToClipboard: ({ dataUrl }) => ipcRenderer.invoke('notebook:copyImageToClipboard', { dataUrl }),
+  notebookSaveChatImageToSource: ({ notebookId, filename, dataUrl }) => ipcRenderer.invoke('notebook:saveChatImageToSource', { notebookId, filename, dataUrl }),
+  notebookSaveChatImageToAchievement: ({ notebookId, filename, dataUrl, sourceIds }) => ipcRenderer.invoke('notebook:saveChatImageToAchievement', { notebookId, filename, dataUrl, sourceIds }),
+  notebookSaveChatMarkdownToSource: ({ notebookId, filename, content }) => ipcRenderer.invoke('notebook:saveChatMarkdownToSource', { notebookId, filename, content }),
+  notebookSaveChatMarkdownToAchievement: ({ notebookId, filename, content, sourceIds }) => ipcRenderer.invoke('notebook:saveChatMarkdownToAchievement', { notebookId, filename, content, sourceIds }),
+  notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
+  notebookSanitizeIndexes: (notebookId) => ipcRenderer.invoke('notebook:sanitizeIndexes', notebookId),
+  notebookAddPathToSource: ({ notebookId, filePath, preferredName }) => ipcRenderer.invoke('notebook:addPathToSource', { notebookId, filePath, preferredName }),
+  notebookAddPathToAchievement: ({ notebookId, filePath, preferredName }) => ipcRenderer.invoke('notebook:addPathToAchievement', { notebookId, filePath, preferredName }),
+  notebookExportSource: ({ notebookId, sourceId, targetDir }) => ipcRenderer.invoke('notebook:exportSource', { notebookId, sourceId, targetDir }),
+
+  // Notebook Tools
+  notebookListTools: () => ipcRenderer.invoke('notebook:listTools'),
+  notebookUpdateTool: ({ toolId, updates }) => ipcRenderer.invoke('notebook:updateTool', { toolId, updates }),
+  notebookAddTool: (toolData) => ipcRenderer.invoke('notebook:addTool', toolData),
+  notebookDeleteTool: (toolId) => ipcRenderer.invoke('notebook:deleteTool', toolId),
+  notebookFetchRemoteTools: () => ipcRenderer.invoke('notebook:fetchRemoteTools'),
+
+  // Notebook Generation
+  notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds }),
+
+  // Notebook Install
+  notebookInstallTool: ({ tool, options }) => ipcRenderer.invoke('notebook:installTool', { tool, options }),
+  notebookUninstallTool: (toolId) => ipcRenderer.invoke('notebook:uninstallTool', toolId)
+  })
+;
 
 console.log('[Preload] ElectronAPI exposed to renderer successfully');

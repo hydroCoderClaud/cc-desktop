@@ -255,7 +255,7 @@
           </button>
 
           <button
-            v-if="enableNotebook"
+            v-if="enableNotebook && !isNotebookMode"
             class="mode-switch-btn"
             @click="handleOpenNotebook"
             :title="t('mode.switchToNotebook')"
@@ -349,7 +349,7 @@ import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NI
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
-import { useAppMode } from '@composables/useAppMode'
+import { useAppMode, AppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
 import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
@@ -359,7 +359,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale } = useLocale()
-const { isDeveloperMode, isAgentMode, switchMode } = useAppMode()
+const { isDeveloperMode, isAgentMode, isNotebookMode, switchMode, appMode } = useAppMode()
 
 // 切换到指定模式
 const handleSwitchMode = async (mode) => {
@@ -370,14 +370,9 @@ const handleSwitchMode = async (mode) => {
 // Notebook 入口开关（默认隐藏，config.settings.enableNotebook = true 时显示）
 const enableNotebook = ref(false)
 
-// 打开 Notebook 工作台
+// 打开 Notebook 工作台（切换到 Notebook 模式）
 const handleOpenNotebook = async () => {
-  try {
-    await window.electronAPI.openNotebookWorkspace()
-  } catch (err) {
-    console.error('[LeftPanel] Failed to open notebook workspace:', err)
-    message.error('打开 Notebook 工作台失败')
-  }
+  await switchMode(AppMode.NOTEBOOK)
 }
 
 // ========================================

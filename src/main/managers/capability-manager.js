@@ -11,6 +11,7 @@ const os = require('os')
 const crypto = require('crypto')
 const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
+const { fetchMarketPromptContent } = require('../utils/prompt-utils')
 
 class CapabilityManager {
   /**
@@ -26,6 +27,7 @@ class CapabilityManager {
     this.skillsManager = skillsManager
     this.agentsManager = agentsManager
     this.mcpManager = mcpManager
+    this.sessionDatabase = null
     this._legacyCleaned = false
     this._capabilityCachePath = null
     this.hasCapabilityUpdate = false
@@ -37,6 +39,23 @@ class CapabilityManager {
     this.pluginsDir = path.join(this.claudeDir, 'plugins')
     this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
     this.settingsPath = path.join(this.claudeDir, 'settings.json')
+  }
+
+  setSessionDatabase(db) {
+    this.sessionDatabase = db
+  }
+
+  /**
+   * 批量检测组件状态 (Notebook 专用)
+   * @param {Array<{type, id}>} components 
+   * @returns {Object} { id: status }
+   */
+  checkComponentsBatch(components) {
+    const result = {}
+    for (const { type, id } of components) {
+      result[id] = this.checkComponentInstalled(type, id)
+    }
+    return result
   }
 
   /**
@@ -274,6 +293,11 @@ class CapabilityManager {
           if (this._checkPluginDisabled(id)) return 'disabled'
           return 'installed'
         }
+        case 'prompt': {
+          if (!this.sessionDatabase) return false
+          const p = this.sessionDatabase.getPromptByMarketId(id)
+          return p ? 'installed' : false
+        }
         case 'mcp': {
           if (!this.mcpManager) return false
           const mcpList = this.mcpManager.listMcpUser()
@@ -434,6 +458,32 @@ class CapabilityManager {
           if (installResult.success) {
             installResult = { success: true, requiresRestart: true }
           }
+          break
+        }
+        case 'prompt': {
+          if (!this.sessionDatabase) throw new Error('SessionDatabase not available')
+          
+          // 优先从索引找，找不到则尝试使用 capability 对象自带的元数据
+          let prompt = await this._fetchComponentFromIndex(registryUrl, 'prompts', componentId, mirrorUrl)
+          if (!prompt) {
+            console.log(`[CapabilityManager] Prompt ${componentId} not in index, using provided metadata or defaults.`)
+            prompt = {
+              id: componentId,
+              name: capability.name || componentId,
+              version: capability.version || '1.0.0',
+              file: capability.file || `${componentId}.md`
+            }
+          }
+          
+          // 获取 Prompt 正文内容 (.md 文件)
+          const { fetchMarketPromptContent } = require('../utils/prompt-utils')
+          const dl = await fetchMarketPromptContent(registryUrl, prompt, mirrorUrl)
+          if (!dl.success) throw new Error(`下载提示词内容失败: ${dl.error}`)
+
+          installResult = this.sessionDatabase.installMarketPromptForce({
+            ...dl.params,
+            scope: options.scope || 'global'
+          })
           break
         }
         default:

@@ -722,6 +722,74 @@ class AgentSessionManager extends EventEmitter {
   }
 
   /**
+   * 切换 API Profile：终止当前 CLI 进程 + 更新 apiProfileId（下次发消息时用新 profile spawn）
+   */
+  async switchApiProfile(sessionId, newProfileId) {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error('Session not found')
+
+    const profile = this.configManager.getAPIProfile(newProfileId)
+    if (!profile) throw new Error('API Profile not found: ' + newProfileId)
+
+    // 终止当前 CLI 进程（若有）
+    if (session.messageQueue) {
+      session.messageQueue.end()
+      session.messageQueue = null
+    }
+    if (session.queryGenerator) {
+      try { killProcessTree(session.cliPid) } catch {}
+      try { session.queryGenerator.close() } catch {}
+      session.queryGenerator = null
+      session.cliPid = null
+    }
+
+    // 更新 apiProfileId（内存 + DB）
+    session.apiProfileId = newProfileId
+    session.apiBaseUrl = profile.baseUrl || null
+    this.sessionDatabase.updateAgentConversation(sessionId, {
+      apiProfileId: newProfileId,
+      apiBaseUrl: profile.baseUrl || null
+    })
+
+    session.status = AgentStatus.IDLE
+    this._safeSend('agent:statusChange', { sessionId, status: AgentStatus.IDLE })
+  }
+
+  /**
+   * 清空并重建会话：新建 fresh session 并切换过去，旧会话保留历史但退出当前上下文
+   * @param {string} sessionId - 旧会话 ID
+   * @param {object} overrides - 可选覆盖参数 { type, title, cwd, cwdSubDir }
+   * @returns {object} 新会话的 JSON 表示
+   */
+  async clearAndRecreate(sessionId, overrides = {}) {
+    const oldSession = this.sessions.get(sessionId)
+    if (!oldSession) {
+      throw new Error(`Agent session ${sessionId} not found`)
+    }
+
+    // 继承必要配置
+    const newType = overrides.type || oldSession.type
+    const newTitle = overrides.title !== undefined ? overrides.title : '' // 新会话默认空标题，由首条消息触发自动命名
+    const newCwd = overrides.cwd || oldSession.cwd
+    const newApiProfileId = oldSession.apiProfileId
+
+    // 软关闭旧会话（保留历史）
+    await this.close(sessionId)
+
+    // 创建全新会话（新 session.id，新 DB 记录）
+    const newSession = this.create({
+      type: newType,
+      title: newTitle,
+      cwd: newCwd,
+      apiProfileId: newApiProfileId,
+      cwdSubDir: overrides.cwdSubDir
+    })
+
+    console.log(`[AgentSession] Cleared and recreated session: ${sessionId} -> ${newSession.id}`)
+    return newSession
+  }
+
+  /**
    * 关闭会话（终止持久 CLI 进程 + DB 标记 closed + 内存移除）
    */
   async close(sessionId) {
@@ -850,22 +918,26 @@ class AgentSessionManager extends EventEmitter {
 
   /**
    * 获取所有会话列表（合并内存活跃 + DB 历史，去重）
+   * 排除 type === 'notebook' 的会话，与 Notebook 模式隔离
    */
   list() {
-    // 1. 内存中的活跃会话
+    // 1. 内存中的活跃会话（排除 notebook 类型）
     const activeIds = new Set()
     const result = []
 
     for (const session of this.sessions.values()) {
-      result.push(session.toJSON())
-      activeIds.add(session.id)
+      if (session.type !== 'notebook') {
+        result.push(session.toJSON())
+        activeIds.add(session.id)
+      }
     }
 
-    // 2. 从 DB 加载历史会话（非 closed 的也在内存中，这里主要取 closed 的历史）
+    // 2. 从 DB 加载历史会话（排除 notebook 类型）
     if (this.sessionDatabase) {
       try {
         const dbConversations = this.sessionDatabase.listAllAgentConversations({ limit: 100 })
         for (const row of dbConversations) {
+          if (row.type === 'notebook') continue  // 排除 notebook 类型
           if (activeIds.has(row.session_id)) continue  // 去重
           result.push({
             id: row.session_id,

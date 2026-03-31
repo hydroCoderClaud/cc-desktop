@@ -93,7 +93,11 @@ const handleCreatePrompt = () => {
 
 // Insert text (called from parent)
 const insertText = (text) => {
-  inputText.value = text
+  if (inputText.value && inputText.value.trim()) {
+    inputText.value = inputText.value + '\n' + text
+  } else {
+    inputText.value = text
+  }
   textareaRef.value?.focus()
 }
 

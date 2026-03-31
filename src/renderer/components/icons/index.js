@@ -9,11 +9,13 @@ export const iconPaths = {
   // 操作类
   // 紧凑循环：双弧 + 箭头，半径6更紧凑
   refresh: '<path d="M4 10a6 6 0 0 1 6-6"/><path d="M16 10a6 6 0 0 1-6 6"/><path d="M10 4l2.5 1.5-2.5 1.5"/><path d="M10 16l-2.5-1.5 2.5-1.5"/>',
+  invert: '<path d="m3 7 2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"/>',
   search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/>',
   add: '<path d="M10 4v12M4 10h12"/>',
   close: '<path d="M5 5l10 10M15 5L5 15"/>',
   edit: '<path d="M12 3l5 5-9 9H3v-5l9-9z"/>',
   delete: '<path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/>',
+  trash: '<path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>',
   copy: '<rect x="6" y="6" width="11" height="11" rx="1"/><path d="M3 14V4a1 1 0 0 1 1-1h10"/>',
 
   // 市场/商店
@@ -40,6 +42,8 @@ export const iconPaths = {
   fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
   // 图片图标
   image: '<rect x="3" y="3" width="14" height="14" rx="2"/><circle cx="7.5" cy="7.5" r="1.5"/><path d="M17 13l-5-5-7 7"/>',
+  // 视频图标（简洁播放三角）
+  video: '<path d="M6 4l10 6-10 6V4z"/>',
 
   // 终端类
   terminal: '<rect x="2" y="3" width="16" height="14" rx="2"/><path d="M5 8l3 2-3 2M10 12h4"/>',
@@ -200,6 +204,8 @@ export const iconPaths = {
   panelsCollapse: '<path d="M3 4v12M17 4v12"/><path d="M6 10l3-3v6l-3-3M14 10l-3-3v6l3-3"/>',
   maximize: '<path d="M4 4h12v12H4z"/><path d="M4 4h12"/>',
   restore: '<path d="M4 6h10v10H4z"/><path d="M6 6V4h10v10h-2"/>',
+  fitWindow: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M8 6H6v2M12 6h2v2M6 12v2h2M14 12v2h-2"/>',
+  actualSize: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 6v8M13 6v8"/>',
   panelLeft: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M7 4v12"/>',
   panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>'
 }

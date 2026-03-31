@@ -1,6 +1,6 @@
 # 主进程设计
 
-> CC Desktop v1.6.91 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
+> CC Desktop v1.6.99 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
 
 ---
 
@@ -21,10 +21,11 @@
 8. CapabilityManager        ← 能力市场
 9. UpdateManager            ← 自动更新
 10. DingTalkBridge          ← 钉钉桥接
-11. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化
-12. powerSaveBlocker.start  ← 防止系统挂起
-13. scheduleUpdateCheck(5s) ← 延迟检查更新
-14. DingTalk.start (3s)     ← 延迟启动钉钉
+11. Notebook handlers/manager  ← Notebook 工作台相关后端能力
+12. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化
+13. powerSaveBlocker.start  ← 防止系统挂起
+14. scheduleUpdateCheck(5s) ← 延迟检查更新
+15. DingTalk.start (3s)     ← 延迟启动钉钉
 ```
 
 **关键文件**: `src/main/index.js`

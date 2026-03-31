@@ -95,6 +95,25 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
     return { cleared: true }
   })
 
+  ipcMain.handle('capabilities:checkInstalled', async (_e, type, id, projectPath) => {
+    try {
+      if (!type || !id) return false
+      return capabilityManager.checkComponentInstalled(type, id, projectPath)
+    } catch (err) {
+      console.error('[IPC] capabilities:checkInstalled error:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('capabilities:checkBatchStatus', async (_e, components) => {
+    try {
+      return capabilityManager.checkComponentsBatch(components)
+    } catch (err) {
+      console.error('[IPC] capabilities:checkBatchStatus error:', err)
+      return {}
+    }
+  })
+
   console.log('[IPC] Capability handlers registered')
 }
 

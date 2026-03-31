@@ -36,6 +36,7 @@
         <Icon name="refresh" :size="14" />
       </button>
       <button
+        v-if="showCollapse"
         class="header-btn"
         :title="t('common.collapse')"
         @click="$emit('collapse')"
@@ -55,7 +56,8 @@ const { t } = useLocale()
 defineProps({
   cwd: { type: String, default: '' },
   showHidden: { type: Boolean, default: false },
-  searchActive: { type: Boolean, default: false }
+  searchActive: { type: Boolean, default: false },
+  showCollapse: { type: Boolean, default: true }
 })
 
 defineEmits(['open-explorer', 'refresh', 'collapse', 'toggle-hidden', 'toggle-search'])
