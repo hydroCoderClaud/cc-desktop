@@ -98,9 +98,9 @@
           <n-form-item label=" ">
             <n-radio-group v-model:value="formData.selectedModelTier">
               <n-space>
-                <n-radio value="opus"><Icon name="rocket" :size="14" class="model-tier-icon" /> Opus</n-radio>
-                <n-radio value="sonnet"><Icon name="zap" :size="14" class="model-tier-icon" /> Sonnet</n-radio>
-                <n-radio value="haiku"><Icon name="wind" :size="14" class="model-tier-icon" /> Haiku</n-radio>
+                <n-radio value="opus"><Icon name="rocket" :size="14" class="model-tier-icon" /> {{ t('agent.tierPowerful') }}</n-radio>
+                <n-radio value="sonnet"><Icon name="zap" :size="14" class="model-tier-icon" /> {{ t('agent.tierBalanced') }}</n-radio>
+                <n-radio value="haiku"><Icon name="wind" :size="14" class="model-tier-icon" /> {{ t('agent.tierFast') }}</n-radio>
               </n-space>
             </n-radio-group>
           </n-form-item>
@@ -115,7 +115,7 @@
           <n-grid-item>
             <n-form-item>
               <template #label>
-                <span class="model-mapping-label"><Icon name="rocket" :size="14" /> {{ t('profileManager.opusModel') }}</span>
+                <span class="model-mapping-label"><Icon name="rocket" :size="14" /> {{ t('profileManager.powerfulModel') }}</span>
               </template>
               <n-input v-model:value="formData.modelMapping.opus" placeholder="e.g., claude-3-opus" />
             </n-form-item>
@@ -123,7 +123,7 @@
           <n-grid-item>
             <n-form-item>
               <template #label>
-                <span class="model-mapping-label"><Icon name="zap" :size="14" /> {{ t('profileManager.sonnetModel') }}</span>
+                <span class="model-mapping-label"><Icon name="zap" :size="14" /> {{ t('profileManager.balancedModel') }}</span>
               </template>
               <n-input v-model:value="formData.modelMapping.sonnet" placeholder="e.g., claude-3-sonnet" />
             </n-form-item>
@@ -131,7 +131,7 @@
           <n-grid-item>
             <n-form-item>
               <template #label>
-                <span class="model-mapping-label"><Icon name="wind" :size="14" /> {{ t('profileManager.haikuModel') }}</span>
+                <span class="model-mapping-label"><Icon name="wind" :size="14" /> {{ t('profileManager.fastModel') }}</span>
               </template>
               <n-input v-model:value="formData.modelMapping.haiku" placeholder="e.g., claude-3-haiku" />
             </n-form-item>

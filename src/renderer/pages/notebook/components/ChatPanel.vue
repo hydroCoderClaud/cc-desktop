@@ -103,6 +103,7 @@
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
       :active-model="activeModel"
+      :model-mapping="modelMapping"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @cancel="handleCancel"
@@ -205,6 +206,7 @@ const {
   streamingElapsed,
   contextTokens,
   slashCommands,
+  modelMapping,
   activeModel,
   hasActiveSession,
   loadMessages,

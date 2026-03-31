@@ -164,9 +164,9 @@ const getTierType = (tier) => {
 
 const getTierLabel = (tier) => {
   const labels = {
-    opus: 'Opus',
-    sonnet: 'Sonnet',
-    haiku: 'Haiku'
+    opus: t('agent.tierPowerful'),
+    sonnet: t('agent.tierBalanced'),
+    haiku: t('agent.tierFast')
   }
   return labels[tier] || tier
 }

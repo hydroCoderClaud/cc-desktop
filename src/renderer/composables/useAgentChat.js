@@ -658,6 +658,7 @@ export function useAgentChat(sessionId, options = {}) {
     contextTokens,
     isCompacting,
     slashCommands,
+    modelMapping,
     activeModel,
     totalCostUsd,
     numTurns,

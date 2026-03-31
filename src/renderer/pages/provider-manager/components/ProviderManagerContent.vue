@@ -71,17 +71,17 @@
           <n-divider>{{ t('providerManager.defaultModelMapping') }}</n-divider>
           <n-grid :cols="1" :y-gap="12">
             <n-grid-item>
-              <n-form-item label="Opus">
+              <n-form-item :label="t('agent.tierPowerful')">
                 <n-input v-model:value="formData.defaultModelMapping.opus" placeholder="e.g., gpt-4-turbo" />
               </n-form-item>
             </n-grid-item>
             <n-grid-item>
-              <n-form-item label="Sonnet">
+              <n-form-item :label="t('agent.tierBalanced')">
                 <n-input v-model:value="formData.defaultModelMapping.sonnet" placeholder="e.g., gpt-4" />
               </n-form-item>
             </n-grid-item>
             <n-grid-item>
-              <n-form-item label="Haiku">
+              <n-form-item :label="t('agent.tierFast')">
                 <n-input v-model:value="formData.defaultModelMapping.haiku" placeholder="e.g., gpt-3.5-turbo" />
               </n-form-item>
             </n-grid-item>
