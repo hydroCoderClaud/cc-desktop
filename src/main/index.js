@@ -67,6 +67,18 @@ function getThemeBackgroundColor() {
   return '#f5f5f0';
 }
 
+function getMainWindowTitle(mode) {
+  switch (mode) {
+    case 'agent':
+      return 'Hydro Agent';
+    case 'notebook':
+      return 'Hydro Notebook';
+    case 'developer':
+    default:
+      return 'Hydro Coder';
+  }
+}
+
 /**
  * 创建主窗口
  */
@@ -79,7 +91,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     show: false,  // 先隐藏，准备好后再显示
-    title: 'CC Desktop',
+    title: getMainWindowTitle(configManager?.getConfig()?.settings?.appMode),
     backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏
     webPreferences: {

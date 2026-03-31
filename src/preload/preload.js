@@ -162,6 +162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
   openNotebookWorkspace: () => ipcRenderer.invoke('window:openNotebookWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
+  setMainWindowTitleByMode: (mode) => ipcRenderer.invoke('window:setMainTitleByMode', mode),
 
   // ========================================
   // 服务商定义管理

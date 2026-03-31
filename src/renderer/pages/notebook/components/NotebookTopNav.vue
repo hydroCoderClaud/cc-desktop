@@ -1,12 +1,23 @@
 <template>
   <div class="top-nav">
     <div class="nav-left">
-      <div class="app-logo" @click="switchMode('agent')" :title="t('notebook.nav.backToMain')">
-        <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="16" r="15" :stroke="primaryColor" stroke-width="1.5" :fill="primaryGhost"/>
-          <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" :fill="primaryColor" opacity="0.85"/>
-        </svg>
-      </div>
+      <n-dropdown
+        trigger="click"
+        :options="modeOptions"
+        @select="handleModeSelect"
+      >
+        <button
+          type="button"
+          class="app-logo"
+          :title="t('mode.mode')"
+          :aria-label="t('mode.mode')"
+        >
+          <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="15" :stroke="primaryColor" stroke-width="1.5" :fill="primaryGhost"/>
+            <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" :fill="primaryColor" opacity="0.85"/>
+          </svg>
+        </button>
+      </n-dropdown>
 
       <!-- 标题 + 下拉切换 -->
       <div class="title-group">
@@ -137,6 +148,19 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
 const { switchMode } = useAppMode()
+
+const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
+
+const modeOptions = computed(() => [
+  { label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') },
+  { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
+])
+
+const handleModeSelect = (key) => {
+  if (key === 'developer' || key === 'agent') {
+    switchMode(key)
+  }
+}
 
 // ─── 标题编辑 ─────────────────────────────────────────────────────────────────
 const notebookTitle = ref(props.currentNotebook?.name || '')
@@ -347,12 +371,18 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
   width: 36px;
   height: 36px;
   background: transparent;
+  border: none;
   border-radius: 50%;
   cursor: pointer;
+  padding: 0;
   transition: background 0.15s;
 }
 
 .app-logo:hover { background: var(--hover-bg); }
+.app-logo:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
 
 .notebook-title {
   font-size: 18px;

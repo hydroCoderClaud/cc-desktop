@@ -34,6 +34,7 @@ export function useAppMode() {
         const savedMode = config?.settings?.appMode
         if (savedMode && Object.values(AppMode).includes(savedMode)) {
           appMode.value = savedMode
+          await window.electronAPI.setMainWindowTitleByMode(savedMode)
         }
       }
     } catch (err) {
@@ -61,6 +62,7 @@ export function useAppMode() {
     try {
       if (window.electronAPI) {
         await window.electronAPI.updateSettings({ appMode: mode })
+        await window.electronAPI.setMainWindowTitleByMode(mode)
       }
     } catch (err) {
       console.error('[useAppMode] Failed to save mode to config:', err)

@@ -237,6 +237,21 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: false, error: 'Main window not available' };
   });
 
+  ipcMain.handle('window:setMainTitleByMode', async (_event, mode) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { success: false, error: 'Main window not available' }
+    }
+
+    const title = mode === 'agent'
+      ? 'Hydro Agent'
+      : mode === 'notebook'
+        ? 'Hydro Notebook'
+        : 'Hydro Coder'
+
+    mainWindow.setTitle(title)
+    return { success: true }
+  })
+
   // 打开应用更新窗口（防止重复打开）
   let updateManagerWindow = null
   ipcMain.handle('window:openUpdateManager', async () => {
