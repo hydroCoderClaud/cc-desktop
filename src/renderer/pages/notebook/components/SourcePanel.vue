@@ -124,7 +124,7 @@ import { ref, computed } from 'vue'
 import { NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { getSourceIcon, getSourceColor } from '../utils/helpers.js'
+import { getSourceIcon, getSourceColor, isAbsolutePath, joinNotebookPath } from '../utils/helpers.js'
 import NotebookFilePreview from './NotebookFilePreview.vue'
 
 const props = defineProps({
@@ -190,10 +190,8 @@ const closeDetail = () => {
 // 计算来源的绝对路径用于 tooltip
 const getSourceAbsPath = (source) => {
   if (!source.path) return source.url || ''
-  // 不复制模式：path 本身就是绝对路径
-  if (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/')) return source.path
-  // 复制模式：path 是相对路径，拼接 notebookPath
-  if (props.notebookPath) return props.notebookPath + '/' + source.path
+  if (isAbsolutePath(source.path)) return source.path
+  if (props.notebookPath) return joinNotebookPath(props.notebookPath, source.path)
   return source.path
 }
 </script>

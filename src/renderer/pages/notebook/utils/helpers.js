@@ -109,3 +109,56 @@ export function getSourceColor(type) {
   }
   return map[type] || 'var(--text-color-muted)'
 }
+
+export function isAbsolutePath(pathStr) {
+  if (!pathStr || typeof pathStr !== 'string') return false
+  return /^[A-Za-z]:[/\\]/.test(pathStr) || pathStr.startsWith('/')
+}
+
+export function normalizePathSeparators(pathStr) {
+  return (pathStr || '').replace(/\\/g, '/')
+}
+
+export function joinNotebookPath(basePath, relativePath) {
+  if (!relativePath) return basePath || ''
+  if (!basePath || isAbsolutePath(relativePath)) return relativePath
+  const normalizedBase = normalizePathSeparators(basePath).replace(/\/+$/, '')
+  const normalizedRelative = normalizePathSeparators(relativePath).replace(/^\/+/, '')
+  return `${normalizedBase}/${normalizedRelative}`
+}
+
+export function getDirname(pathStr) {
+  const normalizedPath = normalizePathSeparators(pathStr)
+  if (!normalizedPath) return ''
+  if (normalizedPath === '/') return '/'
+
+  const trimmedPath = normalizedPath.length > 1
+    ? normalizedPath.replace(/\/+$/, '')
+    : normalizedPath
+
+  if (/^[A-Za-z]:\/$/.test(trimmedPath)) return trimmedPath
+
+  const lastSlashIndex = trimmedPath.lastIndexOf('/')
+  if (lastSlashIndex < 0) return trimmedPath
+  if (lastSlashIndex === 0) return '/'
+  if (/^[A-Za-z]:$/.test(trimmedPath.slice(0, lastSlashIndex))) {
+    return `${trimmedPath.slice(0, lastSlashIndex)}/`
+  }
+  return trimmedPath.slice(0, lastSlashIndex)
+}
+
+export function toFileUrl(pathStr) {
+  const normalizedPath = normalizePathSeparators(pathStr)
+  if (!normalizedPath) return ''
+
+  if (/^[A-Za-z]:\//.test(normalizedPath)) {
+    const drive = normalizedPath.slice(0, 2)
+    const rest = normalizedPath.slice(2).split('/').map(segment => encodeURIComponent(segment)).join('/')
+    return `file:///${drive}${rest}`
+  }
+
+  return `file://${normalizedPath.split('/').map((segment, index) => {
+    if (index === 0) return segment
+    return encodeURIComponent(segment)
+  }).join('/')}`
+}

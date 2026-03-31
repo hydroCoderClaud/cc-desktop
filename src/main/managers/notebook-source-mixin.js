@@ -286,7 +286,15 @@ const notebookSourceMixin = {
     return this.addSource(notebookId, {
       name: fileName,
       type: 'image',
-      path: normalizeNotebookPath(path.join('sources', 'image', fileName))
+      path: normalizeNotebookPath(path.join('sources', 'image', fileName)),
+      summary: JSON.stringify({
+        i18nKey: 'notebook.source.chatImageInfo',
+        params: {
+          path: 'Notebook Chat',
+          currentPath: path.join(targetDir, fileName),
+          time: new Date().toLocaleString()
+        }
+      })
     })
   },
 
@@ -301,7 +309,15 @@ const notebookSourceMixin = {
     return this.addSource(notebookId, {
       name: fileName,
       type: 'markdown',
-      path: normalizeNotebookPath(path.join('sources', 'markdown', fileName))
+      path: normalizeNotebookPath(path.join('sources', 'markdown', fileName)),
+      summary: JSON.stringify({
+        i18nKey: 'notebook.source.chatMarkdownInfo',
+        params: {
+          path: 'Notebook Chat',
+          currentPath: path.join(targetDir, fileName),
+          time: new Date().toLocaleString()
+        }
+      })
     })
   },
 

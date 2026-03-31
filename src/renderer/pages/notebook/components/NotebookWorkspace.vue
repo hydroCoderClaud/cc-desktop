@@ -181,6 +181,7 @@ import { useNotebookLayout } from '../composables/useNotebookLayout'
 import { useNotebookTools } from '../composables/useNotebookTools'
 import { useNotebookChatAssets } from '../composables/useNotebookChatAssets'
 import { useNotebookSessionLifecycle } from '../composables/useNotebookSessionLifecycle'
+import { isAbsolutePath, joinNotebookPath, getDirname } from '../utils/helpers.js'
 import NotebookTopNav from './NotebookTopNav.vue'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -346,18 +347,14 @@ const processAchievements = (rawAchievements, notebookPath, sourceMetaMap) => {
   return rawAchievements.map(a => {
     const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
     const relativePath = a.path || ''
-    const absolutePath = relativePath
-      ? (relativePath.match(/^[A-Za-z]:[/\\]/) || relativePath.startsWith('/')
-          ? relativePath
-          : `${notebookPath}/${relativePath}`)
-      : ''
+    const absolutePath = relativePath ? joinNotebookPath(notebookPath, relativePath) : ''
     const sourceDisplayPaths = (a.sourceIds || []).map(id => {
       const source = sourceMetaMap.get(id)
       if (!source) return t('common.deleted')
       if (source.path) {
-        return (source.path.match(/^[A-Za-z]:[/\\]/) || source.path.startsWith('/'))
+        return isAbsolutePath(source.path)
           ? source.path
-          : `${notebookPath}/${source.path}`
+          : joinNotebookPath(notebookPath, source.path)
       }
       return source.url || source.name || t('common.deleted')
     }).filter(Boolean)
@@ -475,7 +472,7 @@ const handleOpenFolder = async (item) => {
   try {
     let absPath = candidatePath
 
-    if (!(candidatePath.match(/^[A-Za-z]:[/\\]/) || candidatePath.startsWith('/'))) {
+    if (!isAbsolutePath(candidatePath)) {
       if (!currentNotebook.value?.notebookPath) {
         message.warning(t('messages.loadFailed'))
         return
@@ -483,9 +480,8 @@ const handleOpenFolder = async (item) => {
       absPath = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, candidatePath)
     }
 
-    const normalized = absPath.replace(/\\/g, '/')
-    const folderPath = normalized.includes('/') ? normalized.slice(0, normalized.lastIndexOf('/')) : normalized
-    await window.electronAPI.openPath(folderPath || normalized)
+    const folderPath = getDirname(absPath)
+    await window.electronAPI.openPath(folderPath || absPath)
   } catch (err) {
     console.error('[Notebook] Failed to open folder:', err)
     message.error(t('common.error'))
@@ -507,9 +503,9 @@ const handleOpenExternal = async (source) => {
   }
 
   // 2. 如果是本地文件
-  if (source.path && currentNotebook.value?.notebookPath) {
+  if (source.path) {
     try {
-      const absPath = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, source.path)
+      const absPath = await resolveSourceAbsolutePath(source)
       await window.electronAPI.openPath(absPath)
     } catch (err) {
       console.error('[Notebook] Failed to open path:', err)
@@ -522,6 +518,7 @@ const handleOpenExternal = async (source) => {
 
 const resolveSourceAbsolutePath = async (source) => {
   if (!source?.path) throw new Error('该来源没有可用文件路径')
+  if (isAbsolutePath(source.path)) return source.path
   if (!currentNotebook.value?.notebookPath) throw new Error('当前笔记本路径不存在')
   return window.electronAPI.resolvePath(currentNotebook.value.notebookPath, source.path)
 }
@@ -677,7 +674,7 @@ const handleToggleCopySourceFiles = async () => {
 const isNotebookManagedSource = (source) => {
   const sourcePath = source?.path || ''
   if (!sourcePath) return false
-  if (sourcePath.match(/^[A-Za-z]:[/\\]/) || sourcePath.startsWith('/')) return false
+  if (isAbsolutePath(sourcePath)) return false
   const normalized = sourcePath.replace(/\\/g, '/').replace(/^\.\//, '')
   return normalized.startsWith('sources/')
 }

@@ -1,16 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import { toFileUrl } from '../../utils/helpers.js'
 
 const props = defineProps({
   content: { type: String, required: true }
 })
 
-const fileUrl = computed(() => {
-  // 处理 Windows 绝对路径
-  let path = props.content.replace(/\\/g, '/')
-  if (!path.startsWith('/')) path = '/' + path
-  return 'file://' + path
-})
+const fileUrl = computed(() => toFileUrl(props.content))
 </script>
 
 <template>
