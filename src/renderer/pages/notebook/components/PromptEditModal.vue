@@ -26,7 +26,7 @@
               v-model:value="formData.content"
               type="textarea"
               :placeholder="t('notebook.promptEditor.contentPlaceholder')"
-              :autosize="{ minRows: 14, maxRows: 22 }"
+              :autosize="{ minRows: 9, maxRows: 15 }"
               class="markdown-editor-input"
             />
           </n-form-item>
