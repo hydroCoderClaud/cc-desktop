@@ -21,73 +21,76 @@
 
       <!-- 标题 + 下拉切换 -->
       <div class="title-group">
-        <h1
-          v-if="!editingTitle"
-          class="notebook-title"
-          :class="{ 'notebook-title--no-notebook': !currentNotebook }"
-          @click="currentNotebook ? startEditTitle() : emit('create')"
-          :title="currentNotebook ? t('notebook.nav.editTitle') : t('notebook.nav.createNotebook')"
-        >{{ notebookTitle || t('notebook.nav.createNotebook') }}</h1>
-        <input
-          v-else
-          ref="titleInput"
-          v-model="notebookTitle"
-          class="notebook-title-input"
-          spellcheck="false"
-          @blur="stopEditTitle"
-          @keyup.enter="stopEditTitle"
-          @keyup.escape="stopEditTitle"
-        />
-        <div class="dropdown-wrapper" v-if="!editingTitle">
-          <button class="dropdown-trigger" @click="toggleNotebookDropdown" :title="t('notebook.switchNotebook')">
-            <Icon name="chevronDown" :size="16" />
-          </button>
-          <div v-if="showNotebookDropdown" class="notebook-dropdown">
-            <div
-              v-for="nb in notebookList"
-              :key="nb.id"
-              class="dropdown-item"
-              :class="{ active: currentNotebook?.id === nb.id }"
-              @click="handleSwitchNotebook(nb)"
-            >
-              <Icon name="fileText" :size="14" />
-              <span v-if="renamingId !== nb.id" class="dropdown-item-name">{{ nb.name }}</span>
-              <input
-                v-else
-                class="dropdown-rename-input"
-                v-model="renamingName"
-                @click.stop
-                @keydown.enter.stop="confirmRename(nb)"
-                @keydown.escape.stop="cancelRename"
-                @blur="cancelRename"
-                :ref="el => { if (el) renamingInputRef = el }"
-              />
-              <Icon v-if="currentNotebook?.id === nb.id && renamingId !== nb.id" name="check" :size="14" class="dropdown-check" />
-              <div v-if="renamingId !== nb.id" class="dropdown-item-actions" @click.stop>
-                <button
-                  v-if="currentNotebook?.id === nb.id"
-                  class="item-action-btn"
-                  @click.stop="handleCloseNotebook"
-                  :title="t('notebook.nav.closeNotebook')"
-                >
-                  <Icon name="close" :size="12" />
-                </button>
-                <button class="item-action-btn" @click.stop="startRename(nb)" :title="t('common.rename')">
-                  <Icon name="edit" :size="12" />
-                </button>
-                <button class="item-action-btn" @click.stop="openNotebookDir(nb)" :title="t('notebook.nav.openDir')">
-                  <Icon name="folder" :size="12" />
-                </button>
-                <button class="item-action-btn item-action-btn--danger" @click.stop="confirmDelete(nb)" :title="t('common.delete')">
-                  <Icon name="delete" :size="12" />
-                </button>
+        <div class="brand-title">Hydro Notebook</div>
+        <div class="notebook-title-area">
+          <h1
+            v-if="!editingTitle"
+            class="notebook-title"
+            :class="{ 'notebook-title--no-notebook': !currentNotebook }"
+            @click="currentNotebook ? startEditTitle() : emit('create')"
+            :title="currentNotebook ? t('notebook.nav.editTitle') : t('notebook.nav.createNotebook')"
+          >{{ notebookTitle || t('notebook.nav.createNotebook') }}</h1>
+          <input
+            v-else
+            ref="titleInput"
+            v-model="notebookTitle"
+            class="notebook-title-input"
+            spellcheck="false"
+            @blur="stopEditTitle"
+            @keyup.enter="stopEditTitle"
+            @keyup.escape="stopEditTitle"
+          />
+          <div class="dropdown-wrapper" v-if="!editingTitle">
+            <button class="dropdown-trigger" @click="toggleNotebookDropdown" :title="t('notebook.switchNotebook')">
+              <Icon name="chevronDown" :size="16" />
+            </button>
+            <div v-if="showNotebookDropdown" class="notebook-dropdown">
+              <div
+                v-for="nb in notebookList"
+                :key="nb.id"
+                class="dropdown-item"
+                :class="{ active: currentNotebook?.id === nb.id }"
+                @click="handleSwitchNotebook(nb)"
+              >
+                <Icon name="fileText" :size="14" />
+                <span v-if="renamingId !== nb.id" class="dropdown-item-name">{{ nb.name }}</span>
+                <input
+                  v-else
+                  class="dropdown-rename-input"
+                  v-model="renamingName"
+                  @click.stop
+                  @keydown.enter.stop="confirmRename(nb)"
+                  @keydown.escape.stop="cancelRename"
+                  @blur="cancelRename"
+                  :ref="el => { if (el) renamingInputRef = el }"
+                />
+                <Icon v-if="currentNotebook?.id === nb.id && renamingId !== nb.id" name="check" :size="14" class="dropdown-check" />
+                <div v-if="renamingId !== nb.id" class="dropdown-item-actions" @click.stop>
+                  <button
+                    v-if="currentNotebook?.id === nb.id"
+                    class="item-action-btn"
+                    @click.stop="handleCloseNotebook"
+                    :title="t('notebook.nav.closeNotebook')"
+                  >
+                    <Icon name="close" :size="12" />
+                  </button>
+                  <button class="item-action-btn" @click.stop="startRename(nb)" :title="t('common.rename')">
+                    <Icon name="edit" :size="12" />
+                  </button>
+                  <button class="item-action-btn" @click.stop="openNotebookDir(nb)" :title="t('notebook.nav.openDir')">
+                    <Icon name="folder" :size="12" />
+                  </button>
+                  <button class="item-action-btn item-action-btn--danger" @click.stop="confirmDelete(nb)" :title="t('common.delete')">
+                    <Icon name="delete" :size="12" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div v-if="notebookList.length === 0" class="dropdown-empty">{{ t('notebook.noNotebooks') }}</div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item dropdown-item-create" @click="handleCreateClick">
-              <Icon name="plus" :size="14" />
-              <span>{{ t('notebook.nav.createNotebook') }}</span>
+              <div v-if="notebookList.length === 0" class="dropdown-empty">{{ t('notebook.noNotebooks') }}</div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item dropdown-item-create" @click="handleCreateClick">
+                <Icon name="plus" :size="14" />
+                <span>{{ t('notebook.nav.createNotebook') }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -384,10 +387,19 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
   outline-offset: 2px;
 }
 
-.notebook-title {
-  font-size: 18px;
-  font-weight: 500;
+.brand-title {
+  font-family: var(--font-logo);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text-color);
+  white-space: nowrap;
+}
+
+.notebook-title {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-color-secondary, var(--text-color-muted));
   margin: 0;
   cursor: pointer;
   border-radius: 6px;
@@ -399,8 +411,8 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
 .notebook-title--no-notebook:hover { color: var(--text-primary); }
 
 .notebook-title-input {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 400;
   color: var(--text-color);
   margin: 0;
   border: 1px solid var(--primary-color);
@@ -413,8 +425,14 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
 
 .title-group {
   display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.notebook-title-area {
+  display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .dropdown-wrapper {
