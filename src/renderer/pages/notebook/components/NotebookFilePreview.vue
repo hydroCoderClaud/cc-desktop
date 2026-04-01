@@ -133,7 +133,7 @@
           />
           
           <div v-else class="preview-placeholder">
-            <Icon :name="item.type === 'video' ? 'video' : 'fileText'" :size="32" />
+            <Icon :name="['video', 'mp4', 'webm', 'mov', 'avi', 'mkv'].includes((item.type || '').toLowerCase()) ? 'video' : 'fileText'" :size="32" />
             <span>{{ t('agent.files.cannotPreview') }}</span>
           </div>
         </template>
@@ -213,7 +213,7 @@ const extraSourceNamesText = computed(() => {
 
 const previewErrorText = computed(() => {
   if (!error.value) return ''
-  if (contentType.value === 'video' || props.item?.type === 'video') {
+  if (contentType.value === 'video' || ['video', 'mp4', 'webm', 'mov', 'avi', 'mkv'].includes((props.item?.type || '').toLowerCase())) {
     return t('notebook.studio.videoLoadFailedHint')
   }
   return error.value

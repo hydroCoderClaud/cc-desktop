@@ -86,11 +86,11 @@ describe('NotebookManager.prepareGeneration', () => {
 
   // ── 路径计算 ──────────────────────────────────────────────────────────────
 
-  it('outputType 决定正确的扩展名', () => {
+  it('outputType 扩展名决定正确的文件后缀', () => {
     const mgr = makeManager(baseDir)
     const nb = mgr.create({ name: 'ext-test' })
 
-    // notes 工具 outputType=markdown → .md
+    // notes 工具 outputType=md → .md
     const result = mgr.prepareGeneration(nb.id, 'notes', [])
     expect(result.prompt).toBeDefined()
     const ach = mgr.listAchievements(nb.id).at(-1)
@@ -103,6 +103,32 @@ describe('NotebookManager.prepareGeneration', () => {
     const ach2 = mgr.listAchievements(nb.id).at(-1)
     expect(ach2.path).toContain('.pdf')
     expect(ach2.path).toContain('achievements/test-pdf/')
+  })
+
+  it('outputType 兼容旧语义值与边界值', () => {
+    const mgr = makeManager(baseDir)
+    const nb = mgr.create({ name: 'legacy-ext-test' })
+
+    mgr.addTool({ id: 'legacy-markdown', name: 'Legacy Markdown', outputType: 'markdown' })
+    mgr.addTool({ id: 'dot-pdf', name: 'Dot PDF', outputType: '.PDF' })
+    mgr.addTool({ id: 'blank-ext', name: 'Blank Ext', outputType: '   ' })
+    mgr.addTool({ id: 'dot-only', name: 'Dot Only', outputType: '.' })
+
+    const ach1 = (mgr.prepareGeneration(nb.id, 'legacy-markdown', []), mgr.listAchievements(nb.id).at(-1))
+    expect(ach1.path).toContain('.md')
+    expect(ach1.type).toBe('md')
+
+    const ach2 = (mgr.prepareGeneration(nb.id, 'dot-pdf', []), mgr.listAchievements(nb.id).at(-1))
+    expect(ach2.path).toContain('.pdf')
+    expect(ach2.type).toBe('pdf')
+
+    const ach3 = (mgr.prepareGeneration(nb.id, 'blank-ext', []), mgr.listAchievements(nb.id).at(-1))
+    expect(ach3.path).toContain('.txt')
+    expect(ach3.type).toBe('txt')
+
+    const ach4 = (mgr.prepareGeneration(nb.id, 'dot-only', []), mgr.listAchievements(nb.id).at(-1))
+    expect(ach4.path).toContain('.txt')
+    expect(ach4.type).toBe('txt')
   })
 
   it('prepareGeneration 不提前创建成果子目录', () => {

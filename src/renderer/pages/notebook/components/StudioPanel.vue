@@ -142,7 +142,7 @@
               </div>
               <div class="achievement-right" v-if="achievement.status !== 'generating'">
                 <div class="achievement-actions">
-                  <button v-if="achievement.type === 'video' || achievement.type === 'audio'" class="action-icon-btn" @click.stop>
+                  <button v-if="['video', 'audio', 'mp4', 'webm', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes((achievement.type || '').toLowerCase())" class="action-icon-btn" @click.stop>
                     <Icon name="play" :size="16" />
                   </button>
                   <n-dropdown :options="getAchievementMenuOptions(achievement)" trigger="click" @select="(key) => handleAchievementMenuSelect(key, achievement)">

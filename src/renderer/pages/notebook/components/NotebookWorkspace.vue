@@ -345,7 +345,7 @@ const handleExportAchievement = async (achievement) => {
  */
 const processAchievements = (rawAchievements, notebookPath, sourceMetaMap) => {
   return rawAchievements.map(a => {
-    const tool = (availableTypes.value || []).find(t => t.outputType === a.type)
+    const tool = (availableTypes.value || []).find(t => t.id === a.toolId)
     const relativePath = a.path || ''
     const absolutePath = relativePath ? joinNotebookPath(notebookPath, relativePath) : ''
     const sourceDisplayPaths = (a.sourceIds || []).map(id => {

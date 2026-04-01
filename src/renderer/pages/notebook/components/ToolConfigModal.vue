@@ -147,8 +147,8 @@ const saving = ref(false)
 const statusMap = ref({})
 
 const outputTypeOptions = [
-  'markdown', 'pdf', 'document', 'image', 'video', 'code', 'text'
-].map(v => ({ label: t(`notebook.toolConfig.outputTypes.${v}`), value: v }))
+  'md', 'txt', 'pdf', 'docx', 'pptx', 'html', 'csv', 'jpg', 'png', 'mp4', 'mp3'
+].map(v => ({ label: t(`notebook.toolConfig.outputTypes.${v}`) || v, value: v }))
 
 const checkStatuses = async () => {
   if (!editingTool.value?.installDependencies?.length) return

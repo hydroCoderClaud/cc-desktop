@@ -5,9 +5,27 @@
 
 const path = require('path')
 
-const EXT_MAP = {
-  markdown: 'md', document: 'docx', code: 'html', text: 'txt',
-  image: 'jpg', video: 'mp4', pdf: 'pdf', csv: 'csv'
+const LEGACY_OUTPUT_TYPE_MAP = {
+  markdown: 'md',
+  document: 'docx',
+  docx: 'docx',
+  ppt: 'pptx',
+  pptx: 'pptx',
+  code: 'html',
+  text: 'txt',
+  image: 'jpg',
+  video: 'mp4',
+  audio: 'mp3',
+  pdf: 'pdf',
+  csv: 'csv'
+}
+
+function normalizeOutputExtension(outputType) {
+  const normalized = String(outputType || '').trim().replace(/^\.+/, '').toLowerCase()
+  if (!normalized) return 'txt'
+  const mapped = LEGACY_OUTPUT_TYPE_MAP[normalized] || normalized
+  const safe = mapped.replace(/[^a-z0-9]/g, '')
+  return safe || 'txt'
 }
 
 const notebookGenerationMixin = {
@@ -27,7 +45,7 @@ const notebookGenerationMixin = {
     if (!tool) throw new Error(`工具不存在：${toolId}`)
 
     const typeName = tool.name
-    const outputType = tool.outputType || 'text'
+    const outputType = normalizeOutputExtension(tool.outputType)
 
     // 2. 获取选中来源信息
     const allSources = this.listSources(notebookId)
@@ -42,9 +60,8 @@ const notebookGenerationMixin = {
 
     // 3. 计算预期输出路径（按 toolId 分目录，实际写文件时再创建目录）
     const notebookPath = this._getNotebookPath(notebookId)
-    const ext = EXT_MAP[outputType] || 'txt'
     const safeId = toolId.replace(/[^a-zA-Z0-9_-]/g, '-')
-    const expectedFileName = `${safeId}-${Date.now()}.${ext}`
+    const expectedFileName = `${safeId}-${Date.now()}.${outputType}`
     const expectedRelPath = `achievements/${safeId}/${expectedFileName}`
     const expectedAbsPath = path.join(notebookPath, expectedRelPath)
 
@@ -80,7 +97,7 @@ const notebookGenerationMixin = {
       const instruction = `我的目标是：使用【${typeName}】功能，生成一份成果。
 请将最终成果保存到指定路径：${expectedAbsPath}。
 如果你是一个只能输出纯文本的工具，请直接在对话中输出内容，系统会自动为你保存。
-请确保最终生成的文件符合 ${outputType} 类型（或对应扩展名的文件），如果是报告请保持结构完整，不要使用省略号。`
+请确保最终生成的文件扩展名为 .${outputType}，如果是报告请保持结构完整，不要使用省略号。`
 
       if (hasSources) {
         prompt = `请分析以下选中的来源文件：\n${sourceInfo}\n\n${instruction}`
