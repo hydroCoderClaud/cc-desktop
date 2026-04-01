@@ -235,7 +235,7 @@ function registerPromptHandlers(sessionDB, configManager) {
   ipcMain.handle('prompts:market:update', async (event, { registryUrl, prompt }) => {
     try {
       const mirrorUrl = configManager?.getMarketConfig()?.registryMirrorUrl
-      const dl = await _downloadPromptContent(registryUrl, prompt, mirrorUrl)
+      const dl = await fetchMarketPromptContent(registryUrl, prompt, mirrorUrl)
       if (!dl.success) return dl
       return sessionDB.installMarketPromptForce(dl.params)
     } catch (err) {

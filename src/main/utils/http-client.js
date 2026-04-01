@@ -117,6 +117,7 @@ async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
         return;
       }
 
+      const decoder = new TextDecoder('utf-8');
       let data = '';
       let totalLength = 0;
       let settled = false;
@@ -131,9 +132,14 @@ async function httpGet(url, _redirectCount = 0, _timeout = HTTP_TIMEOUT) {
           reject(err);
           return;
         }
-        data += chunk;
+        data += decoder.decode(chunk, { stream: true });
       });
-      res.on('end', () => { if (!settled) resolve(data); });
+      res.on('end', () => {
+        if (!settled) {
+          data += decoder.decode();
+          resolve(data);
+        }
+      });
     });
 
     req.on('error', reject);
