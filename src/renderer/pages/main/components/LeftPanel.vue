@@ -392,6 +392,7 @@ const enableNotebook = ref(false)
 // 打开 Notebook 工作台（切换到 Notebook 模式）
 const handleOpenNotebook = async () => {
   await switchMode(AppMode.NOTEBOOK)
+  emit('mode-changed', AppMode.NOTEBOOK)
 }
 
 // ========================================
