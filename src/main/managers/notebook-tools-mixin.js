@@ -110,6 +110,7 @@ const notebookToolsMixin = {
       runtimePlaceholders: toolData.runtimePlaceholders || {},
       bgColor: toolData.bgColor || '#f5f5f5',
       color: toolData.color || '#666',
+      beta: !!toolData.beta,
       version: toolData.version || '1.0.0',
       tags: toolData.tags || []
     })
