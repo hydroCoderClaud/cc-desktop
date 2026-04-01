@@ -173,7 +173,9 @@
       @click="showRightPanel = true"
       :title="t('panel.showRight')"
     >
-      <span class="strip-icon">‹</span>
+      <div class="strip-expand">
+        <span class="strip-icon">‹</span>
+      </div>
     </div>
 
     <!-- Project Edit Modal -->
@@ -1263,6 +1265,7 @@ const openApiProfileManager = async () => {
 
 .panel-collapsed-right {
   border-left: 1px solid var(--border-color);
+  justify-content: center;
 }
 
 /* Resize Handle */

@@ -1178,6 +1178,7 @@ export default {
 
   // 模式切换
   mode: {
+    mode: '模式切换',
     developerMode: '开发者模式',
     agentMode: '智能体模式',
     switchToAgent: '切换到智能体模式',

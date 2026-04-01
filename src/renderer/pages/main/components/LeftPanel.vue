@@ -2,7 +2,22 @@
   <div class="left-panel">
     <!-- Header -->
     <div class="panel-header">
-      <div class="logo">CC Desktop</div>
+      <div class="logo-wrap">
+        <n-dropdown trigger="click" :options="modeOptions" @select="handleModeSelect">
+          <button
+            type="button"
+            class="app-logo"
+            :title="t('mode.mode')"
+            :aria-label="t('mode.mode')"
+          >
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="15" stroke="var(--primary-color)" stroke-width="1.5" fill="rgba(74, 144, 217, 0.12)"/>
+              <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" fill="var(--primary-color)" opacity="0.85"/>
+            </svg>
+          </button>
+        </n-dropdown>
+        <div class="logo">{{ panelTitle }}</div>
+      </div>
       <div class="header-actions">
         <button class="collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
           <Icon name="panelsCollapse" :size="14" />
@@ -221,6 +236,10 @@
         </n-dropdown>
 
         <div class="footer-right">
+          <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
+            <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
+          </button>
+
           <button
             v-if="isAgentMode"
             class="capability-btn"
@@ -229,38 +248,6 @@
           >
             <Icon name="lightning" :size="18" />
             <span v-if="hasCapabilityUpdate" class="capability-update-badge"></span>
-          </button>
-
-          <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
-            <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
-          </button>
-
-          <!-- 目标模式按钮：显示可切换到的模式图标 -->
-          <button
-            v-if="!isAgentMode"
-            class="mode-switch-btn"
-            @click="handleSwitchMode('agent')"
-            :title="t('mode.switchToAgent')"
-          >
-            <Icon name="robot" :size="18" />
-          </button>
-
-          <button
-            v-if="!isDeveloperMode"
-            class="mode-switch-btn"
-            @click="handleSwitchMode('developer')"
-            :title="t('mode.switchToDeveloper')"
-          >
-            <Icon name="terminal" :size="18" />
-          </button>
-
-          <button
-            v-if="enableNotebook && !isNotebookMode"
-            class="mode-switch-btn"
-            @click="handleOpenNotebook"
-            :title="t('mode.switchToNotebook')"
-          >
-            <Icon name="notebook" :size="18" />
           </button>
         </div>
       </div>
@@ -360,6 +347,38 @@ const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale } = useLocale()
 const { isDeveloperMode, isAgentMode, isNotebookMode, switchMode, appMode } = useAppMode()
+
+const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
+
+const modeOptions = computed(() => {
+  const options = []
+  if (!isDeveloperMode.value) {
+    options.push({ label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') })
+  }
+  if (!isAgentMode.value) {
+    options.push({ label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') })
+  }
+  if (enableNotebook.value && !isNotebookMode.value) {
+    options.push({ label: t('mode.switchToNotebook'), key: 'notebook', icon: renderModeIcon('notebook') })
+  }
+  return options
+})
+
+const handleModeSelect = (key) => {
+  if (key === 'notebook') {
+    handleOpenNotebook()
+    return
+  }
+  if (key === 'developer' || key === 'agent') {
+    handleSwitchMode(key)
+  }
+}
+
+const panelTitle = computed(() => {
+  if (isAgentMode.value) return 'Hydro Agent'
+  if (isNotebookMode.value) return 'Hydro Notebook'
+  return 'Hydro Coder'
+})
 
 // 切换到指定模式
 const handleSwitchMode = async (mode) => {
@@ -1115,12 +1134,33 @@ defineExpose({
   height: 60px;
 }
 
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.app-logo {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .logo {
   font-family: var(--font-logo);
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-color);
+  white-space: nowrap;
 }
 
 .header-actions {
@@ -1525,14 +1565,13 @@ defineExpose({
 .footer-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .footer-right {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .settings-btn {
@@ -1617,27 +1656,6 @@ defineExpose({
   border-radius: 50%;
   background: #ff4d4f;
   border: 1.5px solid var(--bg-color);
-}
-
-.mode-switch-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 18px;
-  color: var(--primary-color);
-}
-
-.mode-switch-btn:hover {
-  transform: scale(1.05);
-  border-color: var(--primary-color);
-  background: var(--hover-bg);
 }
 
 /* Agent mode button */

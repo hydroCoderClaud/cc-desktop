@@ -1173,6 +1173,7 @@ export default {
 
   // Mode switching
   mode: {
+    mode: 'Switch mode',
     developerMode: 'Developer Mode',
     agentMode: 'Agent Mode',
     switchToAgent: 'Switch to Agent Mode',

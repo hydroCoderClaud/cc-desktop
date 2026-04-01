@@ -37,7 +37,7 @@
       </button>
       <button
         v-if="showCollapse"
-        class="header-btn"
+        class="header-btn collapse-btn"
         :title="t('common.collapse')"
         @click="$emit('collapse')"
       >
@@ -134,5 +134,13 @@ const shortenPath = (p) => {
 
 .header-btn.is-active {
   color: var(--primary-color);
+}
+
+.collapse-btn {
+  color: var(--primary-color);
+}
+
+.collapse-btn:hover {
+  color: var(--primary-color-hover);
 }
 </style>
