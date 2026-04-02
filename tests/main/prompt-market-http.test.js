@@ -24,8 +24,12 @@ function listen(server) {
 
 describe('prompts:market:update handler uses shared downloader', () => {
   it('update handler should call fetchMarketPromptContent', async () => {
+    const promptHandlersPath = path.resolve(
+      import.meta.dirname,
+      '../../src/main/ipc-handlers/prompt-handlers.js'
+    )
     const content = fs.readFileSync(
-      path.resolve('C:/workspace/develop/HydroCoder/cc-desktop/src/main/ipc-handlers/prompt-handlers.js'),
+      promptHandlersPath,
       'utf8'
     )
     expect(content).toContain("ipcMain.handle('prompts:market:update'")

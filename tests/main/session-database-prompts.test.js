@@ -305,6 +305,10 @@ class MockStatement {
           }
           return row.scope === 'project'
         }
+        // IN 形式: p.scope IN ('global', 'project')
+        if (this.sql.includes("scope IN ('global', 'project')") || this.sql.includes("p.scope IN ('global', 'project')")) {
+          return row.scope === 'global' || row.scope === 'project'
+        }
         // 占位符形式: scope = ?
         if (this.sql.includes('scope = ?')) {
           const scope = params[paramIndex]
