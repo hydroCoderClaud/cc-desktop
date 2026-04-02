@@ -68,6 +68,16 @@
   color: var(--danger-color);
 }
 
+/* Agent 右侧面板收起按钮（有会话/空状态统一主题色） */
+.agent-collapse-btn {
+  color: var(--primary-color);
+}
+
+.agent-collapse-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color-hover);
+}
+
 /* ========== 操作按钮 Hover 颜色变量 ========== */
 /* 统一定义，各组件引用这些变量 */
 :root {
