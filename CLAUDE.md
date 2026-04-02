@@ -7,10 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 Claude Code Desktop 是独立的 Electron 桌面应用，作为 Claude Code CLI 的本地桌面宿主，当前包含：
 - **Developer 模式**：项目/终端/配置管理
 - **Agent 模式**：对话式 Agent 工作流
-- **Notebook 模式**：专业工作台（实验性，默认隐藏）
+- **Notebook 模式**：专业工作台（实验性，默认开放）
 - **DingTalk Bridge**：钉钉桥接与远程命令/图片能力
 
-**当前版本**：`1.7.1`
+**当前版本**：`1.7.2`
 
 ### 版本号管理规范
 - 格式：`主版本.次版本.修订号`（如 `1.6.52`）
@@ -96,10 +96,10 @@ npm run rebuild:sqlite
 
 ## 协作约束与高频坑
 
-### Notebook 功能门控
-- Notebook 工作台入口受 `config.settings.enableNotebook` 控制
-- **默认应为 `false`**
-- 发布前必须确认 `enableNotebook` 为 `false`
+### Notebook 功能说明
+- Notebook 工作台入口当前为默认展示（不再受 `config.settings.enableNotebook` 门控）
+- 发布前无需再执行 `enableNotebook=false` 检查
+- 若后续策略调整，需同步更新本说明与发布流程文档
 
 ### 跨仓库同步要求
 - 修改组件市场/能力市场相关规范时，**必须同步更新**：

@@ -358,7 +358,7 @@ const modeOptions = computed(() => {
   if (!isAgentMode.value) {
     options.push({ label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') })
   }
-  if (enableNotebook.value && !isNotebookMode.value) {
+  if (!isNotebookMode.value) {
     options.push({ label: t('mode.switchToNotebook'), key: 'notebook', icon: renderModeIcon('notebook') })
   }
   return options
@@ -385,9 +385,6 @@ const handleSwitchMode = async (mode) => {
   await switchMode(mode)
   emit('mode-changed', mode)
 }
-
-// Notebook 入口开关（默认隐藏，config.settings.enableNotebook = true 时显示）
-const enableNotebook = ref(false)
 
 // 打开 Notebook 工作台（切换到 Notebook 模式）
 const handleOpenNotebook = async () => {
@@ -1014,12 +1011,6 @@ let capUpdateCleanup = null
 
 onMounted(async () => {
   await loadConfig()
-
-  // 读取 Notebook 入口开关
-  try {
-    const config = await window.electronAPI.getConfig()
-    enableNotebook.value = !!config?.settings?.enableNotebook
-  } catch {}
 
   // 初始加载活动会话列表
   await loadActiveSessions()
