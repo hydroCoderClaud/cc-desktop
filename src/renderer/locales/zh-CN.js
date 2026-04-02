@@ -1430,6 +1430,7 @@ export default {
     switchNotebook: '切换笔记本',
     myNotebooks: '我的笔记本',
     noNotebooks: '还没有笔记本',
+    renameSuccess: '重命名成功',
     renameFailed: '重命名失败',
     createSuccess: '已创建：{name}',
     deleteSuccess: '已删除：{name}',

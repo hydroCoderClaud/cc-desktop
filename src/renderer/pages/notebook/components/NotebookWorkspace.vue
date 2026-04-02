@@ -540,7 +540,7 @@ const handleRenameSource = (source) => {
       if (!trimmed || trimmed === source.name) return
       try {
         await handleUpdateSource(source.id, { name: trimmed })
-        message.success(t('common.saveSuccess'))
+        message.success(t('notebook.renameSuccess'))
       } catch (err) {
         console.error('[Notebook] Rename source failed:', err)
         message.error(t('common.saveFailed'))
@@ -815,7 +815,7 @@ const handleRenameAchievement = (achievement) => {
       if (!trimmed || trimmed === achievement.name) return
       try {
         await handleUpdateAchievement(achievement.id, { name: trimmed })
-        message.success(t('common.saveSuccess'))
+        message.success(t('notebook.renameSuccess'))
       } catch (err) {
         console.error('[Notebook] Rename achievement failed:', err)
         message.error(t('common.saveFailed'))

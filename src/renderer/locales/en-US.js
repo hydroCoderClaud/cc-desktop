@@ -1425,6 +1425,7 @@ export default {
     switchNotebook: 'Switch Notebook',
     myNotebooks: 'My Notebooks',
     noNotebooks: 'No notebooks yet',
+    renameSuccess: 'Renamed successfully',
     renameFailed: 'Rename failed',
     createSuccess: 'Created: {name}',
     deleteSuccess: 'Deleted: {name}',
