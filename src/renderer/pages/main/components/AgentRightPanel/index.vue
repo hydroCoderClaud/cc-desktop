@@ -113,7 +113,7 @@
       <div class="empty-header">
         <span class="empty-title">{{ t('agent.files.title') }}</span>
         <button
-          class="header-btn agent-collapse-btn"
+          class="header-btn panel-collapse-btn"
           :title="t('common.collapse')"
           @click="$emit('collapse')"
         >
@@ -713,11 +713,11 @@ defineExpose({
   transition: all 0.15s ease;
 }
 
-.header-btn:not(.agent-collapse-btn) {
+.header-btn:not(.panel-collapse-btn) {
   color: var(--text-color-muted);
 }
 
-.header-btn:not(.agent-collapse-btn):hover {
+.header-btn:not(.panel-collapse-btn):hover {
   background: var(--hover-bg);
   color: var(--primary-color);
 }

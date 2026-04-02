@@ -19,10 +19,10 @@
         <div class="logo">{{ panelTitle }}</div>
       </div>
       <div class="header-actions">
-        <button class="collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
+        <button class="panel-collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
           <Icon name="panelsCollapse" :size="14" />
         </button>
-        <button class="collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
+        <button class="panel-collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
           <Icon name="chevronLeft" :size="14" />
         </button>
       </div>
@@ -1117,6 +1117,8 @@ defineExpose({
 </script>
 
 <style scoped>
+@import '@styles/common.css';
+
 .left-panel {
   width: 280px;
   background: var(--bg-color-secondary);
@@ -1168,27 +1170,6 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 4px;
-}
-
-.collapse-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  color: var(--primary-color);
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.collapse-btn:hover {
-  background: var(--hover-bg);
-  color: var(--primary-color-hover);
 }
 
 /* Project Section */

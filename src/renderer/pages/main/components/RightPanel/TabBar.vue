@@ -2,7 +2,7 @@
   <div class="tab-bar">
     <!-- Collapse Button -->
     <button
-      class="collapse-btn"
+      class="panel-collapse-btn"
       @click="$emit('collapse')"
       :title="t('panel.hideRight')"
     >
@@ -46,6 +46,8 @@ defineEmits(['select', 'collapse'])
 </script>
 
 <style scoped>
+@import '@styles/common.css';
+
 .tab-bar {
   display: flex;
   align-items: center;
@@ -55,26 +57,8 @@ defineEmits(['select', 'collapse'])
   background: var(--bg-color-secondary);
 }
 
-.collapse-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  color: var(--primary-color);
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
+.panel-collapse-btn {
   flex-shrink: 0;
-}
-
-.collapse-btn:hover {
-  background: var(--hover-bg);
-  color: var(--primary-color-hover);
 }
 
 .tab-buttons {
