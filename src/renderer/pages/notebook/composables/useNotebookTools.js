@@ -2,6 +2,19 @@ import { ref, computed, onMounted } from 'vue'
 import { isNewerVersion } from '../utils/version'
 import { extractAllEnvVars } from '@/utils/mcp-env-utils'
 
+const NOTEBOOK_TOOL_INSTALL_TIMEOUT_MS = 90 * 1000
+
+function withTimeout(promise, timeoutMs, errorFactory) {
+  let timer = null
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(errorFactory()), timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
 export function useNotebookTools({
   message,
   t,
@@ -126,10 +139,14 @@ export function useNotebookTools({
   const handleDownloadTool = async (tool, installOptions = {}) => {
     const loading = message.loading(`正在安装创作工具：${tool.name}...`, { duration: 0 })
     try {
-      const res = await window.electronAPI.notebookInstallTool({
-        tool: JSON.parse(JSON.stringify(tool)),
-        options: installOptions
-      })
+      const res = await withTimeout(
+        window.electronAPI.notebookInstallTool({
+          tool: JSON.parse(JSON.stringify(tool)),
+          options: installOptions
+        }),
+        NOTEBOOK_TOOL_INSTALL_TIMEOUT_MS,
+        () => new Error(t('notebook.market.installTimeout'))
+      )
       if (!res.success) throw new Error(res.error)
       if (res.requiresSessionRestart) {
         await restartNotebookSession()

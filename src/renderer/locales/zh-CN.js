@@ -1573,6 +1573,7 @@ export default {
       detailRuntime: '运行时指令变量',
       installSuccess: '{name} 安装成功',
       installFailed: '安装失败：{error}',
+      installTimeout: '安装超时，请检查网络、市场源或依赖安装状态后重试',
       uninstallSuccess: '{name} 已卸载',
       uninstallFailed: '卸载失败：{error}',
     },

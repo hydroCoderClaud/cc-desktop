@@ -1568,6 +1568,7 @@ export default {
       detailRuntime: 'Runtime Variables',
       installSuccess: '{name} installed',
       installFailed: 'Install failed: {error}',
+      installTimeout: 'Installation timed out. Please check the network, registry source, or dependency installation state and try again.',
       uninstallSuccess: '{name} uninstalled',
       uninstallFailed: 'Uninstall failed: {error}',
     },
