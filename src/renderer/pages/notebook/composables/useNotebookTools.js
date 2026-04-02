@@ -50,9 +50,14 @@ export function useNotebookTools({
 
   const hasNewTools = computed(() => {
     if (!remoteTools.value.length) return false
+
     return remoteTools.value.some(rt => {
       const lt = availableTypes.value.find(t => t.id === rt.id && t.installed === true)
-      if (!lt) return false
+
+      // 市场出现本地未安装的新工具时也显示红点
+      if (!lt) return true
+
+      // 已安装工具在市场有更高版本时显示红点
       return isNewerVersion(rt.version, lt.version)
     })
   })
