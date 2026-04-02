@@ -4,6 +4,7 @@
     preset="card"
     :title="t('notebook.market.title')"
     style="width: 1000px;"
+    :body-style="{ maxHeight: '75vh', overflowY: 'auto', overflowX: 'hidden' }"
     :mask-closable="false"
     @update:show="handleMarketVisibilityChange"
   >
@@ -62,66 +63,68 @@
       </div>
 
       <!-- 工具网格 -->
-      <n-spin :show="loading" :description="t('market.fetching')">
-        <div class="market-scroll-area">
-          <div v-if="!loading && filteredTools.length > 0" class="tool-grid">
-            <div
-              v-for="tool in filteredTools"
-              :key="tool.id"
-              class="market-tool-card"
-              @click="openDetail(tool)"
-            >
-              <div class="card-header">
-                <div class="tool-icon-box" :style="{ background: tool.bgColor, color: tool.color }">
-                  <Icon :name="tool.icon" :size="24" />
+      <div class="market-content">
+        <n-spin :show="loading" :description="t('market.fetching')">
+          <div class="market-scroll-area">
+            <div v-if="!loading && filteredTools.length > 0" class="tool-grid">
+              <div
+                v-for="tool in filteredTools"
+                :key="tool.id"
+                class="market-tool-card"
+                @click="openDetail(tool)"
+              >
+                <div class="card-header">
+                  <div class="tool-icon-box" :style="{ background: tool.bgColor, color: tool.color }">
+                    <Icon :name="tool.icon" :size="24" />
+                  </div>
+                  <div class="title-group">
+                    <div class="tool-name">{{ tool.name }}</div>
+                    <div class="tool-id">ID: {{ tool.id }}</div>
+                    <div class="tool-version">v{{ tool.version || '1.0.0' }}</div>
+                  </div>
                 </div>
-                <div class="title-group">
-                  <div class="tool-name">{{ tool.name }}</div>
-                  <div class="tool-id">ID: {{ tool.id }}</div>
-                  <div class="tool-version">v{{ tool.version || '1.0.0' }}</div>
-                </div>
-              </div>
 
-              <div class="card-body">
-                <p class="tool-desc">{{ tool.description }}</p>
-                <div v-if="tool.tags?.length" class="tool-tags">
-                  <span
-                    v-for="tag in tool.tags"
-                    :key="`${tool.id}-${tag}`"
-                    class="tool-tag-chip"
+                <div class="card-body">
+                  <p class="tool-desc">{{ tool.description }}</p>
+                  <div v-if="tool.tags?.length" class="tool-tags">
+                    <span
+                      v-for="tag in tool.tags"
+                      :key="`${tool.id}-${tag}`"
+                      class="tool-tag-chip"
+                    >
+                      {{ tag }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="card-actions">
+                  <n-button
+                    type="primary"
+                    size="small"
+                    class="flex-1"
+                    :loading="installingId === tool.id"
+                    @click.stop="handleInstall(tool)"
                   >
-                    {{ tag }}
-                  </span>
+                    {{ getInstallButtonText(tool) }}
+                  </n-button>
+                  <n-button
+                    v-if="isInstalled(tool.id)"
+                    type="error"
+                    size="small"
+                    quaternary
+                    @click.stop="handleUninstall(tool)"
+                  >
+                    {{ t('notebook.market.uninstall') }}
+                  </n-button>
                 </div>
-              </div>
-
-              <div class="card-actions">
-                <n-button
-                  type="primary"
-                  size="small"
-                  class="flex-1"
-                  :loading="installingId === tool.id"
-                  @click.stop="handleInstall(tool)"
-                >
-                  {{ getInstallButtonText(tool) }}
-                </n-button>
-                <n-button
-                  v-if="isInstalled(tool.id)"
-                  type="error"
-                  size="small"
-                  quaternary
-                  @click.stop="handleUninstall(tool)"
-                >
-                  {{ t('notebook.market.uninstall') }}
-                </n-button>
               </div>
             </div>
+            <div v-else-if="!loading" class="empty-state">
+              <n-empty :description="emptyDescription" />
+            </div>
           </div>
-          <div v-else-if="!loading" class="empty-state">
-            <n-empty :description="emptyDescription" />
-          </div>
-        </div>
-      </n-spin>
+        </n-spin>
+      </div>
     </div>
 
     <!-- 详情子弹窗 -->
@@ -353,11 +356,14 @@ const handleUninstall = (tool) => {
 </script>
 
 <style scoped>
-.market-v2-container { display: flex; flex-direction: column; gap: 16px; height: 65vh; }
+.market-v2-container { display: flex; flex-direction: column; gap: 16px; height: auto; min-height: 0; }
 .market-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .market-controls { display: flex; align-items: center; gap: 12px; flex: 1; max-width: 520px; }
 .search-bar { flex: 1; }
 .market-stats { font-size: 12px; color: var(--text-color-muted); }
+.market-content { min-height: 0; overflow: hidden; }
+.market-content :deep(.n-spin-container) { min-height: 0; }
+.market-content :deep(.n-spin-body) { min-height: 0; }
 .filter-trigger-btn {
   position: relative;
   min-width: 38px;
@@ -427,7 +433,12 @@ const handleUninstall = (tool) => {
 .tag-filter-empty { font-size: 12px; color: var(--text-color-muted); }
 .active-tags-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.market-scroll-area { flex: 1; overflow-y: auto; padding: 4px; }
+.market-scroll-area {
+  max-height: calc(75vh - 150px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
 
 .tool-grid {
   display: grid;
