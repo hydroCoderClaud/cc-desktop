@@ -2,6 +2,14 @@
 
 ---
 
+## Unreleased
+
+### 修复 (Fix)
+- 开发者模式：修复右侧面板宽度持久化调用错误（`updateConfig` → `saveConfig`）
+- 开发者模式终端：增加 500ms 同尺寸 `fit/resize` 心跳，缓解 Claude 状态栏计数字符残留
+
+---
+
 ## v1.7.3 - 2026-04-02
 
 ### 新增 (Feat)

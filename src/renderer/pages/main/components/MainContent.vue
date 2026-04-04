@@ -420,7 +420,7 @@ const loadRightPanelWidth = async () => {
 // 保存宽度配置
 const saveRightPanelWidth = async (width) => {
   try {
-    await window.electronAPI.updateConfig({
+    await window.electronAPI.saveConfig({
       ui: { rightPanelWidth: width }
     })
   } catch (err) {

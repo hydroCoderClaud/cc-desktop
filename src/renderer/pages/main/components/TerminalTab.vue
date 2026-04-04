@@ -50,6 +50,7 @@ let fitAddon = null
 let webglAddon = null  // 保存 WebGL addon 引用
 let resizeObserver = null
 let resizeTimer = null
+let heartbeatTimer = null
 let initialized = ref(false)
 
 // Get terminal theme (根据 darkBackground 设置)
@@ -281,18 +282,39 @@ const handleResize = () => {
   }
 }
 
+// 周期性触发一次同尺寸 fit/resize，缓解右侧残留字符
+const startResizeHeartbeat = () => {
+  if (heartbeatTimer) return
+  heartbeatTimer = setInterval(() => {
+    if (props.visible && initialized.value) {
+      fit()
+    }
+  }, 500)
+}
+
+const stopResizeHeartbeat = () => {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
 // Watch visibility
 watch(() => props.visible, async (newVal) => {
   if (newVal && !initialized.value) {
     await nextTick()
     initTerminal()
+    startResizeHeartbeat()
   } else if (newVal) {
     await nextTick()
     fit()
+    startResizeHeartbeat()
     // 切换到此 tab 时自动聚焦
     if (terminal) {
       terminal.focus()
     }
+  } else {
+    stopResizeHeartbeat()
   }
 })
 
@@ -344,11 +366,13 @@ onMounted(async () => {
   if (props.visible) {
     await nextTick()
     initTerminal()
+    startResizeHeartbeat()
   }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  stopResizeHeartbeat()
   clearTimeout(resizeTimer)
   if (resizeObserver) {
     resizeObserver.disconnect()
