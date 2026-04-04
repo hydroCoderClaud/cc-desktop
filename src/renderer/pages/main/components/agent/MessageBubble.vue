@@ -242,9 +242,10 @@ const renderedContent = computed(() => {
   text = text.replace(/(https?:\/\/[^\s<>&"')\]]+)/g,
     '<a class="clickable-link" data-link-type="url" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
 
-  // Windows 绝对路径（C:\... D:\...）
-  text = text.replace(/([A-Za-z]:(?:\\[^\n<>&"':*?]+)+)/g,
-    (_, pathText) => wrapPathLink(pathText))
+  // Windows 绝对路径（C:\... / C:/...）
+  // 避免误命中 URL（如 https://），因此要求 "/" 不能是双斜杠
+  text = text.replace(/(^|[\s([{"'`:,，。；;：])([A-Za-z]:(?:\\|\/(?!\/))[^\s<>&"':*?]+(?:[\\/][^\s<>&"':*?]+)*)/g,
+    (_, prefix, pathText) => `${prefix}${wrapPathLink(pathText)}`)
 
   // Windows 简写盘符路径（c/workspace/... 或 c\workspace\...）
   // 限定首段为 workspace 或 users，避免把通用相对路径（如 docs/readme）误判成盘符路径
@@ -280,7 +281,7 @@ const renderedContent = computed(() => {
       let linkType = ''
       if (/^https?:\/\//.test(trimmed)) {
         linkType = 'url'
-      } else if (/^[A-Za-z]:\\/.test(trimmed) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?[/\\]/.test(trimmed) || /^~\//.test(trimmed)) {
+      } else if (/^[A-Za-z]:(?:\\|\/(?!\/)).+/.test(trimmed) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?[/\\]/.test(trimmed) || /^~\//.test(trimmed)) {
         linkType = 'path'
       }
       if (linkType) {
@@ -299,7 +300,7 @@ const renderedContent = computed(() => {
     let linkType = ''
     if (/^https?:\/\//.test(code)) {
       linkType = 'url'
-    } else if (/^[A-Za-z]:\\/.test(code) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?[/\\]/.test(code) || /^~\//.test(code)) {
+    } else if (/^[A-Za-z]:(?:\\|\/(?!\/)).+/.test(code) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?[/\\]/.test(code) || /^~\//.test(code)) {
       linkType = 'path'
     }
     if (linkType) {

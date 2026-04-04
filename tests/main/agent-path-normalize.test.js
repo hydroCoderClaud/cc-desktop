@@ -78,6 +78,10 @@ describe('agent:readAbsolutePath Windows path normalization', () => {
       expect(slashStyle.error).toBeFalsy()
       expect(String(slashStyle.filePath).replace(/\\/g, '/')).toBe(windowsWorkspaceFile)
 
+      const windowsSlashStyle = await handler(null, { filePath: 'C:/workspace/cc-desktop-test-path-normalize.txt', sessionId: 's1', confirmed: true })
+      expect(windowsSlashStyle.error).toBeFalsy()
+      expect(String(windowsSlashStyle.filePath).replace(/\\/g, '/')).toBe(windowsWorkspaceFile)
+
       const shortDriveStyle = await handler(null, { filePath: 'c/workspace/cc-desktop-test-path-normalize.txt', sessionId: 's1', confirmed: true })
       expect(shortDriveStyle.error).toBeFalsy()
       expect(String(shortDriveStyle.filePath).replace(/\\/g, '/')).toBe(windowsWorkspaceFile)
