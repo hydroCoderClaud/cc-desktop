@@ -1194,6 +1194,8 @@ export default {
     newConversation: '新建对话',
     conversations: '对话列表',
     noConversations: '暂无对话',
+    reopenFailed: '恢复会话失败',
+    reopenError: '恢复会话异常',
     allDirectories: '全部目录',
     apiProfile: 'API 配置',
     send: '发送',

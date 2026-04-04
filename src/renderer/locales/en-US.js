@@ -1189,6 +1189,8 @@ export default {
     newConversation: 'New Conversation',
     conversations: 'Conversations',
     noConversations: 'No conversations yet',
+    reopenFailed: 'Failed to restore session',
+    reopenError: 'Error restoring session',
     allDirectories: 'All directories',
     apiProfile: 'API Profile',
     send: 'Send',

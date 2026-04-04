@@ -422,9 +422,13 @@ const handleAgentSelected = async (conv) => {
       const result = await window.electronAPI.reopenAgentSession(conv.id)
       if (result && !result.error) {
         conv.status = result.status || 'idle'
+      } else if (result?.error) {
+        // 显示实际错误信息
+        message.error(`${t('agent.reopenFailed') || '恢复会话失败'}：${result.error}`)
       }
     } catch (err) {
       console.error('[LeftPanel] reopen agent session error:', err)
+      message.error(`${t('agent.reopenError') || '恢复会话异常'}：${err.message}`)
     }
   }
   activeAgentSessionId.value = conv.id
