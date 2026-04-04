@@ -150,6 +150,7 @@ const emit = defineEmits([
   'rename-source',
   'export-source',
   'add-to-achievement',
+  'insert-path-to-input',
   'open-folder',
   'delete-source',
   'update:showLeftPanel'
@@ -162,6 +163,7 @@ const selectedIds = computed(() => props.sources.filter(s => s.selected).map(s =
 
 const getSourceMenuOptions = (source) => ([
   { label: t('common.rename'), key: 'rename' },
+  { label: t('notebook.source.insertPath'), key: 'insert-path', disabled: !source.path },
   { label: t('notebook.source.addToAchievement'), key: 'add-to-achievement', disabled: !source.path },
   { label: t('project.openFolder'), key: 'open-folder', disabled: !source.path },
   { label: t('notebook.source.export'), key: 'export', disabled: !source.path },
@@ -170,6 +172,7 @@ const getSourceMenuOptions = (source) => ([
 
 const handleSourceMenuSelect = (key, source) => {
   if (key === 'rename') emit('rename-source', source)
+  if (key === 'insert-path') emit('insert-path-to-input', source)
   if (key === 'add-to-achievement') emit('add-to-achievement', source)
   if (key === 'open-folder') emit('open-folder', source)
   if (key === 'export') emit('export-source', source)

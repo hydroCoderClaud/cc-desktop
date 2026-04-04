@@ -375,8 +375,13 @@ const tryAutoConsumeQueue = () => {
 }
 
 // 暴露方法给父组件
+const insertText = (text) => {
+  chatInputRef.value?.insertText?.(text)
+}
+
 defineExpose({
-  sendMessage: handleSend
+  sendMessage: handleSend,
+  insertText
 })
 
 // 流式结束后自动消费队列

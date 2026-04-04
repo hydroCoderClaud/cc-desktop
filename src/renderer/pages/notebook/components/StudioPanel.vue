@@ -269,13 +269,14 @@ const allSelected = computed(() => props.achievements.length > 0 && props.achiev
 const emit = defineEmits([
   'generate', 'export', 'delete', 'download-tool', 'open-market', 'open-external',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool', 'add-to-source', 'rename', 'toggle-tag', 'clear-tag-filters',
+  'edit-tool', 'add-to-source', 'rename', 'insert-path-to-input', 'toggle-tag', 'clear-tag-filters',
   'update:showRightPanel'
 ])
 
 
 const getAchievementMenuOptions = () => ([
   { label: t('common.rename'), key: 'rename' },
+  { label: t('notebook.studio.insertPath'), key: 'insert-path' },
   { label: t('notebook.studio.addToSource'), key: 'add-to-source' },
   { label: t('project.openFolder'), key: 'open-folder' },
   { label: t('notebook.studio.export'), key: 'export' },
@@ -292,6 +293,7 @@ const clearTagFilters = () => {
 
 const handleAchievementMenuSelect = (key, achievement) => {
   if (key === 'rename') emit('rename', achievement)
+  if (key === 'insert-path') emit('insert-path-to-input', achievement)
   if (key === 'add-to-source') emit('add-to-source', achievement)
   if (key === 'open-folder') emit('open-external', { ...achievement, openFolderOnly: true })
   if (key === 'export') emit('export', achievement)

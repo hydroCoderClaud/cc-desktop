@@ -35,6 +35,7 @@
         @rename-source="handleRenameSource"
         @export-source="handleExportSource"
         @add-to-achievement="handleAddSourceToAchievement"
+        @insert-path-to-input="handleInsertSourcePathToInput"
         @open-folder="handleOpenFolder"
         @delete-source="handleDeleteSource"
         @update:showLeftPanel="showLeftPanel = $event"
@@ -108,6 +109,7 @@
         @edit-tool="handleEditTool"
         @download-tool="handleDownloadTool"
         @add-to-source="handleAddAchievementToSource"
+        @insert-path-to-input="handleInsertAchievementPathToInput"
         @export="handleExportAchievement"
         @open-external="handleOpenExternal"
         @open-market="showMarketModal = true"
@@ -514,6 +516,31 @@ const handleOpenExternal = async (source) => {
   } else {
     message.warning(t('messages.loadFailed'))
   }
+}
+
+const insertPathToNotebookInput = (pathText) => {
+  if (!pathText) return
+  chatPanelRef.value?.insertText?.(pathText + '\n')
+}
+
+const handleInsertSourcePathToInput = async (source) => {
+  if (!source) return
+  try {
+    const filePath = await resolveSourceAbsolutePath(source)
+    insertPathToNotebookInput(filePath)
+  } catch (err) {
+    console.error('[Notebook] Failed to insert source path:', err)
+    message.error(t('common.error'))
+  }
+}
+
+const handleInsertAchievementPathToInput = (achievement) => {
+  const pathText = achievement?.absolutePath || achievement?.path
+  if (!pathText) {
+    message.warning(t('messages.loadFailed'))
+    return
+  }
+  insertPathToNotebookInput(pathText)
 }
 
 const resolveSourceAbsolutePath = async (source) => {
