@@ -41,6 +41,15 @@ describe('agent:readAbsolutePath Windows path normalization', () => {
     const originalExistsSync = fs.existsSync
     const originalStatSync = fs.statSync
     const originalReadFileSync = fs.readFileSync
+    const originalIsAbsolute = path.isAbsolute
+
+    const isWindowsDrivePath = (value) => /^[A-Za-z]:[\\/]/.test(String(value || ''))
+
+    // 在 Linux CI 上模拟 win32 语义：C:/... 视为绝对路径
+    const isAbsoluteSpy = vi.spyOn(path, 'isAbsolute').mockImplementation((target) => {
+      if (isWindowsDrivePath(target)) return true
+      return originalIsAbsolute(target)
+    })
 
     const existsSpy = vi.spyOn(fs, 'existsSync').mockImplementation((target) => {
       const normalized = String(target).replace(/\\/g, '/')
@@ -52,7 +61,7 @@ describe('agent:readAbsolutePath Windows path normalization', () => {
 
     const statSpy = vi.spyOn(fs, 'statSync').mockImplementation((target, ...args) => {
       const normalized = String(target).replace(/\\/g, '/')
-      if (normalized === windowsWorkspaceFile) {
+      if (normalized === windowsWorkspaceFile || normalized.endsWith('/' + windowsWorkspaceFile)) {
         return {
           isDirectory: () => false,
           size: 5
@@ -63,7 +72,7 @@ describe('agent:readAbsolutePath Windows path normalization', () => {
 
     const readSpy = vi.spyOn(fs, 'readFileSync').mockImplementation((target, enc) => {
       const normalized = String(target).replace(/\\/g, '/')
-      if (normalized === windowsWorkspaceFile && enc === 'utf-8') {
+      if ((normalized === windowsWorkspaceFile || normalized.endsWith('/' + windowsWorkspaceFile)) && enc === 'utf-8') {
         return 'hello'
       }
       return originalReadFileSync(target, enc)
@@ -93,6 +102,7 @@ describe('agent:readAbsolutePath Windows path normalization', () => {
       existsSpy.mockRestore()
       statSpy.mockRestore()
       readSpy.mockRestore()
+      isAbsoluteSpy.mockRestore()
       if (originalPlatform) {
         Object.defineProperty(process, 'platform', originalPlatform)
       }
