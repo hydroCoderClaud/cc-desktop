@@ -426,6 +426,17 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
         }
       }
 
+      // HTML 文件（交给右侧 webview 预览）
+      if (['.html', '.htm'].includes(ext)) {
+        return {
+          type: 'html',
+          name,
+          filePath,
+          ext,
+          size: stats.size
+        }
+      }
+
       // 文本文件
       const content = fs.readFileSync(filePath, 'utf-8')
       return {
