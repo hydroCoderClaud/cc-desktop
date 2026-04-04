@@ -1,6 +1,6 @@
 # 渲染进程代码索引
 
-> CC Desktop v1.7.3 | [← 架构总览](../ARCHITECTURE.md)
+> CC Desktop v1.7.31 | [← 架构总览](../ARCHITECTURE.md)
 
 ## 概览
 
