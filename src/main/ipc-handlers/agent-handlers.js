@@ -304,12 +304,22 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // 读取任意绝对路径的文件（用于聊天消息中的文件链接预览）
   ipcMain.handle('agent:readAbsolutePath', async (event, { filePath, sessionId, confirmed = false }) => {
     try {
-      // Windows 上规范化 MSYS 格式路径：/c/foo → C:/foo
+      // Windows 上规范化 MSYS/简写盘符路径：/c/foo 或 c/workspace/...、c/users/... → C:/...
       // Node.js 在 Windows 上会把 /c/foo 解析为当前盘符下的 \c\foo，而非 C:\foo
       if (process.platform === 'win32') {
         const msys = filePath.match(/^\/([a-zA-Z])\/(.*)/)
         if (msys) {
           filePath = msys[1].toUpperCase() + ':/' + msys[2]
+        } else {
+          const driveWithoutColon = filePath.match(/^([a-zA-Z])[\\/](.*)/)
+          if (driveWithoutColon) {
+            const drive = driveWithoutColon[1].toUpperCase()
+            const rest = driveWithoutColon[2] || ''
+            // 仅把常见误输出的 c/workspace... 或 c/users... 视为盘符路径，避免误伤普通相对路径
+            if (/^(workspace|users)([\\/]|$)/i.test(rest) && fs.existsSync(`${drive}:/`)) {
+              filePath = `${drive}:/${rest.replace(/\\/g, '/')}`
+            }
+          }
         }
       }
 
