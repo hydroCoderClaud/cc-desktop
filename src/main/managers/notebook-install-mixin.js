@@ -4,6 +4,8 @@
  * 内部复用 CapabilityManager.installCapability()
  */
 
+const { isNewerVersion } = require('../utils/http-client')
+
 const notebookInstallMixin = {
   /**
    * 安装创作工具：依次安装底层依赖 → 安装 Prompt 模板 → 写入工具配置
@@ -18,6 +20,14 @@ const notebookInstallMixin = {
     let requiresSessionRestart = false
 
     console.log(`[NotebookManager] installTool: ${tool.id} (${tool.name})`)
+
+    const existingTools = this.listTools()
+    const existingTool = existingTools.find(t => t.id === tool.id)
+    const isReinstall = !!existingTool
+    const isUpgrade =
+      existingTool?.version &&
+      tool.version &&
+      isNewerVersion(tool.version, existingTool.version)
 
     // 1. 安装底层组件依赖 (skill / mcp / plugin / prompt)
     if (tool.installDependencies?.length > 0) {
@@ -48,17 +58,25 @@ const notebookInstallMixin = {
       }
     }
 
-    // 2. 安装配套 Prompt 模板（如果不在 installDependencies 中）
+    // 2. 安装或更新配套 Prompt 模板
     if (tool.promptTemplateId) {
       const alreadyInDeps = tool.installDependencies?.some(
         d => d.type === 'prompt' && d.id === tool.promptTemplateId
       )
       if (!alreadyInDeps) {
         const promptStatus = this.capabilityManager.checkComponentInstalled('prompt', tool.promptTemplateId)
-        if (promptStatus !== 'installed') {
-          console.log(`[NotebookManager] Installing prompt template: ${tool.promptTemplateId}`)
+        const installedPrompt = this.sessionDatabase?.getPromptByMarketId(tool.promptTemplateId)
+        const shouldRefreshPrompt = promptStatus === 'installed' && isReinstall
+
+        if (promptStatus !== 'installed' || shouldRefreshPrompt) {
+          console.log(`[NotebookManager] ${shouldRefreshPrompt ? (isUpgrade ? 'Updating' : 'Reinstalling') : 'Installing'} prompt template: ${tool.promptTemplateId}`)
           const res = await this.capabilityManager.installCapability(
-            { type: 'prompt', componentId: tool.promptTemplateId },
+            {
+              type: 'prompt',
+              componentId: tool.promptTemplateId,
+              version: tool.version || installedPrompt?.version || '1.0.0',
+              name: installedPrompt?.name || tool.name || tool.promptTemplateId
+            },
             { scope: 'notebook' }
           )
           if (!res.success) {
@@ -71,9 +89,7 @@ const notebookInstallMixin = {
     }
 
     // 3. 写入工具配置
-    const existingTools = this.listTools()
-    if (existingTools.find(t => t.id === tool.id)) {
-      // 已存在则更新
+    if (existingTool) {
       this.updateTool(tool.id, tool)
     } else {
       this.addTool(tool)
@@ -82,6 +98,7 @@ const notebookInstallMixin = {
     console.log(`[NotebookManager] installTool done: ${tool.id}`)
     return { success: true, requiresSessionRestart }
   },
+
 
   /**
    * 卸载创作工具：从配置中移除（不卸载底层组件，因为可能被其他工具共用）

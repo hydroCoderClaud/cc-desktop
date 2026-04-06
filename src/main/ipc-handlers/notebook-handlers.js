@@ -362,41 +362,83 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  const fetchNotebookMarketData = async () => {
+    const config = notebookManager.configManager.getConfig()
+    const registryUrl = config.market?.registryUrl
+    const mirrorUrl = config.market?.registryMirrorUrl
+    if (!registryUrl) throw new Error('未配置市场源')
+
+    const { httpGet, httpGetWithMirror } = require('../utils/http-client')
+    const baseUrl = registryUrl.replace(/\/+$/, '')
+    const url = `${baseUrl}/notebook-tools.json?t=${Date.now()}`
+
+    const body = mirrorUrl
+      ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
+      : await httpGet(url)
+
+    // 清理可能存在的 BOM 字符和前后空格，防止解析失败
+    const cleanBody = body.trim().replace(/^\uFEFF/, '')
+    const parsed = JSON.parse(cleanBody)
+    const normalizeRemoteTool = (tool) => ({
+      ...tool,
+      id: String(tool?.id || '').trim(),
+      name: String(tool?.name || tool?.id || '').trim(),
+      description: String(tool?.description || '').trim(),
+      tags: Array.isArray(tool?.tags)
+        ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
+        : []
+    })
+    const tools = Array.isArray(parsed?.tools)
+      ? parsed.tools
+          .map(normalizeRemoteTool)
+          .filter(tool => tool.id && tool.name)
+      : []
+
+    return { data: { ...parsed, tools }, baseUrl }
+  }
+
   ipcMain.handle('notebook:fetchRemoteTools', async () => {
     try {
-      const config = notebookManager.configManager.getConfig()
-      const registryUrl = config.market?.registryUrl
-      const mirrorUrl = config.market?.registryMirrorUrl
-      if (!registryUrl) return { success: false, error: '未配置市场源' }
-
-      const { httpGet, httpGetWithMirror } = require('../utils/http-client')
-      const baseUrl = registryUrl.replace(/\/+$/, '')
-      const url = `${baseUrl}/notebook-tools.json?t=${Date.now()}`
-      
-      const body = mirrorUrl 
-        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
-        : await httpGet(url)
-      
-      // 清理可能存在的 BOM 字符和前后空格，防止解析失败
-      const cleanBody = body.trim().replace(/^\uFEFF/, '')
-      const parsed = JSON.parse(cleanBody)
-      const normalizeRemoteTool = (tool) => ({
-        ...tool,
-        id: String(tool?.id || '').trim(),
-        name: String(tool?.name || tool?.id || '').trim(),
-        description: String(tool?.description || '').trim(),
-        tags: Array.isArray(tool?.tags)
-          ? [...new Set(tool.tags.map(tag => String(tag).trim()).filter(Boolean))]
-          : []
-      })
-      const tools = Array.isArray(parsed?.tools)
-        ? parsed.tools
-            .map(normalizeRemoteTool)
-            .filter(tool => tool.id && tool.name)
-        : []
-      return { success: true, data: { ...parsed, tools } }
+      const { data } = await fetchNotebookMarketData()
+      return { success: true, data }
     } catch (err) {
       console.error('[IPC] notebook:fetchRemoteTools error:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('notebook:fetchPromptTemplateContent', async (_e, marketId) => {
+    try {
+      const normalizedId = String(marketId || '').trim()
+      if (!normalizedId) return { success: false, error: '提示词模板 ID 不能为空' }
+
+      const { data, baseUrl } = await fetchNotebookMarketData()
+      const targetTool = (data.tools || []).find(tool => tool.promptTemplateId === normalizedId)
+      if (!targetTool) {
+        return { success: false, error: `市场中未找到模板 ID: ${normalizedId}` }
+      }
+
+      const { fetchMarketPromptContent } = require('../utils/prompt-utils')
+      const dl = await fetchMarketPromptContent(baseUrl, {
+        id: normalizedId,
+        name: targetTool.name || normalizedId,
+        version: targetTool.version || '0.0.0',
+        file: `${normalizedId}.md`
+      }, notebookManager.configManager.getConfig().market?.registryMirrorUrl)
+
+      if (!dl.success) return { success: false, error: dl.error }
+
+      return {
+        success: true,
+        data: {
+          id: normalizedId,
+          name: dl.params.name,
+          version: dl.params.version,
+          content: dl.params.content
+        }
+      }
+    } catch (err) {
+      console.error('[IPC] notebook:fetchPromptTemplateContent error:', err)
       return { success: false, error: err.message }
     }
   })

@@ -197,6 +197,90 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(result.achievementId).toMatch(/^ach-/)
   })
 
+  it('版本升级时重新安装并刷新 prompt 模板', async () => {
+    const mgr = makeManager(baseDir)
+
+    mgr.capabilityManager = {
+      checkComponentInstalled: vi.fn((type, id) => {
+        if (type === 'prompt' && id === 'sys-notebook-notes') return 'installed'
+        return false
+      }),
+      installCapability: vi.fn(async () => ({ success: true }))
+    }
+
+    mgr.sessionDatabase = {
+      getPromptByMarketId: vi.fn(() => ({ id: 1, name: '旧模板', version: '1.0.0' }))
+    }
+
+    mgr.addTool({
+      id: 'upgrade-test',
+      name: '升级测试工具',
+      outputType: 'md',
+      version: '1.0.0',
+      promptTemplateId: 'sys-notebook-notes'
+    })
+
+    await mgr.installTool({
+      id: 'upgrade-test',
+      name: '升级测试工具',
+      outputType: 'md',
+      version: '1.1.0',
+      promptTemplateId: 'sys-notebook-notes'
+    })
+
+    expect(mgr.capabilityManager.installCapability).toHaveBeenCalledWith(
+      {
+        type: 'prompt',
+        componentId: 'sys-notebook-notes',
+        version: '1.1.0',
+        name: '旧模板'
+      },
+      { scope: 'notebook' }
+    )
+  })
+
+  it('同版本重装时也刷新 prompt 模板', async () => {
+    const mgr = makeManager(baseDir)
+
+    mgr.capabilityManager = {
+      checkComponentInstalled: vi.fn((type, id) => {
+        if (type === 'prompt' && id === 'sys-notebook-notes') return 'installed'
+        return false
+      }),
+      installCapability: vi.fn(async () => ({ success: true }))
+    }
+
+    mgr.sessionDatabase = {
+      getPromptByMarketId: vi.fn(() => ({ id: 1, name: '旧模板', version: '1.0.1' }))
+    }
+
+    mgr.addTool({
+      id: 'reinstall-test',
+      name: '重装测试工具',
+      outputType: 'html',
+      version: '1.0.1',
+      promptTemplateId: 'sys-notebook-notes'
+    })
+
+    await mgr.installTool({
+      id: 'reinstall-test',
+      name: '重装测试工具',
+      outputType: 'html',
+      version: '1.0.1',
+      promptTemplateId: 'sys-notebook-notes'
+    })
+
+    expect(mgr.capabilityManager.installCapability).toHaveBeenCalledWith(
+      {
+        type: 'prompt',
+        componentId: 'sys-notebook-notes',
+        version: '1.0.1',
+        name: '旧模板'
+      },
+      { scope: 'notebook' }
+    )
+  })
+
   // ── 错误场景 ──────────────────────────────────────────────────────────────
 
   it('工具不存在时抛出错误且不创建 achievement', () => {

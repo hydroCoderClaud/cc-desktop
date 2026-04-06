@@ -173,6 +173,15 @@
             </div>
           </div>
         </div>
+        <div class="detail-section" v-if="selectedTool.promptTemplateId">
+          <div class="label">{{ t('notebook.market.detailPrompt') }}</div>
+          <div class="prompt-template-box">
+            <div class="prompt-template-id">{{ selectedTool.promptTemplateId }}</div>
+            <n-button size="small" tertiary type="primary" :loading="promptLoading" @click="openPromptContent(selectedTool)">
+              {{ t('notebook.market.viewPromptContent') }}
+            </n-button>
+          </div>
+        </div>
         <div class="detail-section" v-if="selectedTool.runtimePlaceholders && Object.keys(selectedTool.runtimePlaceholders).length">
           <div class="label">{{ t('notebook.market.detailRuntime') }}</div>
           <div class="mapping-list">
@@ -184,12 +193,37 @@
         </div>
       </div>
     </n-modal>
+
+    <!-- 提示词内容子弹窗 -->
+    <n-modal
+      :show="showPromptPreview"
+      preset="card"
+      :title="t('notebook.market.promptPreviewTitle', { id: promptPreviewId || '-' })"
+      style="width: 820px;"
+      :z-index="12500"
+      @update:show="handlePromptPreviewVisibilityChange"
+    >
+      <n-spin :show="promptLoading">
+        <div class="prompt-preview-layout">
+          <div class="prompt-preview-meta">
+            <span class="prompt-preview-id">{{ promptPreviewId || '-' }}</span>
+          </div>
+          <n-input
+            :value="promptPreviewContent"
+            type="textarea"
+            readonly
+            :autosize="{ minRows: 14, maxRows: 22 }"
+            class="prompt-preview-input"
+          />
+        </div>
+      </n-spin>
+    </n-modal>
   </n-modal>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { NPopover } from 'naive-ui'
+import { NPopover, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import { isNewerVersion } from '../utils/version'
@@ -201,6 +235,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'install', 'uninstall'])
 const { t } = useLocale()
+const message = useMessage()
 
 const loading = ref(false)
 const searchQuery = ref('')
@@ -209,6 +244,10 @@ const selectedTags = ref([])
 const selectedTool = ref(null)
 const showDetail = ref(false)
 const installingId = ref(null)
+const showPromptPreview = ref(false)
+const promptPreviewId = ref('')
+const promptPreviewContent = ref('')
+const promptLoading = ref(false)
 
 const normalizeToolTags = (tool) => ({
   ...tool,
@@ -274,6 +313,10 @@ const resetMarketState = () => {
   selectedTags.value = []
   selectedTool.value = null
   showDetail.value = false
+  showPromptPreview.value = false
+  promptPreviewId.value = ''
+  promptPreviewContent.value = ''
+  promptLoading.value = false
   loading.value = false
 }
 
@@ -284,7 +327,22 @@ const handleMarketVisibilityChange = (value) => {
 
 const handleDetailVisibilityChange = (value) => {
   showDetail.value = value
-  if (!value) selectedTool.value = null
+  if (!value) {
+    selectedTool.value = null
+    showPromptPreview.value = false
+    promptPreviewId.value = ''
+    promptPreviewContent.value = ''
+    promptLoading.value = false
+  }
+}
+
+const handlePromptPreviewVisibilityChange = (value) => {
+  showPromptPreview.value = value
+  if (!value) {
+    promptPreviewId.value = ''
+    promptPreviewContent.value = ''
+    promptLoading.value = false
+  }
 }
 
 watch(() => props.show, (val) => {
@@ -340,6 +398,24 @@ const getInstallButtonText = (tool) => {
 const openDetail = (tool) => {
   selectedTool.value = tool
   showDetail.value = true
+}
+
+const openPromptContent = async (tool) => {
+  if (!tool?.promptTemplateId) return
+  promptPreviewId.value = tool.promptTemplateId
+  promptPreviewContent.value = ''
+  showPromptPreview.value = true
+  promptLoading.value = true
+  try {
+    const res = await window.electronAPI.notebookFetchPromptTemplateContent(tool.promptTemplateId)
+    if (!res.success) throw new Error(res.error || '加载失败')
+    promptPreviewContent.value = res.data?.content || ''
+  } catch (err) {
+    promptPreviewContent.value = ''
+    message.error(err.message || '加载失败')
+  } finally {
+    promptLoading.value = false
+  }
 }
 
 const handleInstall = (tool) => {
@@ -507,6 +583,47 @@ const handleUninstall = (tool) => {
 .detail-section .label { font-size: 12px; font-weight: 700; color: var(--text-color-muted); text-transform: uppercase; margin-bottom: 6px; }
 .detail-section .content { font-size: 14px; line-height: 1.6; margin: 0; }
 .detail-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.prompt-template-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-color-tertiary);
+}
+.prompt-template-id {
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--primary-color);
+  word-break: break-all;
+}
+.prompt-preview-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prompt-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.prompt-preview-id {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--primary-ghost, rgba(74, 144, 217, 0.08));
+  color: var(--primary-color);
+  font-size: 12px;
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+}
+.prompt-preview-input :deep(textarea) {
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
 
 .dep-list, .mapping-list { display: flex; flex-direction: column; gap: 6px; }
 .dep-row, .mapping-row { background: var(--bg-color-tertiary); padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 12px; }
