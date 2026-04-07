@@ -99,6 +99,51 @@ class AgentSessionManager extends EventEmitter {
   /**
    * 为宿主侧交互生成一条 tool 消息并等待前端回执
    */
+  _buildPermissionActions(suggestions = []) {
+    const actions = [{
+      key: 'allow_once',
+      label: '本次允许',
+      description: '仅允许这一次，不保存规则',
+      updatedPermissions: [],
+      decisionClassification: 'user_temporary'
+    }]
+
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      return actions
+    }
+
+    const order = ['session', 'projectSettings', 'userSettings', 'localSettings', 'cliArg']
+    const labels = {
+      session: ['本会话始终允许', '本次会话内不再询问'],
+      projectSettings: ['项目内始终允许', '写入项目设置'],
+      userSettings: ['全局始终允许', '写入用户设置'],
+      localSettings: ['本地设置允许', '写入本地设置'],
+      cliArg: ['按当前启动参数允许', '依赖 CLI 参数']
+    }
+
+    const grouped = new Map()
+    for (const suggestion of suggestions) {
+      const destination = suggestion?.destination || 'session'
+      if (!grouped.has(destination)) grouped.set(destination, [])
+      grouped.get(destination).push(suggestion)
+    }
+
+    for (const destination of order) {
+      const group = grouped.get(destination)
+      if (!group || group.length === 0) continue
+      const [label, description] = labels[destination] || [`允许（${destination}）`, '应用 SDK 建议权限']
+      actions.push({
+        key: `allow_${destination}`,
+        label,
+        description,
+        updatedPermissions: group,
+        decisionClassification: 'user_permanent'
+      })
+    }
+
+    return actions
+  }
+
   async _requestInteraction(session, kind, payload = {}) {
     if (!session) {
       return {
@@ -196,15 +241,19 @@ class AgentSessionManager extends EventEmitter {
 
     const permissionResult = pending.kind === 'ask_user_question'
       ? {
-          behavior: 'allow',
+          behavior: response.behavior || 'allow',
           updatedInput: {
             questions: questionList,
             answers: answerMap
-          }
+          },
+          updatedPermissions: Array.isArray(response.updatedPermissions) ? response.updatedPermissions : undefined,
+          decisionClassification: response.decisionClassification || 'user_temporary'
         }
       : {
-          behavior: 'allow',
-          updatedInput: {}
+          behavior: response.behavior || 'allow',
+          updatedInput: response.updatedInput || {},
+          updatedPermissions: Array.isArray(response.updatedPermissions) ? response.updatedPermissions : undefined,
+          decisionClassification: response.decisionClassification || (Array.isArray(response.updatedPermissions) && response.updatedPermissions.length > 0 ? 'user_permanent' : 'user_temporary')
         }
 
     pending.resolve(permissionResult)
@@ -587,17 +636,30 @@ class AgentSessionManager extends EventEmitter {
             })
           }
 
-          return this._requestInteraction(session, 'permission_request', {
-            toolName,
-            toolUseID,
-            title,
-            description,
-            displayName,
-            blockedPath,
-            decisionReason,
-            suggestions,
-            input
-          })
+      const actions = this._buildPermissionActions(suggestions)
+      console.log('[AgentSession] Permission interaction request:', {
+        sessionId: session.id,
+        toolName,
+        title,
+        description,
+        blockedPath,
+        suggestionCount: Array.isArray(suggestions) ? suggestions.length : 0,
+        suggestions,
+        actionKeys: actions.map(item => item.key)
+      })
+
+      return this._requestInteraction(session, 'permission_request', {
+        toolName,
+        toolUseID,
+        title,
+        description,
+        displayName,
+        blockedPath,
+        decisionReason,
+        suggestions,
+        actions,
+        input
+      })
         }
       }
 

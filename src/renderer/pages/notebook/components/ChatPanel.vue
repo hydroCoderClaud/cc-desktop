@@ -311,8 +311,16 @@ const handleCancel = async () => {
   }
 }
 
-const handleInteractionSubmit = async ({ interactionId, answers, questions }) => {
-  const result = await submitInteractionAnswer({ interactionId, answers, questions })
+const handleInteractionSubmit = async ({ interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
+  const result = await submitInteractionAnswer({
+    interactionId,
+    answers,
+    questions,
+    updatedInput,
+    updatedPermissions,
+    decisionClassification,
+    behavior
+  })
   if (result?.error) {
     message.error(result.error)
   }

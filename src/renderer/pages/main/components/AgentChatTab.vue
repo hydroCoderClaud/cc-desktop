@@ -252,8 +252,16 @@ const handleCancel = async () => {
   // 注意：不清空队列！队列面板有独立的"清空全部"按钮供用户使用
 }
 
-const handleInteractionSubmit = async ({ interactionId, answers, questions }) => {
-  const result = await submitInteractionAnswer({ interactionId, answers, questions })
+const handleInteractionSubmit = async ({ interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
+  const result = await submitInteractionAnswer({
+    interactionId,
+    answers,
+    questions,
+    updatedInput,
+    updatedPermissions,
+    decisionClassification,
+    behavior
+  })
   if (result?.error) {
     message.error(result.error)
   }

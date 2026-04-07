@@ -97,9 +97,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   })
 
   // 响应宿主交互（AskUserQuestion）
-  ipcMain.handle('agent:respondInteraction', async (event, { sessionId, interactionId, answers, questions }) => {
+  ipcMain.handle('agent:respondInteraction', async (event, { sessionId, interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
     try {
-      return agentSessionManager.resolveInteraction(sessionId, interactionId, { answers, questions })
+      return agentSessionManager.resolveInteraction(sessionId, interactionId, {
+        answers,
+        questions,
+        updatedInput,
+        updatedPermissions,
+        decisionClassification,
+        behavior
+      })
     } catch (err) {
       console.error('[IPC] agent:respondInteraction error:', err)
       return { error: err.message }

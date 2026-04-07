@@ -78,7 +78,42 @@ describe('AgentSessionManager interactions', () => {
     manager.resolveInteraction('s3', interactionId, { answers: [] })
 
     const result = await promise
-    expect(result).toEqual({ behavior: 'allow', updatedInput: {} })
+    expect(result.behavior).toBe('allow')
+    expect(result.updatedInput).toEqual({})
+    expect(result.decisionClassification).toBe('user_temporary')
+  })
+
+  it('resolves permission request with updated permissions action', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 's4', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set('s4', session)
+
+    const promise = manager._requestInteraction(session, 'permission_request', {
+      toolName: 'Bash',
+      title: 'Claude wants to run Bash',
+      actions: [{
+        key: 'allow_session',
+        label: '本会话始终允许',
+        updatedPermissions: [{ type: 'addDirectories', directories: ['/tmp'], destination: 'session' }],
+        decisionClassification: 'user_permanent'
+      }]
+    })
+
+    await Promise.resolve()
+    const interactionId = Array.from(session.pendingInteractions.keys())[0]
+    manager.resolveInteraction('s4', interactionId, {
+      updatedInput: {},
+      updatedPermissions: [{ type: 'addDirectories', directories: ['/tmp'], destination: 'session' }],
+      decisionClassification: 'user_permanent',
+      behavior: 'allow'
+    })
+
+    const result = await promise
+    expect(result.behavior).toBe('allow')
+    expect(result.updatedInput).toEqual({})
+    expect(result.updatedPermissions).toHaveLength(1)
+    expect(result.decisionClassification).toBe('user_permanent')
   })
 
   it('cancels interaction and returns deny', async () => {

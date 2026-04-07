@@ -587,8 +587,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAgentQueue: (sessionId) => ipcRenderer.invoke('agent:getQueue', sessionId),
 
   // 宿主交互（AskUserQuestion 等）
-  respondAgentInteraction: ({ sessionId, interactionId, answers, questions }) =>
-    ipcRenderer.invoke('agent:respondInteraction', { sessionId, interactionId, answers, questions }),
+  respondAgentInteraction: ({ sessionId, interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) =>
+    ipcRenderer.invoke('agent:respondInteraction', { sessionId, interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }),
   cancelAgentInteraction: ({ sessionId, interactionId, reason }) =>
     ipcRenderer.invoke('agent:cancelInteraction', { sessionId, interactionId, reason }),
 

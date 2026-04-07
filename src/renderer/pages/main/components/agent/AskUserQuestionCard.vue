@@ -44,6 +44,7 @@
       <div v-else class="permission-summary">
         <div class="summary-label">工具</div>
         <div class="summary-content">{{ props.message?.input?.toolName || 'Unknown tool' }}</div>
+        <div v-if="props.message?.input?.blockedPath" class="summary-subtext">路径：{{ props.message.input.blockedPath }}</div>
       </div>
 
       <div v-if="resolvedAnswerText && isFinalized" class="answer-summary">
@@ -52,10 +53,25 @@
       </div>
 
       <div class="actions" v-if="!isFinalized">
-        <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">取消</button>
-        <button class="action-btn confirm" :disabled="submitting || !canSubmit" @click="handleSubmit">
-          {{ submitting ? '提交中...' : '确认' }}
-        </button>
+        <template v-if="interactionKind === 'permission_request' && permissionActions.length > 0">
+          <button
+            v-for="action in permissionActions"
+            :key="action.key"
+            class="action-btn secondary"
+            :disabled="submitting"
+            :title="action.description"
+            @click="handlePermissionAction(action)"
+          >
+            {{ action.label }}
+          </button>
+          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">拒绝</button>
+        </template>
+        <template v-else>
+          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">取消</button>
+          <button class="action-btn confirm" :disabled="submitting || !canSubmit" @click="handleSubmit">
+            {{ submitting ? '提交中...' : '确认' }}
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -84,6 +100,7 @@ const questions = computed(() => props.message?.input?.questions || [])
 const output = computed(() => props.message?.output || null)
 const titleText = computed(() => props.message?.input?.title || props.message?.input?.displayName || '需要你的选择')
 const descriptionText = computed(() => props.message?.input?.description || props.message?.input?.decisionReason || '')
+const permissionActions = computed(() => Array.isArray(props.message?.input?.actions) ? props.message.input.actions : [])
 
 const singleAnswers = ref({})
 const multiAnswers = ref({})
@@ -167,9 +184,10 @@ const handleSubmit = () => {
   if (interactionKind.value === 'ask_user_question') {
     answers = questions.value.map((question, index) => {
       if (isMultiSelectQuestion(question)) {
+        const selected = multiAnswers.value[index] || []
         return {
           question: question.question,
-          answer: multiAnswers.value[index] || []
+          answer: selected
         }
       }
       return {
@@ -177,17 +195,36 @@ const handleSubmit = () => {
         answer: singleAnswers.value[index]
       }
     })
-  } else {
-    answers = [{
-      question: titleText.value,
-      answer: 'approved'
-    }]
+
+    emit('submit', {
+      interactionId: interactionId.value,
+      questions: questions.value,
+      answers,
+      behavior: 'allow'
+    })
+    return
   }
 
   emit('submit', {
     interactionId: interactionId.value,
-    questions: questions.value,
-    answers
+    questions: [],
+    answers: [],
+    updatedInput: {},
+    updatedPermissions: [],
+    decisionClassification: 'user_temporary',
+    behavior: 'allow'
+  })
+}
+
+const handlePermissionAction = (action) => {
+  emit('submit', {
+    interactionId: interactionId.value,
+    questions: [],
+    answers: [],
+    updatedInput: {},
+    updatedPermissions: Array.isArray(action.updatedPermissions) ? action.updatedPermissions : [],
+    decisionClassification: action.decisionClassification || 'user_temporary',
+    behavior: 'allow'
   })
 }
 </script>
@@ -230,8 +267,10 @@ const handleSubmit = () => {
 .answer-summary { margin-top: 12px; background: var(--bg-color-tertiary); border-radius: 6px; padding: 8px; }
 .summary-label { font-size: 11px; font-weight: 600; color: var(--text-color-muted); text-transform: uppercase; margin-bottom: 4px; }
 .summary-content { font-size: 13px; color: var(--text-color); }
-.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.summary-subtext { margin-top: 4px; font-size: 12px; color: var(--text-color-secondary); word-break: break-all; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .action-btn { height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer; }
+.action-btn.secondary { background: var(--bg-color-tertiary); color: var(--text-color); }
 .action-btn.cancel { background: transparent; color: var(--text-color-secondary); }
 .action-btn.confirm { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
 .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
