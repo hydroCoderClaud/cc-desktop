@@ -16,6 +16,7 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 const fsp = require('fs').promises
+const { v4: uuidv4 } = require('uuid')
 const { MessageQueue } = require('./utils/message-queue')
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
@@ -93,6 +94,188 @@ class AgentSessionManager extends EventEmitter {
    */
   _safeSend(channel, data) {
     return safeSend(this.mainWindow, channel, data)
+  }
+
+  /**
+   * 为宿主侧交互生成一条 tool 消息并等待前端回执
+   */
+  async _requestInteraction(session, kind, payload = {}) {
+    if (!session) {
+      return {
+        behavior: 'deny',
+        message: 'Session not found'
+      }
+    }
+
+    const interactionId = uuidv4()
+    const messageId = `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const toolName = payload.toolName || (kind === 'ask_user_question' ? 'AskUserQuestion' : 'PermissionRequest')
+    const toolInput = {
+      interactionId,
+      kind,
+      ...payload
+    }
+
+    const toolMessage = {
+      id: messageId,
+      role: 'tool',
+      toolName,
+      input: toolInput,
+      output: null,
+      timestamp: Date.now()
+    }
+
+    this._storeMessage(session, toolMessage)
+    this._safeSend('agent:interactionRequest', {
+      sessionId: session.id,
+      interaction: {
+        interactionId,
+        kind,
+        messageId,
+        ...payload
+      }
+    })
+
+    return await new Promise((resolve, reject) => {
+      session.pendingInteractions.set(interactionId, {
+        kind,
+        payload,
+        messageId,
+        resolve,
+        reject,
+        createdAt: Date.now()
+      })
+    })
+  }
+
+  _updateInteractionMessage(session, interactionId, output) {
+    if (!session) return
+    const message = session.messages.find(msg => msg.role === 'tool' && msg.input?.interactionId === interactionId)
+    if (message) {
+      message.output = output
+    }
+  }
+
+  resolveInteraction(sessionId, interactionId, response = {}) {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error('Session not found')
+
+    const pending = session.pendingInteractions.get(interactionId)
+    if (!pending) throw new Error('Interaction not found')
+
+    const output = {
+      status: 'answered',
+      answers: Array.isArray(response.answers) ? response.answers : []
+    }
+
+    this._updateInteractionMessage(session, interactionId, output)
+
+    if (this.sessionDatabase && session.dbConversationId) {
+      try {
+        this.sessionDatabase.updateAgentMessageToolOutput(pending.messageId, output)
+      } catch (err) {
+        console.error('[AgentSession] Failed to persist interaction output:', err)
+      }
+    }
+
+    session.pendingInteractions.delete(interactionId)
+
+    const questionList = Array.isArray(response.questions)
+      ? response.questions
+      : (Array.isArray(pending.payload?.questions) ? pending.payload.questions : [])
+    const answerMap = Object.fromEntries(
+      output.answers.map((item, index) => {
+        const questionText = item?.question || questionList[index]?.question || `question_${index + 1}`
+        const rawAnswer = item?.answer
+        const value = Array.isArray(rawAnswer)
+          ? rawAnswer.join(', ')
+          : (rawAnswer == null ? '' : String(rawAnswer))
+        return [questionText, value]
+      })
+    )
+
+    const permissionResult = pending.kind === 'ask_user_question'
+      ? {
+          behavior: 'allow',
+          updatedInput: {
+            questions: questionList,
+            answers: answerMap
+          }
+        }
+      : {
+          behavior: 'allow',
+          updatedInput: {}
+        }
+
+    pending.resolve(permissionResult)
+
+    this._safeSend('agent:interactionResolved', {
+      sessionId,
+      interactionId,
+      output
+    })
+
+    return { success: true }
+  }
+
+  cancelInteraction(sessionId, interactionId, reason = 'User cancelled the question') {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error('Session not found')
+
+    const pending = session.pendingInteractions.get(interactionId)
+    if (!pending) throw new Error('Interaction not found')
+
+    const output = {
+      status: 'cancelled',
+      reason
+    }
+
+    this._updateInteractionMessage(session, interactionId, output)
+
+    if (this.sessionDatabase && session.dbConversationId) {
+      try {
+        this.sessionDatabase.updateAgentMessageToolOutput(pending.messageId, output)
+      } catch (err) {
+        console.error('[AgentSession] Failed to persist cancelled interaction:', err)
+      }
+    }
+
+    session.pendingInteractions.delete(interactionId)
+    pending.resolve({
+      behavior: 'deny',
+      message: reason
+    })
+
+    this._safeSend('agent:interactionResolved', {
+      sessionId,
+      interactionId,
+      output
+    })
+
+    return { success: true }
+  }
+
+  _cleanupPendingInteractions(session, reason = 'Session closed') {
+    if (!session?.pendingInteractions?.size) return
+
+    for (const [interactionId, pending] of session.pendingInteractions.entries()) {
+      const output = {
+        status: 'cancelled',
+        reason
+      }
+      this._updateInteractionMessage(session, interactionId, output)
+      pending.resolve({
+        behavior: 'deny',
+        message: reason
+      })
+      this._safeSend('agent:interactionResolved', {
+        sessionId: session.id,
+        interactionId,
+        output
+      })
+    }
+
+    session.pendingInteractions.clear()
   }
 
   /**
@@ -391,7 +574,31 @@ class AgentSessionManager extends EventEmitter {
       // 构建 runner query 选项
       const queryOptions = {
         cwd: session.cwd,
-        env
+        env,
+        onToolPermissionRequest: async ({ toolName, input, toolUseID, title, description, displayName, blockedPath, decisionReason, suggestions }) => {
+          if (toolName === 'AskUserQuestion') {
+            return this._requestInteraction(session, 'ask_user_question', {
+              toolName,
+              toolUseID,
+              title,
+              description,
+              displayName,
+              questions: input?.questions || []
+            })
+          }
+
+          return this._requestInteraction(session, 'permission_request', {
+            toolName,
+            toolUseID,
+            title,
+            description,
+            displayName,
+            blockedPath,
+            decisionReason,
+            suggestions,
+            input
+          })
+        }
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
@@ -470,6 +677,7 @@ class AgentSessionManager extends EventEmitter {
 
       }
     } finally {
+      this._cleanupPendingInteractions(session, 'Session closed')
       // 清理引用
       session.queryGenerator = null
       session.messageQueue = null
@@ -615,6 +823,7 @@ class AgentSessionManager extends EventEmitter {
               timestamp: Date.now()
             })
           } else if (block.type === 'tool_use') {
+            if (block.name === 'AskUserQuestion') continue
             this._storeMessage(session, {
               id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               role: 'tool',
@@ -627,6 +836,9 @@ class AgentSessionManager extends EventEmitter {
         }
         break
       }
+
+      case 'user_message':
+        break
 
       case 'stream_event':
         this._safeSend('agent:stream', {
@@ -796,6 +1008,8 @@ class AgentSessionManager extends EventEmitter {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
+    this._cleanupPendingInteractions(session, 'Session closed')
+
     // 结束 MessageQueue（让 SDK 的 for-await 正常退出）
     if (session.messageQueue) {
       session.messageQueue.end()
@@ -852,6 +1066,7 @@ class AgentSessionManager extends EventEmitter {
     const count = this.sessions.size
     if (count === 0) return
     for (const [sessionId, session] of this.sessions) {
+      this._cleanupPendingInteractions(session, 'Session closed')
       // 异常关闭 MessageQueue（清空缓冲区 + 结束）
       if (session.messageQueue) {
         session.messageQueue.abort()

@@ -144,6 +144,31 @@ export function useAgentChat(sessionId, options = {}) {
     })
   }
 
+  const upsertInteractionMessage = (interaction, output = null) => {
+    const interactionId = interaction?.interactionId
+    if (!interactionId) return
+
+    const existing = messages.value.find(msg => msg.role === MessageRole.TOOL && msg.input?.interactionId === interactionId)
+    if (existing) {
+      existing.toolName = 'AskUserQuestion'
+      existing.input = {
+        ...(existing.input || {}),
+        ...interaction
+      }
+      if (output !== null) existing.output = output
+      return
+    }
+
+    messages.value.push({
+      id: interaction.messageId || `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      role: MessageRole.TOOL,
+      toolName: 'AskUserQuestion',
+      input: interaction,
+      output,
+      timestamp: Date.now()
+    })
+  }
+
   // 计时器控制
   const startTimer = () => {
     if (streamingTimer) clearInterval(streamingTimer)
@@ -344,6 +369,7 @@ export function useAgentChat(sessionId, options = {}) {
     const blocks = msg.content || []
     for (const block of blocks) {
       if (block.type === 'tool_use') {
+        if (block.name === 'AskUserQuestion') continue
         addToolMessage(block.name, block.input, null)
       } else if (block.type === 'text' && !streamTextReceived && block.text) {
         // 慢速/非流式 API 场景：没有收到流式 token，直接从完整消息添加文本
@@ -539,6 +565,51 @@ export function useAgentChat(sessionId, options = {}) {
     }
   }
 
+  const handleInteractionRequest = (data) => {
+    if (data.sessionId !== sessionId) return
+    if (!data.interaction) return
+    upsertInteractionMessage(data.interaction, null)
+  }
+
+  const handleInteractionResolved = (data) => {
+    if (data.sessionId !== sessionId) return
+    if (!data.interactionId) return
+    upsertInteractionMessage({ interactionId: data.interactionId }, data.output || null)
+  }
+
+  const submitInteractionAnswer = async ({ interactionId, answers, questions }) => {
+    if (!window.electronAPI?.respondAgentInteraction) return { error: 'Interaction API unavailable' }
+    try {
+      const plainAnswers = answers ? JSON.parse(JSON.stringify(answers)) : []
+      const plainQuestions = questions ? JSON.parse(JSON.stringify(questions)) : []
+      const result = await window.electronAPI.respondAgentInteraction({
+        sessionId,
+        interactionId,
+        answers: plainAnswers,
+        questions: plainQuestions
+      })
+      return result || { success: true }
+    } catch (err) {
+      console.error('[useAgentChat] submitInteractionAnswer error:', err)
+      return { error: err.message || 'Failed to submit interaction answer' }
+    }
+  }
+
+  const cancelInteraction = async ({ interactionId, reason }) => {
+    if (!window.electronAPI?.cancelAgentInteraction) return { error: 'Interaction API unavailable' }
+    try {
+      const result = await window.electronAPI.cancelAgentInteraction({
+        sessionId,
+        interactionId,
+        reason
+      })
+      return result || { success: true }
+    } catch (err) {
+      console.error('[useAgentChat] cancelInteraction error:', err)
+      return { error: err.message || 'Failed to cancel interaction' }
+    }
+  }
+
   /**
    * 提前注册流式相关监听器（在 loadMessages 之前调用）
    * 避免钉钉消息触发时 streaming 事件已发出但监听器尚未注册
@@ -572,6 +643,12 @@ export function useAgentChat(sessionId, options = {}) {
     }
     if (window.electronAPI.onAgentUsage) {
       cleanupFns.push(window.electronAPI.onAgentUsage(handleUsage))
+    }
+    if (window.electronAPI.onAgentInteractionRequest) {
+      cleanupFns.push(window.electronAPI.onAgentInteractionRequest(handleInteractionRequest))
+    }
+    if (window.electronAPI.onAgentInteractionResolved) {
+      cleanupFns.push(window.electronAPI.onAgentInteractionResolved(handleInteractionResolved))
     }
     // macOS: 窗口重建后所有 Agent 会话已关闭，重置前端状态
     if (window.electronAPI.onAgentAllSessionsClosed) {
@@ -667,6 +744,8 @@ export function useAgentChat(sessionId, options = {}) {
     loadMessages,
     sendMessage,
     cancelGeneration,
+    submitInteractionAnswer,
+    cancelInteraction,
     compactConversation,
     setupStreamListeners,
     setupDingTalkListeners,

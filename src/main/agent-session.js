@@ -30,6 +30,7 @@ class AgentSession {
     this.apiProfileId = options.apiProfileId || null   // 创建时的 API Profile ID
     this.apiBaseUrl = options.apiBaseUrl || null        // 创建时的 API baseUrl 快照
     this.meta = options.meta || {}  // 元数据（如钉钉的 conversationId）
+    this.pendingInteractions = new Map()  // 待处理的宿主交互请求
   }
 
   toJSON() {

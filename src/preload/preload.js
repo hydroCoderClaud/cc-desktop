@@ -586,6 +586,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAgentQueue: ({ sessionId, queue }) => ipcRenderer.invoke('agent:saveQueue', { sessionId, queue }),
   getAgentQueue: (sessionId) => ipcRenderer.invoke('agent:getQueue', sessionId),
 
+  // 宿主交互（AskUserQuestion 等）
+  respondAgentInteraction: ({ sessionId, interactionId, answers, questions }) =>
+    ipcRenderer.invoke('agent:respondInteraction', { sessionId, interactionId, answers, questions }),
+  cancelAgentInteraction: ({ sessionId, interactionId, reason }) =>
+    ipcRenderer.invoke('agent:cancelInteraction', { sessionId, interactionId, reason }),
+
   // Streaming Input 控制方法
   setAgentModel: (sessionId, model) => ipcRenderer.invoke('agent:setModel', { sessionId, model }),
   getAgentSupportedModels: (sessionId) => ipcRenderer.invoke('agent:getSupportedModels', sessionId),
@@ -749,6 +755,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ['onAgentRenamed', 'agent:renamed'],
       ['onAgentCompacted', 'agent:compacted'],
       ['onAgentUsage', 'agent:usage'],
+      ['onAgentInteractionRequest', 'agent:interactionRequest'],
+      ['onAgentInteractionResolved', 'agent:interactionResolved'],
       ['onAgentAllSessionsClosed', 'agent:allSessionsClosed']
     ].map(([apiName, channel]) => [
       apiName,

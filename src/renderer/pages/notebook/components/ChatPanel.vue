@@ -62,6 +62,12 @@
           @add-path-to-source="$emit('add-path-to-source', $event)"
           @add-path-to-achievement="$emit('add-path-to-achievement', $event)"
         />
+        <AskUserQuestionCard
+          v-else-if="msg.role === 'tool' && (msg.toolName === 'AskUserQuestion' || msg.input?.kind === 'permission_request')"
+          :message="msg"
+          @submit="handleInteractionSubmit"
+          @cancel="handleInteractionCancel"
+        />
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
           :message="msg"
@@ -126,6 +132,7 @@ import { useMessage } from 'naive-ui'
 import { useAgentChat } from '@composables/useAgentChat'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
 import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
+import AskUserQuestionCard from '@/pages/main/components/agent/AskUserQuestionCard.vue'
 import StreamingIndicator from '@/pages/main/components/agent/StreamingIndicator.vue'
 import ChatInput from '@/pages/main/components/agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
@@ -212,6 +219,8 @@ const {
   loadMessages,
   sendMessage,
   cancelGeneration,
+  submitInteractionAnswer,
+  cancelInteraction,
   setupStreamListeners,
   initDefaultModel,
   isInterrupting
@@ -299,6 +308,20 @@ const handleCancel = async () => {
   if (cancelled) {
     // 通知父组件清理本次未完成的 generating 记录
     emit('agent-cancelled', { generationToken: activeGenerationToken.value })
+  }
+}
+
+const handleInteractionSubmit = async ({ interactionId, answers, questions }) => {
+  const result = await submitInteractionAnswer({ interactionId, answers, questions })
+  if (result?.error) {
+    message.error(result.error)
+  }
+}
+
+const handleInteractionCancel = async ({ interactionId }) => {
+  const result = await cancelInteraction({ interactionId, reason: 'User cancelled the question' })
+  if (result?.error) {
+    message.error(result.error)
   }
 }
 

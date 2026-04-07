@@ -96,6 +96,26 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     }
   })
 
+  // 响应宿主交互（AskUserQuestion）
+  ipcMain.handle('agent:respondInteraction', async (event, { sessionId, interactionId, answers, questions }) => {
+    try {
+      return agentSessionManager.resolveInteraction(sessionId, interactionId, { answers, questions })
+    } catch (err) {
+      console.error('[IPC] agent:respondInteraction error:', err)
+      return { error: err.message }
+    }
+  })
+
+  // 取消宿主交互
+  ipcMain.handle('agent:cancelInteraction', async (event, { sessionId, interactionId, reason }) => {
+    try {
+      return agentSessionManager.cancelInteraction(sessionId, interactionId, reason)
+    } catch (err) {
+      console.error('[IPC] agent:cancelInteraction error:', err)
+      return { error: err.message }
+    }
+  })
+
   // 获取单个会话
   ipcMain.handle('agent:get', async (event, sessionId) => {
     return agentSessionManager.get(sessionId)

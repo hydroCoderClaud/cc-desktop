@@ -234,6 +234,20 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
+     * 更新消息的 tool_output
+     */
+    updateAgentMessageToolOutput(msgId, toolOutput) {
+      this.db.prepare(`
+        UPDATE agent_messages
+        SET tool_output = ?
+        WHERE msg_id = ?
+      `).run(
+        toolOutput ? JSON.stringify(toolOutput) : null,
+        msgId
+      )
+    }
+
+    /**
      * 获取对话的所有消息（按 timestamp ASC）
      */
     getAgentMessagesByConversationId(conversationId) {

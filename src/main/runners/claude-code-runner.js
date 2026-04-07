@@ -118,6 +118,40 @@ class ClaudeCodeRunner {
       }
     }
 
+    if (options.onToolPermissionRequest && sessionRef) {
+      queryOptions.canUseTool = async (toolName, input, permissionOptions) => {
+        const response = await options.onToolPermissionRequest({
+          toolName,
+          input,
+          sessionRef,
+          toolUseID: permissionOptions?.toolUseID,
+          title: permissionOptions?.title,
+          description: permissionOptions?.description,
+          displayName: permissionOptions?.displayName,
+          blockedPath: permissionOptions?.blockedPath,
+          decisionReason: permissionOptions?.decisionReason,
+          suggestions: permissionOptions?.suggestions
+        })
+
+        if (!response || response.behavior === 'deny') {
+          return {
+            behavior: 'deny',
+            message: response?.message || 'User denied the request',
+            toolUseID: permissionOptions?.toolUseID,
+            decisionClassification: 'user_reject'
+          }
+        }
+
+        return {
+          behavior: 'allow',
+          updatedInput: response.updatedInput,
+          updatedPermissions: response.updatedPermissions,
+          toolUseID: permissionOptions?.toolUseID,
+          decisionClassification: response.decisionClassification || 'user_temporary'
+        }
+      }
+    }
+
     if (options.model) queryOptions.model = options.model
     if (options.maxTurns) queryOptions.maxTurns = options.maxTurns
     if (options.resume) queryOptions.resume = options.resume
@@ -173,6 +207,14 @@ class ClaudeCodeRunner {
           uuid: rawMsg.uuid,
           sdkSessionId: rawMsg.session_id,
           usage: rawMsg.message?.usage || null
+        }
+
+      case 'user':
+        return {
+          type: 'user_message',
+          message: rawMsg.message || null,
+          uuid: rawMsg.uuid,
+          sdkSessionId: rawMsg.session_id
         }
 
       case 'stream_event':

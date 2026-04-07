@@ -27,7 +27,13 @@
           @preview-link="$emit('preview-link', $event)"
           @preview-path="$emit('preview-path', $event)"
         />
-        <!-- 工具调用 -->
+        <!-- 工具调用 / 宿主交互 -->
+        <AskUserQuestionCard
+          v-else-if="msg.role === 'tool' && (msg.toolName === 'AskUserQuestion' || msg.input?.kind === 'permission_request')"
+          :message="msg"
+          @submit="handleInteractionSubmit"
+          @cancel="handleInteractionCancel"
+        />
         <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" @preview-path="$emit('preview-path', $event)" />
       </template>
 
@@ -92,6 +98,7 @@ import { useAgentChat } from '@composables/useAgentChat'
 import { isSessionClosed, unmarkSessionClosed } from '@composables/useAgentPanel'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
+import AskUserQuestionCard from './agent/AskUserQuestionCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
 import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
@@ -143,6 +150,8 @@ const {
   loadMessages,
   sendMessage,
   cancelGeneration,
+  submitInteractionAnswer,
+  cancelInteraction,
   compactConversation,
   setupStreamListeners,
   setupDingTalkListeners,
@@ -241,6 +250,20 @@ const handleSend = async (text) => {
 const handleCancel = async () => {
   await cancelGeneration()
   // 注意：不清空队列！队列面板有独立的"清空全部"按钮供用户使用
+}
+
+const handleInteractionSubmit = async ({ interactionId, answers, questions }) => {
+  const result = await submitInteractionAnswer({ interactionId, answers, questions })
+  if (result?.error) {
+    message.error(result.error)
+  }
+}
+
+const handleInteractionCancel = async ({ interactionId }) => {
+  const result = await cancelInteraction({ interactionId, reason: 'User cancelled the question' })
+  if (result?.error) {
+    message.error(result.error)
+  }
 }
 
 // --- 卸载标志：防止在组件卸载过程中触发消息发送 ---
