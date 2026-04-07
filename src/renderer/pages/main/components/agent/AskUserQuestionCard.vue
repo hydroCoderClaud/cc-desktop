@@ -42,13 +42,13 @@
       </template>
 
       <div v-else class="permission-summary">
-        <div class="summary-label">工具</div>
-        <div class="summary-content">{{ props.message?.input?.toolName || 'Unknown tool' }}</div>
-        <div v-if="props.message?.input?.blockedPath" class="summary-subtext">路径：{{ props.message.input.blockedPath }}</div>
+        <div class="summary-label">{{ t('agent.interaction.summaryTool') }}</div>
+        <div class="summary-content">{{ props.message?.input?.toolName || t('agent.interaction.unknownTool') }}</div>
+        <div v-if="props.message?.input?.blockedPath" class="summary-subtext">{{ t('agent.interaction.pathPrefix', { path: props.message.input.blockedPath }) }}</div>
       </div>
 
       <div v-if="resolvedAnswerText && isFinalized" class="answer-summary">
-        <div class="summary-label">已提交</div>
+        <div class="summary-label">{{ t('agent.interaction.submitted') }}</div>
         <div class="summary-content">{{ resolvedAnswerText }}</div>
       </div>
 
@@ -64,12 +64,12 @@
           >
             {{ action.label }}
           </button>
-          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">拒绝</button>
+          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">{{ t('agent.interaction.deny') }}</button>
         </template>
         <template v-else>
-          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">取消</button>
+          <button class="action-btn cancel" :disabled="submitting" @click="$emit('cancel', { interactionId })">{{ t('agent.interaction.cancel') }}</button>
           <button class="action-btn confirm" :disabled="submitting || !canSubmit" @click="handleSubmit">
-            {{ submitting ? '提交中...' : '确认' }}
+            {{ submitting ? t('agent.interaction.submitting') : t('agent.interaction.confirm') }}
           </button>
         </template>
       </div>
@@ -79,6 +79,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
@@ -93,12 +94,13 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['submit', 'cancel'])
+const { t } = useLocale()
 
 const interactionId = computed(() => props.message?.input?.interactionId || '')
 const interactionKind = computed(() => props.message?.input?.kind || 'ask_user_question')
 const questions = computed(() => props.message?.input?.questions || [])
 const output = computed(() => props.message?.output || null)
-const titleText = computed(() => props.message?.input?.title || props.message?.input?.displayName || '需要你的选择')
+const titleText = computed(() => props.message?.input?.title || props.message?.input?.displayName || t('agent.interaction.titleDefault'))
 const descriptionText = computed(() => props.message?.input?.description || props.message?.input?.decisionReason || '')
 const permissionActions = computed(() => Array.isArray(props.message?.input?.actions) ? props.message.input.actions : [])
 
@@ -121,9 +123,9 @@ watch(questions, (value) => {
 
 const isFinalized = computed(() => output.value?.status === 'answered' || output.value?.status === 'cancelled')
 const statusText = computed(() => {
-  if (output.value?.status === 'answered') return '已回答'
-  if (output.value?.status === 'cancelled') return '已取消'
-  return '待回答'
+  if (output.value?.status === 'answered') return t('agent.interaction.statusAnswered')
+  if (output.value?.status === 'cancelled') return t('agent.interaction.statusCancelled')
+  return t('agent.interaction.statusPending')
 })
 const statusClass = computed(() => output.value?.status || 'pending')
 
@@ -178,6 +180,32 @@ const setSingle = (questionIndex, label) => {
   }
 }
 
+const buildAnnotations = () => {
+  const annotations = {}
+
+  questions.value.forEach((question, index) => {
+    const questionKey = question?.question || `question_${index + 1}`
+    const options = Array.isArray(question?.options) ? question.options : []
+    const selectedLabels = isMultiSelectQuestion(question)
+      ? (multiAnswers.value[index] || [])
+      : [singleAnswers.value[index]].filter(Boolean)
+
+    if (!selectedLabels.length) return
+
+    const previews = selectedLabels
+      .map(label => options.find(option => option.label === label)?.preview)
+      .filter(preview => typeof preview === 'string' && preview.trim().length > 0)
+
+    if (previews.length > 0) {
+      annotations[questionKey] = {
+        preview: previews.join('\n\n')
+      }
+    }
+  })
+
+  return annotations
+}
+
 const handleSubmit = () => {
   let answers = []
 
@@ -196,10 +224,13 @@ const handleSubmit = () => {
       }
     })
 
+    const annotations = buildAnnotations()
+
     emit('submit', {
       interactionId: interactionId.value,
       questions: questions.value,
       answers,
+      annotations: Object.keys(annotations).length > 0 ? annotations : undefined,
       behavior: 'allow'
     })
     return

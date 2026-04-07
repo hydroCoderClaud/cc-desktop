@@ -1258,6 +1258,20 @@ export default {
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
     historyHint: 'Above are historical messages. Type in the input box to activate this session',
+    interaction: {
+      titleDefault: 'Your input is required',
+      statusAnswered: 'Answered',
+      statusCancelled: 'Cancelled',
+      statusPending: 'Pending',
+      summaryTool: 'Tool',
+      unknownTool: 'Unknown tool',
+      pathPrefix: 'Path: {path}',
+      submitted: 'Submitted',
+      deny: 'Deny',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      submitting: 'Submitting...'
+    },
     saveAsImage: 'Save as Image',
     imageSaved: 'Image saved',
     copySelection: 'Copy Selected Text',

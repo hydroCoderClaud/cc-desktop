@@ -1263,6 +1263,20 @@ export default {
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
     historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
+    interaction: {
+      titleDefault: '需要你的选择',
+      statusAnswered: '已回答',
+      statusCancelled: '已取消',
+      statusPending: '待回答',
+      summaryTool: '工具',
+      unknownTool: '未知工具',
+      pathPrefix: '路径：{path}',
+      submitted: '已提交',
+      deny: '拒绝',
+      cancel: '取消',
+      confirm: '确认',
+      submitting: '提交中...'
+    },
     saveAsImage: '保存为图片',
     imageSaved: '图片已保存',
     copySelection: '复制选中文字',

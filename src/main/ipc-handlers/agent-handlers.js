@@ -97,11 +97,12 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   })
 
   // 响应宿主交互（AskUserQuestion）
-  ipcMain.handle('agent:respondInteraction', async (event, { sessionId, interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
+  ipcMain.handle('agent:respondInteraction', async (event, { sessionId, interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
     try {
       return agentSessionManager.resolveInteraction(sessionId, interactionId, {
         answers,
         questions,
+        annotations,
         updatedInput,
         updatedPermissions,
         decisionClassification,

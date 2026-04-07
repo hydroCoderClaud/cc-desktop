@@ -577,11 +577,12 @@ export function useAgentChat(sessionId, options = {}) {
     upsertInteractionMessage({ interactionId: data.interactionId }, data.output || null)
   }
 
-  const submitInteractionAnswer = async ({ interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
+  const submitInteractionAnswer = async ({ interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
     if (!window.electronAPI?.respondAgentInteraction) return { error: 'Interaction API unavailable' }
     try {
       const plainAnswers = answers ? JSON.parse(JSON.stringify(answers)) : []
       const plainQuestions = questions ? JSON.parse(JSON.stringify(questions)) : []
+      const plainAnnotations = annotations ? JSON.parse(JSON.stringify(annotations)) : undefined
       const plainUpdatedInput = updatedInput ? JSON.parse(JSON.stringify(updatedInput)) : undefined
       const plainUpdatedPermissions = updatedPermissions ? JSON.parse(JSON.stringify(updatedPermissions)) : undefined
       const result = await window.electronAPI.respondAgentInteraction({
@@ -589,6 +590,7 @@ export function useAgentChat(sessionId, options = {}) {
         interactionId,
         answers: plainAnswers,
         questions: plainQuestions,
+        annotations: plainAnnotations,
         updatedInput: plainUpdatedInput,
         updatedPermissions: plainUpdatedPermissions,
         decisionClassification,

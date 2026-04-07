@@ -208,9 +208,13 @@ class AgentSessionManager extends EventEmitter {
     const pending = session.pendingInteractions.get(interactionId)
     if (!pending) throw new Error('Interaction not found')
 
+    const annotations = response.annotations && typeof response.annotations === 'object'
+      ? response.annotations
+      : undefined
     const output = {
       status: 'answered',
-      answers: Array.isArray(response.answers) ? response.answers : []
+      answers: Array.isArray(response.answers) ? response.answers : [],
+      ...(annotations ? { annotations } : {})
     }
 
     this._updateInteractionMessage(session, interactionId, output)
@@ -244,7 +248,9 @@ class AgentSessionManager extends EventEmitter {
           behavior: response.behavior || 'allow',
           updatedInput: {
             questions: questionList,
-            answers: answerMap
+            answers: answerMap,
+            answersStructured: output.answers,
+            ...(annotations ? { annotations } : {})
           },
           updatedPermissions: Array.isArray(response.updatedPermissions) ? response.updatedPermissions : undefined,
           decisionClassification: response.decisionClassification || 'user_temporary'

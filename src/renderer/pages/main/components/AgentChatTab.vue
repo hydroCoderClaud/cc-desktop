@@ -31,6 +31,7 @@
         <AskUserQuestionCard
           v-else-if="msg.role === 'tool' && (msg.toolName === 'AskUserQuestion' || msg.input?.kind === 'permission_request')"
           :message="msg"
+          :submitting="Boolean(interactionSubmitting[msg.input?.interactionId])"
           @submit="handleInteractionSubmit"
           @cancel="handleInteractionCancel"
         />
@@ -197,6 +198,7 @@ const welcomeHints = computed(() => [
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
+const interactionSubmitting = ref({})
 
 // --- 智能滚动：用户手动上滚时暂停自动滚动 ---
 const userAtBottom = ref(true)
@@ -252,25 +254,51 @@ const handleCancel = async () => {
   // 注意：不清空队列！队列面板有独立的"清空全部"按钮供用户使用
 }
 
-const handleInteractionSubmit = async ({ interactionId, answers, questions, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
-  const result = await submitInteractionAnswer({
-    interactionId,
-    answers,
-    questions,
-    updatedInput,
-    updatedPermissions,
-    decisionClassification,
-    behavior
-  })
-  if (result?.error) {
-    message.error(result.error)
+const setInteractionSubmitting = (interactionId, submitting) => {
+  if (!interactionId) return
+  const next = { ...interactionSubmitting.value }
+  if (submitting) {
+    next[interactionId] = true
+  } else {
+    delete next[interactionId]
+  }
+  interactionSubmitting.value = next
+}
+
+const handleInteractionSubmit = async ({ interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
+  if (!interactionId || interactionSubmitting.value[interactionId]) return
+
+  setInteractionSubmitting(interactionId, true)
+  try {
+    const result = await submitInteractionAnswer({
+      interactionId,
+      answers,
+      questions,
+      annotations,
+      updatedInput,
+      updatedPermissions,
+      decisionClassification,
+      behavior
+    })
+    if (result?.error) {
+      message.error(result.error)
+    }
+  } finally {
+    setInteractionSubmitting(interactionId, false)
   }
 }
 
 const handleInteractionCancel = async ({ interactionId }) => {
-  const result = await cancelInteraction({ interactionId, reason: 'User cancelled the question' })
-  if (result?.error) {
-    message.error(result.error)
+  if (!interactionId || interactionSubmitting.value[interactionId]) return
+
+  setInteractionSubmitting(interactionId, true)
+  try {
+    const result = await cancelInteraction({ interactionId, reason: 'User cancelled the question' })
+    if (result?.error) {
+      message.error(result.error)
+    }
+  } finally {
+    setInteractionSubmitting(interactionId, false)
   }
 }
 

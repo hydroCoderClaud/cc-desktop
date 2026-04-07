@@ -48,16 +48,28 @@ describe('AgentSessionManager interactions', () => {
 
     manager.resolveInteraction('s1', interactionId, {
       questions: [{ question: 'Pick one?' }],
-      answers: [{ question: 'Pick one?', answer: 'A' }]
+      answers: [{ question: 'Pick one?', answer: 'A' }],
+      annotations: {
+        'Pick one?': { preview: 'Preview A' }
+      }
     })
 
     const result = await promise
     expect(result.behavior).toBe('allow')
     expect(result.updatedInput.answers).toEqual({ 'Pick one?': 'A' })
+    expect(result.updatedInput.answersStructured).toEqual([
+      { question: 'Pick one?', answer: 'A' }
+    ])
+    expect(result.updatedInput.annotations).toEqual({
+      'Pick one?': { preview: 'Preview A' }
+    })
     expect(session.pendingInteractions.size).toBe(0)
     expect(session.messages[0].output).toEqual({
       status: 'answered',
-      answers: [{ question: 'Pick one?', answer: 'A' }]
+      answers: [{ question: 'Pick one?', answer: 'A' }],
+      annotations: {
+        'Pick one?': { preview: 'Preview A' }
+      }
     })
     expect(manager.sessionDatabase.updateAgentMessageToolOutput).toHaveBeenCalledOnce()
   })
