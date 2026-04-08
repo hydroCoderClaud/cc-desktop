@@ -90,7 +90,6 @@
     <!-- Agent 新建对话 Modal -->
     <AgentNewConversationModal
       :show="showNewConvModal"
-      :projects="props.projects"
       @update:show="showNewConvModal = $event"
       @create="handleNewConvCreate"
     />

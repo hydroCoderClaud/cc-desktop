@@ -31,19 +31,19 @@
     </div>
 
     <!-- 最近项目列表 -->
-    <div class="projects-section" v-if="validProjects.length > 0">
+    <div class="projects-section" v-if="recentDirectories.length > 0">
       <div class="section-label">{{ t('agent.recentProjects') }}</div>
       <div class="project-list">
         <div
-          v-for="project in displayProjects"
-          :key="project.id"
+          v-for="directory in displayDirectories"
+          :key="directory.id"
           class="project-item"
-          :class="{ selected: selectedCwd === project.path }"
-          @click="toggleProject(project)"
+          :class="{ selected: selectedCwd === directory.path }"
+          @click="toggleDirectory(directory)"
         >
-          <span class="project-icon">{{ project.icon || '📁' }}</span>
-          <span class="project-name">{{ project.name }}</span>
-          <span class="project-path" :title="project.path">{{ shortenPath(project.path) }}</span>
+          <span class="project-icon">📁</span>
+          <span class="project-name">{{ directory.name }}</span>
+          <span class="project-path" :title="directory.path">{{ shortenPath(directory.path) }}</span>
         </div>
       </div>
     </div>
@@ -79,23 +79,21 @@ const props = defineProps({
   show: {
     type: Boolean,
     default: false
-  },
-  projects: {
-    type: Array,
-    default: () => []
   }
 })
 
 const emit = defineEmits(['update:show', 'create'])
 
 const selectedCwd = ref(null)
-const validProjects = ref([])
+const recentDirectories = ref([])
 const apiProfiles = ref([])
 const selectedProfileId = ref(null)
 
-// 最多显示 8 个最近项目
-const displayProjects = computed(() => {
-  return validProjects.value.slice(0, 8)
+const MAX_RECENT_DIRECTORIES = 10
+
+// 最多显示 10 个最近目录
+const displayDirectories = computed(() => {
+  return recentDirectories.value.slice(0, MAX_RECENT_DIRECTORIES)
 })
 
 // 每次打开时重置选择并检查目录存在性
@@ -103,35 +101,70 @@ watch(() => props.show, async (newVal) => {
   if (newVal) {
     selectedCwd.value = null
     selectedProfileId.value = null
-    // 加载 API profiles
-    if (window.electronAPI?.getConfig) {
-      try {
-        const config = await window.electronAPI.getConfig()
-        apiProfiles.value = config.apiProfiles || []
-        const defaultProfile = apiProfiles.value.find(p => p.isDefault) || apiProfiles.value[0]
-        selectedProfileId.value = defaultProfile?.id || null
-      } catch {
-        apiProfiles.value = []
-      }
-    }
-    // 检查每个项目目录是否存在，过滤掉不存在的
-    if (window.electronAPI?.checkPath && props.projects.length > 0) {
-      const checks = await Promise.all(
-        props.projects.map(async (p) => {
-          try {
-            const result = await window.electronAPI.checkPath(p.path)
-            return result.valid ? p : null
-          } catch {
-            return null
-          }
-        })
-      )
-      validProjects.value = checks.filter(Boolean)
-    } else {
-      validProjects.value = [...props.projects]
-    }
+    await Promise.all([
+      loadApiProfiles(),
+      loadRecentDirectories()
+    ])
   }
 })
+
+const loadApiProfiles = async () => {
+  if (!window.electronAPI?.getConfig) {
+    apiProfiles.value = []
+    return
+  }
+
+  try {
+    const config = await window.electronAPI.getConfig()
+    apiProfiles.value = config.apiProfiles || []
+    const defaultProfile = apiProfiles.value.find(p => p.isDefault) || apiProfiles.value[0]
+    selectedProfileId.value = defaultProfile?.id || null
+  } catch {
+    apiProfiles.value = []
+  }
+}
+
+const loadRecentDirectories = async () => {
+  if (!window.electronAPI?.listAgentSessions) {
+    recentDirectories.value = []
+    return
+  }
+
+  try {
+    const sessions = await window.electronAPI.listAgentSessions()
+    const seen = new Set()
+    const directories = []
+
+    for (const session of Array.isArray(sessions) ? sessions : []) {
+      const cwd = session?.cwd
+      if (!cwd || seen.has(cwd) || session?.type === 'dingtalk') continue
+
+      if (window.electronAPI?.checkPath) {
+        try {
+          const result = await window.electronAPI.checkPath(cwd)
+          if (!result?.valid) continue
+        } catch {
+          continue
+        }
+      }
+
+      seen.add(cwd)
+      directories.push({
+        id: cwd,
+        name: cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd,
+        path: cwd
+      })
+
+      if (directories.length >= MAX_RECENT_DIRECTORIES) {
+        break
+      }
+    }
+
+    recentDirectories.value = directories
+  } catch {
+    recentDirectories.value = []
+  }
+}
 
 const browseFolder = async () => {
   if (!window.electronAPI) return
@@ -141,11 +174,11 @@ const browseFolder = async () => {
   }
 }
 
-const toggleProject = (project) => {
-  if (selectedCwd.value === project.path) {
+const toggleDirectory = (directory) => {
+  if (selectedCwd.value === directory.path) {
     selectedCwd.value = null
   } else {
-    selectedCwd.value = project.path
+    selectedCwd.value = directory.path
   }
 }
 
