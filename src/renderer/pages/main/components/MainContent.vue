@@ -198,6 +198,7 @@ import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
 import { useAppMode, AppMode } from '@composables/useAppMode'
+import { useIPC } from '@composables/useIPC'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import RightPanel from './RightPanel/index.vue'
@@ -213,6 +214,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
 const { t, initLocale } = useLocale()
+const { invoke } = useIPC()
 const { isDeveloperMode, isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
 
 // Use composables
