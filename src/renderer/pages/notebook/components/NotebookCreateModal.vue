@@ -45,7 +45,7 @@
     </div>
 
     <!-- API 配置选择 -->
-    <div class="form-section" v-if="apiProfiles.length > 1">
+    <div class="form-section" v-if="apiProfiles.length > 0">
       <div class="section-label">{{ t('agent.apiProfile') }}</div>
       <n-select
         v-model:value="selectedProfileId"

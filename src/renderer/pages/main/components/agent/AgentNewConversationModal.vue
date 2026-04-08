@@ -48,8 +48,8 @@
       </div>
     </div>
 
-    <!-- API 配置选择（有多个 profile 时显示） -->
-    <div class="api-profile-section" v-if="apiProfiles.length > 1">
+    <!-- API 配置选择（存在 profile 时显示） -->
+    <div class="api-profile-section" v-if="apiProfiles.length > 0">
       <div class="section-label">{{ t('agent.apiProfile') }}</div>
       <n-select
         v-model:value="selectedProfileId"
