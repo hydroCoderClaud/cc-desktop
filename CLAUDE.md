@@ -10,7 +10,7 @@ Claude Code Desktop 是独立的 Electron 桌面应用，作为 Claude Code CLI 
 - **Notebook 模式**：专业工作台（实验性，默认开放）
 - **DingTalk Bridge**：钉钉桥接与远程命令/图片能力
 
-**当前版本**：`1.7.33`
+**当前版本**：`1.7.34`
 
 ### 版本号管理规范
 - 格式：`主版本.次版本.修订号`（如 `1.6.52`）
@@ -141,7 +141,7 @@ npm run rebuild:sqlite
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cc-desktop** (1872 symbols, 5388 relationships, 142 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cc-desktop** (1892 symbols, 5494 relationships, 144 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
