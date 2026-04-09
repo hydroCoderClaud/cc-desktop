@@ -12,11 +12,11 @@
     <div v-if="expanded" class="tool-body">
       <div v-if="message.input" class="tool-section">
         <div class="section-label">Input</div>
-        <pre class="tool-content">{{ formatJson(message.input) }}</pre>
+        <pre class="tool-content" v-html="renderToolContent(message.input)" @click="handleToolContentClick"></pre>
       </div>
       <div v-if="message.output" class="tool-section">
         <div class="section-label">Output</div>
-        <pre class="tool-content">{{ formatOutput(message.output) }}</pre>
+        <pre class="tool-content" v-html="renderToolContent(message.output)" @click="handleToolContentClick"></pre>
       </div>
     </div>
   </div>
@@ -25,6 +25,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
+import { normalizePathForDisplay, renderPlainTextWithLinks } from '@utils/message-render-utils'
 
 const props = defineProps({
   message: {
@@ -58,6 +59,18 @@ const handleHeaderClick = () => {
   }
 }
 
+const handleToolContentClick = (event) => {
+  const link = event.target?.closest?.('.clickable-link')
+  if (!link || link.dataset?.linkType !== 'path') return
+
+  const href = link.dataset?.href
+  if (!href) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  emit('preview-path', href)
+}
+
 /**
  * 获取工具调用的摘要信息
  * 优先级：description > command > 第一个参数值
@@ -88,23 +101,6 @@ const toolSummary = computed(() => {
 })
 
 /**
- * 将路径转换为当前操作系统友好的显示格式
- * Windows: /c/foo/bar → C:\foo\bar
- * macOS/Linux: 保持原样（Unix 路径不做处理）
- */
-const normalizePathForDisplay = (str) => {
-  if (!str || typeof str !== 'string') return str
-  if (window.electronAPI?.platform === 'win32') {
-    // MSYS 格式：/c/foo → C:\foo
-    const msys = str.match(/^\/([a-zA-Z])\/(.*)/)
-    if (msys) return msys[1].toUpperCase() + ':\\' + msys[2].replace(/\//g, '\\')
-    // 正斜杠 Windows 路径：C:/foo → C:\foo
-    if (/^[A-Za-z]:\//.test(str)) return str.replace(/\//g, '\\')
-  }
-  return str
-}
-
-/**
  * 截断长文本
  */
 const truncate = (str, maxLength) => {
@@ -112,18 +108,41 @@ const truncate = (str, maxLength) => {
   return str.slice(0, maxLength) + '...'
 }
 
+const normalizeDisplayValue = (value) => {
+  const platform = window.electronAPI?.platform || 'win32'
+
+  if (typeof value === 'string') {
+    return normalizePathForDisplay(value, platform)
+  }
+  if (Array.isArray(value)) {
+    return value.map(item => normalizeDisplayValue(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, normalizeDisplayValue(item)])
+    )
+  }
+  return value
+}
+
 const formatJson = (obj) => {
-  if (typeof obj === 'string') return obj
+  if (typeof obj === 'string') return normalizeDisplayValue(obj)
   try {
-    return JSON.stringify(obj, null, 2)
+    return JSON.stringify(normalizeDisplayValue(obj), null, 2)
   } catch {
     return String(obj)
   }
 }
 
 const formatOutput = (output) => {
-  if (typeof output === 'string') return output
+  if (typeof output === 'string') return normalizeDisplayValue(output)
   return formatJson(output)
+}
+
+const renderToolContent = (value) => {
+  return renderPlainTextWithLinks(formatOutput(value), {
+    platform: window.electronAPI?.platform || 'win32'
+  })
 }
 </script>
 
@@ -221,5 +240,13 @@ const formatOutput = (output) => {
   white-space: pre-wrap;
   word-wrap: break-word;
   color: var(--text-color);
+}
+
+.tool-content :deep(.clickable-link) {
+  color: var(--primary-color);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 </style>

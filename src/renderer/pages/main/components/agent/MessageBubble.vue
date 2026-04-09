@@ -78,7 +78,7 @@ import { useMessage } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
 import { useLocale } from '@composables/useLocale'
-import { extractLatex, restoreLatex } from '@utils/latex-utils'
+import { renderMessageHtml, trimTrailingPathPunctuation } from '@utils/message-render-utils'
 
 const { t } = useLocale()
 const messageApi = useMessage()
@@ -117,62 +117,6 @@ const isUserOverflowing = ref(false)
 const isNotebookMode = computed(() => props.chatMode === 'notebook')
 const isNotebookAssistant = computed(() => isNotebookMode.value && props.message.role === 'assistant')
 const shouldClampUserMessage = computed(() => isNotebookMode.value && props.message.role === 'user' && isUserOverflowing.value)
-const TRAILING_SENTENCE_PUNCTUATION = /[。．，,；;：:！!？?]+$/
-const UNMATCHED_TRAILING_BRACKETS = {
-  '）': '（',
-  ')': '(',
-  '】': '【',
-  ']': '[',
-  '」': '「',
-  '』': '『',
-  '》': '《',
-  '〉': '〈',
-  '}': '{',
-  '>': '<'
-}
-
-/**
- * HTML 转义函数
- */
-const escapeHtml = (str) => {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-}
-
-const trimTrailingPathPunctuation = (value) => {
-  if (!value) return value
-
-  let trimmed = value.replace(TRAILING_SENTENCE_PUNCTUATION, '')
-  while (trimmed) {
-    const trailingChar = trimmed.at(-1)
-    const openingChar = UNMATCHED_TRAILING_BRACKETS[trailingChar]
-    if (!openingChar) break
-
-    const openingCount = [...trimmed].filter(char => char === openingChar).length
-    const closingCount = [...trimmed].filter(char => char === trailingChar).length
-    if (closingCount > openingCount) {
-      trimmed = trimmed.slice(0, -1)
-      continue
-    }
-    break
-  }
-
-  return trimmed
-}
-
-const wrapPathLink = (rawPath) => {
-  const cleanPath = trimTrailingPathPunctuation(rawPath)
-  if (!cleanPath) return rawPath
-
-  const trailing = escapeHtml(rawPath.slice(cleanPath.length))
-  const escapedPath = escapeHtml(cleanPath)
-  return `<a class="clickable-link" data-link-type="path" data-href="${escapedPath}" title="单击预览 · Ctrl+单击打开">${escapedPath}</a>${trailing}`
-}
-
 const normalizePathForAction = async (rawPath) => {
   if (!rawPath) return rawPath
 
@@ -210,109 +154,9 @@ const renderedContent = computed(() => {
   if (props.message.images && props.message.images.length > 0 && text === '[图片]') {
     return ''
   }
-
-  // 步骤1：提取代码块（保存原始未转义内容）
-  const codeBlocks = []
-  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    codeBlocks.push({ lang, code })
-    return `\x00CB${codeBlocks.length - 1}\x00`
+  return renderMessageHtml(text, {
+    platform: window.electronAPI?.platform || 'win32'
   })
-
-  // 步骤2：提取行内代码（保存原始未转义内容）
-  const inlineCodes = []
-  text = text.replace(/`([^`]+)`/g, (_, code) => {
-    inlineCodes.push(code)
-    return `\x00IC${inlineCodes.length - 1}\x00`
-  })
-
-  // 步骤3：提取 LaTeX 公式（代码块/行内代码已被占位符保护）
-  const { text: latexProcessed, blocks: latexBlocks } = extractLatex(text)
-  text = latexProcessed
-
-  // 步骤4：转义剩余的文本（代码和 LaTeX 已被占位符替换）
-  text = escapeHtml(text)
-
-  // 加粗
-  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-
-  // 斜体
-  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>')
-
-  // URL 链接（http:// 或 https://）
-  text = text.replace(/(https?:\/\/[^\s<>&"')\]]+)/g,
-    '<a class="clickable-link" data-link-type="url" data-href="$1" title="单击预览 · Ctrl+单击打开">$1</a>')
-
-  // Windows 绝对路径（C:\... / C:/...）
-  // 避免误命中 URL（如 https://），因此要求 "/" 不能是双斜杠
-  text = text.replace(/(^|[\s([{"'`:,，。；;：])([A-Za-z]:(?:\\|\/(?!\/))[^\s<>&"':*?]+(?:[\\/][^\s<>&"':*?]+)*)/g,
-    (_, prefix, pathText) => `${prefix}${wrapPathLink(pathText)}`)
-
-  // Windows 简写盘符路径（c/workspace/... 或 c\workspace\...）
-  // 限定首段为 workspace 或 users，避免把通用相对路径（如 docs/readme）误判成盘符路径
-  // 同时仅在 token 边界匹配，避免误命中 URL（如 example.com/a/b）
-  text = text.replace(/(^|[\s([{"'`:,，。；;：])([A-Za-z][\\/](?!\/)(?:workspace|users)[^\s<>&"']*)/gi,
-    (_, prefix, pathText) => `${prefix}${wrapPathLink(pathText)}`)
-
-  // Unix 绝对路径（/home/... /usr/... /tmp/... 等）
-  text = text.replace(/(\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)[^\n<>&"']*)/g,
-    (_, pathText) => wrapPathLink(pathText))
-
-  // 相对路径（Unix: ./... 或 ../... | Windows: .\... 或 ..\...）
-  text = text.replace(/(\.\.?[/\\][^\n<>&"']*)/g,
-    (_, pathText) => wrapPathLink(pathText))
-
-  // ~ 路径（~/...）
-  text = text.replace(/(~\/[^\n<>&"']*)/g,
-    (_, pathText) => wrapPathLink(pathText))
-
-  // 换行
-  text = text.replace(/\n/g, '<br>')
-
-  // 步骤5：还原 LaTeX 公式（在代码还原之前）
-  text = restoreLatex(text, latexBlocks)
-
-  // 步骤6：还原代码块（转义后再插入）
-  // 单行代码块如果整行是路径/URL，注入可点击链接
-  text = text.replace(/\x00CB(\d+)\x00/g, (_, i) => {
-    const { lang, code } = codeBlocks[i]
-    const trimmed = code.trim()
-    // 单行且匹配路径/URL 模式
-    if (!trimmed.includes('\n')) {
-      let linkType = ''
-      if (/^https?:\/\//.test(trimmed)) {
-        linkType = 'url'
-      } else if (/^[A-Za-z]:(?:\\|\/(?!\/)).+/.test(trimmed) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(trimmed) || /^\/.*[\\/.]/.test(trimmed) || /^\.\.?[/\\]/.test(trimmed) || /^~\//.test(trimmed)) {
-        linkType = 'path'
-      }
-      if (linkType) {
-        const cleanPath = linkType === 'path' ? trimTrailingPathPunctuation(trimmed) : trimmed
-        const escaped = escapeHtml(cleanPath)
-        const trailing = linkType === 'path' ? escapeHtml(trimmed.slice(cleanPath.length)) : ''
-        return `<pre><code><a class="clickable-link" data-link-type="${linkType}" data-href="${escaped}" title="单击预览 · Ctrl+单击打开">${escaped}</a>${trailing}</code></pre>`
-      }
-    }
-    return `<pre><code class="lang-${escapeHtml(lang)}">${escapeHtml(code)}</code></pre>`
-  })
-
-  // 步骤7：还原行内代码 — 如果内容是 URL/路径，注入可点击链接
-  text = text.replace(/\x00IC(\d+)\x00/g, (_, i) => {
-    const code = inlineCodes[i]
-    let linkType = ''
-    if (/^https?:\/\//.test(code)) {
-      linkType = 'url'
-    } else if (/^[A-Za-z]:(?:\\|\/(?!\/)).+/.test(code) || /^[A-Za-z][\\/](?:workspace|users)[^\s]*/i.test(code) || /^\/(?:home|usr|etc|tmp|var|opt|mnt|srv|root|Users|Library|Applications|Volumes)\//.test(code) || /^\.\.?[/\\]/.test(code) || /^~\//.test(code)) {
-      linkType = 'path'
-    }
-    if (linkType) {
-      const cleanCode = linkType === 'path' ? trimTrailingPathPunctuation(code) : code
-      const escapedCode = escapeHtml(cleanCode)
-      const trailing = linkType === 'path' ? escapeHtml(code.slice(cleanCode.length)) : ''
-      return `<code><a class="clickable-link" data-link-type="${linkType}" data-href="${escapedCode}" title="单击预览 · Ctrl+单击打开">${escapedCode}</a>${trailing}</code>`
-    }
-    return `<code>${escapeHtml(code)}</code>`
-  })
-
-  return text
 })
 
 const measureUserClampState = async () => {
