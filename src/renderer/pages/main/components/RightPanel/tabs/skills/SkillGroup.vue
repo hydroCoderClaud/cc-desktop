@@ -20,7 +20,7 @@
           <div class="skill-row">
             <span class="skill-name">
               {{ skill.id }} <span class="skill-invoke">(/{{ skill.name || skill.id }})</span>
-              <span v-if="skill.marketSource && !skill.disabled" class="market-badge">{{ t('rightPanel.skills.market.marketBadge') }}</span>
+              <span v-if="skill.marketSource" class="market-badge">{{ t('rightPanel.skills.market.marketBadge') }}</span>
             </span>
             <n-switch
               v-if="toggleable"
@@ -29,7 +29,7 @@
               @update:value="(val) => $emit('toggle-disabled', skill, !val)"
               @click.stop
             />
-            <span v-if="!skill.disabled" class="skill-actions">
+            <span class="skill-actions">
               <button
                 v-if="copy"
                 class="icon-btn inline"

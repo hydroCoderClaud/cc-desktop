@@ -688,7 +688,10 @@ const handleSettingsSelect = async (key) => {
       window.electronAPI.openGlobalSettings()
       break
     case 'capability-workbench':
-      window.electronAPI.openSettingsWorkbench()
+      window.electronAPI.openSettingsWorkbench({
+        mode: isAgentMode.value ? 'agent' : 'developer',
+        cwd: isAgentMode.value ? props.agentCwd : props.currentProject?.path
+      })
       break
     case 'appearance-settings':
       window.electronAPI.openAppearanceSettings()

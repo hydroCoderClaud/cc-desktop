@@ -773,10 +773,12 @@ export default {
     projectPlaceholder: 'Manage global scopes when no project is selected',
     noProject: 'Global only (no project)',
     selectDirectory: 'Select Directory',
+    sourceAll: 'All Types',
+    sourceFilterPlaceholder: 'Filter type',
     sourceProject: 'Project',
     sourceAgent: 'Agent',
     sourceNotebook: 'Notebook',
-    sourceRecent: 'Recent',
+    sourceRecent: 'Other',
     projectTipNone: 'No project selected. Only global scopes are shown and editable; select a project to manage project scopes.',
     projectTipSelected: 'Current project: {name}. Global and project scopes are both available.'
   },

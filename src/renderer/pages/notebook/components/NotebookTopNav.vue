@@ -296,7 +296,10 @@ const handleSettingsSelect = (key) => {
       window.electronAPI.openGlobalSettings()
       break
     case 'capability-workbench':
-      window.electronAPI.openSettingsWorkbench()
+      window.electronAPI.openSettingsWorkbench({
+        mode: 'notebook',
+        cwd: props.currentNotebook?.notebookPath || null
+      })
       break
     case 'appearance-settings':
       window.electronAPI.openAppearanceSettings()

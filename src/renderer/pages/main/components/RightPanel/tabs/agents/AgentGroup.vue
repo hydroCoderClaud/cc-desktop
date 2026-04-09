@@ -22,7 +22,7 @@
             <span class="agent-name">
               {{ agent.id }}
               <span v-if="agent.name && agent.name !== agent.id" class="agent-name-suffix">(/{{ agent.name }})</span>
-              <span v-if="agent.marketSource && !agent.disabled" class="market-badge">{{ t('rightPanel.agents.marketBadge') }}</span>
+              <span v-if="agent.marketSource" class="market-badge">{{ t('rightPanel.agents.marketBadge') }}</span>
             </span>
             <n-switch
               v-if="toggleable"
@@ -31,7 +31,7 @@
               @update:value="(val) => $emit('toggle-disabled', agent, !val)"
               @click.stop
             />
-            <span v-if="!agent.disabled" class="agent-actions">
+            <span class="agent-actions">
               <button
                 v-if="copy"
                 class="icon-btn inline"

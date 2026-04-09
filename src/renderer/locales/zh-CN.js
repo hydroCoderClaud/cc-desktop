@@ -776,10 +776,12 @@ export default {
     projectPlaceholder: '不选目录时仅管理全局配置',
     noProject: '仅全局（不选择目录）',
     selectDirectory: '选择目录',
+    sourceAll: '全部类型',
+    sourceFilterPlaceholder: '筛选类型',
     sourceProject: '项目',
     sourceAgent: 'Agent',
     sourceNotebook: 'Notebook',
-    sourceRecent: '最近',
+    sourceRecent: '其他',
     projectTipNone: '当前未选择目录，仅显示和编辑全局能力；选择目录后可管理项目级能力。',
     projectTipSelected: '当前目录：{name}，可同时管理全局与项目级能力。'
   },

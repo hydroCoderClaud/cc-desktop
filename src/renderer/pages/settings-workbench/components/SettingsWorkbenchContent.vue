@@ -17,6 +17,12 @@
       <div class="context-left">
         <span class="context-label">{{ t('settingsWorkbench.projectContext') }}</span>
         <n-select
+          v-model:value="selectedSourceFilter"
+          :options="sourceFilterOptions"
+          :placeholder="t('settingsWorkbench.sourceFilterPlaceholder')"
+          class="source-select"
+        />
+        <n-select
           v-model:value="selectedContextKey"
           :options="directoryOptions"
           :render-label="renderDirectoryLabel"
@@ -60,6 +66,9 @@
             :is="currentTabComponent"
             :key="`${activeTab}-${selectedContextKey || 'global'}-${refreshTick}`"
             :current-project="currentProject"
+            @send-command="handleWorkbenchCommandAction"
+            @insert-to-input="handleWorkbenchCommandAction"
+            @insert-path="handleWorkbenchCommandAction"
           />
         </KeepAlive>
       </div>
@@ -86,6 +95,7 @@ const { t, initLocale } = useLocale()
 const { projects, loadProjects } = useProjects()
 
 const selectedContextKey = ref('__GLOBAL__')
+const selectedSourceFilter = ref('all')
 const customProjectPath = ref('')
 const manualRecentPaths = ref([])
 const agentCwdPaths = ref([])
@@ -127,6 +137,24 @@ const sourceTextMap = computed(() => ({
   notebook: t('settingsWorkbench.sourceNotebook'),
   recent: t('settingsWorkbench.sourceRecent')
 }))
+
+const sourceFilterOptions = computed(() => [
+  { label: t('settingsWorkbench.sourceAll'), value: 'all' },
+  { label: sourceTextMap.value.project, value: 'project' },
+  { label: sourceTextMap.value.agent, value: 'agent' },
+  { label: sourceTextMap.value.notebook, value: 'notebook' },
+  { label: sourceTextMap.value.recent, value: 'recent' }
+])
+
+const parseWindowContext = () => {
+  const params = new URLSearchParams(window.location.search)
+  return {
+    mode: params.get('mode') || '',
+    cwd: normalizePath(params.get('cwd') || '')
+  }
+}
+
+const windowContext = parseWindowContext()
 
 const getBaseName = (path) => {
   const normalized = normalizePath(path)
@@ -232,6 +260,11 @@ const renderDirectoryLabel = (option) => {
   return `${option.label}`
 }
 
+const flattenDirectoryOptions = (options) => options.flatMap(option => {
+  if (option?.type === 'group') return option.children || []
+  return option ? [option] : []
+})
+
 const groupDirectoryEntries = (entries) => {
   const grouped = {
     project: [],
@@ -310,6 +343,13 @@ const groupedDirectoryOptions = computed(() => {
   return groupDirectoryEntries(merged)
 })
 
+const allDirectoryOptions = computed(() => ([
+  ...groupedDirectoryOptions.value.project,
+  ...groupedDirectoryOptions.value.agent,
+  ...groupedDirectoryOptions.value.notebook,
+  ...groupedDirectoryOptions.value.recent
+]))
+
 const directoryOptions = computed(() => {
   const options = [{
     label: t('settingsWorkbench.noProject'),
@@ -326,7 +366,9 @@ const directoryOptions = computed(() => {
     }]
     : []
 
-  if (custom.length) {
+  const shouldIncludeGroup = (groupKey) => selectedSourceFilter.value === 'all' || selectedSourceFilter.value === groupKey
+
+  if (custom.length && shouldIncludeGroup('recent')) {
     options.push({
       type: 'group',
       label: sourceTextMap.value.recent,
@@ -343,6 +385,7 @@ const directoryOptions = computed(() => {
   ]
 
   groups.forEach(group => {
+    if (!shouldIncludeGroup(group.key)) return
     const children = groupedDirectoryOptions.value[group.key] || []
     if (!children.length) return
     options.push({
@@ -355,6 +398,41 @@ const directoryOptions = computed(() => {
 
   return options
 })
+
+const findDirectoryOptionByPath = (path) => {
+  const normalizedPath = normalizePath(path)
+  if (!normalizedPath) return null
+  return allDirectoryOptions.value.find(option => normalizePath(option.path) === normalizedPath) || null
+}
+
+const resolveInitialContext = () => {
+  if (!windowContext.cwd) {
+    return {
+      filter: 'all',
+      key: '__GLOBAL__'
+    }
+  }
+
+  const exactOption = findDirectoryOptionByPath(windowContext.cwd)
+  if (exactOption) {
+    return {
+      filter: exactOption.source || 'all',
+      key: exactOption.value
+    }
+  }
+
+  if (windowContext.mode && sourcePriority[windowContext.mode] !== undefined) {
+    return {
+      filter: windowContext.mode,
+      key: buildContextKey(windowContext.mode, windowContext.cwd)
+    }
+  }
+
+  return {
+    filter: 'recent',
+    key: buildContextKey('recent', windowContext.cwd)
+  }
+}
 
 const currentProject = computed(() => {
   if (selectedContextKey.value === '__CUSTOM__' && customProjectPath.value) {
@@ -384,6 +462,8 @@ const refreshCurrentTab = () => {
   refreshTick.value += 1
 }
 
+const handleWorkbenchCommandAction = () => {}
+
 const pickDirectoryAndSelect = async () => {
   try {
     const selectedPath = await window.electronAPI.selectFolder()
@@ -392,18 +472,21 @@ const pickDirectoryAndSelect = async () => {
 
     const matchedProject = projects.value.find(project => normalizePath(project.path) === normalizedPath)
     if (matchedProject) {
+      selectedSourceFilter.value = 'project'
       selectedContextKey.value = buildContextKey('project', matchedProject.path)
       customProjectPath.value = ''
       return
     }
 
-    const existingOption = directoryOptions.value.find(option => normalizePath(option.path) === normalizedPath)
+    const existingOption = findDirectoryOptionByPath(normalizedPath)
     if (existingOption) {
+      selectedSourceFilter.value = existingOption.source || 'all'
       selectedContextKey.value = existingOption.value
       customProjectPath.value = ''
       return
     }
 
+    selectedSourceFilter.value = 'recent'
     selectedContextKey.value = '__CUSTOM__'
     customProjectPath.value = normalizedPath
     await pushManualRecentPath(normalizedPath)
@@ -411,6 +494,16 @@ const pickDirectoryAndSelect = async () => {
     console.error('[SettingsWorkbench] Failed to select directory:', err)
   }
 }
+
+watch(selectedSourceFilter, () => {
+  if (selectedContextKey.value === '__GLOBAL__' || selectedContextKey.value === '__CUSTOM__') return
+
+  const flatOptions = flattenDirectoryOptions(directoryOptions.value)
+  const exists = flatOptions.some(option => option.value === selectedContextKey.value)
+  if (!exists) {
+    selectedContextKey.value = '__GLOBAL__'
+  }
+})
 
 watch(selectedContextKey, async (newValue) => {
   if (newValue === '__CUSTOM__') {
@@ -438,6 +531,12 @@ onMounted(async () => {
     loadProjects(),
     loadContextSources()
   ])
+
+  if (windowContext.cwd) {
+    const initialContext = resolveInitialContext()
+    selectedSourceFilter.value = initialContext.filter
+    selectedContextKey.value = initialContext.key
+  }
 })
 </script>
 
@@ -480,6 +579,12 @@ onMounted(async () => {
 
 .project-select {
   max-width: 420px;
+  flex: 1;
+}
+
+.source-select {
+  width: 140px;
+  flex-shrink: 0;
 }
 
 .context-tip {
@@ -573,6 +678,10 @@ onMounted(async () => {
 
   .project-select {
     max-width: none;
+  }
+
+  .source-select {
+    width: 100%;
   }
 }
 </style>

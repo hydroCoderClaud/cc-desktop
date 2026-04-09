@@ -201,12 +201,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // 打开能力管理窗口（跨模式可访问）
-  ipcMain.handle('window:openSettingsWorkbench', async () => {
+  ipcMain.handle('window:openSettingsWorkbench', async (_event, options = {}) => {
+    const params = new URLSearchParams()
+    if (options.mode) params.set('mode', options.mode)
+    if (options.cwd) params.set('cwd', options.cwd)
     createSubWindow({
       width: 1100,
       height: 760,
       title: '能力管理 - CC Desktop',
-      page: 'settings-workbench'
+      page: 'settings-workbench',
+      query: params.toString() ? `?${params.toString()}` : ''
     });
     return { success: true };
   });
