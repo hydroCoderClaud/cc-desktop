@@ -25,7 +25,7 @@
           :session-cwd="sessionCwd"
           @preview-image="$emit('preview-image', $event)"
           @preview-link="$emit('preview-link', $event)"
-          @preview-path="$emit('preview-path', $event)"
+          @preview-path="emitPreviewPath"
         />
         <!-- 工具调用 / 宿主交互 -->
         <AskUserQuestionCard
@@ -35,7 +35,7 @@
           @submit="handleInteractionSubmit"
           @cancel="handleInteractionCancel"
         />
-        <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" @preview-path="$emit('preview-path', $event)" />
+        <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" @preview-path="emitPreviewPath" />
       </template>
 
       <!-- 历史会话恢复提示 -->
@@ -302,6 +302,13 @@ const handleInteractionCancel = async ({ interactionId }) => {
   }
 }
 
+const emitPreviewPath = (filePath) => {
+  emit('preview-path', {
+    filePath,
+    sessionId: props.sessionId
+  })
+}
+
 // --- 卸载标志：防止在组件卸载过程中触发消息发送 ---
 let isUnmounting = false
 
@@ -344,7 +351,10 @@ watch(isStreaming, (streaming, wasStreaming) => {
         unixPaths.concat(winPaths).forEach(p => filePaths.push(p))
       }
     }
-    emit('agent-done', [...new Set(filePaths)])
+    emit('agent-done', {
+      sessionId: props.sessionId,
+      filePaths: [...new Set(filePaths)]
+    })
   }
 })
 

@@ -977,14 +977,19 @@ const handlePreviewLink = (linkData) => {
   })
 }
 
-// 处理文件路径预览请求
-const handlePreviewPath = async (filePath) => {
+// 处理文件路径预览请求（仅响应当前激活会话，避免跨会话串台）
+const handlePreviewPath = async (payload) => {
+  const filePath = typeof payload === 'string' ? payload : payload?.filePath
+  const sourceSessionId = typeof payload === 'string' ? activeAgentSessionId.value : payload?.sessionId
+
+  if (!filePath || !sourceSessionId) return
+  if (sourceSessionId !== activeAgentSessionId.value) return
+
   // 请求后端读取文件（只读预览，直接 confirmed=true，不弹安全确认框）
   try {
-    const sessionId = activeAgentSessionId.value
     const fileData = await window.electronAPI.readAbsolutePath({
       filePath,
-      sessionId,
+      sessionId: sourceSessionId,
       confirmed: true
     })
 
@@ -1023,17 +1028,24 @@ const handlePreviewPath = async (filePath) => {
   }
 }
 
-// Agent 完成：刷新文件树，并对本轮生成的文件自动展开目录 + 预览最后一个
-const handleAgentDone = async (filePaths = []) => {
+// Agent 完成：仅当前激活会话刷新文件树，并自动预览本轮最后一个文件
+const handleAgentDone = async (payload = {}) => {
+  const sourceSessionId = payload?.sessionId
+  const filePaths = Array.isArray(payload?.filePaths) ? payload.filePaths : []
+
+  if (!sourceSessionId) return
+  if (sourceSessionId !== activeAgentSessionId.value) return
   if (!agentRightPanelRef.value) return
+
   await agentRightPanelRef.value.refreshFiles()
   if (!filePaths.length) return
+
   for (let i = 0; i < filePaths.length; i++) {
     const isLast = i === filePaths.length - 1
     const revealed = await agentRightPanelRef.value.revealInTree(filePaths[i], { preview: isLast })
     // 如果文件不在 cwd 内（revealInTree 返回 false），且是最后一个，通过 handlePreviewPath 展示
     if (!revealed && isLast) {
-      await handlePreviewPath(filePaths[i])
+      await handlePreviewPath({ filePath: filePaths[i], sessionId: sourceSessionId })
     }
   }
 }
