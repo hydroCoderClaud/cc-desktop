@@ -203,6 +203,8 @@ const interactionSubmitting = ref({})
 // --- 智能滚动：用户手动上滚时暂停自动滚动 ---
 const userAtBottom = ref(true)
 const BOTTOM_THRESHOLD = 60 // 距底部 60px 以内视为"在底部"
+let scrollMutationObserver = null
+let pendingScrollFrame = null
 
 const checkIfAtBottom = () => {
   const el = messagesListRef.value
@@ -217,17 +219,49 @@ const onMessagesScroll = () => {
 // 自动滚动到底部（仅在用户处于底部时触发，force=true 可强制滚动）
 const scrollToBottom = (instant = false, force = false) => {
   if (!force && !userAtBottom.value) return
+  if (pendingScrollFrame !== null) {
+    cancelAnimationFrame(pendingScrollFrame)
+    pendingScrollFrame = null
+  }
   nextTick(() => {
-    if (scrollAnchor.value) {
-      scrollAnchor.value.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
-    }
-    userAtBottom.value = true
+    pendingScrollFrame = requestAnimationFrame(() => {
+      if (scrollAnchor.value) {
+        scrollAnchor.value.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' })
+      } else if (messagesListRef.value) {
+        messagesListRef.value.scrollTo({ top: messagesListRef.value.scrollHeight, behavior: instant ? 'auto' : 'smooth' })
+      }
+      userAtBottom.value = true
+      pendingScrollFrame = null
+    })
   })
 }
 
-// 新消息添加 → 仅在用户处于底部时平滑滚动
-watch(messages, () => {
-  scrollToBottom()
+const handleDeferredContentLoad = () => {
+  scrollToBottom(true)
+}
+
+const startAutoScrollObservers = () => {
+  const el = messagesListRef.value
+  if (!el) return
+
+  if (typeof MutationObserver !== 'undefined') {
+    scrollMutationObserver?.disconnect()
+    scrollMutationObserver = new MutationObserver(() => {
+      scrollToBottom(true)
+    })
+    scrollMutationObserver.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    })
+  }
+
+  el.addEventListener('load', handleDeferredContentLoad, true)
+}
+
+// 新消息添加 → 仅在用户处于底部时自动滚动
+watch(() => messages.value.length, () => {
+  scrollToBottom(isStreaming.value)
 })
 
 // 流式文本变化 → 节流滚动（高频场景，每 100ms 最多触发一次）
@@ -459,6 +493,7 @@ onMounted(async () => {
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
+  startAutoScrollObservers()
   window.addEventListener('focus', onWindowFocus)
 
   // 恢复持久化队列（需要等待 chatInputRef 准备好）
@@ -522,6 +557,18 @@ onBeforeUnmount(async () => {
   if (saveQueueTimer) {
     console.log('[AgentChatTab] ⏱️ Clearing pending save timer')
     clearTimeout(saveQueueTimer)
+  }
+
+  if (pendingScrollFrame !== null) {
+    cancelAnimationFrame(pendingScrollFrame)
+    pendingScrollFrame = null
+  }
+
+  scrollMutationObserver?.disconnect()
+  scrollMutationObserver = null
+
+  if (messagesListRef.value) {
+    messagesListRef.value.removeEventListener('load', handleDeferredContentLoad, true)
   }
 
   console.log('[AgentChatTab] 🔍 Checking queue before unmount:', {

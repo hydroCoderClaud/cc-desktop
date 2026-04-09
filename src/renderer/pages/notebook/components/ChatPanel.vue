@@ -241,6 +241,8 @@ const apiSwitcherRef = ref(null)
 const interactionSubmitting = ref({})
 const userAtBottom = ref(true)
 const BOTTOM_THRESHOLD = 60
+let scrollMutationObserver = null
+let pendingScrollFrame = null
 let lastScrollTime = 0
 const SCROLL_THROTTLE_MS = 100
 
@@ -256,16 +258,48 @@ const onMessagesScroll = () => {
 
 const scrollToBottom = (instant = false, force = false) => {
   if (!force && !userAtBottom.value) return
+  if (pendingScrollFrame !== null) {
+    cancelAnimationFrame(pendingScrollFrame)
+    pendingScrollFrame = null
+  }
   nextTick(() => {
-    if (scrollAnchor.value) {
-      scrollAnchor.value.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
-    }
-    userAtBottom.value = true
+    pendingScrollFrame = requestAnimationFrame(() => {
+      if (scrollAnchor.value) {
+        scrollAnchor.value.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' })
+      } else if (messagesListRef.value) {
+        messagesListRef.value.scrollTo({ top: messagesListRef.value.scrollHeight, behavior: instant ? 'auto' : 'smooth' })
+      }
+      userAtBottom.value = true
+      pendingScrollFrame = null
+    })
   })
 }
 
-watch(messages, () => {
-  scrollToBottom()
+const handleDeferredContentLoad = () => {
+  scrollToBottom(true)
+}
+
+const startAutoScrollObservers = () => {
+  const el = messagesListRef.value
+  if (!el) return
+
+  if (typeof MutationObserver !== 'undefined') {
+    scrollMutationObserver?.disconnect()
+    scrollMutationObserver = new MutationObserver(() => {
+      scrollToBottom(true)
+    })
+    scrollMutationObserver.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    })
+  }
+
+  el.addEventListener('load', handleDeferredContentLoad, true)
+}
+
+watch(() => messages.value.length, () => {
+  scrollToBottom(isStreaming.value)
 })
 
 watch(currentStreamText, () => {
@@ -463,8 +497,15 @@ onBeforeUnmount(() => {
   isUnmounting = true
   document.removeEventListener('click', onApiSwitcherClickOutside, true)
   window.removeEventListener('resize', onWindowResize)
+  if (pendingScrollFrame !== null) {
+    cancelAnimationFrame(pendingScrollFrame)
+    pendingScrollFrame = null
+  }
+  scrollMutationObserver?.disconnect()
+  scrollMutationObserver = null
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll, { passive: true })
+    messagesListRef.value.removeEventListener('load', handleDeferredContentLoad, true)
   }
 })
 
@@ -479,6 +520,7 @@ onMounted(async () => {
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
+  startAutoScrollObservers()
   scrollToBottom(true, true)
 
   // Notebook 模式：缩小输入框初始高度（rows=3 → 1）
