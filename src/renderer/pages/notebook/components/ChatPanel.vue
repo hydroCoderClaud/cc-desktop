@@ -131,6 +131,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { useMessage } from 'naive-ui'
 import { useAgentChat } from '@composables/useAgentChat'
+import { useAutoScrollToBottom } from '@composables/useAutoScrollToBottom'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
 import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
 import AskUserQuestionCard from '@/pages/main/components/agent/AskUserQuestionCard.vue'
@@ -239,76 +240,17 @@ const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 const apiSwitcherRef = ref(null)
 const interactionSubmitting = ref({})
-const userAtBottom = ref(true)
-const BOTTOM_THRESHOLD = 60
-let scrollMutationObserver = null
-let pendingScrollFrame = null
-let lastScrollTime = 0
-const SCROLL_THROTTLE_MS = 100
-
-const checkIfAtBottom = () => {
-  const el = messagesListRef.value
-  if (!el) return true
-  return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD
-}
-
-const onMessagesScroll = () => {
-  userAtBottom.value = checkIfAtBottom()
-}
-
-const scrollToBottom = (instant = false, force = false) => {
-  if (!force && !userAtBottom.value) return
-  if (pendingScrollFrame !== null) {
-    cancelAnimationFrame(pendingScrollFrame)
-    pendingScrollFrame = null
-  }
-  nextTick(() => {
-    pendingScrollFrame = requestAnimationFrame(() => {
-      if (scrollAnchor.value) {
-        scrollAnchor.value.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' })
-      } else if (messagesListRef.value) {
-        messagesListRef.value.scrollTo({ top: messagesListRef.value.scrollHeight, behavior: instant ? 'auto' : 'smooth' })
-      }
-      userAtBottom.value = true
-      pendingScrollFrame = null
-    })
-  })
-}
-
-const handleDeferredContentLoad = () => {
-  scrollToBottom(true)
-}
-
-const startAutoScrollObservers = () => {
-  const el = messagesListRef.value
-  if (!el) return
-
-  if (typeof MutationObserver !== 'undefined') {
-    scrollMutationObserver?.disconnect()
-    scrollMutationObserver = new MutationObserver(() => {
-      scrollToBottom(true)
-    })
-    scrollMutationObserver.observe(el, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    })
-  }
-
-  el.addEventListener('load', handleDeferredContentLoad, true)
-}
-
-watch(() => messages.value.length, () => {
-  scrollToBottom(isStreaming.value)
-})
-
-watch(currentStreamText, () => {
-  if (!userAtBottom.value) return
-  const now = Date.now()
-  if (now - lastScrollTime >= SCROLL_THROTTLE_MS) {
-    lastScrollTime = now
-    scrollToBottom(true)
-  }
+const {
+  scrollToBottom,
+  onContainerScroll: onMessagesScroll,
+  startAutoScrollObservers,
+  stopAutoScrollObservers
+} = useAutoScrollToBottom({
+  containerRef: messagesListRef,
+  anchorRef: scrollAnchor,
+  itemsRef: messages,
+  streamingTextRef: currentStreamText,
+  isStreamingRef: isStreaming
 })
 
 watch(isStreaming, (streaming, wasStreaming) => {
@@ -497,15 +439,9 @@ onBeforeUnmount(() => {
   isUnmounting = true
   document.removeEventListener('click', onApiSwitcherClickOutside, true)
   window.removeEventListener('resize', onWindowResize)
-  if (pendingScrollFrame !== null) {
-    cancelAnimationFrame(pendingScrollFrame)
-    pendingScrollFrame = null
-  }
-  scrollMutationObserver?.disconnect()
-  scrollMutationObserver = null
+  stopAutoScrollObservers()
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll, { passive: true })
-    messagesListRef.value.removeEventListener('load', handleDeferredContentLoad, true)
   }
 })
 

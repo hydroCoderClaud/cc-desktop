@@ -96,6 +96,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onUnmounted
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
+import { useAutoScrollToBottom } from '@composables/useAutoScrollToBottom'
 import { isSessionClosed, unmarkSessionClosed } from '@composables/useAgentPanel'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
@@ -199,81 +200,17 @@ const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 const interactionSubmitting = ref({})
-
-// --- 智能滚动：用户手动上滚时暂停自动滚动 ---
-const userAtBottom = ref(true)
-const BOTTOM_THRESHOLD = 60 // 距底部 60px 以内视为"在底部"
-let scrollMutationObserver = null
-let pendingScrollFrame = null
-
-const checkIfAtBottom = () => {
-  const el = messagesListRef.value
-  if (!el) return true
-  return el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD
-}
-
-const onMessagesScroll = () => {
-  userAtBottom.value = checkIfAtBottom()
-}
-
-// 自动滚动到底部（仅在用户处于底部时触发，force=true 可强制滚动）
-const scrollToBottom = (instant = false, force = false) => {
-  if (!force && !userAtBottom.value) return
-  if (pendingScrollFrame !== null) {
-    cancelAnimationFrame(pendingScrollFrame)
-    pendingScrollFrame = null
-  }
-  nextTick(() => {
-    pendingScrollFrame = requestAnimationFrame(() => {
-      if (scrollAnchor.value) {
-        scrollAnchor.value.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' })
-      } else if (messagesListRef.value) {
-        messagesListRef.value.scrollTo({ top: messagesListRef.value.scrollHeight, behavior: instant ? 'auto' : 'smooth' })
-      }
-      userAtBottom.value = true
-      pendingScrollFrame = null
-    })
-  })
-}
-
-const handleDeferredContentLoad = () => {
-  scrollToBottom(true)
-}
-
-const startAutoScrollObservers = () => {
-  const el = messagesListRef.value
-  if (!el) return
-
-  if (typeof MutationObserver !== 'undefined') {
-    scrollMutationObserver?.disconnect()
-    scrollMutationObserver = new MutationObserver(() => {
-      scrollToBottom(true)
-    })
-    scrollMutationObserver.observe(el, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    })
-  }
-
-  el.addEventListener('load', handleDeferredContentLoad, true)
-}
-
-// 新消息添加 → 仅在用户处于底部时自动滚动
-watch(() => messages.value.length, () => {
-  scrollToBottom(isStreaming.value)
-})
-
-// 流式文本变化 → 节流滚动（高频场景，每 100ms 最多触发一次）
-let lastScrollTime = 0
-const SCROLL_THROTTLE_MS = 100
-watch(currentStreamText, () => {
-  if (!userAtBottom.value) return
-  const now = Date.now()
-  if (now - lastScrollTime >= SCROLL_THROTTLE_MS) {
-    lastScrollTime = now
-    scrollToBottom(true)
-  }
+const {
+  scrollToBottom,
+  onContainerScroll: onMessagesScroll,
+  startAutoScrollObservers,
+  stopAutoScrollObservers
+} = useAutoScrollToBottom({
+  containerRef: messagesListRef,
+  anchorRef: scrollAnchor,
+  itemsRef: messages,
+  streamingTextRef: currentStreamText,
+  isStreamingRef: isStreaming
 })
 
 // 发送消息 → 强制回到底部
@@ -558,18 +495,7 @@ onBeforeUnmount(async () => {
     console.log('[AgentChatTab] ⏱️ Clearing pending save timer')
     clearTimeout(saveQueueTimer)
   }
-
-  if (pendingScrollFrame !== null) {
-    cancelAnimationFrame(pendingScrollFrame)
-    pendingScrollFrame = null
-  }
-
-  scrollMutationObserver?.disconnect()
-  scrollMutationObserver = null
-
-  if (messagesListRef.value) {
-    messagesListRef.value.removeEventListener('load', handleDeferredContentLoad, true)
-  }
+  stopAutoScrollObservers()
 
   console.log('[AgentChatTab] 🔍 Checking queue before unmount:', {
     hasChatInputRef: !!chatInputRef.value,
