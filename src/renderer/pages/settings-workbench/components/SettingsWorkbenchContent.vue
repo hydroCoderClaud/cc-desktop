@@ -114,6 +114,20 @@ const parseContextKey = (key) => {
   }
 }
 
+const sourcePriority = {
+  project: 0,
+  agent: 1,
+  notebook: 2,
+  recent: 3
+}
+
+const sourceTextMap = computed(() => ({
+  project: t('settingsWorkbench.sourceProject'),
+  agent: t('settingsWorkbench.sourceAgent'),
+  notebook: t('settingsWorkbench.sourceNotebook'),
+  recent: t('settingsWorkbench.sourceRecent')
+}))
+
 const getBaseName = (path) => {
   const normalized = normalizePath(path)
   return normalized.split('/').filter(Boolean).pop() || normalized
@@ -121,13 +135,7 @@ const getBaseName = (path) => {
 
 const getDirectoryLabel = (path, source) => {
   const baseName = getBaseName(path)
-  const sourceLabelMap = {
-    project: t('settingsWorkbench.sourceProject'),
-    agent: t('settingsWorkbench.sourceAgent'),
-    notebook: t('settingsWorkbench.sourceNotebook'),
-    recent: t('settingsWorkbench.sourceRecent')
-  }
-  const sourceLabel = sourceLabelMap[source] || source
+  const sourceLabel = sourceTextMap.value[source] || source
   return `${baseName} · ${sourceLabel}`
 }
 
@@ -205,10 +213,14 @@ const mergeDirectoryEntries = (entries) => {
 
     const existing = map.get(normalizedPath)
     existing.sources = Array.from(new Set([...existing.sources, entry.source]))
-    if (existing.source !== 'project' && entry.source === 'project') {
-      existing.source = 'project'
-      existing.label = getDirectoryLabel(normalizedPath, 'project')
-      existing.value = buildContextKey('project', normalizedPath)
+
+    const existingPriority = sourcePriority[existing.source] ?? 99
+    const nextPriority = sourcePriority[entry.source] ?? 99
+    if (nextPriority < existingPriority) {
+      existing.source = entry.source
+      existing.label = entry.label
+      existing.value = entry.value
+      if (entry.project) existing.project = entry.project
     }
   })
 
@@ -217,16 +229,24 @@ const mergeDirectoryEntries = (entries) => {
 
 const renderDirectoryLabel = (option) => {
   if (!option?.source || option.source === 'global') return option?.label || ''
+  return `${option.label}`
+}
 
-  const sourceTextMap = {
-    project: t('settingsWorkbench.sourceProject'),
-    agent: t('settingsWorkbench.sourceAgent'),
-    notebook: t('settingsWorkbench.sourceNotebook'),
-    recent: t('settingsWorkbench.sourceRecent')
+const groupDirectoryEntries = (entries) => {
+  const grouped = {
+    project: [],
+    agent: [],
+    notebook: [],
+    recent: []
   }
 
-  const sourceText = sourceTextMap[option.source] || option.source
-  return `${option.label} (${sourceText})`
+  entries.forEach(entry => {
+    if (grouped[entry.source]) {
+      grouped[entry.source].push(entry)
+    }
+  })
+
+  return grouped
 }
 
 
@@ -254,7 +274,7 @@ const currentTabComponent = computed(() => {
   return tabComponents[activeTab.value] || tabComponents.skills
 })
 
-const directoryOptions = computed(() => {
+const groupedDirectoryOptions = computed(() => {
   const projectEntries = projects.value
     .filter(project => project?.pathValid)
     .map(project => ({
@@ -266,27 +286,36 @@ const directoryOptions = computed(() => {
     }))
 
   const agentEntries = agentCwdPaths.value.map(path => ({
-    label: getDirectoryLabel(path, 'agent'),
+    label: getBaseName(path),
     value: buildContextKey('agent', path),
     path,
     source: 'agent'
   }))
 
   const notebookEntries = notebookPaths.value.map(path => ({
-    label: getDirectoryLabel(path, 'notebook'),
+    label: getBaseName(path),
     value: buildContextKey('notebook', path),
     path,
     source: 'notebook'
   }))
 
   const recentEntries = manualRecentPaths.value.map(path => ({
-    label: getDirectoryLabel(path, 'recent'),
+    label: getBaseName(path),
     value: buildContextKey('recent', path),
     path,
     source: 'recent'
   }))
 
   const merged = mergeDirectoryEntries([...projectEntries, ...agentEntries, ...notebookEntries, ...recentEntries])
+  return groupDirectoryEntries(merged)
+})
+
+const directoryOptions = computed(() => {
+  const options = [{
+    label: t('settingsWorkbench.noProject'),
+    value: '__GLOBAL__',
+    source: 'global'
+  }]
 
   const custom = (selectedContextKey.value === '__CUSTOM__' && customProjectPath.value)
     ? [{
@@ -297,11 +326,34 @@ const directoryOptions = computed(() => {
     }]
     : []
 
-  return [{
-    label: t('settingsWorkbench.noProject'),
-    value: '__GLOBAL__',
-    source: 'global'
-  }, ...custom, ...merged]
+  if (custom.length) {
+    options.push({
+      type: 'group',
+      label: sourceTextMap.value.recent,
+      key: 'group-recent-custom',
+      children: custom
+    })
+  }
+
+  const groups = [
+    { key: 'project', label: sourceTextMap.value.project },
+    { key: 'agent', label: sourceTextMap.value.agent },
+    { key: 'notebook', label: sourceTextMap.value.notebook },
+    { key: 'recent', label: sourceTextMap.value.recent }
+  ]
+
+  groups.forEach(group => {
+    const children = groupedDirectoryOptions.value[group.key] || []
+    if (!children.length) return
+    options.push({
+      type: 'group',
+      label: group.label,
+      key: `group-${group.key}`,
+      children
+    })
+  })
+
+  return options
 })
 
 const currentProject = computed(() => {

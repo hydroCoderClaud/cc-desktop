@@ -185,6 +185,25 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 | **自治能力** | 代码审查 → 自动修复 → 自动测试 → 自动部署 |
 | **参考** | OpenClaw 的自管理模式、Devin 的任务编排 |
 
+#### 8c. Plugin 安装链路去 CLI 化（远期预研）
+
+当前插件市场的安装 / 卸载 / 更新能力仍依赖 `claude plugin ...` 命令；CC Desktop 现阶段只是对 Claude Code CLI 的 plugin 子命令做桌面端封装。
+
+已核实的能力边界：
+
+- Claude Agent SDK 当前支持的是**会话级本地插件加载与重载**
+- 不提供 marketplace plugin 的安装 / 卸载 API
+- 因此短期内不考虑替换现有 CLI 安装链路
+
+如后续确需摆脱 `claude` CLI 依赖，需要单独设计并实现一套插件管理链路，例如：
+
+- 插件市场源拉取与校验
+- 插件包下载 / 解压 / 版本管理
+- `~/.claude/plugins/` 安装目录与注册表维护
+- 与 settings / enabledPlugins / marketplace 状态的一致性同步
+
+该方向暂列为**远期需求**，仅在独立项目路线或插件系统重构时再评估投入。
+
 #### 决策点
 
 | 维度 | 升级现有 (8a) | 独立开发 (8b) |
