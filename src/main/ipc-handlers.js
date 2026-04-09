@@ -200,6 +200,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  // 打开能力管理窗口（跨模式可访问）
+  ipcMain.handle('window:openSettingsWorkbench', async () => {
+    createSubWindow({
+      width: 1100,
+      height: 760,
+      title: '能力管理 - CC Desktop',
+      page: 'settings-workbench'
+    });
+    return { success: true };
+  });
+
   // 打开服务商管理窗口
   ipcMain.handle('window:openProviderManager', async () => {
     createSubWindow({

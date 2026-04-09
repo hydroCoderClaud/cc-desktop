@@ -757,12 +757,28 @@ export default {
     apiConfig: 'API Configuration',
     providerManager: 'Provider Manager',
     globalSettings: 'Global Settings',
+    capabilityWorkbench: 'Capability Workbench',
     appearanceSettings: 'Appearance',
     sessionHistory: 'Session Browser',
     dingtalkBridge: 'DingTalk Bridge',
     appUpdate: 'App Update',
     claudeSettings: 'Claude Settings File',
     claudeSettingsNotFound: 'Claude settings file not found'
+  },
+
+  settingsWorkbench: {
+    title: 'Capability Workbench',
+    subtitle: 'Manage Skills / MCP / Agents / Hooks / Plugins / Settings across modes',
+    projectContext: 'Project Context',
+    projectPlaceholder: 'Manage global scopes when no project is selected',
+    noProject: 'Global only (no project)',
+    selectDirectory: 'Select Directory',
+    sourceProject: 'Project',
+    sourceAgent: 'Agent',
+    sourceNotebook: 'Notebook',
+    sourceRecent: 'Recent',
+    projectTipNone: 'No project selected. Only global scopes are shown and editable; select a project to manage project scopes.',
+    projectTipSelected: 'Current project: {name}. Global and project scopes are both available.'
   },
 
   // API Profile Manager

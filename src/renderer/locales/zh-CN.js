@@ -760,12 +760,28 @@ export default {
     apiConfig: 'API 配置管理',
     providerManager: '服务商管理',
     globalSettings: '全局设置',
+    capabilityWorkbench: '能力管理',
     appearanceSettings: '外观设置',
     sessionHistory: '会话查询',
     dingtalkBridge: '钉钉桥接',
     appUpdate: '应用更新',
     claudeSettings: 'Claude 配置文件',
     claudeSettingsNotFound: 'Claude 配置文件不存在'
+  },
+
+  settingsWorkbench: {
+    title: '能力管理',
+    subtitle: '跨模式集中管理 Skills / MCP / Agents / Hooks / Plugins / Settings',
+    projectContext: '目录上下文',
+    projectPlaceholder: '不选目录时仅管理全局配置',
+    noProject: '仅全局（不选择目录）',
+    selectDirectory: '选择目录',
+    sourceProject: '项目',
+    sourceAgent: 'Agent',
+    sourceNotebook: 'Notebook',
+    sourceRecent: '最近',
+    projectTipNone: '当前未选择目录，仅显示和编辑全局能力；选择目录后可管理项目级能力。',
+    projectTipSelected: '当前目录：{name}，可同时管理全局与项目级能力。'
   },
 
   // API 配置管理

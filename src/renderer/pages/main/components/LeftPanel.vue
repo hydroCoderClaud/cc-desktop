@@ -577,6 +577,7 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
   { label: t('settingsMenu.dingtalkBridge'), key: 'dingtalk-settings', icon: renderMenuIcon('robot') },
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
+  { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   { type: 'divider', key: 'd1' },
   { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
@@ -685,6 +686,9 @@ const handleSettingsSelect = async (key) => {
       break
     case 'global-settings':
       window.electronAPI.openGlobalSettings()
+      break
+    case 'capability-workbench':
+      window.electronAPI.openSettingsWorkbench()
       break
     case 'appearance-settings':
       window.electronAPI.openAppearanceSettings()
