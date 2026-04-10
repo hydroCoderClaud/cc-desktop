@@ -84,6 +84,30 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(result.achievementId).toMatch(/^ach-/)
   })
 
+  it('previewGeneration 只返回 prompt，不创建 achievement', () => {
+    const { mgr, nb, sourceId } = setupNotebookWithSource(baseDir)
+
+    const result = mgr.previewGeneration(nb.id, 'notes', [sourceId])
+
+    expect(result.prompt).toContain('report.pdf')
+    expect(result.expectedAbsPath).toContain(baseDir)
+    expect(result.sourceIds).toEqual([sourceId])
+    expect(mgr.listAchievements(nb.id)).toHaveLength(0)
+  })
+
+  it('previewGeneration 与 prepareGeneration 产出的 prompt 结构一致', () => {
+    const { mgr, nb, sourceId } = setupNotebookWithSource(baseDir)
+
+    const preview = mgr.previewGeneration(nb.id, 'notes', [sourceId])
+    const prepared = mgr.prepareGeneration(nb.id, 'notes', [sourceId])
+
+    expect(preview.prompt).toContain('report.pdf')
+    expect(prepared.prompt).toContain('report.pdf')
+    expect(preview.expectedAbsPath).toMatch(/achievements/)
+    expect(prepared.expectedAbsPath).toMatch(/achievements/)
+    expect(mgr.listAchievements(nb.id)).toHaveLength(1)
+  })
+
   // ── 路径计算 ──────────────────────────────────────────────────────────────
 
   it('outputType 扩展名决定正确的文件后缀', () => {

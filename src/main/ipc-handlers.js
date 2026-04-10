@@ -466,6 +466,19 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
   });
 
+  ipcMain.handle('path:exists', async (event, targetPath) => {
+    if (!targetPath) {
+      return false;
+    }
+    try {
+      const fs = require('fs');
+      return fs.existsSync(targetPath);
+    } catch (err) {
+      console.error('[IPC] path:exists error:', err);
+      return false;
+    }
+  });
+
   // 获取 Claude 配置文件路径
   ipcMain.handle('claude:getSettingsPath', async () => {
     const homedir = require('os').homedir();

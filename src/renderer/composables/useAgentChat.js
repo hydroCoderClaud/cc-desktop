@@ -246,19 +246,52 @@ export function useAgentChat(sessionId, options = {}) {
     return false
   }
 
+  const normalizeOutgoingMessage = (message) => {
+    if (typeof message === 'string') {
+      return message
+    }
+
+    if (!message || typeof message !== 'object') {
+      return ''
+    }
+
+    const text = typeof message.text === 'string'
+      ? message.text
+      : String(message.text || '')
+
+    const images = Array.isArray(message.images)
+      ? message.images
+        .filter(image => image && typeof image === 'object')
+        .map(image => ({
+          base64: typeof image.base64 === 'string' ? image.base64 : '',
+          mediaType: typeof image.mediaType === 'string' ? image.mediaType : '',
+          sizeBytes: Number.isFinite(image.sizeBytes) ? image.sizeBytes : 0,
+          warning: Boolean(image.warning)
+        }))
+        .filter(image => image.base64 && image.mediaType)
+      : []
+
+    if (images.length === 0) {
+      return text
+    }
+
+    return { text, images }
+  }
+
   const sendMessage = async (text) => {
     // 支持两种格式：字符串（纯文本）和对象（带图片）
     let textContent = ''
     let originalMessage = null
     let hasImages = false
+    const normalizedMessage = normalizeOutgoingMessage(text)
 
-    if (typeof text === 'string') {
-      textContent = text
-      originalMessage = text
-    } else if (text && typeof text === 'object') {
-      textContent = text.text || ''
-      originalMessage = text
-      hasImages = text.images && text.images.length > 0
+    if (typeof normalizedMessage === 'string') {
+      textContent = normalizedMessage
+      originalMessage = normalizedMessage
+    } else if (normalizedMessage && typeof normalizedMessage === 'object') {
+      textContent = normalizedMessage.text || ''
+      originalMessage = normalizedMessage
+      hasImages = normalizedMessage.images && normalizedMessage.images.length > 0
     }
 
     // 必须有文本内容或图片

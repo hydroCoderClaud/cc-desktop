@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
   resolvePath: (basePath, relativePath) => ipcRenderer.invoke('path:resolve', basePath, relativePath),
+  pathExists: (targetPath) => ipcRenderer.invoke('path:exists', targetPath),
 
   // ========================================
   // Claude 配置文件
@@ -799,6 +800,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookSaveChatImageToAchievement: ({ notebookId, filename, dataUrl, sourceIds }) => ipcRenderer.invoke('notebook:saveChatImageToAchievement', { notebookId, filename, dataUrl, sourceIds }),
   notebookSaveChatMarkdownToSource: ({ notebookId, filename, content }) => ipcRenderer.invoke('notebook:saveChatMarkdownToSource', { notebookId, filename, content }),
   notebookSaveChatMarkdownToAchievement: ({ notebookId, filename, content, sourceIds }) => ipcRenderer.invoke('notebook:saveChatMarkdownToAchievement', { notebookId, filename, content, sourceIds }),
+  notebookFinalizeAchievementText: ({ notebookId, achievementId, content, sourceIds }) => ipcRenderer.invoke('notebook:finalizeAchievementText', { notebookId, achievementId, content, sourceIds }),
   notebookSetCopySourceFiles: ({ notebookId, value }) => ipcRenderer.invoke('notebook:setCopySourceFiles', { notebookId, value }),
   notebookSanitizeIndexes: (notebookId) => ipcRenderer.invoke('notebook:sanitizeIndexes', notebookId),
   notebookAddPathToSource: ({ notebookId, filePath, preferredName }) => ipcRenderer.invoke('notebook:addPathToSource', { notebookId, filePath, preferredName }),
@@ -815,6 +817,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Notebook Generation
   notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds }),
+  notebookPreviewGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:previewGeneration', { notebookId, toolId, sourceIds }),
 
   // Notebook Install
   notebookInstallTool: ({ tool, options }) => ipcRenderer.invoke('notebook:installTool', { tool, options }),

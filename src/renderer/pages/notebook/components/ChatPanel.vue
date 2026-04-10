@@ -112,7 +112,8 @@
       :active-model="activeModel"
       :model-mapping="modelMapping"
       v-model:model-value="selectedModel"
-      @send="handleSend"
+      @send="handleInputSend"
+      @input-change="handleInputChange"
       @cancel="handleCancel"
       @update:queue-enabled="handleToggleQueue"
     >
@@ -132,6 +133,7 @@ import { useLocale } from '@composables/useLocale'
 import { useMessage } from 'naive-ui'
 import { useAgentChat } from '@composables/useAgentChat'
 import { useAutoScrollToBottom } from '@composables/useAutoScrollToBottom'
+import { collectGenerationAssistantText } from '../utils/generation-result.js'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
 import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
 import AskUserQuestionCard from '@/pages/main/components/agent/AskUserQuestionCard.vue'
@@ -194,6 +196,8 @@ const emit = defineEmits([
   'preview-image',
   'preview-link',
   'preview-path',
+  'input-change',
+  'send',
   'agent-done',
   'agent-cancelled',
   'request-clear-session',
@@ -257,28 +261,23 @@ watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming) {
     if (isInterrupting.value) return
     const finishedToken = activeGenerationToken.value
-    const msgs = messages.value
-    let startIdx = msgs.length - 1
-    while (startIdx > 0 && msgs[startIdx].role !== 'user') startIdx--
-    const filePaths = []
-    for (let i = startIdx + 1; i < msgs.length; i++) {
-      const msg = msgs[i]
-      const fp = msg.input?.file_path || msg.input?.filePath
-      if (fp) filePaths.push(fp)
-      if (msg.content) {
-        const unixPaths = msg.content.match(/\/(?:[\w\-. ]+\/)+[\w\-. ]+\.[\w]{1,10}/g) || []
-        const winPaths = msg.content.match(/[A-Za-z]:\\(?:[\w\-. ]+\\)+[\w\-. ]+\.[\w]{1,10}/g) || []
-        unixPaths.concat(winPaths).forEach(p => filePaths.push(p))
-      }
-    }
-    emit('agent-done', { filePaths: [...new Set(filePaths)], generationToken: finishedToken })
+    const assistantText = collectGenerationAssistantText(messages.value)
+    emit('agent-done', { assistantText, generationToken: finishedToken })
   }
 })
 
-const handleSend = async (text) => {
+const dispatchMessage = async (text) => {
   activeGenerationToken.value = props.generationToken
   await sendMessage(text)
   scrollToBottom(false, true)
+}
+
+const handleInputSend = (payload) => {
+  emit('send', payload)
+}
+
+const handleInputChange = (text) => {
+  emit('input-change', text)
 }
 
 const handleCancel = async () => {
@@ -404,7 +403,7 @@ const tryAutoConsumeQueue = () => {
   nextTick(async () => {
     const next = chatInputRef.value?.dequeue()
     if (next) {
-      await handleSend(next)
+      handleInputSend(next)
     }
   })
 }
@@ -414,9 +413,14 @@ const insertText = (text) => {
   chatInputRef.value?.insertText?.(text)
 }
 
+const setText = (text) => {
+  chatInputRef.value?.setText?.(text)
+}
+
 defineExpose({
-  sendMessage: handleSend,
-  insertText
+  sendMessage: dispatchMessage,
+  insertText,
+  setText
 })
 
 // 流式结束后自动消费队列

@@ -280,6 +280,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:finalizeAchievementText', async (_e, { notebookId, achievementId, content, sourceIds }) => {
+    try {
+      return notebookManager.finalizeAchievementText(notebookId, { achievementId, content, sourceIds })
+    } catch (err) {
+      console.error('[IPC] notebook:finalizeAchievementText error:', err)
+      throw err
+    }
+  })
+
   ipcMain.handle('notebook:setCopySourceFiles', async (_e, { notebookId, value }) => {
     try {
       return notebookManager.setCopySourceFiles(notebookId, value)
@@ -449,6 +458,15 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
       return notebookManager.prepareGeneration(notebookId, toolId, sourceIds)
     } catch (err) {
       console.error('[IPC] notebook:prepareGeneration error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:previewGeneration', async (_e, { notebookId, toolId, sourceIds }) => {
+    try {
+      return notebookManager.previewGeneration(notebookId, toolId, sourceIds)
+    } catch (err) {
+      console.error('[IPC] notebook:previewGeneration error:', err)
       throw err
     }
   })

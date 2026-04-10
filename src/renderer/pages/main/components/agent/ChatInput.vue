@@ -299,7 +299,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'update:modelValue', 'update:queueEnabled', 'enqueue'])
+const emit = defineEmits(['send', 'cancel', 'update:modelValue', 'update:queueEnabled', 'enqueue', 'input-change'])
 
 // ============================
 // Token 格式化
@@ -506,6 +506,7 @@ const autoResize = () => {
 
 const handleInput = () => {
   autoResize()
+  emit('input-change', inputText.value)
 
   // 检测 slash 命令
   const text = inputText.value
@@ -735,6 +736,7 @@ const removeImage = (index) => {
 const handleClear = () => {
   inputText.value = ''
   attachedImages.value = []
+  emit('input-change', '')
   nextTick(autoResize)
 }
 
@@ -820,6 +822,22 @@ const focus = () => {
   textareaRef.value?.focus()
 }
 
+const setText = (text) => {
+  inputText.value = typeof text === 'string' ? text : ''
+  attachedImages.value = []
+  showSlashPanel.value = false
+  slashFilter.value = ''
+  emit('input-change', inputText.value)
+  nextTick(() => {
+    autoResize()
+    const textarea = textareaRef.value
+    if (!textarea) return
+    const position = inputText.value.length
+    textarea.focus()
+    textarea.setSelectionRange(position, position)
+  })
+}
+
 // 插入文本到输入框（光标位置或末尾）
 const insertText = (text) => {
   const textarea = textareaRef.value
@@ -893,7 +911,7 @@ const onInputContextMenuSelect = async (key) => {
   }
 }
 
-defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText })
+defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
 </script>
 
 <style scoped>

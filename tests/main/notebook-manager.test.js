@@ -310,6 +310,25 @@ describe('NotebookManager', () => {
     expect(fs.readFileSync(path.join(nb.notebookPath, second.path), 'utf-8')).toBe('# second')
   })
 
+  it('finalizeAchievementText: 为生成中的 achievement 落盘并标记完成', () => {
+    const nb = mgr.create({ name: '生成文本回填成果' })
+    const achievement = mgr.addAchievement(nb.id, {
+      name: '草稿成果',
+      type: 'md',
+      path: 'achievements/notes/result.md'
+    })
+
+    const updated = mgr.finalizeAchievementText(nb.id, {
+      achievementId: achievement.id,
+      content: '# final result',
+      sourceIds: ['src-1']
+    })
+
+    expect(updated.status).toBe('done')
+    expect(updated.sourceIds).toEqual(['src-1'])
+    expect(fs.readFileSync(path.join(nb.notebookPath, achievement.path), 'utf-8')).toBe('# final result')
+  })
+
   it('addPathToSource: 复制外部文件到 sources 并写入索引', async () => {
     const nb = mgr.create({ name: '路径添加到来源' })
     const tmpFile = path.join(os.tmpdir(), `notebook-add-path-source-${Date.now()}.txt`)

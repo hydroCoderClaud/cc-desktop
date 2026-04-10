@@ -73,18 +73,32 @@
               <span v-else-if="type.beta" class="beta-badge">{{ t('notebook.studio.betaBadge') }}</span>
             </div>
             <span class="type-name" :style="{ color: type.color }">{{ type.name || t('notebook.tools.' + type.id) || t('notebook.types.' + type.id) }}</span>
-            <button
-              v-if="type.installed !== false"
-              class="type-edit-btn"
-              :style="{
-                color: type.color,
-                background: `${type.color}22`,
-                borderColor: `${type.color}55`
-              }"
-              @click.stop="$emit('edit-tool', type)"
-            >
-              <Icon name="edit" :size="14" />
-            </button>
+            <div v-if="type.installed !== false" class="type-card-actions">
+              <button
+                class="type-action-btn"
+                :title="t('common.edit')"
+                :style="{
+                  color: type.color,
+                  background: `${type.color}22`,
+                  borderColor: `${type.color}55`
+                }"
+                @click.stop="$emit('edit-tool', type)"
+              >
+                <Icon name="edit" :size="14" />
+              </button>
+              <button
+                class="type-action-btn"
+                :title="t('notebook.studio.insertPrompt')"
+                :style="{
+                  color: type.color,
+                  background: `${type.color}22`,
+                  borderColor: `${type.color}55`
+                }"
+                @click.stop="$emit('prefill-tool-prompt', type)"
+              >
+                <Icon name="insertDown" :size="14" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -122,9 +136,9 @@
               v-for="achievement in achievements"
               :key="achievement.id"
               class="achievement-item"
-              :class="{ selected: achievement.selected, generating: achievement.status === 'generating' }"
+              :class="{ selected: achievement.selected, generating: achievement.status === 'generating', failed: achievement.status === 'failed' }"
               :title="achievement.path || ''"
-              @click="achievement.status !== 'generating' && openDetail(achievement)"
+              @click="achievement.status === 'done' && openDetail(achievement)"
             >
               <div v-if="achievement.status === 'generating'" class="generating-spinner"></div>
               <Icon v-else :name="getAchievementIcon(achievement.type)" :size="20" :color="achievement.color" />
@@ -133,6 +147,7 @@
                 <div class="achievement-name">{{ achievement.name }}</div>
                 <div class="achievement-meta">
                   <span v-if="achievement.status === 'generating'" class="status-text generating-text">{{ t('notebook.studio.generating') }}</span>
+                  <span v-else-if="achievement.status === 'failed'" class="status-text failed-text">{{ t('notebook.studio.failed') }}</span>
                   <template v-else>
                     <span>{{ t('notebook.studio.sources', { count: achievement.sourceCount || 0 }) }}</span>
                     <span class="dot">•</span>
@@ -140,7 +155,7 @@
                   </template>
                 </div>
               </div>
-              <div class="achievement-right" v-if="achievement.status !== 'generating'">
+              <div class="achievement-right" v-if="achievement.status === 'done'">
                 <div class="achievement-actions">
                   <button v-if="['video', 'audio', 'mp4', 'webm', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes((achievement.type || '').toLowerCase())" class="action-icon-btn" @click.stop>
                     <Icon name="play" :size="16" />
@@ -269,7 +284,7 @@ const allSelected = computed(() => props.achievements.length > 0 && props.achiev
 const emit = defineEmits([
   'generate', 'export', 'delete', 'download-tool', 'open-market', 'open-external',
   'toggle-select-all', 'invert-selection', 'update-achievement', 'delete-achievements',
-  'edit-tool', 'add-to-source', 'rename', 'insert-path-to-input', 'toggle-tag', 'clear-tag-filters',
+  'edit-tool', 'prefill-tool-prompt', 'add-to-source', 'rename', 'insert-path-to-input', 'toggle-tag', 'clear-tag-filters',
   'update:showRightPanel'
 ])
 
@@ -481,13 +496,14 @@ const getAchievementHeaderName = (achievement) => {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  padding: 10px 10px 8px;
+  padding: 9px 38px 10px 10px;
   border-radius: 10px;
   cursor: pointer;
   position: relative;
   transition: all 0.15s;
   overflow: hidden;
   min-width: 0;
+  min-height: 68px;
 }
 
 .type-card:hover { transform: translateY(-1px); box-shadow: 0 3px 10px var(--shadow-color); }
@@ -497,13 +513,19 @@ const getAchievementHeaderName = (achievement) => {
 
 .beta-badge { font-size: 9px; background: rgba(255, 255, 255, 0.92); color: #1f2937; padding: 2px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
 
-.type-edit-btn {
+.type-card-actions {
   position: absolute;
   top: 50%;
-  right: 8px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
+}
+
+.type-action-btn {
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -515,7 +537,7 @@ const getAchievementHeaderName = (achievement) => {
   transition: opacity 0.15s;
   color: rgba(255, 255, 255, 0.96);
 }
-.type-card:hover .type-edit-btn { opacity: 1; }
+.type-card:hover .type-action-btn { opacity: 1; }
 
 /* Not Installed State */
 .type-card.not-installed {
@@ -744,6 +766,13 @@ const getAchievementHeaderName = (achievement) => {
 .achievement-item.generating:hover {
   background: var(--bg-color-tertiary); /* 禁用 hover 效果 */
 }
+.achievement-item.failed {
+  opacity: 0.9;
+  cursor: default;
+}
+.achievement-item.failed:hover {
+  background: var(--bg-color-secondary);
+}
 
 .generating-spinner {
   width: 20px;
@@ -759,6 +788,11 @@ const getAchievementHeaderName = (achievement) => {
   color: var(--primary-color);
   font-weight: 500;
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-text.failed-text {
+  color: var(--error-color, #d03050);
+  font-weight: 500;
 }
 
 @keyframes spin {

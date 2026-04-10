@@ -149,6 +149,34 @@ const notebookAchievementMixin = {
     return this.updateAchievement(notebookId, achievement.id, { status: 'done', path: relPath, sourceIds })
   },
 
+  finalizeAchievementText(notebookId, { achievementId, content, sourceIds } = {}) {
+    if (!achievementId) throw new Error('成果 ID 不能为空')
+    if (typeof content !== 'string' || !content.trim()) throw new Error('消息内容不能为空')
+
+    const achievement = this.listAchievements(notebookId).find(item => item.id === achievementId)
+    if (!achievement) throw new Error(`成果不存在：${achievementId}`)
+    if (!achievement.path) throw new Error('成果文件路径不存在')
+
+    const notebookPath = this._getNotebookPath(notebookId)
+    const absPath = path.isAbsolute(achievement.path)
+      ? achievement.path
+      : path.resolve(notebookPath, achievement.path)
+    const normalizedNotebookPath = path.resolve(notebookPath)
+
+    if (!(absPath === normalizedNotebookPath || absPath.startsWith(`${normalizedNotebookPath}${path.sep}`))) {
+      throw new Error('不允许写入笔记本目录之外的成果')
+    }
+
+    fs.mkdirSync(path.dirname(absPath), { recursive: true })
+    fs.writeFileSync(absPath, content, 'utf-8')
+
+    const updates = { status: 'done' }
+    if (Array.isArray(sourceIds)) {
+      updates.sourceIds = [...sourceIds]
+    }
+    return this.updateAchievement(notebookId, achievementId, updates)
+  },
+
   addPathToAchievement(notebookId, filePath, options = {}) {
     if (!filePath || !fs.existsSync(filePath)) {
       throw new Error(`文件不存在：${filePath}`)

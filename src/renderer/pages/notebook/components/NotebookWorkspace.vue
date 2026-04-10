@@ -53,6 +53,8 @@
         :selected-count="selectedSources.length"
         :api-profile-id="currentNotebook.apiProfileId"
         :generation-token="activeGenerationToken"
+        @send="handleChatSend"
+        @input-change="handleChatInputChange"
         @preview-image="handlePreviewImage"
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
@@ -107,6 +109,7 @@
         @delete="handleDeleteAchievement"
         @rename="handleRenameAchievement"
         @edit-tool="handleEditTool"
+        @prefill-tool-prompt="handlePrefillToolPrompt"
         @download-tool="handleDownloadTool"
         @add-to-source="handleAddAchievementToSource"
         @insert-path-to-input="handleInsertAchievementPathToInput"
@@ -174,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, computed, h } from 'vue'
+import { ref, shallowRef, computed, h } from 'vue'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
@@ -184,6 +187,11 @@ import { useNotebookTools } from '../composables/useNotebookTools'
 import { useNotebookChatAssets } from '../composables/useNotebookChatAssets'
 import { useNotebookSessionLifecycle } from '../composables/useNotebookSessionLifecycle'
 import { isAbsolutePath, joinNotebookPath, getDirname } from '../utils/helpers.js'
+import {
+  createPendingGenerationDraft,
+  buildDraftGenerationRequest,
+  createOptimisticGenerationAchievement
+} from '../utils/generation-draft.js'
 import NotebookTopNav from './NotebookTopNav.vue'
 import SourcePanel from './SourcePanel.vue'
 import ChatPanel from './ChatPanel.vue'
@@ -206,6 +214,7 @@ const primaryGhost = computed(() => cssVars.value?.['--primary-ghost'] || '#e8f4
 const chatPanelRef = ref(null)
 const activeGenerationAchievementId = ref(null)
 const activeGenerationToken = ref(0)
+const pendingGenerationDraft = shallowRef(null)
 
 // ─── 当前笔记本状态 ────────────────────────────────────────────────────────────
 const currentNotebook = ref(null)
@@ -252,6 +261,7 @@ const {
 })
 
 const handleClearSession = async () => {
+  pendingGenerationDraft.value = null
   await restartNotebookSession()
 }
 
@@ -860,6 +870,7 @@ const handleGenerateAchievement = async (typeId) => {
   }
 
   const sourceIds = selectedSources.value.map(s => s.id)
+  pendingGenerationDraft.value = null
 
   try {
     const { achievementId, prompt } = await window.electronAPI.notebookPrepareGeneration({
@@ -901,10 +912,120 @@ const handleGenerateAchievement = async (typeId) => {
   }
 }
 
+const ensureAchievementVisible = (achievementId, draft) => {
+  if (!achievementId || !currentNotebook.value || !draft) return
+  if (achievements.value.some(achievement => achievement.id === achievementId)) return
+
+  const tool = (availableTypes.value || []).find(item => item.id === draft.toolId)
+  const sourceMetaMap = new Map(sources.value.map(source => [source.id, source]))
+  const optimistic = createOptimisticGenerationAchievement({
+    achievementId,
+    toolId: draft.toolId,
+    toolName: tool?.name || draft.toolId,
+    outputType: tool?.outputType || tool?.type || 'report',
+    expectedAbsPath: draft.expectedAbsPath,
+    sourceIds: draft.sourceIds,
+    prompt: draft.prompt
+  })
+
+  achievements.value = processAchievements(
+    [...achievements.value, optimistic],
+    currentNotebook.value.notebookPath,
+    sourceMetaMap
+  )
+}
+
+const normalizeDraftMessageText = (payload) => {
+  if (typeof payload === 'string') return payload
+  return payload?.text || ''
+}
+
+const handlePrefillToolPrompt = async (tool) => {
+  if (!currentNotebook.value || !tool?.id) return
+
+  try {
+    const sourceIds = selectedSources.value.map(source => source.id)
+    const { prompt, expectedAbsPath } = await window.electronAPI.notebookPreviewGeneration({
+      notebookId: currentNotebook.value.id,
+      toolId: tool.id,
+      sourceIds
+    })
+
+    pendingGenerationDraft.value = createPendingGenerationDraft({
+      notebookId: currentNotebook.value.id,
+      toolId: tool.id,
+      sourceIds,
+      expectedAbsPath,
+      prompt
+    })
+
+    showRightPanel.value = true
+    chatPanelRef.value?.setText?.(prompt)
+    message.success(t('notebook.studio.insertPromptSuccess'))
+  } catch (err) {
+    console.error('[Notebook] Failed to prefill tool prompt:', err)
+    pendingGenerationDraft.value = null
+    message.error(err.message || t('common.error'))
+  }
+}
+
+const handleChatSend = async (payload) => {
+  if (!chatPanelRef.value) return
+
+  const draft = pendingGenerationDraft.value
+  const messageText = normalizeDraftMessageText(payload).trim()
+
+  if (!draft || !currentNotebook.value || draft.notebookId !== currentNotebook.value.id || !messageText) {
+    pendingGenerationDraft.value = null
+    await chatPanelRef.value.sendMessage(payload)
+    return
+  }
+
+  let createdAchievementId = null
+  try {
+    const { achievementId } = await window.electronAPI.notebookPrepareGeneration(
+      buildDraftGenerationRequest(currentNotebook.value.id, draft)
+    )
+
+    createdAchievementId = achievementId
+    activeGenerationAchievementId.value = achievementId
+    activeGenerationToken.value += 1
+    pendingGenerationDraft.value = null
+
+    await refreshAchievements()
+    ensureAchievementVisible(achievementId, draft)
+    await chatPanelRef.value.sendMessage(payload)
+  } catch (err) {
+    console.error('[Notebook] Failed to start draft generation:', err)
+
+    if (createdAchievementId && currentNotebook.value?.id) {
+      try {
+        await window.electronAPI.notebookDeleteAchievements({
+          notebookId: currentNotebook.value.id,
+          achievementIds: [createdAchievementId]
+        })
+        await refreshAchievements()
+      } catch (rollbackErr) {
+        console.error('[Notebook] Failed to rollback draft achievement:', rollbackErr)
+      }
+    }
+
+    activeGenerationAchievementId.value = null
+    activeGenerationToken.value = 0
+    message.error(err.message || '生成准备失败')
+  }
+}
+
+const handleChatInputChange = (text) => {
+  if (pendingGenerationDraft.value && !String(text || '').trim()) {
+    pendingGenerationDraft.value = null
+  }
+}
+
 const handleAgentDone = async (payload = {}) => {
   if (!currentNotebook.value) return
 
-  const { filePaths = [], generationToken = 0 } = payload
+  const { generationToken = 0, assistantText = '' } = payload
   if (generationToken !== activeGenerationToken.value || !generationToken) return
 
   const achievementId = activeGenerationAchievementId.value
@@ -917,22 +1038,12 @@ const handleAgentDone = async (payload = {}) => {
     return
   }
 
-  // 标准化路径为正斜杠格式，便于比较
-  const normalize = (p) => p?.replace(/\\/g, '/') || ''
-
   let hasOutputFile = false
   if (ach.path) {
     const expectedAbs = await window.electronAPI.resolvePath(currentNotebook.value.notebookPath, ach.path)
 
-    // 直接检查预期路径的文件是否存在（最可靠的判断方式）
-    // 无论 Claude 是否在对话中提到该路径，只要文件在那里就判定成功
     try {
-      const fileData = await window.electronAPI.readAbsolutePath({
-        filePath: expectedAbs,
-        sessionId: currentNotebook.value?.sessionId,
-        confirmed: true
-      })
-      hasOutputFile = !fileData?.error
+      hasOutputFile = await window.electronAPI.pathExists(expectedAbs)
     } catch {
       hasOutputFile = false
     }
@@ -945,10 +1056,18 @@ const handleAgentDone = async (payload = {}) => {
         achievementId: ach.id,
         updates: { status: 'done' }
       })
-    } else {
-      await window.electronAPI.notebookDeleteAchievements({
+    } else if (String(assistantText || '').trim()) {
+      await window.electronAPI.notebookFinalizeAchievementText({
         notebookId: currentNotebook.value.id,
-        achievementIds: [ach.id]
+        achievementId: ach.id,
+        content: assistantText,
+        sourceIds: Array.isArray(ach.sourceIds) ? [...ach.sourceIds] : []
+      })
+    } else {
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'failed' }
       })
     }
   } catch (err) {
