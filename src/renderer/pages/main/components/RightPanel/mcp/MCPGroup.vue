@@ -31,6 +31,7 @@
             <button class="icon-btn inline" :title="t('common.copy')" @click.stop="$emit('copy', server)"><Icon name="copy" :size="14" /></button>
             <button class="icon-btn inline" :title="t('common.edit')" @click.stop="$emit('edit', server)"><Icon name="edit" :size="14" /></button>
             <button v-if="server.filePath" class="icon-btn inline" :title="t('rightPanel.mcp.openFile')" @click.stop="$emit('openFile', server)"><Icon name="externalLink" :size="14" /></button>
+            <button class="icon-btn inline" :title="t('rightPanel.mcp.allowGlobal')" @click.stop="$emit('allowGlobal', server)"><Icon name="unlock" :size="14" /></button>
             <button v-if="editable" class="icon-btn inline" :title="t('common.delete')" @click.stop="$emit('delete', server)"><Icon name="delete" :size="14" /></button>
           </span>
         </div>
@@ -67,7 +68,7 @@ defineProps({
   badgeClass: String
 })
 
-defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile'])
+defineEmits(['toggle', 'create', 'edit', 'delete', 'copy', 'click', 'openFile', 'allowGlobal'])
 </script>
 
 <style scoped>

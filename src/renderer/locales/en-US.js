@@ -512,7 +512,10 @@ export default {
       confirmDeleteContent: 'Are you sure you want to delete MCP Server "{name}"?',
       deleteSuccess: 'Deleted successfully',
       readonly: 'Read-only',
-      openFile: 'Open Config File'
+      openFile: 'Open Config File',
+      allowGlobal: 'Allow globally',
+      allowGlobalSuccess: 'Added global wildcard permission for MCP server "{name}"',
+      allowGlobalExists: 'Global wildcard permission already exists for MCP server "{name}"'
     },
     // Agents
     agents: {

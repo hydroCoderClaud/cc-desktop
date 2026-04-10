@@ -47,6 +47,7 @@
           @copy="handleCopy"
           @click="handleClick"
           @openFile="handleOpenFile"
+          @allowGlobal="handleAllowGlobal"
         />
 
         <!-- Local Servers -->
@@ -63,6 +64,7 @@
           @copy="handleCopy"
           @click="handleClick"
           @openFile="handleOpenFile"
+          @allowGlobal="handleAllowGlobal"
         />
 
         <!-- Project Servers -->
@@ -79,6 +81,7 @@
           @copy="handleCopy"
           @click="handleClick"
           @openFile="handleOpenFile"
+          @allowGlobal="handleAllowGlobal"
         />
 
         <!-- Plugin Servers -->
@@ -92,6 +95,7 @@
           @copy="handleCopy"
           @click="handleClick"
           @openFile="handleOpenFile"
+          @allowGlobal="handleAllowGlobal"
         />
       </div>
     </div>
@@ -285,6 +289,35 @@ const handleOpenFile = async (server) => {
   } catch (err) {
     console.error('Failed to open file:', err)
     message.error(t('common.openFailed'))
+  }
+}
+
+const handleAllowGlobal = async (server) => {
+  const pattern = `mcp__${server.name}__*`
+
+  try {
+    const permissions = await window.electronAPI.getClaudePermissions({ scope: 'global' })
+    if (permissions?.allow?.includes(pattern)) {
+      message.info(t('rightPanel.mcp.allowGlobalExists', { name: server.name }))
+      return
+    }
+
+    const result = await window.electronAPI.addClaudePermission({
+      scope: 'global',
+      type: 'allow',
+      pattern
+    })
+
+    if (result.success) {
+      message.success(t('rightPanel.mcp.allowGlobalSuccess', { name: server.name }))
+    } else if (result.error === 'Rule already exists') {
+      message.info(t('rightPanel.mcp.allowGlobalExists', { name: server.name }))
+    } else {
+      message.error(result.error || t('common.saveFailed'))
+    }
+  } catch (err) {
+    console.error('Failed to grant global MCP permission:', err)
+    message.error(t('common.saveFailed'))
   }
 }
 

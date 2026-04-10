@@ -512,7 +512,10 @@ export default {
       confirmDeleteContent: '确定要删除 MCP Server "{name}" 吗？',
       deleteSuccess: '删除成功',
       readonly: '只读',
-      openFile: '打开配置文件'
+      openFile: '打开配置文件',
+      allowGlobal: '添加全局放行',
+      allowGlobalSuccess: '已为 MCP Server "{name}" 添加全局通配权限',
+      allowGlobalExists: 'MCP Server "{name}" 的全局通配权限已存在'
     },
     // Agents
     agents: {
