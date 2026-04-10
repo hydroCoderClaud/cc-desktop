@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> CC Desktop v1.6.99 | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> CC Desktop v1.7.35+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
@@ -8,7 +8,7 @@
 
 ## 页面架构
 
-应用包含 **9 个独立 BrowserWindow 页面**，每个页面有独立的 `index.html` → `main.js` → `App.vue` 入口链。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
+应用包含 **11 个独立 BrowserWindow 页面**，每个页面有独立的 `index.html` → `main.js` → `App.vue` 入口链。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
 
 ### 主窗口
 
@@ -16,10 +16,11 @@
 |------|------|
 | **main** | 主窗口，承载 Developer、Agent、Notebook 三种模式的核心交互 |
 
-### 8 个独立窗口
+### 10 个独立窗口
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
+| notebook | 独立 Notebook 工作台（三栏：资料源 / 成果 / 对话） | 主窗口菜单 / Notebook 入口 |
 | dingtalk-settings | 钉钉机器人配置（AppKey/Secret/RobotCode） | 主窗口菜单 |
 | session-manager | 会话管理器（三列：项目/会话/消息，支持搜索/标签） | 主窗口菜单 |
 | provider-manager | 服务商 CRUD | 设置 / Profile 表单 |
@@ -27,6 +28,7 @@
 | custom-models | 自定义模型列表管理 | Profile 表单 |
 | global-settings | 全局设置（语言/路径/CLI 配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
+| settings-workbench | 能力设置工作台（目录上下文来源整理） | 主窗口与 Notebook 工具入口 |
 | update-manager | 更新管理（下载进度/安装控制） | 发现新版本时自动打开 |
 
 窗口通过 `window.electronAPI.openXxxManager()` → IPC `window:openXxxManager` 打开，主进程保证单例（同一窗口不重复创建）。独立窗口间通过 **设置广播机制** 同步状态（详见 [跨窗口广播](#跨窗口广播机制)）。
@@ -73,7 +75,7 @@ MainContent 当前承载 **Developer / Agent / Notebook** 三种模式。Develop
 2. Agent 模式的 IPC 流式事件监听器断开
 3. 两种模式的滚动位置、输入状态无法保留
 
-Notebook 模式入口默认受 `config.settings.enableNotebook` 控制，未开启时不对普通用户暴露。
+Notebook 模式已纳入正式工作模式，由主窗口模式切换与独立 Notebook 工作台共同承载。
 
 TabBar 按模式过滤只显示当前模式的 Tab：
 

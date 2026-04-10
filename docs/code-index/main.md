@@ -1,13 +1,13 @@
 # 主进程代码索引
 
-> CC Desktop v1.7.34 | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
+> CC Desktop v1.7.35+ | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
 
 ## 概览
 
 | 类别 | 文件数 | 总行数 |
 |------|--------|--------|
 | 顶层模块 | 13 | 7397 |
-| IPC Handlers | 12 | 3459 |
+| IPC Handlers | 12+ | 3459+ |
 | Managers | 16 | 5340 |
 | Database | 10 | 1808 |
 | Utils | 10 | 1189 |
@@ -97,7 +97,7 @@
 
 ### ipc-handlers.js
 - **行数**：662
-- **职责**：IPC 注册入口，初始化 SessionDatabase/SyncService/FileWatcher，注册所有 Handler 模块
+- **职责**：IPC 注册入口，初始化 SessionDatabase/SyncService/FileWatcher，注册所有 Handler 模块，并负责设置工作台 / Notebook 等独立窗口打开入口
 - **关键导出**：`setupIPCHandlers()`
 - **架构上下文**：-> [IPC 通信](../design/main-process.md#ipc-通信)
 
@@ -118,6 +118,7 @@
 | session-handlers.js | session: | 230 | getSessions, getMessages, searchSessions, syncSessions, getTags |
 | active-session-handlers.js | activeSession: | 136 | create, start, close, write, resize, rename |
 | capability-handlers.js | capabilities: | 101 | fetch, install, uninstall, enable, disable, toggleMcp |
+| notebook-handlers.js | notebook: | 488 | list, create, bindSession, listSources, listAchievements, listTools, prepareGeneration, previewGeneration |
 | update-handlers.js | update: | 59 | checkForUpdates, downloadUpdate, quitAndInstall, getStatus |
 | dingtalk-handlers.js | dingtalk: | 55 | getStatus, start, stop, getConfig, saveConfig |
 | queue-handlers.js | queue: | 45 | getQueue, addToQueue, deleteItem, clearQueue |

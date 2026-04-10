@@ -1,6 +1,6 @@
 # IPC 通道清单
 
-> CC Desktop v1.7.34 | [← 返回架构文档](../ARCHITECTURE.md)
+> CC Desktop v1.7.35+ | [← 返回架构文档](../ARCHITECTURE.md)
 
 ## 概览
 
@@ -395,6 +395,7 @@
 | shell:openPath | handle | ipc | 打开本地文件/目录 |
 | claude:getSettingsPath | handle | ipc | 获取 Claude settings.json 路径 |
 | claude:getProjectConfigPath | handle | ipc | 获取项目 settings.local.json 路径 |
+| path:exists | handle | ipc | 判断路径是否存在 |
 
 ### window / sessionWatcher 域（ipc-handlers.js）
 
@@ -403,13 +404,63 @@
 | window:openProfileManager | handle | 打开 Profile 管理窗口 |
 | window:openGlobalSettings | handle | 打开全局设置窗口 |
 | window:openAppearanceSettings | handle | 打开外观设置窗口 |
+| window:openSettingsWorkbench | handle | 打开能力设置工作台 |
 | window:openProviderManager | handle | 打开服务商管理窗口 |
 | window:openSessionManager | handle | 打开会话查询窗口 |
 | window:openUpdateManager | handle | 打开应用更新窗口 |
 | window:openDingTalkSettings | handle | 打开钉钉设置窗口 |
+| window:openNotebookWorkspace | handle | 打开 Notebook 工作台 |
 | window:focusMainWindow | handle | 聚焦主窗口 |
 | sessionWatcher:watch | handle | 监控项目会话文件变化 |
 | sessionWatcher:stop | handle | 停止文件监控 |
+
+### notebook 域（notebook-handlers.js）
+
+| 通道名 | 类型 | 简述 |
+|--------|------|------|
+| notebook:list | handle | 获取 Notebook 列表 |
+| notebook:get | handle | 获取单个 Notebook |
+| notebook:create | handle | 创建 Notebook |
+| notebook:rename | handle | 重命名 Notebook |
+| notebook:delete | handle | 删除 Notebook |
+| notebook:bindSession | handle | 绑定 Notebook 与 Agent 会话 |
+| notebook:restartSession | handle | 重启 Notebook 关联会话 |
+| notebook:listSources | handle | 获取资料源列表 |
+| notebook:addSource | handle | 新增资料源 |
+| notebook:importFiles | handle | 批量导入资料文件 |
+| notebook:updateSource | handle | 更新资料源元数据 |
+| notebook:deleteSource | handle | 删除单个资料源 |
+| notebook:deleteSources | handle | 批量删除资料源 |
+| notebook:listAchievements | handle | 获取成果列表 |
+| notebook:addAchievement | handle | 新增成果 |
+| notebook:updateAchievement | handle | 更新成果元数据 |
+| notebook:deleteAchievement | handle | 删除单个成果 |
+| notebook:deleteAchievements | handle | 批量删除成果 |
+| notebook:addAchievementToSource | handle | 将成果回填为资料源 |
+| notebook:exportAchievement | handle | 导出成果文件 |
+| notebook:readFileContent | handle | 读取 Notebook 相对路径文件 |
+| notebook:writeFileContent | handle | 写回 Notebook 相对路径文件 |
+| notebook:copyImageToClipboard | handle | 复制聊天图片到剪贴板 |
+| notebook:saveChatImageToSource | handle | 将聊天图片归档到资料源 |
+| notebook:saveChatImageToAchievement | handle | 将聊天图片归档到成果 |
+| notebook:saveChatMarkdownToSource | handle | 将聊天 Markdown 归档到资料源 |
+| notebook:saveChatMarkdownToAchievement | handle | 将聊天 Markdown 归档到成果 |
+| notebook:finalizeAchievementText | handle | 在生成结束后写回成果正文 |
+| notebook:setCopySourceFiles | handle | 设置生成时是否复制资料源文件 |
+| notebook:sanitizeIndexes | handle | 清理失效资料源/成果索引 |
+| notebook:addPathToSource | handle | 将文件路径加入资料源 |
+| notebook:addPathToAchievement | handle | 将文件路径加入成果 |
+| notebook:exportSource | handle | 导出资料源文件 |
+| notebook:listTools | handle | 获取 Notebook 工具列表 |
+| notebook:updateTool | handle | 更新 Notebook 工具 |
+| notebook:addTool | handle | 新增 Notebook 工具 |
+| notebook:deleteTool | handle | 删除 Notebook 工具 |
+| notebook:fetchRemoteTools | handle | 拉取远程工具清单 |
+| notebook:fetchPromptTemplateContent | handle | 获取市场提示词模板正文 |
+| notebook:prepareGeneration | handle | 预创建本次工具生成上下文 |
+| notebook:previewGeneration | handle | 预览工具生成使用的提示词与资料 |
+| notebook:installTool | handle | 安装 Notebook 工具 |
+| notebook:uninstallTool | handle | 卸载 Notebook 工具 |
 
 ### update 域（update-handlers.js）
 

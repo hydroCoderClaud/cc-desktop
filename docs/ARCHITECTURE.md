@@ -1,6 +1,6 @@
 # CC Desktop 架构总览
 
-> v1.7.34 | 本文档是架构设计的入口，概述整体设计和模块关系，详细实现见各子文档。
+> v1.7.35+ | 本文档是架构设计的入口，概述整体设计和模块关系，详细实现见各子文档。
 
 ---
 
@@ -12,7 +12,7 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 
 **核心原则**：
 - **单用户无认证** -- 无 JWT、无用户管理，所有数据纯本地
-- **多模式架构** -- Developer 模式 + Agent 模式 + Notebook 模式（feature-gated）
+- **多模式架构** -- Developer 模式 + Agent 模式 + Notebook 模式
 - **直接 IPC 通信** -- 无 WebSocket，主进程与渲染进程通过 Electron IPC 直连
 - **CLI 依赖** -- Terminal/Agent 模式及 MCP 服务器均依赖 Claude Code CLI
 
@@ -60,7 +60,7 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │ Vue 3 + Naive UI + xterm.js                      │   │
-│  │ 9 个独立 BrowserWindow 页面                       │   │
+│  │ 11 个独立 BrowserWindow 页面                      │   │
 │  │ 21 个 Composables                                │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
@@ -115,11 +115,11 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 | Utils | 10 | env-builder, http-client, path-utils, constants, message-queue, ipc-utils, token-counter |
 | Config | 2 | api-config, provider-config |
 
-### 渲染进程（126 个文件，~39,100 行）
+### 渲染进程（含主窗口 + Notebook + Settings Workbench）
 
 | 类别 | 文件数 | 关键模块 |
 |------|--------|---------|
-| 页面（9 个窗口） | 90 | main(60+), dingtalk-settings, session-manager, profile-manager, provider-manager, update-manager |
+| 页面（11 个窗口） | 90+ | main, notebook, settings-workbench, dingtalk-settings, session-manager, profile-manager, provider-manager, update-manager |
 | Composables | 21 | useAppMode, useAgentChat, useTabManagement, useTheme, useLocale, useIPC |
 | 共享组件 | 6 | Toast, MarketModal, VersionBadge |
 | 国际化 | 3 | zh-CN, en-US, useLocale |

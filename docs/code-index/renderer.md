@@ -1,6 +1,6 @@
 # 渲染进程代码索引
 
-> CC Desktop v1.7.34 | [← 架构总览](../ARCHITECTURE.md)
+> CC Desktop v1.7.35+ | [← 架构总览](../ARCHITECTURE.md)
 
 ## 概览
 
@@ -21,11 +21,12 @@
 
 ## 页面目录
 
-9 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
+11 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
 
 | 页面 | 路径 | 用途 |
 |------|------|------|
 | main | `pages/main/` | 主窗口（终端 + Agent 对话） |
+| notebook | `pages/notebook/` | Notebook 工作台（资料源 / 成果 / 对话） |
 | dingtalk-settings | `pages/dingtalk-settings/` | 钉钉机器人配置 |
 | session-manager | `pages/session-manager/` | 会话管理器（浏览/搜索/标签） |
 | provider-manager | `pages/provider-manager/` | 服务商管理 |
@@ -33,6 +34,7 @@
 | custom-models | `pages/custom-models/` | 自定义模型管理 |
 | global-settings | `pages/global-settings/` | 全局设置 |
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
+| settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理） |
 | update-manager | `pages/update-manager/` | 更新管理器 |
 
 ---
