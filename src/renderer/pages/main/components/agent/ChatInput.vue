@@ -1,7 +1,7 @@
 <template>
-  <div class="chat-input-area">
+  <div class="chat-input-area" ref="chatInputAreaRef" :class="{ expanded: isExpanded }">
     <!-- 工具栏：模型选择 + token -->
-    <div class="input-toolbar">
+    <div class="input-toolbar" ref="inputToolbarRef">
       <div class="toolbar-left">
         <div class="model-selector" @click="toggleModelDropdown" ref="selectorRef">
           <Icon name="robot" :size="14" class="model-icon" />
@@ -91,6 +91,14 @@
         >
           <Icon name="delete" :size="13" />
         </div>
+
+        <div
+          class="expand-input-btn"
+          :title="isExpanded ? t('common.collapse') : t('common.expand')"
+          @click="toggleExpanded"
+        >
+          <Icon :name="isExpanded ? 'restore' : 'maximize'" :size="13" />
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -102,7 +110,7 @@
     </div>
 
     <!-- 图片预览区域 -->
-    <div v-if="attachedImages.length > 0" class="image-preview-area">
+    <div v-if="attachedImages.length > 0" class="image-preview-area" ref="imagePreviewRef">
       <div
         v-for="(img, index) in attachedImages"
         :key="img.id"
@@ -155,7 +163,8 @@
         :placeholder="placeholder"
         :disabled="disabled"
         class="chat-textarea"
-        rows="3"
+        :rows="collapsedRows"
+        :style="textareaStyle"
         @input="handleInput"
         @keydown="handleKeyDown"
         @paste="handlePaste"
@@ -296,6 +305,22 @@ const props = defineProps({
   queueEnabled: {
     type: Boolean,
     default: true
+  },
+  collapsedRows: {
+    type: Number,
+    default: 3
+  },
+  collapsedMaxHeight: {
+    type: Number,
+    default: 200
+  },
+  collapsedMinHeight: {
+    type: Number,
+    default: 0
+  },
+  expandedHeightRatio: {
+    type: Number,
+    default: 3 / 4
   }
 })
 
@@ -493,14 +518,69 @@ const selectSlashCommand = (cmd) => {
 const inputText = ref('')
 const textareaRef = ref(null)
 const inputWrapperRef = ref(null)
+const chatInputAreaRef = ref(null)
+const inputToolbarRef = ref(null)
+const imagePreviewRef = ref(null)
+const isExpanded = ref(false)
+const expandedTextareaHeight = ref(0)
+
+const textareaStyle = computed(() => {
+  if (!isExpanded.value || !expandedTextareaHeight.value) return {}
+  return {
+    height: `${expandedTextareaHeight.value}px`,
+    maxHeight: 'none'
+  }
+})
+
+const getWrapperVerticalPadding = () => {
+  if (!inputWrapperRef.value) return 0
+  const styles = window.getComputedStyle(inputWrapperRef.value)
+  return (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0)
+}
+
+const applyCollapsedHeight = () => {
+  if (!textareaRef.value) return
+  textareaRef.value.style.height = 'auto'
+  const minHeight = Math.max(0, Number(props.collapsedMinHeight) || 0)
+  const maxHeight = Math.max(minHeight, Number(props.collapsedMaxHeight) || 200)
+  const nextHeight = Math.min(textareaRef.value.scrollHeight, maxHeight)
+  textareaRef.value.style.height = `${Math.max(nextHeight, minHeight)}px`
+}
+
+const updateExpandedLayout = () => {
+  if (!isExpanded.value || !textareaRef.value) return
+  const host = chatInputAreaRef.value?.parentElement
+  const hostHeight = host?.clientHeight || window.innerHeight
+  const toolbarHeight = inputToolbarRef.value?.offsetHeight || 0
+  const previewHeight = imagePreviewRef.value?.offsetHeight || 0
+  const wrapperPadding = getWrapperVerticalPadding()
+  const actionAreaHeight = 52
+  const reservedHeight = toolbarHeight + previewHeight + wrapperPadding + actionAreaHeight + 28
+  const targetHeight = Math.round(hostHeight * props.expandedHeightRatio) - reservedHeight
+  expandedTextareaHeight.value = Math.max(180, targetHeight)
+}
 
 const autoResize = () => {
   nextTick(() => {
-    if (textareaRef.value) {
-      textareaRef.value.style.height = 'auto'
-      const newHeight = Math.min(textareaRef.value.scrollHeight, 200)
-      textareaRef.value.style.height = `${newHeight}px`
+    if (!textareaRef.value) return
+    if (isExpanded.value) {
+      updateExpandedLayout()
+      return
     }
+    applyCollapsedHeight()
+  })
+}
+
+const toggleExpanded = () => {
+  isExpanded.value = !isExpanded.value
+  nextTick(() => {
+    if (isExpanded.value) {
+      updateExpandedLayout()
+    } else {
+      expandedTextareaHeight.value = 0
+      applyCollapsedHeight()
+    }
+    focus()
   })
 }
 
@@ -733,6 +813,13 @@ const removeImage = (index) => {
   attachedImages.value.splice(index, 1)
 }
 
+watch(() => attachedImages.value.length, () => {
+  if (!isExpanded.value) return
+  nextTick(() => {
+    updateExpandedLayout()
+  })
+})
+
 const handleClear = () => {
   inputText.value = ''
   attachedImages.value = []
@@ -809,13 +896,25 @@ const handleClickOutside = (e) => {
   }
 }
 
+const handleWindowResize = () => {
+  if (!isExpanded.value) return
+  updateExpandedLayout()
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', handleWindowResize)
   focus()
+  if (props.collapsedRows !== 3 || props.collapsedMinHeight > 0 || props.collapsedMaxHeight !== 200) {
+    nextTick(() => {
+      applyCollapsedHeight()
+    })
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', handleWindowResize)
 })
 
 const focus = () => {
@@ -1322,6 +1421,10 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
   font-family: inherit;
 }
 
+.chat-input-area.expanded .chat-textarea {
+  overflow-y: auto;
+}
+
 .chat-textarea::placeholder {
   color: var(--text-color-muted);
 }
@@ -1602,6 +1705,26 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
 .clear-input-btn:hover {
   background: var(--hover-bg);
   color: var(--error-color, #e53e3e);
+}
+
+/* ==================== 展开/收起按钮 ==================== */
+.expand-input-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-color-muted);
+  transition: all 0.15s;
+  background: transparent;
+  margin-left: 4px;
+}
+
+.expand-input-btn:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
 }
 
 /* ==================== 图片预览区域 ==================== */

@@ -1,5 +1,5 @@
 <template>
-  <div class="notebook-chat-panel" ref="panelRef">
+  <div class="notebook-chat-panel">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.chat.title') }}</span>
       <div class="header-right">
@@ -106,6 +106,9 @@
       :is-streaming="isStreaming"
       :disabled="false"
       :queue-enabled="queueEnabled"
+      :collapsed-rows="1"
+      :collapsed-min-height="32"
+      :collapsed-max-height="120"
       :placeholder="t('notebook.chat.placeholder')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
@@ -238,7 +241,6 @@ const {
 
 let isUnmounting = false
 
-const panelRef = ref(null)
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
@@ -462,14 +464,6 @@ onMounted(async () => {
   }
   startAutoScrollObservers()
   scrollToBottom(true, true)
-
-  // Notebook 模式：缩小输入框初始高度（rows=3 → 1）
-  await nextTick()
-  const textarea = panelRef.value?.querySelector('textarea')
-  if (textarea) {
-    textarea.rows = 1
-    textarea.style.height = '32px'
-  }
 })
 </script>
 
@@ -497,6 +491,10 @@ onMounted(async () => {
   align-items: center;
 }
 
+.notebook-chat-panel :deep(.chat-input-area.expanded .input-wrapper) {
+  align-items: flex-end;
+}
+
 .notebook-chat-panel :deep(.send-btn),
 .notebook-chat-panel :deep(.stop-btn) {
   border-radius: 50%;
@@ -507,7 +505,6 @@ onMounted(async () => {
 }
 
 .notebook-chat-panel :deep(.chat-textarea) {
-  max-height: 120px;
   padding: 4px 0;
 }
 
@@ -624,6 +621,7 @@ onMounted(async () => {
 
 .messages-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 0;
 }
