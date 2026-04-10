@@ -453,9 +453,9 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
   })
 
   // ─── Generation ─────────────────────────────────────────────────────────
-  ipcMain.handle('notebook:prepareGeneration', async (_e, { notebookId, toolId, sourceIds }) => {
+  ipcMain.handle('notebook:prepareGeneration', async (_e, { notebookId, toolId, sourceIds, expectedRelPath }) => {
     try {
-      return notebookManager.prepareGeneration(notebookId, toolId, sourceIds)
+      return notebookManager.prepareGeneration(notebookId, toolId, sourceIds, { expectedRelPath })
     } catch (err) {
       console.error('[IPC] notebook:prepareGeneration error:', err)
       throw err

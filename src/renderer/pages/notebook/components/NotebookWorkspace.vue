@@ -945,7 +945,7 @@ const handlePrefillToolPrompt = async (tool) => {
 
   try {
     const sourceIds = selectedSources.value.map(source => source.id)
-    const { prompt, expectedAbsPath } = await window.electronAPI.notebookPreviewGeneration({
+    const { prompt, expectedRelPath, expectedAbsPath } = await window.electronAPI.notebookPreviewGeneration({
       notebookId: currentNotebook.value.id,
       toolId: tool.id,
       sourceIds
@@ -955,6 +955,7 @@ const handlePrefillToolPrompt = async (tool) => {
       notebookId: currentNotebook.value.id,
       toolId: tool.id,
       sourceIds,
+      expectedRelPath,
       expectedAbsPath,
       prompt
     })

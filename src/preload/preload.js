@@ -816,7 +816,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookFetchPromptTemplateContent: (marketId) => ipcRenderer.invoke('notebook:fetchPromptTemplateContent', marketId),
 
   // Notebook Generation
-  notebookPrepareGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds }),
+  notebookPrepareGeneration: ({ notebookId, toolId, sourceIds, expectedRelPath }) => ipcRenderer.invoke('notebook:prepareGeneration', { notebookId, toolId, sourceIds, expectedRelPath }),
   notebookPreviewGeneration: ({ notebookId, toolId, sourceIds }) => ipcRenderer.invoke('notebook:previewGeneration', { notebookId, toolId, sourceIds }),
 
   // Notebook Install

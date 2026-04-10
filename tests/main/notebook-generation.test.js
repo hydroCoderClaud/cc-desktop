@@ -90,6 +90,7 @@ describe('NotebookManager.prepareGeneration', () => {
     const result = mgr.previewGeneration(nb.id, 'notes', [sourceId])
 
     expect(result.prompt).toContain('report.pdf')
+    expect(result.expectedRelPath).toMatch(/^achievements\/notes\//)
     expect(result.expectedAbsPath).toContain(baseDir)
     expect(result.sourceIds).toEqual([sourceId])
     expect(mgr.listAchievements(nb.id)).toHaveLength(0)
@@ -106,6 +107,19 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(preview.expectedAbsPath).toMatch(/achievements/)
     expect(prepared.expectedAbsPath).toMatch(/achievements/)
     expect(mgr.listAchievements(nb.id)).toHaveLength(1)
+  })
+
+  it('prepareGeneration 复用 previewGeneration 生成的路径', () => {
+    const { mgr, nb, sourceId } = setupNotebookWithSource(baseDir)
+
+    const preview = mgr.previewGeneration(nb.id, 'notes', [sourceId])
+    const prepared = mgr.prepareGeneration(nb.id, 'notes', [sourceId], {
+      expectedRelPath: preview.expectedRelPath
+    })
+    const achievement = mgr.listAchievements(nb.id).at(-1)
+
+    expect(prepared.expectedAbsPath).toBe(preview.expectedAbsPath)
+    expect(achievement.path).toBe(preview.expectedRelPath)
   })
 
   // ── 路径计算 ──────────────────────────────────────────────────────────────
@@ -186,6 +200,30 @@ describe('NotebookManager.prepareGeneration', () => {
     expect(result.prompt).toMatch(/achievements.notes/)
     expect(result.prompt).not.toContain('{{sources}}')
     expect(result.prompt).not.toContain('{{expected_path}}')
+  })
+
+  it('模板进入 prompt 前会剥离 frontmatter 元信息', () => {
+    const { mgr, nb, sourceId } = setupNotebookWithSource(baseDir)
+
+    mgr.setSessionDatabase({
+      getPromptByMarketId: () => ({
+        id: 1,
+        content: `---
+name: HTML 幻灯片生成模板
+description: 不应进入对话框
+---
+
+# 实际正文
+
+请基于 {{sources}} 生成 HTML，并保存到 {{expected_path}}`
+      })
+    })
+
+    const result = mgr.prepareGeneration(nb.id, 'notes', [sourceId])
+
+    expect(result.prompt).toContain('# 实际正文')
+    expect(result.prompt).not.toContain('name: HTML 幻灯片生成模板')
+    expect(result.prompt).not.toContain('description: 不应进入对话框')
   })
 
   it('runtimePlaceholders 被替换', () => {

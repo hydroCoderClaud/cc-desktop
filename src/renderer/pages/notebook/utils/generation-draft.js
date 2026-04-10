@@ -1,8 +1,9 @@
-export function createPendingGenerationDraft({ notebookId, toolId, sourceIds, expectedAbsPath, prompt }) {
+export function createPendingGenerationDraft({ notebookId, toolId, sourceIds, expectedRelPath, expectedAbsPath, prompt }) {
   return {
     notebookId,
     toolId,
     sourceIds: Array.isArray(sourceIds) ? [...sourceIds] : [],
+    expectedRelPath,
     expectedAbsPath,
     prompt
   }
@@ -12,7 +13,8 @@ export function buildDraftGenerationRequest(notebookId, draft) {
   return {
     notebookId,
     toolId: draft?.toolId || '',
-    sourceIds: Array.isArray(draft?.sourceIds) ? [...draft.sourceIds] : []
+    sourceIds: Array.isArray(draft?.sourceIds) ? [...draft.sourceIds] : [],
+    expectedRelPath: draft?.expectedRelPath || ''
   }
 }
 

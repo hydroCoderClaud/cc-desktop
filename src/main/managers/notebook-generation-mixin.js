@@ -20,6 +20,12 @@ const LEGACY_OUTPUT_TYPE_MAP = {
   csv: 'csv'
 }
 
+function extractMarkdownBody(content) {
+  const text = typeof content === 'string' ? content : ''
+  const match = text.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n([\s\S]*)$/)
+  return match ? match[1].trim() : text.trim()
+}
+
 function normalizeOutputExtension(outputType) {
   const normalized = String(outputType || '').trim().replace(/^\.+/, '').toLowerCase()
   if (!normalized) return 'txt'
@@ -28,7 +34,7 @@ function normalizeOutputExtension(outputType) {
   return safe || 'txt'
 }
 
-function buildGenerationDraft(manager, notebookId, toolId, sourceIds = []) {
+function buildGenerationDraft(manager, notebookId, toolId, sourceIds = [], draftOverrides = {}) {
   const tools = manager.listTools()
   const tool = tools.find(t => t.id === toolId)
   if (!tool) throw new Error(`工具不存在：${toolId}`)
@@ -48,15 +54,18 @@ function buildGenerationDraft(manager, notebookId, toolId, sourceIds = []) {
 
   const notebookPath = manager._getNotebookPath(notebookId)
   const safeId = toolId.replace(/[^a-zA-Z0-9_-]/g, '-')
+  const fixedRelPath = typeof draftOverrides.expectedRelPath === 'string'
+    ? draftOverrides.expectedRelPath.trim().replace(/\\/g, '/')
+    : ''
   const expectedFileName = `${safeId}-${Date.now()}.${outputType}`
-  const expectedRelPath = `achievements/${safeId}/${expectedFileName}`
+  const expectedRelPath = fixedRelPath || `achievements/${safeId}/${expectedFileName}`
   const expectedAbsPath = path.join(notebookPath, expectedRelPath)
 
   let templateContent = ''
   if (tool.promptTemplateId && manager.sessionDatabase) {
     try {
       const record = manager.sessionDatabase.getPromptByMarketId(tool.promptTemplateId)
-      templateContent = record?.content || ''
+      templateContent = extractMarkdownBody(record?.content || '')
     } catch (err) {
       console.warn(`[NotebookManager] Failed to load prompt template [${tool.promptTemplateId}]:`, err.message)
     }
@@ -111,6 +120,7 @@ const notebookGenerationMixin = {
   previewGeneration(notebookId, toolId, sourceIds = []) {
     const draft = buildGenerationDraft(this, notebookId, toolId, sourceIds)
     return {
+      expectedRelPath: draft.expectedRelPath,
       expectedAbsPath: draft.expectedAbsPath,
       prompt: draft.prompt,
       sourceIds: draft.selectedSources.map(source => source.id)
@@ -126,8 +136,8 @@ const notebookGenerationMixin = {
    * @param {string[]} sourceIds - 选中的来源 ID 列表
    * @returns {{ achievementId: string, prompt: string }}
    */
-  prepareGeneration(notebookId, toolId, sourceIds = []) {
-    const draft = buildGenerationDraft(this, notebookId, toolId, sourceIds)
+  prepareGeneration(notebookId, toolId, sourceIds = [], draftOverrides = {}) {
+    const draft = buildGenerationDraft(this, notebookId, toolId, sourceIds, draftOverrides)
 
     // 6. 创建 Achievement 记录（最后一步，避免幽灵记录）
     const achievement = this.addAchievement(notebookId, {
