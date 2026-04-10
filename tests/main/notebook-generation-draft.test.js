@@ -22,7 +22,8 @@ describe('Notebook generation draft payload', () => {
     expect(request).toEqual({
       notebookId: 'nb-1',
       toolId: 'notes',
-      sourceIds: ['src-1', 'src-2']
+      sourceIds: ['src-1', 'src-2'],
+      expectedRelPath: ''
     })
     expect(() => structuredClone(request)).not.toThrow()
   })
