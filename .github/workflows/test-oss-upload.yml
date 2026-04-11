@@ -10,6 +10,7 @@ on:
 
 env:
   OSS_DIR: hydrodesktop_update
+  # 阿里云 OSS S3 兼容接口需要使用 bucket 域名格式
   OSS_ENDPOINT_URL: https://${{ secrets.OSS_BUCKET_NAME }}.${{ secrets.OSS_ENDPOINT }}
 
 jobs:
@@ -18,27 +19,31 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Configure AWS CLI for Aliyun OSS
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.OSS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          aws configure set default.s3.signature_version s3v4
+          aws configure set default.s3.addressing_style path
+
       - name: Download artifacts from release
         run: |
           mkdir -p artifacts
-          cd artifacts
 
           # 从 GitHub Release 下载构建产物
           VERSION="${{ github.event.inputs.version }}"
-          VERSION_NUM="${VERSION#v}"
-
-          echo "Downloading artifacts for $VERSION (number: $VERSION_NUM)..."
+          echo "Downloading artifacts for $VERSION..."
 
           # 使用 gh CLI 下载 release 资产
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.exe" --dir . || true
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.dmg" --dir . || true
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.zip" --dir . || true
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.blockmap" --dir . || true
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest.yml" --dir . || true
-          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest-mac.yml" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.exe" --dir artifacts || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.dmg" --dir artifacts || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.zip" --dir artifacts || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.blockmap" --dir artifacts || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest.yml" --dir artifacts || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest-mac.yml" --dir artifacts || true
 
           echo "Download complete. Files:"
-          ls -la
+          ls -la artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,6 +75,3 @@ jobs:
           echo "=== Aliyun OSS upload complete ==="
           aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
             --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}

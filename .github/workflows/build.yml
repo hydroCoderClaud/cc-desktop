@@ -438,6 +438,12 @@ jobs:
           echo "=== Uploading to Aliyun OSS ==="
           VERSION="${{ steps.version.outputs.tag }}"
 
+          # 配置 AWS CLI 使用 S3 Signature V4
+          aws configure set aws_access_key_id ${{ secrets.OSS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          aws configure set default.s3.signature_version s3v4
+          aws configure set default.s3.addressing_style path
+
           # 清理旧的大文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
           aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
