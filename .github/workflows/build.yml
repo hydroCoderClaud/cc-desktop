@@ -20,7 +20,6 @@ env:
   CI: true
   R2_BUCKET: cc-desktop-releases
   OSS_DIR: hydrodesktop_update
-  OSS_ENDPOINT_URL: https://${{ secrets.OSS_BUCKET_NAME }}.${{ secrets.OSS_ENDPOINT }}
 
 jobs:
   test:
@@ -438,35 +437,28 @@ jobs:
           echo "=== Uploading to Aliyun OSS ==="
           VERSION="${{ steps.version.outputs.tag }}"
 
-          # 配置 AWS CLI 使用 S3 Signature V4
-          aws configure set aws_access_key_id ${{ secrets.OSS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.OSS_ACCESS_KEY_SECRET }}
-          aws configure set default.s3.signature_version s3v4
-          aws configure set default.s3.addressing_style path
+          # 安装 ossutil
+          wget -q https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64 -O /tmp/ossutil
+          chmod +x /tmp/ossutil
+
+          # 配置 ossutil
+          /tmp/ossutil config -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
+            -e oss-cn-hangzhou.aliyuncs.com \
+            -c /tmp/.ossutilconfig \
+            --language=ch
 
           # 清理旧的大文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
-          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
-            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}" | \
-            awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
-              [ -z "$f" ] && continue
-              echo "Deleting: $f"
-              aws s3 rm "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$f" \
-                --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
-            done || true
+          /tmp/ossutil rm -r -b -f -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            --exclude "*.blockmap" --exclude "*.yml" || true
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
-          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
-            [ -f "$f" ] || continue
-            BASENAME=$(basename "$f")
-            echo "Uploading: $BASENAME"
-            aws s3 cp "$f" "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$BASENAME" \
-              --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
-          done
+          echo "Uploading files to OSS..."
+          /tmp/ossutil cp -r -f -c /tmp/.ossutilconfig artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/
 
           echo "=== Aliyun OSS upload complete ==="
-          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
-            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
+          /tmp/ossutil ls -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
