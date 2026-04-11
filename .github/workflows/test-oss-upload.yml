@@ -1,0 +1,75 @@
+name: Test OSS Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to test (e.g., v1.7.36)'
+        required: true
+        default: 'v1.7.36'
+
+env:
+  OSS_DIR: hydrodesktop_update
+  OSS_ENDPOINT_URL: https://${{ secrets.OSS_BUCKET_NAME }}.${{ secrets.OSS_ENDPOINT }}
+
+jobs:
+  test-oss-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download artifacts from release
+        run: |
+          mkdir -p artifacts
+          cd artifacts
+
+          # 从 GitHub Release 下载构建产物
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION_NUM="${VERSION#v}"
+
+          echo "Downloading artifacts for $VERSION (number: $VERSION_NUM)..."
+
+          # 使用 gh CLI 下载 release 资产
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.exe" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.dmg" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.zip" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "*.blockmap" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest.yml" --dir . || true
+          gh release download "$VERSION" --repo "${{ github.repository }}" --pattern "latest-mac.yml" --dir . || true
+
+          echo "Download complete. Files:"
+          ls -la
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Aliyun OSS
+        run: |
+          echo "=== Uploading to Aliyun OSS ==="
+
+          # 清理旧文件（保留 blockmap 和 yml）
+          echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
+          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
+            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}" | \
+            awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
+              [ -z "$f" ] && continue
+              echo "Deleting: $f"
+              aws s3 rm "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$f" \
+                --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
+            done || true
+
+          # 上传文件
+          echo "Uploading files to OSS..."
+          for f in artifacts/*; do
+            [ -f "$f" ] || continue
+            BASENAME=$(basename "$f")
+            echo "Uploading: $BASENAME"
+            aws s3 cp "$f" "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$BASENAME" \
+              --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
+          done
+
+          echo "=== Aliyun OSS upload complete ==="
+          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
+            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
