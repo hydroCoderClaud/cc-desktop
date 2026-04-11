@@ -19,6 +19,7 @@ on:
 env:
   CI: true
   R2_BUCKET: cc-desktop-releases
+  OSS_DIR: hydrodesktop_update
 
 jobs:
   test:
@@ -336,8 +337,8 @@ jobs:
             ```
 
             ### 🇨🇳 镜像站下载（China Mirror）
-            - **Windows**: [cc-desktop-${{ steps.version.outputs.number }}-windows.zip](https://ccd.myseek.fun/cc-desktop-${{ steps.version.outputs.number }}-windows.zip)
-            - **macOS**: [cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz](https://ccd.myseek.fun/cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz)
+            - **Windows**: [cc-desktop-${{ steps.version.outputs.number }}-windows.zip](https://hdupdate.myseek.fun/hydrodesktop_update/cc-desktop-${{ steps.version.outputs.number }}-windows.zip)
+            - **macOS**: [cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz](https://hdupdate.myseek.fun/hydrodesktop_update/cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz)
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
@@ -430,6 +431,38 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Upload to Aliyun OSS (China mirror)
+        run: |
+          echo "=== Uploading to Aliyun OSS ==="
+          VERSION="${{ steps.version.outputs.tag }}"
+
+          # 清理旧的大文件（保留 blockmap 和 yml）
+          echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
+          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
+            --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}" | \
+            awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
+              [ -z "$f" ] && continue
+              echo "Deleting: $f"
+              aws s3 rm "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$f" \
+                --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+            done || true
+
+          # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
+            [ -f "$f" ] || continue
+            BASENAME=$(basename "$f")
+            echo "Uploading: $BASENAME"
+            aws s3 cp "$f" "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$BASENAME" \
+              --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+          done
+
+          echo "=== Aliyun OSS upload complete ==="
+          aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
+            --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
 
       - name: Clean up old releases (keep latest 10)
         run: |
