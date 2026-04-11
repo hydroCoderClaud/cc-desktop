@@ -20,6 +20,7 @@ env:
   CI: true
   R2_BUCKET: cc-desktop-releases
   OSS_DIR: hydrodesktop_update
+  OSS_ENDPOINT_URL: https://${{ secrets.OSS_BUCKET_NAME }}.${{ secrets.OSS_ENDPOINT }}
 
 jobs:
   test:
@@ -440,12 +441,12 @@ jobs:
           # 清理旧的大文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
           aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
-            --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}" | \
+            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}" | \
             awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
               [ -z "$f" ] && continue
               echo "Deleting: $f"
               aws s3 rm "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$f" \
-                --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+                --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
             done || true
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
@@ -454,12 +455,12 @@ jobs:
             BASENAME=$(basename "$f")
             echo "Uploading: $BASENAME"
             aws s3 cp "$f" "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$BASENAME" \
-              --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+              --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
           done
 
           echo "=== Aliyun OSS upload complete ==="
           aws s3 ls "s3://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/" \
-            --endpoint-url "https://${{ secrets.OSS_ENDPOINT }}"
+            --endpoint-url "${{ env.OSS_ENDPOINT_URL }}"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
