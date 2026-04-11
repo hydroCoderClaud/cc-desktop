@@ -24,11 +24,15 @@ jobs:
 
       - name: Configure ossutil
         run: |
-          /tmp/ossutil config -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
-            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
-            -e oss-cn-hangzhou.aliyuncs.com \
-            -c /tmp/.ossutilconfig \
-            --language=ch
+          cat > /tmp/.ossutilconfig << EOF
+          [Credentials]
+          language=CH
+          endpoint=oss-cn-hangzhou.aliyuncs.com
+          accessKeyID=${{ secrets.OSS_ACCESS_KEY_ID }}
+          accessKeySecret=${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          EOF
+          echo "ossutil config created successfully"
+          cat /tmp/.ossutilconfig
 
       - name: Download artifacts from release
         run: |

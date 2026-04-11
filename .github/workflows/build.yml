@@ -442,11 +442,13 @@ jobs:
           chmod +x /tmp/ossutil
 
           # 配置 ossutil
-          /tmp/ossutil config -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
-            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
-            -e oss-cn-hangzhou.aliyuncs.com \
-            -c /tmp/.ossutilconfig \
-            --language=ch
+          cat > /tmp/.ossutilconfig << EOF
+          [Credentials]
+          language=CH
+          endpoint=oss-cn-hangzhou.aliyuncs.com
+          accessKeyID=${{ secrets.OSS_ACCESS_KEY_ID }}
+          accessKeySecret=${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          EOF
 
           # 清理旧的大文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
