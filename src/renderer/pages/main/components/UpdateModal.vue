@@ -27,10 +27,15 @@
       <div v-if="isDownloading" class="download-progress">
         <n-progress type="line" :percentage="downloadProgress" :show-indicator="true" />
         <div class="progress-text">
-          {{ t('update.downloading') }}: {{ downloadProgress }}%
-          <span v-if="downloadSpeed" class="download-speed">
-            ({{ formatSpeed(downloadSpeed) }})
-          </span>
+          <template v-if="isPreparingDownload">
+            {{ t('update.preparingDifferentialDownload') }}
+          </template>
+          <template v-else>
+            {{ t('update.downloading') }}: {{ downloadProgress }}%
+            <span v-if="downloadSpeed" class="download-speed">
+              ({{ formatSpeed(downloadSpeed) }})
+            </span>
+          </template>
         </div>
       </div>
 
@@ -100,6 +105,7 @@ const showModal = computed({
 
 const isDownloading = ref(false)
 const isDownloaded = ref(false)
+const isPreparingDownload = ref(false)
 const downloadProgress = ref(0)
 const downloadSpeed = ref(0)
 
@@ -111,6 +117,7 @@ const handleClose = () => {
 
 const handleDownload = async () => {
   isDownloading.value = true
+  isPreparingDownload.value = true
   emit('download')
 }
 
@@ -133,6 +140,7 @@ const formatSpeed = (bytesPerSecond) => {
 // 更新下载进度（由父组件调用）
 const updateProgress = (progress) => {
   console.log('[UpdateModal] Update progress:', progress)
+  isPreparingDownload.value = false
   downloadProgress.value = Math.round(progress.percent || 0)
   downloadSpeed.value = progress.bytesPerSecond || 0
 }
@@ -141,6 +149,7 @@ const updateProgress = (progress) => {
 const markDownloaded = () => {
   isDownloading.value = false
   isDownloaded.value = true
+  isPreparingDownload.value = false
   downloadProgress.value = 100
 }
 
@@ -148,6 +157,7 @@ const markDownloaded = () => {
 const resetState = () => {
   isDownloading.value = false
   isDownloaded.value = false
+  isPreparingDownload.value = false
   downloadProgress.value = 0
   downloadSpeed.value = 0
 }

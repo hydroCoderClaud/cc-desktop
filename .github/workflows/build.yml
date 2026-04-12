@@ -313,7 +313,7 @@ jobs:
             如只需原始安装包，也可直接下载对应架构的 `dmg`
 
             ### 🇨🇳 镜像站下载（China Mirror）
-            - 下载页：https://hdupdate.myseek.fun/hydrodesktop_update/
+            - 下载页：https://hdupdate.myseek.fun/hydrodesktop_update/index.html
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）

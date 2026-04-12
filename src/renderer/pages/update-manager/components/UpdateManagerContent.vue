@@ -51,8 +51,13 @@
             :height="8"
           />
           <div class="progress-text">
-            {{ downloadProgress }}%
-            <span v-if="downloadSpeed" class="speed">· {{ formatSpeed(downloadSpeed) }}</span>
+            <template v-if="isPreparingDownload">
+              {{ t('update.preparingDifferentialDownload') }}
+            </template>
+            <template v-else>
+              {{ downloadProgress }}%
+              <span v-if="downloadSpeed" class="speed">· {{ formatSpeed(downloadSpeed) }}</span>
+            </template>
           </div>
         </div>
 
@@ -113,6 +118,7 @@ const isChecking = ref(false)
 const updateInfo = ref(null)
 const isDownloading = ref(false)
 const isDownloaded = ref(false)
+const isPreparingDownload = ref(false)
 const downloadProgress = ref(0)
 const downloadSpeed = ref(0)
 const statusMessage = ref('')
@@ -201,6 +207,7 @@ const setupEventListeners = () => {
   if (window.electronAPI?.onUpdateDownloadProgress) {
     const cleanup = window.electronAPI.onUpdateDownloadProgress((progress) => {
       console.log('[UpdateManager UI] progress event:', progress.percent, progress.bytesPerSecond)
+      isPreparingDownload.value = false
       downloadProgress.value = Math.round(progress.percent || 0)
       downloadSpeed.value = progress.bytesPerSecond || 0
     })
@@ -211,6 +218,7 @@ const setupEventListeners = () => {
     const cleanup = window.electronAPI.onUpdateDownloaded(() => {
       isDownloading.value = false
       isDownloaded.value = true
+      isPreparingDownload.value = false
       downloadProgress.value = 100
     })
     cleanupFunctions.push(cleanup)
@@ -227,6 +235,7 @@ const setupEventListeners = () => {
 
       isChecking.value = false
       isDownloading.value = false
+      isPreparingDownload.value = false
       statusMessage.value = t('update.checkFailed', { error: msg })
       statusType.value = 'error'
       message.error(t('update.checkFailed', { error: msg }))
@@ -247,6 +256,7 @@ const setupEventListeners = () => {
       // 下载文件已失效，重置为可重新下载状态
       isDownloaded.value = false
       isDownloading.value = false
+      isPreparingDownload.value = false
       downloadProgress.value = 0
       statusMessage.value = t('update.needRedownload')
       statusType.value = 'error'
@@ -261,6 +271,7 @@ const handleCheckUpdate = async () => {
   statusMessage.value = ''
   updateInfo.value = null
   isDownloading.value = false
+  isPreparingDownload.value = false
   downloadProgress.value = 0
   try {
     await invoke('checkForUpdates', false)
@@ -273,10 +284,14 @@ const handleCheckUpdate = async () => {
 
 const handleDownload = async () => {
   isDownloading.value = true
+  isPreparingDownload.value = true
+  statusMessage.value = t('update.preparingDifferentialDownload')
+  statusType.value = 'info'
   try {
     await invoke('downloadUpdate')
   } catch (err) {
     isDownloading.value = false
+    isPreparingDownload.value = false
     message.error(t('update.downloadFailed', { error: err.message }))
   }
 }

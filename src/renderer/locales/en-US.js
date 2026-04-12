@@ -1410,6 +1410,7 @@ export default {
     checking: 'Checking...',
     downloadNow: 'Download now',
     downloading: 'Downloading',
+    preparingDifferentialDownload: 'Preparing differential update package, please wait...',
     downloadComplete: 'Download complete',
     downloadFailed: 'Download failed: {error}',
     downloadStarted: 'Download started',

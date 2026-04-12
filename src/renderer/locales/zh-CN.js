@@ -1415,6 +1415,7 @@ export default {
     checking: '检查中...',
     downloadNow: '立即下载',
     downloading: '下载中',
+    preparingDifferentialDownload: '正在计算增量升级包，请稍候...',
     downloadComplete: '下载完成',
     downloadFailed: '下载失败: {error}',
     downloadStarted: '开始下载更新',
