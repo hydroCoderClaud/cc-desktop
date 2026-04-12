@@ -300,9 +300,7 @@ jobs:
             Intel 下载 `CC-Desktop-*-darwin-x64.dmg` 或 `CC-Desktop-*-darwin-x64.zip`
 
             ### 🇨🇳 镜像站下载（China Mirror）
-            - **Windows**: [cc-desktop-${{ steps.version.outputs.number }}-windows.zip](https://hdupdate.myseek.fun/hydrodesktop_update/cc-desktop-${{ steps.version.outputs.number }}-windows.zip)
-            - **macOS Apple Silicon**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg](https://hdupdate.myseek.fun/hydrodesktop_update/CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg)
-            - **macOS Intel**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg](https://hdupdate.myseek.fun/hydrodesktop_update/CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg)
+            - 下载页：https://hdupdate.myseek.fun/hydrodesktop_update/
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
@@ -362,6 +360,8 @@ jobs:
               a.dl:hover { background: #e8e8e0; }
               a.dl .name { font-weight: 600; }
               a.dl .hint { font-size: 13px; color: #888; }
+              .tip { margin-top: 10px; font-size: 13px; line-height: 1.6; color: #666; }
+              .tip code { padding: 1px 4px; border-radius: 4px; background: #f1f1eb; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
               .footer { margin-top: 32px; font-size: 13px; color: #999; text-align: center; }
               .footer a { color: #666; }
             </style>
@@ -373,6 +373,8 @@ jobs:
               <div class="section">
                 <h2>Windows</h2>
                 <a class="dl" href="CC-Desktop-${VER}-win32-x64.exe"><span class="name">CC-Desktop-${VER}-win32-x64.exe</span><br><span class="hint">安装包</span></a>
+                <a class="dl" href="cc-desktop-${VER}-windows.zip"><span class="name">cc-desktop-${VER}-windows.zip</span><br><span class="hint">一键安装包（解压后运行 <code>install.ps1</code>）</span></a>
+                <div class="tip">推荐普通用户下载一键安装包。解压后右键 PowerShell 以管理员身份运行 <code>install.ps1</code>，会先检查环境再启动安装。</div>
               </div>
               <div class="section">
                 <h2>macOS</h2>
