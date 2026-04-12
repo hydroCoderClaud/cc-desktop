@@ -92,6 +92,16 @@ describe('ConfigManager', () => {
       expect(config.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
       expect(config.market.registryMirrorUrl).toBe('')
     })
+
+    it('应该默认使用 Aliyun OSS 作为更新主源，GitHub 作为备用源', () => {
+      const config = configManager.getConfig()
+      expect(config.updatePrimaryUrl).toBe('https://hdupdate.myseek.fun/hydrodesktop_update')
+      expect(config.updateGithub).toEqual({
+        owner: 'hydroCoderClaud',
+        repo: 'cc-desktop'
+      })
+      expect(config.updateMirrorUrl).toBe('')
+    })
   })
 
   describe('deepMerge', () => {
@@ -261,6 +271,31 @@ describe('ConfigManager', () => {
       expect(savedConfig.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
       expect(savedConfig.market.registryMirrorUrl).toBe('')
       expect(savedConfig.market.registryFallbackUrls).toBeUndefined()
+    })
+
+    it('应该把旧的 GitHub 主更新源 + 阿里镜像迁移为阿里主源 + GitHub 备用并写回磁盘', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        updatePrimaryUrl: '',
+        updateGithub: {
+          owner: 'hydroCoderClaud',
+          repo: 'cc-desktop'
+        },
+        updateMirrorUrl: 'https://hdupdate.myseek.fun/hydrodesktop_update'
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      expect(newConfigManager.getConfig().updatePrimaryUrl).toBe('https://hdupdate.myseek.fun/hydrodesktop_update')
+      expect(newConfigManager.getConfig().updateMirrorUrl).toBe('')
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.updatePrimaryUrl).toBe('https://hdupdate.myseek.fun/hydrodesktop_update')
+      expect(savedConfig.updateMirrorUrl).toBe('')
     })
   })
 })

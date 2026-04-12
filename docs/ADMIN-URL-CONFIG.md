@@ -126,8 +126,8 @@ CC Desktop 有 4 个关键源地址通过配置文件管理，**不在 UI 中暴
 |------|------|------|
 | **Aliyun OSS** + `hdupdate.myseek.fun/hydrodesktop_update` | 自动更新主源 + 安装包下载 | 国内主源，GitHub Actions 构建后自动同步 |
 | **GitHub Releases** | 自动更新备用源 | `provider: "github"`，作为 fallback |
-| **GitHub Raw** | 组件市场主源 | 海外用户直连 |
-| **Gitee Raw** | 组件市场镜像 | 国内加速，需手动或 CI 同步 |
+| **Gitee Raw** | 组件市场主源 | 国内访问优先 |
+| **GitHub Raw** | 组件市场备用配置来源 | 仅兼容迁移，默认不作为运行时 fallback |
 
 ## 注意事项
 

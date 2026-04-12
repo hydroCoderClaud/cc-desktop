@@ -15,6 +15,7 @@ const { atomicWriteJson } = require('./utils/path-utils');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
 const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
+const UPDATE_MIRROR_OSS = 'https://hdupdate.myseek.fun/hydrodesktop_update';
 
 class ConfigManager {
   /**
@@ -56,7 +57,7 @@ class ConfigManager {
       },
 
       // 自动更新主源（国内 generic provider）
-      updatePrimaryUrl: 'https://hdupdate.myseek.fun/hydrodesktop_update',
+      updatePrimaryUrl: UPDATE_MIRROR_OSS,
       // 自动更新备用源（GitHub Releases）
       updateGithub: {
         owner: 'hydroCoderClaud',
@@ -165,10 +166,27 @@ class ConfigManager {
           needsSave = true;
         }
 
-        // 为旧配置补充新的主更新源字段，并持久化到磁盘
-        if (config.updatePrimaryUrl === undefined && migratedConfig.updatePrimaryUrl) {
-          console.log('[ConfigManager] Added missing updatePrimaryUrl field');
+        const originalPrimaryUrl = config.updatePrimaryUrl;
+        const originalMirrorUrl = config.updateMirrorUrl;
+        const hasLegacyGithubPrimaryWithOssMirror = (originalPrimaryUrl === '' || originalPrimaryUrl === undefined) &&
+          originalMirrorUrl === UPDATE_MIRROR_OSS;
+
+        if (hasLegacyGithubPrimaryWithOssMirror) {
+          migratedConfig.updatePrimaryUrl = UPDATE_MIRROR_OSS;
+          migratedConfig.updateMirrorUrl = '';
+          console.log('[ConfigManager] Migrated updater source order to OSS primary + GitHub fallback');
           needsSave = true;
+        } else {
+          // 为旧配置补充新的更新源字段，并持久化到磁盘
+          if (config.updatePrimaryUrl === undefined && migratedConfig.updatePrimaryUrl !== undefined) {
+            console.log('[ConfigManager] Added missing updatePrimaryUrl field');
+            needsSave = true;
+          }
+
+          if (config.updateMirrorUrl === undefined && migratedConfig.updateMirrorUrl) {
+            console.log('[ConfigManager] Added missing updateMirrorUrl field');
+            needsSave = true;
+          }
         }
 
         const originalMarket = config.market || {};

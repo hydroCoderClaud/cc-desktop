@@ -216,6 +216,7 @@ class UpdateManager {
   _applyPrimaryFeed() {
     const config = this.configManager?.getConfig?.()
     const primaryUrl = config?.updatePrimaryUrl
+    const github = config?.updateGithub
 
     if (primaryUrl) {
       this._applyRequestHeaders({
@@ -226,7 +227,6 @@ class UpdateManager {
       return
     }
 
-    const github = config?.updateGithub
     if (github?.owner && github?.repo) {
       this._applyRequestHeaders(null, `github:${github.owner}/${github.repo}`)
       log.info('[UpdateManager] Primary feed: github', `${github.owner}/${github.repo}`)
@@ -249,6 +249,7 @@ class UpdateManager {
     const config = this.configManager?.getConfig?.()
     const primaryUrl = config?.updatePrimaryUrl
     const github = config?.updateGithub
+    const mirrorUrl = config?.updateMirrorUrl
 
     if (primaryUrl && github?.owner && github?.repo) {
       this._applyRequestHeaders(null, `github:${github.owner}/${github.repo}`)
@@ -262,7 +263,6 @@ class UpdateManager {
       return
     }
 
-    const mirrorUrl = config?.updateMirrorUrl
     if (!mirrorUrl) {
       log.warn('[UpdateManager] No fallback feed configured, skip fallback')
       return
@@ -286,7 +286,7 @@ class UpdateManager {
   }
 
   /**
-   * 检查更新（主源 → 镜像 fallback）
+   * 检查更新（主源 → 备用源 fallback）
    * @param {boolean} silent - 静默检查（启动时后台检查）
    */
   async checkForUpdates(silent = false) {
@@ -307,20 +307,22 @@ class UpdateManager {
     // 每次检查先重置回主源
     this._resetToPrimary()
 
-    const hasMirror = !!this.configManager?.getConfig()?.updateMirrorUrl
+    const config = this.configManager?.getConfig?.()
+    const hasFallback = !!config?.updateMirrorUrl ||
+      (!!config?.updatePrimaryUrl && !!config?.updateGithub?.owner && !!config?.updateGithub?.repo)
 
     try {
-      // 有镜像源时预先抑制 error 事件，避免主源失败的错误信息闪现在 UI
-      // 主源成功则立即恢复；主源失败则静默 fallback，由镜像结果决定是否报错
-      if (hasMirror) this._isFallingBack = true
+      // 有备用源时预先抑制 error 事件，避免主源失败的错误信息闪现在 UI
+      // 主源成功则立即恢复；主源失败则静默 fallback，由备用源结果决定是否报错
+      if (hasFallback) this._isFallingBack = true
       log.info('[UpdateManager] Check for updates (primary), silent:', silent)
       const result = await autoUpdater.checkForUpdates()
       this._isFallingBack = false
       return result
     } catch (error) {
       this._isFallingBack = false
-      log.warn('[UpdateManager] Primary check failed:', error.message, '- trying mirror')
-      if (!hasMirror) {
+      log.warn('[UpdateManager] Primary check failed:', error.message, '- trying fallback')
+      if (!hasFallback) {
         if (!silent) {
           this.sendToRenderer('update-error', { message: error.message || String(error) })
         }
@@ -331,7 +333,7 @@ class UpdateManager {
         this._switchToMirror()
         return await autoUpdater.checkForUpdates()
       } catch (mirrorError) {
-        log.error('[UpdateManager] Mirror check also failed:', mirrorError.message)
+        log.error('[UpdateManager] Fallback check also failed:', mirrorError.message)
         this._resetToPrimary()
         if (!silent) {
           this.sendToRenderer('update-error', {
@@ -351,6 +353,10 @@ class UpdateManager {
    * 开始下载更新（带防重入保护 + 镜像 fallback）
    */
   async downloadUpdate() {
+    const config = this.configManager?.getConfig?.()
+    const hasFallback = !!config?.updateMirrorUrl ||
+      (!!config?.updatePrimaryUrl && !!config?.updateGithub?.owner && !!config?.updateGithub?.repo)
+
     if (this.isDownloading) {
       log.warn('[UpdateManager] Download already in progress, ignoring duplicate call')
       return
@@ -361,9 +367,9 @@ class UpdateManager {
       log.info(`[UpdateManager] Start downloading update from ${source}...`)
       return await autoUpdater.downloadUpdate()
     } catch (error) {
-      // 如果主源下载失败，尝试镜像
-      if (!this._usingMirror) {
-        log.warn('[UpdateManager] Primary download failed:', error.message, '- trying mirror')
+      // 如果主源下载失败，尝试备用源
+      if (!this._usingMirror && hasFallback) {
+        log.warn('[UpdateManager] Primary download failed:', error.message, '- trying fallback')
         try {
           this._isFallingBack = true
           this._switchToMirror()
@@ -372,7 +378,7 @@ class UpdateManager {
           return await autoUpdater.downloadUpdate()
         } catch (mirrorError) {
           this.isDownloading = false
-          log.error('[UpdateManager] Mirror download also failed:', mirrorError.message)
+          log.error('[UpdateManager] Fallback download also failed:', mirrorError.message)
           this._resetToPrimary()
           this.sendToRenderer('update-error', {
             message: mirrorError.message || String(mirrorError)

@@ -157,42 +157,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create macOS installer package
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          RELEASE_DIR="cc-desktop-${VERSION}-macos"
-
-          mkdir -p "$RELEASE_DIR"
-          # DMG 文件（手动安装用）- 用 find 动态查找，不依赖硬编码文件名
-          find dist -name "*.dmg" -exec cp {} "$RELEASE_DIR/" \;
-          cp scripts/install.sh "$RELEASE_DIR/"
-
-          # 注意：ZIP 文件不放入 tar.gz，直接上传到 Release（用于自动更新）
-
-          # 创建 README
-          cat > "$RELEASE_DIR/README.md" << EOF
-          # CC Desktop v${VERSION} - macOS Installer
-
-          ## Quick Install (Recommended)
-
-          \`\`\`bash
-          bash install.sh
-          \`\`\`
-
-          This will:
-          1. Detect your system architecture (ARM64 or x64)
-          2. Check if Claude Code CLI is installed (install if not)
-          3. Install CC Desktop to /Applications
-
-          ## Manual Install
-
-          - **Apple Silicon (M1/M2/M3)**: \`CC-Desktop-${VERSION}-darwin-arm64.dmg\`
-          - **Intel**: \`CC-Desktop-${VERSION}-darwin-x64.dmg\`
-          EOF
-
-          # 打包
-          tar czf "dist/cc-desktop-${VERSION}-macos.tar.gz" "$RELEASE_DIR"
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -202,7 +166,6 @@ jobs:
             dist/*.zip
             dist/*.blockmap
             dist/latest-mac.yml
-            dist/cc-desktop-*-macos.tar.gz
           if-no-files-found: ignore
 
   release:
@@ -313,7 +276,6 @@ jobs:
             artifacts/**/*.blockmap
             artifacts/**/latest.yml
             artifacts/**/latest-mac.yml
-            artifacts/**/cc-desktop-*-macos.tar.gz
             artifacts/**/*.AppImage
           draft: false
           prerelease: false
@@ -333,14 +295,14 @@ jobs:
             ```
 
             #### macOS
-            下载 `cc-desktop-*-macos.tar.gz`，解压后运行：
-            ```bash
-            bash install.sh
-            ```
+            Apple Silicon 下载 `CC-Desktop-*-darwin-arm64.dmg` 或 `CC-Desktop-*-darwin-arm64.zip`
+
+            Intel 下载 `CC-Desktop-*-darwin-x64.dmg` 或 `CC-Desktop-*-darwin-x64.zip`
 
             ### 🇨🇳 镜像站下载（China Mirror）
             - **Windows**: [cc-desktop-${{ steps.version.outputs.number }}-windows.zip](https://hdupdate.myseek.fun/hydrodesktop_update/cc-desktop-${{ steps.version.outputs.number }}-windows.zip)
-            - **macOS**: [cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz](https://hdupdate.myseek.fun/hydrodesktop_update/cc-desktop-${{ steps.version.outputs.number }}-macos.tar.gz)
+            - **macOS Apple Silicon**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg](https://hdupdate.myseek.fun/hydrodesktop_update/CC-Desktop-${{ steps.version.outputs.number }}-darwin-arm64.dmg)
+            - **macOS Intel**: [CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg](https://hdupdate.myseek.fun/hydrodesktop_update/CC-Desktop-${{ steps.version.outputs.number }}-darwin-x64.dmg)
 
             ### ✨ 功能特性
             - 双模式架构：开发者模式（CLI界面）+ Agent 模式（Chat界面）
@@ -361,7 +323,7 @@ jobs:
           echo "=== Uploading to Cloudflare R2 ==="
           VERSION="${{ steps.version.outputs.tag }}"
 
-          # 清理旧的大文件（exe/dmg/zip/tar.gz），保留 blockmap（差分更新需要上一版本的 blockmap）
+          # 清理旧的大文件（exe/dmg/zip），保留 blockmap（差分更新需要上一版本的 blockmap）
           echo "Cleaning old large files (keeping blockmaps)..."
           aws s3 ls "s3://${{ env.R2_BUCKET }}/" --endpoint-url "${{ secrets.R2_ENDPOINT }}" | \
             awk '{print $4}' | grep -v '\.blockmap$' | grep -v '\.yml$' | while read -r f; do
@@ -371,7 +333,7 @@ jobs:
             done || true
 
           # 上传所有构建产物到 R2（flat 目录，electron-updater 需要）
-          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
             [ -f "$f" ] || continue
             BASENAME=$(basename "$f")
             echo "Uploading: $BASENAME"
@@ -456,7 +418,7 @@ jobs:
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
           echo "Uploading files to OSS..."
-          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
             [ -f "$f" ] || continue
             BASENAME=$(basename "$f")
             echo "Uploading: $BASENAME"
