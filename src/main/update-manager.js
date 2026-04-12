@@ -206,33 +206,59 @@ class UpdateManager {
   }
 
   /**
-   * 应用主源 feed（GitHub provider，支持 Range 请求 → 差分更新）
+   * 应用主源 feed（优先 generic 主源；未配置时回退到 GitHub 主源）
    */
   _applyPrimaryFeed() {
-    const github = this.configManager?.getConfig()?.updateGithub
-    if (!github?.owner || !github?.repo) {
-      log.warn('[UpdateManager] GitHub config missing, cannot set primary feed')
+    const config = this.configManager?.getConfig?.()
+    const primaryUrl = config?.updatePrimaryUrl
+
+    if (primaryUrl) {
+      log.info('[UpdateManager] Primary feed: generic', primaryUrl)
+      autoUpdater.setFeedURL({ provider: 'generic', url: primaryUrl })
       return
     }
-    log.info('[UpdateManager] Primary feed: github', `${github.owner}/${github.repo}`)
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: github.owner,
-      repo: github.repo
-    })
+
+    const github = config?.updateGithub
+    if (github?.owner && github?.repo) {
+      log.info('[UpdateManager] Primary feed: github', `${github.owner}/${github.repo}`)
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: github.owner,
+        repo: github.repo
+      })
+      return
+    }
+
+    log.warn('[UpdateManager] No primary update feed configured')
   }
 
   /**
-   * 切换到镜像源（generic provider）
+   * 切换到备用源（优先 GitHub；旧配置下回退到 generic 镜像）
    */
   _switchToMirror() {
     if (this._usingMirror) return
-    const mirrorUrl = this.configManager?.getConfig()?.updateMirrorUrl
-    if (!mirrorUrl) {
-      log.warn('[UpdateManager] No mirror URL configured, skip fallback')
+    const config = this.configManager?.getConfig?.()
+    const primaryUrl = config?.updatePrimaryUrl
+    const github = config?.updateGithub
+
+    if (primaryUrl && github?.owner && github?.repo) {
+      log.info('[UpdateManager] Switching to fallback github:', `${github.owner}/${github.repo}`)
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: github.owner,
+        repo: github.repo
+      })
+      this._usingMirror = true
       return
     }
-    log.info('[UpdateManager] Switching to mirror:', mirrorUrl)
+
+    const mirrorUrl = config?.updateMirrorUrl
+    if (!mirrorUrl) {
+      log.warn('[UpdateManager] No fallback feed configured, skip fallback')
+      return
+    }
+
+    log.info('[UpdateManager] Switching to fallback mirror:', mirrorUrl)
     autoUpdater.setFeedURL({ provider: 'generic', url: mirrorUrl })
     this._usingMirror = true
   }

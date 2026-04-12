@@ -456,10 +456,23 @@ jobs:
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
           echo "Uploading files to OSS..."
-          /tmp/ossutil cp -r -f artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-macos.tar.gz artifacts/**/cc-desktop-*-windows.zip; do
+            [ -f "$f" ] || continue
+            BASENAME=$(basename "$f")
+            echo "Uploading: $BASENAME"
+            /tmp/ossutil cp -f "$f" oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/$BASENAME \
+              -e ${{ env.OSS_ENDPOINT }} \
+              -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+              -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
+              --sign-version v4 --region ${{ env.OSS_REGION }}
+          done
+
+          # 复用 R2 下载页到 OSS 子目录，方便直接访问镜像目录
+          /tmp/ossutil cp -f /tmp/index.html oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/index.html \
             -e ${{ env.OSS_ENDPOINT }} \
             -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
             -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
+            --content-type "text/html; charset=utf-8" \
             --sign-version v4 --region ${{ env.OSS_REGION }}
 
           echo "=== Aliyun OSS upload complete ==="

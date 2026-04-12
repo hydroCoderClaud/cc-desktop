@@ -52,13 +52,15 @@ class ConfigManager {
         registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
       },
 
-      // 自动更新源（GitHub）
+      // 自动更新主源（国内 generic provider）
+      updatePrimaryUrl: 'https://hdupdate.myseek.fun/hydrodesktop_update',
+      // 自动更新备用源（GitHub Releases）
       updateGithub: {
         owner: 'hydroCoderClaud',
         repo: 'cc-desktop'
       },
-      // 自动更新镜像（国内 fallback，generic provider）
-      updateMirrorUrl: 'https://ccd.myseek.fun',
+      // 旧版国内镜像配置（兼容保留，不再作为默认值写入）
+      updateMirrorUrl: '',
 
       // MCP 代理配置
       mcp: {

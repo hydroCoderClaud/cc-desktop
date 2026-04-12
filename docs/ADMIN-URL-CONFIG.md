@@ -29,22 +29,31 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | **用途** | 组件市场主地址不可达时自动 fallback（8 秒超时后切换） |
 | **协议** | 同上，目录结构须与主仓库保持一致 |
 
-### 3. 自动更新 — 主源（GitHub）
+### 3. 自动更新 — 主源地址
+
+| 项目 | 说明 |
+|------|------|
+| **配置路径** | `updatePrimaryUrl` |
+| **默认值** | `https://hdupdate.myseek.fun/hydrodesktop_update` |
+| **用途** | 作为自动更新主源，优先检查和下载更新 |
+| **协议** | `provider: "generic"` 模式，flat 目录结构（所有文件放根目录），需要 `latest.yml` / `latest-mac.yml` 和安装包文件 |
+
+### 4. 自动更新 — 备用源（GitHub）
 
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `updateGithub.owner` / `updateGithub.repo` |
 | **默认值** | `hydroCoderClaud` / `cc-desktop` |
-| **用途** | electron-updater 通过 GitHub API 检查和下载新版本 |
+| **用途** | 主源不可达时，fallback 到 GitHub Releases 检查和下载新版本 |
 | **协议** | `provider: "github"` 模式，使用 GitHub Releases API，支持差分更新（Range 请求） |
 
-### 4. 自动更新 — 镜像地址
+### 5. 自动更新 — 旧版镜像地址（兼容）
 
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `updateMirrorUrl` |
-| **默认值** | `https://ccd.myseek.fun` |
-| **用途** | GitHub 不可达时自动 fallback 检查和下载更新 |
+| **默认值** | 空 |
+| **用途** | 兼容旧配置；新版本默认不再写入此字段 |
 | **协议** | `provider: "generic"` 模式，flat 目录结构（所有文件放根目录），需要 `latest.yml` / `latest-mac.yml` 和安装包文件 |
 
 ## 配置文件示例
@@ -55,11 +64,11 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
     "registryUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main",
     "registryMirrorUrl": "https://gitee.com/reistlin/hydroskills/raw/main"
   },
+  "updatePrimaryUrl": "https://hdupdate.myseek.fun/hydrodesktop_update",
   "updateGithub": {
     "owner": "hydroCoderClaud",
     "repo": "cc-desktop"
-  },
-  "updateMirrorUrl": "https://ccd.myseek.fun"
+  }
 }
 ```
 
@@ -82,12 +91,12 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 ### 自动更新
 
 ```
-检查 GitHub（provider: "github"，支持差分更新）
-  ├─ 成功 → 从 GitHub 下载
-  │          ├─ 下载成功 → 完成（支持差分更新）
-  │          └─ 下载失败 → 切换到镜像 → 重新检查 → 下载
-  └─ 失败 → 切换到镜像（provider: "generic"）→ 检查
-              ├─ 成功 → 从镜像下载
+检查主源（provider: "generic"）
+  ├─ 成功 → 从主源下载
+  │          ├─ 下载成功 → 完成
+  │          └─ 下载失败 → 切换到 GitHub → 重新检查 → 下载
+  └─ 失败 → 切换到 GitHub（provider: "github"）→ 检查
+              ├─ 成功 → 从 GitHub 下载
               └─ 失败 → 报错
 ```
 
@@ -101,13 +110,13 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 2. 修改 `config.json` 中的 `market.registryMirrorUrl`
 3. 重启应用生效
 
-### 场景 2：更换自动更新镜像
+### 场景 2：更换自动更新主源
 
 1. 将 CI 构建产物上传到新的静态文件服务器（需包含 `latest.yml`、`latest-mac.yml`、安装包等）
-2. 修改 `config.json` 中的 `updateMirrorUrl`
+2. 修改 `config.json` 中的 `updatePrimaryUrl`
 3. 重启应用生效
 
-### 场景 3：更换 GitHub 仓库
+### 场景 3：更换 GitHub 备用源
 
 1. 修改 `config.json` 中的 `updateGithub.owner` 和 `updateGithub.repo`
 2. 确保新仓库的 Releases 包含构建产物
@@ -117,8 +126,8 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 
 | 服务 | 用途 | 备注 |
 |------|------|------|
-| **GitHub Releases** | 自动更新主源 | `provider: "github"`，支持差分更新 |
-| **Cloudflare R2** + `ccd.myseek.fun` | 自动更新镜像 + 安装包下载 | 国内加速，GitHub Actions 构建后自动同步 |
+| **Aliyun OSS** + `hdupdate.myseek.fun/hydrodesktop_update` | 自动更新主源 + 安装包下载 | 国内主源，GitHub Actions 构建后自动同步 |
+| **GitHub Releases** | 自动更新备用源 | `provider: "github"`，作为 fallback |
 | **GitHub Raw** | 组件市场主源 | 海外用户直连 |
 | **Gitee Raw** | 组件市场镜像 | 国内加速，需手动或 CI 同步 |
 
