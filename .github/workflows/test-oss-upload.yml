@@ -47,6 +47,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug OSS settings
+        run: |
+          echo "OSS_ENDPOINT=${{ env.OSS_ENDPOINT }}"
+          echo "OSS_REGION=${{ env.OSS_REGION }}"
+          echo "OSS_BUCKET_NAME=${{ secrets.OSS_BUCKET_NAME }}"
+          echo "OSS_ACCESS_KEY_ID=${{ secrets.OSS_ACCESS_KEY_ID }}"
+          echo -n "${{ secrets.OSS_ACCESS_KEY_SECRET }}" | wc -c
+          printf "%s" "${{ secrets.OSS_ACCESS_KEY_SECRET }}" | sha256sum
+
+      - name: Debug OSS auth
+        run: |
+          /tmp/ossutil ls oss://${{ secrets.OSS_BUCKET_NAME }}/ \
+            -e ${{ env.OSS_ENDPOINT }} \
+            -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
+            --sign-version v4 --region ${{ env.OSS_REGION }} \
+            --limited-num 5
+
       - name: Upload to Aliyun OSS
         run: |
           echo "=== Uploading to Aliyun OSS ==="
