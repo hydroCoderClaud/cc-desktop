@@ -10,6 +10,7 @@ on:
 
 env:
   OSS_DIR: hydrodesktop_update
+  OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
 
 jobs:
   test-oss-upload:
@@ -27,12 +28,11 @@ jobs:
           cat > /tmp/.ossutilconfig << EOF
           [Credentials]
           language=CH
-          endpoint=oss-cn-hangzhou.aliyuncs.com
+          endpoint=${{ env.OSS_ENDPOINT }}
           accessKeyID=${{ secrets.OSS_ACCESS_KEY_ID }}
           accessKeySecret=${{ secrets.OSS_ACCESS_KEY_SECRET }}
           EOF
           echo "ossutil config created successfully"
-          cat /tmp/.ossutilconfig
 
       - name: Download artifacts from release
         run: |
