@@ -21,6 +21,7 @@ env:
   R2_BUCKET: cc-desktop-releases
   OSS_DIR: hydrodesktop_update
   OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+  OSS_REGION: cn-hangzhou
 
 jobs:
   test:
@@ -454,14 +455,17 @@ jobs:
           # 清理旧的大文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
           /tmp/ossutil rm -r -b -f -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            --sign-version v4 --region ${{ env.OSS_REGION }} \
             --exclude "*.blockmap" --exclude "*.yml" || true
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
           echo "Uploading files to OSS..."
-          /tmp/ossutil cp -r -f -c /tmp/.ossutilconfig artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/
+          /tmp/ossutil cp -r -f -c /tmp/.ossutilconfig artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            --sign-version v4 --region ${{ env.OSS_REGION }}
 
           echo "=== Aliyun OSS upload complete ==="
-          /tmp/ossutil ls -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/
+          /tmp/ossutil ls -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            --sign-version v4 --region ${{ env.OSS_REGION }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
