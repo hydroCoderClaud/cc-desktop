@@ -157,6 +157,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Package macOS installer archives
+        run: bash scripts/package-mac-installers.sh
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -164,6 +167,7 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/*-installer.tar.gz
             dist/*.blockmap
             dist/latest-mac.yml
           if-no-files-found: ignore
@@ -273,6 +277,7 @@ jobs:
             artifacts/**/*.exe
             artifacts/**/*.dmg
             artifacts/**/*.zip
+            artifacts/**/*-installer.tar.gz
             artifacts/**/*.blockmap
             artifacts/**/latest.yml
             artifacts/**/latest-mac.yml
@@ -295,9 +300,17 @@ jobs:
             ```
 
             #### macOS
-            Apple Silicon 下载 `CC-Desktop-*-darwin-arm64.dmg` 或 `CC-Desktop-*-darwin-arm64.zip`
+            Apple Silicon 推荐下载 `cc-desktop-*-macos-arm64-installer.tar.gz`，解压后运行：
+            ```bash
+            bash install.sh
+            ```
 
-            Intel 下载 `CC-Desktop-*-darwin-x64.dmg` 或 `CC-Desktop-*-darwin-x64.zip`
+            Intel 推荐下载 `cc-desktop-*-macos-x64-installer.tar.gz`，解压后运行：
+            ```bash
+            bash install.sh
+            ```
+
+            如只需原始安装包，也可直接下载对应架构的 `dmg`
 
             ### 🇨🇳 镜像站下载（China Mirror）
             - 下载页：https://hdupdate.myseek.fun/hydrodesktop_update/
@@ -331,7 +344,7 @@ jobs:
             done || true
 
           # 上传所有构建产物到 R2（flat 目录，electron-updater 需要）
-          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*-installer.tar.gz artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
             [ -f "$f" ] || continue
             BASENAME=$(basename "$f")
             echo "Uploading: $BASENAME"
@@ -378,8 +391,11 @@ jobs:
               </div>
               <div class="section">
                 <h2>macOS</h2>
+                <a class="dl" href="cc-desktop-${VER}-macos-arm64-installer.tar.gz"><span class="name">cc-desktop-${VER}-macos-arm64-installer.tar.gz</span><br><span class="hint">Apple Silicon 一键安装包（解压后运行 <code>install.sh</code>）</span></a>
                 <a class="dl" href="CC-Desktop-${VER}-darwin-arm64.dmg"><span class="name">CC-Desktop-${VER}-darwin-arm64.dmg</span><br><span class="hint">Apple Silicon (M1/M2/M3/M4)</span></a>
+                <a class="dl" href="cc-desktop-${VER}-macos-x64-installer.tar.gz"><span class="name">cc-desktop-${VER}-macos-x64-installer.tar.gz</span><br><span class="hint">Intel 一键安装包（解压后运行 <code>install.sh</code>）</span></a>
                 <a class="dl" href="CC-Desktop-${VER}-darwin-x64.dmg"><span class="name">CC-Desktop-${VER}-darwin-x64.dmg</span><br><span class="hint">Intel</span></a>
+                <div class="tip">推荐按架构下载一键安装包。脚本会校验架构，并自动检查 Node.js、Claude Code CLI 和应用安装。</div>
               </div>
               <div class="footer">
                 <a href="https://github.com/hydroCoderClaud/cc-desktop" target="_blank">GitHub</a>
@@ -420,7 +436,7 @@ jobs:
 
           # 上传所有构建产物到 OSS（flat 目录，electron-updater 需要）
           echo "Uploading files to OSS..."
-          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
+          for f in artifacts/**/*.exe artifacts/**/*.dmg artifacts/**/*.zip artifacts/**/*-installer.tar.gz artifacts/**/*.blockmap artifacts/**/latest.yml artifacts/**/latest-mac.yml artifacts/**/cc-desktop-*-windows.zip; do
             [ -f "$f" ] || continue
             BASENAME=$(basename "$f")
             echo "Uploading: $BASENAME"

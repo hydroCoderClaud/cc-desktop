@@ -21,6 +21,24 @@ detect_platform() {
     esac
 }
 
+detect_macos_arch() {
+    case "$(uname -m)" in
+        arm64|aarch64) echo "arm64" ;;
+        x86_64|amd64)  echo "x64" ;;
+        *)             echo "" ;;
+    esac
+}
+
+get_package_arch() {
+    for marker in "$SCRIPT_DIR/installer-arch.txt" "$SCRIPT_DIR/../installer-arch.txt"; do
+        if [ -f "$marker" ]; then
+            tr -d '[:space:]' < "$marker"
+            return
+        fi
+    done
+    echo ""
+}
+
 # Reload PATH from shell profiles
 refresh_path() {
     for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
@@ -174,31 +192,36 @@ PLATFORM=$(detect_platform)
 step "Looking for CC Desktop installer (platform: $PLATFORM)..."
 
 install_macos() {
-    # Detect system architecture
     local arch
-    arch=$(uname -m)
-    case "$arch" in
-        arm64|aarch64) arch="arm64" ;;
-        x86_64|amd64)  arch="x64" ;;
-        *)
-            warn "Unknown architecture: $arch"
-            arch=""
-            ;;
-    esac
+    arch=$(detect_macos_arch)
+    local package_arch
+    package_arch=$(get_package_arch)
+
+    if [ -z "$arch" ]; then
+        warn "Unknown architecture: $(uname -m)"
+    fi
+
+    if [ -n "$package_arch" ] && [ -n "$arch" ] && [ "$package_arch" != "$arch" ]; then
+        err "This installer package is for ${package_arch}, but this Mac is ${arch}."
+        echo "  Please download the ${arch} installer package instead."
+        return 1
+    fi
 
     # Look for .dmg in script dir or parent dir
-    # Priority: 1) arch-specific DMG, 2) any CC Desktop DMG
+    # Priority: 1) package-locked DMG, 2) arch-specific DMG, 3) any CC Desktop DMG
     local dmg
-    if [ -n "$arch" ]; then
+    if [ -n "$package_arch" ]; then
+        dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name "*darwin-${package_arch}.dmg" -iname '*cc*desktop*' 2>/dev/null | head -n1)
+    elif [ -n "$arch" ]; then
         dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name "*darwin-${arch}.dmg" -iname '*cc*desktop*' 2>/dev/null | head -n1)
     fi
 
-    if [ -z "$dmg" ]; then
+    if [ -z "$dmg" ] && [ -z "$package_arch" ]; then
         dmg=$(find "$SCRIPT_DIR" "$SCRIPT_DIR/.." -maxdepth 1 -name '*.dmg' -iname '*cc*desktop*' 2>/dev/null | head -n1)
     fi
 
     if [ -z "$dmg" ]; then
-        warn "No CC Desktop .dmg found in the current directory."
+        warn "No matching CC Desktop .dmg found in the current directory."
         echo "  Please download it from the releases page and install manually."
         return
     fi
