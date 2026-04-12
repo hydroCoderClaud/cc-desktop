@@ -162,6 +162,12 @@ class ConfigManager {
           needsSave = true;
         }
 
+        // 为旧配置补充新的主更新源字段，并持久化到磁盘
+        if (config.updatePrimaryUrl === undefined && migratedConfig.updatePrimaryUrl) {
+          console.log('[ConfigManager] Added missing updatePrimaryUrl field');
+          needsSave = true;
+        }
+
         // 如果发生了迁移，保存新配置
         if (needsSave || migratedConfig !== mergedConfig) {
           this.save(migratedConfig);
