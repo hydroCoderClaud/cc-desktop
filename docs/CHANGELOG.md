@@ -4,9 +4,13 @@
 
 ## Unreleased
 
+---
+
+## v1.7.42 - 2026-04-12
+
 ### 修复 (Fix)
-- 自动更新主备顺序切回 `Aliyun OSS -> GitHub Releases`，默认优先走已验证的阿里节点
-- 启动时会把旧配置中的 `GitHub 主源 + 阿里镜像` 自动迁移回阿里主更新源
+- 自动更新主备顺序切回 `Aliyun OSS -> GitHub Releases`，默认优先走阿里主源
+- 启动时会把旧的 `GitHub 主源 + 阿里镜像` 配置自动迁回阿里主更新源
 - 发布流程移除冗余的 `cc-desktop-*-macos.tar.gz` 打包产物，macOS 直接分发现有架构包
 
 ---
