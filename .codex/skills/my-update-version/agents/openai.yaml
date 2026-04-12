@@ -1,0 +1,7 @@
+interface:
+  display_name: "CC Desktop Release"
+  short_description: "更新版本、日志、tag 与发布推送"
+  default_prompt: "Use $my-update-version to release a new cc-desktop version from master, update the changelog, create the tag, and push it safely."
+
+policy:
+  allow_implicit_invocation: true
