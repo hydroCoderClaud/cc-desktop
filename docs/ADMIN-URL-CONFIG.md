@@ -135,3 +135,10 @@ CC Desktop 有 4 个关键源地址通过配置文件管理，**不在 UI 中暴
 - **修改后需重启应用**：配置在启动时读取，运行中修改不会立即生效
 - **镜像目录结构必须一致**：文件名、路径须与主源完全相同，否则 fallback 后仍会失败
 - **R2 上传在 CI 中自动完成**：`.github/workflows/build.yml` 的 `Upload to R2` 步骤在每次发布时自动上传新版本
+
+## 阿里差分更新要点
+
+- CDN 不要手工固定改写 `Content-Type: multipart/byteranges`，否则会覆盖真实响应里的 `boundary=...` 并导致差分失败
+- 保留阿里侧真实多段 Range 响应配置，客户端需要拿到 `multipart/byteranges; boundary=...`
+- 保留回源请求头 `x-oss-multi-range-behavior: multi-range`
+- 发布流程必须继续上传 `.blockmap` 文件，否则无法进行差分更新

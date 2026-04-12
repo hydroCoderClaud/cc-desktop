@@ -126,6 +126,7 @@
         <button class="nav-btn" :title="t('notebook.nav.settings')">
           <Icon name="settings" :size="16" />
           <span>{{ t('notebook.nav.settings') }}</span>
+          <span v-if="hasUpdateAvailable" class="update-badge"></span>
         </button>
       </n-dropdown>
     </div>
@@ -158,6 +159,9 @@ const modeOptions = computed(() => [
   { label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') },
   { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
 ])
+
+const hasUpdateAvailable = ref(false)
+let updateAvailableCleanup = null
 
 const handleModeSelect = (key) => {
   if (key === 'developer' || key === 'agent') {
@@ -280,7 +284,15 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.appUpdate'), key: 'app-update', icon: renderMenuIcon('download') }
 ])
 
-const renderSettingsLabel = (option) => (typeof option.label === 'function' ? option.label() : option.label)
+const renderSettingsLabel = (option) => {
+  if (option.key === 'app-update' && hasUpdateAvailable.value) {
+    return h('span', { style: 'display:inline-flex; align-items:center; gap:6px;' }, [
+      typeof option.label === 'function' ? option.label() : String(option.label),
+      h('span', { style: 'width:7px; height:7px; border-radius:50%; background:#ff4d4f; flex-shrink:0;' })
+    ])
+  }
+  return typeof option.label === 'function' ? option.label() : option.label
+}
 
 const handleSettingsSelect = (key) => {
   if (!window.electronAPI) return
@@ -355,8 +367,31 @@ const handleGlobalClick = (e) => {
   }
 }
 
-onMounted(() => document.addEventListener('click', handleGlobalClick, true))
-onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true))
+onMounted(async () => {
+  document.addEventListener('click', handleGlobalClick, true)
+
+  if (window.electronAPI?.getUpdateStatus) {
+    try {
+      const status = await window.electronAPI.getUpdateStatus()
+      if (status?.hasUpdate) {
+        hasUpdateAvailable.value = true
+      }
+    } catch (err) {
+      console.error('[NotebookTopNav] Failed to get update status:', err)
+    }
+  }
+
+  if (window.electronAPI?.onUpdateAvailable) {
+    updateAvailableCleanup = window.electronAPI.onUpdateAvailable(() => {
+      hasUpdateAvailable.value = true
+    })
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick, true)
+  if (updateAvailableCleanup) updateAvailableCleanup()
+})
 </script>
 
 <style scoped>
@@ -546,6 +581,22 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick, true)
   color: var(--text-color);
   background: var(--bg-color);
   outline: none;
+}
+
+.nav-btn {
+  position: relative;
+}
+
+.update-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  border: 1px solid var(--bg-color);
+  pointer-events: none;
 }
 
 .dropdown-empty {
