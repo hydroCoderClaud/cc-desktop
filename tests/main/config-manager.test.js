@@ -86,6 +86,12 @@ describe('ConfigManager', () => {
       expect(config.timeout.test).toBeGreaterThan(0)
       expect(config.timeout.request).toBeGreaterThan(0)
     })
+
+    it('应该默认使用 Gitee 作为市场主源，GitHub 作为备用源', () => {
+      const config = configManager.getConfig()
+      expect(config.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
+      expect(config.market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
+    })
   })
 
   describe('deepMerge', () => {
@@ -229,6 +235,29 @@ describe('ConfigManager', () => {
 
       expect(newConfigManager.getConfig().settings.theme).toBe('dark')
       expect(newConfigManager.getMaxActiveSessions()).toBe(15)
+    })
+
+    it('应该把旧的市场主备顺序迁移为 Gitee 主源、GitHub 备用源并写回磁盘', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        market: {
+          registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
+          registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main'
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      expect(newConfigManager.getConfig().market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
+      expect(newConfigManager.getConfig().market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
+      expect(savedConfig.market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
     })
   })
 })

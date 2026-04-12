@@ -16,7 +16,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `market.registryUrl` |
-| **默认值** | `https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main` |
+| **默认值** | `https://gitee.com/reistlin/hydroskills/raw/main` |
 | **用途** | Skills / Agents / Prompts / MCP 组件市场的索引和文件下载 |
 | **协议** | 任何可访问的 HTTP(S) 静态文件服务器，根目录需含 `index.json` |
 
@@ -25,7 +25,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `market.registryMirrorUrl` |
-| **默认值** | `https://gitee.com/reistlin/hydroskills/raw/main` |
+| **默认值** | `https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main` |
 | **用途** | 组件市场主地址不可达时自动 fallback（8 秒超时后切换） |
 | **协议** | 同上，目录结构须与主仓库保持一致 |
 
@@ -61,8 +61,8 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 ```json
 {
   "market": {
-    "registryUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main",
-    "registryMirrorUrl": "https://gitee.com/reistlin/hydroskills/raw/main"
+    "registryUrl": "https://gitee.com/reistlin/hydroskills/raw/main",
+    "registryMirrorUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main"
   },
   "updatePrimaryUrl": "https://hdupdate.myseek.fun/hydrodesktop_update",
   "updateGithub": {

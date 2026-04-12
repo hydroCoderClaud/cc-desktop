@@ -13,6 +13,9 @@ const { providerConfigMixin } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
 
+const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
+const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
+
 class ConfigManager {
   /**
    * @param {Object} options - 可选配置
@@ -48,8 +51,8 @@ class ConfigManager {
 
       // 组件市场配置（Skills / Agents / Prompts）
       market: {
-        registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
-        registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
+        registryUrl: MARKET_REGISTRY_GITEE,
+        registryMirrorUrl: MARKET_REGISTRY_GITHUB,
       },
 
       // 自动更新主源（国内 generic provider）
@@ -165,6 +168,37 @@ class ConfigManager {
         // 为旧配置补充新的主更新源字段，并持久化到磁盘
         if (config.updatePrimaryUrl === undefined && migratedConfig.updatePrimaryUrl) {
           console.log('[ConfigManager] Added missing updatePrimaryUrl field');
+          needsSave = true;
+        }
+
+        const originalMarket = config.market || {};
+        const currentMarket = migratedConfig.market || {};
+        const hasLegacyMarketPrimary = originalMarket.registryUrl === MARKET_REGISTRY_GITHUB;
+        const hasLegacyMarketMirror = originalMarket.registryMirrorUrl === MARKET_REGISTRY_GITEE;
+        const marketPrimaryMissing = originalMarket.registryUrl === undefined;
+        const marketMirrorMissing = originalMarket.registryMirrorUrl === undefined;
+
+        if (hasLegacyMarketPrimary || hasLegacyMarketMirror || marketPrimaryMissing || marketMirrorMissing) {
+          const nextPrimary = (hasLegacyMarketPrimary || marketPrimaryMissing)
+            ? MARKET_REGISTRY_GITEE
+            : currentMarket.registryUrl;
+          const nextMirror = (hasLegacyMarketMirror || marketMirrorMissing)
+            ? MARKET_REGISTRY_GITHUB
+            : currentMarket.registryMirrorUrl;
+
+          if (nextPrimary !== currentMarket.registryUrl || nextMirror !== currentMarket.registryMirrorUrl) {
+            migratedConfig.market = {
+              ...currentMarket,
+              registryUrl: nextPrimary,
+              registryMirrorUrl: nextMirror
+            };
+          }
+
+          if (hasLegacyMarketPrimary || hasLegacyMarketMirror) {
+            console.log('[ConfigManager] Migrated market registry priority to Gitee primary + GitHub fallback');
+          } else {
+            console.log('[ConfigManager] Added missing market registry fields');
+          }
           needsSave = true;
         }
 
