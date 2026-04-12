@@ -440,7 +440,9 @@ jobs:
           VERSION="${{ steps.version.outputs.tag }}"
 
           # 安装 ossutil
-          wget -q https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil64 -O /tmp/ossutil
+          wget -q https://gosspublic.alicdn.com/ossutil/v2/2.2.1/ossutil-2.2.1-linux-amd64.zip -O /tmp/ossutil.zip
+          unzip -q /tmp/ossutil.zip -d /tmp/ossutil2
+          mv /tmp/ossutil2/ossutil-2.2.1-linux-amd64/ossutil /tmp/ossutil
           chmod +x /tmp/ossutil
 
           # 配置 ossutil
