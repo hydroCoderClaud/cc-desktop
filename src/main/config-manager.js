@@ -52,7 +52,7 @@ class ConfigManager {
       // 组件市场配置（Skills / Agents / Prompts）
       market: {
         registryUrl: MARKET_REGISTRY_GITEE,
-        registryMirrorUrl: MARKET_REGISTRY_GITHUB,
+        registryMirrorUrl: '',
       },
 
       // 自动更新主源（国内 generic provider）
@@ -174,17 +174,15 @@ class ConfigManager {
         const originalMarket = config.market || {};
         const currentMarket = migratedConfig.market || {};
         const hasLegacyMarketPrimary = originalMarket.registryUrl === MARKET_REGISTRY_GITHUB;
-        const hasLegacyMarketMirror = originalMarket.registryMirrorUrl === MARKET_REGISTRY_GITEE;
         const marketPrimaryMissing = originalMarket.registryUrl === undefined;
-        const marketMirrorMissing = originalMarket.registryMirrorUrl === undefined;
+        const hasMarketMirror = originalMarket.registryMirrorUrl !== undefined && originalMarket.registryMirrorUrl !== '';
+        const hasLegacyMarketFallbackUrls = originalMarket.registryFallbackUrls !== undefined;
 
-        if (hasLegacyMarketPrimary || hasLegacyMarketMirror || marketPrimaryMissing || marketMirrorMissing) {
+        if (hasLegacyMarketPrimary || marketPrimaryMissing || hasMarketMirror || hasLegacyMarketFallbackUrls) {
           const nextPrimary = (hasLegacyMarketPrimary || marketPrimaryMissing)
             ? MARKET_REGISTRY_GITEE
             : currentMarket.registryUrl;
-          const nextMirror = (hasLegacyMarketMirror || marketMirrorMissing)
-            ? MARKET_REGISTRY_GITHUB
-            : currentMarket.registryMirrorUrl;
+          const nextMirror = '';
 
           if (nextPrimary !== currentMarket.registryUrl || nextMirror !== currentMarket.registryMirrorUrl) {
             migratedConfig.market = {
@@ -194,10 +192,16 @@ class ConfigManager {
             };
           }
 
-          if (hasLegacyMarketPrimary || hasLegacyMarketMirror) {
-            console.log('[ConfigManager] Migrated market registry priority to Gitee primary + GitHub fallback');
+          if (migratedConfig.market?.registryFallbackUrls !== undefined) {
+            delete migratedConfig.market.registryFallbackUrls;
+          }
+
+          if (hasLegacyMarketPrimary) {
+            console.log('[ConfigManager] Migrated market registry primary to Gitee');
+          } else if (hasMarketMirror || hasLegacyMarketFallbackUrls) {
+            console.log('[ConfigManager] Removed deprecated market fallback configuration');
           } else {
-            console.log('[ConfigManager] Added missing market registry fields');
+            console.log('[ConfigManager] Added missing market registry primary');
           }
           needsSave = true;
         }

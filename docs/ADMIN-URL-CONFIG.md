@@ -1,6 +1,6 @@
 # 管理员维护手册 — 源地址配置
 
-CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管理，**不在 UI 中暴露**（防止用户误改导致功能失效）。
+CC Desktop 有 4 个关键源地址通过配置文件管理，**不在 UI 中暴露**（防止用户误改导致功能失效）。
 
 ## 配置文件位置
 
@@ -20,14 +20,14 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 | **用途** | Skills / Agents / Prompts / MCP 组件市场的索引和文件下载 |
 | **协议** | 任何可访问的 HTTP(S) 静态文件服务器，根目录需含 `index.json` |
 
-### 2. 组件市场 — 镜像地址
+### 2. 组件市场 — 旧备用地址（已停用）
 
 | 项目 | 说明 |
 |------|------|
 | **配置路径** | `market.registryMirrorUrl` |
-| **默认值** | `https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main` |
-| **用途** | 组件市场主地址不可达时自动 fallback（8 秒超时后切换） |
-| **协议** | 同上，目录结构须与主仓库保持一致 |
+| **默认值** | 空 |
+| **用途** | 兼容旧配置；启动时会自动清空，不再作为组件市场 fallback 使用 |
+| **协议** | 无 |
 
 ### 3. 自动更新 — 主源地址
 
@@ -62,7 +62,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 {
   "market": {
     "registryUrl": "https://gitee.com/reistlin/hydroskills/raw/main",
-    "registryMirrorUrl": "https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main"
+    "registryMirrorUrl": ""
   },
   "updatePrimaryUrl": "https://hdupdate.myseek.fun/hydrodesktop_update",
   "updateGithub": {
@@ -81,9 +81,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 ```
 请求 registryUrl（8s 超时）
   ├─ 成功 → 返回
-  └─ 失败 → 请求 registryMirrorUrl（30s 超时）
-              ├─ 成功 → 返回
-              └─ 失败 → 报错
+  └─ 失败 → 报错
 ```
 
 代码位置：`src/main/utils/http-client.js` → `httpGetWithMirror()`
@@ -107,7 +105,7 @@ CC Desktop 有 4 个源地址支持国内加速访问，均通过配置文件管
 ### 场景 1：更换组件市场镜像
 
 1. 将新仓库的目录结构与 [hydroSkills](https://github.com/hydroCoderClaud/hydroSkills) 保持一致
-2. 修改 `config.json` 中的 `market.registryMirrorUrl`
+2. 如存在旧版 `market.registryMirrorUrl` / `market.registryFallbackUrls`，新版本启动时会自动清理
 3. 重启应用生效
 
 ### 场景 2：更换自动更新主源

@@ -205,6 +205,11 @@ class UpdateManager {
     })
   }
 
+  _applyRequestHeaders(headers, reason) {
+    autoUpdater.requestHeaders = headers
+    log.info('[UpdateManager] Request headers set:', reason, headers || {})
+  }
+
   /**
    * 应用主源 feed（优先 generic 主源；未配置时回退到 GitHub 主源）
    */
@@ -213,6 +218,9 @@ class UpdateManager {
     const primaryUrl = config?.updatePrimaryUrl
 
     if (primaryUrl) {
+      this._applyRequestHeaders({
+        'x-oss-multi-range-behavior': 'multi-range'
+      }, `generic:${primaryUrl}`)
       log.info('[UpdateManager] Primary feed: generic', primaryUrl)
       autoUpdater.setFeedURL({ provider: 'generic', url: primaryUrl })
       return
@@ -220,6 +228,7 @@ class UpdateManager {
 
     const github = config?.updateGithub
     if (github?.owner && github?.repo) {
+      this._applyRequestHeaders(null, `github:${github.owner}/${github.repo}`)
       log.info('[UpdateManager] Primary feed: github', `${github.owner}/${github.repo}`)
       autoUpdater.setFeedURL({
         provider: 'github',
@@ -242,6 +251,7 @@ class UpdateManager {
     const github = config?.updateGithub
 
     if (primaryUrl && github?.owner && github?.repo) {
+      this._applyRequestHeaders(null, `github:${github.owner}/${github.repo}`)
       log.info('[UpdateManager] Switching to fallback github:', `${github.owner}/${github.repo}`)
       autoUpdater.setFeedURL({
         provider: 'github',
@@ -258,6 +268,9 @@ class UpdateManager {
       return
     }
 
+    this._applyRequestHeaders({
+      'x-oss-multi-range-behavior': 'multi-range'
+    }, `generic:${mirrorUrl}`)
     log.info('[UpdateManager] Switching to fallback mirror:', mirrorUrl)
     autoUpdater.setFeedURL({ provider: 'generic', url: mirrorUrl })
     this._usingMirror = true

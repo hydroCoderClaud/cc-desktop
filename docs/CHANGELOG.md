@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### 修复 (Fix)
+- 自动更新访问阿里 OSS generic 源时附加 `x-oss-multi-range-behavior: multi-range` 请求头，便于验证是否可恢复差分下载
+- 组件市场移除备用源配置，启动时会清空旧版 `market.registryMirrorUrl` 和 `registryFallbackUrls`
+
 ---
 
 ## v1.7.39 - 2026-04-12

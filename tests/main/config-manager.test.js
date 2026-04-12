@@ -87,10 +87,10 @@ describe('ConfigManager', () => {
       expect(config.timeout.request).toBeGreaterThan(0)
     })
 
-    it('应该默认使用 Gitee 作为市场主源，GitHub 作为备用源', () => {
+    it('应该默认使用 Gitee 作为市场主源，且不配置备用源', () => {
       const config = configManager.getConfig()
       expect(config.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
-      expect(config.market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
+      expect(config.market.registryMirrorUrl).toBe('')
     })
   })
 
@@ -237,12 +237,13 @@ describe('ConfigManager', () => {
       expect(newConfigManager.getMaxActiveSessions()).toBe(15)
     })
 
-    it('应该把旧的市场主备顺序迁移为 Gitee 主源、GitHub 备用源并写回磁盘', async () => {
+    it('应该把旧的市场主备顺序迁移为仅保留 Gitee 主源并写回磁盘', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         market: {
           registryUrl: 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main',
-          registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main'
+          registryMirrorUrl: 'https://gitee.com/reistlin/hydroskills/raw/main',
+          registryFallbackUrls: ['https://gitee.com/reistlin/hydroskills/raw/main']
         }
       }), 'utf-8')
 
@@ -253,11 +254,13 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
 
       expect(newConfigManager.getConfig().market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
-      expect(newConfigManager.getConfig().market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
+      expect(newConfigManager.getConfig().market.registryMirrorUrl).toBe('')
+      expect(newConfigManager.getConfig().market.registryFallbackUrls).toBeUndefined()
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       expect(savedConfig.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
-      expect(savedConfig.market.registryMirrorUrl).toBe('https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main')
+      expect(savedConfig.market.registryMirrorUrl).toBe('')
+      expect(savedConfig.market.registryFallbackUrls).toBeUndefined()
     })
   })
 })
