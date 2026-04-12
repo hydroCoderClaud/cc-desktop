@@ -26,17 +26,6 @@ jobs:
           mv /tmp/ossutil2/ossutil-2.2.1-linux-amd64/ossutil /tmp/ossutil
           chmod +x /tmp/ossutil
 
-      - name: Configure ossutil
-        run: |
-          cat > /tmp/.ossutilconfig << EOF
-          [Credentials]
-          language=CH
-          endpoint=${{ env.OSS_ENDPOINT }}
-          accessKeyID=${{ secrets.OSS_ACCESS_KEY_ID }}
-          accessKeySecret=${{ secrets.OSS_ACCESS_KEY_SECRET }}
-          EOF
-          echo "ossutil config created successfully"
-
       - name: Download artifacts from release
         run: |
           mkdir -p artifacts
@@ -64,15 +53,24 @@ jobs:
 
           # 清理旧文件（保留 blockmap 和 yml）
           echo "Cleaning old files from OSS (keeping blockmaps and yml)..."
-          /tmp/ossutil rm -r -b -f -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+          /tmp/ossutil rm -r -f oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            -e ${{ env.OSS_ENDPOINT }} \
+            -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
             --sign-version v4 --region ${{ env.OSS_REGION }} \
             --exclude "*.blockmap" --exclude "*.yml" || true
 
           # 上传文件
           echo "Uploading files to OSS..."
-          /tmp/ossutil cp -r -f -c /tmp/.ossutilconfig artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+          /tmp/ossutil cp -r -f artifacts/ oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            -e ${{ env.OSS_ENDPOINT }} \
+            -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
             --sign-version v4 --region ${{ env.OSS_REGION }}
 
           echo "=== Aliyun OSS upload complete ==="
-          /tmp/ossutil ls -c /tmp/.ossutilconfig oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+          /tmp/ossutil ls oss://${{ secrets.OSS_BUCKET_NAME }}/${{ env.OSS_DIR }}/ \
+            -e ${{ env.OSS_ENDPOINT }} \
+            -i ${{ secrets.OSS_ACCESS_KEY_ID }} \
+            -k ${{ secrets.OSS_ACCESS_KEY_SECRET }} \
             --sign-version v4 --region ${{ env.OSS_REGION }}
