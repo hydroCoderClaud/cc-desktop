@@ -1062,14 +1062,14 @@ class ConfigManager {
             if (res.statusCode === 200) {
               safeResolve({
                 success: true,
-                message: 'API connection successful'
+                message: 'HTTP 直连成功，兼容 Messages API'
               });
             } else {
               console.error('[API Test] HTTP error:', res.statusCode);
               console.error('[API Test] Response body:', responseData);
               safeResolve({
                 success: false,
-                message: `Connection failed (${res.statusCode})\nURL: ${fullUrl}\nResponse: ${responseData}`
+                message: `HTTP 直连失败 (${res.statusCode})\nURL: ${fullUrl}\nResponse: ${responseData}`
               });
             }
           });
@@ -1082,7 +1082,7 @@ class ConfigManager {
           request.destroy();  // 显式销毁请求
           safeResolve({
             success: false,
-            message: `Connection error: ${error.message}${error.code ? ` (${error.code})` : ''}`
+            message: `HTTP 请求错误：${error.message}${error.code ? ` (${error.code})` : ''}`
           });
         });
 
@@ -1091,7 +1091,7 @@ class ConfigManager {
           request.destroy();  // 显式销毁请求，避免挂起
           safeResolve({
             success: false,
-            message: 'Connection timeout (30s)'
+            message: `HTTP 请求超时（${testTimeoutSec}秒）`
           });
         });
 
@@ -1105,7 +1105,7 @@ class ConfigManager {
         console.error('[API Test] Exception:', error);
         safeResolve({
           success: false,
-          message: `Configuration error: ${error.message}`
+          message: `配置错误：${error.message}`
         });
       }
     });

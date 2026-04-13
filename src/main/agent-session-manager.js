@@ -417,6 +417,218 @@ class AgentSessionManager extends EventEmitter {
     return session.toJSON()
   }
 
+  _classifyProbeFailure(error) {
+    const message = error?.message || String(error)
+
+    if (/SDK 连接超时/.test(message)) {
+      return { errorKind: 'TIMEOUT', canFallbackToHttp: false, message: `Claude Code 启动超时：${message}` }
+    }
+
+    if (/Failed to load SDK|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(message)) {
+      return { errorKind: 'SDK_UNAVAILABLE', canFallbackToHttp: true, message: `SDK 不可用：${message}` }
+    }
+
+    if (/spawn .* ENOENT|Failed to spawn Claude Code process|ENOENT/i.test(message)) {
+      return { errorKind: 'CLI_UNAVAILABLE', canFallbackToHttp: true, message: `Claude Code CLI 不可用：${message}` }
+    }
+
+    return { errorKind: 'SDK_ERROR', canFallbackToHttp: false, message: `Claude Code 探测失败：${message}` }
+  }
+
+  async _cleanupProbeSession(session, tempDir) {
+    if (session?.messageQueue) {
+      try {
+        session.messageQueue.end()
+      } catch {}
+      session.messageQueue = null
+    }
+
+    if (session?.queryGenerator) {
+      try {
+        killProcessTree(session.cliPid)
+      } catch {}
+      try {
+        await session.queryGenerator.close()
+      } catch {}
+      session.queryGenerator = null
+    }
+
+    session.cliPid = null
+    session._lastCliExitCode = null
+    session._lastCliStderr = null
+
+    if (tempDir) {
+      try {
+        await fsp.rm(tempDir, { recursive: true, force: true })
+      } catch (err) {
+        console.warn('[AgentSession] Failed to cleanup probe temp dir:', tempDir, err.message)
+      }
+    }
+  }
+
+  async probeConnection(apiConfig, { prompt = 'hi', maxTurns = 1, timeoutMs } = {}) {
+    console.log('[AgentSession] ========== Starting probe connection test ==========' )
+    const startTime = Date.now()
+    const globalTimeout = this.configManager.getTimeout ? this.configManager.getTimeout() : {}
+    const testTimeoutMs = timeoutMs || globalTimeout.test || 30000
+    const testTimeoutSec = testTimeoutMs / 1000
+
+    let tempDir = null
+    const session = new AgentSession({
+      type: AgentType.CHAT,
+      title: 'API Test Probe',
+      cwd: null,
+      apiProfileId: apiConfig?.id || null,
+      apiBaseUrl: apiConfig?.baseUrl || null,
+      meta: { probe: true }
+    })
+
+    try {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-api-test-'))
+      session.cwd = tempDir
+      session.cwdAuto = false
+
+      const env = this.runner.buildEnv(apiConfig, this.configManager)
+      const messageQueue = new MessageQueue()
+      session.messageQueue = messageQueue
+
+      const generator = await this.runner.createQuery(messageQueue, {
+        cwd: tempDir,
+        env,
+        maxTurns
+      }, session)
+      session.queryGenerator = generator
+
+      const sdkUserMessage = {
+        type: 'user',
+        message: { role: 'user', content: prompt },
+        parent_tool_use_id: null,
+        session_id: session.id
+      }
+
+      const probePromise = (async () => {
+        let responseText = ''
+        let sawInit = false
+
+        messageQueue.push(sdkUserMessage)
+
+        for await (const rawMsg of generator) {
+          const msg = this.runner.normalizeMessage(rawMsg)
+
+          if (msg.type === 'init') {
+            sawInit = true
+            session.sdkSessionId = msg.sdkSessionId
+            continue
+          }
+
+          if (msg.type === 'assistant_message') {
+            for (const block of msg.content || []) {
+              if (block.type === 'text' && block.text) {
+                responseText += block.text
+              }
+            }
+
+            if (responseText.trim()) {
+              return {
+                success: true,
+                message: `Claude Code 已连通，收到模型回复：${responseText}`,
+                durationMs: Date.now() - startTime,
+                errorKind: null,
+                canFallbackToHttp: false
+              }
+            }
+            continue
+          }
+
+          if (msg.type === 'result') {
+            const durationMs = Date.now() - startTime
+            if (msg.isError) {
+              return {
+                success: false,
+                message: `模型请求被拒绝：${msg.result || 'Unknown error'}`,
+                durationMs,
+                errorKind: 'API_ERROR',
+                canFallbackToHttp: false
+              }
+            }
+
+            return {
+              success: true,
+              message: responseText ? `Claude Code 已连通，收到模型回复：${responseText}` : `Claude Code 已连通，请求完成：${msg.result || ''}`,
+              durationMs,
+              errorKind: null,
+              canFallbackToHttp: false
+            }
+          }
+        }
+
+        const durationMs = Date.now() - startTime
+        if (session._lastCliExitCode != null && session._lastCliExitCode !== 0) {
+          return {
+            success: false,
+            message: session._lastCliStderr
+              ? `Claude Code CLI 异常退出：${session._lastCliStderr}`
+              : `Claude Code CLI 异常退出，退出码 ${session._lastCliExitCode}`,
+            durationMs,
+            errorKind: 'CLI_EXIT',
+            canFallbackToHttp: false
+          }
+        }
+
+        if (responseText) {
+          return {
+            success: true,
+            message: responseText,
+            durationMs,
+            errorKind: null,
+            canFallbackToHttp: false
+          }
+        }
+
+        if (sawInit) {
+          return {
+            success: false,
+            message: 'Claude Code 已启动，但未收到模型响应',
+            durationMs,
+            errorKind: 'NO_RESPONSE',
+            canFallbackToHttp: false
+          }
+        }
+
+        return {
+          success: false,
+          message: 'Claude Code 探测未拿到初始化结果或最终输出',
+          durationMs,
+          errorKind: 'NO_RESULT',
+          canFallbackToHttp: false
+        }
+      })()
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`SDK 连接超时（${testTimeoutSec}秒无响应）`)), testTimeoutMs)
+      })
+
+      const result = await Promise.race([probePromise, timeoutPromise])
+      console.log('[AgentSession] Probe result:', result.success ? 'SUCCESS' : 'FAILED')
+      console.log('[AgentSession] ========== Probe connection test ended ==========' + '\n')
+      return result
+    } catch (error) {
+      const durationMs = Date.now() - startTime
+      const classified = this._classifyProbeFailure(error)
+      console.error('[AgentSession] Probe failed:', classified.message)
+      console.log('[AgentSession] ========== Probe connection test ended ==========' + '\n')
+      return {
+        success: false,
+        message: classified.message,
+        durationMs,
+        errorKind: classified.errorKind,
+        canFallbackToHttp: classified.canFallbackToHttp
+      }
+    } finally {
+      await this._cleanupProbeSession(session, tempDir)
+    }
+  }
+
   /**
    * 从数据库恢复会话到内存（关闭后重新打开、重启后恢复）
    * @returns {Object|null} 恢复后的会话 JSON，或 null

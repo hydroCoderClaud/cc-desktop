@@ -9,8 +9,9 @@ const { createIPCHandler, createSyncIPCHandler } = require('../utils/ipc-utils')
  * 设置配置相关的 IPC 处理器
  * @param {Object} ipcMain - Electron ipcMain module
  * @param {ConfigManager} configManager - ConfigManager instance
+ * @param {import('../agent-session-manager').AgentSessionManager} [agentSessionManager]
  */
-function setupConfigHandlers(ipcMain, configManager) {
+function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
   // Helper for creating handlers with configManager context
   const registerHandler = (channel, handler) => createIPCHandler(ipcMain, channel, handler)
 
@@ -79,6 +80,15 @@ function setupConfigHandlers(ipcMain, configManager) {
   })
 
   registerHandler('api:testConnection', async (apiConfig) => {
+    if (agentSessionManager?.probeConnection) {
+      const probeResult = await agentSessionManager.probeConnection(apiConfig)
+      if (probeResult.success || !probeResult.canFallbackToHttp) {
+        return probeResult
+      }
+      console.warn('[config-handlers] Probe test failed, falling back to HTTP:', probeResult.message)
+      return configManager.testAPIConnectionViaHTTP(apiConfig)
+    }
+
     try {
       return await configManager.testAPIConnectionViaSDK(apiConfig)
     } catch (sdkError) {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import fs from 'fs'
 
 vi.mock('uuid', () => ({ v4: () => 'interaction-uuid-fixed' }))
 
@@ -128,31 +129,184 @@ describe('AgentSessionManager interactions', () => {
     expect(result.decisionClassification).toBe('user_permanent')
   })
 
-  it('cancels interaction and returns deny', async () => {
+  it('probeConnection does not persist session state and cleans temp dir', async () => {
+    const { manager, sent } = createManager()
+    const tempDirs = []
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (messageQueue, options, sessionRef) => {
+        tempDirs.push(options.cwd)
+        sessionRef.cliPid = 123
+        return {
+          async *[Symbol.asyncIterator]() {
+            const first = await messageQueue.next()
+            expect(first.done).toBe(false)
+            expect(first.value.message.content).toBe('hi')
+            yield {
+              type: 'system',
+              subtype: 'init',
+              session_id: 'sdk-test-session',
+              tools: [],
+              model: 'claude-sonnet-4-6'
+            }
+            yield {
+              type: 'assistant',
+              message: { content: [{ type: 'text', text: 'pong' }] },
+              session_id: 'sdk-test-session'
+            }
+            yield {
+              type: 'result',
+              subtype: 'success',
+              is_error: false,
+              result: 'pong',
+              total_cost_usd: 0,
+              num_turns: 1,
+              duration_ms: 5
+            }
+          },
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    const emitSpy = vi.spyOn(manager, 'emit')
+    const result = await manager.probeConnection({
+      id: 'profile-1',
+      baseUrl: 'https://example.com',
+      authToken: 'token',
+      authType: 'api_key',
+      selectedModelTier: 'sonnet'
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.message).toBe('Claude Code 已连通，请求完成：pong')
+    expect(manager.sessions.size).toBe(0)
+    expect(manager.sessionDatabase.insertAgentMessage).not.toHaveBeenCalled()
+    expect(sent).toEqual([])
+    expect(emitSpy).not.toHaveBeenCalledWith('userMessage', expect.anything())
+    expect(tempDirs).toHaveLength(1)
+    expect(fs.existsSync(tempDirs[0])).toBe(false)
+
+    emitSpy.mockRestore()
+  })
+
+  it('probeConnection returns success once assistant text arrives', async () => {
     const { manager } = createManager()
-    const session = new AgentSession({ id: 's2', cwd: '/tmp' })
-    session.dbConversationId = 1
-    manager.sessions.set('s2', session)
 
-    const promise = manager._requestInteraction(session, 'ask_user_question', {
-      questions: [{ question: 'Pick one?', header: 'Pick', multiSelect: false, options: [{ label: 'A', description: 'A desc' }] }]
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (messageQueue) => ({
+        async *[Symbol.asyncIterator]() {
+          await messageQueue.next()
+          yield {
+            type: 'system',
+            subtype: 'init',
+            session_id: 'sdk-test-session',
+            tools: [],
+            model: 'claude-sonnet-4-6'
+          }
+          yield {
+            type: 'assistant',
+            message: { content: [{ type: 'text', text: 'pong early' }] },
+            session_id: 'sdk-test-session'
+          }
+        },
+        close: vi.fn(async () => {})
+      })),
+      normalizeMessage: raw => {
+        if (raw.type === 'assistant') {
+          return {
+            type: 'assistant_message',
+            content: raw.message?.content || [],
+            sdkSessionId: raw.session_id,
+            usage: raw.message?.usage || null
+          }
+        }
+        if (raw.type === 'system' && raw.subtype === 'init') {
+          return {
+            type: 'init',
+            sdkSessionId: raw.session_id,
+            tools: raw.tools,
+            model: raw.model,
+            slashCommands: raw.slash_commands || []
+          }
+        }
+        return raw
+      }
+    }
+
+    const result = await manager.probeConnection({
+      id: 'profile-1',
+      baseUrl: 'https://example.com',
+      authToken: 'token',
+      authType: 'api_key',
+      selectedModelTier: 'sonnet'
     })
 
-    await Promise.resolve()
+    expect(result.success).toBe(true)
+    expect(result.message).toBe('Claude Code 已连通，收到模型回复：pong early')
+  })
 
-    const interactionId = Array.from(session.pendingInteractions.keys())[0]
+  it('probeConnection labels API refusal clearly', async () => {
+    const { manager } = createManager()
 
-    manager.cancelInteraction('s2', interactionId, 'cancelled')
-    const result = await promise
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (messageQueue) => ({
+        async *[Symbol.asyncIterator]() {
+          await messageQueue.next()
+          yield {
+            type: 'result',
+            subtype: 'error',
+            is_error: true,
+            result: 'Coding Plan is currently only available for Coding Agents'
+          }
+        },
+        close: vi.fn(async () => {})
+      })),
+      normalizeMessage: raw => ({
+        type: 'result',
+        subtype: raw.subtype,
+        isError: raw.is_error,
+        result: raw.result
+      })
+    }
 
-    expect(result).toEqual({
-      behavior: 'deny',
-      message: 'cancelled'
+    const result = await manager.probeConnection({
+      id: 'profile-1',
+      baseUrl: 'https://example.com',
+      authToken: 'token',
+      authType: 'api_key',
+      selectedModelTier: 'sonnet'
     })
-    expect(session.pendingInteractions.size).toBe(0)
-    expect(session.messages[0].output).toEqual({
-      status: 'cancelled',
-      reason: 'cancelled'
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe('模型请求被拒绝：Coding Plan is currently only available for Coding Agents')
+    expect(result.errorKind).toBe('API_ERROR')
+  })
+
+  it('probeConnection marks CLI unavailable as HTTP-fallback eligible', async () => {
+    const { manager } = createManager()
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({})),
+      createQuery: vi.fn(async () => {
+        throw new Error('Failed to spawn Claude Code process: spawn node ENOENT')
+      })
+    }
+
+    const result = await manager.probeConnection({
+      id: 'profile-1',
+      baseUrl: 'https://example.com',
+      authToken: 'token',
+      authType: 'api_key',
+      selectedModelTier: 'sonnet'
     })
+
+    expect(result.success).toBe(false)
+    expect(result.errorKind).toBe('CLI_UNAVAILABLE')
+    expect(result.canFallbackToHttp).toBe(true)
   })
 })

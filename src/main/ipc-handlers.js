@@ -104,7 +104,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   // 配置相关处理器（提取到独立模块）
   // ========================================
-  setupConfigHandlers(ipcMain, configManager);
+  setupConfigHandlers(ipcMain, configManager, agentSessionManager);
 
   // ========================================
   // 窗口管理
