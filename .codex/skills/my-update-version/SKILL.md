@@ -166,8 +166,8 @@ git remote
 规则：
 
 - `origin` 必须存在；如果不存在则停止。
-- 推送 `origin` 时，绝不能使用 `--tags`。
-- 其他 remote 作为镜像/备份，可以按模式决定是否附带 `--tags`。
+- 所有 remote 都不要使用 `--tags`，避免历史 tag 差异导致整次推送报错。
+- 镜像/备份 remote 如需同步发布 tag，只推当前版本对应的单个 tag。
 
 命令规则：
 
@@ -183,7 +183,7 @@ git push origin vX.Y.Z
 
 对于其他 remote（如 `gitlab`、`local`，存在才推）：
 
-- `推送并构建`：`git push <remote> master --tags`
+- `推送并构建`：先 `git push <remote> master`，再 `git push <remote> vX.Y.Z`
 - `仅推送，不构建`：`git push <remote> master`
 
 如果某个 remote 推送失败：
