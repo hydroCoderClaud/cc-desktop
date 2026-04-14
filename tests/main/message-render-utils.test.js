@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { renderMessageHtml, renderPlainTextWithLinks } from '../../src/renderer/utils/message-render-utils.js'
+import { normalizePathForDisplay, renderMessageHtml, renderPlainTextWithLinks } from '../../src/renderer/utils/message-render-utils.js'
 
 describe('renderMessageHtml path handling', () => {
   it('keeps bold-wrapped windows paths clickable', () => {
@@ -63,6 +63,22 @@ describe('renderMessageHtml path handling', () => {
     expect(html).toContain('data-href="D:\\目录\\文件 名.docx"')
     expect(html).not.toContain('</a> 名.docx')
   })
+
+  it('decodes file URIs into clickable windows file paths', () => {
+    const html = renderMessageHtml('输出文件：file:///C:/Users/test/My%20File.txt', { platform: 'win32' })
+
+    expect(html).toContain('data-link-type="path"')
+    expect(html).toContain('data-href="C:\\Users\\test\\My File.txt"')
+    expect(html).not.toContain('file:///C:/Users/test/My%20File.txt')
+  })
+
+  it('keeps macOS file URIs as unix paths', () => {
+    const html = renderMessageHtml('file:///Users/test/My%20File.txt', { platform: 'darwin' })
+
+    expect(html).toContain('data-link-type="path"')
+    expect(html).toContain('data-href="/Users/test/My File.txt"')
+    expect(html).not.toContain('file:///Users/test/My%20File.txt')
+  })
 })
 
 describe('renderPlainTextWithLinks tool-card rendering', () => {
@@ -78,5 +94,23 @@ describe('renderPlainTextWithLinks tool-card rendering', () => {
 
     expect(html).toContain('data-link-type="path"')
     expect(html).toContain('data-href="D:\\test\\output.html"')
+  })
+
+  it('renders file URIs inside plain text blocks as local file paths', () => {
+    const html = renderPlainTextWithLinks('saved to file:///C:/workspace/output/My%20File.html', { platform: 'win32' })
+
+    expect(html).toContain('data-link-type="path"')
+    expect(html).toContain('data-href="C:\\workspace\\output\\My File.html"')
+    expect(html).not.toContain('file:///C:/workspace/output/My%20File.html')
+  })
+})
+
+describe('normalizePathForDisplay file URIs', () => {
+  it('normalizes windows file URIs for display', () => {
+    expect(normalizePathForDisplay('file:///C:/Users/test/My%20File.txt', 'win32')).toBe('C:\\Users\\test\\My File.txt')
+  })
+
+  it('normalizes macOS file URIs for display', () => {
+    expect(normalizePathForDisplay('file:///Users/test/My%20File.txt', 'darwin')).toBe('/Users/test/My File.txt')
   })
 })

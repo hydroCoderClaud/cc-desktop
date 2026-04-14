@@ -15,11 +15,13 @@ const UNMATCHED_TRAILING_BRACKETS = {
 }
 
 const LINK_PLACEHOLDER_PREFIX = '\x00LK'
+const FILE_URI_PREFIX = 'file://'
 const TOKEN_BOUNDARY = '(^|[\\s([{"\'`*:,，。；;：])'
 const WINDOWS_MIDDLE_SEGMENT = `(?:[^\\s\\\\/\\n<>&"':*?]| (?=[^\\\\/\\n<>&"':*?]*[\\\\/]))+`
 const WINDOWS_FINAL_SEGMENT = `(?:[^\\s\\\\/\\n<>&"':*?]| (?=[^\\\\/\\n<>&"':*?]*\\.[A-Za-z0-9]{1,10}(?:$|["'\`。．，,；;：:！!？?)}\\]】》〉])))+`
 
 const URL_REGEX = /(https?:\/\/[^\s<>&"')\]]+)/g
+const FILE_URI_REGEX = /(file:\/\/[^\s<>&"')\]]+)/gi
 const WINDOWS_ABSOLUTE_PATH_REGEX = new RegExp(
   `${TOKEN_BOUNDARY}([A-Za-z]:(?:\\\\|\\/(?!\\/))(?:${WINDOWS_MIDDLE_SEGMENT}[\\\\/])*${WINDOWS_FINAL_SEGMENT})`,
   'g'
@@ -89,15 +91,46 @@ const normalizeWindowsDrivePath = (rawPath) => {
   return normalized
 }
 
+export const decodeFileUriToPath = (value, platform = 'win32') => {
+  if (typeof value !== 'string' || !value.startsWith(FILE_URI_PREFIX)) return null
+
+  try {
+    const url = new URL(value)
+    const pathname = decodeURIComponent(url.pathname || '')
+
+    if (platform === 'win32') {
+      if (/^\/[A-Za-z]:/.test(pathname)) {
+        return pathname.slice(1).replace(/\//g, '\\')
+      }
+      if (url.host) {
+        const normalizedPath = pathname ? pathname.replace(/\//g, '\\') : ''
+        return `\\\\${url.host}${normalizedPath}`
+      }
+      return pathname ? pathname.replace(/\//g, '\\') : null
+    }
+
+    if (url.host) {
+      return `//${url.host}${pathname || ''}`
+    }
+
+    return pathname || null
+  } catch {
+    return null
+  }
+}
+
 export const normalizePathForDisplay = (rawPath, platform = 'win32') => {
   const cleanPath = trimTrailingPathPunctuation(rawPath)
   if (!cleanPath) return cleanPath
 
+  const decodedFileUriPath = decodeFileUriToPath(cleanPath, platform)
+  const displayPath = decodedFileUriPath || cleanPath
+
   if (platform === 'win32') {
-    return normalizeWindowsDrivePath(cleanPath)
+    return normalizeWindowsDrivePath(displayPath)
   }
 
-  return cleanPath
+  return displayPath
 }
 
 const makeLinkToken = (type, rawValue, platform) => {
@@ -143,6 +176,7 @@ const tokenizeLinks = (text, platform) => {
   let tokenized = text
 
   tokenized = replaceWithPlaceholder(tokenized, URL_REGEX, value => makeLinkToken('url', value, platform), linkTokens)
+  tokenized = replaceWithPlaceholder(tokenized, FILE_URI_REGEX, value => makeLinkToken('path', value, platform), linkTokens)
   tokenized = replaceWithPlaceholder(tokenized, WINDOWS_ABSOLUTE_PATH_REGEX, value => makeLinkToken('path', value, platform), linkTokens, { withPrefix: true })
   tokenized = replaceWithPlaceholder(tokenized, WINDOWS_MSYS_PATH_REGEX, value => makeLinkToken('path', value, platform), linkTokens, { withPrefix: true })
   tokenized = replaceWithPlaceholder(tokenized, WINDOWS_SHORT_DRIVE_PATH_REGEX, value => makeLinkToken('path', value, platform), linkTokens, { withPrefix: true })
@@ -171,6 +205,9 @@ const detectStandaloneLink = (value, platform) => {
   if (!value) return null
   if (/^https?:\/\//.test(value)) {
     return makeLinkToken('url', value, platform)
+  }
+  if (/^file:\/\//i.test(value)) {
+    return makeLinkToken('path', value, platform)
   }
   if (
     /^[A-Za-z]:(?:\\|\/(?!\/)).+/.test(value) ||
