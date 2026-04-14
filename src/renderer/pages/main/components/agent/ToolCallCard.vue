@@ -16,7 +16,42 @@
       </div>
       <div v-if="message.output" class="tool-section">
         <div class="section-label">Output</div>
-        <pre class="tool-content" v-html="renderToolContent(message.output)" @click="handleToolContentClick"></pre>
+        <div v-if="parsedOutput.images.length > 0" class="tool-image-grid">
+          <button
+            v-for="image in parsedOutput.images"
+            :key="image.key"
+            class="tool-image-item"
+            type="button"
+            @click="handlePreviewImage(image)"
+          >
+            <img :src="image.dataUrl" :alt="image.name" class="tool-image-preview" />
+            <span class="tool-image-name">{{ image.name }}</span>
+          </button>
+        </div>
+        <div v-if="parsedOutput.resourceLinks.length > 0" class="tool-resource-list">
+          <button
+            v-for="resource in parsedOutput.resourceLinks"
+            :key="resource.key"
+            class="tool-resource-item"
+            type="button"
+            @click="handlePreviewResource(resource)"
+          >
+            <span class="tool-resource-name">{{ resource.title || resource.name || resource.filePath || resource.uri }}</span>
+            <span v-if="resource.filePath" class="tool-resource-path">{{ resource.filePath }}</span>
+          </button>
+        </div>
+        <pre
+          v-if="parsedOutput.text"
+          class="tool-content"
+          v-html="renderToolContent(parsedOutput.text)"
+          @click="handleToolContentClick"
+        ></pre>
+        <pre
+          v-else-if="!parsedOutput.hasRenderableContent"
+          class="tool-content"
+          v-html="renderToolContent(message.output)"
+          @click="handleToolContentClick"
+        ></pre>
       </div>
     </div>
   </div>
@@ -26,6 +61,7 @@
 import { ref, computed } from 'vue'
 import Icon from '@components/icons/Icon.vue'
 import { normalizePathForDisplay, renderPlainTextWithLinks } from '@utils/message-render-utils'
+import { parseMcpToolResult } from '@utils/mcp-tool-result'
 
 const props = defineProps({
   message: {
@@ -34,9 +70,10 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['preview-path'])
+const emit = defineEmits(['preview-image', 'preview-path'])
 
 const expanded = ref(false)
+const platform = computed(() => window.electronAPI?.platform || 'win32')
 
 /**
  * 提取工具调用中的文件路径（用于预览）
@@ -69,6 +106,28 @@ const handleToolContentClick = (event) => {
   event.preventDefault()
   event.stopPropagation()
   emit('preview-path', href)
+}
+
+const parsedOutput = computed(() => {
+  return parseMcpToolResult(props.message.output, {
+    platform: platform.value
+  })
+})
+
+const handlePreviewImage = (image) => {
+  emit('preview-image', {
+    type: 'image',
+    name: image.name,
+    content: image.dataUrl,
+    size: image.base64 ? Math.round(image.base64.length * 3 / 4) : 0,
+    ext: `.${image.mimeType.split('/')[1] || 'png'}`
+  })
+}
+
+const handlePreviewResource = (resource) => {
+  if (resource.filePath) {
+    emit('preview-path', resource.filePath)
+  }
 }
 
 /**
@@ -109,10 +168,8 @@ const truncate = (str, maxLength) => {
 }
 
 const normalizeDisplayValue = (value) => {
-  const platform = window.electronAPI?.platform || 'win32'
-
   if (typeof value === 'string') {
-    return normalizePathForDisplay(value, platform)
+    return normalizePathForDisplay(value, platform.value)
   }
   if (Array.isArray(value)) {
     return value.map(item => normalizeDisplayValue(item))
@@ -141,7 +198,7 @@ const formatOutput = (output) => {
 
 const renderToolContent = (value) => {
   return renderPlainTextWithLinks(formatOutput(value), {
-    platform: window.electronAPI?.platform || 'win32'
+    platform: platform.value
   })
 }
 </script>
@@ -248,5 +305,70 @@ const renderToolContent = (value) => {
   text-decoration-style: dashed;
   text-underline-offset: 2px;
   cursor: pointer;
+}
+
+.tool-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tool-image-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color-tertiary);
+  padding: 6px;
+  cursor: pointer;
+}
+
+.tool-image-preview {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.tool-image-name {
+  font-size: 11px;
+  color: var(--text-color-secondary);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tool-resource-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color-tertiary);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tool-resource-name {
+  font-size: 12px;
+  color: var(--text-color);
+}
+
+.tool-resource-path {
+  font-size: 11px;
+  color: var(--text-color-secondary);
+  word-break: break-all;
 }
 </style>

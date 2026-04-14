@@ -1026,7 +1026,12 @@ const handleChatInputChange = (text) => {
 const handleAgentDone = async (payload = {}) => {
   if (!currentNotebook.value) return
 
-  const { generationToken = 0, assistantText = '' } = payload
+  const {
+    generationToken = 0,
+    assistantText = '',
+    filePaths = [],
+    imageCount = 0
+  } = payload
   if (generationToken !== activeGenerationToken.value || !generationToken) return
 
   const achievementId = activeGenerationAchievementId.value
@@ -1052,6 +1057,18 @@ const handleAgentDone = async (payload = {}) => {
 
   try {
     if (hasOutputFile) {
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'done' }
+      })
+    } else if (Array.isArray(filePaths) && filePaths.length > 0) {
+      await window.electronAPI.notebookUpdateAchievement({
+        notebookId: currentNotebook.value.id,
+        achievementId: ach.id,
+        updates: { status: 'done' }
+      })
+    } else if (imageCount > 0) {
       await window.electronAPI.notebookUpdateAchievement({
         notebookId: currentNotebook.value.id,
         achievementId: ach.id,

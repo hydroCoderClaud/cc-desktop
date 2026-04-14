@@ -129,6 +129,87 @@ describe('AgentSessionManager interactions', () => {
     expect(result.decisionClassification).toBe('user_permanent')
   })
 
+  it('attaches standard tool_use_result to the matching tool message', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-tool', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set('s-tool', session)
+    manager.runner = { normalizeMessage: raw => raw }
+
+    await manager._processMessage(session, {
+      type: 'assistant_message',
+      content: [{
+        type: 'tool_use',
+        id: 'tool-use-1',
+        name: 'generate_image',
+        input: { prompt: 'draw' }
+      }],
+      sdkSessionId: 'sdk-tool'
+    })
+
+    await manager._processMessage(session, {
+      type: 'user_message',
+      parentToolUseId: 'tool-use-1',
+      content: [{
+        type: 'tool_result',
+        tool_use_id: 'tool-use-1',
+        content: [{
+          type: 'resource_link',
+          uri: 'file:///C:/workspace/output/cover.png',
+          name: 'cover.png',
+          mimeType: 'image/png'
+        }],
+        structured_content: {
+          type: 'image_result',
+          files: [{
+            uri: 'file:///C:/workspace/output/cover.png',
+            name: 'cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }],
+      toolUseResult: {
+        content: [{
+          type: 'resource_link',
+          uri: 'file:///C:/workspace/output/cover.png',
+          name: 'cover.png',
+          mimeType: 'image/png'
+        }],
+        structuredContent: {
+          type: 'image_result',
+          files: [{
+            uri: 'file:///C:/workspace/output/cover.png',
+            name: 'cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }
+    })
+
+    expect(session.messages).toHaveLength(1)
+    expect(session.messages[0].output).toEqual({
+      type: 'tool_result',
+      parentToolUseId: 'tool-use-1',
+      content: [{
+        type: 'resource_link',
+        uri: 'file:///C:/workspace/output/cover.png',
+        name: 'cover.png',
+        mimeType: 'image/png'
+      }],
+      structuredContent: {
+        type: 'image_result',
+        files: [{
+          uri: 'file:///C:/workspace/output/cover.png',
+          name: 'cover.png',
+          mimeType: 'image/png'
+        }]
+      },
+      isError: false
+    })
+    expect(manager.sessionDatabase.updateAgentMessageToolOutput).toHaveBeenCalled()
+    expect(sent.some(item => item.channel === 'agent:message' && item.data.message.type === 'tool_result')).toBe(true)
+  })
+
   it('probeConnection does not persist session state and cleans temp dir', async () => {
     const { manager, sent } = createManager()
     const tempDirs = []

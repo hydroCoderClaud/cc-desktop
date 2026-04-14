@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { collectGenerationAssistantText } from '../../src/renderer/pages/notebook/utils/generation-result.js'
+import {
+  collectGenerationAssistantText,
+  collectGenerationResult
+} from '../../src/renderer/pages/notebook/utils/generation-result.js'
 
 describe('collectGenerationAssistantText', () => {
   it('collects assistant text after the latest user message', () => {
@@ -25,5 +28,47 @@ describe('collectGenerationAssistantText', () => {
     ])
 
     expect(result).toBe('')
+  })
+
+  it('collects standard MCP file paths and image blocks from tool results', () => {
+    const result = collectGenerationResult([
+      { role: 'user', content: 'draw two images' },
+      {
+        role: 'tool',
+        output: {
+          type: 'tool_result',
+          content: [
+            {
+              type: 'image',
+              data: 'ZmFrZQ==',
+              mimeType: 'image/png'
+            },
+            {
+              type: 'resource_link',
+              uri: 'file:///C:/workspace/output/cover-1.png',
+              name: 'cover-1.png',
+              mimeType: 'image/png'
+            }
+          ],
+          structuredContent: {
+            type: 'image_result',
+            files: [
+              {
+                uri: 'file:///C:/workspace/output/cover-2.png',
+                name: 'cover-2.png',
+                mimeType: 'image/png'
+              }
+            ]
+          }
+        }
+      }
+    ])
+
+    expect(result.assistantText).toBe('')
+    expect(result.imageCount).toBe(1)
+    expect(result.filePaths).toEqual([
+      'C:\\workspace\\output\\cover-1.png',
+      'C:\\workspace\\output\\cover-2.png'
+    ])
   })
 })

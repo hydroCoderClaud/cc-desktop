@@ -72,6 +72,7 @@
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
           :message="msg"
+          @preview-image="$emit('preview-image', $event)"
           @preview-path="$emit('preview-path', $event)"
         />
       </template>
@@ -136,7 +137,7 @@ import { useLocale } from '@composables/useLocale'
 import { useMessage } from 'naive-ui'
 import { useAgentChat } from '@composables/useAgentChat'
 import { useAutoScrollToBottom } from '@composables/useAutoScrollToBottom'
-import { collectGenerationAssistantText } from '../utils/generation-result.js'
+import { collectGenerationResult } from '../utils/generation-result.js'
 import MessageBubble from '@/pages/main/components/agent/MessageBubble.vue'
 import ToolCallCard from '@/pages/main/components/agent/ToolCallCard.vue'
 import AskUserQuestionCard from '@/pages/main/components/agent/AskUserQuestionCard.vue'
@@ -263,8 +264,8 @@ watch(isStreaming, (streaming, wasStreaming) => {
   if (wasStreaming && !streaming) {
     if (isInterrupting.value) return
     const finishedToken = activeGenerationToken.value
-    const assistantText = collectGenerationAssistantText(messages.value)
-    emit('agent-done', { assistantText, generationToken: finishedToken })
+    const result = collectGenerationResult(messages.value, window.electronAPI?.platform || 'win32')
+    emit('agent-done', { ...result, generationToken: finishedToken })
   }
 })
 

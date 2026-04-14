@@ -213,6 +213,9 @@ class ClaudeCodeRunner {
         return {
           type: 'user_message',
           message: rawMsg.message || null,
+          content: rawMsg.message?.content || [],
+          parentToolUseId: rawMsg.parent_tool_use_id || null,
+          toolUseResult: rawMsg.tool_use_result || null,
           uuid: rawMsg.uuid,
           sdkSessionId: rawMsg.session_id
         }

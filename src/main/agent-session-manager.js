@@ -1031,6 +1031,49 @@ class AgentSessionManager extends EventEmitter {
     }
   }
 
+  _findPendingToolMessage(session, parentToolUseId = null) {
+    if (!session?.messages?.length) return null
+
+    if (parentToolUseId) {
+      const matched = [...session.messages]
+        .reverse()
+        .find(msg => msg.role === 'tool' && msg.toolUseId === parentToolUseId)
+      if (matched) return matched
+    }
+
+    return [...session.messages]
+      .reverse()
+      .find(msg => msg.role === 'tool' && !msg.output)
+  }
+
+  _normalizeToolResultPayload(msg) {
+    const contentBlocks = Array.isArray(msg.content) ? msg.content : []
+    const toolResultBlock = contentBlocks.find(block => block?.type === 'tool_result') || null
+    const rawResult = msg.toolUseResult && typeof msg.toolUseResult === 'object'
+      ? msg.toolUseResult
+      : null
+
+    const resultContent = Array.isArray(rawResult?.content)
+      ? rawResult.content
+      : Array.isArray(toolResultBlock?.content)
+        ? toolResultBlock.content
+        : []
+    const structuredContent = rawResult?.structuredContent || toolResultBlock?.structured_content || null
+    const isError = Boolean(rawResult?.isError ?? toolResultBlock?.is_error)
+
+    if (resultContent.length === 0 && !structuredContent && !isError) {
+      return null
+    }
+
+    return {
+      type: 'tool_result',
+      parentToolUseId: msg.parentToolUseId || toolResultBlock?.tool_use_id || null,
+      content: resultContent,
+      structuredContent,
+      isError
+    }
+  }
+
   /**
    * 处理单条 Runner 标准消息
    * Runner.normalizeMessage() 已将 SDK 原始格式转为内部标准格式
@@ -1108,6 +1151,7 @@ class AgentSessionManager extends EventEmitter {
               id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               role: 'tool',
               toolName: block.name,
+              toolUseId: block.id || block.tool_use_id || block.toolUseID || null,
               input: block.input,
               output: null,
               timestamp: Date.now()
@@ -1117,8 +1161,37 @@ class AgentSessionManager extends EventEmitter {
         break
       }
 
-      case 'user_message':
+      case 'user_message': {
+        const toolResult = this._normalizeToolResultPayload(msg)
+        if (!toolResult) break
+
+        const targetMessage = this._findPendingToolMessage(session, toolResult.parentToolUseId)
+        if (!targetMessage) {
+          console.warn('[AgentSession] Received tool result without matching tool message:', toolResult.parentToolUseId)
+          break
+        }
+
+        targetMessage.output = toolResult
+
+        if (this.sessionDatabase && session.dbConversationId) {
+          try {
+            this.sessionDatabase.updateAgentMessageToolOutput(targetMessage.id, toolResult)
+          } catch (err) {
+            console.error('[AgentSession] Failed to persist tool result:', err)
+          }
+        }
+
+        this._safeSend('agent:message', {
+          sessionId: session.id,
+          message: {
+            type: 'tool_result',
+            parentToolUseId: toolResult.parentToolUseId,
+            toolUseId: targetMessage.toolUseId || null,
+            toolResult
+          }
+        })
         break
+      }
 
       case 'stream_event':
         this._safeSend('agent:stream', {

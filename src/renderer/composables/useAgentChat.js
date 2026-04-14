@@ -133,15 +133,26 @@ export function useAgentChat(sessionId, options = {}) {
   /**
    * 添加工具调用消息
    */
-  const addToolMessage = (toolName, input, output) => {
+  const addToolMessage = (toolName, input, output, metadata = {}) => {
     messages.value.push({
       id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       role: MessageRole.TOOL,
       toolName,
       input,
       output,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ...metadata
     })
+  }
+
+  const updateToolMessageOutput = (toolUseId, output) => {
+    const toolMessage = toolUseId
+      ? [...messages.value].reverse().find(msg => msg.role === MessageRole.TOOL && msg.toolUseId === toolUseId)
+      : [...messages.value].reverse().find(msg => msg.role === MessageRole.TOOL && !msg.output)
+
+    if (toolMessage) {
+      toolMessage.output = output
+    }
   }
 
   const upsertInteractionMessage = (interaction, output = null) => {
@@ -398,12 +409,19 @@ export function useAgentChat(sessionId, options = {}) {
     const msg = data.message
     if (!msg) return
 
+    if (msg.type === 'tool_result' && msg.toolResult) {
+      updateToolMessageOutput(msg.parentToolUseId || msg.toolUseId || null, msg.toolResult)
+      return
+    }
+
     // msg.content 是完整 assistant 消息的 content 块数组
     const blocks = msg.content || []
     for (const block of blocks) {
       if (block.type === 'tool_use') {
         if (block.name === 'AskUserQuestion') continue
-        addToolMessage(block.name, block.input, null)
+        addToolMessage(block.name, block.input, null, {
+          toolUseId: block.id || block.tool_use_id || block.toolUseID || null
+        })
       } else if (block.type === 'text' && !streamTextReceived && block.text) {
         // 慢速/非流式 API 场景：没有收到流式 token，直接从完整消息添加文本
         addAssistantMessage(block.text)
@@ -592,10 +610,7 @@ export function useAgentChat(sessionId, options = {}) {
    */
   const handleToolProgress = (data) => {
     if (data.sessionId !== sessionId) return
-    const lastToolMsg = [...messages.value].reverse().find(m => m.role === MessageRole.TOOL && !m.output)
-    if (lastToolMsg && data.content) {
-      lastToolMsg.output = data.content
-    }
+    updateToolMessageOutput(data.toolUseId || null, data.content || null)
   }
 
   const handleInteractionRequest = (data) => {

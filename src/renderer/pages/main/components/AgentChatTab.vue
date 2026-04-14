@@ -35,7 +35,12 @@
           @submit="handleInteractionSubmit"
           @cancel="handleInteractionCancel"
         />
-        <ToolCallCard v-else-if="msg.role === 'tool'" :message="msg" @preview-path="emitPreviewPath" />
+        <ToolCallCard
+          v-else-if="msg.role === 'tool'"
+          :message="msg"
+          @preview-image="$emit('preview-image', $event)"
+          @preview-path="emitPreviewPath"
+        />
       </template>
 
       <!-- 历史会话恢复提示 -->
@@ -98,6 +103,7 @@ import { useLocale } from '@composables/useLocale'
 import { useAgentChat } from '@composables/useAgentChat'
 import { useAutoScrollToBottom } from '@composables/useAutoScrollToBottom'
 import { isSessionClosed, unmarkSessionClosed } from '@composables/useAgentPanel'
+import { extractToolResultFilePaths } from '@utils/mcp-tool-result'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
 import AskUserQuestionCard from './agent/AskUserQuestionCard.vue'
@@ -315,6 +321,10 @@ watch(isStreaming, (streaming, wasStreaming) => {
       // Claude Code 工具：从 input.file_path 提取
       const fp = msg.input?.file_path || msg.input?.filePath
       if (fp) filePaths.push(fp)
+      // MCP 工具结构化输出：提取标准 tool_result/resource_link 返回的文件路径
+      if (msg.output) {
+        extractToolResultFilePaths(msg.output).forEach(p => filePaths.push(p))
+      }
       // 助手文本 / MCP 工具：从回复内容中提取绝对路径
       if (msg.content) {
         const unixPaths = msg.content.match(/\/(?:[\w\-. ]+\/)+[\w\-. ]+\.[\w]{1,10}/g) || []
