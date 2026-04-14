@@ -121,6 +121,7 @@
               :api-profile-id="tab.apiProfileId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
+              @request-clear-session="handleAgentClearSession(tab.sessionId)"
               @preview-image="handlePreviewImage"
               @preview-link="handlePreviewLink"
               @preview-path="handlePreviewPath"
@@ -924,6 +925,36 @@ const handleAgentClosed = (conv) => {
 
 const handleAgentTabReady = ({ sessionId }) => {
   // Agent tab 就绪
+}
+
+const handleAgentClearSession = async (sessionId) => {
+  if (!sessionId || !window.electronAPI?.clearAndRecreateAgentSession) return
+
+  try {
+    const result = await window.electronAPI.clearAndRecreateAgentSession({ sessionId })
+    if (!result?.success || !result.session) {
+      throw new Error(result?.error || 'Failed to recreate session')
+    }
+
+    const oldTab = allTabs.value.find(t => t.sessionId === sessionId && t.type === 'agent-chat')
+    if (oldTab) {
+      closeAgentTabFully(oldTab)
+    }
+
+    const newTab = ensureAgentTab(result.session)
+    if (newTab) {
+      activeTabId.value = newTab.id
+    }
+
+    if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
+      leftPanelRef.value.activeAgentSessionId = result.session.id
+    }
+
+    await leftPanelRef.value?.reloadAgentConversations?.()
+  } catch (err) {
+    console.error('[MainContent] Failed to clear agent session:', err)
+    message.error(t('messages.operationFailed') + ': ' + err.message)
+  }
 }
 
 // 处理路径插入请求（Ctrl+点击文件）

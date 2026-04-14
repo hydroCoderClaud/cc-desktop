@@ -137,7 +137,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done'])
+const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session'])
 
 // 使用 Agent 对话 composable
 const {
@@ -166,7 +166,11 @@ const {
   setupListeners,
   initDefaultModel,
   cleanup
-} = useAgentChat(props.sessionId)
+} = useAgentChat(props.sessionId, {
+  onClearRequested: () => {
+    emit('request-clear-session')
+  }
+})
 
 // 消息队列开关（从配置读取）
 const queueEnabled = ref(true)

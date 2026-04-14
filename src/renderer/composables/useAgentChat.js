@@ -9,7 +9,7 @@
  *
  * @param {string} sessionId - Agent 会话 ID
  * @param {object} options - 可选配置
- * @param {function} options.onClearRequested - /clear 命令回调（Notebook 模式使用）
+ * @param {function} options.onClearRequested - /clear 命令回调（调用方负责重建会话）
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useLocale } from './useLocale'
@@ -200,7 +200,7 @@ export function useAgentChat(sessionId, options = {}) {
    * 本地处理 slash 命令（不发送到 SDK）
    * /compact 走 IPC compactConversation
    * /status, /cost, /help 前端本地处理
-   * /clear 触发回调（Notebook 模式）或前端本地处理（Agent 模式）
+   * /clear 触发回调，由调用方决定如何重建会话
    * @returns {boolean} 是否已处理
    */
   const handleLocalSlashCommand = async (cmd) => {
@@ -243,14 +243,9 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     if (lower === '/clear') {
-      // Notebook 模式：触发回调重建会话
       if (options.onClearRequested) {
-        options.onClearRequested()
-        return true
+        await options.onClearRequested()
       }
-      // Agent 模式：仅清空前端显示（兼容旧行为）
-      messages.value = []
-      currentStreamText.value = ''
       return true
     }
 

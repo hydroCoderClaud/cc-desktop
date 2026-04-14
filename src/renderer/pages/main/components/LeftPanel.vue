@@ -1111,6 +1111,7 @@ onUnmounted(() => {
 defineExpose({
   loadActiveSessions,
   loadHistorySessions: () => loadHistorySessions(props.currentProject),
+  reloadAgentConversations: () => agentLeftContentRef.value?.loadConversations?.(),
   focusedSessionId,
   activeAgentSessionId,
   handleNewSession
