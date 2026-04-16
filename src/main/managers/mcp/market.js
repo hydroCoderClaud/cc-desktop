@@ -300,13 +300,14 @@ const mcpMarketMixin = {
 
   /**
    * Windows 平台命令包装
-   * npx/node/tsx 等命令在 Windows 上实际是 .cmd 批处理脚本，
+   * npm/npx/pnpm/yarn/tsx/bunx 等命令在 Windows 上实际是 .cmd 批处理脚本，
+   * 需要通过 cmd /c 调用；node 本身通常是 node.exe，可直接执行。
    * spawn 无法直接执行，需要通过 cmd /c 调用
    */
   _wrapCommandsForWindows(mcpServers) {
     if (process.platform !== 'win32') return
 
-    const CMD_WRAPPERS = new Set(['npx', 'node', 'tsx', 'npm', 'pnpm', 'yarn', 'bunx'])
+    const CMD_WRAPPERS = new Set(['npx', 'tsx', 'npm', 'pnpm', 'yarn', 'bunx'])
 
     for (const [, serverConfig] of Object.entries(mcpServers)) {
       if (!serverConfig.command) continue
