@@ -172,7 +172,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 700,
-      title: 'API 配置管理 - CC Desktop',
+      title: 'API 配置管理 - Hydro Desktop',
       page: 'profile-manager'
     });
     return { success: true };
@@ -183,7 +183,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 750,
       height: 500,
-      title: '全局设置 - CC Desktop',
+      title: '全局设置 - Hydro Desktop',
       page: 'global-settings'
     });
     return { success: true };
@@ -194,7 +194,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 600,
       height: 450,
-      title: '外观设置 - CC Desktop',
+      title: '外观设置 - Hydro Desktop',
       page: 'appearance-settings'
     });
     return { success: true };
@@ -208,7 +208,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1100,
       height: 760,
-      title: '能力管理 - CC Desktop',
+      title: '能力管理 - Hydro Desktop',
       page: 'settings-workbench',
       query: params.toString() ? `?${params.toString()}` : ''
     });
@@ -220,7 +220,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 650,
-      title: '服务商管理 - CC Desktop',
+      title: '服务商管理 - Hydro Desktop',
       page: 'provider-manager'
     });
     return { success: true };
@@ -232,7 +232,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1200,
       height: 700,
-      title: '会话查询 - CC Desktop',
+      title: '会话查询 - Hydro Desktop',
       page: 'session-manager',
       query
     });
@@ -280,7 +280,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     updateManagerWindow = createSubWindow({
       width: 700,
       height: 600,
-      title: '应用更新 - CC Desktop',
+      title: '应用更新 - Hydro Desktop',
       page: 'update-manager'
     })
     // 窗口关闭时清理引用
@@ -765,7 +765,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 600,
       height: 600,
-      title: '钉钉桥接设置 - CC Desktop',
+      title: '钉钉桥接设置 - Hydro Desktop',
       page: 'dingtalk-settings'
     });
     return { success: true };
@@ -776,7 +776,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1400,
       height: 900,
-      title: 'Notebook - CC Desktop',
+      title: 'Notebook - Hydro Desktop',
       page: 'notebook'
     });
     return { success: true };

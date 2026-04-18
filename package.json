@@ -1,7 +1,7 @@
 {
   "name": "cc-desktop",
-  "version": "1.7.47",
-  "description": "CC Desktop - Claude Code CLI 桌面启动器 + 本地桌面AI助手",
+  "version": "1.7.48",
+  "description": "Hydro Desktop - 水利AI智能体桌面程序",
   "main": "src/main/index.js",
   "author": "HydroCoder",
   "license": "SEE LICENSE IN LICENSE",
@@ -108,6 +108,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Hydro Desktop",
+      "uninstallDisplayName": "Hydro Desktop ${version}",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },

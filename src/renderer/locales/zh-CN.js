@@ -76,7 +76,7 @@ export default {
 
   // 主页面
   main: {
-    title: 'CC Desktop',
+    title: 'Hydro Desktop',
     addProject: '添加工程',
     projects: '项目',
     noProjects: '暂无项目',
@@ -87,7 +87,7 @@ export default {
     pleaseSelectProject: '请选择项目',
     localMode: '本地模式',
     desktopUser: '桌面用户',
-    warningText: 'CC Desktop 将访问所选项目文件夹中的文件。请确保您信任该项目目录。',
+    warningText: 'Hydro Desktop 将访问所选项目文件夹中的文件。请确保您信任该项目目录。',
     settingsMenu: '设置',
     toggleDark: '切换深色',
     toggleLight: '切换浅色',

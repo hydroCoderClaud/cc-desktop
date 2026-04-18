@@ -75,7 +75,7 @@ export default {
 
   // Main Page
   main: {
-    title: 'CC Desktop',
+    title: 'Hydro Desktop',
     addProject: 'Add Project',
     projects: 'Projects',
     noProjects: 'No projects yet',
@@ -86,7 +86,7 @@ export default {
     pleaseSelectProject: 'Please select a project',
     localMode: 'Local Mode',
     desktopUser: 'Desktop User',
-    warningText: 'CC Desktop will access files in the selected project folder. Make sure you trust the project directory.',
+    warningText: 'Hydro Desktop will access files in the selected project folder. Make sure you trust the project directory.',
     settingsMenu: 'Settings',
     toggleDark: 'Switch to dark',
     toggleLight: 'Switch to light',
