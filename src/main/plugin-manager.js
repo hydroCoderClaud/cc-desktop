@@ -19,6 +19,8 @@ const {
   McpManager
 } = require('./managers')
 const { atomicWriteJson } = require('./utils/path-utils')
+const { getPrimaryInstallation } = require('./plugin-runtime/core/installed-registry')
+const { withPluginStateLock } = require('./plugin-runtime/core/state-lock')
 
 class PluginManager extends ComponentScanner {
   constructor() {
@@ -45,7 +47,7 @@ class PluginManager extends ComponentScanner {
       const plugins = []
 
       for (const [pluginId, installations] of Object.entries(installedPlugins.plugins)) {
-        const installation = installations[0]
+        const installation = getPrimaryInstallation(pluginId, installedPlugins)
         if (!installation || !installation.installPath) continue
 
         const pluginJson = this._readPluginJson(installation.installPath)
@@ -85,7 +87,10 @@ class PluginManager extends ComponentScanner {
         return null
       }
 
-      const installation = installations[0]
+      const installation = getPrimaryInstallation(pluginId, installedPlugins)
+      if (!installation || !installation.installPath) {
+        return null
+      }
       const installPath = installation.installPath
       const pluginJson = this._readPluginJson(installPath)
       const enabledPlugins = this._readEnabledPlugins()
@@ -123,12 +128,14 @@ class PluginManager extends ComponentScanner {
    */
   async setPluginEnabled(pluginId, enabled) {
     try {
-      const settings = this._readSettings()
-      if (!settings.enabledPlugins) {
-        settings.enabledPlugins = {}
-      }
-      settings.enabledPlugins[pluginId] = enabled
-      this._writeSettings(settings)
+      await withPluginStateLock(async () => {
+        const settings = this._readSettings()
+        if (!settings.enabledPlugins) {
+          settings.enabledPlugins = {}
+        }
+        settings.enabledPlugins[pluginId] = enabled
+        this._writeSettings(settings)
+      })
       console.log(`[PluginManager] Set plugin ${pluginId} enabled: ${enabled}`)
       return true
     } catch (err) {

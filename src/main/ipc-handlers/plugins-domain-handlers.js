@@ -4,12 +4,12 @@
  */
 
 const { PluginManager } = require('../plugin-manager')
-const { PluginCli } = require('../managers/plugin-cli')
+const { PluginService } = require('../plugin-runtime')
 const { shell } = require('electron')
 
 function setupPluginsDomainHandlers(ipcMain) {
   const pluginManager = new PluginManager()
-  const pluginCli = new PluginCli()
+  const pluginCli = new PluginService()
 
   // 获取插件列表
   ipcMain.handle('plugins:list', async () => {

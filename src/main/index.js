@@ -216,9 +216,9 @@ app.whenReady().then(async () => {
   agentSessionManager.setPeerManager(activeSessionManager)
 
   // 初始化能力管理器（Agent 模式）
-  const { PluginCli } = require('./managers/plugin-cli')
+  const { PluginService } = require('./plugin-runtime')
   const { SkillsManager, AgentsManager, McpManager } = require('./managers')
-  const pluginCli = new PluginCli()
+  const pluginCli = new PluginService()
   const skillsManager = new SkillsManager()
   const agentsManager = new AgentsManager()
   const capMcpManager = new McpManager()

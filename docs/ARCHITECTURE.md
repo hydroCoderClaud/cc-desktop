@@ -14,7 +14,7 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 - **单用户无认证** -- 无 JWT、无用户管理，所有数据纯本地
 - **多模式架构** -- Developer 模式 + Agent 模式 + Notebook 模式
 - **直接 IPC 通信** -- 无 WebSocket，主进程与渲染进程通过 Electron IPC 直连
-- **CLI 依赖** -- Terminal/Agent 模式及 MCP 服务器均依赖 Claude Code CLI
+- **CLI 依赖边界** -- Terminal/Agent 模式及 MCP 服务器仍依赖 Claude Code CLI；插件市场与插件生命周期管理已由桌面端主进程内建 runtime 独立处理
 
 ---
 
@@ -104,16 +104,19 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 
 ## 模块地图
 
-### 主进程（63 个文件，~19,600 行）
+### 主进程（102 个文件）
 
 | 类别 | 文件数 | 关键模块 |
 |------|--------|---------|
 | 顶层模块 | 13 | index.js, config-manager.js, agent-session-manager.js, active-session-manager.js, session-database.js, update-manager.js |
 | IPC Handlers | 12 | agent, plugin, ai, config, prompt, project, session, active-session, capability, update, dingtalk, queue |
-| Managers | 16 | capability, dingtalk-bridge, hooks, mcp, settings, agent-file, agent-query, plugin-cli, skills/\*, agents/\* |
+| Managers | 32 | capability, dingtalk-bridge, hooks, mcp, settings, agent-file, agent-query, skills/\*, agents/\* |
+| Plugin Runtime | 9 | plugin-runtime/PluginService, core/plugins, core/marketplaces, core/installed-registry, core/state-lock |
 | Database | 10 | project-db, session-db, message-db, agent-db, tag-db, prompt-db, prompt-market-db, favorite-db, queue-db |
 | Utils | 10 | env-builder, http-client, path-utils, constants, message-queue, ipc-utils, token-counter |
 | Config | 2 | api-config, provider-config |
+
+> 兼容说明：`src/main/managers/plugin-cli.js` 仍保留在仓库中，但已标注废弃，仅作为历史兼容与排障入口，不再参与主流程。
 
 ### 渲染进程（含主窗口 + Notebook + Settings Workbench）
 
@@ -153,6 +156,7 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 | Hooks | `~/.claude/hooks.json` | JSON |
 | MCP 配置 | `~/.claude.json` | JSON |
 | Settings | `~/.claude/settings.json` | JSON |
+| Plugin 市场源 | `~/.claude/plugins/known_marketplaces.json` | JSON |
 | Plugins | `~/.claude/plugins/installed_plugins.json` | JSON |
 
 `{userData}` = `%APPDATA%/cc-desktop`（Windows）或 `~/Library/Application Support/cc-desktop`（macOS）
@@ -215,4 +219,4 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 | 依赖 | 开发模式 | 生产模式 | 说明 |
 |------|---------|---------|------|
 | Node.js | 需要 | 不需要 | 开发工具链；生产由 Electron 自带 |
-| Claude Code CLI | 需要 | 需要 | Terminal/Agent 模式及 MCP 服务器均依赖 |
+| Claude Code CLI | 需要 | 需要 | Terminal/Agent 模式及 MCP 服务器依赖；插件市场与插件生命周期管理已不再依赖 `claude plugin ...` |

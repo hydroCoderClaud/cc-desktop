@@ -14,6 +14,7 @@
 
 - **Developer + Agent + Notebook** — Full CLI terminal with multi-session management, AI chat with image recognition and streaming output, plus a Notebook workspace for source curation and achievement generation
 - **MCP / Skills / Plugins / Agents / Hooks** — Extensible capability system with visual management, capability settings workbench, and a built-in marketplace
+- **Built-in Plugin Runtime** — Plugin marketplace add/remove/refresh and plugin install/uninstall/update now run in the desktop main process instead of shelling out to `claude plugin ...`
 - **Multi-Provider API Management** — Configure multiple API providers (Anthropic official, proxies, compatible endpoints) with custom model mapping
 - **DingTalk Bot Integration** — Bridge Claude Code to DingTalk for remote AI-assisted development via mobile
 - **Cross-Platform** — Windows & macOS, 6 color themes, light/dark mode, bilingual UI (English & Chinese)
@@ -58,6 +59,7 @@ Custom license — personal use, learning, and development permitted; commercial
 
 - **Developer + Agent + Notebook 三模式** — 完整 CLI 终端 + 多会话管理、AI 对话界面（图片识别、流式输出），以及 Notebook 资料整理与成果生成工作台
 - **MCP / Skills / Plugins / Agents / Hooks** — 可扩展能力体系，可视化管理，内置组件市场与能力设置工作台
+- **内建插件运行时** — 插件市场增删改查与插件安装、卸载、启停、更新已由桌面端主进程直接处理，不再依赖 `claude plugin ...`
 - **多服务商 API 管理** — 支持官方 API、中转服务、兼容端点，自定义模型映射
 - **钉钉机器人集成** — 将 Claude Code 桥接到钉钉，通过手机远程进行 AI 辅助开发
 - **跨平台** — Windows & macOS，6 套配色方案，深色/浅色模式，中英文界面

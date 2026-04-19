@@ -185,24 +185,23 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 | **自治能力** | 代码审查 → 自动修复 → 自动测试 → 自动部署 |
 | **参考** | OpenClaw 的自管理模式、Devin 的任务编排 |
 
-#### 8c. Plugin 安装链路去 CLI 化（远期预研）
+#### 8c. Plugin 安装链路去 CLI 化（已完成，保留为历史记录）
 
-当前插件市场的安装 / 卸载 / 更新能力仍依赖 `claude plugin ...` 命令；CC Desktop 现阶段只是对 Claude Code CLI 的 plugin 子命令做桌面端封装。
+该方向已在当前主线中落地：插件市场增删改查，以及插件安装 / 卸载 / 更新 / 启停，已切换到桌面端主进程内建的 `src/main/plugin-runtime/` 实现，不再依赖 `claude plugin ...` 子命令。
 
-已核实的能力边界：
+本次落地覆盖：
 
-- Claude Agent SDK 当前支持的是**会话级本地插件加载与重载**
-- 不提供 marketplace plugin 的安装 / 卸载 API
-- 因此短期内不考虑替换现有 CLI 安装链路
+- 市场源拉取、校验、缓存与刷新
+- 插件包下载 / clone / 版本目录管理
+- `~/.claude/plugins/` 注册表维护与孤儿目录清理
+- `enabledPlugins` 与 marketplace 状态同步
+- 多 scope 安装记录下的 user scope 安全更新 / 卸载
 
-如后续确需摆脱 `claude` CLI 依赖，需要单独设计并实现一套插件管理链路，例如：
+当前仍保留的边界：
 
-- 插件市场源拉取与校验
-- 插件包下载 / 解压 / 版本管理
-- `~/.claude/plugins/` 安装目录与注册表维护
-- 与 settings / enabledPlugins / marketplace 状态的一致性同步
-
-该方向暂列为**远期需求**，仅在独立项目路线或插件系统重构时再评估投入。
+- Terminal / Agent 会话本身仍依赖 Claude Code CLI
+- 旧 `plugin-cli.js` 仅作为废弃兼容层保留，未从仓库物理删除
+- marketplace 删除时对 project/local 配置中的历史引用不做额外清理，当前按最小收口接受
 
 #### 决策点
 

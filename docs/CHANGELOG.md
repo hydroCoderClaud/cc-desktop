@@ -2,6 +2,22 @@
 
 ---
 
+## Unreleased
+
+### 重构 (Refactor)
+- 将插件市场与插件生命周期管理从 Claude Code CLI 子命令中抽离，新增主进程内建 `src/main/plugin-runtime/` 独立运行时
+- 主流程与插件 IPC 改为通过 `PluginService` 执行市场增删改查、插件安装/卸载/更新，旧 `src/main/managers/plugin-cli.js` 标注为废弃兼容层
+
+### 修复 (Fix)
+- 修复 Windows 下市场添加时的已存在目录/重命名失败场景，改为安全回退到唯一缓存路径，避免 `EPERM` 阻断添加
+- 修复同一插件存在多条安装记录时的误操作风险，插件更新/卸载仅作用于 user scope，不再误伤 project/local 安装
+- 为插件注册表、市场配置和 `enabledPlugins` 写入增加串行锁，降低并发操作导致状态覆盖的风险
+
+### 文档 (Docs)
+- 同步更新 README、架构文档、集成设计、主进程设计、代码索引与路线图，说明新的插件运行时边界与旧入口废弃状态
+
+---
+
 ## v1.7.49 - 2026-04-19
 
 ### 修复 (Fix)
@@ -13,10 +29,6 @@
 
 ### 修复 (Fix)
 - 修复 MCP 市场的 Windows 配置包装逻辑，避免节点命令被错误包裹
-
----
-
-## Unreleased
 
 ---
 

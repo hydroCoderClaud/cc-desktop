@@ -37,8 +37,8 @@ src/main/
 ├── session-database.js         ← SQLite 数据库（改 1 行路径）
 ├── managers/
 │   ├── dingtalk-bridge.js      ← 钉钉桥接
-│   ├── plugin-cli.js           ← 插件 CLI
 │   └── ...
+├── plugin-runtime/             ← 插件市场与插件生命周期内建运行时
 ├── plugin-manager.js           ← 插件管理
 ├── capability-manager.js       ← 能力管理
 ├── prompt-manager.js           ← Prompt 管理

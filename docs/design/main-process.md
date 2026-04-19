@@ -17,7 +17,7 @@
 4. ActiveSessionManager     ← 多终端会话（Developer 模式）
 5. AgentSessionManager      ← Agent 会话（Agent 模式）
 6. 互注入 setPeerManager()  ← 跨模式会话占用检查
-7. PluginCli + Managers     ← Skills/Agents/MCP/Settings
+7. PluginService + Managers ← 插件运行时 + Skills/Agents/MCP/Settings
 8. CapabilityManager        ← 能力市场
 9. UpdateManager            ← 自动更新
 10. DingTalkBridge          ← 钉钉桥接
@@ -34,7 +34,7 @@
 
 - `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于 CLI 会话 UUID 的跨模式占用检查
 - `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `ActiveSessionManager` 和 `AgentSessionManager`
-- `CapabilityManager` 依赖 `PluginCli`、`SkillsManager`、`AgentsManager`、`McpManager`，需在它们之后创建
+- `CapabilityManager` 依赖 `PluginService`、`SkillsManager`、`AgentsManager`、`McpManager`，需在它们之后创建
 - `McpManager.configManager` 和 `McpManager.settingsManager` 通过属性注入（非构造函数参数）
 
 ### 统一清理

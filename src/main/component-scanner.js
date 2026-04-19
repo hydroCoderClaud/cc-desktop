@@ -7,6 +7,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const yaml = require('js-yaml')
+const { getPrimaryInstallation } = require('./plugin-runtime/core/installed-registry')
 
 class ComponentScanner {
   constructor() {
@@ -78,7 +79,7 @@ class ComponentScanner {
       // 检查是否启用 (默认启用)
       if (enabledPlugins[pluginId] === false) continue
 
-      const installation = installations[0]
+      const installation = getPrimaryInstallation(pluginId, installedPlugins)
       if (!installation || !installation.installPath) continue
 
       const [pluginShortName] = pluginId.split('@')

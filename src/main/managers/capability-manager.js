@@ -12,11 +12,12 @@ const crypto = require('crypto')
 const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 const { fetchMarketPromptContent } = require('../utils/prompt-utils')
+const { withPluginStateLock } = require('../plugin-runtime/core/state-lock')
 
 class CapabilityManager {
   /**
    * @param {Object} configManager - ConfigManager 实例
-   * @param {Object} pluginCli - PluginCli 实例
+   * @param {Object} pluginCli - 插件服务实例，兼容 `PluginService` 接口
    * @param {Object} skillsManager - SkillsManager 实例
    * @param {Object} agentsManager - AgentsManager 实例
    * @param {Object} mcpManager - McpManager 实例
@@ -366,20 +367,22 @@ class CapabilityManager {
    * @param {boolean} enabled - true=启用, false=禁用
    */
   _setPluginEnabled(pluginId, enabled) {
-    let settings = {}
-    try {
-      if (fs.existsSync(this.settingsPath)) {
-        settings = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
+    return withPluginStateLock(async () => {
+      let settings = {}
+      try {
+        if (fs.existsSync(this.settingsPath)) {
+          settings = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
+        }
+      } catch (err) {
+        console.warn('[CapabilityManager] _setPluginEnabled: failed to read settings, using empty:', err.message)
       }
-    } catch (err) {
-      console.warn('[CapabilityManager] _setPluginEnabled: failed to read settings, using empty:', err.message)
-    }
-    if (!settings.enabledPlugins) {
-      settings.enabledPlugins = {}
-    }
-    settings.enabledPlugins[pluginId] = enabled
-    atomicWriteJson(this.settingsPath, settings)
-    console.log(`[CapabilityManager] Set plugin ${pluginId} enabled: ${enabled}`)
+      if (!settings.enabledPlugins) {
+        settings.enabledPlugins = {}
+      }
+      settings.enabledPlugins[pluginId] = enabled
+      atomicWriteJson(this.settingsPath, settings)
+      console.log(`[CapabilityManager] Set plugin ${pluginId} enabled: ${enabled}`)
+    })
   }
 
   /**
@@ -626,7 +629,7 @@ class CapabilityManager {
         break
       }
       case 'plugin': {
-        this._setPluginEnabled(id, false)
+        await this._setPluginEnabled(id, false)
         break
       }
       default:
@@ -679,7 +682,7 @@ class CapabilityManager {
         break
       }
       case 'plugin': {
-        this._setPluginEnabled(id, true)
+        await this._setPluginEnabled(id, true)
         break
       }
       default:

@@ -1,10 +1,17 @@
 /**
  * Plugin CLI Wrapper
  * 封装 Claude Code CLI 的 plugin 命令，提供安装/卸载/更新/列表功能
+ *
+ * @deprecated
+ * 主流程已切换到 `src/main/plugin-runtime/PluginService.js`。
+ * 该文件仅为兼容和回退排障保留，不应再作为新的插件管理入口接入。
  */
 
 const { spawn } = require('child_process')
 
+/**
+ * @deprecated 使用 `PluginService`
+ */
 class PluginCli {
   constructor() {
     this.timeout = 60000 // 60s timeout for network operations

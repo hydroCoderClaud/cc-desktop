@@ -61,8 +61,8 @@
 - **架构上下文**：-> [自动更新](../design/integrations.md#自动更新)
 
 ### plugin-manager.js
-- **行数**：272
-- **职责**：Claude Code CLI 插件管理，读取/解析/启用/禁用插件及其组件扫描
+- **行数**：248
+- **职责**：插件安装状态读取、主安装项选择、启用/禁用同步及插件组件扫描入口
 - **关键方法**：`listPlugins()`, `getPluginDetails()`, `setPluginEnabled()`, `openPluginsFolder()`
 - **继承**：`ComponentScanner`
 - **架构上下文**：-> [插件系统](../design/integrations.md#插件系统)
@@ -170,9 +170,15 @@
 - **职责**：Agent Query 控制（模型切换、命令查询、账户信息、MCP 状态）
 - **关键方法**：`setModel()`, `getSupportedModels()`, `getSupportedCommands()`, `getAccountInfo()`, `getMcpServerStatus()`, `getInitResult()`
 
+### plugin-runtime/PluginService.js
+- **行数**：94
+- **职责**：内建插件运行时门面，统一处理市场管理与插件安装/卸载/更新
+- **关键方法**：`listAvailable()`, `install()`, `uninstall()`, `update()`, `listMarketplaces()`, `addMarketplace()`, `removeMarketplace()`, `updateMarketplace()`
+- **架构上下文**：-> [插件系统](../design/integrations.md#插件系统)
+
 ### plugin-cli.js
-- **行数**：330
-- **职责**：Claude Code CLI 插件命令封装（含错误精确归因：市场未注册 vs 插件不存在）
+- **行数**：311
+- **职责**：已废弃的 Claude Code CLI 插件命令封装，保留用于兼容与回退排障
 - **关键方法**：`listAvailable()`, `install()`, `uninstall()`, `update()`, `listMarketplaces()`, `addMarketplace()`, `removeMarketplace()`, `_refineNotFoundError()`
 
 ### skills-manager.js
