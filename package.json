@@ -108,6 +108,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "warningsAsErrors": false,
+      "include": "build/installer.nsh",
       "shortcutName": "Hydro Desktop",
       "uninstallDisplayName": "Hydro Desktop ${version}",
       "createDesktopShortcut": true,

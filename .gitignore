@@ -4,7 +4,8 @@ node_modules/
 # Build output
 dist/
 dist-electron/
-build/
+build/*
+!build/installer.nsh
 src/renderer/pages-dist/
 *.exe
 *.dmg
