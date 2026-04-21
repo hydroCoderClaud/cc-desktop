@@ -85,6 +85,13 @@
           </n-form-item>
         </n-grid-item>
 
+        <n-grid-item>
+          <n-form-item :label="t('globalSettings.enableDeveloperMode')">
+            <n-switch v-model:value="formData.enableDeveloperMode" />
+            <template #feedback>{{ t('globalSettings.enableDeveloperModeHint') }}</template>
+          </n-form-item>
+        </n-grid-item>
+
         <n-grid-item :span="2" style="margin-top: 12px">
           <n-form-item :label="t('globalSettings.outputBaseDir')">
             <div style="display: flex; gap: 8px; width: 100%">
@@ -132,6 +139,7 @@ const DEFAULTS = {
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   messageQueue: true,
+  enableDeveloperMode: true,
   outputBaseDir: ''              // 空字符串 = 使用默认 ~/cc-desktop-agent-output
 }
 
@@ -142,6 +150,7 @@ const formData = ref({
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   messageQueue: DEFAULTS.messageQueue,
+  enableDeveloperMode: DEFAULTS.enableDeveloperMode,
   outputBaseDir: DEFAULTS.outputBaseDir
 })
 
@@ -177,6 +186,7 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
+    formData.value.enableDeveloperMode = config?.settings?.enableDeveloperMode !== false
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
   } catch (err) {
     console.error('Failed to load settings:', err)
@@ -229,6 +239,16 @@ const handleSave = async () => {
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
+    const nextMode = formData.value.enableDeveloperMode ? undefined : 'agent'
+    const settingsPayload = {
+      enableDeveloperMode: formData.value.enableDeveloperMode
+    }
+    if (nextMode) {
+      settingsPayload.appMode = nextMode
+    }
+    await window.electronAPI.updateSettings(settingsPayload)
+    window.electronAPI.broadcastSettings(settingsPayload)
+
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
 
     // 保存 outputBaseDir
@@ -258,6 +278,7 @@ const handleReset = async () => {
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.messageQueue = DEFAULTS.messageQueue
+    formData.value.enableDeveloperMode = DEFAULTS.enableDeveloperMode
     formData.value.outputBaseDir = defaultOutputBaseDir.value
 
     // Save to backend
@@ -268,6 +289,8 @@ const handleReset = async () => {
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
+    await window.electronAPI.updateSettings({ enableDeveloperMode: DEFAULTS.enableDeveloperMode })
+    window.electronAPI.broadcastSettings({ enableDeveloperMode: DEFAULTS.enableDeveloperMode })
 
     // 重置 outputBaseDir
     const config = await invoke('getConfig')

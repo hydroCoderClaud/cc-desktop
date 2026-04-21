@@ -14,8 +14,19 @@ export const AppMode = {
 }
 
 // 全局共享状态（模块级单例）
-const appMode = ref(AppMode.DEVELOPER)
+const appMode = ref(AppMode.AGENT)
+const developerModeEnabled = ref(true)
 const initialized = ref(false)
+let _settingsCleanup = null
+
+const getDeveloperModeEnabled = (config) => config?.settings?.enableDeveloperMode !== false
+
+const normalizeMode = (mode) => {
+  if (mode === AppMode.DEVELOPER && !developerModeEnabled.value) {
+    return AppMode.AGENT
+  }
+  return Object.values(AppMode).includes(mode) ? mode : AppMode.AGENT
+}
 
 export function useAppMode() {
   const isDeveloperMode = computed(() => appMode.value === AppMode.DEVELOPER)
@@ -31,10 +42,14 @@ export function useAppMode() {
     try {
       if (window.electronAPI) {
         const config = await window.electronAPI.getConfig()
-        const savedMode = config?.settings?.appMode
-        if (savedMode && Object.values(AppMode).includes(savedMode)) {
-          appMode.value = savedMode
-          await window.electronAPI.setMainWindowTitleByMode(savedMode)
+        developerModeEnabled.value = getDeveloperModeEnabled(config)
+
+        const startupMode = AppMode.AGENT
+        appMode.value = startupMode
+        await window.electronAPI.setMainWindowTitleByMode(startupMode)
+
+        if (config?.settings?.appMode !== startupMode) {
+          await window.electronAPI.updateSettings({ appMode: startupMode })
         }
       }
     } catch (err) {
@@ -54,15 +69,16 @@ export function useAppMode() {
       return
     }
 
-    if (appMode.value === mode) return
+    const nextMode = normalizeMode(mode)
+    if (appMode.value === nextMode) return
 
-    appMode.value = mode
+    appMode.value = nextMode
 
     // 持久化到配置
     try {
       if (window.electronAPI) {
-        await window.electronAPI.updateSettings({ appMode: mode })
-        await window.electronAPI.setMainWindowTitleByMode(mode)
+        await window.electronAPI.updateSettings({ appMode: nextMode })
+        await window.electronAPI.setMainWindowTitleByMode(nextMode)
       }
     } catch (err) {
       console.error('[useAppMode] Failed to save mode to config:', err)
@@ -75,12 +91,40 @@ export function useAppMode() {
   const toggleMode = async () => {
     const nextMode = appMode.value === AppMode.DEVELOPER
       ? AppMode.AGENT
-      : AppMode.DEVELOPER
+      : developerModeEnabled.value
+        ? AppMode.DEVELOPER
+        : AppMode.AGENT
     await switchMode(nextMode)
   }
 
+  const listenForChanges = () => {
+    if (_settingsCleanup) return
+    if (window.electronAPI?.onSettingsChanged) {
+      _settingsCleanup = window.electronAPI.onSettingsChanged(async (settings) => {
+        if (settings.enableDeveloperMode !== undefined) {
+          developerModeEnabled.value = settings.enableDeveloperMode !== false
+          if (!developerModeEnabled.value && appMode.value === AppMode.DEVELOPER) {
+            appMode.value = AppMode.AGENT
+            await window.electronAPI.setMainWindowTitleByMode(AppMode.AGENT)
+          }
+        }
+
+        if (settings.appMode !== undefined) {
+          const nextMode = normalizeMode(settings.appMode)
+          if (appMode.value !== nextMode) {
+            appMode.value = nextMode
+            await window.electronAPI.setMainWindowTitleByMode(nextMode)
+          }
+        }
+      })
+    }
+  }
+
+  listenForChanges()
+
   return {
     appMode: readonly(appMode),
+    developerModeEnabled: readonly(developerModeEnabled),
     isDeveloperMode,
     isAgentMode,
     isNotebookMode,

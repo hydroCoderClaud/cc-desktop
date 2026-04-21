@@ -98,7 +98,8 @@ class ConfigManager {
         maxHistorySessions: 10,  // 左侧面板历史会话最大显示条数
 
         // 应用模式
-        appMode: 'developer',  // 'developer' | 'agent'
+        appMode: 'agent',  // 启动固定为 'agent'
+        enableDeveloperMode: true,
 
         // Agent 模式配置
         agent: {

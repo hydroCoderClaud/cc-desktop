@@ -868,6 +868,8 @@ export default {
     autocompactDefault: 'Empty = CLI default (~95%)',
     messageQueue: 'Message Queue',
     messageQueueHint: 'When enabled, you can queue messages while AI is responding. They auto-send when output finishes.',
+    enableDeveloperMode: 'Enable Developer Mode',
+    enableDeveloperModeHint: 'When disabled, the Developer mode entry is hidden. If a window is currently in Developer mode, it switches back to Agent mode.',
     outputBaseDir: 'Agent Output Directory',
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',

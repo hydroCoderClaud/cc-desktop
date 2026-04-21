@@ -151,14 +151,21 @@ const emit = defineEmits(['create', 'switch', 'close', 'cleanup', 'renamed', 'de
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
-const { switchMode } = useAppMode()
+const { developerModeEnabled, switchMode } = useAppMode()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
-const modeOptions = computed(() => [
-  { label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') },
-  { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
-])
+const modeOptions = computed(() => {
+  const options = [
+    { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
+  ]
+
+  if (developerModeEnabled.value) {
+    options.unshift({ label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') })
+  }
+
+  return options
+})
 
 const hasUpdateAvailable = ref(false)
 let updateAvailableCleanup = null

@@ -78,6 +78,8 @@ describe('ConfigManager', () => {
       expect(config.apiProfiles).toEqual([])
       expect(config.settings).toBeDefined()
       expect(config.settings.theme).toBe('light')
+      expect(config.settings.appMode).toBe('agent')
+      expect(config.settings.enableDeveloperMode).toBe(true)
     })
 
     it('应该有正确的默认超时设置', () => {

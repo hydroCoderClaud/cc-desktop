@@ -345,13 +345,13 @@ const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale } = useLocale()
-const { isDeveloperMode, isAgentMode, isNotebookMode, switchMode, appMode } = useAppMode()
+const { isDeveloperMode, isAgentMode, isNotebookMode, developerModeEnabled, switchMode, appMode } = useAppMode()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
 const modeOptions = computed(() => {
   const options = []
-  if (!isDeveloperMode.value) {
+  if (developerModeEnabled.value && !isDeveloperMode.value) {
     options.push({ label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') })
   }
   if (!isAgentMode.value) {

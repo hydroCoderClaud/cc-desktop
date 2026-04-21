@@ -91,7 +91,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     show: false,  // 先隐藏，准备好后再显示
-    title: getMainWindowTitle(configManager?.getConfig()?.settings?.appMode),
+    title: getMainWindowTitle('agent'),
     backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏
     webPreferences: {
