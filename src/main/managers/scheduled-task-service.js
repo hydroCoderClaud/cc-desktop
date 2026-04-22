@@ -132,6 +132,7 @@ class ScheduledTaskService {
     const updated = this.sessionDatabase.updateScheduledTask(taskId, normalized)
     const nextRunAt = updated.enabled ? this._computeNextRunAt(updated, Date.now()) : null
     const task = this.sessionDatabase.updateScheduledTaskState(taskId, { nextRunAt })
+    this._syncTaskSessionTitle(current, updated)
     this._broadcastChange(taskId, 'updated')
     return task
   }
@@ -298,6 +299,20 @@ class ScheduledTaskService {
     }
 
     return sessionId
+  }
+
+  _syncTaskSessionTitle(previousTask, nextTask) {
+    if (!previousTask?.sessionId) return
+
+    const previousName = String(previousTask.name || '').trim()
+    const nextName = String(nextTask?.name || '').trim()
+    if (!nextName || previousName === nextName) return
+
+    try {
+      this.agentSessionManager?.rename?.(previousTask.sessionId, nextName)
+    } catch (err) {
+      console.error(`[ScheduledTask] Failed to sync session title for task ${previousTask.id}:`, err)
+    }
   }
 
   _handleAgentResult(sessionId) {

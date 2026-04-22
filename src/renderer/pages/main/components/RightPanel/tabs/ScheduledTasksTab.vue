@@ -157,53 +157,106 @@
       </div>
     </div>
 
-    <n-modal v-model:show="showModal" preset="dialog" :title="editingTaskId ? t('rightPanel.scheduledTasks.editTask') : t('rightPanel.scheduledTasks.createTask')">
+    <n-modal
+      v-model:show="showModal"
+      preset="dialog"
+      class="scheduled-task-modal"
+      style="width: min(960px, calc(100vw - 32px));"
+      :title="editingTaskId ? t('rightPanel.scheduledTasks.editTask') : t('rightPanel.scheduledTasks.createTask')"
+    >
       <n-form label-placement="top" class="task-form">
-        <n-form-item :label="t('rightPanel.scheduledTasks.taskName')">
-          <n-input v-model:value="form.name" />
-        </n-form-item>
-        <n-form-item :label="t('rightPanel.scheduledTasks.prompt')">
-          <n-input v-model:value="form.prompt" type="textarea" :autosize="{ minRows: 6, maxRows: 12 }" />
-        </n-form-item>
-        <n-form-item :label="t('rightPanel.scheduledTasks.workingDirectory')">
-          <div class="cwd-field">
-            <n-input v-model:value="form.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
-            <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
-          </div>
-        </n-form-item>
-        <div class="task-grid">
-          <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
-            <n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable />
+        <div class="task-grid task-grid-primary">
+          <n-form-item :label="t('rightPanel.scheduledTasks.taskName')">
+            <n-input v-model:value="form.name" :placeholder="t('rightPanel.scheduledTasks.taskNamePlaceholder')" />
           </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')">
-            <n-select v-model:value="form.modelTier" :options="modelTierOptions" clearable />
-          </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')">
-            <n-input-number v-model:value="form.maxTurns" :min="1" style="width: 100%;" />
-          </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')">
-            <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
+          <n-form-item :label="t('rightPanel.scheduledTasks.workingDirectory')">
+            <div class="cwd-field">
+              <n-input v-model:value="form.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
+              <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
+            </div>
           </n-form-item>
         </div>
-        <div class="task-grid" v-if="form.scheduleType === 'interval'">
+        <n-form-item :label="t('rightPanel.scheduledTasks.prompt')">
+          <n-input
+            v-model:value="form.prompt"
+            type="textarea"
+            :placeholder="t('rightPanel.scheduledTasks.promptPlaceholder')"
+            :autosize="{ minRows: 5, maxRows: 10 }"
+          />
+        </n-form-item>
+        <div class="task-grid task-grid-config">
+          <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
+            <n-select
+              v-model:value="form.apiProfileId"
+              :options="apiProfileOptions"
+              :placeholder="t('rightPanel.scheduledTasks.apiProfilePlaceholder')"
+              clearable
+            />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')">
+            <n-select
+              v-model:value="form.modelTier"
+              :options="modelTierOptions"
+              :placeholder="t('rightPanel.scheduledTasks.modelTierPlaceholder')"
+              clearable
+            />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')">
+            <n-input-number
+              v-model:value="form.maxTurns"
+              :min="1"
+              :placeholder="t('rightPanel.scheduledTasks.maxTurnsPlaceholder')"
+              style="width: 100%;"
+            />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')">
+            <n-select
+              v-model:value="form.scheduleType"
+              :options="scheduleTypeOptions"
+              :placeholder="t('rightPanel.scheduledTasks.scheduleTypePlaceholder')"
+            />
+          </n-form-item>
+        </div>
+        <div class="task-grid task-grid-interval" v-if="form.scheduleType === 'interval'">
           <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')">
-            <n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" />
+            <n-input-number
+              v-model:value="form.intervalMinutes"
+              :min="1"
+              :placeholder="t('rightPanel.scheduledTasks.intervalMinutesPlaceholder')"
+              style="width: 100%;"
+            />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
+            <n-switch v-model:value="form.enabled" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
+            <n-switch v-model:value="form.runOnStartup" />
           </n-form-item>
         </div>
         <div class="task-grid" v-else-if="form.scheduleType === 'daily'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
-            <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+            <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
+            <n-switch v-model:value="form.enabled" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
+            <n-switch v-model:value="form.runOnStartup" />
           </n-form-item>
         </div>
         <div class="task-grid" v-else-if="form.scheduleType === 'weekly'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
-            <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+            <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.weeklyDays')">
-            <n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable />
+            <n-select
+              v-model:value="form.weeklyDays"
+              :options="weeklyDayOptions"
+              :placeholder="t('rightPanel.scheduledTasks.weeklyDaysPlaceholder')"
+              multiple
+              clearable
+            />
           </n-form-item>
-        </div>
-        <div class="task-grid switches">
           <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
             <n-switch v-model:value="form.enabled" />
           </n-form-item>
@@ -243,6 +296,7 @@ const props = defineProps({
 
 const { t } = useLocale()
 const message = useMessage()
+const DEFAULT_PROFILE_OPTION_VALUE = '__scheduled_task_default_profile__'
 
 const loading = ref(false)
 const runsLoading = ref(false)
@@ -251,6 +305,7 @@ const searchText = ref('')
 const statusFilter = ref('all')
 const tasks = ref([])
 const apiProfiles = ref([])
+const defaultProfileId = ref(null)
 const selectedTaskId = ref(null)
 const selectedTaskRuns = ref([])
 const showModal = ref(false)
@@ -266,7 +321,7 @@ function createDefaultForm() {
     name: '',
     prompt: '',
     cwd: props.currentProject?.path || '',
-    apiProfileId: null,
+    apiProfileId: DEFAULT_PROFILE_OPTION_VALUE,
     modelTier: 'sonnet',
     maxTurns: null,
     enabled: true,
@@ -306,8 +361,16 @@ const weeklyDayOptions = computed(() => [
   { label: t('rightPanel.scheduledTasks.weekday6'), value: 6 }
 ])
 
+const defaultProfileLabel = computed(() => {
+  const profile = apiProfiles.value.find(item => item.id === defaultProfileId.value)
+  if (profile?.name) {
+    return t('rightPanel.scheduledTasks.defaultProfileResolved', { name: profile.name })
+  }
+  return t('rightPanel.scheduledTasks.defaultProfile')
+})
+
 const apiProfileOptions = computed(() => [
-  { label: t('rightPanel.scheduledTasks.defaultProfile'), value: null },
+  { label: defaultProfileLabel.value, value: DEFAULT_PROFILE_OPTION_VALUE },
   ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))
 ])
 
@@ -333,12 +396,14 @@ const selectedTask = computed(() => filteredTasks.value.find(task => task.id ===
 const loadTasks = async () => {
   loading.value = true
   try {
-    const [taskList, profiles] = await Promise.all([
+    const [taskList, profiles, config] = await Promise.all([
       window.electronAPI.listScheduledTasks(),
-      window.electronAPI.listAPIProfiles?.() || Promise.resolve([])
+      window.electronAPI.listAPIProfiles?.() || Promise.resolve([]),
+      window.electronAPI.getConfig?.() || Promise.resolve(null)
     ])
     tasks.value = Array.isArray(taskList) ? taskList : []
     apiProfiles.value = Array.isArray(profiles) ? profiles : []
+    defaultProfileId.value = config?.defaultProfileId || null
 
     if (!selectedTaskId.value && tasks.value.length > 0) {
       selectedTaskId.value = tasks.value[0].id
@@ -383,7 +448,7 @@ const openEditModal = (task) => {
     name: task.name || '',
     prompt: task.prompt || '',
     cwd: task.cwd || '',
-    apiProfileId: task.apiProfileId || null,
+    apiProfileId: task.apiProfileId || DEFAULT_PROFILE_OPTION_VALUE,
     modelTier: task.modelTier || 'sonnet',
     maxTurns: task.maxTurns || null,
     enabled: !!task.enabled,
@@ -401,6 +466,7 @@ const saveTask = async () => {
   try {
     const payload = {
       ...form.value,
+      apiProfileId: form.value.apiProfileId === DEFAULT_PROFILE_OPTION_VALUE ? null : form.value.apiProfileId,
       cwd: form.value.cwd?.trim() || null
     }
     const result = editingTaskId.value
@@ -480,7 +546,7 @@ const pickFolder = async () => {
 }
 
 const getProfileName = (profileId) => {
-  if (!profileId) return null
+  if (!profileId) return defaultProfileLabel.value
   const profile = apiProfiles.value.find(item => item.id === profileId)
   return profile?.name || null
 }
@@ -701,7 +767,8 @@ onUnmounted(() => {
 }
 
 .task-form {
-  min-width: 680px;
+  width: 100%;
+  min-width: 0;
 }
 
 .task-grid {
@@ -710,8 +777,16 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.task-grid.switches {
-  grid-template-columns: repeat(2, 180px);
+.task-grid-primary {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.task-grid-config {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.task-grid-interval {
+  grid-template-columns: minmax(220px, 1fr) 160px 160px;
 }
 
 .status-select {
@@ -723,8 +798,17 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .task-form {
-    min-width: 0;
+  .task-grid-config {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .task-grid,
+  .task-grid-primary,
+  .task-grid-config,
+  .task-grid-interval {
+    grid-template-columns: 1fr;
   }
 }
 </style>

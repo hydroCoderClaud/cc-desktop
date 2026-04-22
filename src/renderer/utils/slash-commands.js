@@ -134,6 +134,14 @@ export function shouldAutoSubmitSlashCommand(command) {
 export function buildBuiltinSlashCommands(t) {
   return normalizeSlashCommands([
     {
+      name: '/schedule',
+      icon: 'clock',
+      description: t('agent.cmdSchedule'),
+      argumentHint: '[prompt]',
+      source: 'local',
+      autoSubmit: false
+    },
+    {
       name: '/compact',
       icon: 'compress',
       description: t('agent.cmdCompact'),

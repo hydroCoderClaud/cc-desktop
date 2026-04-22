@@ -2,7 +2,7 @@
  * Agent 面板状态管理组合式函数
  * 管理 Agent 对话列表、创建、删除等操作
  */
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 // 模块级别的已关闭会话集合（跨组件共享）
 // 用于在队列自动消费前检查会话是否已关闭
@@ -39,6 +39,7 @@ export function useAgentPanel() {
   const conversations = ref([])
   const loading = ref(false)
   const selectedSource = ref('all')
+  const getConversationSource = (conv) => (conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual'))
 
   /**
    * 加载对话列表（后端已合并活跃+历史）
@@ -163,26 +164,35 @@ export function useAgentPanel() {
   // 当前选中的目录筛选（null = 全部）
   const selectedCwd = ref(null)
 
+  const sourceFilteredConversations = computed(() => {
+    return conversations.value.filter(conv => {
+      return selectedSource.value === 'all' || getConversationSource(conv) === selectedSource.value
+    })
+  })
+
   /**
-   * 从对话列表中提取所有不重复的 cwd，按字母排序
+   * 从当前来源候选对话中提取所有不重复的 cwd，按字母排序
    */
   const availableCwds = computed(() => {
     const cwdSet = new Set()
-    for (const conv of conversations.value) {
+    for (const conv of sourceFilteredConversations.value) {
       if (conv.cwd) cwdSet.add(conv.cwd)
     }
     return Array.from(cwdSet).sort()
   })
 
+  watch(availableCwds, (nextCwds) => {
+    if (selectedCwd.value && !nextCwds.includes(selectedCwd.value)) {
+      selectedCwd.value = null
+    }
+  }, { immediate: true })
+
   /**
    * 按 selectedCwd 过滤后的对话列表
    */
   const filteredConversations = computed(() => {
-    return conversations.value.filter(conv => {
-      const source = conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual')
-      const matchesCwd = !selectedCwd.value || conv.cwd === selectedCwd.value
-      const matchesSource = selectedSource.value === 'all' || source === selectedSource.value
-      return matchesCwd && matchesSource
+    return sourceFilteredConversations.value.filter(conv => {
+      return !selectedCwd.value || conv.cwd === selectedCwd.value
     })
   })
 

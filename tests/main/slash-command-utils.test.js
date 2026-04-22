@@ -68,6 +68,7 @@ describe('slash command utils', () => {
     )
 
     expect(merged.find(command => command.name === '/help')?.source).toBe('local')
+    expect(merged.find(command => command.name === '/schedule')?.argumentHint).toBe('[prompt]')
     expect(merged.find(command => command.name === '/memory')?.description).toBe('Memory tools')
   })
 

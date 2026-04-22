@@ -35,6 +35,13 @@
           @submit="handleInteractionSubmit"
           @cancel="handleInteractionCancel"
         />
+        <ScheduledTaskDraftCard
+          v-else-if="msg.role === 'tool' && msg.toolName === 'ScheduledTaskDraft'"
+          :message="msg"
+          :submitting="Boolean(scheduledTaskSubmitting[msg.id])"
+          @submit="handleScheduledTaskDraftSubmit"
+          @cancel="handleScheduledTaskDraftCancel"
+        />
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
           :message="msg"
@@ -109,6 +116,7 @@ import { extractToolResultFilePaths } from '@utils/mcp-tool-result'
 import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
 import AskUserQuestionCard from './agent/AskUserQuestionCard.vue'
+import ScheduledTaskDraftCard from './agent/ScheduledTaskDraftCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
 import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
@@ -162,6 +170,8 @@ const {
   cancelGeneration,
   submitInteractionAnswer,
   cancelInteraction,
+  submitScheduledTaskDraft,
+  cancelScheduledTaskDraft,
   compactConversation,
   setupStreamListeners,
   setupDingTalkListeners,
@@ -170,6 +180,8 @@ const {
   cleanup
 } = useAgentChat(props.sessionId, {
   enableSlashCommands: props.sessionType !== 'dingtalk',
+  sessionCwd: props.sessionCwd,
+  apiProfileId: props.apiProfileId,
   onClearRequested: () => {
     emit('request-clear-session')
   }
@@ -213,6 +225,7 @@ const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 const interactionSubmitting = ref({})
+const scheduledTaskSubmitting = ref({})
 const {
   scrollToBottom,
   onContainerScroll: onMessagesScroll,
@@ -249,6 +262,17 @@ const setInteractionSubmitting = (interactionId, submitting) => {
   interactionSubmitting.value = next
 }
 
+const setScheduledTaskSubmitting = (messageId, submitting) => {
+  if (!messageId) return
+  const next = { ...scheduledTaskSubmitting.value }
+  if (submitting) {
+    next[messageId] = true
+  } else {
+    delete next[messageId]
+  }
+  scheduledTaskSubmitting.value = next
+}
+
 const handleInteractionSubmit = async ({ interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
   if (!interactionId || interactionSubmitting.value[interactionId]) return
 
@@ -283,6 +307,36 @@ const handleInteractionCancel = async ({ interactionId }) => {
     }
   } finally {
     setInteractionSubmitting(interactionId, false)
+  }
+}
+
+const handleScheduledTaskDraftSubmit = async ({ messageId, draft }) => {
+  if (!messageId || scheduledTaskSubmitting.value[messageId]) return
+
+  setScheduledTaskSubmitting(messageId, true)
+  try {
+    const result = await submitScheduledTaskDraft({ messageId, draft })
+    if (result?.error) {
+      message.error(result.error)
+      return
+    }
+    message.success(t('agent.scheduleDraftCreatedToast', { name: result?.task?.name || draft?.name || '' }))
+  } finally {
+    setScheduledTaskSubmitting(messageId, false)
+  }
+}
+
+const handleScheduledTaskDraftCancel = async ({ messageId }) => {
+  if (!messageId || scheduledTaskSubmitting.value[messageId]) return
+
+  setScheduledTaskSubmitting(messageId, true)
+  try {
+    const result = await cancelScheduledTaskDraft({ messageId })
+    if (result?.error) {
+      message.error(result.error)
+    }
+  } finally {
+    setScheduledTaskSubmitting(messageId, false)
   }
 }
 

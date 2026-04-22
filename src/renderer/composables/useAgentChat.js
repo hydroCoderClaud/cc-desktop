@@ -168,6 +168,8 @@ export function useAgentChat(sessionId, options = {}) {
     }
   }
 
+  const getToolMessageById = (messageId) => messages.value.find(msg => msg.id === messageId && msg.role === MessageRole.TOOL)
+
   const upsertInteractionMessage = (interaction, output = null) => {
     const interactionId = interaction?.interactionId
     if (!interactionId) return
@@ -191,6 +193,143 @@ export function useAgentChat(sessionId, options = {}) {
       output,
       timestamp: Date.now()
     })
+  }
+
+  const getLatestSchedulablePrompt = () => {
+    for (let index = messages.value.length - 1; index >= 0; index -= 1) {
+      const message = messages.value[index]
+      if (message?.role !== MessageRole.USER) continue
+
+      const content = typeof message.content === 'string' ? message.content.trim() : ''
+      if (!content || content.startsWith('/')) continue
+      if (content === '[图片]') continue
+      return content
+    }
+    return ''
+  }
+
+  const buildScheduledTaskName = (prompt) => {
+    const firstLine = String(prompt || '')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .find(Boolean)
+
+    if (!firstLine) return t('agent.scheduleDraftDefaultName')
+    return firstLine.length > 24 ? `${firstLine.slice(0, 24)}...` : firstLine
+  }
+
+  const normalizeScheduledTaskDraft = (draft = {}) => {
+    const scheduleType = ['interval', 'daily', 'weekly'].includes(draft.scheduleType)
+      ? draft.scheduleType
+      : 'interval'
+
+    const weeklyDays = Array.isArray(draft.weeklyDays)
+      ? Array.from(new Set(draft.weeklyDays
+        .map(day => Number(day))
+        .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)))
+      : [1]
+
+    const intervalMinutes = Math.max(1, Number(draft.intervalMinutes) || 60)
+    const maxTurnsValue = Number(draft.maxTurns)
+    const maxTurns = Number.isInteger(maxTurnsValue) && maxTurnsValue > 0 ? maxTurnsValue : null
+
+    return {
+      name: String(draft.name || '').trim(),
+      prompt: String(draft.prompt || '').trim(),
+      cwd: typeof draft.cwd === 'string' && draft.cwd.trim() ? draft.cwd.trim() : null,
+      apiProfileId: draft.apiProfileId || null,
+      modelTier: draft.modelTier || selectedModel.value || 'sonnet',
+      maxTurns,
+      enabled: draft.enabled !== false,
+      runOnStartup: draft.runOnStartup !== false,
+      scheduleType,
+      intervalMinutes,
+      dailyTime: String(draft.dailyTime || '09:00').trim() || '09:00',
+      weeklyDays: weeklyDays.length > 0 ? weeklyDays : [1]
+    }
+  }
+
+  const createScheduledTaskDraft = (parsedCommand) => {
+    const prompt = parsedCommand.args || getLatestSchedulablePrompt()
+    const draftId = `scheduled-task-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const draft = normalizeScheduledTaskDraft({
+      name: buildScheduledTaskName(prompt),
+      prompt,
+      cwd: options.sessionCwd || null,
+      apiProfileId: options.apiProfileId || null,
+      modelTier: selectedModel.value || 'sonnet',
+      maxTurns: null,
+      enabled: true,
+      runOnStartup: true,
+      scheduleType: 'interval',
+      intervalMinutes: 60,
+      dailyTime: '09:00',
+      weeklyDays: [1]
+    })
+
+    messages.value.push({
+      id: draftId,
+      role: MessageRole.TOOL,
+      toolName: 'ScheduledTaskDraft',
+      input: {
+        draftId,
+        kind: 'scheduled_task_draft',
+        title: t('agent.scheduleDraftTitle'),
+        description: prompt
+          ? t('agent.scheduleDraftHintWithPrompt')
+          : t('agent.scheduleDraftHintEmpty'),
+        draft
+      },
+      output: null,
+      timestamp: Date.now()
+    })
+  }
+
+  const submitScheduledTaskDraft = async ({ messageId, draft }) => {
+    if (!window.electronAPI?.createScheduledTask) {
+      return { error: 'Scheduled task API unavailable' }
+    }
+
+    const message = getToolMessageById(messageId)
+    if (!message) {
+      return { error: 'Scheduled task draft not found' }
+    }
+
+    const payload = normalizeScheduledTaskDraft(draft)
+
+    try {
+      message.input = {
+        ...(message.input || {}),
+        draft: payload
+      }
+
+      const result = await window.electronAPI.createScheduledTask(payload)
+      if (result?.error) {
+        throw new Error(result.error)
+      }
+
+      message.output = {
+        status: 'answered',
+        taskId: result?.id || null,
+        taskName: result?.name || payload.name
+      }
+      return { success: true, task: result || payload }
+    } catch (err) {
+      console.error('[useAgentChat] submitScheduledTaskDraft error:', err)
+      return { error: err.message || 'Failed to create scheduled task' }
+    }
+  }
+
+  const cancelScheduledTaskDraft = ({ messageId }) => {
+    const message = getToolMessageById(messageId)
+    if (!message) {
+      return { error: 'Scheduled task draft not found' }
+    }
+
+    message.output = {
+      status: 'cancelled'
+    }
+    return { success: true }
   }
 
   // 计时器控制
@@ -265,6 +404,11 @@ export function useAgentChat(sessionId, options = {}) {
 
     if (lower === '/compact') {
       await compactConversation()
+      return true
+    }
+
+    if (lower === '/schedule') {
+      createScheduledTaskDraft(parsedCommand)
       return true
     }
 
@@ -871,6 +1015,8 @@ export function useAgentChat(sessionId, options = {}) {
     submitInteractionAnswer,
     cancelInteraction,
     compactConversation,
+    submitScheduledTaskDraft,
+    cancelScheduledTaskDraft,
     setupStreamListeners,
     setupDingTalkListeners,
     setupListeners,
