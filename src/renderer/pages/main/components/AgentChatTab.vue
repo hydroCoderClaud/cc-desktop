@@ -86,6 +86,8 @@
       :placeholder="queueEnabled ? t('agent.inputPlaceholder') : t('agent.inputPlaceholderDisabled')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
+      :slash-commands-supported="sessionType !== 'dingtalk'"
+      :enable-slash-commands="sessionType !== 'dingtalk' && hasActiveSession"
       :active-model="activeModel"
       :model-mapping="modelMapping"
       v-model:model-value="selectedModel"
@@ -167,6 +169,7 @@ const {
   initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId, {
+  enableSlashCommands: props.sessionType !== 'dingtalk',
   onClearRequested: () => {
     emit('request-clear-session')
   }

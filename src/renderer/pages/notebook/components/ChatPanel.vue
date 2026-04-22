@@ -113,6 +113,8 @@
       :placeholder="t('notebook.chat.placeholder')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
+      :slash-commands-supported="true"
+      :enable-slash-commands="hasActiveSession"
       :active-model="activeModel"
       :model-mapping="modelMapping"
       v-model:model-value="selectedModel"

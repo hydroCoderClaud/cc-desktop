@@ -137,21 +137,29 @@
             <Icon name="zap" :size="12" />
             <span>{{ t('agent.slashTitle') }}</span>
           </div>
-          <div
-            v-for="(cmd, index) in filteredCommands"
-            :key="cmd.name"
-            class="slash-item"
-            :class="{ active: slashActiveIndex === index }"
-            @click="selectSlashCommand(cmd)"
-            @mouseenter="slashActiveIndex = index"
-          >
-            <Icon :name="cmd.icon" :size="14" class="slash-item-icon" />
-            <div class="slash-item-info">
-              <span class="slash-item-name">{{ cmd.name }}</span>
-              <span class="slash-item-desc">{{ cmd.desc }}</span>
-            </div>
+          <div v-if="showSlashUnavailableHint" class="slash-empty slash-empty-disabled">
+            {{ t('agent.slashDisabledHint') }}
           </div>
-          <div v-if="filteredCommands.length === 0" class="slash-empty">
+          <template v-else>
+            <div
+              v-for="(cmd, index) in filteredCommands"
+              :key="cmd.name"
+              class="slash-item"
+              :class="{ active: slashActiveIndex === index }"
+              @click="selectSlashCommand(cmd)"
+              @mouseenter="slashActiveIndex = index"
+            >
+              <Icon :name="cmd.icon" :size="14" class="slash-item-icon" />
+              <div class="slash-item-info">
+                <div class="slash-item-title">
+                  <span class="slash-item-name">{{ cmd.name }}</span>
+                  <span v-if="cmd.argumentHint" class="slash-item-hint">{{ cmd.argumentHint }}</span>
+                </div>
+                <span v-if="cmd.description" class="slash-item-desc">{{ cmd.description }}</span>
+              </div>
+            </div>
+          </template>
+          <div v-if="!showSlashUnavailableHint && filteredCommands.length === 0" class="slash-empty">
             {{ t('agent.slashNoMatch') }}
           </div>
         </div>
@@ -266,6 +274,13 @@ import {
   formatFileSize,
   isSupportedImageType
 } from '@/utils/image-utils'
+import {
+  buildBuiltinSlashCommands,
+  filterSlashCommands,
+  mergeSlashCommands,
+  normalizeSlashCommands,
+  shouldAutoSubmitSlashCommand
+} from '@utils/slash-commands'
 
 const { t } = useLocale()
 
@@ -293,6 +308,14 @@ const props = defineProps({
   slashCommands: {
     type: Array,
     default: () => []
+  },
+  slashCommandsSupported: {
+    type: Boolean,
+    default: true
+  },
+  enableSlashCommands: {
+    type: Boolean,
+    default: true
   },
   activeModel: {
     type: String,
@@ -473,33 +496,26 @@ const useCapability = (cap) => {
 // Slash 命令面板
 // ============================
 
-// 内置命令描述（带图标和中文说明）
-const builtinCommands = computed(() => [
-  { name: '/compact', icon: 'compress', desc: t('agent.cmdCompact') },
-  { name: '/cost', icon: 'info', desc: t('agent.cmdCost') },
-  { name: '/status', icon: 'terminal', desc: t('agent.cmdStatus') },
-  { name: '/help', icon: 'info', desc: t('agent.cmdHelp') },
-  { name: '/clear', icon: 'close', desc: t('agent.cmdClear') }
-])
+const builtinCommands = computed(() => buildBuiltinSlashCommands(t))
+const normalizedSdkCommands = computed(() =>
+  normalizeSlashCommands(props.slashCommands, {
+    source: 'sdk',
+    icon: 'zap',
+    autoSubmit: false
+  })
+)
 
-// 合并内置 + SDK 动态命令（去重，SDK 的排后面）
 const allCommands = computed(() => {
-  const builtinNames = new Set(builtinCommands.value.map(c => c.name))
-  const extra = (props.slashCommands || [])
-    .filter(name => !builtinNames.has(name))
-    .map(name => ({ name, icon: 'zap', desc: '' }))
-  return [...builtinCommands.value, ...extra]
+  if (!props.enableSlashCommands) return []
+  return mergeSlashCommands(builtinCommands.value, normalizedSdkCommands.value)
 })
 
 const showSlashPanel = ref(false)
 const slashActiveIndex = ref(0)
 const slashFilter = ref('')
+const showSlashUnavailableHint = computed(() => props.slashCommandsSupported && !props.enableSlashCommands)
 
-const filteredCommands = computed(() => {
-  if (!slashFilter.value) return allCommands.value
-  const q = slashFilter.value.toLowerCase()
-  return allCommands.value.filter(c => c.name.toLowerCase().includes(q))
-})
+const filteredCommands = computed(() => filterSlashCommands(allCommands.value, slashFilter.value))
 
 // 监听 filteredCommands 变化，重置索引
 watch(filteredCommands, () => {
@@ -507,9 +523,17 @@ watch(filteredCommands, () => {
 })
 
 const selectSlashCommand = (cmd) => {
-  inputText.value = cmd.name
+  inputText.value = cmd.argumentHint ? `${cmd.name} ` : cmd.name
   showSlashPanel.value = false
-  handleSend()
+  emit('input-change', inputText.value)
+  nextTick(() => {
+    autoResize()
+    focus()
+  })
+
+  if (shouldAutoSubmitSlashCommand(cmd)) {
+    handleSend()
+  }
 }
 
 // ============================
@@ -590,7 +614,7 @@ const handleInput = () => {
 
   // 检测 slash 命令
   const text = inputText.value
-  if (text.startsWith('/') && !text.includes(' ')) {
+  if (props.slashCommandsSupported && text.startsWith('/') && !text.includes(' ')) {
     showSlashPanel.value = true
     slashFilter.value = text
   } else {
@@ -602,24 +626,32 @@ const handleInput = () => {
 const handleKeyDown = (event) => {
   // Slash 面板激活时的键盘导航
   if (showSlashPanel.value) {
-    if (event.key === 'ArrowDown') {
+    if (showSlashUnavailableHint.value) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        showSlashPanel.value = false
+      }
+    } else if (filteredCommands.value.length === 0) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        showSlashPanel.value = false
+      }
+      return
+    } else if (event.key === 'ArrowDown') {
       event.preventDefault()
       slashActiveIndex.value = Math.min(slashActiveIndex.value + 1, filteredCommands.value.length - 1)
       return
-    }
-    if (event.key === 'ArrowUp') {
+    } else if (event.key === 'ArrowUp') {
       event.preventDefault()
       slashActiveIndex.value = Math.max(slashActiveIndex.value - 1, 0)
       return
-    }
-    if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
+    } else if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
       if (filteredCommands.value.length > 0) {
         event.preventDefault()
         selectSlashCommand(filteredCommands.value[slashActiveIndex.value])
         return
       }
-    }
-    if (event.key === 'Escape') {
+    } else if (event.key === 'Escape') {
       event.preventDefault()
       showSlashPanel.value = false
       return
@@ -833,6 +865,15 @@ const handleSend = () => {
   if ((!text && attachedImages.value.length === 0) || props.disabled) return
   // 队列关闭时，流式输出中禁止发送
   if (props.isStreaming && !props.queueEnabled) return
+
+  if (showSlashUnavailableHint.value && text.startsWith('/')) {
+    showSlashPanel.value = false
+    window.electronAPI?.showNotification({
+      title: t('agent.slashDisabledTitle'),
+      body: t('agent.slashDisabledHint')
+    })
+    return
+  }
 
   showSlashPanel.value = false
 
@@ -1374,11 +1415,27 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
   min-width: 0;
 }
 
+.slash-item-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
 .slash-item-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-color);
   font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.slash-item-hint {
+  font-size: 11px;
+  color: var(--text-color-muted);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slash-item-desc {
@@ -1394,6 +1451,11 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
   font-size: 12px;
   color: var(--text-color-muted);
   text-align: center;
+}
+
+.slash-empty-disabled {
+  text-align: left;
+  line-height: 1.5;
 }
 
 /* Slash panel transition */

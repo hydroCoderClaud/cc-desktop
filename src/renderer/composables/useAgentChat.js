@@ -13,6 +13,12 @@
  */
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useLocale } from './useLocale'
+import {
+  buildBuiltinSlashCommands,
+  mergeSlashCommands,
+  normalizeSlashCommands,
+  parseSlashCommand
+} from '@utils/slash-commands'
 
 /**
  * Agent 消息角色
@@ -26,6 +32,7 @@ export const MessageRole = {
 
 export function useAgentChat(sessionId, options = {}) {
   const { t } = useLocale()
+  const slashCommandsEnabled = options.enableSlashCommands !== false
 
   const messages = ref([])
   const isStreaming = ref(false)
@@ -36,7 +43,7 @@ export function useAgentChat(sessionId, options = {}) {
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
-  const slashCommands = ref([])     // SDK 提供的可用 slash 命令
+  const sdkSlashCommands = ref([])  // SDK 提供的可用 slash 命令
   const totalCostUsd = ref(0)        // 累计花费
   const numTurns = ref(0)            // 累计轮数
   let streamingTimer = null
@@ -52,11 +59,17 @@ export function useAgentChat(sessionId, options = {}) {
   const activeModel = computed(() =>
     modelMapping.value[selectedModel.value] || DEFAULT_MODEL_NAMES[selectedModel.value] || selectedModel.value
   )
-
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   const hasActiveSession = ref(false)
   // 用户是否主动取消了生成（用于抑制队列自动消费和错误显示）
   const isInterrupting = ref(false)
+  const slashCommandsReady = computed(() => slashCommandsEnabled && hasActiveSession.value)
+  const builtinSlashCommands = computed(() => buildBuiltinSlashCommands(t))
+  const slashCommands = computed(() =>
+    slashCommandsReady.value
+      ? mergeSlashCommands(builtinSlashCommands.value, sdkSlashCommands.value)
+      : []
+  )
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
   watch(selectedModel, (newVal) => {
@@ -196,28 +209,74 @@ export function useAgentChat(sessionId, options = {}) {
     }
   }
 
-  /**
-   * 本地处理 slash 命令（不发送到 SDK）
-   * /compact 走 IPC compactConversation
-   * /status, /cost, /help 前端本地处理
-   * /clear 触发回调，由调用方决定如何重建会话
-   * @returns {boolean} 是否已处理
-   */
-  const handleLocalSlashCommand = async (cmd) => {
-    const lower = cmd.toLowerCase()
+  const setSdkSlashCommands = (commands) => {
+    sdkSlashCommands.value = normalizeSlashCommands(commands, {
+      source: 'sdk',
+      icon: 'zap',
+      autoSubmit: false
+    })
+  }
+
+  const refreshSupportedSlashCommands = async (fallback = []) => {
+    if (!slashCommandsEnabled) {
+      setSdkSlashCommands([])
+      return
+    }
+
+    const fallbackCommands = normalizeSlashCommands(fallback, {
+      source: 'sdk',
+      icon: 'zap',
+      autoSubmit: false
+    })
+
+    if (!window.electronAPI?.getAgentSupportedCommands) {
+      if (fallbackCommands.length > 0) {
+        setSdkSlashCommands(fallbackCommands)
+      }
+      return
+    }
+
+    try {
+      const supported = await window.electronAPI.getAgentSupportedCommands(sessionId)
+      const normalized = normalizeSlashCommands(supported, {
+        source: 'sdk',
+        icon: 'zap',
+        autoSubmit: false
+      })
+      if (normalized.length > 0) {
+        setSdkSlashCommands(normalized)
+        return
+      }
+    } catch (err) {
+      console.warn('[useAgentChat] Failed to refresh supported slash commands:', err)
+    }
+
+    if (fallbackCommands.length > 0) {
+      setSdkSlashCommands(fallbackCommands)
+    }
+  }
+
+  const handleLocalSlashCommand = async (parsedCommand) => {
+    if (!slashCommandsReady.value) {
+      return false
+    }
+
+    const lower = parsedCommand.lowerName
 
     if (lower === '/compact') {
-      compactConversation()
+      await compactConversation()
       return true
     }
 
     if (lower === '/status') {
       const lines = [
         `Session: ${sessionId.substring(0, 8)}`,
+        `CLI session: ${hasActiveSession.value ? 'active' : 'inactive'}`,
         `Model: ${activeModel.value || 'unknown'}`,
         `Turns: ${numTurns.value}`,
         `Messages: ${messages.value.length}`,
         `Cost: $${totalCostUsd.value.toFixed(4)}`,
+        `Slash commands: ${slashCommands.value.length}`,
         contextTokens.value > 0 ? `Context tokens: ${contextTokens.value.toLocaleString()}` : ''
       ].filter(Boolean)
       addAssistantMessage(lines.join('\n'))
@@ -230,15 +289,28 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     if (lower === '/help') {
-      const lines = [
+      const localLines = builtinSlashCommands.value.map(command => {
+        const suffix = command.argumentHint ? ` ${command.argumentHint}` : ''
+        const description = command.description ? ` - ${command.description}` : ''
+        return `  ${command.name}${suffix}${description}`
+      })
+
+      const sdkLines = sdkSlashCommands.value.map(command => {
+        const suffix = command.argumentHint ? ` ${command.argumentHint}` : ''
+        const description = command.description ? ` - ${command.description}` : ''
+        return `  ${command.name}${suffix}${description}`
+      })
+
+      const sections = [
         'Available commands:',
-        '  /compact - Compress conversation context',
-        '  /status  - Show session status',
-        '  /cost    - Show total cost',
-        '  /clear   - Start a new session',
-        '  /help    - Show this help'
+        ...localLines
       ]
-      addAssistantMessage(lines.join('\n'))
+
+      if (sdkLines.length > 0) {
+        sections.push('', 'Claude Code commands:', ...sdkLines)
+      }
+
+      addAssistantMessage(sections.join('\n'))
       return true
     }
 
@@ -306,15 +378,16 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     const trimmed = textContent.trim()
+    const parsedSlashCommand = parseSlashCommand(trimmed)
 
     // 本地 slash 命令拦截（仅对纯文本消息）
-    if (trimmed && trimmed.startsWith('/')) {
+    if (slashCommandsReady.value && parsedSlashCommand.isSlashCommand) {
       // /clear 比较特殊，不添加到消息列表（因为会重建 session）
-      if (trimmed.toLowerCase() === '/clear') {
-        return await handleLocalSlashCommand(trimmed)
+      if (parsedSlashCommand.lowerName === '/clear') {
+        return await handleLocalSlashCommand(parsedSlashCommand)
       }
       addUserMessage(trimmed)
-      if (await handleLocalSlashCommand(trimmed)) {
+      if (await handleLocalSlashCommand(parsedSlashCommand)) {
         return
       }
       // 未识别的 slash 命令，照常发送给 SDK
@@ -391,8 +464,8 @@ export function useAgentChat(sessionId, options = {}) {
 
     hasActiveSession.value = true
 
-    if (data.slashCommands && Array.isArray(data.slashCommands)) {
-      slashCommands.value = data.slashCommands
+    if (slashCommandsEnabled && data.slashCommands && Array.isArray(data.slashCommands)) {
+      void refreshSupportedSlashCommands(data.slashCommands)
     }
   }
 
