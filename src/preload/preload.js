@@ -578,6 +578,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listAgentSessions: () => ipcRenderer.invoke('agent:list'),
   renameAgentSession: ({ sessionId, title }) => ipcRenderer.invoke('agent:rename', { sessionId, title }),
 
+  // 定时任务
+  listScheduledTasks: () => ipcRenderer.invoke('scheduled-task:list'),
+  createScheduledTask: (task) => ipcRenderer.invoke('scheduled-task:create', task),
+  updateScheduledTask: ({ taskId, updates }) => ipcRenderer.invoke('scheduled-task:update', { taskId, updates }),
+  deleteScheduledTask: (taskId) => ipcRenderer.invoke('scheduled-task:delete', taskId),
+  runScheduledTaskNow: (taskId) => ipcRenderer.invoke('scheduled-task:runNow', taskId),
+  listScheduledTaskRuns: ({ taskId, limit }) => ipcRenderer.invoke('scheduled-task:listRuns', { taskId, limit }),
+
   // 消息历史
   getAgentMessages: (sessionId) => ipcRenderer.invoke('agent:getMessages', sessionId),
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
@@ -740,6 +748,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('dingtalk:sessionClosed', listener);
     return () => ipcRenderer.removeListener('dingtalk:sessionClosed', listener);
+  },
+  onScheduledTaskChanged: (callback) => {
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('scheduled-task:changed', listener)
+    return () => ipcRenderer.removeListener('scheduled-task:changed', listener)
   },
 
   // Agent 事件监听（main → renderer 推送）

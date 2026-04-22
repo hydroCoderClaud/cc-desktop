@@ -8,6 +8,15 @@
       </button>
     </div>
 
+    <div class="filter-area">
+      <n-select
+        v-model:value="selectedSource"
+        :options="sourceOptions"
+        :placeholder="t('agent.allSources')"
+        size="small"
+      />
+    </div>
+
     <!-- 目录筛选 -->
     <div class="dir-filter-area" v-if="availableCwds.length > 0">
       <n-select
@@ -34,7 +43,7 @@
           @dblclick="startRename(conv)"
         >
           <div class="conv-info">
-            <Icon :name="conv.type === 'dingtalk' ? 'dingtalk' : 'chat'" :size="12" class="conv-icon" />
+            <Icon :name="getConversationIcon(conv)" :size="12" class="conv-icon" />
             <input
               v-if="editingId === conv.id"
               class="rename-input"
@@ -47,6 +56,7 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <span v-if="getConversationSource(conv) === 'scheduled'" class="source-badge">{{ t('agent.sourceScheduled') }}</span>
             <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
               <span v-if="profileName" class="profile-badge" @click.stop>
                 <Icon name="api" :size="10" />
@@ -100,6 +110,7 @@ const {
   conversations,
   loading,
   selectedCwd,
+  selectedSource,
   availableCwds,
   groupedConversations,
   loadConversations,
@@ -118,6 +129,13 @@ const cwdOptions = computed(() => {
   })
   return [{ label: t('agent.allDirectories'), value: null }, ...dirs]
 })
+
+const sourceOptions = computed(() => ([
+  { label: t('agent.allSources'), value: 'all' },
+  { label: t('agent.sourceManual'), value: 'manual' },
+  { label: t('agent.sourceScheduled'), value: 'scheduled' },
+  { label: t('agent.sourceDingtalk'), value: 'dingtalk' }
+]))
 
 // 渲染选项 label，非"全部"选项加 title 显示完整路径
 const renderCwdLabel = (option) => {
@@ -161,6 +179,15 @@ const getProfileName = (profileId) => {
   if (!profileId) return null
   const profile = apiProfiles.value.find(p => p.id === profileId)
   return profile?.name || null
+}
+
+const getConversationSource = (conv) => (conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual'))
+
+const getConversationIcon = (conv) => {
+  const source = getConversationSource(conv)
+  if (source === 'scheduled') return 'clock'
+  if (conv.type === 'dingtalk') return 'dingtalk'
+  return 'chat'
 }
 
 const handleNewConversation = () => {
@@ -209,6 +236,7 @@ let cleanupRenamed = null
 let cleanupAgentResult = null
 let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
+let cleanupAgentStatus = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
 const onWindowFocus = () => loadApiProfiles()
 
@@ -234,6 +262,17 @@ onMounted(() => {
     })
   }
 
+  if (window.electronAPI?.onAgentStatusChange) {
+    cleanupAgentStatus = window.electronAPI.onAgentStatusChange((data) => {
+      const conv = conversations.value.find(item => item.id === data.sessionId)
+      if (conv) {
+        conv.status = data.status
+        return
+      }
+      loadConversations()
+    })
+  }
+
   // 钉钉会话创建/关闭时自动刷新列表
   if (window.electronAPI?.onDingTalkSessionCreated) {
     cleanupDingtalkSession = window.electronAPI.onDingTalkSessionCreated(() => {
@@ -251,6 +290,7 @@ onUnmounted(() => {
   window.removeEventListener('focus', onWindowFocus)
   if (cleanupRenamed) cleanupRenamed()
   if (cleanupAgentResult) cleanupAgentResult()
+  if (cleanupAgentStatus) cleanupAgentStatus()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
   if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
 })
@@ -302,6 +342,11 @@ defineExpose({
 .new-session-btn .icon {
   font-size: 16px;
   font-weight: bold;
+}
+
+.filter-area {
+  padding: 0 12px 8px;
+  flex-shrink: 0;
 }
 
 .dir-filter-area {
@@ -372,6 +417,15 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.source-badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #0284c7;
+  font-size: 11px;
+  line-height: 18px;
 }
 
 .rename-input {

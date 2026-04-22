@@ -75,6 +75,37 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.sessionDatabase.updateAgentMessageToolOutput).toHaveBeenCalledOnce()
   })
 
+  it('treats dingtalk sessions as dingtalk source by default', () => {
+    const { manager } = createManager()
+    manager.sessionDatabase = {
+      createAgentConversation: vi.fn(() => ({ id: 1 })),
+      listAllAgentConversations: vi.fn(() => []),
+      getAgentConversation: vi.fn(() => ({
+        id: 1,
+        session_id: 'db-dt-1',
+        type: 'dingtalk',
+        title: '钉钉会话',
+        cwd: 'C:/tmp',
+        source: null,
+        task_id: null,
+        cwd_auto: 0,
+        message_count: 0,
+        total_cost_usd: 0,
+        created_at: Date.now(),
+        api_profile_id: null,
+        api_base_url: null
+      })),
+      updateAgentConversation: vi.fn()
+    }
+
+    const created = manager.create({ type: 'dingtalk', title: '新钉钉会话' })
+    expect(created.source).toBe('dingtalk')
+
+    manager.sessions.clear()
+    const reopened = manager.reopen('db-dt-1')
+    expect(reopened.source).toBe('dingtalk')
+  })
+
   it('resolves permission request without mutating tool input', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 's3', cwd: '/tmp' })

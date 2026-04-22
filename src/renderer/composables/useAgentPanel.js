@@ -38,6 +38,7 @@ export function unmarkSessionClosed(sessionId) {
 export function useAgentPanel() {
   const conversations = ref([])
   const loading = ref(false)
+  const selectedSource = ref('all')
 
   /**
    * 加载对话列表（后端已合并活跃+历史）
@@ -177,8 +178,12 @@ export function useAgentPanel() {
    * 按 selectedCwd 过滤后的对话列表
    */
   const filteredConversations = computed(() => {
-    if (!selectedCwd.value) return conversations.value
-    return conversations.value.filter(c => c.cwd === selectedCwd.value)
+    return conversations.value.filter(conv => {
+      const source = conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual')
+      const matchesCwd = !selectedCwd.value || conv.cwd === selectedCwd.value
+      const matchesSource = selectedSource.value === 'all' || source === selectedSource.value
+      return matchesCwd && matchesSource
+    })
   })
 
   /**
@@ -213,6 +218,7 @@ export function useAgentPanel() {
     conversations,
     loading,
     selectedCwd,
+    selectedSource,
     availableCwds,
     groupedConversations,
     loadConversations,

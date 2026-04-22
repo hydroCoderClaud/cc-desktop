@@ -27,6 +27,12 @@ const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 
+function resolveConversationSource(type, source) {
+  if (type === 'dingtalk') return 'dingtalk'
+  if (source) return source
+  return 'manual'
+}
+
 class AgentSessionManager extends EventEmitter {
   constructor(mainWindow, configManager) {
     super()
@@ -385,7 +391,10 @@ class AgentSessionManager extends EventEmitter {
       title: options.title,
       cwd: options.cwd,
       apiProfileId: profile?.id || null,
-      apiBaseUrl: profile?.baseUrl || null
+      apiBaseUrl: profile?.baseUrl || null,
+      source: resolveConversationSource(options.type, options.source),
+      taskId: options.taskId || null,
+      meta: options.meta || {}
     })
 
     // 自动分配工作目录
@@ -405,7 +414,9 @@ class AgentSessionManager extends EventEmitter {
           cwd: session.cwd,
           cwdAuto: session.cwdAuto,
           apiProfileId: profile?.id || null,
-          apiBaseUrl: profile?.baseUrl || null
+          apiBaseUrl: profile?.baseUrl || null,
+          source: session.source,
+          taskId: session.taskId
         })
         session.dbConversationId = dbRecord.id
       } catch (err) {
@@ -647,7 +658,9 @@ class AgentSessionManager extends EventEmitter {
         id: row.session_id,
         type: row.type,
         title: row.title || '',
-        cwd: row.cwd
+        cwd: row.cwd,
+        source: resolveConversationSource(row.type, row.source),
+        taskId: row.task_id || null
       })
 
       // 恢复关键状态
@@ -1520,7 +1533,9 @@ class AgentSessionManager extends EventEmitter {
             messageCount: row.message_count || 0,
             totalCostUsd: row.total_cost_usd || 0,
             apiProfileId: row.api_profile_id || null,
-            apiBaseUrl: row.api_base_url || null
+            apiBaseUrl: row.api_base_url || null,
+            source: resolveConversationSource(row.type, row.source),
+            taskId: row.task_id || null
           })
         }
       } catch (err) {

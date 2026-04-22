@@ -1,0 +1,730 @@
+<template>
+  <div class="tab-container">
+    <div class="tab-header">
+      <span class="tab-title">{{ t('rightPanel.tabs.scheduledTasks') }} ({{ filteredTasks.length }})</span>
+      <div class="tab-actions">
+        <button class="icon-btn" :title="t('rightPanel.scheduledTasks.refresh')" @click="loadTasks">
+          <Icon name="refresh" :size="14" />
+        </button>
+        <button class="icon-btn primary" :title="t('rightPanel.scheduledTasks.create')" @click="openCreateModal">
+          <Icon name="plus" :size="14" />
+        </button>
+      </div>
+    </div>
+
+    <div class="tab-toolbar">
+      <div class="toolbar-row">
+        <n-input v-model:value="searchText" :placeholder="t('rightPanel.scheduledTasks.search')" size="small" clearable style="flex: 1;">
+          <template #prefix><Icon name="search" :size="14" /></template>
+        </n-input>
+        <n-select v-model:value="statusFilter" size="small" :options="statusOptions" class="status-select" />
+      </div>
+    </div>
+
+    <div class="tab-content">
+      <div v-if="loading" class="loading-state">
+        <Icon name="clock" :size="16" class="loading-icon" />
+        <span>{{ t('common.loading') }}</span>
+      </div>
+
+      <div v-else-if="!filteredTasks.length" class="empty-state">
+        <div class="empty-icon"><Icon name="clock" :size="48" /></div>
+        <div class="empty-text">{{ t('rightPanel.scheduledTasks.empty') }}</div>
+        <div class="empty-hint">{{ t('rightPanel.scheduledTasks.emptyHint') }}</div>
+      </div>
+
+      <div v-else class="tasks-layout">
+        <div class="tasks-list">
+          <div
+            v-for="task in filteredTasks"
+            :key="task.id"
+            class="task-card"
+            :class="{ active: selectedTaskId === task.id }"
+            @click="selectedTaskId = task.id"
+          >
+            <div class="task-head">
+              <div class="task-title-row">
+                <span class="task-title">{{ task.name }}</span>
+                <n-tag size="small" :type="task.enabled ? 'success' : 'default'">
+                  {{ task.enabled ? t('rightPanel.scheduledTasks.enabled') : t('rightPanel.scheduledTasks.disabled') }}
+                </n-tag>
+              </div>
+              <div class="task-meta">
+                <span>{{ describeSchedule(task) }}</span>
+                <span v-if="task.runOnStartup">{{ t('rightPanel.scheduledTasks.runOnStartupBadge') }}</span>
+              </div>
+            </div>
+
+            <div class="task-body">
+              <div class="task-line">
+                <Icon name="folder" :size="12" />
+                <span>{{ task.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
+              </div>
+              <div class="task-line">
+                <Icon name="clock" :size="12" />
+                <span>{{ t('rightPanel.scheduledTasks.nextRun') }}: {{ formatTimestamp(task.nextRunAt) }}</span>
+              </div>
+              <div class="task-line" v-if="task.lastRunAt">
+                <Icon name="history" :size="12" />
+                <span>{{ t('rightPanel.scheduledTasks.lastRun') }}: {{ formatTimestamp(task.lastRunAt) }}</span>
+              </div>
+              <div class="task-line error" v-if="task.lastError">
+                <Icon name="warning" :size="12" />
+                <span>{{ task.lastError }}</span>
+              </div>
+            </div>
+
+            <div class="task-actions-row">
+              <button class="icon-btn inline" :title="t('rightPanel.scheduledTasks.runNow')" @click.stop="handleRunNow(task)">
+                <Icon name="play" :size="14" />
+              </button>
+              <button class="icon-btn inline" :title="t('common.edit')" @click.stop="openEditModal(task)">
+                <Icon name="edit" :size="14" />
+              </button>
+              <button class="icon-btn inline" :title="task.enabled ? t('common.disabled') : t('common.enabled')" @click.stop="toggleEnabled(task)">
+                <Icon :name="task.enabled ? 'pause' : 'play'" :size="14" />
+              </button>
+              <button class="icon-btn inline" :title="t('common.delete')" @click.stop="confirmDelete(task)">
+                <Icon name="delete" :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-detail" v-if="selectedTask">
+          <div class="detail-header">
+            <div>
+              <div class="detail-title">{{ selectedTask.name }}</div>
+              <div class="detail-subtitle">{{ describeSchedule(selectedTask) }}</div>
+            </div>
+            <div class="detail-actions">
+              <n-button size="small" @click="handleRunNow(selectedTask)">
+                <Icon name="play" :size="14" />
+                {{ t('rightPanel.scheduledTasks.runNow') }}
+              </n-button>
+              <n-button size="small" quaternary @click="openEditModal(selectedTask)">
+                <Icon name="edit" :size="14" />
+                {{ t('common.edit') }}
+              </n-button>
+            </div>
+          </div>
+
+          <div class="detail-block">
+            <div class="detail-label">{{ t('rightPanel.scheduledTasks.prompt') }}</div>
+            <pre class="detail-prompt">{{ selectedTask.prompt }}</pre>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
+              <span class="detail-value">{{ selectedTask.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ t('rightPanel.scheduledTasks.apiProfile') }}</span>
+              <span class="detail-value">{{ getProfileName(selectedTask.apiProfileId) || t('rightPanel.scheduledTasks.defaultProfile') }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelTier') }}</span>
+              <span class="detail-value">{{ getModelTierLabel(selectedTask.modelTier) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">{{ t('rightPanel.scheduledTasks.maxTurns') }}</span>
+              <span class="detail-value">{{ selectedTask.maxTurns || '-' }}</span>
+            </div>
+          </div>
+
+          <div class="detail-block">
+            <div class="detail-label">{{ t('rightPanel.scheduledTasks.recentRuns') }}</div>
+            <div v-if="runsLoading" class="detail-placeholder">
+              <Icon name="clock" :size="14" class="loading-icon" />
+              <span>{{ t('common.loading') }}</span>
+            </div>
+            <div v-else-if="!selectedTaskRuns.length" class="detail-placeholder">
+              {{ t('rightPanel.scheduledTasks.noRuns') }}
+            </div>
+            <div v-else class="runs-list">
+              <div v-for="run in selectedTaskRuns" :key="run.id" class="run-item">
+                <div class="run-top">
+                  <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
+                  <span class="run-reason">{{ runReasonLabel(run.triggerReason) }}</span>
+                  <span class="run-time">{{ formatTimestamp(run.finishedAt || run.startedAt) }}</span>
+                </div>
+                <div v-if="run.errorMessage" class="run-error">{{ run.errorMessage }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <n-modal v-model:show="showModal" preset="dialog" :title="editingTaskId ? t('rightPanel.scheduledTasks.editTask') : t('rightPanel.scheduledTasks.createTask')">
+      <n-form label-placement="top" class="task-form">
+        <n-form-item :label="t('rightPanel.scheduledTasks.taskName')">
+          <n-input v-model:value="form.name" />
+        </n-form-item>
+        <n-form-item :label="t('rightPanel.scheduledTasks.prompt')">
+          <n-input v-model:value="form.prompt" type="textarea" :autosize="{ minRows: 6, maxRows: 12 }" />
+        </n-form-item>
+        <n-form-item :label="t('rightPanel.scheduledTasks.workingDirectory')">
+          <div class="cwd-field">
+            <n-input v-model:value="form.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
+            <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
+          </div>
+        </n-form-item>
+        <div class="task-grid">
+          <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
+            <n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')">
+            <n-select v-model:value="form.modelTier" :options="modelTierOptions" clearable />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')">
+            <n-input-number v-model:value="form.maxTurns" :min="1" style="width: 100%;" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')">
+            <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
+          </n-form-item>
+        </div>
+        <div class="task-grid" v-if="form.scheduleType === 'interval'">
+          <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')">
+            <n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" />
+          </n-form-item>
+        </div>
+        <div class="task-grid" v-else-if="form.scheduleType === 'daily'">
+          <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
+            <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+          </n-form-item>
+        </div>
+        <div class="task-grid" v-else-if="form.scheduleType === 'weekly'">
+          <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
+            <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.weeklyDays')">
+            <n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable />
+          </n-form-item>
+        </div>
+        <div class="task-grid switches">
+          <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
+            <n-switch v-model:value="form.enabled" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
+            <n-switch v-model:value="form.runOnStartup" />
+          </n-form-item>
+        </div>
+      </n-form>
+      <template #action>
+        <n-button @click="showModal = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" :loading="saving" @click="saveTask">{{ t('common.save') }}</n-button>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showDeleteConfirm"
+      preset="dialog"
+      type="warning"
+      :title="t('rightPanel.scheduledTasks.deleteConfirmTitle')"
+      :content="t('rightPanel.scheduledTasks.deleteConfirmContent', { name: deleteTarget?.name || '' })"
+      :positive-text="t('common.delete')"
+      :negative-text="t('common.cancel')"
+      @positive-click="handleDelete"
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { NInput, NSelect, NButton, NSwitch, NModal, NForm, NFormItem, NInputNumber, NTag, useMessage } from 'naive-ui'
+import { useLocale } from '@composables/useLocale'
+import Icon from '@components/icons/Icon.vue'
+
+const props = defineProps({
+  currentProject: Object
+})
+
+const { t } = useLocale()
+const message = useMessage()
+
+const loading = ref(false)
+const runsLoading = ref(false)
+const saving = ref(false)
+const searchText = ref('')
+const statusFilter = ref('all')
+const tasks = ref([])
+const apiProfiles = ref([])
+const selectedTaskId = ref(null)
+const selectedTaskRuns = ref([])
+const showModal = ref(false)
+const editingTaskId = ref(null)
+const showDeleteConfirm = ref(false)
+const deleteTarget = ref(null)
+let cleanupTaskChanged = null
+
+const form = ref(createDefaultForm())
+
+function createDefaultForm() {
+  return {
+    name: '',
+    prompt: '',
+    cwd: props.currentProject?.path || '',
+    apiProfileId: null,
+    modelTier: 'sonnet',
+    maxTurns: null,
+    enabled: true,
+    runOnStartup: true,
+    scheduleType: 'interval',
+    intervalMinutes: 60,
+    dailyTime: '09:00',
+    weeklyDays: [1]
+  }
+}
+
+const statusOptions = computed(() => [
+  { label: t('rightPanel.scheduledTasks.statusAll'), value: 'all' },
+  { label: t('rightPanel.scheduledTasks.enabled'), value: 'enabled' },
+  { label: t('rightPanel.scheduledTasks.disabled'), value: 'disabled' }
+])
+
+const scheduleTypeOptions = computed(() => [
+  { label: t('rightPanel.scheduledTasks.scheduleInterval'), value: 'interval' },
+  { label: t('rightPanel.scheduledTasks.scheduleDaily'), value: 'daily' },
+  { label: t('rightPanel.scheduledTasks.scheduleWeekly'), value: 'weekly' }
+])
+
+const modelTierOptions = computed(() => [
+  { label: t('agent.tierBalanced'), value: 'sonnet' },
+  { label: t('agent.tierPowerful'), value: 'opus' },
+  { label: t('agent.tierFast'), value: 'haiku' }
+])
+
+const weeklyDayOptions = computed(() => [
+  { label: t('rightPanel.scheduledTasks.weekday0'), value: 0 },
+  { label: t('rightPanel.scheduledTasks.weekday1'), value: 1 },
+  { label: t('rightPanel.scheduledTasks.weekday2'), value: 2 },
+  { label: t('rightPanel.scheduledTasks.weekday3'), value: 3 },
+  { label: t('rightPanel.scheduledTasks.weekday4'), value: 4 },
+  { label: t('rightPanel.scheduledTasks.weekday5'), value: 5 },
+  { label: t('rightPanel.scheduledTasks.weekday6'), value: 6 }
+])
+
+const apiProfileOptions = computed(() => [
+  { label: t('rightPanel.scheduledTasks.defaultProfile'), value: null },
+  ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))
+])
+
+const filteredTasks = computed(() => {
+  const keyword = searchText.value.trim().toLowerCase()
+  return tasks.value.filter(task => {
+    const matchesStatus = statusFilter.value === 'all'
+      || (statusFilter.value === 'enabled' && task.enabled)
+      || (statusFilter.value === 'disabled' && !task.enabled)
+
+    if (!matchesStatus) return false
+    if (!keyword) return true
+    return (task.name || '').toLowerCase().includes(keyword)
+      || (task.prompt || '').toLowerCase().includes(keyword)
+      || (task.cwd || '').toLowerCase().includes(keyword)
+  })
+})
+
+const selectedTask = computed(() => filteredTasks.value.find(task => task.id === selectedTaskId.value)
+  || tasks.value.find(task => task.id === selectedTaskId.value)
+  || null)
+
+const loadTasks = async () => {
+  loading.value = true
+  try {
+    const [taskList, profiles] = await Promise.all([
+      window.electronAPI.listScheduledTasks(),
+      window.electronAPI.listAPIProfiles?.() || Promise.resolve([])
+    ])
+    tasks.value = Array.isArray(taskList) ? taskList : []
+    apiProfiles.value = Array.isArray(profiles) ? profiles : []
+
+    if (!selectedTaskId.value && tasks.value.length > 0) {
+      selectedTaskId.value = tasks.value[0].id
+    } else if (selectedTaskId.value && !tasks.value.some(task => task.id === selectedTaskId.value)) {
+      selectedTaskId.value = tasks.value[0]?.id || null
+    }
+  } catch (err) {
+    console.error('[ScheduledTasksTab] loadTasks failed:', err)
+    message.error(err.message || t('agent.loadFailed'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadTaskRuns = async (taskId) => {
+  if (!taskId) {
+    selectedTaskRuns.value = []
+    return
+  }
+
+  runsLoading.value = true
+  try {
+    const runs = await window.electronAPI.listScheduledTaskRuns({ taskId, limit: 12 })
+    selectedTaskRuns.value = Array.isArray(runs) ? runs : []
+  } catch (err) {
+    console.error('[ScheduledTasksTab] loadTaskRuns failed:', err)
+    selectedTaskRuns.value = []
+  } finally {
+    runsLoading.value = false
+  }
+}
+
+const openCreateModal = () => {
+  editingTaskId.value = null
+  form.value = createDefaultForm()
+  showModal.value = true
+}
+
+const openEditModal = (task) => {
+  editingTaskId.value = task.id
+  form.value = {
+    name: task.name || '',
+    prompt: task.prompt || '',
+    cwd: task.cwd || '',
+    apiProfileId: task.apiProfileId || null,
+    modelTier: task.modelTier || 'sonnet',
+    maxTurns: task.maxTurns || null,
+    enabled: !!task.enabled,
+    runOnStartup: !!task.runOnStartup,
+    scheduleType: task.scheduleType || 'interval',
+    intervalMinutes: task.intervalMinutes || 60,
+    dailyTime: task.dailyTime || '09:00',
+    weeklyDays: Array.isArray(task.weeklyDays) ? [...task.weeklyDays] : [1]
+  }
+  showModal.value = true
+}
+
+const saveTask = async () => {
+  saving.value = true
+  try {
+    const payload = {
+      ...form.value,
+      cwd: form.value.cwd?.trim() || null
+    }
+    const result = editingTaskId.value
+      ? await window.electronAPI.updateScheduledTask({ taskId: editingTaskId.value, updates: payload })
+      : await window.electronAPI.createScheduledTask(payload)
+
+    if (result?.error) throw new Error(result.error)
+
+    showModal.value = false
+    await loadTasks()
+    if (result?.id) {
+      selectedTaskId.value = result.id
+    }
+    await loadTaskRuns(selectedTaskId.value)
+    message.success(t('globalSettings.saveSuccess'))
+  } catch (err) {
+    message.error(err.message || t('agent.saveFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
+const handleRunNow = async (task) => {
+  try {
+    const result = await window.electronAPI.runScheduledTaskNow(task.id)
+    if (result?.error) throw new Error(result.error)
+    message.success(t('rightPanel.scheduledTasks.runQueued'))
+    await loadTasks()
+    if (selectedTaskId.value === task.id) {
+      await loadTaskRuns(task.id)
+    }
+  } catch (err) {
+    message.error(err.message || t('rightPanel.scheduledTasks.runFailed'))
+  }
+}
+
+const toggleEnabled = async (task) => {
+  const result = await window.electronAPI.updateScheduledTask({
+    taskId: task.id,
+    updates: { enabled: !task.enabled }
+  })
+  if (result?.error) {
+    message.error(result.error)
+    return
+  }
+  await loadTasks()
+  if (selectedTaskId.value === task.id) {
+    await loadTaskRuns(task.id)
+  }
+}
+
+const confirmDelete = (task) => {
+  deleteTarget.value = task
+  showDeleteConfirm.value = true
+}
+
+const handleDelete = async () => {
+  if (!deleteTarget.value) return
+  const result = await window.electronAPI.deleteScheduledTask(deleteTarget.value.id)
+  if (result?.error) {
+    message.error(result.error)
+    return
+  }
+  showDeleteConfirm.value = false
+  if (selectedTaskId.value === deleteTarget.value.id) {
+    selectedTaskId.value = null
+  }
+  await loadTasks()
+  await loadTaskRuns(selectedTaskId.value)
+}
+
+const pickFolder = async () => {
+  const folder = await window.electronAPI.selectFolder()
+  if (folder) {
+    form.value.cwd = folder
+  }
+}
+
+const getProfileName = (profileId) => {
+  if (!profileId) return null
+  const profile = apiProfiles.value.find(item => item.id === profileId)
+  return profile?.name || null
+}
+
+const getModelTierLabel = (tier) => {
+  if (!tier) return t('rightPanel.scheduledTasks.defaultModelTier')
+  return modelTierOptions.value.find(item => item.value === tier)?.label || tier
+}
+
+const describeSchedule = (task) => {
+  if (task.scheduleType === 'daily') {
+    return t('rightPanel.scheduledTasks.scheduleDailyDesc', { time: task.dailyTime || '09:00' })
+  }
+  if (task.scheduleType === 'weekly') {
+    const days = (task.weeklyDays || [])
+      .map(day => weeklyDayOptions.value.find(item => item.value === day)?.label || day)
+      .join(', ')
+    return t('rightPanel.scheduledTasks.scheduleWeeklyDesc', { days: days || '-', time: task.dailyTime || '09:00' })
+  }
+  return t('rightPanel.scheduledTasks.scheduleIntervalDesc', { minutes: task.intervalMinutes || 60 })
+}
+
+const formatTimestamp = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+}
+
+const runTagType = (status) => {
+  if (status === 'success') return 'success'
+  if (status === 'failed') return 'error'
+  if (status === 'skipped') return 'warning'
+  return 'default'
+}
+
+const runStatusLabel = (status) => {
+  if (status === 'success') return t('rightPanel.scheduledTasks.runStatusSuccess')
+  if (status === 'failed') return t('rightPanel.scheduledTasks.runStatusFailed')
+  if (status === 'skipped') return t('rightPanel.scheduledTasks.runStatusSkipped')
+  return status
+}
+
+const runReasonLabel = (reason) => {
+  if (reason === 'manual') return t('rightPanel.scheduledTasks.runReasonManual')
+  if (reason === 'startup') return t('rightPanel.scheduledTasks.runReasonStartup')
+  return t('rightPanel.scheduledTasks.runReasonScheduled')
+}
+
+watch(selectedTaskId, (taskId) => {
+  loadTaskRuns(taskId)
+}, { immediate: true })
+
+watch(() => props.currentProject?.path, (path) => {
+  if (!showModal.value || editingTaskId.value || form.value.cwd) return
+  form.value.cwd = path || ''
+})
+
+onMounted(() => {
+  loadTasks()
+  if (window.electronAPI?.onScheduledTaskChanged) {
+    cleanupTaskChanged = window.electronAPI.onScheduledTaskChanged(async () => {
+      await loadTasks()
+      await loadTaskRuns(selectedTaskId.value)
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (cleanupTaskChanged) cleanupTaskChanged()
+})
+</script>
+
+<style scoped>
+.tasks-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(340px, 420px);
+  gap: 16px;
+  align-items: start;
+}
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-card {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.task-card:hover,
+.task-card.active {
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.task-head,
+.task-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-title-row,
+.task-meta,
+.task-line,
+.detail-header,
+.detail-actions,
+.run-top,
+.cwd-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-title-row {
+  justify-content: space-between;
+}
+
+.task-title {
+  font-weight: 600;
+}
+
+.task-meta,
+.task-line,
+.detail-subtitle,
+.run-reason,
+.run-time,
+.detail-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.task-line.error,
+.run-error {
+  color: var(--warning-color, #d97706);
+}
+
+.task-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.task-detail {
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-header {
+  justify-content: space-between;
+}
+
+.detail-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.detail-block,
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detail-prompt {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--hover-bg);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+}
+
+.detail-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  min-height: 44px;
+}
+
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.run-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--hover-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-form {
+  min-width: 680px;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.task-grid.switches {
+  grid-template-columns: repeat(2, 180px);
+}
+
+.status-select {
+  width: 140px;
+}
+
+@media (max-width: 1100px) {
+  .tasks-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .task-form {
+    min-width: 0;
+  }
+}
+</style>

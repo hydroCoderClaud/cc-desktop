@@ -89,6 +89,7 @@ import AgentsTab from '@/pages/main/components/RightPanel/tabs/AgentsTab.vue'
 import HooksTab from '@/pages/main/components/RightPanel/tabs/HooksTab.vue'
 import PluginsTab from '@/pages/main/components/RightPanel/tabs/PluginsTab.vue'
 import SettingsTab from '@/pages/main/components/RightPanel/tabs/SettingsTab.vue'
+import ScheduledTasksTab from '@/pages/main/components/RightPanel/tabs/ScheduledTasksTab.vue'
 
 const { cssVars } = useTheme()
 const { t, initLocale } = useLocale()
@@ -289,6 +290,7 @@ const tabs = computed(() => [
   { id: 'agents', icon: 'letterA', label: t('rightPanel.tabs.agents') },
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
+  { id: 'scheduledTasks', icon: 'clock', label: t('rightPanel.tabs.scheduledTasks') },
   { id: 'settings', icon: 'wrench', label: t('rightPanel.tabs.settings') }
 ])
 
@@ -298,6 +300,7 @@ const tabComponents = {
   agents: markRaw(AgentsTab),
   hooks: markRaw(HooksTab),
   plugins: markRaw(PluginsTab),
+  scheduledTasks: markRaw(ScheduledTasksTab),
   settings: markRaw(SettingsTab)
 }
 

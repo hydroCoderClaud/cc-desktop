@@ -18,12 +18,26 @@ function withAgentOperations(BaseClass) {
     /**
      * 创建 Agent 对话记录
      */
-    createAgentConversation({ sessionId, type, title, cwd, cwdAuto, apiProfileId, apiBaseUrl }) {
+    createAgentConversation({ sessionId, type, title, cwd, cwdAuto, apiProfileId, apiBaseUrl, source, taskId }) {
       const now = Date.now()
       const result = this.db.prepare(`
-        INSERT INTO agent_conversations (session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(sessionId, type || 'chat', title || '', cwd || null, cwdAuto ? 1 : 0, apiProfileId || null, apiBaseUrl || null, now, now)
+        INSERT INTO agent_conversations (
+          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, source, task_id, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        sessionId,
+        type || 'chat',
+        title || '',
+        cwd || null,
+        cwdAuto ? 1 : 0,
+        apiProfileId || null,
+        apiBaseUrl || null,
+        source || 'manual',
+        taskId || null,
+        now,
+        now
+      )
 
       return {
         id: result.lastInsertRowid,
@@ -35,6 +49,8 @@ function withAgentOperations(BaseClass) {
         cwdAuto: !!cwdAuto,
         apiProfileId: apiProfileId || null,
         apiBaseUrl: apiBaseUrl || null,
+        source: source || 'manual',
+        taskId: taskId || null,
         createdAt: now,
         updatedAt: now
       }

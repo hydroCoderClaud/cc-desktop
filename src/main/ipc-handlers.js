@@ -34,6 +34,7 @@ const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 
 const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-handlers');
 const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
 const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
+const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-handlers', 'scheduled-task-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
@@ -50,6 +51,7 @@ const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
 const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
 const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
+const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 
 // Bind ipcMain to createIPCHandler for local use
@@ -70,7 +72,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService) {
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -758,6 +760,12 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     notebookManager.setSessionDatabase(sessionDatabase);
     notebookManager.setCapabilityManager(capabilityManager);
     setupNotebookHandlers(ipcMain, notebookManager);
+  }
+
+  if (scheduledTaskService && setupScheduledTaskHandlers) {
+    scheduledTaskService.setSessionDatabase(sessionDatabase)
+    scheduledTaskService.start()
+    setupScheduledTaskHandlers(ipcMain, scheduledTaskService)
   }
 
   // 打开钉钉桥接设置窗口

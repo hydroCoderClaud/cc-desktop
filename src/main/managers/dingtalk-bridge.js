@@ -580,6 +580,7 @@ class DingTalkBridge {
 
     const session = this.agentSessionManager.create({
       type: 'dingtalk',
+      source: 'dingtalk',
       title,
       cwd: cwd || undefined,
       cwdSubDir: cwd ? undefined : 'dingtalk',

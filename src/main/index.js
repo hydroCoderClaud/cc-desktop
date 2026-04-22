@@ -13,6 +13,7 @@ const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
 const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
+const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { setupIPCHandlers } = require('./ipc-handlers');
 
 // 保持窗口引用
@@ -25,6 +26,7 @@ let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
 let notebookManager = null;
+let scheduledTaskService = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 
@@ -236,8 +238,11 @@ app.whenReady().then(async () => {
   // 初始化 Notebook 管理器（需要 configManager 和 agentSessionManager）
   notebookManager = new NotebookManager(configManager, agentSessionManager)
 
+  // 初始化定时任务服务（需要 configManager 和 agentSessionManager）
+  scheduledTaskService = new ScheduledTaskService(configManager, agentSessionManager)
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService);
 
   // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
@@ -253,6 +258,11 @@ app.whenReady().then(async () => {
         console.log('[Main] Reconnecting DingTalk bridge...')
         dingtalkBridge.restart().catch(err => {
           console.error('[Main] DingTalk reconnect failed:', err.message)
+        })
+      }
+      if (scheduledTaskService) {
+        scheduledTaskService.onSystemResume().catch(err => {
+          console.error('[Main] Scheduled task resume handling failed:', err.message)
         })
       }
     }, 3000) // 延迟3秒，等系统完全恢复后再重连
@@ -317,6 +327,9 @@ app.on('window-all-closed', () => {
  */
 app.on('will-quit', () => {
   cleanupAllSessions();
+  if (scheduledTaskService) {
+    scheduledTaskService.destroy()
+  }
 });
 
 /**

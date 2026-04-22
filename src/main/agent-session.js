@@ -29,6 +29,8 @@ class AgentSession {
     this.dbConversationId = null    // 数据库中的 conversation id
     this.apiProfileId = options.apiProfileId || null   // 创建时的 API Profile ID
     this.apiBaseUrl = options.apiBaseUrl || null        // 创建时的 API baseUrl 快照
+    this.source = options.source || 'manual'
+    this.taskId = options.taskId || null
     this.meta = options.meta || {}  // 元数据（如钉钉的 conversationId）
     this.pendingInteractions = new Map()  // 待处理的宿主交互请求
   }
@@ -48,7 +50,9 @@ class AgentSession {
       totalCostUsd: this.totalCostUsd,
       isStreamingActive: !!this.queryGenerator,
       apiProfileId: this.apiProfileId,
-      apiBaseUrl: this.apiBaseUrl
+      apiBaseUrl: this.apiBaseUrl,
+      source: this.source,
+      taskId: this.taskId
     }
   }
 }

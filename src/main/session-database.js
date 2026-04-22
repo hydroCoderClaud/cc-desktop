@@ -27,7 +27,8 @@ const {
   withPromptOperations,
   withQueueOperations,
   withAgentOperations,
-  withPromptMarketOperations
+  withPromptMarketOperations,
+  withScheduledTaskOperations
 } = require('./database')
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
@@ -89,6 +90,9 @@ class SessionDatabaseBase {
 
     // Run migrations for existing databases
     this.runMigrations()
+
+    // Create indexes after migrations so legacy databases have required columns first
+    this.createIndexes()
 
     // 注入初始默认数据
     this._seedDefaultData()
@@ -190,7 +194,9 @@ class SessionDatabaseBase {
       { name: 'api_base_url', type: 'TEXT' },
       { name: 'queued_messages', type: "TEXT DEFAULT '[]'" },  // 存储队列消息（JSON 数组）
       { name: 'staff_id', type: 'TEXT' },         // 钉钉发送者 staffId
-      { name: 'conversation_id', type: 'TEXT' }   // 钉钉群/单聊会话 ID
+      { name: 'conversation_id', type: 'TEXT' },   // 钉钉群/单聊会话 ID
+      { name: 'source', type: "TEXT DEFAULT 'manual'" },
+      { name: 'task_id', type: 'INTEGER' }
     ]
 
     for (const col of agentConvNewColumns) {
@@ -506,8 +512,60 @@ class SessionDatabaseBase {
         api_profile_id TEXT,
         api_base_url TEXT,
         queued_messages TEXT DEFAULT '[]',
+        source TEXT DEFAULT 'manual',
+        task_id INTEGER,
         created_at INTEGER,
         updated_at INTEGER
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL DEFAULT '',
+        prompt TEXT NOT NULL DEFAULT '',
+        cwd TEXT,
+        api_profile_id TEXT,
+        model_tier TEXT,
+        max_turns INTEGER,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        run_on_startup INTEGER NOT NULL DEFAULT 1,
+        schedule_type TEXT NOT NULL DEFAULT 'interval',
+        interval_minutes INTEGER,
+        daily_time TEXT DEFAULT '',
+        weekly_days TEXT DEFAULT '[]',
+        created_at INTEGER,
+        updated_at INTEGER
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_task_state (
+        task_id INTEGER PRIMARY KEY,
+        session_id TEXT,
+        runtime_state TEXT,
+        last_run_at INTEGER,
+        next_run_at INTEGER,
+        last_error TEXT,
+        failure_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER,
+        updated_at INTEGER,
+        FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        session_id TEXT,
+        trigger_reason TEXT NOT NULL DEFAULT 'scheduled',
+        status TEXT NOT NULL DEFAULT 'success',
+        error_message TEXT,
+        started_at INTEGER,
+        finished_at INTEGER,
+        created_at INTEGER,
+        FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
       )
     `)
 
@@ -526,10 +584,13 @@ class SessionDatabaseBase {
       )
     `)
 
-    // ========================================
-    // Indexes
-    // ========================================
+    console.log('[SessionDB] Tables created')
+  }
 
+  /**
+   * Create indexes after schema migrations are complete.
+   */
+  createIndexes() {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
       CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
@@ -541,11 +602,16 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_queue_pending ON session_message_queue(session_uuid, is_executed);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_status ON agent_conversations(status);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_updated ON agent_conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_source ON agent_conversations(source);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_task_id ON agent_conversations(task_id);
       CREATE INDEX IF NOT EXISTS idx_agent_msg_conv ON agent_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_agent_msg_timestamp ON agent_messages(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_enabled ON scheduled_tasks(enabled);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_task_state_next_run ON scheduled_task_state(next_run_at);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task_id ON scheduled_task_runs(task_id);
     `)
 
-    console.log('[SessionDB] Tables and indexes created')
+    console.log('[SessionDB] Indexes created')
   }
 
   /**
@@ -589,14 +655,16 @@ class SessionDatabaseBase {
 
 // 应用所有 mixin，构建完整的 SessionDatabase 类
 const SessionDatabase = withPromptMarketOperations(
-  withAgentOperations(
-    withQueueOperations(
-      withPromptOperations(
-        withFavoriteOperations(
-          withTagOperations(
-            withMessageOperations(
-              withSessionOperations(
-                withProjectOperations(SessionDatabaseBase)
+  withScheduledTaskOperations(
+    withAgentOperations(
+      withQueueOperations(
+        withPromptOperations(
+          withFavoriteOperations(
+            withTagOperations(
+              withMessageOperations(
+                withSessionOperations(
+                  withProjectOperations(SessionDatabaseBase)
+                )
               )
             )
           )
