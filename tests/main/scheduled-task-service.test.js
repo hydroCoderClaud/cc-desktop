@@ -17,6 +17,79 @@ describe('ScheduledTaskService', () => {
     expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'sonnet' }).modelTier).toBe('sonnet')
   })
 
+  it('rejects invalid daily and weekly clock times', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'daily',
+      dailyTime: '99:99'
+    })).toThrow('Daily schedule requires HH:mm time')
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'weekly',
+      dailyTime: '24:00',
+      weeklyDays: [1]
+    })).toThrow('Weekly schedule requires HH:mm time')
+  })
+
+  it('falls back to default time for legacy invalid stored clock values', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+    const now = new Date('2026-04-23T08:30:00')
+
+    const daily = service._computeNextDailyTime('99:99', now)
+    expect(daily.getHours()).toBe(9)
+    expect(daily.getMinutes()).toBe(0)
+    expect(daily.getDate()).toBe(23)
+
+    const weekly = service._computeNextWeeklyTime('24:61', [4], now)
+    expect(weekly.getDay()).toBe(4)
+    expect(weekly.getHours()).toBe(9)
+    expect(weekly.getMinutes()).toBe(0)
+  })
+
+  it('builds localized scheduled task prompts based on current locale', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({
+      getConfig: () => ({ settings: { locale: 'en-US' } })
+    }, { on: vi.fn() })
+
+    vi.spyOn(service, '_publicRuntimeState').mockReturnValue({ step: 1 })
+
+    const prompt = service._buildTaskPrompt({
+      name: 'Night Review',
+      prompt: 'Check repo status',
+      runtimeState: { step: 1 }
+    }, 'scheduled', Date.UTC(2026, 3, 23, 1, 2, 3))
+
+    expect(prompt).toContain('Continue scheduled task "Night Review".')
+    expect(prompt).toContain('Trigger Reason: Scheduled')
+    expect(prompt).toContain('Task Content:')
+  })
+
+  it('builds localized bootstrap prompts in Chinese by default', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({
+      getConfig: () => ({ settings: { locale: 'zh-CN' } })
+    }, { on: vi.fn() })
+
+    vi.spyOn(service, '_publicRuntimeState').mockReturnValue(null)
+
+    const prompt = service._buildTaskPrompt({
+      name: '日报',
+      prompt: '整理进展'
+    }, 'startup', Date.UTC(2026, 3, 23, 1, 2, 3), { bootstrap: true })
+
+    expect(prompt).toContain('# 定时智能体任务')
+    expect(prompt).toContain('触发原因：启动触发')
+    expect(prompt).toContain('# 任务内容')
+  })
+
   it('renames the bound agent session when the scheduled task name changes', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const rename = vi.fn()

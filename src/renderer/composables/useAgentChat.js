@@ -293,12 +293,12 @@ export function useAgentChat(sessionId, options = {}) {
 
   const submitScheduledTaskDraft = async ({ messageId, draft }) => {
     if (!window.electronAPI?.createScheduledTask) {
-      return { error: 'Scheduled task API unavailable' }
+      return { error: t('agent.scheduleDraftApiUnavailable') }
     }
 
     const message = getToolMessageById(messageId)
     if (!message) {
-      return { error: 'Scheduled task draft not found' }
+      return { error: t('agent.scheduleDraftNotFound') }
     }
 
     const payload = normalizeScheduledTaskDraft(draft)
@@ -322,14 +322,14 @@ export function useAgentChat(sessionId, options = {}) {
       return { success: true, task: result || payload }
     } catch (err) {
       console.error('[useAgentChat] submitScheduledTaskDraft error:', err)
-      return { error: err.message || 'Failed to create scheduled task' }
+      return { error: err.message || t('agent.scheduleDraftCreateFailed') }
     }
   }
 
   const cancelScheduledTaskDraft = ({ messageId }) => {
     const message = getToolMessageById(messageId)
     if (!message) {
-      return { error: 'Scheduled task draft not found' }
+      return { error: t('agent.scheduleDraftNotFound') }
     }
 
     message.output = {
@@ -445,21 +445,21 @@ export function useAgentChat(sessionId, options = {}) {
 
     if (lower === '/status') {
       const lines = [
-        `Session: ${sessionId.substring(0, 8)}`,
-        `CLI session: ${hasActiveSession.value ? 'active' : 'inactive'}`,
-        `Model: ${activeModel.value || 'unknown'}`,
-        `Turns: ${numTurns.value}`,
-        `Messages: ${messages.value.length}`,
-        `Cost: $${totalCostUsd.value.toFixed(4)}`,
-        `Slash commands: ${slashCommands.value.length}`,
-        contextTokens.value > 0 ? `Context tokens: ${contextTokens.value.toLocaleString()}` : ''
+        t('agent.statusSession', { id: sessionId.substring(0, 8) }),
+        t('agent.statusCliSession', { status: hasActiveSession.value ? t('agent.statusCliActive') : t('agent.statusCliInactive') }),
+        t('agent.statusModel', { model: activeModel.value || t('agent.statusModelUnknown') }),
+        t('agent.statusTurns', { count: numTurns.value }),
+        t('agent.statusMessages', { count: messages.value.length }),
+        t('agent.statusCost', { cost: totalCostUsd.value.toFixed(4) }),
+        t('agent.statusSlashCommands', { count: slashCommands.value.length }),
+        contextTokens.value > 0 ? t('agent.statusContextTokens', { count: contextTokens.value.toLocaleString() }) : ''
       ].filter(Boolean)
       addAssistantMessage(lines.join('\n'))
       return true
     }
 
     if (lower === '/cost') {
-      addAssistantMessage(`Total cost: $${totalCostUsd.value.toFixed(4)} USD`)
+      addAssistantMessage(t('agent.costSummary', { cost: totalCostUsd.value.toFixed(4) }))
       return true
     }
 
@@ -477,12 +477,12 @@ export function useAgentChat(sessionId, options = {}) {
       })
 
       const sections = [
-        'Available commands:',
+        t('agent.slashTitle'),
         ...localLines
       ]
 
       if (sdkLines.length > 0) {
-        sections.push('', 'Claude Code commands:', ...sdkLines)
+        sections.push('', t('agent.slashSdkTitle'), ...sdkLines)
       }
 
       addAssistantMessage(sections.join('\n'))
@@ -785,7 +785,7 @@ export function useAgentChat(sessionId, options = {}) {
    */
   // 错误码 → 友好提示映射
   const ERROR_MESSAGES = {
-    'SESSION_IN_USE_BY_TERMINAL': '该会话正在终端模式中使用，请先关闭对应终端'
+    'SESSION_IN_USE_BY_TERMINAL': () => t('session.sessionInUseByTerminal')
   }
 
   const handleError = (data) => {
@@ -793,8 +793,9 @@ export function useAgentChat(sessionId, options = {}) {
     isStreaming.value = false
     stopTimer()
     streamTextReceived = false
-    const rawError = data.error || 'Unknown error'
-    error.value = ERROR_MESSAGES[rawError] || rawError
+    const rawError = data.error || t('agent.unknownError')
+    const resolver = ERROR_MESSAGES[rawError]
+    error.value = typeof resolver === 'function' ? resolver() : (resolver || rawError)
   }
 
   /**

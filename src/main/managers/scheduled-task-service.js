@@ -34,6 +34,60 @@ function formatDateParts(timestamp) {
   return { year, month, day }
 }
 
+function parseClockTime(value) {
+  const raw = String(value || '').trim()
+  const match = /^(\d{2}):(\d{2})$/.exec(raw)
+  if (!match) return null
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+
+  return { hours, minutes }
+}
+
+const PROMPT_I18N = {
+  'zh-CN': {
+    triggerReasons: {
+      manual: '手动触发',
+      startup: '启动触发',
+      scheduled: '定时触发'
+    },
+    continuedTitle: (name) => `继续执行定时任务“${name}”。`,
+    triggerReason: (value) => `触发原因：${value}`,
+    triggerTime: (value) => `触发时间：${value}`,
+    runtimeState: (value) => `运行态：\n${value}`,
+    taskPromptTitle: '任务内容：',
+    bootstrapTitle: '# 定时智能体任务',
+    bootstrapTaskName: (value) => `任务名称：${value}`,
+    bootstrapTriggerReason: (value) => `触发原因：${value}`,
+    bootstrapTriggerTime: (value) => `触发时间：${value}`,
+    bootstrapStartedByScheduler: '本次执行由桌面端定时调度自动触发。',
+    bootstrapRuntimeState: (value) => `\n\n# 运行态\n${value}`,
+    bootstrapTaskPromptTitle: '# 任务内容'
+  },
+  'en-US': {
+    triggerReasons: {
+      manual: 'Manual',
+      startup: 'Startup',
+      scheduled: 'Scheduled'
+    },
+    continuedTitle: (name) => `Continue scheduled task "${name}".`,
+    triggerReason: (value) => `Trigger Reason: ${value}`,
+    triggerTime: (value) => `Trigger Time: ${value}`,
+    runtimeState: (value) => `Runtime State:\n${value}`,
+    taskPromptTitle: 'Task Content:',
+    bootstrapTitle: '# Scheduled Agent Task',
+    bootstrapTaskName: (value) => `Task Name: ${value}`,
+    bootstrapTriggerReason: (value) => `Trigger Reason: ${value}`,
+    bootstrapTriggerTime: (value) => `Trigger Time: ${value}`,
+    bootstrapStartedByScheduler: 'This run was started automatically by the desktop scheduler.',
+    bootstrapRuntimeState: (value) => `\n\n# Runtime State\n${value}`,
+    bootstrapTaskPromptTitle: '# Task Content'
+  }
+}
+
 class ScheduledTaskService {
   constructor(configManager, agentSessionManager) {
     this.configManager = configManager
@@ -450,12 +504,12 @@ class ScheduledTaskService {
     if (scheduleType === 'interval' && (!intervalMinutes || !Number.isFinite(intervalMinutes))) {
       throw new Error('Interval minutes must be greater than 0')
     }
-    if (scheduleType === 'daily' && !/^\d{2}:\d{2}$/.test(String(input.dailyTime || ''))) {
+    if (scheduleType === 'daily' && !parseClockTime(input.dailyTime)) {
       throw new Error('Daily schedule requires HH:mm time')
     }
     if (scheduleType === 'weekly') {
       if (!weeklyDays.length) throw new Error('Weekly schedule requires at least one day')
-      if (!/^\d{2}:\d{2}$/.test(String(input.dailyTime || ''))) {
+      if (!parseClockTime(input.dailyTime)) {
         throw new Error('Weekly schedule requires HH:mm time')
       }
     }
@@ -493,10 +547,16 @@ class ScheduledTaskService {
     }
   }
 
+  _getPromptLocale() {
+    const locale = this.configManager?.getConfig?.()?.settings?.locale
+    return PROMPT_I18N[locale] ? locale : 'zh-CN'
+  }
+
   _computeNextDailyTime(time, now) {
-    const [hours, minutes] = String(time || '09:00').split(':').map(Number)
+    const parsed = parseClockTime(time) || parseClockTime('09:00')
+    const { hours, minutes } = parsed
     const target = new Date(now)
-    target.setHours(hours || 0, minutes || 0, 0, 0)
+    target.setHours(hours, minutes, 0, 0)
     if (target.getTime() <= now.getTime()) {
       target.setDate(target.getDate() + 1)
     }
@@ -505,53 +565,57 @@ class ScheduledTaskService {
 
   _computeNextWeeklyTime(time, weeklyDays, now) {
     const days = normalizeWeeklyDays(weeklyDays)
-    const [hours, minutes] = String(time || '09:00').split(':').map(Number)
+    const parsed = parseClockTime(time) || parseClockTime('09:00')
+    const { hours, minutes } = parsed
     const base = new Date(now)
     base.setSeconds(0, 0)
 
     for (let offset = 0; offset <= 7; offset++) {
       const candidate = new Date(base)
       candidate.setDate(base.getDate() + offset)
-      candidate.setHours(hours || 0, minutes || 0, 0, 0)
+      candidate.setHours(hours, minutes, 0, 0)
       if (!days.includes(candidate.getDay())) continue
       if (candidate.getTime() > now.getTime()) return candidate
     }
 
     const fallback = new Date(base)
     fallback.setDate(base.getDate() + 7)
-    fallback.setHours(hours || 0, minutes || 0, 0, 0)
+    fallback.setHours(hours, minutes, 0, 0)
     return fallback
   }
 
   _buildTaskPrompt(task, triggerReason, timestamp, { bootstrap = false } = {}) {
+    const locale = this._getPromptLocale()
+    const promptText = PROMPT_I18N[locale] || PROMPT_I18N['zh-CN']
     const { year, month, day } = formatDateParts(timestamp)
     const runtimeStateForPrompt = this._publicRuntimeState(task.runtimeState)
     const runtimeState = runtimeStateForPrompt
       ? JSON.stringify(runtimeStateForPrompt, null, 2)
       : ''
-    const triggerTime = `${year}-${month}-${day} ${new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false })}`
+    const localizedTriggerReason = promptText.triggerReasons[triggerReason] || triggerReason
+    const triggerTime = `${year}-${month}-${day} ${new Date(timestamp).toLocaleTimeString(locale, { hour12: false })}`
 
     if (!bootstrap) {
       return [
-        `继续执行定时任务“${task.name}”。`,
-        `触发原因：${triggerReason}`,
-        `触发时间：${triggerTime}`,
-        runtimeState ? `运行态：\n${runtimeState}` : '',
+        promptText.continuedTitle(task.name),
+        promptText.triggerReason(localizedTriggerReason),
+        promptText.triggerTime(triggerTime),
+        runtimeState ? promptText.runtimeState(runtimeState) : '',
         '',
-        '任务内容：',
+        promptText.taskPromptTitle,
         task.prompt
       ].filter(Boolean).join('\n')
     }
 
     return [
-      '# Scheduled Agent Task',
-      `Task Name: ${task.name}`,
-      `Trigger Reason: ${triggerReason}`,
-      `Trigger Time: ${triggerTime}`,
-      'This run was started automatically by the desktop scheduler.',
-      runtimeState ? `\n\n# Runtime State\n${runtimeState}` : '',
+      promptText.bootstrapTitle,
+      promptText.bootstrapTaskName(task.name),
+      promptText.bootstrapTriggerReason(localizedTriggerReason),
+      promptText.bootstrapTriggerTime(triggerTime),
+      promptText.bootstrapStartedByScheduler,
+      runtimeState ? promptText.bootstrapRuntimeState(runtimeState) : '',
       '',
-      '# Task Prompt',
+      promptText.bootstrapTaskPromptTitle,
       task.prompt
     ].join('\n')
   }
