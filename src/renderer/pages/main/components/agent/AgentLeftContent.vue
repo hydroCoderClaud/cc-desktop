@@ -43,7 +43,15 @@
           @dblclick="startRename(conv)"
         >
           <div class="conv-info">
-            <Icon :name="getConversationIcon(conv)" :size="12" class="conv-icon" />
+            <button
+              v-if="getConversationSource(conv) === 'scheduled' && conv.taskId"
+              class="conv-icon-btn"
+              :title="t('rightPanel.tabs.scheduledTasks')"
+              @click.stop="openScheduledTaskManager({ taskId: conv.taskId })"
+            >
+              <Icon :name="getConversationIcon(conv)" :size="12" class="conv-icon interactive" />
+            </button>
+            <Icon v-else :name="getConversationIcon(conv)" :size="12" class="conv-icon" />
             <input
               v-if="editingId === conv.id"
               class="rename-input"
@@ -64,14 +72,6 @@
             </template>
           </div>
           <div class="conv-actions">
-            <button
-              v-if="getConversationSource(conv) === 'scheduled' && conv.taskId"
-              class="action-btn"
-              :title="t('rightPanel.tabs.scheduledTasks')"
-              @click.stop="openScheduledTaskManager({ action: 'manage', taskId: conv.taskId })"
-            >
-              <Icon name="clock" :size="12" />
-            </button>
             <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
               <Icon name="edit" :size="12" />
             </button>
@@ -460,6 +460,26 @@ defineExpose({
 .conv-icon {
   color: var(--primary-color);
   flex-shrink: 0;
+}
+
+.conv-icon.interactive {
+  transition: color 0.2s, transform 0.2s;
+}
+
+.conv-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.conv-icon-btn:hover .conv-icon.interactive {
+  color: var(--primary-color-hover);
+  transform: scale(1.08);
 }
 
 .conv-title {

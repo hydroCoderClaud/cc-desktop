@@ -99,6 +99,7 @@
       :model-mapping="modelMapping"
       v-model:model-value="selectedModel"
       @send="handleSend"
+      @schedule="handleScheduleDraftCreate"
       @cancel="handleCancel"
       @update:queue-enabled="handleToggleQueue"
     />
@@ -173,6 +174,7 @@ const {
   submitScheduledTaskDraft,
   cancelScheduledTaskDraft,
   compactConversation,
+  triggerScheduledTaskDraft,
   syncActiveSessionState,
   setupStreamListeners,
   setupDingTalkListeners,
@@ -250,6 +252,11 @@ const handleSend = async (text) => {
 const handleCancel = async () => {
   await cancelGeneration()
   // 注意：不清空队列！队列面板有独立的"清空全部"按钮供用户使用
+}
+
+const handleScheduleDraftCreate = (prompt = '') => {
+  triggerScheduledTaskDraft(typeof prompt === 'string' ? prompt : '')
+  scrollToBottom(false, true)
 }
 
 const setInteractionSubmitting = (interactionId, submitting) => {

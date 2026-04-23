@@ -285,6 +285,12 @@ export function useAgentChat(sessionId, options = {}) {
     })
   }
 
+  const triggerScheduledTaskDraft = (prompt = '') => {
+    createScheduledTaskDraft({
+      args: typeof prompt === 'string' ? prompt.trim() : ''
+    })
+  }
+
   const submitScheduledTaskDraft = async ({ messageId, draft }) => {
     if (!window.electronAPI?.createScheduledTask) {
       return { error: 'Scheduled task API unavailable' }
@@ -1043,6 +1049,7 @@ export function useAgentChat(sessionId, options = {}) {
     submitInteractionAnswer,
     cancelInteraction,
     compactConversation,
+    triggerScheduledTaskDraft,
     submitScheduledTaskDraft,
     cancelScheduledTaskDraft,
     syncActiveSessionState,

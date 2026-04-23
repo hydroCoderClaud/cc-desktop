@@ -58,6 +58,14 @@
 
         <!-- 队列开关 -->
         <div
+          class="schedule-task-btn"
+          :title="t('agent.scheduleDraftTitle')"
+          @click="handleSchedule"
+        >
+          <Icon name="clock" :size="13" />
+        </div>
+
+        <div
           class="queue-toggle"
           :class="{ enabled: queueEnabled }"
           :title="queueEnabled ? t('agent.queueToggleOn') : t('agent.queueToggleOff')"
@@ -347,7 +355,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'update:modelValue', 'update:queueEnabled', 'enqueue', 'input-change'])
+const emit = defineEmits(['send', 'cancel', 'schedule', 'update:modelValue', 'update:queueEnabled', 'enqueue', 'input-change'])
 
 // ============================
 // Token 格式化
@@ -857,6 +865,10 @@ const handleClear = () => {
   attachedImages.value = []
   emit('input-change', '')
   nextTick(autoResize)
+}
+
+const handleSchedule = () => {
+  emit('schedule', inputText.value.trim())
 }
 
 const handleSend = () => {
@@ -1782,6 +1794,30 @@ defineExpose({ focus, messageQueue, dequeue, clearQueue, insertText, setText })
   transition: all 0.15s;
   background: transparent;
   margin-left: 4px;
+}
+
+.schedule-task-btn {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+  margin-left: 4px;
+}
+
+.schedule-task-btn:hover {
+  background: var(--hover-bg);
+}
+
+.schedule-task-btn :deep(svg) {
+  color: var(--text-color-muted);
+  transition: color 0.2s;
+}
+
+.schedule-task-btn:hover :deep(svg) {
+  color: var(--primary-color);
 }
 
 .expand-input-btn:hover {
