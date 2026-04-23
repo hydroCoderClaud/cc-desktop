@@ -1711,6 +1711,7 @@ class AgentSessionManager extends EventEmitter {
     }
 
     console.log(`[AgentSession] Deleted session ${sessionId}`)
+    this.emit('agentDeleted', sessionId)
     return { success: true }
   }
 

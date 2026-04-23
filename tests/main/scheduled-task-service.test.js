@@ -195,4 +195,81 @@ describe('ScheduledTaskService', () => {
     expect(liveSession.taskId).toBeNull()
     expect(liveSession.meta.scheduledTaskId).toBeUndefined()
   })
+
+  it('unlinks a scheduled task when its agent session is deleted', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const currentTask = {
+      id: 13,
+      name: '文件统计',
+      prompt: '统计文件数量',
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      enabled: true,
+      sessionId: 'agent-session-13'
+    }
+
+    const sessionDatabase = {
+      listScheduledTasks: vi.fn(() => [currentTask]),
+      updateScheduledTaskState: vi.fn()
+    }
+
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+    service.setSessionDatabase(sessionDatabase)
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+
+    service._handleAgentDeleted(currentTask.sessionId)
+
+    expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, {
+      sessionId: null
+    })
+    expect(service._broadcastChange).toHaveBeenCalledWith(currentTask.id, 'session-unlinked')
+  })
+
+  it('releases a running scheduled task when its agent session is deleted', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const currentTask = {
+      id: 14,
+      name: '定时问候',
+      prompt: '发送你好',
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      enabled: true,
+      sessionId: 'agent-session-14'
+    }
+
+    const sessionDatabase = {
+      listScheduledTasks: vi.fn(() => [currentTask]),
+      updateScheduledTaskState: vi.fn(),
+      createScheduledTaskRun: vi.fn()
+    }
+
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+    service.setSessionDatabase(sessionDatabase)
+    service.runningTasks.add(currentTask.id)
+    service.activeRuns.set(currentTask.sessionId, {
+      taskId: currentTask.id,
+      sessionId: currentTask.sessionId,
+      triggerReason: 'scheduled',
+      startedAt: 1000
+    })
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+    vi.spyOn(service, '_computeNextRunAt').mockReturnValue(2000)
+
+    service._handleAgentDeleted(currentTask.sessionId)
+
+    expect(service.runningTasks.has(currentTask.id)).toBe(false)
+    expect(service.activeRuns.has(currentTask.sessionId)).toBe(false)
+    expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, {
+      sessionId: null,
+      nextRunAt: 2000
+    })
+    expect(sessionDatabase.createScheduledTaskRun).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: currentTask.id,
+      sessionId: currentTask.sessionId,
+      triggerReason: 'scheduled',
+      status: 'skipped',
+      errorMessage: 'Agent session deleted by user',
+      startedAt: 1000
+    }))
+  })
 })

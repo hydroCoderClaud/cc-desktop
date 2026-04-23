@@ -101,10 +101,12 @@ class ScheduledTaskService {
 
     this._onAgentResult = this._handleAgentResult.bind(this)
     this._onAgentError = this._handleAgentError.bind(this)
+    this._onAgentDeleted = this._handleAgentDeleted.bind(this)
 
     if (this.agentSessionManager?.on) {
       this.agentSessionManager.on('agentResult', this._onAgentResult)
       this.agentSessionManager.on('agentError', this._onAgentError)
+      this.agentSessionManager.on('agentDeleted', this._onAgentDeleted)
     }
   }
 
@@ -149,9 +151,11 @@ class ScheduledTaskService {
     if (this.agentSessionManager?.off) {
       this.agentSessionManager.off('agentResult', this._onAgentResult)
       this.agentSessionManager.off('agentError', this._onAgentError)
+      this.agentSessionManager.off('agentDeleted', this._onAgentDeleted)
     } else if (this.agentSessionManager?.removeListener) {
       this.agentSessionManager.removeListener('agentResult', this._onAgentResult)
       this.agentSessionManager.removeListener('agentError', this._onAgentError)
+      this.agentSessionManager.removeListener('agentDeleted', this._onAgentDeleted)
     }
   }
 
@@ -482,6 +486,42 @@ class ScheduledTaskService {
     })
 
     this._broadcastChange(activeRun.taskId, 'failed')
+  }
+
+  _handleAgentDeleted(sessionId) {
+    if (!sessionId || !this.sessionDatabase) return
+
+    const tasks = this.sessionDatabase.listScheduledTasks()
+      .filter(task => task.sessionId === sessionId)
+    if (!tasks.length) return
+
+    const activeRun = this.activeRuns.get(sessionId)
+    const finishedAt = Date.now()
+
+    if (activeRun) {
+      this.activeRuns.delete(sessionId)
+      this.runningTasks.delete(activeRun.taskId)
+    }
+
+    for (const task of tasks) {
+      const stateUpdates = { sessionId: null }
+
+      if (activeRun?.taskId === task.id) {
+        stateUpdates.nextRunAt = task.enabled ? this._computeNextRunAt(task, finishedAt) : null
+        this.sessionDatabase.createScheduledTaskRun({
+          taskId: task.id,
+          sessionId,
+          triggerReason: activeRun.triggerReason,
+          status: 'skipped',
+          errorMessage: 'Agent session deleted by user',
+          startedAt: activeRun.startedAt,
+          finishedAt
+        })
+      }
+
+      this.sessionDatabase.updateScheduledTaskState(task.id, stateUpdates)
+      this._broadcastChange(task.id, 'session-unlinked')
+    }
   }
 
   _normalizeTaskInput(input, { partial = false } = {}) {
