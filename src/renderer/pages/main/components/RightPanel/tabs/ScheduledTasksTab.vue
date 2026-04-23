@@ -1,6 +1,6 @@
 <template>
   <div class="tab-container">
-    <div class="tab-header">
+    <div class="tab-header" v-if="!props.embedded">
       <span class="tab-title">{{ t('rightPanel.tabs.scheduledTasks') }} ({{ filteredTasks.length }})</span>
       <div class="tab-actions">
         <button class="icon-btn" :title="t('rightPanel.scheduledTasks.refresh')" @click="loadTasks">
@@ -78,6 +78,9 @@
               <button class="icon-btn inline" :title="t('rightPanel.scheduledTasks.runNow')" @click.stop="handleRunNow(task)">
                 <Icon name="play" :size="14" />
               </button>
+              <button class="icon-btn inline" :title="t('common.history')" @click.stop="openRunsModal(task)">
+                <Icon name="history" :size="14" />
+              </button>
               <button class="icon-btn inline" :title="t('common.edit')" @click.stop="openEditModal(task)">
                 <Icon name="edit" :size="14" />
               </button>
@@ -87,70 +90,6 @@
               <button class="icon-btn inline" :title="t('common.delete')" @click.stop="confirmDelete(task)">
                 <Icon name="delete" :size="14" />
               </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="task-detail" v-if="selectedTask">
-          <div class="detail-header">
-            <div>
-              <div class="detail-title">{{ selectedTask.name }}</div>
-              <div class="detail-subtitle">{{ describeSchedule(selectedTask) }}</div>
-            </div>
-            <div class="detail-actions">
-              <n-button size="small" @click="handleRunNow(selectedTask)">
-                <Icon name="play" :size="14" />
-                {{ t('rightPanel.scheduledTasks.runNow') }}
-              </n-button>
-              <n-button size="small" quaternary @click="openEditModal(selectedTask)">
-                <Icon name="edit" :size="14" />
-                {{ t('common.edit') }}
-              </n-button>
-            </div>
-          </div>
-
-          <div class="detail-block">
-            <div class="detail-label">{{ t('rightPanel.scheduledTasks.prompt') }}</div>
-            <pre class="detail-prompt">{{ selectedTask.prompt }}</pre>
-          </div>
-
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
-              <span class="detail-value">{{ selectedTask.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">{{ t('rightPanel.scheduledTasks.apiProfile') }}</span>
-              <span class="detail-value">{{ getProfileName(selectedTask.apiProfileId) || t('rightPanel.scheduledTasks.defaultProfile') }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelTier') }}</span>
-              <span class="detail-value">{{ getModelTierLabel(selectedTask.modelTier) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">{{ t('rightPanel.scheduledTasks.maxTurns') }}</span>
-              <span class="detail-value">{{ selectedTask.maxTurns || '-' }}</span>
-            </div>
-          </div>
-
-          <div class="detail-block">
-            <div class="detail-label">{{ t('rightPanel.scheduledTasks.recentRuns') }}</div>
-            <div v-if="runsLoading" class="detail-placeholder">
-              <Icon name="clock" :size="14" class="loading-icon" />
-              <span>{{ t('common.loading') }}</span>
-            </div>
-            <div v-else-if="!selectedTaskRuns.length" class="detail-placeholder">
-              {{ t('rightPanel.scheduledTasks.noRuns') }}
-            </div>
-            <div v-else class="runs-list">
-              <div v-for="run in selectedTaskRuns" :key="run.id" class="run-item">
-                <div class="run-top">
-                  <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
-                  <span class="run-reason">{{ runReasonLabel(run.triggerReason) }}</span>
-                  <span class="run-time">{{ formatTimestamp(run.finishedAt || run.startedAt) }}</span>
-                </div>
-                <div v-if="run.errorMessage" class="run-error">{{ run.errorMessage }}</div>
-              </div>
             </div>
           </div>
         </div>
@@ -281,6 +220,56 @@
       :negative-text="t('common.cancel')"
       @positive-click="handleDelete"
     />
+
+    <n-modal
+      v-model:show="showRunsModal"
+      preset="dialog"
+      class="scheduled-task-runs-modal"
+      style="width: min(760px, calc(100vw - 32px));"
+      :title="historyTarget ? `${historyTarget.name} · ${t('common.history')}` : t('common.history')"
+    >
+      <div v-if="historyTarget" class="history-modal">
+        <div class="history-summary-grid">
+          <div class="history-summary-item">
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.scheduleType') }}</span>
+            <span>{{ describeSchedule(historyTarget) }}</span>
+          </div>
+          <div class="history-summary-item">
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
+            <span>{{ historyTarget.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
+          </div>
+          <div class="history-summary-item">
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.nextRun') }}</span>
+            <span>{{ formatTimestamp(historyTarget.nextRunAt) }}</span>
+          </div>
+          <div class="history-summary-item">
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.lastRun') }}</span>
+            <span>{{ formatTimestamp(historyTarget.lastRunAt) }}</span>
+          </div>
+        </div>
+
+        <div class="detail-block">
+          <div class="detail-label">{{ t('rightPanel.scheduledTasks.recentRuns') }}</div>
+          <div v-if="runsLoading" class="detail-placeholder">
+            <Icon name="clock" :size="14" class="loading-icon" />
+            <span>{{ t('common.loading') }}</span>
+          </div>
+          <div v-else-if="!selectedTaskRuns.length" class="detail-placeholder">
+            {{ t('rightPanel.scheduledTasks.noRuns') }}
+          </div>
+          <div v-else class="runs-list">
+            <div v-for="run in selectedTaskRuns" :key="run.id" class="run-item">
+              <div class="run-top">
+                <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
+                <span class="run-reason">{{ runReasonLabel(run.triggerReason) }}</span>
+                <span class="run-time">{{ formatTimestamp(run.finishedAt || run.startedAt) }}</span>
+              </div>
+              <div v-if="run.errorMessage" class="run-error">{{ run.errorMessage }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -291,7 +280,15 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
-  currentProject: Object
+  currentProject: Object,
+  embedded: {
+    type: Boolean,
+    default: false
+  },
+  openRequest: {
+    type: Object,
+    default: null
+  }
 })
 
 const { t } = useLocale()
@@ -308,6 +305,8 @@ const apiProfiles = ref([])
 const defaultProfileId = ref(null)
 const selectedTaskId = ref(null)
 const selectedTaskRuns = ref([])
+const showRunsModal = ref(false)
+const historyTaskId = ref(null)
 const showModal = ref(false)
 const editingTaskId = ref(null)
 const showDeleteConfirm = ref(false)
@@ -389,9 +388,36 @@ const filteredTasks = computed(() => {
   })
 })
 
-const selectedTask = computed(() => filteredTasks.value.find(task => task.id === selectedTaskId.value)
-  || tasks.value.find(task => task.id === selectedTaskId.value)
-  || null)
+const applyOpenRequest = async () => {
+  const request = props.openRequest
+  if (!request?.nonce) return
+
+  if (request.taskId) {
+    selectedTaskId.value = request.taskId
+  }
+
+  if (request.action === 'create') {
+    openCreateModal()
+    return
+  }
+
+  const task = request.taskId
+    ? tasks.value.find(item => item.id === request.taskId)
+    : null
+
+  if (!task) return
+
+  if (request.action === 'edit') {
+    openEditModal(task)
+    return
+  }
+
+  if (request.action === 'history') {
+    await openRunsModal(task)
+  }
+}
+
+const historyTarget = computed(() => tasks.value.find(task => task.id === historyTaskId.value) || null)
 
 const loadTasks = async () => {
   loading.value = true
@@ -410,6 +436,8 @@ const loadTasks = async () => {
     } else if (selectedTaskId.value && !tasks.value.some(task => task.id === selectedTaskId.value)) {
       selectedTaskId.value = tasks.value[0]?.id || null
     }
+
+    await applyOpenRequest()
   } catch (err) {
     console.error('[ScheduledTasksTab] loadTasks failed:', err)
     message.error(err.message || t('agent.loadFailed'))
@@ -443,6 +471,7 @@ const openCreateModal = () => {
 }
 
 const openEditModal = (task) => {
+  selectedTaskId.value = task.id
   editingTaskId.value = task.id
   form.value = {
     name: task.name || '',
@@ -459,6 +488,13 @@ const openEditModal = (task) => {
     weeklyDays: Array.isArray(task.weeklyDays) ? [...task.weeklyDays] : [1]
   }
   showModal.value = true
+}
+
+const openRunsModal = async (task) => {
+  selectedTaskId.value = task.id
+  historyTaskId.value = task.id
+  showRunsModal.value = true
+  await loadTaskRuns(task.id)
 }
 
 const saveTask = async () => {
@@ -480,7 +516,9 @@ const saveTask = async () => {
     if (result?.id) {
       selectedTaskId.value = result.id
     }
-    await loadTaskRuns(selectedTaskId.value)
+    if (showRunsModal.value && historyTaskId.value) {
+      await loadTaskRuns(historyTaskId.value)
+    }
     message.success(t('globalSettings.saveSuccess'))
   } catch (err) {
     message.error(err.message || t('agent.saveFailed'))
@@ -495,7 +533,7 @@ const handleRunNow = async (task) => {
     if (result?.error) throw new Error(result.error)
     message.success(t('rightPanel.scheduledTasks.runQueued'))
     await loadTasks()
-    if (selectedTaskId.value === task.id) {
+    if (showRunsModal.value && historyTaskId.value === task.id) {
       await loadTaskRuns(task.id)
     }
   } catch (err) {
@@ -513,7 +551,7 @@ const toggleEnabled = async (task) => {
     return
   }
   await loadTasks()
-  if (selectedTaskId.value === task.id) {
+  if (showRunsModal.value && historyTaskId.value === task.id) {
     await loadTaskRuns(task.id)
   }
 }
@@ -534,8 +572,16 @@ const handleDelete = async () => {
   if (selectedTaskId.value === deleteTarget.value.id) {
     selectedTaskId.value = null
   }
+  if (historyTaskId.value === deleteTarget.value.id) {
+    historyTaskId.value = null
+    showRunsModal.value = false
+  }
   await loadTasks()
-  await loadTaskRuns(selectedTaskId.value)
+  if (showRunsModal.value && historyTaskId.value) {
+    await loadTaskRuns(historyTaskId.value)
+  } else {
+    selectedTaskRuns.value = []
+  }
 }
 
 const pickFolder = async () => {
@@ -596,13 +642,13 @@ const runReasonLabel = (reason) => {
   return t('rightPanel.scheduledTasks.runReasonScheduled')
 }
 
-watch(selectedTaskId, (taskId) => {
-  loadTaskRuns(taskId)
-}, { immediate: true })
-
 watch(() => props.currentProject?.path, (path) => {
   if (!showModal.value || editingTaskId.value || form.value.cwd) return
   form.value.cwd = path || ''
+})
+
+watch(() => props.openRequest?.nonce, async () => {
+  await applyOpenRequest()
 })
 
 onMounted(() => {
@@ -610,7 +656,9 @@ onMounted(() => {
   if (window.electronAPI?.onScheduledTaskChanged) {
     cleanupTaskChanged = window.electronAPI.onScheduledTaskChanged(async () => {
       await loadTasks()
-      await loadTaskRuns(selectedTaskId.value)
+      if (showRunsModal.value && historyTaskId.value) {
+        await loadTaskRuns(historyTaskId.value)
+      }
     })
   }
 })
@@ -622,10 +670,7 @@ onUnmounted(() => {
 
 <style scoped>
 .tasks-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(340px, 420px);
-  gap: 16px;
-  align-items: start;
+  display: block;
 }
 
 .tasks-list {
@@ -661,8 +706,6 @@ onUnmounted(() => {
 .task-title-row,
 .task-meta,
 .task-line,
-.detail-header,
-.detail-actions,
 .run-top,
 .cwd-field {
   display: flex;
@@ -680,7 +723,6 @@ onUnmounted(() => {
 
 .task-meta,
 .task-line,
-.detail-subtitle,
 .run-reason,
 .run-time,
 .detail-label {
@@ -700,47 +742,18 @@ onUnmounted(() => {
   margin-top: 10px;
 }
 
-.task-detail {
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.detail-header {
-  justify-content: space-between;
-}
-
-.detail-title {
-  font-size: 16px;
-  font-weight: 700;
-}
-
 .detail-block,
-.detail-item {
+.history-summary-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.detail-grid {
+.history-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-
-.detail-prompt {
-  margin: 0;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--hover-bg);
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: Consolas, Monaco, monospace;
-  font-size: 12px;
+  margin-bottom: 16px;
 }
 
 .detail-placeholder {
@@ -764,6 +777,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.history-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .task-form {
@@ -794,10 +813,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1100px) {
-  .tasks-layout {
-    grid-template-columns: 1fr;
-  }
-
   .task-grid-config {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

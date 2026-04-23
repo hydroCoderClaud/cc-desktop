@@ -81,6 +81,7 @@
       v-show="isAgentMode"
       ref="agentLeftContentRef"
       :active-session-id="activeAgentSessionId"
+      :current-project="currentProject"
       @created="handleAgentCreated"
       @select="handleAgentSelected"
       @close="handleAgentClosed"

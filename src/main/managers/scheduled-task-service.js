@@ -130,8 +130,21 @@ class ScheduledTaskService {
 
     const normalized = this._normalizeTaskInput({ ...current, ...updates }, { partial: true })
     const updated = this.sessionDatabase.updateScheduledTask(taskId, normalized)
+    const cwdChanged = normalized.cwd !== current.cwd
+    const stateUpdates = {}
+
+    if (cwdChanged) {
+      if (this.runningTasks.has(taskId)) {
+        stateUpdates.runtimeState = this._markSessionResetPending(current.runtimeState, 'cwd-changed')
+      } else {
+        stateUpdates.sessionId = null
+        stateUpdates.runtimeState = this._clearSessionResetPending(current.runtimeState)
+      }
+    }
+
     const nextRunAt = updated.enabled ? this._computeNextRunAt(updated, Date.now()) : null
-    const task = this.sessionDatabase.updateScheduledTaskState(taskId, { nextRunAt })
+    stateUpdates.nextRunAt = nextRunAt
+    const task = this.sessionDatabase.updateScheduledTaskState(taskId, stateUpdates)
     this._syncTaskSessionTitle(current, updated)
     this._broadcastChange(taskId, 'updated')
     return task
@@ -324,9 +337,12 @@ class ScheduledTaskService {
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
     const nextRunAt = task?.enabled ? this._computeNextRunAt(task, finishedAt) : null
+    const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
+    const runtimeState = this._clearSessionResetPending(task?.runtimeState)
 
     this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
-      sessionId,
+      sessionId: shouldResetSession ? null : sessionId,
+      runtimeState,
       lastRunAt: finishedAt,
       nextRunAt,
       lastError: null,
@@ -354,9 +370,12 @@ class ScheduledTaskService {
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
     const nextRunAt = task?.enabled ? this._computeNextRunAt(task, finishedAt) : null
+    const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
+    const runtimeState = this._clearSessionResetPending(task?.runtimeState)
 
     this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
-      sessionId,
+      sessionId: shouldResetSession ? null : sessionId,
+      runtimeState,
       lastRunAt: finishedAt,
       nextRunAt,
       lastError: errorMessage || 'Unknown error',
@@ -471,8 +490,9 @@ class ScheduledTaskService {
 
   _buildTaskPrompt(task, triggerReason, timestamp) {
     const { year, month, day } = formatDateParts(timestamp)
-    const runtimeState = task.runtimeState
-      ? `\n\n# Runtime State\n${JSON.stringify(task.runtimeState, null, 2)}`
+    const runtimeStateForPrompt = this._publicRuntimeState(task.runtimeState)
+    const runtimeState = runtimeStateForPrompt
+      ? `\n\n# Runtime State\n${JSON.stringify(runtimeStateForPrompt, null, 2)}`
       : ''
 
     return [
@@ -494,6 +514,42 @@ class ScheduledTaskService {
         win.webContents.send('scheduled-task:changed', { taskId, reason })
       }
     })
+  }
+
+  _markSessionResetPending(runtimeState, reason) {
+    const base = runtimeState && typeof runtimeState === 'object' ? { ...runtimeState } : {}
+    base._scheduler = {
+      ...(base._scheduler || {}),
+      resetSessionAfterRun: true,
+      reason: reason || 'config-changed'
+    }
+    return base
+  }
+
+  _shouldResetSessionBinding(runtimeState) {
+    return !!runtimeState?._scheduler?.resetSessionAfterRun
+  }
+
+  _clearSessionResetPending(runtimeState) {
+    if (!runtimeState || typeof runtimeState !== 'object') return null
+
+    const next = { ...runtimeState }
+    if (next._scheduler && typeof next._scheduler === 'object') {
+      const schedulerState = { ...next._scheduler }
+      delete schedulerState.resetSessionAfterRun
+      delete schedulerState.reason
+      if (Object.keys(schedulerState).length > 0) {
+        next._scheduler = schedulerState
+      } else {
+        delete next._scheduler
+      }
+    }
+
+    return Object.keys(next).length > 0 ? next : null
+  }
+
+  _publicRuntimeState(runtimeState) {
+    return this._clearSessionResetPending(runtimeState)
   }
 
   _assertReady() {

@@ -56,7 +56,6 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-            <span v-if="getConversationSource(conv) === 'scheduled'" class="source-badge">{{ t('agent.sourceScheduled') }}</span>
             <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
               <span v-if="profileName" class="profile-badge" @click.stop>
                 <Icon name="api" :size="10" />
@@ -65,6 +64,14 @@
             </template>
           </div>
           <div class="conv-actions">
+            <button
+              v-if="getConversationSource(conv) === 'scheduled' && conv.taskId"
+              class="action-btn"
+              :title="t('rightPanel.tabs.scheduledTasks')"
+              @click.stop="openScheduledTaskManager({ action: 'manage', taskId: conv.taskId })"
+            >
+              <Icon name="clock" :size="12" />
+            </button>
             <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
               <Icon name="edit" :size="12" />
             </button>
@@ -84,6 +91,19 @@
         <div>{{ t('agent.noConversations') }}</div>
       </div>
     </div>
+
+    <n-modal v-model:show="showScheduledTaskManager" @after-leave="scheduledTaskId = null">
+      <div class="scheduled-task-manager-modal">
+        <ScheduledTaskDetailPanel
+          v-if="showScheduledTaskManager && scheduledTaskId"
+          :task-id="scheduledTaskId"
+          :current-project="currentProject"
+          @close="showScheduledTaskManager = false"
+          @updated="loadConversations"
+          @deleted="handleScheduledTaskDeleted"
+        />
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -93,13 +113,17 @@ import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
+import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
 
 const { t } = useLocale()
 const dialog = useDialog()
-
 const props = defineProps({
   activeSessionId: {
     type: String,
+    default: null
+  },
+  currentProject: {
+    type: Object,
     default: null
   }
 })
@@ -163,6 +187,8 @@ const conversationGroups = computed(() => {
 const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
+const showScheduledTaskManager = ref(false)
+const scheduledTaskId = ref(null)
 
 // API profiles（用于显示 profile 标记）
 const apiProfiles = ref([])
@@ -188,6 +214,18 @@ const getConversationIcon = (conv) => {
   if (source === 'scheduled') return 'clock'
   if (conv.type === 'dingtalk') return 'dingtalk'
   return 'chat'
+}
+
+const openScheduledTaskManager = ({ taskId = null } = {}) => {
+  if (!taskId) return
+  scheduledTaskId.value = taskId
+  showScheduledTaskManager.value = true
+}
+
+const handleScheduledTaskDeleted = async () => {
+  showScheduledTaskManager.value = false
+  scheduledTaskId.value = null
+  await loadConversations()
 }
 
 const handleNewConversation = () => {
@@ -238,7 +276,9 @@ let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
 let cleanupAgentStatus = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
-const onWindowFocus = () => loadApiProfiles()
+const onWindowFocus = () => {
+  loadApiProfiles()
+}
 
 onMounted(() => {
   loadConversations()
@@ -347,6 +387,17 @@ defineExpose({
 .filter-area {
   padding: 0 12px 8px;
   flex-shrink: 0;
+}
+
+.scheduled-task-manager-modal {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  margin: 24px auto;
+  border-radius: 16px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 .dir-filter-area {
