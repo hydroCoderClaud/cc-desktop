@@ -1,80 +1,60 @@
 <template>
   <div class="left-panel">
-    <!-- Header -->
-    <div class="panel-header">
-      <div class="logo-wrap">
-        <n-dropdown trigger="click" :options="modeOptions" @select="handleModeSelect">
-          <button
-            type="button"
-            class="app-logo"
-            :title="t('mode.mode')"
-            :aria-label="t('mode.mode')"
-          >
-            <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="15" stroke="var(--primary-color)" stroke-width="1.5" fill="rgba(74, 144, 217, 0.12)"/>
-              <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" fill="var(--primary-color)" opacity="0.85"/>
-            </svg>
-          </button>
-        </n-dropdown>
-        <div class="logo">{{ panelTitle }}</div>
-      </div>
-      <div class="header-actions">
-        <button class="panel-collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
-          <Icon name="panelsCollapse" :size="14" />
-        </button>
-        <button class="panel-collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
-          <Icon name="chevronLeft" :size="14" />
-        </button>
-      </div>
-    </div>
+    <LeftPanelHeader
+      :t="t"
+      :panel-title="panelTitle"
+      :mode-options="modeOptions"
+      @mode-select="handleModeSelect"
+      @toggle-both-panels="$emit('toggle-both-panels')"
+      @collapse="$emit('collapse')"
+    />
 
-    <!-- ========== Developer Mode Content ========== -->
-    <template v-if="isDeveloperMode">
-      <!-- Project Selector -->
-      <div class="project-section">
-        <div class="section-header">
-          <span>{{ t('main.projects') }}</span>
-          <button class="open-project-btn" @click="$emit('open-project')" :title="t('project.openExisting')">
-            <Icon name="folderOpen" :size="14" />
-          </button>
-        </div>
-
-        <div class="project-selector-row">
-          <n-select
-            v-model:value="selectedProjectId"
-            :options="projectOptions"
-            :render-label="renderProjectLabel"
-            :placeholder="t('main.selectProject')"
-            clearable
-            filterable
-            class="project-dropdown"
-            @update:value="handleProjectChange"
-          />
-          <n-dropdown
-            v-if="selectedProjectId"
-            trigger="click"
-            :options="projectMenuOptions"
-            @select="handleProjectMenuSelect"
-            placement="bottom-end"
-          >
-            <button class="project-settings-btn" :title="t('main.projectSettings')">
-              <Icon name="settings" :size="14" />
-            </button>
-          </n-dropdown>
-        </div>
-      </div>
-
-      <!-- New Session Button (固定不滚动) -->
-      <div class="new-session-area" v-if="currentProject && currentProject.pathValid">
-        <button class="new-session-btn" @click="handleNewSession">
-          <span class="icon">+</span>
-          <span>{{ t('session.newSession') }}</span>
-        </button>
-        <button class="open-terminal-btn" @click="handleOpenTerminal" :title="t('terminal.openTerminal')">
-          <Icon name="terminal" :size="14" />
-        </button>
-      </div>
-    </template>
+    <LeftPanelDeveloperPane
+      :t="t"
+      :is-developer-mode="isDeveloperMode"
+      :current-project="currentProject"
+      :selected-project-id="selectedProjectId"
+      :project-options="projectOptions"
+      :render-project-label="renderProjectLabel"
+      :project-menu-options="projectMenuOptions"
+      :active-sessions="activeSessions"
+      :focused-session-id="focusedSessionId"
+      :history-sessions="historySessions"
+      :displayed-history-sessions="displayedHistorySessions"
+      :show-subagent-sessions="showSubagentSessions"
+      :is-syncing="isSyncing"
+      :show-new-session-dialog="showNewSessionDialog"
+      :new-session-title="newSessionTitle"
+      :show-rename-dialog="showRenameDialog"
+      :rename-title="renameTitle"
+      :show-history-rename-dialog="showHistoryRenameDialog"
+      :history-rename-title="historyRenameTitle"
+      :format-session-name="formatSessionName"
+      :format-date="formatDate"
+      @open-project="$emit('open-project')"
+      @update:selected-project-id="handleProjectChange"
+      @project-menu-select="handleProjectMenuSelect"
+      @new-session="handleNewSession"
+      @open-terminal="handleOpenTerminal"
+      @select-session="handleSelectSession"
+      @rename-session="openRenameDialog"
+      @close-session="handleCloseSession"
+      @toggle-subagent-sessions="toggleSubagentSessions"
+      @sync-sessions="handleSyncSessions"
+      @view-more="handleViewMore"
+      @open-history-session="handleOpenHistorySession"
+      @rename-history-session="handleEditHistorySession"
+      @delete-history-session="handleDeleteHistorySession"
+      @update:show-new-session-dialog="showNewSessionDialog = $event"
+      @update:new-session-title="newSessionTitle = $event"
+      @confirm-new-session="confirmNewSession"
+      @update:show-rename-dialog="showRenameDialog = $event"
+      @update:rename-title="renameTitle = $event"
+      @confirm-rename="confirmRename"
+      @update:show-history-rename-dialog="showHistoryRenameDialog = $event"
+      @update:history-rename-title="historyRenameTitle = $event"
+      @confirm-history-rename="confirmHistoryRename"
+    />
 
     <!-- ========== Agent Mode Content (v-show 避免切换模式时 remount) ========== -->
     <AgentLeftContent
@@ -103,241 +83,32 @@
       :session-id="agentSessionId"
     />
 
-    <!-- Session Area (滚动区域) - 仅开发者模式 -->
-    <div class="session-section" v-if="isDeveloperMode">
-      <!-- Active Sessions -->
-      <div class="sessions-group" v-if="activeSessions.length > 0">
-        <div class="group-header">
-          <span class="icon running-icon"></span>
-          <span>{{ t('session.running') }}</span>
-          <span class="count">({{ activeSessions.length }})</span>
-        </div>
-        <div
-          v-for="session in activeSessions"
-          :key="session.id"
-          class="session-item"
-          :class="{
-            active: focusedSessionId === session.id,
-            'other-project': currentProject && session.projectId !== currentProject.id
-          }"
-          @click="handleSelectSession(session)"
-        >
-          <div class="session-info">
-            <div class="session-title">
-              <span class="status-dot running"></span>
-              <span class="title-text">{{ session.projectName }}：{{ session.title || t('session.session') }}</span>
-            </div>
-          </div>
-          <div class="session-actions">
-            <button
-              class="rename-btn"
-              @click.stop="openRenameDialog(session)"
-              :title="t('common.edit')"
-            >
-              <Icon name="edit" :size="12" />
-            </button>
-            <button
-              class="close-btn"
-              @click.stop="handleCloseSession(session)"
-              :title="t('session.close')"
-            >
-              <Icon name="close" :size="12" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- History Sessions -->
-      <div class="sessions-group" v-if="currentProject">
-        <div class="group-header">
-          <Icon name="history" :size="14" class="icon" />
-          <span>{{ t('session.history') }}</span>
-          <span class="count" v-if="historySessions.length > 0">({{ displayedHistorySessions.length }}/{{ historySessions.length }})</span>
-          <button
-            class="toggle-subagent-btn"
-            :class="{ active: showSubagentSessions }"
-            @click.stop="toggleSubagentSessions"
-            :title="showSubagentSessions ? t('session.hideSubagent') : t('session.showSubagent')"
-          >
-            <Icon name="agent" :size="14" />
-          </button>
-          <button
-            class="sync-btn"
-            :class="{ syncing: isSyncing }"
-            @click.stop="handleSyncSessions"
-            :disabled="isSyncing"
-            :title="t('session.sync') || '同步会话'"
-          >
-            <Icon name="refresh" :size="12" />
-          </button>
-          <span class="view-more" @click.stop="handleViewMore" v-if="historySessions.length > displayedHistorySessions.length">
-            {{ t('session.viewMore') }}
-          </span>
-        </div>
-        <template v-if="displayedHistorySessions.length > 0">
-          <div
-            v-for="session in displayedHistorySessions"
-            :key="session.session_uuid"
-            class="session-item history"
-            @click="handleOpenHistorySession(session)"
-          >
-            <div class="session-info">
-              <div class="session-title">
-                <Icon name="message" :size="12" class="icon" />
-                <span class="title-text">{{ formatSessionName(session) }}</span>
-              </div>
-              <div class="session-meta">
-                {{ formatDate(session.created_at) }} · {{ session.message_count || 0 }} {{ t('session.messages') }}
-              </div>
-            </div>
-            <div class="session-actions">
-              <button
-                class="rename-btn"
-                @click.stop="handleEditHistorySession(session)"
-                :title="t('common.edit')"
-              >
-                <Icon name="edit" :size="12" />
-              </button>
-              <button
-                class="delete-btn"
-                @click.stop="handleDeleteHistorySession(session)"
-                :title="t('session.delete')"
-              >
-                <Icon name="close" :size="12" />
-              </button>
-            </div>
-          </div>
-        </template>
-        <div v-else class="empty-hint small">
-          {{ t('session.noHistorySessions') || '点击同步历史会话' }}
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-if="!currentProject" class="empty-hint">
-        {{ t('main.pleaseSelectProject') }}
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="panel-footer">
-      <div class="footer-row">
-        <n-dropdown
-          trigger="click"
-          :options="settingsOptions"
-          :render-label="renderSettingsLabel"
-          @select="handleSettingsSelect"
-          placement="top-start"
-        >
-          <button class="settings-btn" :title="t('main.settingsMenu')">
-            <Icon name="settings" :size="16" class="icon" />
-            <span v-if="hasUpdateAvailable" class="update-badge"></span>
-          </button>
-        </n-dropdown>
-
-        <div class="footer-right">
-          <button class="theme-toggle-btn" @click="$emit('toggle-theme')" :title="isDark ? t('main.toggleLight') : t('main.toggleDark')">
-            <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
-          </button>
-
-          <button
-            v-if="isAgentMode"
-            class="capability-btn"
-            @click="showCapabilityModal = true"
-            :title="t('agent.capabilities')"
-          >
-            <Icon name="lightning" :size="18" />
-            <span v-if="hasCapabilityUpdate" class="capability-update-badge"></span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- New Session Dialog -->
-    <n-modal
-      v-model:show="showNewSessionDialog"
-      preset="card"
-      :title="t('session.newSession')"
-      style="width: 360px;"
-      :mask-closable="false"
-    >
-      <n-form>
-        <n-form-item :label="t('session.sessionTitle')">
-          <n-input
-            v-model:value="newSessionTitle"
-            :placeholder="t('session.sessionTitlePlaceholder')"
-            @keyup.enter="confirmNewSession"
-          />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <n-button @click="showNewSessionDialog = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="confirmNewSession">{{ t('common.confirm') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
-
-    <!-- Rename Session Dialog (活动会话) -->
-    <n-modal
-      v-model:show="showRenameDialog"
-      preset="card"
-      :title="t('session.rename') || '重命名会话'"
-      style="width: 360px;"
-      :mask-closable="false"
-    >
-      <n-form>
-        <n-form-item :label="t('session.sessionTitle')">
-          <n-input
-            v-model:value="renameTitle"
-            :placeholder="t('session.sessionTitlePlaceholder')"
-            @keyup.enter="confirmRename"
-          />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <n-button @click="showRenameDialog = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="confirmRename">{{ t('common.confirm') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
-
-    <!-- Rename History Session Dialog (历史会话，仅内存) -->
-    <n-modal
-      v-model:show="showHistoryRenameDialog"
-      preset="card"
-      :title="t('session.rename') || '重命名会话'"
-      style="width: 360px;"
-      :mask-closable="false"
-    >
-      <n-form>
-        <n-form-item :label="t('session.sessionTitle')">
-          <n-input
-            v-model:value="historyRenameTitle"
-            :placeholder="t('session.sessionTitlePlaceholder')"
-            @keyup.enter="confirmHistoryRename"
-          />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <n-button @click="showHistoryRenameDialog = false">{{ t('common.cancel') }}</n-button>
-          <n-button type="primary" @click="confirmHistoryRename">{{ t('common.confirm') }}</n-button>
-        </div>
-      </template>
-    </n-modal>
+    <LeftPanelFooter
+      :t="t"
+      :settings-options="settingsOptions"
+      :render-settings-label="renderSettingsLabel"
+      :has-update-available="hasUpdateAvailable"
+      :has-capability-update="hasCapabilityUpdate"
+      :is-dark="isDark"
+      :is-agent-mode="isAgentMode"
+      @settings-select="handleSettingsSelect"
+      @toggle-theme="$emit('toggle-theme')"
+      @open-capability="showCapabilityModal = true"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h } from 'vue'
-import { useMessage, useDialog, NSelect, NDropdown, NModal, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
 import { useAppMode, AppMode } from '@composables/useAppMode'
 import Icon from '@components/icons/Icon.vue'
+import LeftPanelHeader from './LeftPanelHeader.vue'
+import LeftPanelDeveloperPane from './LeftPanelDeveloperPane.vue'
+import LeftPanelFooter from './LeftPanelFooter.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
 import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
 import CapabilityModal from './agent/CapabilityModal.vue'
@@ -602,6 +373,8 @@ const renderSettingsLabel = (option) => {
 
 // Handle project selection change
 const handleProjectChange = async (projectId) => {
+  selectedProjectId.value = projectId
+
   if (projectId === null) {
     emit('select-project', null)
     return
@@ -1120,8 +893,6 @@ defineExpose({
 </script>
 
 <style scoped>
-@import '@styles/common.css';
-
 .left-panel {
   width: 280px;
   background: var(--bg-color-secondary);
@@ -1129,532 +900,5 @@ defineExpose({
   flex-direction: column;
   flex-shrink: 0;
   transition: all 0.3s ease;
-}
-
-/* Header */
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  height: 60px;
-}
-
-.logo-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.app-logo {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.logo {
-  font-family: var(--font-logo);
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--text-color);
-  white-space: nowrap;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Project Section */
-.project-section {
-  padding: 12px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
-}
-
-.open-project-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.open-project-btn:hover {
-  background: var(--hover-bg);
-}
-
-.project-selector-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.project-dropdown {
-  flex: 1;
-}
-
-.project-settings-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.project-settings-btn:hover {
-  background: var(--hover-bg);
-  border-color: var(--primary-color);
-}
-
-/* New Session Area (固定不滚动) */
-.new-session-area {
-  padding: 12px;
-  flex-shrink: 0;
-  display: flex;
-  gap: 8px;
-}
-
-.new-session-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex: 1;
-  padding: 10px 16px;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.new-session-btn:hover {
-  background: var(--primary-color-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
-}
-
-.new-session-btn .icon {
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.open-terminal-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  padding: 10px;
-  background: var(--bg-color-tertiary);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.open-terminal-btn:hover {
-  background: var(--hover-bg);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-/* Session Section (滚动区域) */
-.session-section {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-/* Sessions Group */
-.sessions-group {
-  margin-bottom: 16px;
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-color-muted);
-  text-transform: uppercase;
-  padding: 8px 4px;
-}
-
-.group-header .icon {
-  font-size: 12px;
-}
-
-.group-header .running-icon {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #52c41a;
-}
-
-.group-header .count {
-  font-weight: 400;
-}
-
-.group-header .sync-btn {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  margin-left: 4px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  opacity: 0.6;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.group-header .toggle-subagent-btn {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  margin-left: 4px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  opacity: 0.5;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.group-header .toggle-subagent-btn:hover {
-  opacity: 0.8;
-  background: var(--hover-bg);
-}
-
-.group-header .toggle-subagent-btn.active {
-  opacity: 1;
-  color: var(--primary-color);
-}
-
-.group-header .sync-btn:hover {
-  opacity: 1;
-  background: var(--hover-bg);
-  color: var(--primary-color);
-}
-
-.group-header .sync-btn:disabled {
-  cursor: not-allowed;
-}
-
-.group-header .sync-btn.syncing {
-  animation: spin 1s linear infinite;
-  opacity: 1;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.group-header .view-more {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--primary-color);
-  cursor: pointer;
-  font-weight: 500;
-  text-transform: none;
-}
-
-.group-header .view-more:hover {
-  text-decoration: underline;
-}
-
-/* Session Item */
-.session-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  margin-bottom: 4px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.session-item:hover {
-  background: var(--hover-bg);
-}
-
-.session-item.active {
-  background: var(--warning-bg);
-  border: 1px solid var(--primary-color);
-}
-
-.session-item.other-project {
-  opacity: 0.7;
-}
-
-.session-info {
-  flex: 1;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.session-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.session-title .icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.title-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-dot.running {
-  background: #52c41a;
-}
-
-.session-meta {
-  font-size: 11px;
-  color: var(--text-color-muted);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Session Actions */
-.session-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.session-item:hover .session-actions {
-  opacity: 1;
-}
-
-/* Close/Delete/Rename Button */
-.close-btn,
-.delete-btn,
-.rename-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  font-size: 12px;
-  color: var(--text-color-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s;
-}
-
-.rename-btn:hover {
-  background: var(--hover-bg);
-  color: var(--primary-color);
-}
-
-.close-btn:hover {
-  background: var(--primary-color);
-  color: white;
-}
-
-.delete-btn:hover {
-  background: #ff4d4f;
-  color: white;
-}
-
-/* Empty Hint */
-.empty-hint {
-  padding: 24px 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-color-muted);
-}
-
-.empty-hint.small {
-  padding: 12px 8px;
-  font-size: 12px;
-}
-
-/* Footer */
-.panel-footer {
-  padding: 12px;
-  margin-top: auto;
-}
-
-.footer-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.footer-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.settings-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--text-color);
-  position: relative;
-}
-
-.settings-btn:hover {
-  transform: scale(1.05);
-  border-color: var(--primary-color);
-}
-
-.update-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff4d4f;
-  border: 1.5px solid var(--bg-color);
-}
-
-
-.theme-toggle-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 18px;
-}
-
-.theme-toggle-btn:hover {
-  transform: scale(1.05);
-  border-color: var(--primary-color);
-}
-
-.capability-btn {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 18px;
-  color: var(--primary-color);
-}
-
-.capability-btn:hover {
-  transform: scale(1.05);
-  border-color: var(--primary-color);
-  background: var(--hover-bg);
-}
-
-.capability-update-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff4d4f;
-  border: 1.5px solid var(--bg-color);
-}
-
-/* Agent mode button */
-.agent-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* Dialog Footer */
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 </style>
