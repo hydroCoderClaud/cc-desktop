@@ -1827,5 +1827,28 @@ export default {
     storageDir: 'Storage Directory',
     storageDirHint: 'Notebook will be created at',
     createFailed: 'Creation failed',
+  },
+  app: {
+    modes: {
+      developer: 'Hydro Coder',
+      agent: 'Hydro Agent',
+      notebook: 'Hydro Notebook'
+    },
+    windowTitles: {
+      main: 'Hydro Desktop',
+      profileManager: 'API Profile Manager - Hydro Desktop',
+      globalSettings: 'Global Settings - Hydro Desktop',
+      appearanceSettings: 'Appearance Settings - Hydro Desktop',
+      customModels: 'Custom Models - Hydro Desktop',
+      dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
+      providerManager: 'Provider Manager - Hydro Desktop',
+      sessionManager: 'Session Browser - Hydro Desktop',
+      settingsWorkbench: 'Capability Management - Hydro Desktop',
+      updateManager: 'Application Update - Hydro Desktop'
+    }
+  },
+  bootstrap: {
+    vueError: 'Vue Error',
+    initializationError: 'Initialization Error'
   }
 }

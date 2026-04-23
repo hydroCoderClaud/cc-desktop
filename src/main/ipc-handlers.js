@@ -36,6 +36,7 @@ const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'din
 const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
 const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-handlers', 'scheduled-task-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
+const appI18nMod = safeRequire('./utils/app-i18n', 'app-i18n');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
@@ -53,6 +54,7 @@ const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
 const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
 const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
+const tMain = appI18nMod?.tMain;
 
 // Bind ipcMain to createIPCHandler for local use
 const registerHandler = (channelName, handler) => {
@@ -73,6 +75,22 @@ const registerHandler = (channelName, handler) => {
 };
 
 function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService) {
+  const translate = (key, params = {}) => typeof tMain === 'function'
+    ? tMain(configManager, key, params)
+    : key
+
+  const getModeTitle = (mode) => {
+    switch (mode) {
+      case 'agent':
+        return translate('app.modes.agent')
+      case 'notebook':
+        return translate('app.modes.notebook')
+      case 'developer':
+      default:
+        return translate('app.modes.developer')
+    }
+  }
+
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -174,7 +192,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 700,
-      title: 'API 配置管理 - Hydro Desktop',
+      title: translate('app.windows.profileManager'),
       page: 'profile-manager'
     });
     return { success: true };
@@ -185,7 +203,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 750,
       height: 500,
-      title: '全局设置 - Hydro Desktop',
+      title: translate('app.windows.globalSettings'),
       page: 'global-settings'
     });
     return { success: true };
@@ -196,7 +214,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 600,
       height: 450,
-      title: '外观设置 - Hydro Desktop',
+      title: translate('app.windows.appearanceSettings'),
       page: 'appearance-settings'
     });
     return { success: true };
@@ -210,7 +228,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1100,
       height: 760,
-      title: '能力管理 - Hydro Desktop',
+      title: translate('app.windows.settingsWorkbench'),
       page: 'settings-workbench',
       query: params.toString() ? `?${params.toString()}` : ''
     });
@@ -222,7 +240,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1000,
       height: 650,
-      title: '服务商管理 - Hydro Desktop',
+      title: translate('app.windows.providerManager'),
       page: 'provider-manager'
     });
     return { success: true };
@@ -234,7 +252,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1200,
       height: 700,
-      title: '会话查询 - Hydro Desktop',
+      title: translate('app.windows.sessionManager'),
       page: 'session-manager',
       query
     });
@@ -259,13 +277,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       return { success: false, error: 'Main window not available' }
     }
 
-    const title = mode === 'agent'
-      ? 'Hydro Agent'
-      : mode === 'notebook'
-        ? 'Hydro Notebook'
-        : 'Hydro Coder'
-
-    mainWindow.setTitle(title)
+    mainWindow.setTitle(getModeTitle(mode))
     return { success: true }
   })
 
@@ -282,7 +294,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     updateManagerWindow = createSubWindow({
       width: 700,
       height: 600,
-      title: '应用更新 - Hydro Desktop',
+      title: translate('app.windows.updateManager'),
       page: 'update-manager'
     })
     // 窗口关闭时清理引用
@@ -323,7 +335,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(senderWindow || mainWindow, {
       properties: ['openDirectory'],
-      title: 'Select Project Folder'
+      title: translate('app.dialogs.selectProjectFolder')
     });
 
     if (result.canceled) {
@@ -340,7 +352,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(senderWindow || mainWindow, {
       properties: ['openDirectory', 'createDirectory'],
-      title: options.title || 'Select Directory'
+      title: options.title || translate('app.dialogs.selectDirectory')
     })
     return result.canceled ? null : result.filePaths[0]
   });
@@ -349,8 +361,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const { title, filters } = options
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
-      title: title || 'Select File',
-      filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+      title: title || translate('app.dialogs.selectFile'),
+      filters: filters || [{ name: translate('app.dialogs.allFiles'), extensions: ['*'] }]
     });
 
     if (result.canceled) {
@@ -365,8 +377,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const { title, filters } = options
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile', 'multiSelections'],
-      title: title || 'Select Files',
-      filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+      title: title || translate('app.dialogs.selectFiles'),
+      filters: filters || [{ name: translate('app.dialogs.allFiles'), extensions: ['*'] }]
     });
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -378,11 +390,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   ipcMain.handle('dialog:saveFile', async (event, { filename, content, ext }) => {
     const filters = ext === 'md'
-      ? [{ name: 'Markdown', extensions: ['md'] }]
-      : [{ name: 'JSON', extensions: ['json'] }];
+      ? [{ name: translate('app.dialogs.markdown'), extensions: ['md'] }]
+      : [{ name: translate('app.dialogs.json'), extensions: ['json'] }];
 
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Export Session',
+      title: translate('app.dialogs.exportSession'),
       defaultPath: filename,
       filters
     });
@@ -410,9 +422,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       const { BrowserWindow } = require('electron');
       const senderWindow = BrowserWindow.fromWebContents(event.sender);
       const result = await dialog.showSaveDialog(senderWindow || mainWindow, {
-        title: 'Save Image',
+        title: translate('app.dialogs.saveImage'),
         defaultPath: filename || 'message.png',
-        filters: [{ name: 'PNG Image', extensions: ['png'] }]
+        filters: [{ name: translate('app.dialogs.pngImage'), extensions: ['png'] }]
       });
       if (result.canceled || !result.filePath) {
         return { success: false, canceled: true };
@@ -773,7 +785,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 600,
       height: 600,
-      title: '钉钉桥接设置 - Hydro Desktop',
+      title: translate('app.windows.dingtalkSettings'),
       page: 'dingtalk-settings'
     });
     return { success: true };
@@ -784,7 +796,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     createSubWindow({
       width: 1400,
       height: 900,
-      title: 'Notebook - Hydro Desktop',
+      title: translate('app.windows.notebookWorkspace'),
       page: 'notebook'
     });
     return { success: true };

@@ -15,6 +15,7 @@ const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { setupIPCHandlers } = require('./ipc-handlers');
+const { tMain } = require('./utils/app-i18n');
 
 // 保持窗口引用
 let mainWindow = null;
@@ -72,12 +73,12 @@ function getThemeBackgroundColor() {
 function getMainWindowTitle(mode) {
   switch (mode) {
     case 'agent':
-      return 'Hydro Agent';
+      return tMain(configManager, 'app.modes.agent');
     case 'notebook':
-      return 'Hydro Notebook';
+      return tMain(configManager, 'app.modes.notebook');
     case 'developer':
     default:
-      return 'Hydro Coder';
+      return tMain(configManager, 'app.modes.developer');
   }
 }
 

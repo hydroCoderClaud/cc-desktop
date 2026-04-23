@@ -26,6 +26,7 @@ const { AgentSession } = require('./agent-session')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
+const { tMain } = require('./utils/app-i18n')
 
 function resolveConversationSource(type, source) {
   if (type === 'dingtalk') return 'dingtalk'
@@ -487,7 +488,7 @@ class AgentSessionManager extends EventEmitter {
     let tempDir = null
     const session = new AgentSession({
       type: AgentType.CHAT,
-      title: 'API Test Probe',
+      title: tMain(this.configManager, 'app.probeSessionTitle'),
       cwd: null,
       apiProfileId: apiConfig?.id || null,
       apiBaseUrl: apiConfig?.baseUrl || null,

@@ -18,8 +18,10 @@ import {
 } from 'naive-ui'
 import App from './App.vue'
 import '../../styles/settings-common.css'
+import { renderBootstrapError, setPageTitle } from '@/utils/page-bootstrap'
 
 console.log('[GlobalSettings] Initializing Vue app...')
+setPageTitle('globalSettings')
 
 const naive = create({
   components: [
@@ -45,22 +47,12 @@ try {
   app.config.errorHandler = (err, vm, info) => {
     console.error('[GlobalSettings] Vue Error:', err)
     console.error('[GlobalSettings] Info:', info)
-    document.getElementById('app').innerHTML = `
-      <div style="padding: 20px; color: red;">
-        <h2>Vue Error</h2>
-        <pre>${err.message}\n${err.stack}</pre>
-      </div>
-    `
+    renderBootstrapError('vue', err)
   }
   app.use(naive)
   app.mount('#app')
   console.log('[GlobalSettings] Vue app mounted successfully')
 } catch (err) {
   console.error('[GlobalSettings] Failed to initialize:', err)
-  document.getElementById('app').innerHTML = `
-    <div style="padding: 20px; color: red;">
-      <h2>Initialization Error</h2>
-      <pre>${err.message}\n${err.stack}</pre>
-    </div>
-  `
+  renderBootstrapError('initialization', err)
 }

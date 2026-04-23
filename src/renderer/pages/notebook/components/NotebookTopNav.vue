@@ -21,7 +21,7 @@
 
       <!-- 标题 + 下拉切换 -->
       <div class="title-group">
-        <div class="brand-title">Hydro Notebook</div>
+        <div class="brand-title">{{ t('app.modes.notebook') }}</div>
         <div class="notebook-title-area">
           <h1
             v-if="!editingTitle"

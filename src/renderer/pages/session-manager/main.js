@@ -30,8 +30,10 @@ import {
   NSelect
 } from 'naive-ui'
 import App from './App.vue'
+import { renderBootstrapError, setPageTitle } from '@/utils/page-bootstrap'
 
 console.log('[SessionManager] Initializing Vue app...')
+setPageTitle('sessionManager')
 
 // Create naive-ui instance with needed components
 const naive = create({
@@ -71,22 +73,12 @@ try {
   app.config.errorHandler = (err, vm, info) => {
     console.error('[SessionManager] Vue Error:', err)
     console.error('[SessionManager] Info:', info)
-    document.getElementById('app').innerHTML = `
-      <div style="padding: 20px; color: red;">
-        <h2>Vue Error</h2>
-        <pre>${err.message}\n${err.stack}</pre>
-      </div>
-    `
+    renderBootstrapError('vue', err)
   }
   app.use(naive)
   app.mount('#app')
   console.log('[SessionManager] Vue app mounted successfully')
 } catch (err) {
   console.error('[SessionManager] Failed to initialize:', err)
-  document.getElementById('app').innerHTML = `
-    <div style="padding: 20px; color: red;">
-      <h2>Initialization Error</h2>
-      <pre>${err.message}\n${err.stack}</pre>
-    </div>
-  `
+  renderBootstrapError('initialization', err)
 }

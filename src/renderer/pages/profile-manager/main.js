@@ -29,8 +29,10 @@ import {
 } from 'naive-ui'
 import App from './App.vue'
 import '../../styles/settings-common.css'
+import { renderBootstrapError, setPageTitle } from '@/utils/page-bootstrap'
 
 console.log('[ProfileManager] Initializing Vue app...')
+setPageTitle('profileManager')
 
 // Create naive-ui instance with only needed components
 const naive = create({
@@ -68,22 +70,12 @@ try {
   app.config.errorHandler = (err, vm, info) => {
     console.error('[ProfileManager] Vue Error:', err)
     console.error('[ProfileManager] Info:', info)
-    document.getElementById('app').innerHTML = `
-      <div style="padding: 20px; color: red;">
-        <h2>Vue Error</h2>
-        <pre>${err.message}\n${err.stack}</pre>
-      </div>
-    `
+    renderBootstrapError('vue', err)
   }
   app.use(naive)
   app.mount('#app')
   console.log('[ProfileManager] Vue app mounted successfully')
 } catch (err) {
   console.error('[ProfileManager] Failed to initialize:', err)
-  document.getElementById('app').innerHTML = `
-    <div style="padding: 20px; color: red;">
-      <h2>Initialization Error</h2>
-      <pre>${err.message}\n${err.stack}</pre>
-    </div>
-  `
+  renderBootstrapError('initialization', err)
 }

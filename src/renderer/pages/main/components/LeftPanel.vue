@@ -375,9 +375,9 @@ const handleModeSelect = (key) => {
 }
 
 const panelTitle = computed(() => {
-  if (isAgentMode.value) return 'Hydro Agent'
-  if (isNotebookMode.value) return 'Hydro Notebook'
-  return 'Hydro Coder'
+  if (isAgentMode.value) return t('app.modes.agent')
+  if (isNotebookMode.value) return t('app.modes.notebook')
+  return t('app.modes.developer')
 })
 
 // 切换到指定模式

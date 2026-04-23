@@ -1833,5 +1833,28 @@ export default {
     storageDir: '存储目录',
     storageDirHint: '笔记本将创建在',
     createFailed: '创建失败',
+  },
+  app: {
+    modes: {
+      developer: 'Hydro Coder',
+      agent: 'Hydro Agent',
+      notebook: 'Hydro Notebook'
+    },
+    windowTitles: {
+      main: 'Hydro Desktop',
+      profileManager: 'API 配置管理 - Hydro Desktop',
+      globalSettings: '全局设置 - Hydro Desktop',
+      appearanceSettings: '外观设置 - Hydro Desktop',
+      customModels: '自定义模型 - Hydro Desktop',
+      dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
+      providerManager: '服务商管理 - Hydro Desktop',
+      sessionManager: '会话查询 - Hydro Desktop',
+      settingsWorkbench: '能力管理 - Hydro Desktop',
+      updateManager: '应用更新 - Hydro Desktop'
+    }
+  },
+  bootstrap: {
+    vueError: 'Vue 错误',
+    initializationError: '初始化错误'
   }
 }
