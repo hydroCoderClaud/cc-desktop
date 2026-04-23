@@ -329,6 +329,9 @@ const handleScheduledTaskDraftSubmit = async ({ messageId, draft }) => {
       return
     }
     message.success(t('agent.scheduleDraftCreatedToast', { name: result?.task?.name || draft?.name || '' }))
+    if (result?.runError) {
+      message.warning(`${t('rightPanel.scheduledTasks.runFailed')}: ${result.runError}`)
+    }
   } finally {
     setScheduledTaskSubmitting(messageId, false)
   }

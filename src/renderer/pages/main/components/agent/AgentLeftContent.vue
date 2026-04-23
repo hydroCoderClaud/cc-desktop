@@ -275,6 +275,7 @@ let cleanupAgentResult = null
 let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
 let cleanupAgentStatus = null
+let cleanupScheduledTask = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
 const onWindowFocus = () => {
   loadApiProfiles()
@@ -324,6 +325,12 @@ onMounted(() => {
       loadConversations()
     })
   }
+
+  if (window.electronAPI?.onScheduledTaskChanged) {
+    cleanupScheduledTask = window.electronAPI.onScheduledTaskChanged(() => {
+      loadConversations()
+    })
+  }
 })
 
 onUnmounted(() => {
@@ -333,6 +340,7 @@ onUnmounted(() => {
   if (cleanupAgentStatus) cleanupAgentStatus()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
   if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
+  if (cleanupScheduledTask) cleanupScheduledTask()
 })
 
 defineExpose({

@@ -137,12 +137,24 @@ export function useAgentLocalCommands({
         throw new Error(result.error)
       }
 
+      let runError = null
+      if (payload.enabled && payload.runOnStartup && result?.id && window.electronAPI?.runScheduledTaskNow) {
+        try {
+          const runResult = await window.electronAPI.runScheduledTaskNow(result.id)
+          if (runResult?.error) {
+            runError = runResult.error
+          }
+        } catch (err) {
+          runError = err.message || t('rightPanel.scheduledTasks.runFailed')
+        }
+      }
+
       message.output = {
         status: 'answered',
         taskId: result?.id || null,
         taskName: result?.name || payload.name
       }
-      return { success: true, task: result || payload }
+      return { success: true, task: result || payload, runError }
     } catch (err) {
       console.error('[useAgentLocalCommands] submitScheduledTaskDraft error:', err)
       return { error: err.message || t('agent.scheduleDraftCreateFailed') }
