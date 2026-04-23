@@ -157,6 +157,7 @@ class ScheduledTaskService {
     this.runningTasks.delete(taskId)
     if (current.sessionId) {
       this.activeRuns.delete(current.sessionId)
+      this._detachTaskSession(current)
     }
     const result = this.sessionDatabase.deleteScheduledTask(taskId)
     this._broadcastChange(taskId, 'deleted')
@@ -336,6 +337,29 @@ class ScheduledTaskService {
       this.agentSessionManager?.rename?.(previousTask.sessionId, nextName)
     } catch (err) {
       console.error(`[ScheduledTask] Failed to sync session title for task ${previousTask.id}:`, err)
+    }
+  }
+
+  _detachTaskSession(task) {
+    if (!task?.sessionId || !this.sessionDatabase?.updateAgentConversation) return
+
+    try {
+      this.sessionDatabase.updateAgentConversation(task.sessionId, {
+        source: 'manual',
+        taskId: null
+      })
+    } catch (err) {
+      console.error(`[ScheduledTask] Failed to detach session for task ${task.id}:`, err)
+      return
+    }
+
+    const liveSession = this.agentSessionManager?.sessions?.get?.(task.sessionId)
+    if (liveSession) {
+      liveSession.source = 'manual'
+      liveSession.taskId = null
+      if (liveSession.meta?.scheduledTaskId === task.id) {
+        delete liveSession.meta.scheduledTaskId
+      }
     }
   }
 

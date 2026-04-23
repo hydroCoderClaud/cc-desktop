@@ -78,4 +78,48 @@ describe('ScheduledTaskService', () => {
 
     expect(rename).not.toHaveBeenCalled()
   })
+
+  it('downgrades the linked agent session to manual when deleting a scheduled task', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const currentTask = {
+      id: 12,
+      name: '夜间巡检',
+      prompt: '执行巡检',
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      enabled: true,
+      sessionId: 'agent-session-12'
+    }
+
+    const liveSession = {
+      source: 'scheduled',
+      taskId: 12,
+      meta: { scheduledTaskId: 12 }
+    }
+
+    const sessionDatabase = {
+      getScheduledTask: vi.fn(() => currentTask),
+      updateAgentConversation: vi.fn(),
+      deleteScheduledTask: vi.fn(() => ({ success: true }))
+    }
+
+    const service = new ScheduledTaskService({}, {
+      on: vi.fn(),
+      sessions: new Map([[currentTask.sessionId, liveSession]])
+    })
+    service.setSessionDatabase(sessionDatabase)
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+
+    const result = service.deleteTask(currentTask.id)
+
+    expect(result).toEqual({ success: true })
+    expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(currentTask.sessionId, {
+      source: 'manual',
+      taskId: null
+    })
+    expect(sessionDatabase.deleteScheduledTask).toHaveBeenCalledWith(currentTask.id)
+    expect(liveSession.source).toBe('manual')
+    expect(liveSession.taskId).toBeNull()
+    expect(liveSession.meta.scheduledTaskId).toBeUndefined()
+  })
 })
