@@ -214,6 +214,7 @@ class ScheduledTaskService {
       const sessionId = this._ensureTaskSession(task)
       activeSessionId = sessionId
       const liveSession = this.agentSessionManager.get(sessionId) || this.agentSessionManager.reopen(sessionId)
+      const isBootstrapRun = !this._hasConversationHistory(sessionId)
 
       if (liveSession?.status === 'streaming') {
         this.sessionDatabase.createScheduledTaskRun({
@@ -241,7 +242,7 @@ class ScheduledTaskService {
 
       await this.agentSessionManager.sendMessage(
         sessionId,
-        this._buildTaskPrompt(task, triggerReason, startedAt),
+        this._buildTaskPrompt(task, triggerReason, startedAt, { bootstrap: isBootstrapRun }),
         {
           modelTier: task.modelTier || undefined,
           maxTurns: task.maxTurns || undefined,
@@ -312,6 +313,16 @@ class ScheduledTaskService {
     }
 
     return sessionId
+  }
+
+  _hasConversationHistory(sessionId) {
+    if (!sessionId || !this.sessionDatabase) return false
+
+    const conversation = this.sessionDatabase.getAgentConversation(sessionId)
+    if (!conversation?.id) return false
+
+    const messages = this.sessionDatabase.getAgentMessagesByConversationId(conversation.id)
+    return Array.isArray(messages) && messages.length > 0
   }
 
   _syncTaskSessionTitle(previousTask, nextTask) {
@@ -488,20 +499,33 @@ class ScheduledTaskService {
     return fallback
   }
 
-  _buildTaskPrompt(task, triggerReason, timestamp) {
+  _buildTaskPrompt(task, triggerReason, timestamp, { bootstrap = false } = {}) {
     const { year, month, day } = formatDateParts(timestamp)
     const runtimeStateForPrompt = this._publicRuntimeState(task.runtimeState)
     const runtimeState = runtimeStateForPrompt
-      ? `\n\n# Runtime State\n${JSON.stringify(runtimeStateForPrompt, null, 2)}`
+      ? JSON.stringify(runtimeStateForPrompt, null, 2)
       : ''
+    const triggerTime = `${year}-${month}-${day} ${new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false })}`
+
+    if (!bootstrap) {
+      return [
+        `继续执行定时任务“${task.name}”。`,
+        `触发原因：${triggerReason}`,
+        `触发时间：${triggerTime}`,
+        runtimeState ? `运行态：\n${runtimeState}` : '',
+        '',
+        '任务内容：',
+        task.prompt
+      ].filter(Boolean).join('\n')
+    }
 
     return [
       '# Scheduled Agent Task',
       `Task Name: ${task.name}`,
       `Trigger Reason: ${triggerReason}`,
-      `Trigger Time: ${year}-${month}-${day} ${new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false })}`,
+      `Trigger Time: ${triggerTime}`,
       'This run was started automatically by the desktop scheduler.',
-      runtimeState,
+      runtimeState ? `\n\n# Runtime State\n${runtimeState}` : '',
       '',
       '# Task Prompt',
       task.prompt

@@ -173,6 +173,7 @@ const {
   submitScheduledTaskDraft,
   cancelScheduledTaskDraft,
   compactConversation,
+  syncActiveSessionState,
   setupStreamListeners,
   setupDingTalkListeners,
   setupListeners,
@@ -495,6 +496,7 @@ onMounted(async () => {
   await loadQueueSetting()
   await initDefaultModel(props.apiProfileId)  // 从配置读取会话绑定的模型
   await loadMessages()  // 加载历史消息
+  await syncActiveSessionState()
 
   setupDingTalkListeners()  // 钉钉监听器在历史加载后注册，避免与 loadMessages 竞争
   // 绑定滚动事件检测用户手动滚动

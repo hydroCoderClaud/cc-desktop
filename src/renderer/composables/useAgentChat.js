@@ -395,6 +395,31 @@ export function useAgentChat(sessionId, options = {}) {
     }
   }
 
+  const syncActiveSessionState = async () => {
+    if (!window.electronAPI?.getAgentInitResult) {
+      return
+    }
+
+    try {
+      const initResult = await window.electronAPI.getAgentInitResult(sessionId)
+      if (!initResult || initResult.error) {
+        return
+      }
+
+      hasActiveSession.value = true
+      isRestored.value = false
+
+      if (slashCommandsEnabled && Array.isArray(initResult.slashCommands)) {
+        void refreshSupportedSlashCommands(initResult.slashCommands)
+      }
+    } catch (err) {
+      const message = String(err?.message || err || '')
+      if (!message.includes('No active streaming session') && !message.includes('not found')) {
+        console.warn('[useAgentChat] Failed to sync active session state:', err)
+      }
+    }
+  }
+
   const handleLocalSlashCommand = async (parsedCommand) => {
     if (!slashCommandsReady.value) {
       return false
@@ -607,6 +632,7 @@ export function useAgentChat(sessionId, options = {}) {
     if (data.sessionId !== sessionId) return
 
     hasActiveSession.value = true
+    isRestored.value = false
 
     if (slashCommandsEnabled && data.slashCommands && Array.isArray(data.slashCommands)) {
       void refreshSupportedSlashCommands(data.slashCommands)
@@ -785,6 +811,8 @@ export function useAgentChat(sessionId, options = {}) {
         hasActiveSession.value = false
       }
     } else if (data.status === 'streaming') {
+      hasActiveSession.value = true
+      isRestored.value = false
       isStreaming.value = true
       startTimer()
     }
@@ -1017,6 +1045,7 @@ export function useAgentChat(sessionId, options = {}) {
     compactConversation,
     submitScheduledTaskDraft,
     cancelScheduledTaskDraft,
+    syncActiveSessionState,
     setupStreamListeners,
     setupDingTalkListeners,
     setupListeners,
