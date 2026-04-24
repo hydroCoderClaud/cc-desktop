@@ -142,18 +142,13 @@ git commit -m "chore: bump version to X.Y.Z"
 - 如果用户要求把其他已确认的发版相关文件一起纳入，可额外 `git add`。
 - 不要顺手提交无关改动。
 
-### 6. 创建 tag 与选择推送模式
+### 6. 创建 tag
 
 先创建：
 
 ```powershell
 git tag vX.Y.Z
 ```
-
-然后明确询问用户选择以下模式之一：
-
-- `推送并构建`：推送 `master`，并向 `origin` 推送当前 tag 以触发 CI
-- `仅推送，不构建`：只推送 `master`，不向 `origin` 推送 tag
 
 ### 7. 推送到所有 remote
 
@@ -175,7 +170,7 @@ git remote
 git push origin master
 ```
 
-仅在 `推送并构建` 模式下，对 `origin` 额外执行：
+对 `origin` 额外执行：
 
 ```powershell
 git push origin vX.Y.Z
@@ -183,8 +178,8 @@ git push origin vX.Y.Z
 
 对于其他 remote（如 `gitlab`、`local`，存在才推）：
 
-- `推送并构建`：先 `git push <remote> master`，再 `git push <remote> vX.Y.Z`
-- `仅推送，不构建`：`git push <remote> master`
+- 先 `git push <remote> master`
+- 再 `git push <remote> vX.Y.Z`
 
 如果某个 remote 推送失败：
 
@@ -194,7 +189,7 @@ git push origin vX.Y.Z
 
 ### 8. 确认 CI
 
-如果用户选择 `推送并构建`，优先检查：
+默认按“推送并构建”执行，优先检查：
 
 ```powershell
 gh run list --limit 3
@@ -215,12 +210,6 @@ gh run list --limit 3
 - tag 是否成功创建
 - 每个 remote 的推送状态
 - CI 是否已触发或仅为未核验
-
-如果用户选择了“仅推送，不构建”，补充提示：
-
-```powershell
-git push origin vX.Y.Z
-```
 
 ## 异常处理
 

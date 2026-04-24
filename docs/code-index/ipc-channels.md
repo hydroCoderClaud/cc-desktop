@@ -1,6 +1,6 @@
 # IPC 通道清单
 
-> CC Desktop v1.7.52+ | [← 返回架构文档](../ARCHITECTURE.md)
+> CC Desktop v1.7.53+ | [← 返回架构文档](../ARCHITECTURE.md)
 
 ## 概览
 
