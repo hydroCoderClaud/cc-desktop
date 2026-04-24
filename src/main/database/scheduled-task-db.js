@@ -43,6 +43,8 @@ function mapScheduledTaskRow(row) {
     intervalMinutes: row.interval_minutes || null,
     dailyTime: row.daily_time || '',
     weeklyDays: parseJSON(row.weekly_days, []),
+    firstRunMode: row.first_run_mode || (row.schedule_type === 'once' ? 'custom' : 'next_slot'),
+    firstRunAt: row.first_run_at || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
     sessionId: row.session_id || null,
@@ -112,10 +114,10 @@ function withScheduledTaskOperations(BaseClass) {
       const result = this.db.prepare(`
         INSERT INTO scheduled_tasks (
           name, prompt, cwd, api_profile_id, model_tier, max_turns,
-          enabled, run_on_startup, schedule_type, interval_minutes, daily_time, weekly_days,
+          enabled, run_on_startup, schedule_type, interval_minutes, daily_time, weekly_days, first_run_mode, first_run_at,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         task.name || '',
         task.prompt || '',
@@ -129,6 +131,8 @@ function withScheduledTaskOperations(BaseClass) {
         task.intervalMinutes || null,
         task.dailyTime || '',
         JSON.stringify(task.weeklyDays || []),
+        task.firstRunMode || 'next_slot',
+        task.firstRunAt || null,
         now,
         now
       )
@@ -152,7 +156,9 @@ function withScheduledTaskOperations(BaseClass) {
         scheduleType: 'schedule_type',
         intervalMinutes: 'interval_minutes',
         dailyTime: 'daily_time',
-        weeklyDays: 'weekly_days'
+        weeklyDays: 'weekly_days',
+        firstRunMode: 'first_run_mode',
+        firstRunAt: 'first_run_at'
       }
 
       for (const [key, value] of Object.entries(updates)) {

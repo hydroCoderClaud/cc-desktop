@@ -70,6 +70,25 @@
           <n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable />
         </n-form-item>
       </div>
+      <div class="task-grid" v-else-if="form.scheduleType === 'workdays'">
+        <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
+          <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+        </n-form-item>
+      </div>
+      <div class="task-grid" v-else-if="form.scheduleType === 'once'">
+        <n-form-item :label="t('rightPanel.scheduledTasks.runDateTime')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
+          <n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
+        </n-form-item>
+      </div>
+
+      <div class="task-grid" v-if="form.scheduleType !== 'once'">
+        <n-form-item :label="t('rightPanel.scheduledTasks.firstRunMode')">
+          <n-select v-model:value="form.firstRunMode" :options="firstRunModeOptions" />
+        </n-form-item>
+        <n-form-item v-if="form.firstRunMode === 'custom'" :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
+          <n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
+        </n-form-item>
+      </div>
 
       <div class="task-grid switches">
         <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
@@ -91,9 +110,15 @@
 
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue'
-import { NButton, NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { NButton, NDatePicker, NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import {
+  buildFirstRunModeOptions,
+  buildScheduleTypeOptions,
+  buildWeeklyDayOptions,
+  createScheduledTaskFormDefaults
+} from '@utils/scheduled-task-meta'
 
 const props = defineProps({
   message: {
@@ -114,17 +139,8 @@ const form = ref(createDefaultForm())
 
 function createDefaultForm() {
   return {
-    name: '',
-    prompt: '',
-    cwd: '',
+    ...createScheduledTaskFormDefaults(''),
     apiProfileId: null,
-    modelTier: 'sonnet',
-    maxTurns: null,
-    enabled: true,
-    scheduleType: 'interval',
-    intervalMinutes: 60,
-    dailyTime: '09:00',
-    weeklyDays: [1]
   }
 }
 
@@ -169,11 +185,8 @@ const finalizedNextRunText = computed(() => {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 })
 
-const scheduleTypeOptions = computed(() => [
-  { label: t('rightPanel.scheduledTasks.scheduleInterval'), value: 'interval' },
-  { label: t('rightPanel.scheduledTasks.scheduleDaily'), value: 'daily' },
-  { label: t('rightPanel.scheduledTasks.scheduleWeekly'), value: 'weekly' }
-])
+const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
+const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
 
 const modelTierOptions = computed(() => [
   { label: t('agent.tierBalanced'), value: 'sonnet' },
@@ -181,15 +194,7 @@ const modelTierOptions = computed(() => [
   { label: t('agent.tierFast'), value: 'haiku' }
 ])
 
-const weeklyDayOptions = computed(() => [
-  { label: t('rightPanel.scheduledTasks.weekday0'), value: 0 },
-  { label: t('rightPanel.scheduledTasks.weekday1'), value: 1 },
-  { label: t('rightPanel.scheduledTasks.weekday2'), value: 2 },
-  { label: t('rightPanel.scheduledTasks.weekday3'), value: 3 },
-  { label: t('rightPanel.scheduledTasks.weekday4'), value: 4 },
-  { label: t('rightPanel.scheduledTasks.weekday5'), value: 5 },
-  { label: t('rightPanel.scheduledTasks.weekday6'), value: 6 }
-])
+const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
 
 const apiProfileOptions = computed(() => [
   { label: t('rightPanel.scheduledTasks.defaultProfile'), value: null },
@@ -200,7 +205,7 @@ const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/
 const nameError = computed(() => form.value.name.trim() ? '' : t('agent.scheduleDraftNameRequired'))
 const promptError = computed(() => form.value.prompt.trim() ? '' : t('agent.scheduleDraftPromptRequired'))
 const timeError = computed(() => {
-  if (form.value.scheduleType === 'interval') return ''
+  if (form.value.scheduleType === 'interval' || form.value.scheduleType === 'once') return ''
   return timePattern.test(String(form.value.dailyTime || '').trim()) ? '' : t('agent.scheduleDraftTimeInvalid')
 })
 const weeklyDaysError = computed(() => {
@@ -209,8 +214,13 @@ const weeklyDaysError = computed(() => {
     ? ''
     : t('agent.scheduleDraftWeeklyDaysRequired')
 })
+const firstRunAtError = computed(() => {
+  const requiresFirstRunAt = form.value.scheduleType === 'once' || form.value.firstRunMode === 'custom'
+  if (!requiresFirstRunAt) return ''
+  return form.value.firstRunAt ? '' : t('rightPanel.scheduledTasks.firstRunAtRequired')
+})
 
-const canSubmit = computed(() => !nameError.value && !promptError.value && !timeError.value && !weeklyDaysError.value)
+const canSubmit = computed(() => !nameError.value && !promptError.value && !timeError.value && !weeklyDaysError.value && !firstRunAtError.value)
 
 const loadProfiles = async () => {
   try {
@@ -241,7 +251,9 @@ const handleSubmit = () => {
       ...form.value,
       name: form.value.name.trim(),
       prompt: form.value.prompt.trim(),
-      cwd: form.value.cwd?.trim() || null
+      cwd: form.value.cwd?.trim() || null,
+      firstRunMode: form.value.scheduleType === 'once' ? 'custom' : form.value.firstRunMode,
+      firstRunAt: form.value.firstRunAt ?? null
     }
   })
 }

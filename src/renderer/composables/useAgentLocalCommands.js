@@ -40,9 +40,14 @@ export function useAgentLocalCommands({
   }
 
   const normalizeScheduledTaskDraft = (draft = {}) => {
-    const scheduleType = ['interval', 'daily', 'weekly'].includes(draft.scheduleType)
+    const scheduleType = ['interval', 'daily', 'weekly', 'workdays', 'once'].includes(draft.scheduleType)
       ? draft.scheduleType
       : 'interval'
+    const firstRunMode = scheduleType === 'once'
+      ? 'custom'
+      : ['immediate', 'next_slot', 'custom'].includes(draft.firstRunMode)
+        ? draft.firstRunMode
+        : 'next_slot'
 
     const weeklyDays = Array.isArray(draft.weeklyDays)
       ? Array.from(new Set(draft.weeklyDays
@@ -65,7 +70,9 @@ export function useAgentLocalCommands({
       scheduleType,
       intervalMinutes,
       dailyTime: String(draft.dailyTime || '09:00').trim() || '09:00',
-      weeklyDays: weeklyDays.length > 0 ? weeklyDays : [1]
+      weeklyDays: weeklyDays.length > 0 ? weeklyDays : [1],
+      firstRunMode,
+      firstRunAt: draft.firstRunAt ?? null
     }
   }
 
@@ -85,7 +92,9 @@ export function useAgentLocalCommands({
       scheduleType: 'interval',
       intervalMinutes: 60,
       dailyTime: '09:00',
-      weeklyDays: [1]
+      weeklyDays: [1],
+      firstRunMode: 'next_slot',
+      firstRunAt: null
     })
 
     messages.value.push({

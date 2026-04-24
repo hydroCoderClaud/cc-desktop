@@ -35,6 +35,32 @@ describe('ScheduledTaskService', () => {
       dailyTime: '24:00',
       weeklyDays: [1]
     })).toThrow('Weekly schedule requires HH:mm time')
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'workdays',
+      dailyTime: '24:00'
+    })).toThrow('Workday schedule requires HH:mm time')
+  })
+
+  it('validates first-run options for custom and one-time schedules', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'daily',
+      dailyTime: '09:00',
+      firstRunMode: 'custom'
+    })).toThrow('Custom first run requires valid datetime')
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'once'
+    })).toThrow('One-time schedule requires valid first run time')
   })
 
   it('falls back to default time for legacy invalid stored clock values', async () => {
@@ -51,6 +77,41 @@ describe('ScheduledTaskService', () => {
     expect(weekly.getDay()).toBe(4)
     expect(weekly.getHours()).toBe(9)
     expect(weekly.getMinutes()).toBe(0)
+  })
+
+  it('computes next workday time and one-time schedules correctly', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+
+    const fridayEvening = new Date('2026-04-24T18:30:00')
+    const nextWorkday = service._computeNextWorkdayTime('09:00', fridayEvening)
+    expect(nextWorkday.getDay()).toBe(1)
+    expect(nextWorkday.getHours()).toBe(9)
+    expect(nextWorkday.getMinutes()).toBe(0)
+
+    const customFirstRun = Date.UTC(2026, 3, 25, 1, 0, 0)
+    expect(service._computeNextRunAt({
+      enabled: true,
+      scheduleType: 'daily',
+      dailyTime: '09:00',
+      firstRunMode: 'custom',
+      firstRunAt: customFirstRun,
+      lastRunAt: null
+    }, Date.UTC(2026, 3, 24, 0, 0, 0))).toBe(customFirstRun)
+
+    expect(service._computeNextRunAt({
+      enabled: true,
+      scheduleType: 'once',
+      firstRunAt: customFirstRun,
+      lastRunAt: null
+    }, Date.UTC(2026, 3, 24, 0, 0, 0))).toBe(customFirstRun)
+
+    expect(service._computeNextRunAt({
+      enabled: true,
+      scheduleType: 'once',
+      firstRunAt: customFirstRun,
+      lastRunAt: Date.UTC(2026, 3, 25, 1, 0, 0)
+    }, Date.UTC(2026, 3, 25, 2, 0, 0))).toBeNull()
   })
 
   it('builds localized scheduled task prompts based on current locale', async () => {
@@ -126,6 +187,155 @@ describe('ScheduledTaskService', () => {
     }
   })
 
+  it('runs immediate first-run tasks as soon as they are created', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const taskState = {
+      id: 31,
+      name: '即时巡检',
+      prompt: '执行巡检',
+      enabled: true,
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      firstRunMode: 'immediate',
+      firstRunAt: null,
+      lastRunAt: null,
+      sessionId: null
+    }
+
+    const sessionDatabase = {
+      createScheduledTask: vi.fn(() => ({ ...taskState })),
+      updateScheduledTaskState: vi.fn((_taskId, updates) => {
+        Object.assign(taskState, updates)
+        return { ...taskState }
+      }),
+      getAgentConversation: vi.fn(() => null),
+      getScheduledTask: vi.fn(() => ({ ...taskState }))
+    }
+
+    const agentSessionManager = {
+      on: vi.fn(),
+      create: vi.fn(() => ({ id: 'agent-session-immediate' })),
+      get: vi.fn(() => ({ status: 'idle' })),
+      reopen: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue()
+    }
+
+    const service = new ScheduledTaskService({}, agentSessionManager)
+    service.setSessionDatabase(sessionDatabase)
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+
+    const created = await service.createTask({
+      name: '即时巡检',
+      prompt: '执行巡检',
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      firstRunMode: 'immediate'
+    })
+
+    expect(agentSessionManager.create).toHaveBeenCalled()
+    expect(agentSessionManager.sendMessage).toHaveBeenCalled()
+    expect(created.sessionId).toBe('agent-session-immediate')
+  })
+
+  it('rearms one-time tasks when schedule is changed to once or first run time changes', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+
+    const onceRunAt = Date.UTC(2026, 3, 25, 8, 0, 0)
+    const existingTask = {
+      id: 52,
+      name: '巡检任务',
+      prompt: '执行巡检',
+      enabled: true,
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      dailyTime: '',
+      weeklyDays: [],
+      firstRunMode: 'next_slot',
+      firstRunAt: null,
+      lastRunAt: Date.UTC(2026, 3, 24, 8, 0, 0),
+      nextRunAt: Date.UTC(2026, 3, 24, 8, 30, 0)
+    }
+
+    const sessionDatabase = {
+      getScheduledTask: vi.fn(() => ({ ...existingTask })),
+      updateScheduledTask: vi.fn((_taskId, updates) => {
+        Object.assign(existingTask, updates)
+        return { ...existingTask }
+      }),
+      updateScheduledTaskState: vi.fn((_taskId, updates) => {
+        Object.assign(existingTask, updates)
+        return { ...existingTask }
+      })
+    }
+
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+    service.setSessionDatabase(sessionDatabase)
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+
+    const switchedToOnce = await service.updateTask(existingTask.id, {
+      scheduleType: 'once',
+      firstRunAt: onceRunAt
+    })
+
+    expect(switchedToOnce.lastRunAt).toBeNull()
+    expect(switchedToOnce.nextRunAt).toBe(onceRunAt)
+
+    const rescheduledAt = Date.UTC(2026, 3, 26, 9, 30, 0)
+    const rescheduled = await service.updateTask(existingTask.id, {
+      firstRunAt: rescheduledAt
+    })
+
+    expect(rescheduled.lastRunAt).toBeNull()
+    expect(rescheduled.nextRunAt).toBe(rescheduledAt)
+  })
+
+  it('runs immediate tasks as soon as they are re-enabled', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const taskState = {
+      id: 61,
+      name: '恢复后即时执行',
+      prompt: '执行巡检',
+      enabled: false,
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      firstRunMode: 'immediate',
+      firstRunAt: null,
+      lastRunAt: Date.UTC(2026, 3, 24, 8, 0, 0),
+      sessionId: null
+    }
+
+    const sessionDatabase = {
+      getScheduledTask: vi.fn(() => ({ ...taskState })),
+      updateScheduledTask: vi.fn((_taskId, updates) => {
+        Object.assign(taskState, updates)
+        return { ...taskState }
+      }),
+      updateScheduledTaskState: vi.fn((_taskId, updates) => {
+        Object.assign(taskState, updates)
+        return { ...taskState }
+      }),
+      getAgentConversation: vi.fn(() => null)
+    }
+
+    const agentSessionManager = {
+      on: vi.fn(),
+      create: vi.fn(() => ({ id: 'agent-session-reenabled' })),
+      get: vi.fn(() => ({ status: 'idle' })),
+      reopen: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue()
+    }
+
+    const service = new ScheduledTaskService({}, agentSessionManager)
+    service.setSessionDatabase(sessionDatabase)
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+
+    const updated = await service.updateTask(taskState.id, { enabled: true })
+
+    expect(agentSessionManager.create).toHaveBeenCalled()
+    expect(agentSessionManager.sendMessage).toHaveBeenCalled()
+    expect(updated.sessionId).toBe('agent-session-reenabled')
+  })
+
   it('renames the bound agent session when the scheduled task name changes', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const rename = vi.fn()
@@ -154,7 +364,7 @@ describe('ScheduledTaskService', () => {
     vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
     vi.spyOn(service, '_computeNextRunAt').mockReturnValue(1234567890)
 
-    service.updateTask(currentTask.id, { name: updatedTask.name })
+    await service.updateTask(currentTask.id, { name: updatedTask.name })
 
     expect(rename).toHaveBeenCalledWith(currentTask.sessionId, updatedTask.name)
   })
@@ -183,7 +393,7 @@ describe('ScheduledTaskService', () => {
     vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
     vi.spyOn(service, '_computeNextRunAt').mockReturnValue(1234567890)
 
-    service.updateTask(currentTask.id, { prompt: '执行巡检并汇总' })
+    await service.updateTask(currentTask.id, { prompt: '执行巡检并汇总' })
 
     expect(rename).not.toHaveBeenCalled()
   })

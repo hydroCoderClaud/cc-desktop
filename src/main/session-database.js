@@ -206,6 +206,21 @@ class SessionDatabaseBase {
       }
     }
 
+    const scheduledTaskInfo = this.db.prepare("PRAGMA table_info(scheduled_tasks)").all()
+    const scheduledTaskColumns = scheduledTaskInfo.map(col => col.name)
+
+    const scheduledTaskNewColumns = [
+      { name: 'first_run_mode', type: "TEXT DEFAULT 'next_slot'" },
+      { name: 'first_run_at', type: 'INTEGER' }
+    ]
+
+    for (const col of scheduledTaskNewColumns) {
+      if (!scheduledTaskColumns.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: scheduled_tasks.${col.name}`)
+        this.db.exec(`ALTER TABLE scheduled_tasks ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
     // 迁移：将唯一约束从 path 改为 encoded_path
     // 检查 projects 表的 SQL 定义，判断是否需要重建
     const tableInfo = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='projects'").get()
@@ -534,6 +549,8 @@ class SessionDatabaseBase {
         interval_minutes INTEGER,
         daily_time TEXT DEFAULT '',
         weekly_days TEXT DEFAULT '[]',
+        first_run_mode TEXT NOT NULL DEFAULT 'next_slot',
+        first_run_at INTEGER,
         created_at INTEGER,
         updated_at INTEGER
       )

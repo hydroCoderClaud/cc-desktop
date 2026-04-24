@@ -75,6 +75,7 @@ import { NButton, NModal, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import ScheduledTaskDetailPanel from '@/pages/main/components/agent/ScheduledTaskDetailPanel.vue'
+import { buildWeeklyDayOptions, describeScheduledTask } from '@utils/scheduled-task-meta'
 
 const props = defineProps({
   currentProject: {
@@ -85,6 +86,7 @@ const props = defineProps({
 
 const { t } = useLocale()
 const message = useMessage()
+const weeklyDayOptions = buildWeeklyDayOptions(t)
 
 const tasks = ref([])
 const loading = ref(false)
@@ -108,16 +110,7 @@ const loadTasks = async () => {
 }
 
 const describeSchedule = (task) => {
-  if (task.scheduleType === 'daily') {
-    return t('rightPanel.scheduledTasks.scheduleDailyDesc', { time: task.dailyTime || '09:00' })
-  }
-  if (task.scheduleType === 'weekly') {
-    const days = (task.weeklyDays || [])
-      .map(day => t(`rightPanel.scheduledTasks.weekday${day}`))
-      .join(', ')
-    return t('rightPanel.scheduledTasks.scheduleWeeklyDesc', { days: days || '-', time: task.dailyTime || '09:00' })
-  }
-  return t('rightPanel.scheduledTasks.scheduleIntervalDesc', { minutes: task.intervalMinutes || 60 })
+  return describeScheduledTask(task, t, weeklyDayOptions)
 }
 
 const runNow = async (task) => {

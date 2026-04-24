@@ -2,6 +2,28 @@ const { BrowserWindow } = require('electron')
 
 const CHECK_INTERVAL_MS = 30 * 1000
 const DEFAULT_INTERVAL_MINUTES = 60
+const DEFAULT_DAILY_TIME = '09:00'
+
+function normalizeScheduleType(type) {
+  const normalized = String(type || '').trim().toLowerCase()
+  const allowed = new Set(['interval', 'daily', 'weekly', 'workdays', 'once'])
+  return allowed.has(normalized) ? normalized : 'interval'
+}
+
+function normalizeFirstRunMode(mode, scheduleType) {
+  if (scheduleType === 'once') return 'custom'
+  const normalized = String(mode || '').trim().toLowerCase()
+  const allowed = new Set(['immediate', 'next_slot', 'custom'])
+  return allowed.has(normalized) ? normalized : 'next_slot'
+}
+
+function normalizeTimestamp(value) {
+  if (value == null || value === '') return null
+  if (Number.isFinite(value)) return Math.trunc(Number(value))
+
+  const parsed = Date.parse(String(value))
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 function normalizeModelTier(tier) {
   if (!tier) return null
@@ -162,17 +184,24 @@ class ScheduledTaskService {
     return this.sessionDatabase.listScheduledTaskRuns(taskId, { limit })
   }
 
-  createTask(input) {
+  async createTask(input) {
     this._assertReady()
     const normalized = this._normalizeTaskInput(input)
     const created = this.sessionDatabase.createScheduledTask(normalized)
     const nextRunAt = normalized.enabled ? this._computeNextRunAt(created, Date.now()) : null
-    const task = this.sessionDatabase.updateScheduledTaskState(created.id, { nextRunAt })
-    this._broadcastChange(task.id, 'created')
+    let task = this.sessionDatabase.updateScheduledTaskState(created.id, { nextRunAt })
+
+    if (task.enabled && task.firstRunMode === 'immediate' && task.scheduleType !== 'once') {
+      await this._executeTask(task, 'startup', { allowDisabled: true })
+      task = this.sessionDatabase.getScheduledTask(task.id)
+    } else {
+      this._broadcastChange(task.id, 'created')
+    }
+
     return task
   }
 
-  updateTask(taskId, updates) {
+  async updateTask(taskId, updates) {
     this._assertReady()
     const current = this.sessionDatabase.getScheduledTask(taskId)
     if (!current) {
@@ -182,6 +211,14 @@ class ScheduledTaskService {
     const normalized = this._normalizeTaskInput({ ...current, ...updates }, { partial: true })
     const updated = this.sessionDatabase.updateScheduledTask(taskId, normalized)
     const cwdChanged = normalized.cwd !== current.cwd
+    const shouldRunImmediatelyOnEnable = !current.enabled
+      && updated.enabled
+      && updated.firstRunMode === 'immediate'
+      && updated.scheduleType !== 'once'
+    const shouldRearmOnceTask = updated.scheduleType === 'once' && (
+      updated.scheduleType !== current.scheduleType ||
+      normalizeTimestamp(updated.firstRunAt) !== normalizeTimestamp(current.firstRunAt)
+    )
     const stateUpdates = {}
 
     if (cwdChanged) {
@@ -193,11 +230,27 @@ class ScheduledTaskService {
       }
     }
 
-    const nextRunAt = updated.enabled ? this._computeNextRunAt(updated, Date.now()) : null
+    if (shouldRearmOnceTask) {
+      stateUpdates.lastRunAt = null
+    }
+
+    const nextRunAt = updated.enabled
+      ? this._computeNextRunAt(
+          shouldRearmOnceTask ? { ...updated, lastRunAt: null } : updated,
+          Date.now()
+        )
+      : null
     stateUpdates.nextRunAt = nextRunAt
-    const task = this.sessionDatabase.updateScheduledTaskState(taskId, stateUpdates)
+    let task = this.sessionDatabase.updateScheduledTaskState(taskId, stateUpdates)
     this._syncTaskSessionTitle(current, updated)
-    this._broadcastChange(taskId, 'updated')
+
+    if (shouldRunImmediatelyOnEnable) {
+      await this._executeTask(task, 'startup', { allowDisabled: true })
+      task = this.sessionDatabase.getScheduledTask(task.id)
+    } else {
+      this._broadcastChange(taskId, 'updated')
+    }
+
     return task
   }
 
@@ -266,7 +319,9 @@ class ScheduledTaskService {
           startedAt,
           finishedAt: Date.now()
         })
-        const nextRunAt = task.enabled ? this._computeNextRunAt(task, Date.now()) : task.nextRunAt
+        const nextRunAt = task.enabled
+          ? this._computeNextRunAt({ ...task, lastRunAt: startedAt }, Date.now())
+          : task.nextRunAt
         this.sessionDatabase.updateScheduledTaskState(task.id, { nextRunAt })
         this._broadcastChange(task.id, 'skipped')
         this.runningTasks.delete(task.id)
@@ -299,7 +354,9 @@ class ScheduledTaskService {
       this._broadcastChange(task.id, 'started')
     } catch (err) {
       console.error(`[ScheduledTask] Run failed for task ${task.id}:`, err)
-      const nextRunAt = task.enabled ? this._computeNextRunAt(task, Date.now()) : task.nextRunAt
+      const nextRunAt = task.enabled
+        ? this._computeNextRunAt({ ...task, lastRunAt: startedAt }, Date.now())
+        : task.nextRunAt
       this.sessionDatabase.updateScheduledTaskState(task.id, {
         lastRunAt: Date.now(),
         lastError: err.message || 'Unknown error',
@@ -410,7 +467,7 @@ class ScheduledTaskService {
     this.runningTasks.delete(activeRun.taskId)
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
-    const nextRunAt = task?.enabled ? this._computeNextRunAt(task, finishedAt) : null
+    const nextRunAt = task?.enabled ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt) : null
     const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
     const runtimeState = this._clearSessionResetPending(task?.runtimeState)
 
@@ -443,7 +500,7 @@ class ScheduledTaskService {
     this.runningTasks.delete(activeRun.taskId)
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
-    const nextRunAt = task?.enabled ? this._computeNextRunAt(task, finishedAt) : null
+    const nextRunAt = task?.enabled ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt) : null
     const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
     const runtimeState = this._clearSessionResetPending(task?.runtimeState)
 
@@ -488,7 +545,9 @@ class ScheduledTaskService {
       const stateUpdates = { sessionId: null }
 
       if (activeRun?.taskId === task.id) {
-        stateUpdates.nextRunAt = task.enabled ? this._computeNextRunAt(task, finishedAt) : null
+        stateUpdates.nextRunAt = task.enabled
+          ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt)
+          : null
         this.sessionDatabase.createScheduledTaskRun({
           taskId: task.id,
           sessionId,
@@ -506,7 +565,9 @@ class ScheduledTaskService {
   }
 
   _normalizeTaskInput(input, { partial = false } = {}) {
-    const scheduleType = input.scheduleType || (partial ? undefined : 'interval')
+    const scheduleType = input.scheduleType === undefined && partial
+      ? undefined
+      : normalizeScheduleType(input.scheduleType)
     const intervalMinutes = input.intervalMinutes == null || input.intervalMinutes === ''
       ? null
       : Math.max(1, Number(input.intervalMinutes))
@@ -514,6 +575,10 @@ class ScheduledTaskService {
       ? null
       : Math.max(1, Number(input.maxTurns))
     const weeklyDays = normalizeWeeklyDays(input.weeklyDays)
+    const normalizedFirstRunAt = normalizeTimestamp(input.firstRunAt)
+    const firstRunMode = input.firstRunMode === undefined && partial
+      ? undefined
+      : normalizeFirstRunMode(input.firstRunMode, scheduleType)
 
     if (!partial || Object.prototype.hasOwnProperty.call(input, 'name')) {
       if (!String(input.name || '').trim()) throw new Error('Task name is required')
@@ -534,6 +599,15 @@ class ScheduledTaskService {
         throw new Error('Weekly schedule requires HH:mm time')
       }
     }
+    if (scheduleType === 'workdays' && !parseClockTime(input.dailyTime)) {
+      throw new Error('Workday schedule requires HH:mm time')
+    }
+    if (scheduleType === 'once' && !normalizedFirstRunAt) {
+      throw new Error('One-time schedule requires valid first run time')
+    }
+    if (scheduleType !== 'once' && firstRunMode === 'custom' && !normalizedFirstRunAt) {
+      throw new Error('Custom first run requires valid datetime')
+    }
 
     return {
       name: Object.prototype.hasOwnProperty.call(input, 'name') ? String(input.name || '').trim() : undefined,
@@ -546,19 +620,42 @@ class ScheduledTaskService {
       scheduleType,
       intervalMinutes,
       dailyTime: Object.prototype.hasOwnProperty.call(input, 'dailyTime') ? String(input.dailyTime || '') : undefined,
-      weeklyDays
+      weeklyDays,
+      firstRunMode,
+      firstRunAt: Object.prototype.hasOwnProperty.call(input, 'firstRunAt') || !partial ? normalizedFirstRunAt : undefined
     }
   }
 
   _computeNextRunAt(task, nowTs) {
     if (!task?.enabled) return null
     const now = new Date(nowTs)
+    const firstRunPending = !task.lastRunAt
+    const firstRunAt = normalizeTimestamp(task.firstRunAt)
 
+    if (task.scheduleType === 'once') {
+      return firstRunPending ? firstRunAt : null
+    }
+
+    if (firstRunPending) {
+      if (task.firstRunMode === 'immediate') {
+        return nowTs
+      }
+      if (task.firstRunMode === 'custom' && firstRunAt) {
+        return firstRunAt
+      }
+    }
+
+    return this._computeRecurringNextRunAt(task, now, nowTs)
+  }
+
+  _computeRecurringNextRunAt(task, now, nowTs) {
     switch (task.scheduleType) {
       case 'daily':
         return this._computeNextDailyTime(task.dailyTime, now).getTime()
       case 'weekly':
         return this._computeNextWeeklyTime(task.dailyTime, task.weeklyDays, now).getTime()
+      case 'workdays':
+        return this._computeNextWorkdayTime(task.dailyTime, now).getTime()
       case 'interval':
       default: {
         const minutes = Number(task.intervalMinutes) || DEFAULT_INTERVAL_MINUTES
@@ -573,7 +670,7 @@ class ScheduledTaskService {
   }
 
   _computeNextDailyTime(time, now) {
-    const parsed = parseClockTime(time) || parseClockTime('09:00')
+    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
     const { hours, minutes } = parsed
     const target = new Date(now)
     target.setHours(hours, minutes, 0, 0)
@@ -585,7 +682,7 @@ class ScheduledTaskService {
 
   _computeNextWeeklyTime(time, weeklyDays, now) {
     const days = normalizeWeeklyDays(weeklyDays)
-    const parsed = parseClockTime(time) || parseClockTime('09:00')
+    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
     const { hours, minutes } = parsed
     const base = new Date(now)
     base.setSeconds(0, 0)
@@ -601,6 +698,30 @@ class ScheduledTaskService {
     const fallback = new Date(base)
     fallback.setDate(base.getDate() + 7)
     fallback.setHours(hours, minutes, 0, 0)
+    return fallback
+  }
+
+  _computeNextWorkdayTime(time, now) {
+    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
+    const { hours, minutes } = parsed
+    const base = new Date(now)
+    base.setSeconds(0, 0)
+
+    for (let offset = 0; offset <= 7; offset++) {
+      const candidate = new Date(base)
+      candidate.setDate(base.getDate() + offset)
+      candidate.setHours(hours, minutes, 0, 0)
+      const day = candidate.getDay()
+      if (day === 0 || day === 6) continue
+      if (candidate.getTime() > now.getTime()) return candidate
+    }
+
+    const fallback = new Date(base)
+    fallback.setDate(base.getDate() + 1)
+    fallback.setHours(hours, minutes, 0, 0)
+    while (fallback.getDay() === 0 || fallback.getDay() === 6) {
+      fallback.setDate(fallback.getDate() + 1)
+    }
     return fallback
   }
 
