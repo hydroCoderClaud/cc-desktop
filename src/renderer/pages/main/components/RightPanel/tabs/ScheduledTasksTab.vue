@@ -51,7 +51,6 @@
               </div>
               <div class="task-meta">
                 <span>{{ describeSchedule(task) }}</span>
-                <span v-if="task.runOnStartup">{{ t('rightPanel.scheduledTasks.runOnStartupBadge') }}</span>
               </div>
             </div>
 
@@ -168,9 +167,6 @@
           <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
             <n-switch v-model:value="form.enabled" />
           </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
-            <n-switch v-model:value="form.runOnStartup" />
-          </n-form-item>
         </div>
         <div class="task-grid" v-else-if="form.scheduleType === 'daily'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
@@ -178,9 +174,6 @@
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
             <n-switch v-model:value="form.enabled" />
-          </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
-            <n-switch v-model:value="form.runOnStartup" />
           </n-form-item>
         </div>
         <div class="task-grid" v-else-if="form.scheduleType === 'weekly'">
@@ -198,9 +191,6 @@
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
             <n-switch v-model:value="form.enabled" />
-          </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
-            <n-switch v-model:value="form.runOnStartup" />
           </n-form-item>
         </div>
       </n-form>
@@ -324,7 +314,6 @@ function createDefaultForm() {
     modelTier: 'sonnet',
     maxTurns: null,
     enabled: true,
-    runOnStartup: true,
     scheduleType: 'interval',
     intervalMinutes: 60,
     dailyTime: '09:00',
@@ -481,7 +470,6 @@ const openEditModal = (task) => {
     modelTier: task.modelTier || 'sonnet',
     maxTurns: task.maxTurns || null,
     enabled: !!task.enabled,
-    runOnStartup: !!task.runOnStartup,
     scheduleType: task.scheduleType || 'interval',
     intervalMinutes: task.intervalMinutes || 60,
     dailyTime: task.dailyTime || '09:00',

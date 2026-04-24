@@ -62,7 +62,6 @@ export function useAgentLocalCommands({
       modelTier: draft.modelTier || selectedModel.value || 'sonnet',
       maxTurns,
       enabled: draft.enabled !== false,
-      runOnStartup: draft.runOnStartup !== false,
       scheduleType,
       intervalMinutes,
       dailyTime: String(draft.dailyTime || '09:00').trim() || '09:00',
@@ -83,7 +82,6 @@ export function useAgentLocalCommands({
       modelTier: selectedModel.value || 'sonnet',
       maxTurns: null,
       enabled: true,
-      runOnStartup: true,
       scheduleType: 'interval',
       intervalMinutes: 60,
       dailyTime: '09:00',
@@ -137,24 +135,14 @@ export function useAgentLocalCommands({
         throw new Error(result.error)
       }
 
-      let runError = null
-      if (payload.enabled && payload.runOnStartup && result?.id && window.electronAPI?.runScheduledTaskNow) {
-        try {
-          const runResult = await window.electronAPI.runScheduledTaskNow(result.id)
-          if (runResult?.error) {
-            runError = runResult.error
-          }
-        } catch (err) {
-          runError = err.message || t('rightPanel.scheduledTasks.runFailed')
-        }
-      }
-
       message.output = {
         status: 'answered',
         taskId: result?.id || null,
-        taskName: result?.name || payload.name
+        taskName: result?.name || payload.name,
+        enabled: result?.enabled ?? payload.enabled,
+        nextRunAt: result?.nextRunAt ?? null
       }
-      return { success: true, task: result || payload, runError }
+      return { success: true, task: result || payload, runError: null }
     } catch (err) {
       console.error('[useAgentLocalCommands] submitScheduledTaskDraft error:', err)
       return { error: err.message || t('agent.scheduleDraftCreateFailed') }

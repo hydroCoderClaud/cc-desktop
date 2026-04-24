@@ -11,7 +11,9 @@
     <div class="card-description" v-if="descriptionText">{{ descriptionText }}</div>
 
     <div v-if="isFinalized && outputStatus === 'answered'" class="result-summary">
-      {{ t('agent.scheduleDraftCreated', { name: finalizedTaskName }) }}
+      <div>{{ t('agent.scheduleDraftConfirmed', { name: finalizedTaskName }) }}</div>
+      <div v-if="finalizedEnabled && finalizedNextRunText">{{ t('agent.scheduleDraftFirstRunAt', { time: finalizedNextRunText }) }}</div>
+      <div v-else>{{ t('agent.scheduleDraftDisabledAfterCreate') }}</div>
     </div>
     <div v-else-if="isFinalized" class="result-summary">
       {{ t('agent.interaction.statusCancelled') }}
@@ -73,9 +75,6 @@
         <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
           <n-switch v-model:value="form.enabled" />
         </n-form-item>
-        <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')">
-          <n-switch v-model:value="form.runOnStartup" />
-        </n-form-item>
       </div>
     </n-form>
 
@@ -122,7 +121,6 @@ function createDefaultForm() {
     modelTier: 'sonnet',
     maxTurns: null,
     enabled: true,
-    runOnStartup: true,
     scheduleType: 'interval',
     intervalMinutes: 60,
     dailyTime: '09:00',
@@ -145,17 +143,31 @@ watch(() => props.message?.input?.draft, (draft) => {
 }, { immediate: true, deep: true })
 
 const titleText = computed(() => props.message?.input?.title || t('agent.scheduleDraftTitle'))
-const descriptionText = computed(() => props.message?.input?.description || '')
+const descriptionText = computed(() => {
+  if (isFinalized.value) return ''
+  return props.message?.input?.description || ''
+})
 const outputStatus = computed(() => props.message?.output?.status || 'pending')
 const isFinalized = computed(() => outputStatus.value === 'answered' || outputStatus.value === 'cancelled')
-const statusClass = computed(() => outputStatus.value)
+const statusClass = computed(() => {
+  if (outputStatus.value === 'answered') return 'confirmed'
+  return outputStatus.value
+})
 const statusText = computed(() => {
-  if (outputStatus.value === 'answered') return t('agent.interaction.statusAnswered')
+  if (outputStatus.value === 'answered') return t('agent.scheduleDraftStatusConfirmed')
   if (outputStatus.value === 'cancelled') return t('agent.interaction.statusCancelled')
   return t('agent.interaction.statusPending')
 })
 
 const finalizedTaskName = computed(() => props.message?.output?.taskName || form.value.name || t('agent.scheduleDraftDefaultName'))
+const finalizedEnabled = computed(() => props.message?.output?.enabled !== false)
+const finalizedNextRunText = computed(() => {
+  const value = props.message?.output?.nextRunAt
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+})
 
 const scheduleTypeOptions = computed(() => [
   { label: t('rightPanel.scheduledTasks.scheduleInterval'), value: 'interval' },
@@ -270,7 +282,7 @@ const handleSubmit = () => {
   color: var(--text-secondary);
 }
 
-.card-status.answered {
+.card-status.confirmed {
   color: var(--success-color, #16a34a);
 }
 
@@ -283,6 +295,12 @@ const handleSubmit = () => {
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.result-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .task-form :deep(.n-form-item) {

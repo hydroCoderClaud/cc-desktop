@@ -97,7 +97,6 @@ class ScheduledTaskService {
     this.started = false
     this.runningTasks = new Set()
     this.activeRuns = new Map()
-    this.startupTriggeredTaskIds = new Set()
 
     this._onAgentResult = this._handleAgentResult.bind(this)
     this._onAgentError = this._handleAgentError.bind(this)
@@ -122,12 +121,6 @@ class ScheduledTaskService {
         console.error('[ScheduledTask] Due task check failed:', err)
       })
     }, CHECK_INTERVAL_MS)
-
-    setTimeout(() => {
-      this._runStartupTasks().catch(err => {
-        console.error('[ScheduledTask] Startup tasks failed:', err)
-      })
-    }, 1500)
 
     setTimeout(() => {
       this._checkDueTasks().catch(err => {
@@ -235,18 +228,6 @@ class ScheduledTaskService {
   async onSystemResume() {
     if (!this.started) return
     await this._checkDueTasks()
-  }
-
-  async _runStartupTasks() {
-    if (!this.sessionDatabase) return
-    const tasks = this.sessionDatabase.listScheduledTasks()
-      .filter(task => task.enabled && task.runOnStartup)
-
-    for (const task of tasks) {
-      if (this.startupTriggeredTaskIds.has(task.id)) continue
-      this.startupTriggeredTaskIds.add(task.id)
-      await this._executeTask(task, 'startup')
-    }
   }
 
   async _checkDueTasks() {
@@ -562,7 +543,6 @@ class ScheduledTaskService {
       modelTier: Object.prototype.hasOwnProperty.call(input, 'modelTier') ? normalizeModelTier(input.modelTier) : undefined,
       maxTurns,
       enabled: Object.prototype.hasOwnProperty.call(input, 'enabled') ? !!input.enabled : undefined,
-      runOnStartup: Object.prototype.hasOwnProperty.call(input, 'runOnStartup') ? !!input.runOnStartup : undefined,
       scheduleType,
       intervalMinutes,
       dailyTime: Object.prototype.hasOwnProperty.call(input, 'dailyTime') ? String(input.dailyTime || '') : undefined,

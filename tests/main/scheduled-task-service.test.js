@@ -83,11 +83,47 @@ describe('ScheduledTaskService', () => {
     const prompt = service._buildTaskPrompt({
       name: '日报',
       prompt: '整理进展'
-    }, 'startup', Date.UTC(2026, 3, 23, 1, 2, 3), { bootstrap: true })
+    }, 'scheduled', Date.UTC(2026, 3, 23, 1, 2, 3), { bootstrap: true })
 
     expect(prompt).toContain('# 定时智能体任务')
-    expect(prompt).toContain('触发原因：启动触发')
+    expect(prompt).toContain('触发原因：定时触发')
     expect(prompt).toContain('# 任务内容')
+  })
+
+  it('does not execute enabled tasks immediately when the service starts', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+      const service = new ScheduledTaskService({}, { on: vi.fn() })
+      service.setSessionDatabase({
+        listScheduledTasks: vi.fn(() => [{
+          id: 21,
+          enabled: true,
+          scheduleType: 'interval',
+          intervalMinutes: 30
+        }])
+      })
+
+      vi.spyOn(service, '_executeTask').mockResolvedValue()
+      const checkDueTasks = vi.spyOn(service, '_checkDueTasks').mockResolvedValue()
+
+      service.start()
+
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(service._executeTask).not.toHaveBeenCalled()
+      expect(checkDueTasks).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(500)
+
+      expect(checkDueTasks).toHaveBeenCalledTimes(1)
+      expect(service._executeTask).not.toHaveBeenCalled()
+
+      service.stop()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renames the bound agent session when the scheduled task name changes', async () => {

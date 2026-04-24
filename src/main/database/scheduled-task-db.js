@@ -39,7 +39,6 @@ function mapScheduledTaskRow(row) {
     modelTier: normalizeModelTier(row.model_tier),
     maxTurns: row.max_turns || null,
     enabled: !!row.enabled,
-    runOnStartup: !!row.run_on_startup,
     scheduleType: row.schedule_type || 'interval',
     intervalMinutes: row.interval_minutes || null,
     dailyTime: row.daily_time || '',
@@ -125,7 +124,7 @@ function withScheduledTaskOperations(BaseClass) {
         task.modelTier || null,
         task.maxTurns || null,
         task.enabled ? 1 : 0,
-        task.runOnStartup ? 1 : 0,
+        0,
         task.scheduleType || 'interval',
         task.intervalMinutes || null,
         task.dailyTime || '',
@@ -150,7 +149,6 @@ function withScheduledTaskOperations(BaseClass) {
         modelTier: 'model_tier',
         maxTurns: 'max_turns',
         enabled: 'enabled',
-        runOnStartup: 'run_on_startup',
         scheduleType: 'schedule_type',
         intervalMinutes: 'interval_minutes',
         dailyTime: 'daily_time',
@@ -164,7 +162,7 @@ function withScheduledTaskOperations(BaseClass) {
         fields.push(`${column} = ?`)
         if (key === 'weeklyDays') {
           values.push(JSON.stringify(value || []))
-        } else if (key === 'enabled' || key === 'runOnStartup') {
+        } else if (key === 'enabled') {
           values.push(value ? 1 : 0)
         } else {
           values.push(value ?? null)

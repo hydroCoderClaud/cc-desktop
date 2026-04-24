@@ -21,7 +21,6 @@
                 <n-tag size="small" :type="task.enabled ? 'success' : 'default'">
                   {{ task.enabled ? t('rightPanel.scheduledTasks.enabled') : t('rightPanel.scheduledTasks.disabled') }}
                 </n-tag>
-                <n-tag v-if="task.runOnStartup" size="small" type="info" :bordered="false">{{ t('rightPanel.scheduledTasks.runOnStartupBadge') }}</n-tag>
               </div>
               <div class="title-meta">
                 <span>{{ describeSchedule(task) }}</span>
@@ -84,7 +83,6 @@
             <div class="grid compact-grid">
               <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
               <n-form-item :label="t('rightPanel.scheduledTasks.enabled')"><n-switch v-model:value="form.enabled" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.runOnStartup')"><n-switch v-model:value="form.runOnStartup" /></n-form-item>
             </div>
             <div class="grid compact-grid schedule-detail-grid" v-if="form.scheduleType === 'interval'">
               <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')"><n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" /></n-form-item>
@@ -164,7 +162,7 @@ const apiProfiles = ref([])
 const defaultProfileId = ref(null)
 const cleanupTaskChanged = ref(null)
 const showHistory = ref(false)
-const form = ref({ name: '', prompt: '', cwd: '', apiProfileId: DEFAULT_PROFILE, modelTier: 'sonnet', maxTurns: null, enabled: true, runOnStartup: true, scheduleType: 'interval', intervalMinutes: 60, dailyTime: '09:00', weeklyDays: [1] })
+const form = ref({ name: '', prompt: '', cwd: '', apiProfileId: DEFAULT_PROFILE, modelTier: 'sonnet', maxTurns: null, enabled: true, scheduleType: 'interval', intervalMinutes: 60, dailyTime: '09:00', weeklyDays: [1] })
 
 const scheduleTypeOptions = computed(() => [{ label: t('rightPanel.scheduledTasks.scheduleInterval'), value: 'interval' }, { label: t('rightPanel.scheduledTasks.scheduleDaily'), value: 'daily' }, { label: t('rightPanel.scheduledTasks.scheduleWeekly'), value: 'weekly' }])
 const modelTierOptions = computed(() => [{ label: t('agent.tierBalanced'), value: 'sonnet' }, { label: t('agent.tierPowerful'), value: 'opus' }, { label: t('agent.tierFast'), value: 'haiku' }])
@@ -184,7 +182,6 @@ const syncForm = (value) => {
     modelTier: value?.modelTier || 'sonnet',
     maxTurns: value?.maxTurns || null,
     enabled: !!value?.enabled,
-    runOnStartup: !!value?.runOnStartup,
     scheduleType: value?.scheduleType || 'interval',
     intervalMinutes: value?.intervalMinutes || 60,
     dailyTime: value?.dailyTime || '09:00',
@@ -235,7 +232,6 @@ const saveTask = async () => {
       modelTier: form.value.modelTier || null,
       maxTurns: form.value.maxTurns ?? null,
       enabled: !!form.value.enabled,
-      runOnStartup: !!form.value.runOnStartup,
       scheduleType: form.value.scheduleType,
       intervalMinutes: form.value.intervalMinutes ?? null,
       dailyTime: form.value.dailyTime || '',
