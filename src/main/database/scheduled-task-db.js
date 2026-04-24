@@ -43,6 +43,8 @@ function mapScheduledTaskRow(row) {
     intervalMinutes: row.interval_minutes || null,
     dailyTime: row.daily_time || '',
     weeklyDays: parseJSON(row.weekly_days, []),
+    monthlyMode: row.monthly_mode || 'day_of_month',
+    monthlyDay: row.monthly_day ?? null,
     firstRunMode: row.first_run_mode || (row.schedule_type === 'once' ? 'custom' : 'next_slot'),
     firstRunAt: row.first_run_at || null,
     createdAt: row.created_at || null,
@@ -115,9 +117,10 @@ function withScheduledTaskOperations(BaseClass) {
         INSERT INTO scheduled_tasks (
           name, prompt, cwd, api_profile_id, model_tier, max_turns,
           enabled, run_on_startup, schedule_type, interval_minutes, daily_time, weekly_days, first_run_mode, first_run_at,
+          monthly_mode, monthly_day,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         task.name || '',
         task.prompt || '',
@@ -133,6 +136,8 @@ function withScheduledTaskOperations(BaseClass) {
         JSON.stringify(task.weeklyDays || []),
         task.firstRunMode || 'next_slot',
         task.firstRunAt || null,
+        task.monthlyMode || 'day_of_month',
+        task.monthlyMode === 'last_day' ? null : (task.monthlyDay || 1),
         now,
         now
       )
@@ -157,6 +162,8 @@ function withScheduledTaskOperations(BaseClass) {
         intervalMinutes: 'interval_minutes',
         dailyTime: 'daily_time',
         weeklyDays: 'weekly_days',
+        monthlyMode: 'monthly_mode',
+        monthlyDay: 'monthly_day',
         firstRunMode: 'first_run_mode',
         firstRunAt: 'first_run_at'
       }

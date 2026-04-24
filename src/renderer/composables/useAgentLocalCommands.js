@@ -40,7 +40,7 @@ export function useAgentLocalCommands({
   }
 
   const normalizeScheduledTaskDraft = (draft = {}) => {
-    const scheduleType = ['interval', 'daily', 'weekly', 'workdays', 'once'].includes(draft.scheduleType)
+    const scheduleType = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once'].includes(draft.scheduleType)
       ? draft.scheduleType
       : 'interval'
     const firstRunMode = scheduleType === 'once'
@@ -54,6 +54,11 @@ export function useAgentLocalCommands({
         .map(day => Number(day))
         .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)))
       : [1]
+    const monthlyMode = draft.monthlyMode === 'last_day' ? 'last_day' : 'day_of_month'
+    const monthlyDayValue = Number(draft.monthlyDay)
+    const monthlyDay = Number.isInteger(monthlyDayValue)
+      ? Math.min(31, Math.max(1, monthlyDayValue))
+      : 1
 
     const intervalMinutes = Math.max(1, Number(draft.intervalMinutes) || 60)
     const maxTurnsValue = Number(draft.maxTurns)
@@ -71,6 +76,8 @@ export function useAgentLocalCommands({
       intervalMinutes,
       dailyTime: String(draft.dailyTime || '09:00').trim() || '09:00',
       weeklyDays: weeklyDays.length > 0 ? weeklyDays : [1],
+      monthlyMode,
+      monthlyDay,
       firstRunMode,
       firstRunAt: draft.firstRunAt ?? null
     }
@@ -93,6 +100,8 @@ export function useAgentLocalCommands({
       intervalMinutes: 60,
       dailyTime: '09:00',
       weeklyDays: [1],
+      monthlyMode: 'day_of_month',
+      monthlyDay: 1,
       firstRunMode: 'next_slot',
       firstRunAt: null
     })

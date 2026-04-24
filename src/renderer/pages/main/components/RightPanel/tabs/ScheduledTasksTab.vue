@@ -60,6 +60,10 @@
                 <span>{{ task.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
               </div>
               <div class="task-line">
+                <Icon :name="task.modelTier === 'opus' ? 'rocket' : task.modelTier === 'haiku' ? 'wind' : 'zap'" :size="12" />
+                <span>{{ t('rightPanel.scheduledTasks.modelTier') }}: {{ getModelTierLabel(task.modelTier) }}</span>
+              </div>
+              <div class="task-line">
                 <Icon name="clock" :size="12" />
                 <span>{{ t('rightPanel.scheduledTasks.nextRun') }}: {{ formatTimestamp(task.nextRunAt) }}</span>
               </div>
@@ -184,6 +188,27 @@
             />
           </n-form-item>
         </div>
+        <div class="task-grid" v-else-if="form.scheduleType === 'monthly'">
+          <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
+            <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
+          </n-form-item>
+          <n-form-item :label="t('rightPanel.scheduledTasks.monthlyMode')">
+            <n-select
+              v-model:value="form.monthlyMode"
+              :options="monthlyModeOptions"
+              :placeholder="t('rightPanel.scheduledTasks.monthlyModePlaceholder')"
+            />
+          </n-form-item>
+          <n-form-item v-if="form.monthlyMode !== 'last_day'" :label="t('rightPanel.scheduledTasks.monthlyDay')">
+            <n-input-number
+              v-model:value="form.monthlyDay"
+              :min="1"
+              :max="31"
+              :placeholder="t('rightPanel.scheduledTasks.monthlyDayPlaceholder')"
+              style="width: 100%;"
+            />
+          </n-form-item>
+        </div>
         <div class="task-grid" v-else-if="form.scheduleType === 'workdays'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
             <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
@@ -255,6 +280,10 @@
             <span>{{ describeSchedule(historyTarget) }}</span>
           </div>
           <div class="history-summary-item">
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelTier') }}</span>
+            <span>{{ getModelTierLabel(historyTarget.modelTier) }}</span>
+          </div>
+          <div class="history-summary-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
             <span>{{ historyTarget.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
           </div>
@@ -300,6 +329,9 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import {
   buildFirstRunModeOptions,
+  buildMonthlyModeOptions,
+  getScheduledTaskModelTierLabel,
+  getScheduledTaskModelTierOptions,
   buildScheduleTypeOptions,
   buildWeeklyDayOptions,
   createScheduledTaskFormDefaults,
@@ -358,12 +390,9 @@ const statusOptions = computed(() => [
 
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
 const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
+const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
 
-const modelTierOptions = computed(() => [
-  { label: t('agent.tierBalanced'), value: 'sonnet' },
-  { label: t('agent.tierPowerful'), value: 'opus' },
-  { label: t('agent.tierFast'), value: 'haiku' }
-])
+const modelTierOptions = computed(() => getScheduledTaskModelTierOptions(t))
 
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
 
@@ -492,6 +521,8 @@ const openEditModal = (task) => {
     intervalMinutes: task.intervalMinutes || 60,
     dailyTime: task.dailyTime || '09:00',
     weeklyDays: Array.isArray(task.weeklyDays) ? [...task.weeklyDays] : [1],
+    monthlyMode: task.monthlyMode === 'last_day' ? 'last_day' : 'day_of_month',
+    monthlyDay: task.monthlyDay || 1,
     firstRunMode: task.firstRunMode || 'next_slot',
     firstRunAt: task.firstRunAt || null
   }
@@ -512,6 +543,8 @@ const saveTask = async () => {
       ...form.value,
       apiProfileId: form.value.apiProfileId === DEFAULT_PROFILE_OPTION_VALUE ? null : form.value.apiProfileId,
       cwd: form.value.cwd?.trim() || null,
+      monthlyMode: form.value.monthlyMode,
+      monthlyDay: form.value.monthlyMode === 'last_day' ? null : (form.value.monthlyDay ?? null),
       firstRunMode: form.value.scheduleType === 'once' ? 'custom' : form.value.firstRunMode,
       firstRunAt: form.value.firstRunAt ?? null
     }
@@ -608,8 +641,7 @@ const getProfileName = (profileId) => {
 }
 
 const getModelTierLabel = (tier) => {
-  if (!tier) return t('rightPanel.scheduledTasks.defaultModelTier')
-  return modelTierOptions.value.find(item => item.value === tier)?.label || tier
+  return getScheduledTaskModelTierLabel(tier, t)
 }
 
 const describeSchedule = (task) => {

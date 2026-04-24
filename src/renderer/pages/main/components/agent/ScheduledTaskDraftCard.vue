@@ -70,6 +70,17 @@
           <n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable />
         </n-form-item>
       </div>
+      <div class="task-grid" v-else-if="form.scheduleType === 'monthly'">
+        <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
+          <n-input v-model:value="form.dailyTime" placeholder="09:00" />
+        </n-form-item>
+        <n-form-item :label="t('rightPanel.scheduledTasks.monthlyMode')">
+          <n-select v-model:value="form.monthlyMode" :options="monthlyModeOptions" />
+        </n-form-item>
+        <n-form-item v-if="form.monthlyMode !== 'last_day'" :label="t('rightPanel.scheduledTasks.monthlyDay')" :feedback="monthlyDayError || ''" :validation-status="monthlyDayError ? 'error' : undefined">
+          <n-input-number v-model:value="form.monthlyDay" :min="1" :max="31" style="width: 100%;" />
+        </n-form-item>
+      </div>
       <div class="task-grid" v-else-if="form.scheduleType === 'workdays'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
           <n-input v-model:value="form.dailyTime" placeholder="09:00" />
@@ -115,9 +126,11 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import {
   buildFirstRunModeOptions,
+  buildMonthlyModeOptions,
   buildScheduleTypeOptions,
   buildWeeklyDayOptions,
-  createScheduledTaskFormDefaults
+  createScheduledTaskFormDefaults,
+  getScheduledTaskModelTierOptions
 } from '@utils/scheduled-task-meta'
 
 const props = defineProps({
@@ -150,7 +163,9 @@ const applyDraft = (draft) => {
     ...createDefaultForm(),
     ...next,
     cwd: next.cwd || '',
-    weeklyDays: Array.isArray(next.weeklyDays) && next.weeklyDays.length > 0 ? [...next.weeklyDays] : [1]
+    weeklyDays: Array.isArray(next.weeklyDays) && next.weeklyDays.length > 0 ? [...next.weeklyDays] : [1],
+    monthlyMode: next.monthlyMode === 'last_day' ? 'last_day' : 'day_of_month',
+    monthlyDay: next.monthlyDay == null ? 1 : (Number.isInteger(Number(next.monthlyDay)) ? Number(next.monthlyDay) : 1)
   }
 }
 
@@ -187,12 +202,9 @@ const finalizedNextRunText = computed(() => {
 
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
 const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
+const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
 
-const modelTierOptions = computed(() => [
-  { label: t('agent.tierBalanced'), value: 'sonnet' },
-  { label: t('agent.tierPowerful'), value: 'opus' },
-  { label: t('agent.tierFast'), value: 'haiku' }
-])
+const modelTierOptions = computed(() => getScheduledTaskModelTierOptions(t))
 
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
 
@@ -214,13 +226,18 @@ const weeklyDaysError = computed(() => {
     ? ''
     : t('agent.scheduleDraftWeeklyDaysRequired')
 })
+const monthlyDayError = computed(() => {
+  if (form.value.scheduleType !== 'monthly' || form.value.monthlyMode === 'last_day') return ''
+  const day = Number(form.value.monthlyDay)
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? '' : t('rightPanel.scheduledTasks.monthlyDayRequired')
+})
 const firstRunAtError = computed(() => {
   const requiresFirstRunAt = form.value.scheduleType === 'once' || form.value.firstRunMode === 'custom'
   if (!requiresFirstRunAt) return ''
   return form.value.firstRunAt ? '' : t('rightPanel.scheduledTasks.firstRunAtRequired')
 })
 
-const canSubmit = computed(() => !nameError.value && !promptError.value && !timeError.value && !weeklyDaysError.value && !firstRunAtError.value)
+const canSubmit = computed(() => !nameError.value && !promptError.value && !timeError.value && !weeklyDaysError.value && !monthlyDayError.value && !firstRunAtError.value)
 
 const loadProfiles = async () => {
   try {
@@ -252,6 +269,8 @@ const handleSubmit = () => {
       name: form.value.name.trim(),
       prompt: form.value.prompt.trim(),
       cwd: form.value.cwd?.trim() || null,
+      monthlyMode: form.value.monthlyMode,
+      monthlyDay: form.value.monthlyMode === 'last_day' ? null : (form.value.monthlyDay ?? null),
       firstRunMode: form.value.scheduleType === 'once' ? 'custom' : form.value.firstRunMode,
       firstRunAt: form.value.firstRunAt ?? null
     }

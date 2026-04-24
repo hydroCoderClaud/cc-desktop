@@ -31,15 +31,6 @@
           </div>
         </div>
 
-        <div class="task-state">
-          <span class="state-pill" :class="{ enabled: task.enabled }">
-            {{ task.enabled ? t('rightPanel.scheduledTasks.enabled') : t('rightPanel.scheduledTasks.disabled') }}
-          </span>
-          <span class="state-pill" :class="{ detached: !task.sessionId }">
-            {{ task.sessionId ? t('rightPanel.scheduledTasks.linkedSession') : t('rightPanel.scheduledTasks.detachedSession') }}
-          </span>
-        </div>
-
         <div class="task-actions">
           <button class="text-btn" :disabled="runningTaskId === task.id" @click="runNow(task)">
             {{ t('rightPanel.scheduledTasks.runNow') }}
@@ -224,7 +215,7 @@ onUnmounted(() => {
 
 .task-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto;
   gap: 12px;
   align-items: center;
   min-height: 48px;
@@ -250,7 +241,6 @@ onUnmounted(() => {
   gap: 2px;
 }
 
-.task-state,
 .task-actions {
   display: flex;
   align-items: center;
@@ -288,27 +278,6 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.state-pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: var(--text-color-muted);
-  background: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-}
-
-.state-pill.enabled {
-  color: var(--success-color, #16a34a);
-  border-color: rgba(22, 163, 74, 0.35);
-}
-
-.state-pill.detached {
-  color: var(--warning-color, #d97706);
-  border-color: rgba(217, 119, 6, 0.35);
 }
 
 .text-btn {
@@ -358,7 +327,6 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .task-state,
   .task-actions {
     flex-wrap: wrap;
     justify-content: flex-start;

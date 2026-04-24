@@ -211,7 +211,9 @@ class SessionDatabaseBase {
 
     const scheduledTaskNewColumns = [
       { name: 'first_run_mode', type: "TEXT DEFAULT 'next_slot'" },
-      { name: 'first_run_at', type: 'INTEGER' }
+      { name: 'first_run_at', type: 'INTEGER' },
+      { name: 'monthly_mode', type: "TEXT DEFAULT 'day_of_month'" },
+      { name: 'monthly_day', type: 'INTEGER DEFAULT 1' }
     ]
 
     for (const col of scheduledTaskNewColumns) {
@@ -549,6 +551,8 @@ class SessionDatabaseBase {
         interval_minutes INTEGER,
         daily_time TEXT DEFAULT '',
         weekly_days TEXT DEFAULT '[]',
+        monthly_mode TEXT NOT NULL DEFAULT 'day_of_month',
+        monthly_day INTEGER DEFAULT 1,
         first_run_mode TEXT NOT NULL DEFAULT 'next_slot',
         first_run_at INTEGER,
         created_at INTEGER,

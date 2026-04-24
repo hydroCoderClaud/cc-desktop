@@ -42,6 +42,24 @@ describe('ScheduledTaskService', () => {
       scheduleType: 'workdays',
       dailyTime: '24:00'
     })).toThrow('Workday schedule requires HH:mm time')
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'monthly',
+      dailyTime: '24:00',
+      monthlyMode: 'day_of_month',
+      monthlyDay: 15
+    })).toThrow('Monthly schedule requires HH:mm time')
+
+    expect(() => service._normalizeTaskInput({
+      name: 'a',
+      prompt: 'b',
+      scheduleType: 'monthly',
+      dailyTime: '09:00',
+      monthlyMode: 'day_of_month',
+      monthlyDay: 32
+    })).toThrow('Monthly schedule requires a valid day of month')
   })
 
   it('validates first-run options for custom and one-time schedules', async () => {
@@ -112,6 +130,34 @@ describe('ScheduledTaskService', () => {
       firstRunAt: customFirstRun,
       lastRunAt: Date.UTC(2026, 3, 25, 1, 0, 0)
     }, Date.UTC(2026, 3, 25, 2, 0, 0))).toBeNull()
+  })
+
+  it('computes monthly schedules for fixed day and last day modes', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+
+    const beforeThisMonthRun = new Date('2026-04-10T08:00:00')
+    const thisMonth = service._computeNextMonthlyTime('09:30', 15, 'day_of_month', beforeThisMonthRun)
+    expect(thisMonth.getFullYear()).toBe(2026)
+    expect(thisMonth.getMonth()).toBe(3)
+    expect(thisMonth.getDate()).toBe(15)
+    expect(thisMonth.getHours()).toBe(9)
+    expect(thisMonth.getMinutes()).toBe(30)
+
+    const afterThisMonthRun = new Date('2026-04-16T08:00:00')
+    const nextMonth = service._computeNextMonthlyTime('09:30', 15, 'day_of_month', afterThisMonthRun)
+    expect(nextMonth.getFullYear()).toBe(2026)
+    expect(nextMonth.getMonth()).toBe(4)
+    expect(nextMonth.getDate()).toBe(15)
+
+    const februaryClamp = service._computeNextMonthlyTime('09:00', 31, 'day_of_month', new Date('2026-02-01T08:00:00'))
+    expect(februaryClamp.getMonth()).toBe(1)
+    expect(februaryClamp.getDate()).toBe(28)
+
+    const lastDay = service._computeNextMonthlyTime('18:00', null, 'last_day', new Date('2026-04-10T08:00:00'))
+    expect(lastDay.getMonth()).toBe(3)
+    expect(lastDay.getDate()).toBe(30)
+    expect(lastDay.getHours()).toBe(18)
   })
 
   it('builds localized scheduled task prompts based on current locale', async () => {

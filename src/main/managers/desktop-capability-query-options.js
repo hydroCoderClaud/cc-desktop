@@ -1,29 +1,50 @@
 const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
-  'You can manage cc-desktop scheduled tasks with MCP tools.',
-  'When the user asks to create, inspect, update, enable, or disable scheduled tasks, use these tools instead of telling the user to use /schedule.',
-  'Before modifying an existing task, call the list tool unless the user already provided an explicit task ID.',
-  'After any mutation, summarize the actual task state returned by the tool, especially enabled and nextRunAt.'
+  'You can manage hydrodesktop scheduled tasks with MCP tools.',
+  'You do have direct access to HydroDesktop scheduled tasks through the hydrodesktop MCP server in this session.',
+  'Do not say you cannot access HydroDesktop scheduled tasks, and do not redirect the user to /schedule or the desktop UI when these tools can answer the request.',
+  'Do not substitute Claude Code built-in cron jobs for HydroDesktop scheduled tasks unless the user explicitly asks about Claude Code cron jobs.',
+  'When the user asks to create, inspect, update, enable, disable, run, delete, or review scheduled task history, use these tools instead of telling the user to use /schedule.',
+  'Treat Chinese phrases like 定时任务, 计划任务, 定时执行, 每天, 每周, 每月, 间隔执行, 运行记录, 执行历史, 立即执行, 启用, 停用, 删除任务 as scheduled-task intents.',
+  'Use schedule_list for asking what tasks exist or when the target task is unclear.',
+  'Use schedule_get for one task details, current configuration, next run time, failure count, or last error.',
+  'Use schedule_runs for execution history, recent failures, skipped runs, trigger reason, or debugging why a task did not run.',
+  'Use schedule_run_now when the user wants to test, verify, trigger now, run once immediately, or 立即执行.',
+  'Use schedule_delete only when the user clearly asks to remove a task.',
+  'Before modifying or deleting an existing task, call schedule_list unless the user already provided an explicit task ID.',
+  'Do not claim there are no tasks, no history, or a task is disabled without calling the relevant tool first.',
+  'After any mutation or inspection, summarize the actual task state returned by the tool, especially enabled, nextRunAt, lastError, and failureCount.',
+  'When presenting model tier to the user, prefer the localized display fields such as modelTierLabel instead of raw tier codes like opus, sonnet, or haiku.',
+  'Never append raw internal tier codes in parentheses or elsewhere after the localized label. Do not write strings like 最强(opus), 均衡(sonnet), 最快(haiku), Most Powerful (opus), Balanced (sonnet), or Fastest (haiku).'
 ].join(' ')
 
 const CONFLICTING_CRON_TOOLS = [
   'CronList',
   'CronCreate',
   'CronUpdate',
-  'CronDelete'
+  'CronDelete',
+  'cronList',
+  'cronCreate',
+  'cronUpdate',
+  'cronDelete'
 ]
-const DESKTOP_CAPABILITY_SERVER_NAME = 'cc-desktop'
+const DESKTOP_CAPABILITY_SERVER_NAME = 'hydrodesktop'
 const DESKTOP_CAPABILITY_TOOL_NAMES = [
-  'cc_desktop_schedule_list',
-  'cc_desktop_schedule_create',
-  'cc_desktop_schedule_update',
-  'cc_desktop_schedule_enable',
-  'cc_desktop_schedule_disable'
+  'schedule_list',
+  'schedule_get',
+  'schedule_runs',
+  'schedule_create',
+  'schedule_update',
+  'schedule_enable',
+  'schedule_disable',
+  'schedule_run_now',
+  'schedule_delete'
 ]
 const DESKTOP_CAPABILITY_ALLOWED_TOOLS = DESKTOP_CAPABILITY_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
 )
 
-const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'workdays', 'once']
+const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
+const MONTHLY_MODES = ['day_of_month', 'last_day']
 const FIRST_RUN_MODES = ['immediate', 'next_slot', 'custom']
 const MODEL_TIERS = ['haiku', 'sonnet', 'opus']
 const UPDATE_FIELDS = [
@@ -38,11 +59,75 @@ const UPDATE_FIELDS = [
   'intervalMinutes',
   'dailyTime',
   'weeklyDays',
+  'monthlyMode',
+  'monthlyDay',
   'firstRunMode',
   'firstRunAt'
 ]
 
-function toSerializableTask(task = {}) {
+const DISPLAY_I18N = {
+  'zh-CN': {
+    statusEnabled: '启用',
+    statusDisabled: '停用',
+    nextRunUnscheduled: '未安排',
+    onceNotSet: '未设置',
+    defaultWorkspace: '默认工作目录',
+    scheduleDaily: (time) => `每天 ${time}`,
+    scheduleWeekly: (days, time) => `每周 ${days} ${time}`,
+    scheduleMonthly: (day, time) => `每月 ${day} 日 ${time}`,
+    scheduleMonthlyLastDay: (time) => `每月最后一天 ${time}`,
+    scheduleWorkdays: (time) => `工作日 ${time}`,
+    scheduleOnce: (time) => `单次 ${time}`,
+    scheduleInterval: (minutes) => `每隔 ${minutes} 分钟`,
+    summaryNextRun: (time) => `下次执行 ${time}`,
+    summaryModelTier: (label) => `模型档位 ${label}`,
+    summaryWorkingDirectory: (cwd) => `工作目录 ${cwd}`,
+    modelTierLabels: {
+      opus: '最强',
+      sonnet: '均衡',
+      haiku: '最快'
+    }
+  },
+  'en-US': {
+    statusEnabled: 'Enabled',
+    statusDisabled: 'Disabled',
+    nextRunUnscheduled: 'Not scheduled',
+    onceNotSet: 'Not set',
+    defaultWorkspace: 'Default workspace',
+    scheduleDaily: (time) => `Daily ${time}`,
+    scheduleWeekly: (days, time) => `Weekly ${days} ${time}`,
+    scheduleMonthly: (day, time) => `Monthly on day ${day} at ${time}`,
+    scheduleMonthlyLastDay: (time) => `Monthly on the last day at ${time}`,
+    scheduleWorkdays: (time) => `Workdays ${time}`,
+    scheduleOnce: (time) => `Once ${time}`,
+    scheduleInterval: (minutes) => `Every ${minutes} minutes`,
+    summaryNextRun: (time) => `Next run ${time}`,
+    summaryModelTier: (label) => `Model Tier ${label}`,
+    summaryWorkingDirectory: (cwd) => `Working Directory ${cwd}`,
+    modelTierLabels: {
+      opus: 'Most Powerful',
+      sonnet: 'Balanced',
+      haiku: 'Fastest'
+    }
+  }
+}
+
+function getDisplayLocale(scheduledTaskService) {
+  const locale = scheduledTaskService?.configManager?.getConfig?.()?.settings?.locale
+  return DISPLAY_I18N[locale] ? locale : 'zh-CN'
+}
+
+function getDisplayDict(locale) {
+  return DISPLAY_I18N[DISPLAY_I18N[locale] ? locale : 'zh-CN']
+}
+
+function getModelTierLabel(tier, locale) {
+  if (!tier) return null
+  const dict = getDisplayDict(locale)
+  return dict.modelTierLabels[tier] || tier
+}
+
+function toSerializableTask(task = {}, locale = 'zh-CN') {
   return {
     id: task.id ?? null,
     name: task.name || '',
@@ -52,14 +137,35 @@ function toSerializableTask(task = {}) {
     intervalMinutes: task.intervalMinutes ?? null,
     dailyTime: task.dailyTime || '',
     weeklyDays: Array.isArray(task.weeklyDays) ? task.weeklyDays : [],
+    monthlyMode: task.monthlyMode || 'day_of_month',
+    monthlyDay: task.monthlyMode === 'last_day' ? null : (task.monthlyDay ?? 1),
     firstRunMode: task.firstRunMode || 'next_slot',
     firstRunAt: task.firstRunAt ?? null,
     nextRunAt: task.nextRunAt ?? null,
     lastRunAt: task.lastRunAt ?? null,
+    createdAt: task.createdAt ?? null,
+    updatedAt: task.updatedAt ?? null,
+    sessionId: task.sessionId || null,
+    lastError: task.lastError || null,
+    failureCount: task.failureCount ?? 0,
     apiProfileId: task.apiProfileId || null,
-    modelTier: task.modelTier || null,
+    modelTierLabel: getModelTierLabel(task.modelTier || null, locale),
     maxTurns: task.maxTurns ?? null,
     cwd: task.cwd || null
+  }
+}
+
+function toSerializableTaskRun(run = {}) {
+  return {
+    id: run.id ?? null,
+    taskId: run.taskId ?? null,
+    sessionId: run.sessionId || null,
+    triggerReason: run.triggerReason || 'scheduled',
+    status: run.status || 'success',
+    errorMessage: run.errorMessage || null,
+    startedAt: run.startedAt ?? null,
+    finishedAt: run.finishedAt ?? null,
+    createdAt: run.createdAt ?? null
   }
 }
 
@@ -70,26 +176,46 @@ function formatTimestamp(value) {
   return new Date(timestamp).toISOString()
 }
 
-function formatSchedule(task) {
+function formatSchedule(task, locale = 'zh-CN') {
+  const dict = getDisplayDict(locale)
   switch (task.scheduleType) {
     case 'daily':
-      return `每天 ${task.dailyTime || '09:00'}`
+      return dict.scheduleDaily(task.dailyTime || '09:00')
     case 'weekly':
-      return `每周 ${Array.isArray(task.weeklyDays) ? task.weeklyDays.join(',') : ''} ${task.dailyTime || '09:00'}`
+      return dict.scheduleWeekly(Array.isArray(task.weeklyDays) ? task.weeklyDays.join(',') : '', task.dailyTime || '09:00')
+    case 'monthly':
+      return task.monthlyMode === 'last_day'
+        ? dict.scheduleMonthlyLastDay(task.dailyTime || '09:00')
+        : dict.scheduleMonthly(task.monthlyDay || 1, task.dailyTime || '09:00')
     case 'workdays':
-      return `工作日 ${task.dailyTime || '09:00'}`
+      return dict.scheduleWorkdays(task.dailyTime || '09:00')
     case 'once':
-      return `单次 ${formatTimestamp(task.firstRunAt) || '未设置'}`
+      return dict.scheduleOnce(formatTimestamp(task.firstRunAt) || dict.onceNotSet)
     case 'interval':
     default:
-      return `每隔 ${task.intervalMinutes || 60} 分钟`
+      return dict.scheduleInterval(task.intervalMinutes || 60)
   }
 }
 
-function buildTaskSummary(task) {
-  const nextRunAt = formatTimestamp(task.nextRunAt) || '未安排'
-  const status = task.enabled ? '启用' : '停用'
-  return `[#${task.id}] ${task.name} | ${status} | ${formatSchedule(task)} | 下次执行 ${nextRunAt}`
+function buildTaskSummary(task, locale = 'zh-CN') {
+  const dict = getDisplayDict(locale)
+  const nextRunAt = formatTimestamp(task.nextRunAt) || dict.nextRunUnscheduled
+  const status = task.enabled ? dict.statusEnabled : dict.statusDisabled
+  const summaryParts = [
+    `[#${task.id}] ${task.name}`,
+    status,
+    formatSchedule(task, locale),
+    dict.summaryNextRun(nextRunAt)
+  ]
+
+  const modelTierLabel = getModelTierLabel(task.modelTier || null, locale)
+  if (modelTierLabel) {
+    summaryParts.push(dict.summaryModelTier(modelTierLabel))
+  }
+
+  summaryParts.push(dict.summaryWorkingDirectory(task.cwd || dict.defaultWorkspace))
+
+  return summaryParts.join(' | ')
 }
 
 function buildToolResult(payload) {
@@ -135,6 +261,27 @@ function resolveTaskReference(scheduledTaskService, { taskId, taskName }) {
   throw new Error(`未找到名称为 "${taskName}" 的定时任务`)
 }
 
+function serializeTaskWithMetadata(task, locale = 'zh-CN') {
+  return {
+    ...toSerializableTask(task, locale),
+    summary: buildTaskSummary(task, locale),
+    nextRunAtIso: formatTimestamp(task.nextRunAt),
+    lastRunAtIso: formatTimestamp(task.lastRunAt),
+    firstRunAtIso: formatTimestamp(task.firstRunAt),
+    createdAtIso: formatTimestamp(task.createdAt),
+    updatedAtIso: formatTimestamp(task.updatedAt)
+  }
+}
+
+function serializeTaskRunWithMetadata(run) {
+  return {
+    ...toSerializableTaskRun(run),
+    startedAtIso: formatTimestamp(run.startedAt),
+    finishedAtIso: formatTimestamp(run.finishedAt),
+    createdAtIso: formatTimestamp(run.createdAt)
+  }
+}
+
 function pickUpdates(args) {
   const updates = {}
   for (const key of UPDATE_FIELDS) {
@@ -149,6 +296,8 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
   if (!scheduledTaskService || session?.source === 'scheduled') {
     return {}
   }
+
+  const displayLocale = getDisplayLocale(scheduledTaskService)
 
   const sdk = await import('@anthropic-ai/claude-agent-sdk')
   const { z } = await import('zod/v4')
@@ -169,8 +318,10 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
     enabled: z.boolean().optional().describe('是否启用'),
     scheduleType: z.enum(SCHEDULE_TYPES).optional().describe('调度类型'),
     intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-    dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/workdays 使用'),
+    dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/monthly/workdays 使用'),
     weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
+    monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
+    monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
     firstRunMode: z.enum(FIRST_RUN_MODES).optional().describe('首次启动策略'),
     firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用')
   }
@@ -178,19 +329,10 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
   const scheduleTools = [
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[0],
-      '列出当前 cc-desktop 中的全部定时任务，便于后续通过 taskId 或任务名做修改。',
+      '列出当前 Hydro Desktop 中的全部定时任务，便于后续通过 taskId 或任务名做修改。',
       {},
       async () => {
-        const tasks = getTaskCandidates(scheduledTaskService).map(task => {
-          const serialized = toSerializableTask(task)
-          return {
-            ...serialized,
-            summary: buildTaskSummary(task),
-            nextRunAtIso: formatTimestamp(task.nextRunAt),
-            lastRunAtIso: formatTimestamp(task.lastRunAt),
-            firstRunAtIso: formatTimestamp(task.firstRunAt)
-          }
-        })
+        const tasks = getTaskCandidates(scheduledTaskService).map(task => serializeTaskWithMetadata(task, displayLocale))
 
         return buildToolResult({
           action: 'list',
@@ -201,14 +343,50 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[1],
-      '创建一个新的 cc-desktop 定时任务。',
+      '查看一个 Hydro Desktop 定时任务的详情。先提供 taskId；若没有 taskId，可提供 taskName。',
+      taskRefShape,
+      async (args) => {
+        const task = resolveTaskReference(scheduledTaskService, args)
+        return buildToolResult({
+          action: 'get',
+          task: serializeTaskWithMetadata(task, displayLocale)
+        })
+      }
+    ),
+    tool(
+      DESKTOP_CAPABILITY_TOOL_NAMES[2],
+      '查看一个 Hydro Desktop 定时任务最近的执行记录。先提供 taskId；若没有 taskId，可提供 taskName。',
+      {
+        ...taskRefShape,
+        limit: z.number().int().positive().max(50).optional().describe('返回最近几条记录，默认 20，最大 50')
+      },
+      async (args) => {
+        const task = resolveTaskReference(scheduledTaskService, args)
+        const limit = args.limit ?? 20
+        const runs = typeof scheduledTaskService.getTaskRuns === 'function'
+          ? scheduledTaskService.getTaskRuns(task.id, limit)
+          : []
+
+        return buildToolResult({
+          action: 'runs',
+          task: serializeTaskWithMetadata(task, displayLocale),
+          count: Array.isArray(runs) ? runs.length : 0,
+          runs: Array.isArray(runs) ? runs.map(run => serializeTaskRunWithMetadata(run)) : []
+        })
+      }
+    ),
+    tool(
+      DESKTOP_CAPABILITY_TOOL_NAMES[3],
+      '创建一个新的 Hydro Desktop 定时任务。',
       {
         name: z.string().min(1).describe('任务名称'),
         prompt: z.string().min(1).describe('任务提示词'),
         scheduleType: z.enum(SCHEDULE_TYPES).describe('调度类型'),
         intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-        dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/workdays 使用'),
+        dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/monthly/workdays 使用'),
         weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
+        monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
+        monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
         firstRunMode: z.enum(FIRST_RUN_MODES).optional().describe('首次启动策略'),
         firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用'),
         cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
@@ -221,19 +399,13 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
         const created = await scheduledTaskService.createTask(args)
         return buildToolResult({
           action: 'create',
-          task: {
-            ...toSerializableTask(created),
-            summary: buildTaskSummary(created),
-            nextRunAtIso: formatTimestamp(created.nextRunAt),
-            lastRunAtIso: formatTimestamp(created.lastRunAt),
-            firstRunAtIso: formatTimestamp(created.firstRunAt)
-          }
+          task: serializeTaskWithMetadata(created, displayLocale)
         })
       }
     ),
     tool(
-      DESKTOP_CAPABILITY_TOOL_NAMES[2],
-      '更新一个已存在的 cc-desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      DESKTOP_CAPABILITY_TOOL_NAMES[4],
+      '更新一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       {
         ...taskRefShape,
         ...sharedTaskFields
@@ -247,51 +419,60 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
         const updated = await scheduledTaskService.updateTask(targetTask.id, updates)
         return buildToolResult({
           action: 'update',
-          task: {
-            ...toSerializableTask(updated),
-            summary: buildTaskSummary(updated),
-            nextRunAtIso: formatTimestamp(updated.nextRunAt),
-            lastRunAtIso: formatTimestamp(updated.lastRunAt),
-            firstRunAtIso: formatTimestamp(updated.firstRunAt)
-          }
+          task: serializeTaskWithMetadata(updated, displayLocale)
         })
       }
     ),
     tool(
-      DESKTOP_CAPABILITY_TOOL_NAMES[3],
-      '启用一个已存在的 cc-desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      DESKTOP_CAPABILITY_TOOL_NAMES[5],
+      '启用一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
         const updated = await scheduledTaskService.updateTask(targetTask.id, { enabled: true })
         return buildToolResult({
           action: 'enable',
-          task: {
-            ...toSerializableTask(updated),
-            summary: buildTaskSummary(updated),
-            nextRunAtIso: formatTimestamp(updated.nextRunAt),
-            lastRunAtIso: formatTimestamp(updated.lastRunAt),
-            firstRunAtIso: formatTimestamp(updated.firstRunAt)
-          }
+          task: serializeTaskWithMetadata(updated, displayLocale)
         })
       }
     ),
     tool(
-      DESKTOP_CAPABILITY_TOOL_NAMES[4],
-      '停用一个已存在的 cc-desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      DESKTOP_CAPABILITY_TOOL_NAMES[6],
+      '停用一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
         const updated = await scheduledTaskService.updateTask(targetTask.id, { enabled: false })
         return buildToolResult({
           action: 'disable',
-          task: {
-            ...toSerializableTask(updated),
-            summary: buildTaskSummary(updated),
-            nextRunAtIso: formatTimestamp(updated.nextRunAt),
-            lastRunAtIso: formatTimestamp(updated.lastRunAt),
-            firstRunAtIso: formatTimestamp(updated.firstRunAt)
-          }
+          task: serializeTaskWithMetadata(updated, displayLocale)
+        })
+      }
+    ),
+    tool(
+      DESKTOP_CAPABILITY_TOOL_NAMES[7],
+      '立即执行一个 Hydro Desktop 定时任务一次。先提供 taskId；若没有 taskId，可提供 taskName。',
+      taskRefShape,
+      async (args) => {
+        const targetTask = resolveTaskReference(scheduledTaskService, args)
+        const updated = await scheduledTaskService.runTaskNow(targetTask.id)
+        return buildToolResult({
+          action: 'run_now',
+          task: serializeTaskWithMetadata(updated, displayLocale)
+        })
+      }
+    ),
+    tool(
+      DESKTOP_CAPABILITY_TOOL_NAMES[8],
+      '删除一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      taskRefShape,
+      async (args) => {
+        const targetTask = resolveTaskReference(scheduledTaskService, args)
+        const result = await scheduledTaskService.deleteTask(targetTask.id)
+        return buildToolResult({
+          action: 'delete',
+          deletedTask: serializeTaskWithMetadata(targetTask, displayLocale),
+          result
         })
       }
     )

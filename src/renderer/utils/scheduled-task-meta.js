@@ -13,6 +13,8 @@ export function createScheduledTaskFormDefaults(defaultCwd = '') {
     intervalMinutes: 60,
     dailyTime: DEFAULT_DAILY_TIME,
     weeklyDays: [1],
+    monthlyMode: 'day_of_month',
+    monthlyDay: 1,
     firstRunMode: 'next_slot',
     firstRunAt: null
   }
@@ -23,6 +25,7 @@ export function buildScheduleTypeOptions(t) {
     { label: t('rightPanel.scheduledTasks.scheduleInterval'), value: 'interval' },
     { label: t('rightPanel.scheduledTasks.scheduleDaily'), value: 'daily' },
     { label: t('rightPanel.scheduledTasks.scheduleWeekly'), value: 'weekly' },
+    { label: t('rightPanel.scheduledTasks.scheduleMonthly'), value: 'monthly' },
     { label: t('rightPanel.scheduledTasks.scheduleWorkdays'), value: 'workdays' },
     { label: t('rightPanel.scheduledTasks.scheduleOnce'), value: 'once' }
   ]
@@ -43,6 +46,26 @@ export function buildWeeklyDayOptions(t) {
   }))
 }
 
+export function buildMonthlyModeOptions(t) {
+  return [
+    { label: t('rightPanel.scheduledTasks.monthlyModeDayOfMonth'), value: 'day_of_month' },
+    { label: t('rightPanel.scheduledTasks.monthlyModeLastDay'), value: 'last_day' }
+  ]
+}
+
+export function getScheduledTaskModelTierOptions(t) {
+  return [
+    { label: t('agent.tierBalanced'), value: 'sonnet' },
+    { label: t('agent.tierPowerful'), value: 'opus' },
+    { label: t('agent.tierFast'), value: 'haiku' }
+  ]
+}
+
+export function getScheduledTaskModelTierLabel(tier, t) {
+  if (!tier) return t('rightPanel.scheduledTasks.defaultModelTier')
+  return getScheduledTaskModelTierOptions(t).find(item => item.value === tier)?.label || tier
+}
+
 export function formatScheduledTaskDateTime(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -60,6 +83,17 @@ function describeRecurringSchedule(task, t, weeklyDayOptions) {
       .join(', ')
     return t('rightPanel.scheduledTasks.scheduleWeeklyDesc', {
       days: days || '-',
+      time: task.dailyTime || DEFAULT_DAILY_TIME
+    })
+  }
+  if (task.scheduleType === 'monthly') {
+    if (task.monthlyMode === 'last_day') {
+      return t('rightPanel.scheduledTasks.scheduleMonthlyLastDayDesc', {
+        time: task.dailyTime || DEFAULT_DAILY_TIME
+      })
+    }
+    return t('rightPanel.scheduledTasks.scheduleMonthlyDesc', {
+      day: task.monthlyDay || 1,
       time: task.dailyTime || DEFAULT_DAILY_TIME
     })
   }

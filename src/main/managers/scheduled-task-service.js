@@ -6,7 +6,7 @@ const DEFAULT_DAILY_TIME = '09:00'
 
 function normalizeScheduleType(type) {
   const normalized = String(type || '').trim().toLowerCase()
-  const allowed = new Set(['interval', 'daily', 'weekly', 'workdays', 'once'])
+  const allowed = new Set(['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once'])
   return allowed.has(normalized) ? normalized : 'interval'
 }
 
@@ -46,6 +46,22 @@ function normalizeWeeklyDays(days) {
     .map(day => Number(day))
     .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
   )).sort((a, b) => a - b)
+}
+
+function normalizeMonthlyMode(mode) {
+  const normalized = String(mode || '').trim().toLowerCase()
+  return normalized === 'last_day' ? 'last_day' : 'day_of_month'
+}
+
+function normalizeMonthlyDay(day) {
+  const normalized = Number(day)
+  if (!Number.isInteger(normalized)) return null
+  if (normalized < 1 || normalized > 31) return null
+  return normalized
+}
+
+function getMonthDays(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate()
 }
 
 function formatDateParts(timestamp) {
@@ -575,6 +591,13 @@ class ScheduledTaskService {
       ? null
       : Math.max(1, Number(input.maxTurns))
     const weeklyDays = normalizeWeeklyDays(input.weeklyDays)
+    const monthlyMode = input.monthlyMode === undefined && partial
+      ? undefined
+      : normalizeMonthlyMode(input.monthlyMode)
+    const rawMonthlyDay = input.monthlyDay === undefined && partial
+      ? undefined
+      : normalizeMonthlyDay(input.monthlyDay)
+    const monthlyDay = monthlyMode === 'last_day' ? null : rawMonthlyDay
     const normalizedFirstRunAt = normalizeTimestamp(input.firstRunAt)
     const firstRunMode = input.firstRunMode === undefined && partial
       ? undefined
@@ -599,6 +622,14 @@ class ScheduledTaskService {
         throw new Error('Weekly schedule requires HH:mm time')
       }
     }
+    if (scheduleType === 'monthly') {
+      if (!parseClockTime(input.dailyTime)) {
+        throw new Error('Monthly schedule requires HH:mm time')
+      }
+      if (monthlyMode !== 'last_day' && !monthlyDay) {
+        throw new Error('Monthly schedule requires a valid day of month')
+      }
+    }
     if (scheduleType === 'workdays' && !parseClockTime(input.dailyTime)) {
       throw new Error('Workday schedule requires HH:mm time')
     }
@@ -621,6 +652,8 @@ class ScheduledTaskService {
       intervalMinutes,
       dailyTime: Object.prototype.hasOwnProperty.call(input, 'dailyTime') ? String(input.dailyTime || '') : undefined,
       weeklyDays,
+      monthlyMode,
+      monthlyDay,
       firstRunMode,
       firstRunAt: Object.prototype.hasOwnProperty.call(input, 'firstRunAt') || !partial ? normalizedFirstRunAt : undefined
     }
@@ -654,6 +687,8 @@ class ScheduledTaskService {
         return this._computeNextDailyTime(task.dailyTime, now).getTime()
       case 'weekly':
         return this._computeNextWeeklyTime(task.dailyTime, task.weeklyDays, now).getTime()
+      case 'monthly':
+        return this._computeNextMonthlyTime(task.dailyTime, task.monthlyDay, task.monthlyMode, now).getTime()
       case 'workdays':
         return this._computeNextWorkdayTime(task.dailyTime, now).getTime()
       case 'interval':
@@ -723,6 +758,31 @@ class ScheduledTaskService {
       fallback.setDate(fallback.getDate() + 1)
     }
     return fallback
+  }
+
+  _computeNextMonthlyTime(time, monthlyDay, monthlyMode, now) {
+    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
+    const { hours, minutes } = parsed
+    const base = new Date(now)
+    base.setSeconds(0, 0)
+
+    const buildCandidate = (year, monthIndex) => {
+      const candidate = new Date(year, monthIndex, 1, hours, minutes, 0, 0)
+      const maxDay = getMonthDays(year, monthIndex)
+      const day = monthlyMode === 'last_day'
+        ? maxDay
+        : Math.min(normalizeMonthlyDay(monthlyDay) || 1, maxDay)
+      candidate.setDate(day)
+      return candidate
+    }
+
+    const currentMonthCandidate = buildCandidate(base.getFullYear(), base.getMonth())
+    if (currentMonthCandidate.getTime() > now.getTime()) {
+      return currentMonthCandidate
+    }
+
+    const nextMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1, hours, minutes, 0, 0)
+    return buildCandidate(nextMonth.getFullYear(), nextMonth.getMonth())
   }
 
   _buildTaskPrompt(task, triggerReason, timestamp, { bootstrap = false } = {}) {
