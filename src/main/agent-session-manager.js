@@ -25,6 +25,7 @@ const { LATEST_MODEL_ALIASES } = require('./utils/constants')
 const { AgentSession } = require('./agent-session')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
+const { buildDesktopCapabilityQueryOptions } = require('./managers/desktop-capability-query-options')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
 
@@ -893,6 +894,27 @@ class AgentSessionManager extends EventEmitter {
         input
       })
         }
+      }
+
+      try {
+        const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
+          scheduledTaskService: this.scheduledTaskService,
+          session
+        })
+        if (desktopCapabilityOptions?.mcpServers) {
+          queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
+        }
+        if (desktopCapabilityOptions?.appendSystemPrompt) {
+          queryOptions.appendSystemPrompt = desktopCapabilityOptions.appendSystemPrompt
+        }
+        if (desktopCapabilityOptions?.allowedTools?.length) {
+          queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
+        }
+        if (desktopCapabilityOptions?.disallowedTools?.length) {
+          queryOptions.disallowedTools = desktopCapabilityOptions.disallowedTools
+        }
+      } catch (err) {
+        console.warn('[AgentSession] Failed to build desktop capability query options:', err)
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取

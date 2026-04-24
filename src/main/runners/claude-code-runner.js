@@ -155,6 +155,10 @@ class ClaudeCodeRunner {
     if (options.model) queryOptions.model = options.model
     if (options.maxTurns) queryOptions.maxTurns = options.maxTurns
     if (options.resume) queryOptions.resume = options.resume
+    if (options.mcpServers) queryOptions.mcpServers = options.mcpServers
+    if (options.appendSystemPrompt) queryOptions.appendSystemPrompt = options.appendSystemPrompt
+    if (options.allowedTools) queryOptions.allowedTools = options.allowedTools
+    if (options.disallowedTools) queryOptions.disallowedTools = options.disallowedTools
 
     return queryFn({ prompt: messageQueue, options: queryOptions })
   }

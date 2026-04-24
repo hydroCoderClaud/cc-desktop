@@ -5,6 +5,9 @@ vi.mock('uuid', () => ({ v4: () => 'interaction-uuid-fixed' }))
 
 const { AgentSessionManager } = await import('../../src/main/agent-session-manager.js')
 const { AgentSession } = await import('../../src/main/agent-session.js')
+const {
+  DESKTOP_CAPABILITY_ALLOWED_TOOLS
+} = await import('../../src/main/managers/desktop-capability-query-options.js')
 
 describe('AgentSessionManager interactions', () => {
   function createManager() {
@@ -397,6 +400,73 @@ describe('AgentSessionManager interactions', () => {
     expect(result.success).toBe(false)
     expect(result.message).toBe('模型请求被拒绝：Coding Plan is currently only available for Coding Agents')
     expect(result.errorKind).toBe('API_ERROR')
+  })
+
+  it('injects scheduled-task MCP tools into manual chat sessions', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-with-tools', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+    manager.scheduledTaskService = {
+      listTasks: vi.fn(() => []),
+      createTask: vi.fn(),
+      updateTask: vi.fn()
+    }
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '帮我创建一个定时任务')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.appendSystemPrompt).toContain('scheduled tasks')
+    expect(createQueryOptions.mcpServers).toBeTruthy()
+    expect(Object.keys(createQueryOptions.mcpServers)).toContain('cc-desktop')
+    expect(createQueryOptions.allowedTools).toEqual(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    expect(createQueryOptions.disallowedTools).toEqual(
+      expect.arrayContaining(['CronList', 'CronCreate', 'CronUpdate', 'CronDelete'])
+    )
+  })
+
+  it('skips scheduled-task MCP tools for scheduled source sessions', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'scheduled-session', cwd: '/tmp', source: 'scheduled' })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+    manager.scheduledTaskService = {
+      listTasks: vi.fn(() => [])
+    }
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '执行定时任务')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.mcpServers).toBeUndefined()
+    expect(createQueryOptions.appendSystemPrompt).toBeUndefined()
+    expect(createQueryOptions.allowedTools).toBeUndefined()
+    expect(createQueryOptions.disallowedTools).toBeUndefined()
   })
 
   it('probeConnection marks CLI unavailable as HTTP-fallback eligible', async () => {

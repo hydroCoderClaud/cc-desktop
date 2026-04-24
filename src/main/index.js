@@ -241,6 +241,7 @@ app.whenReady().then(async () => {
 
   // 初始化定时任务服务（需要 configManager 和 agentSessionManager）
   scheduledTaskService = new ScheduledTaskService(configManager, agentSessionManager)
+  agentSessionManager.scheduledTaskService = scheduledTaskService
 
   // 设置 IPC 处理器
   setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService);
