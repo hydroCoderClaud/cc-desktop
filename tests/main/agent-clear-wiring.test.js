@@ -5,15 +5,20 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const useAgentChatPath = path.resolve(__dirname, '../../src/renderer/composables/useAgentChat.js')
+const useAgentLocalCommandsPath = path.resolve(__dirname, '../../src/renderer/composables/useAgentLocalCommands.js')
 const agentChatTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/AgentChatTab.vue')
 const mainContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/MainContent.vue')
 const leftPanelPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/LeftPanel.vue')
 
 describe('agent /clear session recreation wiring', () => {
-  it('routes /clear through the provided callback instead of clearing messages locally', () => {
+  it('routes /clear through the local command handler instead of clearing messages locally', () => {
     const source = fs.readFileSync(useAgentChatPath, 'utf-8')
+    const localCommandSource = fs.readFileSync(useAgentLocalCommandsPath, 'utf-8')
 
-    expect(source).toContain('await options.onClearRequested()')
+    expect(source).toContain("if (parsedSlashCommand.lowerName === '/clear')")
+    expect(source).toContain('return await handleLocalSlashCommand(parsedSlashCommand)')
+    expect(localCommandSource).toContain("if (lower === '/clear')")
+    expect(localCommandSource).toContain('await options.onClearRequested()')
     expect(source).not.toContain('Agent 模式：仅清空前端显示')
     expect(source).not.toContain("messages.value = []")
   })
