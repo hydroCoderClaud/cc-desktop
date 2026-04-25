@@ -1,5 +1,5 @@
 <template>
-  <div class="scheduled-task-card">
+  <div class="scheduled-task-card st-card">
     <div class="card-header">
       <div class="header-left">
         <Icon name="clock" :size="14" class="card-icon" />
@@ -29,13 +29,13 @@
       </n-form-item>
 
       <n-form-item :label="t('rightPanel.scheduledTasks.workingDirectory')">
-        <div class="cwd-field">
+        <div class="cwd-field st-cwd-field">
           <n-input v-model:value="form.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
           <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
         </div>
       </n-form-item>
 
-      <div class="task-grid">
+      <div class="task-grid st-form-grid">
         <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
           <n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable />
         </n-form-item>
@@ -50,19 +50,19 @@
         </n-form-item>
       </div>
 
-      <div class="task-grid" v-if="form.scheduleType === 'interval'">
+      <div class="task-grid st-form-grid" v-if="form.scheduleType === 'interval'">
         <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')">
           <n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" />
         </n-form-item>
       </div>
 
-      <div class="task-grid" v-else-if="form.scheduleType === 'daily'">
+      <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'daily'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
           <n-input v-model:value="form.dailyTime" placeholder="09:00" />
         </n-form-item>
       </div>
 
-      <div class="task-grid" v-else-if="form.scheduleType === 'weekly'">
+      <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'weekly'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
           <n-input v-model:value="form.dailyTime" placeholder="09:00" />
         </n-form-item>
@@ -70,7 +70,7 @@
           <n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable />
         </n-form-item>
       </div>
-      <div class="task-grid" v-else-if="form.scheduleType === 'monthly'">
+      <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'monthly'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
           <n-input v-model:value="form.dailyTime" placeholder="09:00" />
         </n-form-item>
@@ -81,18 +81,18 @@
           <n-input-number v-model:value="form.monthlyDay" :min="1" :max="31" style="width: 100%;" />
         </n-form-item>
       </div>
-      <div class="task-grid" v-else-if="form.scheduleType === 'workdays'">
+      <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'workdays'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runTime')" :feedback="timeError || ''" :validation-status="timeError ? 'error' : undefined">
           <n-input v-model:value="form.dailyTime" placeholder="09:00" />
         </n-form-item>
       </div>
-      <div class="task-grid" v-else-if="form.scheduleType === 'once'">
+      <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'once'">
         <n-form-item :label="t('rightPanel.scheduledTasks.runDateTime')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
           <n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
         </n-form-item>
       </div>
 
-      <div class="task-grid" v-if="form.scheduleType !== 'once'">
+      <div class="task-grid st-form-grid" v-if="form.scheduleType !== 'once'">
         <n-form-item :label="t('rightPanel.scheduledTasks.firstRunMode')">
           <n-select v-model:value="form.firstRunMode" :options="firstRunModeOptions" />
         </n-form-item>
@@ -101,7 +101,7 @@
         </n-form-item>
       </div>
 
-      <div class="task-grid switches">
+      <div class="task-grid switches st-form-grid st-form-grid--switches">
         <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
           <n-switch v-model:value="form.enabled" />
         </n-form-item>
@@ -278,13 +278,11 @@ const handleSubmit = () => {
 }
 </script>
 
+<style src="@/styles/scheduled-task-common.css"></style>
+
 <style scoped>
 .scheduled-task-card {
   margin: 12px 16px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  border-radius: 14px;
-  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -310,7 +308,7 @@ const handleSubmit = () => {
 
 .card-status {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-color-secondary);
 }
 
 .card-status.confirmed {
@@ -318,12 +316,12 @@ const handleSubmit = () => {
 }
 
 .card-status.cancelled {
-  color: var(--text-secondary);
+  color: var(--text-color-secondary);
 }
 
 .card-description,
 .result-summary {
-  color: var(--text-secondary);
+  color: var(--text-color-secondary);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -336,24 +334,6 @@ const handleSubmit = () => {
 
 .task-form :deep(.n-form-item) {
   margin-bottom: 10px;
-}
-
-.task-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.task-grid.switches {
-  grid-template-columns: repeat(2, 180px);
-}
-
-.cwd-field {
-  width: 100%;
-}
-
-.cwd-field :deep(.n-input) {
-  flex: 1;
 }
 
 .actions {
@@ -384,10 +364,4 @@ const handleSubmit = () => {
   color: #fff;
 }
 
-@media (max-width: 900px) {
-  .task-grid,
-  .task-grid.switches {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

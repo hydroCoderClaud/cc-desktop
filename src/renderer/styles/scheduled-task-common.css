@@ -1,0 +1,131 @@
+.st-card {
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.st-panel {
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.st-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.st-cwd-field {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-cwd-field .n-input {
+  flex: 1;
+}
+
+.st-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.st-form-grid--primary {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.st-form-grid--config {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.st-form-grid--interval {
+  grid-template-columns: minmax(220px, 1fr) 160px 160px;
+}
+
+.st-form-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.st-form-grid--switches {
+  grid-template-columns: repeat(2, 180px);
+}
+
+.st-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.st-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.st-detail-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--text-secondary, var(--text-color-secondary));
+}
+
+.st-run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.st-run-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--hover-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.st-empty-box {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-color-muted);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.st-list-shell {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+@media (max-width: 1100px) {
+  .st-form-grid--config {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .st-form-grid,
+  .st-form-grid--primary,
+  .st-form-grid--config,
+  .st-form-grid--interval,
+  .st-form-grid--three,
+  .st-form-grid--switches,
+  .st-history-grid {
+    grid-template-columns: 1fr;
+  }
+}

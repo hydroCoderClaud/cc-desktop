@@ -107,12 +107,12 @@
       :title="editingTaskId ? t('rightPanel.scheduledTasks.editTask') : t('rightPanel.scheduledTasks.createTask')"
     >
       <n-form label-placement="top" class="task-form">
-        <div class="task-grid task-grid-primary">
+        <div class="task-grid task-grid-primary st-form-grid st-form-grid--primary">
           <n-form-item :label="t('rightPanel.scheduledTasks.taskName')">
             <n-input v-model:value="form.name" :placeholder="t('rightPanel.scheduledTasks.taskNamePlaceholder')" />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.workingDirectory')">
-            <div class="cwd-field">
+            <div class="cwd-field st-cwd-field">
               <n-input v-model:value="form.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
               <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
             </div>
@@ -126,7 +126,7 @@
             :autosize="{ minRows: 5, maxRows: 10 }"
           />
         </n-form-item>
-        <div class="task-grid task-grid-config">
+        <div class="task-grid task-grid-config st-form-grid st-form-grid--config">
           <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
             <n-select
               v-model:value="form.apiProfileId"
@@ -159,7 +159,7 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid task-grid-interval" v-if="form.scheduleType === 'interval'">
+        <div class="task-grid task-grid-interval st-form-grid st-form-grid--interval" v-if="form.scheduleType === 'interval'">
           <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')">
             <n-input-number
               v-model:value="form.intervalMinutes"
@@ -169,12 +169,12 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid" v-else-if="form.scheduleType === 'daily'">
+        <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'daily'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
             <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
           </n-form-item>
         </div>
-        <div class="task-grid" v-else-if="form.scheduleType === 'weekly'">
+        <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'weekly'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
             <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
           </n-form-item>
@@ -188,7 +188,7 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid" v-else-if="form.scheduleType === 'monthly'">
+        <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'monthly'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
             <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
           </n-form-item>
@@ -209,12 +209,12 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid" v-else-if="form.scheduleType === 'workdays'">
+        <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'workdays'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runTime')">
             <n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" />
           </n-form-item>
         </div>
-        <div class="task-grid" v-else-if="form.scheduleType === 'once'">
+        <div class="task-grid st-form-grid" v-else-if="form.scheduleType === 'once'">
           <n-form-item :label="t('rightPanel.scheduledTasks.runDateTime')">
             <n-date-picker
               v-model:value="form.firstRunAt"
@@ -225,7 +225,7 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid" v-if="form.scheduleType !== 'once'">
+        <div class="task-grid st-form-grid" v-if="form.scheduleType !== 'once'">
           <n-form-item :label="t('rightPanel.scheduledTasks.firstRunMode')">
             <n-select
               v-model:value="form.firstRunMode"
@@ -243,7 +243,7 @@
             />
           </n-form-item>
         </div>
-        <div class="task-grid">
+        <div class="task-grid st-form-grid">
           <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
             <n-switch v-model:value="form.enabled" />
           </n-form-item>
@@ -274,24 +274,24 @@
       :title="historyTarget ? `${historyTarget.name} · ${t('common.history')}` : t('common.history')"
     >
       <div v-if="historyTarget" class="history-modal">
-        <div class="history-summary-grid">
-          <div class="history-summary-item">
+        <div class="history-summary-grid st-history-grid">
+          <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.scheduleType') }}</span>
             <span>{{ describeSchedule(historyTarget) }}</span>
           </div>
-          <div class="history-summary-item">
+          <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelTier') }}</span>
             <span>{{ getModelTierLabel(historyTarget.modelTier) }}</span>
           </div>
-          <div class="history-summary-item">
+          <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
             <span>{{ historyTarget.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
           </div>
-          <div class="history-summary-item">
+          <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.nextRun') }}</span>
             <span>{{ formatTimestamp(historyTarget.nextRunAt) }}</span>
           </div>
-          <div class="history-summary-item">
+          <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.lastRun') }}</span>
             <span>{{ formatTimestamp(historyTarget.lastRunAt) }}</span>
           </div>
@@ -299,15 +299,15 @@
 
         <div class="detail-block">
           <div class="detail-label">{{ t('rightPanel.scheduledTasks.recentRuns') }}</div>
-          <div v-if="runsLoading" class="detail-placeholder">
+          <div v-if="runsLoading" class="detail-placeholder st-detail-placeholder">
             <Icon name="clock" :size="14" class="loading-icon" />
             <span>{{ t('common.loading') }}</span>
           </div>
-          <div v-else-if="!selectedTaskRuns.length" class="detail-placeholder">
+          <div v-else-if="!selectedTaskRuns.length" class="detail-placeholder st-detail-placeholder">
             {{ t('rightPanel.scheduledTasks.noRuns') }}
           </div>
-          <div v-else class="runs-list">
-            <div v-for="run in selectedTaskRuns" :key="run.id" class="run-item">
+          <div v-else class="runs-list st-run-list">
+            <div v-for="run in selectedTaskRuns" :key="run.id" class="run-item st-run-card">
               <div class="run-top">
                 <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
                 <span class="run-reason">{{ runReasonLabel(run.triggerReason) }}</span>
@@ -696,6 +696,8 @@ onUnmounted(() => {
 })
 </script>
 
+<style src="@/styles/scheduled-task-common.css"></style>
+
 <style scoped>
 .tasks-layout {
   display: block;
@@ -734,8 +736,7 @@ onUnmounted(() => {
 .task-title-row,
 .task-meta,
 .task-line,
-.run-top,
-.cwd-field {
+.run-top {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -754,7 +755,7 @@ onUnmounted(() => {
 .run-reason,
 .run-time,
 .detail-label {
-  color: var(--text-secondary);
+  color: var(--text-color-secondary);
   font-size: 12px;
 }
 
@@ -770,41 +771,10 @@ onUnmounted(() => {
   margin-top: 10px;
 }
 
-.detail-block,
-.history-summary-item {
+.detail-block {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.history-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.detail-placeholder {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-  min-height: 44px;
-}
-
-.runs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.run-item {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--hover-bg);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .history-modal {
@@ -818,40 +788,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.task-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.task-grid-primary {
-  grid-template-columns: minmax(220px, 0.9fr) minmax(320px, 1.1fr);
-}
-
-.task-grid-config {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.task-grid-interval {
-  grid-template-columns: minmax(220px, 1fr) 160px 160px;
-}
-
 .status-select {
   width: 140px;
-}
-
-@media (max-width: 1100px) {
-  .task-grid-config {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 760px) {
-  .task-grid,
-  .task-grid-primary,
-  .task-grid-config,
-  .task-grid-interval {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

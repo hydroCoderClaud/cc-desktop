@@ -163,6 +163,29 @@ describe('AgentSessionManager interactions', () => {
     expect(result.decisionClassification).toBe('user_permanent')
   })
 
+  it('emits interruption events when closeAllSync tears down sessions', () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 's-close', cwd: '/tmp', source: 'scheduled' })
+    const interrupted = []
+
+    manager.sessionDatabase = {
+      closeAgentConversation: vi.fn()
+    }
+    manager.sessions.set('s-close', session)
+    manager.on('agentInterrupted', (sessionId, details) => {
+      interrupted.push({ sessionId, details })
+    })
+
+    manager.closeAllSync()
+
+    expect(interrupted).toEqual([{
+      sessionId: 's-close',
+      details: { reason: 'host-cleanup' }
+    }])
+    expect(manager.sessionDatabase.closeAgentConversation).toHaveBeenCalledWith('s-close')
+    expect(manager.sessions.size).toBe(0)
+  })
+
   it('attaches standard tool_use_result to the matching tool message', async () => {
     const { manager, sent } = createManager()
     const session = new AgentSession({ id: 's-tool', cwd: '/tmp' })

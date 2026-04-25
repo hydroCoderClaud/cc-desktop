@@ -564,4 +564,55 @@ describe('ScheduledTaskService', () => {
       startedAt: 1000
     }))
   })
+
+  it('releases a running scheduled task when its agent session is interrupted by host cleanup', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const currentTask = {
+      id: 15,
+      name: '后台巡检',
+      prompt: '执行后台巡检',
+      scheduleType: 'interval',
+      intervalMinutes: 30,
+      enabled: true,
+      sessionId: 'agent-session-15',
+      runtimeState: null
+    }
+
+    const sessionDatabase = {
+      getScheduledTask: vi.fn(() => ({ ...currentTask })),
+      updateScheduledTaskState: vi.fn(),
+      createScheduledTaskRun: vi.fn()
+    }
+
+    const service = new ScheduledTaskService({}, { on: vi.fn() })
+    service.setSessionDatabase(sessionDatabase)
+    service.runningTasks.add(currentTask.id)
+    service.activeRuns.set(currentTask.sessionId, {
+      taskId: currentTask.id,
+      sessionId: currentTask.sessionId,
+      triggerReason: 'scheduled',
+      startedAt: 1000
+    })
+    vi.spyOn(service, '_broadcastChange').mockImplementation(() => {})
+    vi.spyOn(service, '_computeNextRunAt').mockReturnValue(3000)
+
+    service._handleAgentInterrupted(currentTask.sessionId, { reason: 'host-cleanup' })
+
+    expect(service.runningTasks.has(currentTask.id)).toBe(false)
+    expect(service.activeRuns.has(currentTask.sessionId)).toBe(false)
+    expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, expect.objectContaining({
+      sessionId: currentTask.sessionId,
+      nextRunAt: 3000,
+      lastError: 'Agent session interrupted by host cleanup'
+    }))
+    expect(sessionDatabase.createScheduledTaskRun).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: currentTask.id,
+      sessionId: currentTask.sessionId,
+      triggerReason: 'scheduled',
+      status: 'skipped',
+      errorMessage: 'Agent session interrupted by host cleanup',
+      startedAt: 1000
+    }))
+    expect(service._broadcastChange).toHaveBeenCalledWith(currentTask.id, 'interrupted')
+  })
 })

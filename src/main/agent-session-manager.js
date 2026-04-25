@@ -1478,6 +1478,7 @@ class AgentSessionManager extends EventEmitter {
       }
       // 清理内存引用
       session.outputLoopPromise = null
+      this.emit('agentInterrupted', sessionId, { reason: 'host-cleanup' })
     }
     this.sessions.clear()
     console.log(`[AgentSession] ${count} session(s) closed synchronously`)

@@ -11,17 +11,17 @@
       </n-button>
     </div>
 
-    <div v-if="loading && !tasks.length" class="state-box">
+    <div v-if="loading && !tasks.length" class="state-box st-empty-box">
       <Icon name="clock" :size="18" class="spin" />
       <span>{{ t('common.loading') }}</span>
     </div>
 
-    <div v-else-if="!tasks.length" class="state-box">
+    <div v-else-if="!tasks.length" class="state-box st-empty-box">
       <Icon name="clock" :size="24" />
       <span>{{ t('rightPanel.scheduledTasks.empty') }}</span>
     </div>
 
-    <div v-else class="task-list">
+    <div v-else class="task-list st-list-shell">
       <div v-for="task in tasks" :key="task.id" class="task-row">
         <div class="task-main">
           <span class="status-dot" :class="{ enabled: task.enabled }"></span>
@@ -163,6 +163,8 @@ onUnmounted(() => {
 })
 </script>
 
+<style src="@/styles/scheduled-task-common.css"></style>
+
 <style scoped>
 .scheduled-workbench {
   display: flex;
@@ -190,27 +192,6 @@ onUnmounted(() => {
   margin-top: 2px;
   color: var(--text-color-muted);
   font-size: 12px;
-}
-
-.state-box {
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--text-color-muted);
-  border: 1px dashed var(--border-color);
-  border-radius: 12px;
-}
-
-.task-list {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--card-bg);
 }
 
 .task-row {

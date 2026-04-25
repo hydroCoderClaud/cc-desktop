@@ -139,11 +139,13 @@ class ScheduledTaskService {
     this._onAgentResult = this._handleAgentResult.bind(this)
     this._onAgentError = this._handleAgentError.bind(this)
     this._onAgentDeleted = this._handleAgentDeleted.bind(this)
+    this._onAgentInterrupted = this._handleAgentInterrupted.bind(this)
 
     if (this.agentSessionManager?.on) {
       this.agentSessionManager.on('agentResult', this._onAgentResult)
       this.agentSessionManager.on('agentError', this._onAgentError)
       this.agentSessionManager.on('agentDeleted', this._onAgentDeleted)
+      this.agentSessionManager.on('agentInterrupted', this._onAgentInterrupted)
     }
   }
 
@@ -183,10 +185,12 @@ class ScheduledTaskService {
       this.agentSessionManager.off('agentResult', this._onAgentResult)
       this.agentSessionManager.off('agentError', this._onAgentError)
       this.agentSessionManager.off('agentDeleted', this._onAgentDeleted)
+      this.agentSessionManager.off('agentInterrupted', this._onAgentInterrupted)
     } else if (this.agentSessionManager?.removeListener) {
       this.agentSessionManager.removeListener('agentResult', this._onAgentResult)
       this.agentSessionManager.removeListener('agentError', this._onAgentError)
       this.agentSessionManager.removeListener('agentDeleted', this._onAgentDeleted)
+      this.agentSessionManager.removeListener('agentInterrupted', this._onAgentInterrupted)
     }
   }
 
@@ -578,6 +582,50 @@ class ScheduledTaskService {
       this.sessionDatabase.updateScheduledTaskState(task.id, stateUpdates)
       this._broadcastChange(task.id, 'session-unlinked')
     }
+  }
+
+  _handleAgentInterrupted(sessionId, details = {}) {
+    if (!sessionId || !this.sessionDatabase) return
+
+    const activeRun = this.activeRuns.get(sessionId)
+    if (!activeRun) return
+
+    this.activeRuns.delete(sessionId)
+    this.runningTasks.delete(activeRun.taskId)
+
+    const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
+    if (!task) return
+
+    const finishedAt = Date.now()
+    const reason = details?.reason || 'host-cleanup'
+    const message = reason === 'host-cleanup'
+      ? 'Agent session interrupted by host cleanup'
+      : 'Agent session interrupted'
+    const nextRunAt = task.enabled
+      ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt)
+      : null
+    const shouldResetSession = this._shouldResetSessionBinding(task.runtimeState)
+    const runtimeState = this._clearSessionResetPending(task.runtimeState)
+
+    this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
+      sessionId: shouldResetSession ? null : sessionId,
+      runtimeState,
+      lastRunAt: finishedAt,
+      nextRunAt,
+      lastError: message
+    })
+
+    this.sessionDatabase.createScheduledTaskRun({
+      taskId: activeRun.taskId,
+      sessionId,
+      triggerReason: activeRun.triggerReason,
+      status: 'skipped',
+      errorMessage: message,
+      startedAt: activeRun.startedAt,
+      finishedAt
+    })
+
+    this._broadcastChange(activeRun.taskId, 'interrupted')
   }
 
   _normalizeTaskInput(input, { partial = false } = {}) {
