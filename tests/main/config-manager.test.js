@@ -332,7 +332,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.updateMirrorUrl).toBe('')
     })
 
-    it('应该把旧 profile.customModels 迁移为 selectedModelId 并删除字段', async () => {
+    it('应该删除旧 profile.customModels 字段并回退到当前默认模型', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         apiProfiles: [{
@@ -355,7 +355,7 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
       const profile = newConfigManager.getConfig().apiProfiles[0]
 
-      expect(profile.selectedModelId).toBe('glm-4.5')
+      expect(profile.selectedModelId).toBe('claude-sonnet-4-6')
       expect(profile.customModels).toBeUndefined()
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))

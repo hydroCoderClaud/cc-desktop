@@ -642,7 +642,7 @@ class ConfigManager {
    */
 
   /**
-   * 迁移 Profile 结构（兼容旧的 category/model/customModels，并补齐 selectedModelId）
+   * 迁移 Profile 结构（兼容旧的 category/model，并清理废弃字段）
    * @param {Object} config - 配置对象
    * @returns {Object} - 迁移后的配置
    */
@@ -670,15 +670,6 @@ class ConfigManager {
       migrated = true;
       profile = { ...profile }
 
-      const legacyCustomModels = Array.isArray(profile.customModels)
-        ? profile.customModels
-            .map(model => ({
-              id: typeof model?.id === 'string' ? model.id.trim() : '',
-              tier: typeof model?.tier === 'string' ? model.tier.trim() : ''
-            }))
-            .filter(model => model.id)
-        : []
-
       // 1. 迁移 category → serviceProvider
       if (profile.category !== undefined && profile.serviceProvider === undefined) {
         profile.serviceProvider = profile.category;
@@ -705,11 +696,7 @@ class ConfigManager {
 
       // 3. 确保新字段存在
       if (profile.selectedModelId === undefined || profile.selectedModelId === null || profile.selectedModelId === '') {
-        const selectedTier = typeof profile.selectedModelTier === 'string' ? profile.selectedModelTier.trim() : ''
-        const tierMatchedLegacyModel = selectedTier
-          ? legacyCustomModels.find(model => model.tier === selectedTier)?.id
-          : ''
-        profile.selectedModelId = tierMatchedLegacyModel || legacyCustomModels[0]?.id || resolveProfileModel(profile);
+        profile.selectedModelId = resolveProfileModel(profile);
       }
       if (profile.customModels !== undefined) {
         delete profile.customModels;

@@ -96,9 +96,6 @@ const apiConfigMixin = {
     // 更新字段（不允许通过此方法修改 isDefault）
     const { isDefault, ...safeUpdates } = updates
     Object.assign(profile, safeUpdates)
-    if (profile.customModels !== undefined) {
-      delete profile.customModels
-    }
     if (!profile.selectedModelId) {
       profile.selectedModelId = resolveProviderDefaultModelId(this, profile.serviceProvider) || resolveProfileModel(profile)
     }
