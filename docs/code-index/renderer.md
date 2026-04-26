@@ -21,7 +21,7 @@
 
 ## 页面目录
 
-11 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
+10 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
 
 | 页面 | 路径 | 用途 |
 |------|------|------|
@@ -31,7 +31,6 @@
 | session-manager | `pages/session-manager/` | 会话管理器（浏览/搜索/标签） |
 | provider-manager | `pages/provider-manager/` | 服务商管理 |
 | profile-manager | `pages/profile-manager/` | API Profile 管理 |
-| custom-models | `pages/custom-models/` | 自定义模型管理 |
 | global-settings | `pages/global-settings/` | 全局设置 |
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
 | settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理） |
@@ -216,11 +215,7 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | 文件 | 行数 | 职责 |
 |------|------|------|
 | `ProfileManagerContent.vue` | 257 | Profile 列表/默认切换 |
-| `ProfileFormModal.vue` | 450 | Profile 表单弹窗 |
-
-### custom-models（自定义模型）
-
-`CustomModelsContent.vue` (310行) — 模型列表/添加/编辑
+| `ProfileFormModal.vue` | 450 | Profile 表单弹窗（内联维护模型 ID） |
 
 ### global-settings（全局设置）
 
@@ -245,7 +240,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `icons/Icon.vue` | 55 | SVG 图标组件 | 全局 |
 | `icons/index.js` | 200 | 101 个图标 SVG 路径定义 | Icon.vue |
 | `DeleteConfirmModal.vue` | 72 | 通用删除确认弹窗 | 多页面 |
-| `ModelForm.vue` | 134 | 模型表单（名称/ID/参数） | custom-models, profile-manager |
 | `ProfileCard.vue` | 137 | Profile 卡片展示 | profile-manager |
 | `ProviderCard.vue` | 130 | 服务商卡片展示 | provider-manager |
 
@@ -272,7 +266,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `useIPC.js` | 112 | `useIPC` (invoke/silentInvoke) | 几乎所有 composable |
 | `useProviders.js` | 111 | `useProviders` | ProviderManager, ProfileForm |
 | `useValidation.js` | 107 | `ensureArray`, `isValidProject`, `isValidSession` | 多处 |
-| `useCustomModels.js` | 101 | `useCustomModels` | CustomModels |
 | `useAppMode.js` | 86 | `useAppMode`, `AppMode` | MainContent, LeftPanel |
 | `useFormatters.js` | 62 | `formatDate`, `formatTime`, `formatDuration` | 多处 |
 | `constants.js` | 47 | `TAG_COLORS`, `AGENT_COLORS` | 标签/Agent 相关 |

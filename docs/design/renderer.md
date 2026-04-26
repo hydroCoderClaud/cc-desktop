@@ -8,7 +8,7 @@
 
 ## 页面架构
 
-应用包含 **11 个独立 BrowserWindow 页面**，每个页面有独立的 `index.html` → `main.js` → `App.vue` 入口链。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
+应用包含 **10 个独立 BrowserWindow 页面**，每个页面有独立的 `index.html` → `main.js` → `App.vue` 入口链。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
 
 ### 主窗口
 
@@ -16,7 +16,7 @@
 |------|------|
 | **main** | 主窗口，承载 Developer、Agent、Notebook 三种模式的核心交互 |
 
-### 10 个独立窗口
+### 9 个独立窗口
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
@@ -24,8 +24,7 @@
 | dingtalk-settings | 钉钉机器人配置（AppKey/Secret/RobotCode） | 主窗口菜单 |
 | session-manager | 会话管理器（三列：项目/会话/消息，支持搜索/标签） | 主窗口菜单 |
 | provider-manager | 服务商 CRUD | 设置 / Profile 表单 |
-| profile-manager | API Profile 管理（默认切换） | 左侧面板 Profile 选择器 |
-| custom-models | 自定义模型列表管理 | Profile 表单 |
+| profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
 | global-settings | 全局设置（语言/路径/CLI 配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
 | settings-workbench | 能力设置工作台（目录上下文来源整理） | 主窗口与 Notebook 工具入口 |
@@ -325,7 +324,6 @@ export function useAppMode() {
 | `useProjects` | 332 | 项目 CRUD + 选择 |
 | `useProfiles` | 144 | API Profile 管理 |
 | `useProviders` | 111 | 服务商管理 |
-| `useCustomModels` | 101 | 自定义模型管理 |
 | `usePrompts` | 327 | 提示词 CRUD + 标签 |
 | `useMessageQueue` | 331 | 消息队列管理 |
 
