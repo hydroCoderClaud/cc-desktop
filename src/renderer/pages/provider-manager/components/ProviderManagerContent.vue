@@ -59,11 +59,19 @@
           <n-input v-model:value="formData.baseUrl" placeholder="e.g., https://api.openai.com" />
         </n-form-item>
 
+        <n-form-item :label="t('providerManager.defaultModelIds')">
+          <n-input
+            v-model:value="formData.defaultModelsText"
+            type="textarea"
+            :autosize="{ minRows: 4, maxRows: 8 }"
+            :placeholder="t('providerManager.defaultModelIdsPlaceholder')"
+          />
+        </n-form-item>
+
         <n-form-item label=" ">
           <n-space align="center">
             <n-switch v-model:value="formData.needsMapping" />
             <span>{{ t('providerManager.needsMapping') }}</span>
-            <span style="color: var(--text-color-muted); font-size: 12px;">{{ t('providerManager.needsMappingWarn') }}</span>
           </n-space>
         </n-form-item>
 
@@ -121,6 +129,7 @@ const defaultFormData = () => ({
   id: '',
   name: '',
   baseUrl: '',
+  defaultModelsText: '',
   needsMapping: true,
   defaultModelMapping: {
     opus: '',
@@ -162,6 +171,7 @@ const handleEdit = (provider) => {
     id: provider.id,
     name: provider.name,
     baseUrl: provider.baseUrl || '',
+    defaultModelsText: Array.isArray(provider.defaultModels) ? provider.defaultModels.join('\n') : '',
     needsMapping: provider.needsMapping !== false,
     defaultModelMapping: {
       opus: provider.defaultModelMapping?.opus || '',
@@ -193,10 +203,18 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate()
 
+    const defaultModels = Array.from(new Set(
+      String(formData.value.defaultModelsText || '')
+        .split(/\r?\n/)
+        .map(item => item.trim())
+        .filter(Boolean)
+    ))
+
     const data = {
       id: formData.value.id,
       name: formData.value.name,
       baseUrl: formData.value.baseUrl || null,
+      defaultModels,
       needsMapping: formData.value.needsMapping,
       defaultModelMapping: formData.value.needsMapping ? {
         opus: formData.value.defaultModelMapping.opus || null,

@@ -7,13 +7,24 @@ import { ref } from 'vue'
 // Mock data for browser testing (when electronAPI is not available)
 const mockData = {
   listProviders: () => [
-    { id: 'official', name: '官方 API', needsMapping: false, baseUrl: 'https://api.anthropic.com' },
-    { id: 'proxy', name: '中转服务', needsMapping: true, baseUrl: null }
+    {
+      id: 'official',
+      name: '官方 API',
+      needsMapping: false,
+      baseUrl: 'https://api.anthropic.com',
+      defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
+    },
+    {
+      id: 'proxy',
+      name: '中转服务',
+      needsMapping: false,
+      baseUrl: null,
+      defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
+    }
   ],
   listAPIProfiles: () => [
     { id: '1', name: '默认配置', icon: '🟣', isDefault: true, serviceProvider: 'official' }
-  ],
-  getCustomModels: () => []
+  ]
 }
 
 /**

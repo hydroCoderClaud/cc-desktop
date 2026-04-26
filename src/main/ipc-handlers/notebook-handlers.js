@@ -67,6 +67,24 @@ function setupNotebookHandlers(_ipcMain, notebookManager) {
     }
   })
 
+  ipcMain.handle('notebook:updateApiProfile', async (_e, { id, apiProfileId }) => {
+    try {
+      return notebookManager.updateApiProfile(id, apiProfileId)
+    } catch (err) {
+      console.error('[IPC] notebook:updateApiProfile error:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('notebook:updateSelectedModel', async (_e, { id, lastSelectedModelId }) => {
+    try {
+      return notebookManager.updateSelectedModel(id, lastSelectedModelId)
+    } catch (err) {
+      console.error('[IPC] notebook:updateSelectedModel error:', err)
+      throw err
+    }
+  })
+
   // 重启会话（/clear 命令）
   ipcMain.handle('notebook:restartSession', async (_e, id) => {
     try {

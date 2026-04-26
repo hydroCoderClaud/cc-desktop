@@ -82,14 +82,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDefaultProfile: (profileId) => ipcRenderer.invoke('api:setDefault', profileId),
   getCurrentProfile: () => ipcRenderer.invoke('api:getCurrentProfile'),  // 返回默认 Profile
 
-  // ========================================
-  // 自定义模型管理（每个 Profile 独立）
-  // ========================================
-  getCustomModels: (profileId) => ipcRenderer.invoke('api:getCustomModels', profileId),
-  updateCustomModels: ({ profileId, models }) => ipcRenderer.invoke('api:updateCustomModels', { profileId, models }),
-  addCustomModel: ({ profileId, model }) => ipcRenderer.invoke('api:addCustomModel', { profileId, model }),
-  deleteCustomModel: ({ profileId, modelId }) => ipcRenderer.invoke('api:deleteCustomModel', { profileId, modelId }),
-  updateCustomModel: ({ profileId, modelId, updates }) => ipcRenderer.invoke('api:updateCustomModel', { profileId, modelId, updates }),
   testConnection: (apiConfig) => ipcRenderer.invoke('api:testConnection', apiConfig),
   fetchOfficialModels: (apiConfig) => ipcRenderer.invoke('api:fetchOfficialModels', apiConfig),
 
@@ -569,7 +561,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 生命周期
   createAgentSession: (options) => ipcRenderer.invoke('agent:create', options),
-  sendAgentMessage: ({ sessionId, message, modelTier, maxTurns }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message, modelTier, maxTurns }),
+  sendAgentMessage: ({ sessionId, message, model, modelTier, maxTurns }) => ipcRenderer.invoke('agent:sendMessage', { sessionId, message, model, modelTier, maxTurns }),
   cancelAgentGeneration: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
   closeAgentSession: (sessionId) => ipcRenderer.invoke('agent:close', sessionId),
   switchAgentApiProfile: ({ sessionId, profileId }) => ipcRenderer.invoke('agent:switchApiProfile', { sessionId, profileId }),
@@ -792,6 +784,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookRename: ({ id, name }) => ipcRenderer.invoke('notebook:rename', { id, name }),
   notebookDelete: (id) => ipcRenderer.invoke('notebook:delete', id),
   notebookBindSession: ({ id, sessionId }) => ipcRenderer.invoke('notebook:bindSession', { id, sessionId }),
+  notebookUpdateApiProfile: ({ id, apiProfileId }) => ipcRenderer.invoke('notebook:updateApiProfile', { id, apiProfileId }),
+  notebookUpdateSelectedModel: ({ id, lastSelectedModelId }) => ipcRenderer.invoke('notebook:updateSelectedModel', { id, lastSelectedModelId }),
   notebookRestartSession: (id) => ipcRenderer.invoke('notebook:restartSession', id),
   notebookListSources: (notebookId) => ipcRenderer.invoke('notebook:listSources', notebookId),
   notebookAddSource: ({ notebookId, sourceData }) => ipcRenderer.invoke('notebook:addSource', { notebookId, sourceData }),

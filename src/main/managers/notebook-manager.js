@@ -23,6 +23,10 @@ const { notebookGenerationMixin } = require('./notebook-generation-mixin')
 const { notebookInstallMixin } = require('./notebook-install-mixin')
 const { readFileContent } = require('./notebook-file-reader')
 
+function normalizeModelId(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 class NotebookManager {
   /**
    * @param {import('../config-manager')} configManager
@@ -79,6 +83,13 @@ class NotebookManager {
   _resolvePath(notebookPath) {
     if (path.isAbsolute(notebookPath)) return notebookPath
     return path.join(this._getBaseDir(), notebookPath)
+  }
+
+  _resolveNotebookSelectedModelId(apiProfileId) {
+    const profile = apiProfileId
+      ? this.configManager.getAPIProfile?.(apiProfileId) || null
+      : this.configManager.getDefaultProfile?.() || null
+    return normalizeModelId(profile?.selectedModelId) || null
   }
 
   /**
@@ -179,8 +190,15 @@ class NotebookManager {
       }
 
       const now = this._now()
+      const lastSelectedModelId = this._resolveNotebookSelectedModelId(apiProfileId || null)
       this._writeJson(path.join(notebookPath, 'notebook.json'), {
-        id, name, sessionId, apiProfileId: apiProfileId || null, createdAt: now, updatedAt: now
+        id,
+        name,
+        sessionId,
+        apiProfileId: apiProfileId || null,
+        lastSelectedModelId,
+        createdAt: now,
+        updatedAt: now
       })
       this._writeJson(path.join(notebookPath, 'sources.json'), { version: '1.0', sources: [] })
       this._writeJson(path.join(notebookPath, 'achievements.json'), { version: '1.0', achievements: [] })
@@ -286,6 +304,69 @@ class NotebookManager {
       }
     }
 
+    // 打开旧笔记本时，以 notebook.json 为主；仅在缺失时才用历史 session 回填。
+    // 旧 session 可能残留历史 profile，不能再反向覆盖笔记本当前配置。
+    if (meta.sessionId && this.agentSessionManager?.reopen) {
+      try {
+        this.agentSessionManager.reopen(meta.sessionId)
+        const session = this.agentSessionManager.sessions?.get?.(meta.sessionId) || null
+
+        if (meta.apiProfileId) {
+          const profile = this.configManager.getAPIProfile?.(meta.apiProfileId) || null
+          const nextApiBaseUrl = profile?.baseUrl || null
+          const needsSessionSync = session?.apiProfileId !== meta.apiProfileId
+
+          if (session && needsSessionSync) {
+            session.apiProfileId = meta.apiProfileId
+            session.apiBaseUrl = nextApiBaseUrl
+          }
+
+          if (this.sessionDatabase?.updateAgentConversation && needsSessionSync) {
+            this.sessionDatabase.updateAgentConversation(meta.sessionId, {
+              apiProfileId: meta.apiProfileId,
+              apiBaseUrl: nextApiBaseUrl
+            })
+          }
+
+          if (session?.apiProfileId === meta.apiProfileId) {
+            console.log('[NotebookManager] Synced session apiProfileId from notebook:', {
+              notebookId: id,
+              sessionId: meta.sessionId,
+              apiProfileId: meta.apiProfileId
+            })
+          }
+        } else if (session?.apiProfileId) {
+          meta.apiProfileId = session.apiProfileId
+          meta.lastSelectedModelId = this._resolveNotebookSelectedModelId(session.apiProfileId)
+            || normalizeModelId(meta.lastSelectedModelId)
+            || null
+          meta.updatedAt = this._now()
+          this._writeJsonAtomic(metaFile, meta)
+          console.log('[NotebookManager] Backfilled notebook apiProfileId from session:', {
+            notebookId: id,
+            sessionId: meta.sessionId,
+            apiProfileId: meta.apiProfileId
+          })
+        }
+
+        if (!normalizeModelId(meta.lastSelectedModelId)) {
+          const nextSelectedModelId = this._resolveNotebookSelectedModelId(meta.apiProfileId || session?.apiProfileId || null)
+          if (nextSelectedModelId) {
+            meta.lastSelectedModelId = nextSelectedModelId
+            meta.updatedAt = this._now()
+            this._writeJsonAtomic(metaFile, meta)
+            console.log('[NotebookManager] Backfilled notebook lastSelectedModelId:', {
+              notebookId: id,
+              sessionId: meta.sessionId,
+              lastSelectedModelId: meta.lastSelectedModelId
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('[NotebookManager] Failed to reconcile notebook apiProfileId:', err)
+      }
+    }
+
     // 打开笔记本时的一致性扫描：清理意外退出残留的 generating 记录
     if (sanitizeOnOpen) {
       this.sanitizeAchievements(id)
@@ -361,6 +442,39 @@ class NotebookManager {
     meta.updatedAt = this._now()
     this._writeJsonAtomic(metaFile, meta)
     return { success: true }
+  }
+
+  /** 更新笔记本绑定的 API Profile */
+  updateApiProfile(id, apiProfileId) {
+    const notebookPath = this._getNotebookPath(id)
+    const metaFile = path.join(notebookPath, 'notebook.json')
+    const meta = this._readJson(metaFile)
+    meta.apiProfileId = apiProfileId || null
+    meta.lastSelectedModelId = this._resolveNotebookSelectedModelId(meta.apiProfileId)
+    meta.updatedAt = this._now()
+    this._writeJsonAtomic(metaFile, meta)
+    return {
+      success: true,
+      id: meta.id,
+      apiProfileId: meta.apiProfileId,
+      lastSelectedModelId: meta.lastSelectedModelId || null,
+      updatedAt: meta.updatedAt
+    }
+  }
+
+  updateSelectedModel(id, lastSelectedModelId) {
+    const notebookPath = this._getNotebookPath(id)
+    const metaFile = path.join(notebookPath, 'notebook.json')
+    const meta = this._readJson(metaFile)
+    meta.lastSelectedModelId = normalizeModelId(lastSelectedModelId) || null
+    meta.updatedAt = this._now()
+    this._writeJsonAtomic(metaFile, meta)
+    return {
+      success: true,
+      id: meta.id,
+      lastSelectedModelId: meta.lastSelectedModelId,
+      updatedAt: meta.updatedAt
+    }
   }
 
   /**

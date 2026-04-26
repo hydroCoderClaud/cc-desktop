@@ -3,11 +3,6 @@
     <div class="provider-header">
       <div class="provider-title">
         <h3>{{ provider.name }}</h3>
-        <n-space :size="8">
-          <n-tag v-if="provider.needsMapping" type="warning" size="small">
-            {{ t('providerManager.needsMapping') }}
-          </n-tag>
-        </n-space>
       </div>
     </div>
 
@@ -22,9 +17,13 @@
           {{ provider.baseUrl || t('common.default') }}
         </span>
       </div>
+      <div class="info-row">
+        <span class="label">{{ t('providerManager.defaultModelIds') }}:</span>
+        <span class="value code">{{ provider.defaultModels?.length || 0 }}</span>
+      </div>
       <div class="info-row" v-if="provider.defaultModelMapping">
         <span class="label">{{ t('providerManager.defaultModelMapping') }}:</span>
-        <span class="value code">{{ provider.defaultModelMapping }}</span>
+        <span class="value code">{{ t('common.enabled') }}</span>
       </div>
     </div>
 

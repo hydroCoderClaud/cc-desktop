@@ -83,7 +83,6 @@
     </div>
 
     <div class="toolbar-right">
-      <span v-if="showActiveModel" class="active-model" :title="activeModel">{{ activeModel }}</span>
       <span v-if="contextTokens > 0" class="token-count" :title="t('agent.contextTokensHint')">
         {{ formatTokens(contextTokens) }} tokens
       </span>
@@ -97,9 +96,8 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
-  modelValue: { type: String, default: 'sonnet' },
-  modelMapping: { type: Object, default: () => ({}) },
-  activeModel: { type: String, default: '' },
+  modelValue: { type: String, default: 'claude-sonnet-4-6' },
+  modelOptions: { type: Array, default: () => [] },
   contextTokens: { type: Number, default: 0 },
   queueEnabled: { type: Boolean, default: true },
   isExpanded: { type: Boolean, default: false }
@@ -128,28 +126,21 @@ const formatTokens = (value) => {
   return `${value}`
 }
 
-const getTierFallbackLabel = (tier) => {
-  const labels = {
-    opus: t('agent.tierPowerful'),
-    sonnet: t('agent.tierBalanced'),
-    haiku: t('agent.tierFast')
+const modelOptions = computed(() => {
+  if (Array.isArray(props.modelOptions) && props.modelOptions.length > 0) {
+    return props.modelOptions.map(model => ({
+      value: model.value,
+      label: model.label || model.id || model.value
+    }))
   }
-  return labels[tier] || t('agent.tierBalanced')
-}
 
-const getTierDisplayName = (tier) => {
-  const mapped = props.modelMapping?.[tier]?.trim()
-  return mapped || getTierFallbackLabel(tier)
-}
+  return []
+})
 
-const modelOptions = computed(() => [
-  { value: 'sonnet', label: getTierDisplayName('sonnet') },
-  { value: 'opus', label: getTierDisplayName('opus') },
-  { value: 'haiku', label: getTierDisplayName('haiku') }
-])
-
-const modelDisplayName = computed(() => getTierDisplayName(props.modelValue))
-const showActiveModel = computed(() => Boolean(props.activeModel) && props.activeModel !== modelDisplayName.value)
+const modelDisplayName = computed(() => {
+  const selected = modelOptions.value.find(model => model.value === props.modelValue)
+  return selected?.label || props.modelValue
+})
 
 const selectModel = (value) => {
   emit('update:modelValue', value)
@@ -292,6 +283,8 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   background: var(--input-bg);
   color: var(--text-color);
+  font-size: 12px;
+  line-height: 1;
 }
 
 .model-selector:hover,
@@ -319,15 +312,22 @@ onUnmounted(() => {
 .model-dropdown,
 .cap-dropdown {
   position: absolute;
-  top: 36px;
+  top: auto;
+  bottom: calc(100% + 8px);
   left: 0;
   z-index: 20;
   min-width: 180px;
+  max-width: min(520px, calc(100vw - 32px));
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
   padding: 6px;
+}
+
+.model-dropdown {
+  max-height: min(320px, 45vh);
+  overflow: auto;
 }
 
 .cap-dropdown {
@@ -344,6 +344,10 @@ onUnmounted(() => {
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.model-option {
+  font-size: 12px;
 }
 
 .model-option:hover,
@@ -406,6 +410,11 @@ onUnmounted(() => {
   color: var(--text-color-3);
 }
 
+.model-label {
+  font-size: 12px;
+  line-height: 1;
+}
+
 .chevron {
   transition: transform 0.18s ease;
 }
@@ -422,6 +431,6 @@ onUnmounted(() => {
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(4px);
 }
 </style>

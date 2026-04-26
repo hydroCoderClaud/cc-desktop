@@ -115,8 +115,7 @@
       :slash-commands="slashCommands"
       :slash-commands-supported="true"
       :enable-slash-commands="hasActiveSession"
-      :active-model="activeModel"
-      :model-mapping="modelMapping"
+      :model-options="modelOptions"
       v-model:model-value="selectedModel"
       @send="handleInputSend"
       @input-change="handleInputChange"
@@ -149,6 +148,7 @@ import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
+const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
 
 const queueEnabled = ref(true)
 const activeGenerationToken = ref(null)
@@ -188,6 +188,10 @@ const props = defineProps({
     type: String,
     default: null
   },
+  selectedModelId: {
+    type: String,
+    default: null
+  },
   selectedCount: {
     type: Number,
     default: 0
@@ -204,6 +208,8 @@ const emit = defineEmits([
   'preview-path',
   'input-change',
   'send',
+  'api-profile-switched',
+  'model-selected',
   'agent-done',
   'agent-cancelled',
   'request-clear-session',
@@ -225,14 +231,14 @@ const {
   streamingElapsed,
   contextTokens,
   slashCommands,
-  modelMapping,
-  activeModel,
+  modelOptions,
   hasActiveSession,
   loadMessages,
   sendMessage,
   cancelGeneration,
   submitInteractionAnswer,
   cancelInteraction,
+  syncActiveSessionState,
   setupStreamListeners,
   initDefaultModel,
   isInterrupting
@@ -381,14 +387,27 @@ const onWindowResize = () => {
 }
 
 let isSwitchingApi = false
+let profileSyncToken = 0
+
+const syncApiProfileState = async (profileId, preferredModelId = props.selectedModelId) => {
+  const syncToken = ++profileSyncToken
+  currentApiProfileId.value = profileId || null
+  const applied = await initDefaultModel(profileId, preferredModelId)
+  return applied && syncToken === profileSyncToken
+}
+
 const handleSwitchApi = async (profile) => {
   showApiDropdown.value = false
   if (profile.id === currentApiProfileId.value || isSwitchingApi) return
   isSwitchingApi = true
   try {
-    await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
-    currentApiProfileId.value = profile.id
-    await initDefaultModel(profile.id)
+    const result = await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
+    if (result?.error) {
+      throw new Error(result.error)
+    }
+    const applied = await syncApiProfileState(profile.id, null)
+    if (!applied) return
+    emit('api-profile-switched', { profileId: profile.id })
     message.success(t('notebook.chat.apiSwitched', { name: profile.name }))
   } catch (err) {
     console.error('[ChatPanel] switchApiProfile failed:', err)
@@ -444,6 +463,34 @@ watch(queueEnabled, (enabled, wasEnabled) => {
   }
 })
 
+watch(selectedModel, (modelId, previousModelId) => {
+  const normalizedModelId = normalizeModelValue(modelId)
+  const normalizedPreviousModelId = normalizeModelValue(previousModelId)
+  const persistedModelId = normalizeModelValue(props.selectedModelId)
+
+  if (!normalizedModelId || normalizedModelId === normalizedPreviousModelId || normalizedModelId === persistedModelId) {
+    return
+  }
+
+  emit('model-selected', { modelId: normalizedModelId })
+})
+
+watch(() => props.apiProfileId, (profileId) => {
+  void syncApiProfileState(profileId, props.selectedModelId)
+}, { immediate: true })
+
+watch(() => props.selectedModelId, (modelId) => {
+  const normalizedModelId = normalizeModelValue(modelId)
+  if (!normalizedModelId || normalizedModelId === normalizeModelValue(selectedModel.value)) {
+    return
+  }
+
+  const existsInOptions = modelOptions.value.some(option => option?.value === normalizedModelId)
+  if (existsInOptions) {
+    selectedModel.value = normalizedModelId
+  }
+})
+
 onBeforeUnmount(() => {
   isUnmounting = true
   document.removeEventListener('click', onApiSwitcherClickOutside, true)
@@ -456,10 +503,10 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   setupStreamListeners()
-  await initDefaultModel(props.apiProfileId)
   await loadQueueSetting()
   await loadApiProfiles()
   await loadMessages()
+  await syncActiveSessionState()
   document.addEventListener('click', onApiSwitcherClickOutside, true)
   window.addEventListener('resize', onWindowResize)
   if (messagesListRef.value) {

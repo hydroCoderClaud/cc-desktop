@@ -186,6 +186,155 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.sessions.size).toBe(0)
   })
 
+  it('preserves sdkSessionId when switching API profile', async () => {
+    const { manager } = createManager()
+    const updateAgentConversation = vi.fn()
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? { id: 'p2', name: 'Qwen', baseUrl: 'https://example-qwen.test' }
+      : null)
+    manager.sessionDatabase = { updateAgentConversation }
+
+    const session = new AgentSession({ id: 's-switch', cwd: '/tmp', apiProfileId: 'p1' })
+    session.sdkSessionId = 'sdk-old'
+    manager.sessions.set('s-switch', session)
+
+    await manager.switchApiProfile('s-switch', 'p2')
+
+    expect(session.apiProfileId).toBe('p2')
+    expect(session.apiBaseUrl).toBe('https://example-qwen.test')
+    expect(session.sdkSessionId).toBe('sdk-old')
+    expect(updateAgentConversation).toHaveBeenCalledWith('s-switch', {
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://example-qwen.test'
+    })
+  })
+
+  it('reopens session from DB before switching API profile', async () => {
+    const { manager } = createManager()
+    const updateAgentConversation = vi.fn()
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? { id: 'p2', name: 'Volc', baseUrl: 'https://volc.example' }
+      : null)
+    manager.sessionDatabase = {
+      getAgentConversation: vi.fn(() => ({
+        id: 1,
+        session_id: 's-reopen-switch',
+        type: 'agent',
+        title: '',
+        cwd: '/tmp',
+        source: null,
+        task_id: null,
+        sdk_session_id: 'sdk-old',
+        cwd_auto: 0,
+        message_count: 0,
+        total_cost_usd: 0,
+        created_at: Date.now(),
+        api_profile_id: 'p1',
+        api_base_url: 'https://old.example'
+      })),
+      updateAgentConversation
+    }
+
+    await manager.switchApiProfile('s-reopen-switch', 'p2')
+
+    const session = manager.sessions.get('s-reopen-switch')
+    expect(session).toBeTruthy()
+    expect(session.apiProfileId).toBe('p2')
+    expect(session.apiBaseUrl).toBe('https://volc.example')
+    expect(session.sdkSessionId).toBe('sdk-old')
+    expect(updateAgentConversation).toHaveBeenCalledWith('s-reopen-switch', {
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://volc.example'
+    })
+  })
+
+  it('ignores stale requestedModel when it is not supported by current profile', async () => {
+    const { manager } = createManager()
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? {
+          id: 'p2',
+          name: 'cat-1.2',
+          baseUrl: 'https://aicode.cat',
+          serviceProvider: 'cat',
+          selectedModelId: 'claude-sonnet-4-6'
+        }
+      : null)
+    manager.configManager.getServiceProviderDefinition = vi.fn((id) => id === 'cat'
+      ? { id: 'cat', defaultModels: ['claude-sonnet-4-6'] }
+      : null)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://aicode.cat',
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({ id: 's-stale-model', cwd: '/tmp', apiProfileId: 'p2' })
+    session.dbConversationId = 1
+    manager.sessions.set('s-stale-model', session)
+
+    await manager.sendMessage('s-stale-model', 'hello', { model: 'kimi-k2.6' })
+
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6')
+    expect(createQueryOptions.model).toBeUndefined()
+  })
+
+  it('syncs env model with requestedModel when createQuery is rebuilt from a restored session', async () => {
+    const { manager } = createManager()
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? {
+          id: 'p2',
+          name: 'ModelScope',
+          baseUrl: 'https://api-inference.modelscope.cn',
+          serviceProvider: 'modelscope',
+          selectedModelId: 'deepseek-ai/DeepSeek-V4-Pro'
+        }
+      : null)
+    manager.configManager.getServiceProviderDefinition = vi.fn((id) => id === 'modelscope'
+      ? {
+          id: 'modelscope',
+          defaultModels: ['deepseek-ai/DeepSeek-V4-Pro', 'Qwen/Qwen3.6-27B']
+        }
+      : null)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://api-inference.modelscope.cn',
+        ANTHROPIC_MODEL: 'deepseek-ai/DeepSeek-V4-Pro'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({ id: 's-restored-model', cwd: '/tmp', apiProfileId: 'p2' })
+    session.dbConversationId = 1
+    session.sdkSessionId = 'sdk-old'
+    manager.sessions.set('s-restored-model', session)
+
+    await manager.sendMessage('s-restored-model', 'hello', { model: 'Qwen/Qwen3.6-27B' })
+
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.model).toBe('Qwen/Qwen3.6-27B')
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('Qwen/Qwen3.6-27B')
+    expect(createQueryOptions.resume).toBe('sdk-old')
+  })
+
   it('attaches standard tool_use_result to the matching tool message', async () => {
     const { manager, sent } = createManager()
     const session = new AgentSession({ id: 's-tool', cwd: '/tmp' })
@@ -385,6 +534,24 @@ describe('AgentSessionManager interactions', () => {
 
     expect(result.success).toBe(true)
     expect(result.message).toBe('Claude Code 已连通，收到模型回复：pong early')
+  })
+
+  it('setModel resolves explicit model ids and tier fallback via selectedModelId', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-set-model', cwd: '/tmp', apiProfileId: 'profile-1' })
+    manager.sessions.set(session.id, session)
+    manager.configManager.getAPIProfile = vi.fn(() => ({
+      id: 'profile-1',
+      selectedModelId: 'glm-4.5',
+      selectedModelTier: 'sonnet'
+    }))
+    manager.queryManager.setModel = vi.fn(async () => {})
+
+    await manager.setModel(session.id, 'glm-4.5')
+    await manager.setModel(session.id, 'sonnet')
+
+    expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(1, session.id, 'glm-4.5')
+    expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(2, session.id, 'glm-4.5')
   })
 
   it('probeConnection labels API refusal clearly', async () => {

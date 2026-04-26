@@ -93,7 +93,7 @@ class TerminalManager {
     const profile = this.configManager.getDefaultProfile();
     const env = buildProcessEnv(profile, {
       TERM: 'xterm-256color'
-    });
+    }, this.configManager);
 
     try {
       // 创建 PTY 进程

@@ -21,7 +21,8 @@ const { MessageQueue } = require('./utils/message-queue')
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const { AgentStatus, AgentType } = require('./utils/agent-constants')
-const { LATEST_MODEL_ALIASES } = require('./utils/constants')
+const { resolveProfileModel } = require('./utils/model-resolver')
+const { buildRuntimeProfile } = require('./utils/runtime-profile')
 const { AgentSession } = require('./agent-session')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
@@ -33,6 +34,60 @@ function resolveConversationSource(type, source) {
   if (type === 'dingtalk') return 'dingtalk'
   if (source) return source
   return 'manual'
+}
+
+function normalizeModelValue(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function getProfileModelIds(profile, configManager) {
+  const providerModels = Array.isArray(configManager?.getServiceProviderDefinition?.(profile?.serviceProvider)?.defaultModels)
+    ? configManager.getServiceProviderDefinition(profile.serviceProvider).defaultModels
+    : []
+  const candidates = [...providerModels, profile?.selectedModelId]
+  const normalized = []
+  const seen = new Set()
+
+  for (const candidate of candidates) {
+    const modelId = normalizeModelValue(candidate)
+    if (!modelId || seen.has(modelId)) continue
+    seen.add(modelId)
+    normalized.push(modelId)
+  }
+
+  return normalized
+}
+
+function resolveRequestedModel(profile, configManager, requestedModel) {
+  const normalizedRequestedModel = normalizeModelValue(requestedModel)
+  if (!normalizedRequestedModel) {
+    return { queryModel: null, ignored: false, requestedModel: '' }
+  }
+
+  const runtimeProfile = buildRuntimeProfile(profile, configManager)
+  if (['sonnet', 'opus', 'haiku'].includes(normalizedRequestedModel)) {
+    return {
+      queryModel: resolveProfileModel(runtimeProfile, normalizedRequestedModel),
+      ignored: false,
+      requestedModel: normalizedRequestedModel
+    }
+  }
+
+  const allowedModelIds = getProfileModelIds(runtimeProfile, configManager)
+  if (allowedModelIds.length > 0 && !allowedModelIds.includes(normalizedRequestedModel)) {
+    return {
+      queryModel: null,
+      ignored: true,
+      requestedModel: normalizedRequestedModel,
+      allowedModelIds
+    }
+  }
+
+  return {
+    queryModel: resolveProfileModel(runtimeProfile, normalizedRequestedModel),
+    ignored: false,
+    requestedModel: normalizedRequestedModel
+  }
 }
 
 class AgentSessionManager extends EventEmitter {
@@ -697,8 +752,9 @@ class AgentSessionManager extends EventEmitter {
    * 第一条消息：创建 MessageQueue + 持久 query + 后台输出循环
    * 后续消息：直接 push 到现有 MessageQueue
    */
-  async sendMessage(sessionId, userMessage, { modelTier, maxTurns, meta } = {}) {
+  async sendMessage(sessionId, userMessage, { model, modelTier, maxTurns, meta } = {}) {
     let session = this.sessions.get(sessionId)
+    const requestedModel = model || modelTier
 
     // 内存中不存在，尝试自动恢复（兜底）
     if (!session) {
@@ -708,6 +764,17 @@ class AgentSessionManager extends EventEmitter {
     if (!session) {
       throw new Error(`Agent session ${sessionId} not found`)
     }
+
+    console.log('[AgentSession] sendMessage entry:', {
+      sessionId,
+      requestedModel: requestedModel || null,
+      status: session.status,
+      hasQueryGenerator: !!session.queryGenerator,
+      hasMessageQueue: !!session.messageQueue,
+      messageQueueDone: session.messageQueue?.isDone ?? null,
+      apiProfileId: session.apiProfileId || null,
+      sdkSessionId: session.sdkSessionId || null
+    })
 
     if (session.status === AgentStatus.STREAMING) {
       throw new Error(`Agent session ${sessionId} is already streaming`)
@@ -822,24 +889,61 @@ class AgentSessionManager extends EventEmitter {
 
     // 已有持久 query → 直接 push 消息
     if (session.queryGenerator && session.messageQueue && !session.messageQueue.isDone) {
+      console.log('[AgentSession] sendMessage path: existing queue', {
+        sessionId,
+        requestedModel: requestedModel || null,
+        apiProfileId: session.apiProfileId || null,
+        sdkSessionId: session.sdkSessionId || null
+      })
       // push 前确保模型正确（防止 watch 中的 setModel 静默失败）
-      if (modelTier) {
+      if (requestedModel) {
         try {
           const profile = session.apiProfileId
             ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
             : this.configManager.getDefaultProfile()
-          const resolvedModel = profile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
-          await session.queryGenerator.setModel(resolvedModel)
+          const resolvedRequest = resolveRequestedModel(profile, this.configManager, requestedModel)
+          if (resolvedRequest.queryModel) {
+            await session.queryGenerator.setModel(resolvedRequest.queryModel)
+            console.log('[AgentSession] setModel before push succeeded:', {
+              sessionId,
+              requestedModel: resolvedRequest.requestedModel,
+              queryModel: resolvedRequest.queryModel,
+              apiProfileId: profile?.id || null
+            })
+          } else if (resolvedRequest.ignored) {
+            console.warn('[AgentSession] Ignoring stale requestedModel before push:', {
+              sessionId,
+              apiProfileId: profile?.id || null,
+              requestedModel: resolvedRequest.requestedModel,
+              allowedModelIds: resolvedRequest.allowedModelIds || []
+            })
+          }
         } catch (e) {
-          console.warn(`[AgentSession] setModel before push failed: ${e.message}`)
+          console.warn('[AgentSession] setModel before push failed:', {
+            sessionId,
+            requestedModel: requestedModel || null,
+            error: e.message
+          })
         }
       }
-      console.log(`[AgentSession] Pushing message to existing queue for session ${sessionId}`)
+      console.log('[AgentSession] Pushing message to existing queue:', {
+        sessionId,
+        requestedModel: requestedModel || null,
+        sdkSessionId: session.sdkSessionId || null
+      })
       session.messageQueue.push(sdkUserMessage)
       return
     }
 
     // 首次消息（或 CLI 进程已退出）→ 创建新的持久 query
+    console.log('[AgentSession] sendMessage path: create query', {
+      sessionId,
+      requestedModel: requestedModel || null,
+      hasQueryGenerator: !!session.queryGenerator,
+      hasMessageQueue: !!session.messageQueue,
+      messageQueueDone: session.messageQueue?.isDone ?? null,
+      sdkSessionId: session.sdkSessionId || null
+    })
     console.log(`[AgentSessionManager] Creating new streaming query for session ${sessionId} (title: ${session.title})`)
 
     try {
@@ -918,8 +1022,22 @@ class AgentSessionManager extends EventEmitter {
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
-      if (modelTier) {
-        queryOptions.model = sessionProfile?.modelMapping?.[modelTier]?.trim() || LATEST_MODEL_ALIASES[modelTier] || modelTier
+      let resolvedRequest = null
+      if (requestedModel) {
+        resolvedRequest = resolveRequestedModel(sessionProfile, this.configManager, requestedModel)
+        if (resolvedRequest.queryModel) {
+          queryOptions.model = resolvedRequest.queryModel
+          if (queryOptions.env && typeof queryOptions.env === 'object') {
+            queryOptions.env.ANTHROPIC_MODEL = resolvedRequest.queryModel
+          }
+        } else if (resolvedRequest.ignored) {
+          console.warn('[AgentSession] Ignoring stale requestedModel for createQuery:', {
+            sessionId,
+            apiProfileId: sessionProfile?.id || null,
+            requestedModel: resolvedRequest.requestedModel,
+            allowedModelIds: resolvedRequest.allowedModelIds || []
+          })
+        }
       }
 
       if (maxTurns) {
@@ -934,6 +1052,18 @@ class AgentSessionManager extends EventEmitter {
         }
         queryOptions.resume = session.sdkSessionId
       }
+
+      console.log('[AgentSession] createQuery config:', {
+        sessionId,
+        apiProfileId: sessionProfile?.id || null,
+        profileName: sessionProfile?.name || null,
+        profileBaseUrl: sessionProfile?.baseUrl || null,
+        requestedModel: requestedModel || null,
+        queryModel: queryOptions.model || null,
+        resume: queryOptions.resume || null,
+        envBaseUrl: env.ANTHROPIC_BASE_URL || env.ANTHROPIC_API_URL || null,
+        envModel: env.ANTHROPIC_MODEL || null
+      })
 
       // 通过 Runner 创建持久 query（AsyncIterable 模式）
       const generator = await this.runner.createQuery(messageQueue, queryOptions, session)
@@ -1323,10 +1453,15 @@ class AgentSessionManager extends EventEmitter {
   }
 
   /**
-   * 切换 API Profile：终止当前 CLI 进程 + 更新 apiProfileId（下次发消息时用新 profile spawn）
+   * 切换 API Profile：终止当前 CLI 进程 + 更新 apiProfileId。
+   * 保留 sdkSessionId，用于验证“新环境参数 + 旧 resume id”的实际行为。
    */
   async switchApiProfile(sessionId, newProfileId) {
-    const session = this.sessions.get(sessionId)
+    let session = this.sessions.get(sessionId)
+    if (!session) {
+      this.reopen(sessionId)
+      session = this.sessions.get(sessionId)
+    }
     if (!session) throw new Error('Session not found')
 
     const profile = this.configManager.getAPIProfile(newProfileId)
@@ -1347,6 +1482,13 @@ class AgentSessionManager extends EventEmitter {
     // 更新 apiProfileId（内存 + DB）
     session.apiProfileId = newProfileId
     session.apiBaseUrl = profile.baseUrl || null
+    console.log('[AgentSession] switchApiProfile:', {
+      sessionId,
+      newProfileId,
+      profileName: profile.name || null,
+      profileBaseUrl: profile.baseUrl || null,
+      sdkSessionId: session.sdkSessionId || null
+    })
     this.sessionDatabase.updateAgentConversation(sessionId, {
       apiProfileId: newProfileId,
       apiBaseUrl: profile.baseUrl || null
@@ -1877,8 +2019,33 @@ class AgentSessionManager extends EventEmitter {
     const profile = session?.apiProfileId
       ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
       : this.configManager.getDefaultProfile()
-    const resolvedModel = profile?.modelMapping?.[model]?.trim() || LATEST_MODEL_ALIASES[model] || model
-    return this.queryManager.setModel(sessionId, resolvedModel)
+    const runtimeProfile = buildRuntimeProfile(profile, this.configManager)
+    const resolvedModel = resolveProfileModel(runtimeProfile, model)
+    console.log('[AgentSession] setModel request:', {
+      sessionId,
+      requestedModel: model || null,
+      resolvedModel: resolvedModel || null,
+      hasSession: !!session,
+      hasQueryGenerator: !!session?.queryGenerator,
+      apiProfileId: session?.apiProfileId || profile?.id || null
+    })
+
+    try {
+      const result = await this.queryManager.setModel(sessionId, resolvedModel)
+      console.log('[AgentSession] setModel request applied:', {
+        sessionId,
+        resolvedModel: resolvedModel || null
+      })
+      return result
+    } catch (error) {
+      console.warn('[AgentSession] setModel request failed:', {
+        sessionId,
+        requestedModel: model || null,
+        resolvedModel: resolvedModel || null,
+        error: error.message
+      })
+      throw error
+    }
   }
 
   async getSupportedModels(sessionId) {

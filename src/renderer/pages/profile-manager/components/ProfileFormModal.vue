@@ -87,7 +87,7 @@
         </n-input>
       </n-form-item>
 
-      <!-- Row 4: Base URL & Model Tier -->
+      <!-- Row 4: Base URL & Default Model -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('profileManager.baseUrl')">
@@ -95,49 +95,26 @@
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item label=" ">
-            <n-radio-group v-model:value="formData.selectedModelTier">
-              <n-space>
-                <n-radio value="opus"><Icon name="rocket" :size="14" class="model-tier-icon" /> {{ t('agent.tierPowerful') }}</n-radio>
-                <n-radio value="sonnet"><Icon name="zap" :size="14" class="model-tier-icon" /> {{ t('agent.tierBalanced') }}</n-radio>
-                <n-radio value="haiku"><Icon name="wind" :size="14" class="model-tier-icon" /> {{ t('agent.tierFast') }}</n-radio>
-              </n-space>
-            </n-radio-group>
+          <n-form-item :label="t('profileManager.selectedModelId')">
+            <div class="model-selector">
+              <n-select
+                v-model:value="formData.selectedModelId"
+                :options="customModelOptions"
+                filterable
+                clearable
+                :placeholder="modelSelectPlaceholder"
+              />
+
+              <div class="model-selector-hint">
+                {{ t('profileManager.modelListHint') }}
+              </div>
+              <div v-if="customModelOptions.length === 0" class="model-empty-state">
+                {{ t('profileManager.noModelIds') }}
+              </div>
+            </div>
           </n-form-item>
         </n-grid-item>
       </n-grid>
-
-      <!-- Model Mapping Section (for third-party services) -->
-      <div v-if="needsModelMapping" class="model-mapping-section">
-        <n-divider>{{ t('profileManager.modelMapping') }}</n-divider>
-        <p class="mapping-hint">{{ t('profileManager.modelMappingHint') }}</p>
-        <n-grid :cols="3" :x-gap="16">
-          <n-grid-item>
-            <n-form-item>
-              <template #label>
-                <span class="model-mapping-label"><Icon name="rocket" :size="14" /> {{ t('profileManager.powerfulModel') }}</span>
-              </template>
-              <n-input v-model:value="formData.modelMapping.opus" placeholder="e.g., claude-3-opus" />
-            </n-form-item>
-          </n-grid-item>
-          <n-grid-item>
-            <n-form-item>
-              <template #label>
-                <span class="model-mapping-label"><Icon name="zap" :size="14" /> {{ t('profileManager.balancedModel') }}</span>
-              </template>
-              <n-input v-model:value="formData.modelMapping.sonnet" placeholder="e.g., claude-3-sonnet" />
-            </n-form-item>
-          </n-grid-item>
-          <n-grid-item>
-            <n-form-item>
-              <template #label>
-                <span class="model-mapping-label"><Icon name="wind" :size="14" /> {{ t('profileManager.fastModel') }}</span>
-              </template>
-              <n-input v-model:value="formData.modelMapping.haiku" placeholder="e.g., claude-3-haiku" />
-            </n-form-item>
-          </n-grid-item>
-        </n-grid>
-      </div>
 
       <!-- Row 5: Timeout & Disable Traffic -->
       <n-grid :cols="2" :x-gap="24">
@@ -225,6 +202,7 @@ const copyApiKey = async () => {
 }
 
 const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '⚫']
+const supportedModelTiers = ['opus', 'sonnet', 'haiku']
 
 const defaultFormData = () => ({
   name: '',
@@ -233,6 +211,7 @@ const defaultFormData = () => ({
   authType: 'api_key',
   authToken: '',
   baseUrl: 'https://api.anthropic.com',
+  selectedModelId: '',
   selectedModelTier: 'sonnet',
   modelMapping: { opus: '', sonnet: '', haiku: '' },
   requestTimeout: 120,
@@ -265,35 +244,82 @@ const providerOptions = computed(() => {
   }))
 })
 
-const needsModelMapping = computed(() => {
-  const sp = formData.value.serviceProvider
-  // 从服务商定义中读取 needsMapping 属性
-  const provider = props.providers?.find(p => p.id === sp)
-  if (provider) {
-    return provider.needsMapping === true
+const normalizeTier = (tier) => {
+  return supportedModelTiers.includes(tier) ? tier : 'sonnet'
+}
+
+const normalizeModelIds = (modelIds) => {
+  const normalized = []
+  const seen = new Set()
+
+  for (const modelId of Array.isArray(modelIds) ? modelIds : []) {
+    const value = typeof modelId === 'string' ? modelId.trim() : ''
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    normalized.push(value)
   }
-  // 兜底：官方和代理不需要映射
-  return sp !== 'official' && sp !== 'proxy'
+
+  return normalized
+}
+
+const normalizeModelMapping = (mapping) => {
+  if (!mapping || typeof mapping !== 'object') return null
+
+  const normalized = {}
+
+  for (const tier of supportedModelTiers) {
+    const value = typeof mapping[tier] === 'string' ? mapping[tier].trim() : ''
+    if (value) {
+      normalized[tier] = value
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null
+}
+
+const getActiveProvider = (serviceProvider = formData.value.serviceProvider) => {
+  return props.providers?.find(provider => provider.id === serviceProvider) || null
+}
+
+const providerModelIds = computed(() => {
+  return normalizeModelIds(getActiveProvider()?.defaultModels)
+})
+
+const customModelOptions = computed(() => {
+  const mergedModelIds = normalizeModelIds([
+    ...providerModelIds.value,
+    formData.value.selectedModelId
+  ])
+
+  return mergedModelIds.map(modelId => ({
+    label: modelId,
+    value: modelId
+  }))
+})
+
+const modelSelectPlaceholder = computed(() => {
+  if (customModelOptions.value.length > 0) {
+    return t('profileManager.selectedModelIdPlaceholder')
+  }
+  return t('profileManager.noModelIds')
 })
 
 // Watch for profile changes to populate form
 watch(() => props.profile, (newProfile) => {
   if (newProfile) {
-    // 获取服务商的默认模型映射
-    const provider = props.providers?.find(p => p.id === newProfile.serviceProvider)
-    const defaultMapping = provider?.defaultModelMapping || {}
-
-    // 优先使用配置中的映射，否则使用服务商默认映射
-    const modelMapping = {
-      opus: newProfile.modelMapping?.opus || defaultMapping.opus || '',
-      sonnet: newProfile.modelMapping?.sonnet || defaultMapping.sonnet || '',
-      haiku: newProfile.modelMapping?.haiku || defaultMapping.haiku || ''
-    }
+    const activeProvider = getActiveProvider(newProfile.serviceProvider)
+    const providerDefaultModels = normalizeModelIds(activeProvider?.defaultModels)
+    const resolvedSelectedModelId = newProfile.selectedModelId
+      || providerDefaultModels[0]
+      || newProfile.modelMapping?.[newProfile.selectedModelTier]
+      || ''
 
     formData.value = {
       ...defaultFormData(),
       ...newProfile,
-      modelMapping,
+      selectedModelId: resolvedSelectedModelId,
+      selectedModelTier: normalizeTier(newProfile.selectedModelTier),
+      modelMapping: normalizeModelMapping(newProfile.modelMapping) || defaultFormData().modelMapping,
       requestTimeout: (newProfile.requestTimeout || 120000) / 1000
     }
   } else {
@@ -319,12 +345,9 @@ const onServiceProviderChange = (value) => {
     if (provider.baseUrl) {
       formData.value.baseUrl = provider.baseUrl
     }
-    if (provider.defaultModelMapping) {
-      formData.value.modelMapping = {
-        opus: provider.defaultModelMapping.opus || '',
-        sonnet: provider.defaultModelMapping.sonnet || '',
-        haiku: provider.defaultModelMapping.haiku || ''
-      }
+    const providerDefaultModels = normalizeModelIds(provider.defaultModels)
+    if (!providerDefaultModels.includes(formData.value.selectedModelId)) {
+      formData.value.selectedModelId = providerDefaultModels[0] || ''
     }
   }
 }
@@ -333,6 +356,8 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate()
 
+    const selectedModelId = formData.value.selectedModelId?.trim() || customModelOptions.value[0]?.value || ''
+
     const data = {
       name: formData.value.name,
       icon: formData.value.icon,
@@ -340,6 +365,7 @@ const handleSave = async () => {
       authType: formData.value.authType,
       authToken: formData.value.authToken,
       baseUrl: formData.value.baseUrl,
+      selectedModelId,
       selectedModelTier: formData.value.selectedModelTier,
       requestTimeout: formData.value.requestTimeout * 1000,
       disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
@@ -347,18 +373,7 @@ const handleSave = async () => {
       httpsProxy: formData.value.httpsProxy,
       httpProxy: formData.value.httpProxy,
       description: formData.value.description,
-      modelMapping: needsModelMapping.value ? {
-        opus: formData.value.modelMapping.opus || '',
-        sonnet: formData.value.modelMapping.sonnet || '',
-        haiku: formData.value.modelMapping.haiku || ''
-      } : null
-    }
-
-    if (data.modelMapping) {
-      const hasMapping = Object.values(data.modelMapping).some(v => v)
-      if (!hasMapping) {
-        data.modelMapping = null
-      }
+      modelMapping: normalizeModelMapping(formData.value.modelMapping)
     }
 
     emit('save', data)
@@ -373,12 +388,9 @@ const handleTest = () => {
     authToken: formData.value.authToken,
     authType: formData.value.authType,
     serviceProvider: formData.value.serviceProvider,
+    selectedModelId: formData.value.selectedModelId?.trim() || '',
     selectedModelTier: formData.value.selectedModelTier,
-    modelMapping: formData.value.modelMapping ? {
-      opus: formData.value.modelMapping.opus || '',
-      sonnet: formData.value.modelMapping.sonnet || '',
-      haiku: formData.value.modelMapping.haiku || ''
-    } : null,
+    modelMapping: normalizeModelMapping(formData.value.modelMapping),
     useProxy: formData.value.useProxy,
     httpsProxy: formData.value.httpsProxy,
     httpProxy: formData.value.httpProxy
@@ -417,20 +429,6 @@ const handleTest = () => {
   background: var(--primary-color);
 }
 
-.model-mapping-section {
-  background: var(--bg-color-tertiary);
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.mapping-hint {
-  font-size: 12px;
-  opacity: 0.6;
-  margin-bottom: 12px;
-  line-height: 1.5;
-}
-
 .proxy-fields {
   background: var(--bg-color-tertiary);
   padding: 16px;
@@ -438,14 +436,15 @@ const handleTest = () => {
   margin-bottom: 16px;
 }
 
-.model-tier-icon {
-  vertical-align: middle;
-  margin-right: 2px;
+.model-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.model-mapping-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.model-selector-hint,
+.model-empty-state {
+  font-size: 12px;
+  opacity: 0.7;
 }
 </style>

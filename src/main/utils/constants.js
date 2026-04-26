@@ -26,12 +26,10 @@ const TIMEOUTS = {
 const SERVICE_PROVIDERS = {
   official: {
     label: '官方 API',
-    needsMapping: false,
     baseUrl: 'https://api.anthropic.com'
   },
   proxy: {
     label: '中转服务',
-    needsMapping: false,
     baseUrl: ''
   },
   zhipu: {

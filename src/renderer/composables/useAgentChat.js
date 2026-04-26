@@ -40,7 +40,7 @@ export function useAgentChat(sessionId, options = {}) {
   const isRestored = ref(false)
   const currentStreamText = ref('')
   const error = ref(null)
-  const selectedModel = ref('sonnet')  // 默认值，initDefaultModel() 会从配置覆盖
+  const selectedModel = ref('claude-sonnet-4-6')  // 默认值，initDefaultModel() 会从配置覆盖
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
@@ -51,15 +51,70 @@ export function useAgentChat(sessionId, options = {}) {
   let currentBlockType = null  // 当前流式 content block 的类型（text / tool_use 等）
   let streamTextReceived = false  // 本轮是否收到过流式 text delta（用于判断是否为非流式 API）
 
-  // 模型名映射缓存（从配置读取，initDefaultModel 时填充）
-  // 无映射时的内置默认值
-  const DEFAULT_MODEL_NAMES = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6', haiku: 'claude-haiku-4-5' }
-  const modelMapping = ref({})
+  const DEFAULT_MODEL_NAMES = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
+  const modelOptions = ref([])
+  let modelInitToken = 0
 
-  // 右侧显示的完整模型名：从缓存映射派生，切换下拉立即同步
-  const activeModel = computed(() =>
-    modelMapping.value[selectedModel.value] || DEFAULT_MODEL_NAMES[selectedModel.value] || selectedModel.value
-  )
+  const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
+
+  const normalizeModelIds = (values) => {
+    const normalized = []
+    const seen = new Set()
+
+    for (const value of Array.isArray(values) ? values : []) {
+      const modelId = normalizeModelValue(value)
+      if (!modelId || seen.has(modelId)) continue
+      seen.add(modelId)
+      normalized.push(modelId)
+    }
+
+    return normalized
+  }
+
+  const getProviderModelIds = (config, serviceProvider) => {
+    const definitions = Array.isArray(config?.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
+    const provider = definitions.find(item => item.id === serviceProvider)
+    return normalizeModelIds(provider?.defaultModels)
+  }
+
+  const buildModelOptions = (profile, config) => {
+    const modelIds = normalizeModelIds([
+      ...getProviderModelIds(config, profile?.serviceProvider),
+      profile?.selectedModelId
+    ])
+
+    const fallbackIds = modelIds.length > 0 ? modelIds : DEFAULT_MODEL_NAMES
+    return fallbackIds.map(modelId => ({
+      value: modelId,
+      label: modelId,
+      id: modelId
+    }))
+  }
+
+  const resolveSendModel = () => {
+    const currentModel = normalizeModelValue(selectedModel.value)
+    const allowedModelIds = normalizeModelIds(modelOptions.value.map(model => model?.value))
+
+    if (!currentModel) {
+      return allowedModelIds[0] || DEFAULT_MODEL_NAMES[0]
+    }
+
+    if (allowedModelIds.length > 0 && !allowedModelIds.includes(currentModel)) {
+      const fallbackModel = allowedModelIds[0]
+      if (fallbackModel) {
+        console.warn('[useAgentChat] Detected stale selectedModel, falling back to current profile model:', {
+          sessionId,
+          staleModel: currentModel,
+          fallbackModel,
+          allowedModelIds
+        })
+        selectedModel.value = fallbackModel
+        return fallbackModel
+      }
+    }
+
+    return currentModel
+  }
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   const hasActiveSession = ref(false)
   // 用户是否主动取消了生成（用于抑制队列自动消费和错误显示）
@@ -73,11 +128,34 @@ export function useAgentChat(sessionId, options = {}) {
   )
 
   // 用户手动切换模型时，通过 setAgentModel 实时生效
-  watch(selectedModel, (newVal) => {
-    if (hasActiveSession.value && window.electronAPI?.setAgentModel) {
-      window.electronAPI.setAgentModel(sessionId, newVal).catch(err =>
-        console.warn('[useAgentChat] setModel failed (will use on next query):', err.message)
-      )
+  watch(selectedModel, (newVal, oldVal) => {
+    const nextModel = normalizeModelValue(newVal)
+    const prevModel = normalizeModelValue(oldVal)
+    const canSetModelLive = !!(hasActiveSession.value && window.electronAPI?.setAgentModel)
+
+    console.log('[useAgentChat] selectedModel changed:', {
+      sessionId,
+      previousModel: prevModel || null,
+      nextModel: nextModel || null,
+      hasActiveSession: hasActiveSession.value,
+      willCallSetModel: canSetModelLive
+    })
+
+    if (canSetModelLive) {
+      window.electronAPI.setAgentModel(sessionId, nextModel)
+        .then(() => {
+          console.log('[useAgentChat] setAgentModel resolved:', {
+            sessionId,
+            model: nextModel || null
+          })
+        })
+        .catch(err =>
+          console.warn('[useAgentChat] setModel failed (will use on next query):', {
+            sessionId,
+            model: nextModel || null,
+            error: err.message
+          })
+        )
     }
   })
 
@@ -267,17 +345,31 @@ export function useAgentChat(sessionId, options = {}) {
     try {
       const initResult = await window.electronAPI.getAgentInitResult(sessionId)
       if (!initResult || initResult.error) {
+        console.log('[useAgentChat] syncActiveSessionState: no active init result', {
+          sessionId,
+          hasResult: !!initResult,
+          error: initResult?.error || null
+        })
         return
       }
 
       hasActiveSession.value = true
       isRestored.value = false
+      console.log('[useAgentChat] syncActiveSessionState: active session restored', {
+        sessionId,
+        model: initResult.model || null,
+        slashCommandCount: Array.isArray(initResult.slashCommands) ? initResult.slashCommands.length : 0
+      })
 
       if (slashCommandsEnabled && Array.isArray(initResult.slashCommands)) {
         void refreshSupportedSlashCommands(initResult.slashCommands)
       }
     } catch (err) {
       const message = String(err?.message || err || '')
+      console.log('[useAgentChat] syncActiveSessionState failed:', {
+        sessionId,
+        error: message
+      })
       if (!message.includes('No active streaming session') && !message.includes('not found')) {
         console.warn('[useAgentChat] Failed to sync active session state:', err)
       }
@@ -295,7 +387,6 @@ export function useAgentChat(sessionId, options = {}) {
     options,
     messages,
     selectedModel,
-    activeModel,
     hasActiveSession,
     numTurns,
     totalCostUsd,
@@ -410,10 +501,17 @@ export function useAgentChat(sessionId, options = {}) {
       // 每次都传当前选择的模型，确保：
       // 1. 新建 query 时使用正确模型
       // 2. push 到现有队列前自动 setModel()
-      modelTier: selectedModel.value
+      model: resolveSendModel()
     }
 
     try {
+      console.log('[useAgentChat] sendMessage dispatch:', {
+        sessionId,
+        requestedModel: sendOptions.model || null,
+        hasActiveSession: hasActiveSession.value,
+        messageKind: typeof originalMessage === 'string' ? 'text' : 'multimodal',
+        imageCount: Array.isArray(originalMessage?.images) ? originalMessage.images.length : 0
+      })
       await window.electronAPI.sendAgentMessage(sendOptions)
     } catch (err) {
       console.error('[useAgentChat] sendMessage error:', err)
@@ -613,6 +711,12 @@ export function useAgentChat(sessionId, options = {}) {
   const handleStatusChange = (data) => {
     if (data.sessionId !== sessionId) return
 
+    console.log('[useAgentChat] statusChange:', {
+      sessionId,
+      status: data.status || null,
+      cliExited: !!data.cliExited
+    })
+
     if (data.status === 'idle' || data.status === 'error') {
       isStreaming.value = false
       stopTimer()
@@ -805,23 +909,36 @@ export function useAgentChat(sessionId, options = {}) {
   /**
    * 从配置读取模型，覆盖硬编码的 'sonnet'
    * @param {string} [apiProfileId] - 会话绑定的 profile ID，不传则使用默认 profile
+   * @param {string} [preferredModelId] - notebook/session 级别的模型覆盖
    */
-  const initDefaultModel = async (apiProfileId) => {
+  const initDefaultModel = async (apiProfileId, preferredModelId = null) => {
+    const token = ++modelInitToken
     try {
-      if (!window.electronAPI?.getConfig) return
+      if (!window.electronAPI?.getConfig) return false
       const config = await window.electronAPI.getConfig()
-      if (!config?.apiProfiles) return
+      if (!config?.apiProfiles) return false
       // 优先使用会话绑定的 profile，否则回退到默认 profile
       const profileId = apiProfileId || config.defaultProfileId
       const profile = config.apiProfiles.find(p => p.id === profileId)
         || config.apiProfiles.find(p => p.id === config.defaultProfileId)
-      if (profile?.selectedModelTier) {
-        modelMapping.value = profile.modelMapping || {}
-        selectedModel.value = profile.selectedModelTier
+      if (profile) {
+        const nextModelOptions = buildModelOptions(profile, config)
+        const normalizedPreferredModelId = normalizeModelValue(preferredModelId)
+        const preferredModelExists = normalizedPreferredModelId
+          ? nextModelOptions.some(option => option?.value === normalizedPreferredModelId)
+          : false
+        const nextSelectedModel = preferredModelExists
+          ? normalizedPreferredModelId
+          : (profile.selectedModelId || nextModelOptions[0]?.value || DEFAULT_MODEL_NAMES[0])
+        if (token !== modelInitToken) return false
+        modelOptions.value = nextModelOptions
+        selectedModel.value = nextSelectedModel
+        return true
       }
     } catch (err) {
       console.warn('[useAgentChat] Failed to load default model from config:', err)
     }
+    return false
   }
 
   /**
@@ -847,8 +964,7 @@ export function useAgentChat(sessionId, options = {}) {
     contextTokens,
     isCompacting,
     slashCommands,
-    modelMapping,
-    activeModel,
+    modelOptions,
     totalCostUsd,
     numTurns,
     isInterrupting,  // 暴露中断标志供父组件检查

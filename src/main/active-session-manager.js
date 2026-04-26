@@ -226,7 +226,7 @@ class ActiveSessionManager {
 
     // 构建子进程环境变量（使用标准 extraVars：TERM、SHELL、AUTOCOMPACT）
     const extraVars = buildStandardExtraVars(this.configManager)
-    const envVars = buildProcessEnv(profile, extraVars)
+    const envVars = buildProcessEnv(profile, extraVars, this.configManager)
 
     // 调试日志
     console.log(`[ActiveSession] Auth vars: API_KEY=${envVars.ANTHROPIC_API_KEY ? 'SET' : 'UNSET'}, AUTH_TOKEN=${envVars.ANTHROPIC_AUTH_TOKEN ? 'SET' : 'UNSET'}`)

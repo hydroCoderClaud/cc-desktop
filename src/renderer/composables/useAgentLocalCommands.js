@@ -4,7 +4,6 @@ export function useAgentLocalCommands({
   options = {},
   messages,
   selectedModel,
-  activeModel,
   hasActiveSession,
   numTurns,
   totalCostUsd,
@@ -200,7 +199,7 @@ export function useAgentLocalCommands({
       const lines = [
         t('agent.statusSession', { id: sessionId.substring(0, 8) }),
         t('agent.statusCliSession', { status: hasActiveSession.value ? t('agent.statusCliActive') : t('agent.statusCliInactive') }),
-        t('agent.statusModel', { model: activeModel.value || t('agent.statusModelUnknown') }),
+        t('agent.statusModel', { model: selectedModel.value || t('agent.statusModelUnknown') }),
         t('agent.statusTurns', { count: numTurns.value }),
         t('agent.statusMessages', { count: messages.value.length }),
         t('agent.statusCost', { cost: totalCostUsd.value.toFixed(4) }),

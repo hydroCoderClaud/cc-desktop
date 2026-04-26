@@ -136,6 +136,7 @@ const handleTest = async (profile) => {
     authToken: profile.authToken,
     authType: profile.authType,
     serviceProvider: profile.serviceProvider,
+    selectedModelId: profile.selectedModelId || '',
     selectedModelTier: profile.selectedModelTier,
     modelMapping: profile.modelMapping ? {
       opus: profile.modelMapping.opus || '',

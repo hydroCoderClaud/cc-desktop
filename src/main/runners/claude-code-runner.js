@@ -51,7 +51,7 @@ class ClaudeCodeRunner {
   buildEnv(profile, configManager) {
     const { buildProcessEnv, buildStandardExtraVars } = require('../utils/env-builder')
     const extraVars = buildStandardExtraVars(configManager)
-    return buildProcessEnv(profile, extraVars)
+    return buildProcessEnv(profile, extraVars, configManager)
   }
 
   /**
@@ -159,6 +159,14 @@ class ClaudeCodeRunner {
     if (options.appendSystemPrompt) queryOptions.appendSystemPrompt = options.appendSystemPrompt
     if (options.allowedTools) queryOptions.allowedTools = options.allowedTools
     if (options.disallowedTools) queryOptions.disallowedTools = options.disallowedTools
+
+    console.log('[ClaudeCodeRunner] createQuery options:', {
+      cwd: queryOptions.cwd,
+      model: queryOptions.model || null,
+      resume: queryOptions.resume || null,
+      envBaseUrl: env?.ANTHROPIC_BASE_URL || env?.ANTHROPIC_API_URL || null,
+      envModel: env?.ANTHROPIC_MODEL || null
+    })
 
     return queryFn({ prompt: messageQueue, options: queryOptions })
   }

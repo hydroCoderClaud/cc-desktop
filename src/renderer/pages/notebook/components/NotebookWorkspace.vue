@@ -52,9 +52,12 @@
         :session-cwd="currentNotebook.notebookPath || ''"
         :selected-count="selectedSources.length"
         :api-profile-id="currentNotebook.apiProfileId"
+        :selected-model-id="currentNotebook.lastSelectedModelId || null"
         :generation-token="activeGenerationToken"
         @send="handleChatSend"
         @input-change="handleChatInputChange"
+        @api-profile-switched="handleNotebookApiProfileSwitched"
+        @model-selected="handleNotebookModelSelected"
         @preview-image="handlePreviewImage"
         @preview-link="handlePreviewLink"
         @preview-path="handlePreviewPath"
@@ -263,6 +266,61 @@ const {
 const handleClearSession = async () => {
   pendingGenerationDraft.value = null
   await restartNotebookSession()
+}
+
+const handleNotebookApiProfileSwitched = async ({ profileId }) => {
+  if (!currentNotebook.value?.id || !profileId) return
+  const notebookId = currentNotebook.value.id
+
+  currentNotebook.value = {
+    ...currentNotebook.value,
+    apiProfileId: profileId
+  }
+
+  try {
+    const result = await window.electronAPI.notebookUpdateApiProfile({
+      id: notebookId,
+      apiProfileId: profileId
+    })
+
+    if (result?.updatedAt && currentNotebook.value?.id === notebookId) {
+      currentNotebook.value = {
+        ...currentNotebook.value,
+        apiProfileId: result.apiProfileId || profileId,
+        lastSelectedModelId: result.lastSelectedModelId || null,
+        updatedAt: result.updatedAt
+      }
+    }
+  } catch (err) {
+    console.error('[Notebook] Failed to persist apiProfileId:', err)
+  }
+}
+
+const handleNotebookModelSelected = async ({ modelId }) => {
+  if (!currentNotebook.value?.id || !modelId) return
+  const notebookId = currentNotebook.value.id
+
+  currentNotebook.value = {
+    ...currentNotebook.value,
+    lastSelectedModelId: modelId
+  }
+
+  try {
+    const result = await window.electronAPI.notebookUpdateSelectedModel({
+      id: notebookId,
+      lastSelectedModelId: modelId
+    })
+
+    if (result?.updatedAt && currentNotebook.value?.id === notebookId) {
+      currentNotebook.value = {
+        ...currentNotebook.value,
+        lastSelectedModelId: result.lastSelectedModelId || modelId,
+        updatedAt: result.updatedAt
+      }
+    }
+  } catch (err) {
+    console.error('[Notebook] Failed to persist selected model:', err)
+  }
 }
 
 const buildChatAssetName = (message, suffix) => {

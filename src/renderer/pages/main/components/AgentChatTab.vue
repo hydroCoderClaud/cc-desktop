@@ -95,8 +95,7 @@
       :slash-commands="slashCommands"
       :slash-commands-supported="sessionType !== 'dingtalk'"
       :enable-slash-commands="sessionType !== 'dingtalk' && hasActiveSession"
-      :active-model="activeModel"
-      :model-mapping="modelMapping"
+      :model-options="modelOptions"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @schedule="handleScheduleDraftCreate"
@@ -162,8 +161,7 @@ const {
   contextTokens,
   isCompacting,
   slashCommands,
-  modelMapping,
-  activeModel,
+  modelOptions,
   isInterrupting,  // 中断标志，用于阻止队列自动消费
   hasActiveSession,  // 激活状态，用于显示提示文字
   loadMessages,

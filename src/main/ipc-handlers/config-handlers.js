@@ -187,37 +187,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
     return configManager.updateTerminalSettings(terminalSettings)
   })
 
-  // ========================================
-  // 自定义模型管理
-  // ========================================
-
-  registerHandler('api:getCustomModels', (profileId) => {
-    const profile = configManager.getAPIProfile(profileId)
-    return profile?.customModels || []
-  })
-
-  registerHandler('api:updateCustomModels', ({ profileId, models }) => {
-    const profile = configManager.getAPIProfile(profileId)
-    if (!profile) {
-      throw new Error('Profile 不存在')
-    }
-    profile.customModels = models
-    return configManager.save()
-  })
-
-  registerHandler('api:addCustomModel', ({ profileId, model }) => {
-    return configManager.addCustomModel(profileId, model)
-  })
-
-  registerHandler('api:deleteCustomModel', ({ profileId, modelId }) => {
-    return configManager.deleteCustomModel(profileId, modelId)
-  })
-
-  registerHandler('api:updateCustomModel', ({ profileId, modelId, updates }) => {
-    return configManager.updateCustomModel(profileId, modelId, updates)
-  })
-
-  // ========================================
   // 服务商定义管理
   // ========================================
 

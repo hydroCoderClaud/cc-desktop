@@ -28,7 +28,6 @@ export default defineConfig({
         main: path.resolve(__dirname, 'src/renderer/pages/main/index.html'),
         profileManager: path.resolve(__dirname, 'src/renderer/pages/profile-manager/index.html'),
         providerManager: path.resolve(__dirname, 'src/renderer/pages/provider-manager/index.html'),
-        customModels: path.resolve(__dirname, 'src/renderer/pages/custom-models/index.html'),
         globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html'),
         appearanceSettings: path.resolve(__dirname, 'src/renderer/pages/appearance-settings/index.html'),
         settingsWorkbench: path.resolve(__dirname, 'src/renderer/pages/settings-workbench/index.html'),

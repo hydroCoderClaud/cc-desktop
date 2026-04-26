@@ -26,6 +26,8 @@ function makeTmpDir() {
 function makeManager(baseDir, agentSessionManager = null) {
   const configManager = {
     getConfig: () => ({ settings: { notebook: { baseDir, notebooks: [] } } }),
+    getAPIProfile: (id) => id ? { id, baseUrl: `https://${id}.example.com`, selectedModelId: `${id}-model` } : null,
+    getDefaultProfile: () => ({ id: 'default-profile', baseUrl: 'https://default.example.com', selectedModelId: 'default-model' }),
     _cfg: null,
     save() {},
   }
@@ -71,6 +73,14 @@ describe('NotebookManager', () => {
     expect(() => mgr.create({ name: 'dup' })).toThrow('目录已存在')
   })
 
+  it('create: 使用所选 API Profile 的默认模型初始化 lastSelectedModelId', () => {
+    const nb = mgr.create({ name: '模型初始化', apiProfileId: 'profile-a' })
+    const meta = JSON.parse(fs.readFileSync(path.join(nb.notebookPath, 'notebook.json'), 'utf-8'))
+
+    expect(meta.apiProfileId).toBe('profile-a')
+    expect(meta.lastSelectedModelId).toBe('profile-a-model')
+  })
+
   it('create: 失败时回滚已创建的目录', () => {
     // 让 _saveRegistry 抛出，触发回滚
     mgr._saveRegistry = () => { throw new Error('模拟注册失败') }
@@ -96,6 +106,81 @@ describe('NotebookManager', () => {
     expect(result.achievements).toEqual([])
   })
 
+  it('get: 打开旧笔记本时保留 notebook 自身的 apiProfileId，不被旧 session 覆盖', () => {
+    const updateAgentConversation = vi.fn()
+    const liveSession = { id: 'sess-1', apiProfileId: 'profile-b', apiBaseUrl: 'https://profile-b.example.com' }
+    const agentSessionManager = {
+      create: vi.fn(() => ({ id: 'sess-1' })),
+      reopen: vi.fn(() => ({ id: 'sess-1', apiProfileId: 'profile-b' })),
+      sessions: new Map([['sess-1', liveSession]])
+    }
+    mgr = makeManager(baseDir, agentSessionManager)
+    mgr.setSessionDatabase({ updateAgentConversation })
+
+    const nb = mgr.create({ name: '旧笔记本', apiProfileId: 'profile-a' })
+    const result = mgr.get(nb.id)
+    const meta = JSON.parse(fs.readFileSync(path.join(nb.notebookPath, 'notebook.json'), 'utf-8'))
+
+    expect(result.apiProfileId).toBe('profile-a')
+    expect(result.lastSelectedModelId).toBe('profile-a-model')
+    expect(meta.apiProfileId).toBe('profile-a')
+    expect(meta.lastSelectedModelId).toBe('profile-a-model')
+    expect(liveSession.apiProfileId).toBe('profile-a')
+    expect(liveSession.apiBaseUrl).toBe('https://profile-a.example.com')
+    expect(updateAgentConversation).toHaveBeenCalledWith('sess-1', {
+      apiProfileId: 'profile-a',
+      apiBaseUrl: 'https://profile-a.example.com'
+    })
+    expect(agentSessionManager.reopen).toHaveBeenCalledWith('sess-1')
+  })
+
+  it('get: notebook 缺少 apiProfileId 时，使用历史 session 回填', () => {
+    const updateAgentConversation = vi.fn()
+    const liveSession = { id: 'sess-1', apiProfileId: 'profile-b', apiBaseUrl: 'https://profile-b.example.com' }
+    const agentSessionManager = {
+      create: vi.fn(() => ({ id: 'sess-1' })),
+      reopen: vi.fn(() => ({ id: 'sess-1', apiProfileId: 'profile-b' })),
+      sessions: new Map([['sess-1', liveSession]])
+    }
+    mgr = makeManager(baseDir, agentSessionManager)
+    mgr.setSessionDatabase({ updateAgentConversation })
+
+    const nb = mgr.create({ name: '回填测试' })
+    mgr.updateApiProfile(nb.id, null)
+
+    const result = mgr.get(nb.id)
+    const meta = JSON.parse(fs.readFileSync(path.join(nb.notebookPath, 'notebook.json'), 'utf-8'))
+
+    expect(result.apiProfileId).toBe('profile-b')
+    expect(result.lastSelectedModelId).toBe('profile-b-model')
+    expect(meta.apiProfileId).toBe('profile-b')
+    expect(meta.lastSelectedModelId).toBe('profile-b-model')
+    expect(updateAgentConversation).not.toHaveBeenCalled()
+    expect(agentSessionManager.reopen).toHaveBeenCalledWith('sess-1')
+  })
+
+  it('get: notebook 缺少 lastSelectedModelId 时，按当前 profile 默认模型回填', () => {
+    const liveSession = { id: 'sess-1', apiProfileId: 'profile-a', apiBaseUrl: 'https://profile-a.example.com' }
+    const agentSessionManager = {
+      create: vi.fn(() => ({ id: 'sess-1' })),
+      reopen: vi.fn(() => ({ id: 'sess-1', apiProfileId: 'profile-a' })),
+      sessions: new Map([['sess-1', liveSession]])
+    }
+    mgr = makeManager(baseDir, agentSessionManager)
+
+    const nb = mgr.create({ name: '旧模型回填', apiProfileId: 'profile-a' })
+    const metaFile = path.join(nb.notebookPath, 'notebook.json')
+    const meta = JSON.parse(fs.readFileSync(metaFile, 'utf-8'))
+    delete meta.lastSelectedModelId
+    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2))
+
+    const result = mgr.get(nb.id)
+    const refreshedMeta = JSON.parse(fs.readFileSync(metaFile, 'utf-8'))
+
+    expect(result.lastSelectedModelId).toBe('profile-a-model')
+    expect(refreshedMeta.lastSelectedModelId).toBe('profile-a-model')
+  })
+
   it('get: 不存在时抛出错误', () => {
     expect(() => mgr.get('nb-notexist')).toThrow('笔记本不存在')
   })
@@ -113,6 +198,30 @@ describe('NotebookManager', () => {
   it('rename: 名称为空时抛出错误', () => {
     const nb = mgr.create({ name: '测试' })
     expect(() => mgr.rename(nb.id, '')).toThrow('名称不能为空')
+  })
+
+  it('updateApiProfile: 更新 notebook.json 中的 apiProfileId', () => {
+    const nb = mgr.create({ name: 'API切换测试', apiProfileId: 'profile-a' })
+
+    const result = mgr.updateApiProfile(nb.id, 'profile-b')
+    const meta = JSON.parse(fs.readFileSync(path.join(nb.notebookPath, 'notebook.json'), 'utf-8'))
+
+    expect(result.success).toBe(true)
+    expect(result.apiProfileId).toBe('profile-b')
+    expect(result.lastSelectedModelId).toBe('profile-b-model')
+    expect(meta.apiProfileId).toBe('profile-b')
+    expect(meta.lastSelectedModelId).toBe('profile-b-model')
+  })
+
+  it('updateSelectedModel: 更新 notebook.json 中的 lastSelectedModelId', () => {
+    const nb = mgr.create({ name: '模型切换测试', apiProfileId: 'profile-a' })
+
+    const result = mgr.updateSelectedModel(nb.id, 'glm-5.1')
+    const meta = JSON.parse(fs.readFileSync(path.join(nb.notebookPath, 'notebook.json'), 'utf-8'))
+
+    expect(result.success).toBe(true)
+    expect(result.lastSelectedModelId).toBe('glm-5.1')
+    expect(meta.lastSelectedModelId).toBe('glm-5.1')
   })
 
   // ── delete ───────────────────────────────────────────────────────────────

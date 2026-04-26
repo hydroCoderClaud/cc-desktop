@@ -82,6 +82,25 @@ describe('ConfigManager', () => {
       expect(config.settings.enableDeveloperMode).toBe(true)
     })
 
+    it('应该初始化内置服务商及其默认模型 ID 列表', () => {
+      const providers = configManager.getServiceProviderDefinitions()
+      const official = providers.find(provider => provider.id === 'official')
+      const proxy = providers.find(provider => provider.id === 'proxy')
+
+      expect(official?.defaultModels).toEqual([
+        'claude-sonnet-4-6',
+        'claude-opus-4-6',
+        'claude-haiku-4-5'
+      ])
+      expect(proxy?.defaultModels).toEqual([
+        'claude-sonnet-4-6',
+        'claude-opus-4-6',
+        'claude-haiku-4-5'
+      ])
+      expect(official?.needsMapping).toBe(true)
+      expect(proxy?.needsMapping).toBe(true)
+    })
+
     it('应该有正确的默认超时设置', () => {
       const config = configManager.getConfig()
       expect(config.timeout).toBeDefined()
@@ -103,6 +122,19 @@ describe('ConfigManager', () => {
         repo: 'cc-desktop'
       })
       expect(config.updateMirrorUrl).toBe('')
+    })
+
+    it('删除默认服务商后，重载配置不应自动补回', async () => {
+      await configManager.deleteServiceProviderDefinition('other')
+
+      expect(configManager.getServiceProviderDefinition('other')).toBeNull()
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const reloadedConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+
+      expect(reloadedConfigManager.getServiceProviderDefinition('other')).toBeNull()
     })
   })
 
@@ -298,6 +330,91 @@ describe('ConfigManager', () => {
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       expect(savedConfig.updatePrimaryUrl).toBe('https://hdupdate.myseek.fun/hydrodesktop_update')
       expect(savedConfig.updateMirrorUrl).toBe('')
+    })
+
+    it('应该把旧 profile.customModels 迁移为 selectedModelId 并删除字段', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Proxy',
+          baseUrl: 'https://example.com',
+          authToken: 'token',
+          serviceProvider: 'other',
+          selectedModelTier: 'sonnet',
+          customModels: [
+            { id: 'glm-4.5', name: 'GLM 4.5', tier: 'sonnet' }
+          ]
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+      const profile = newConfigManager.getConfig().apiProfiles[0]
+
+      expect(profile.selectedModelId).toBe('glm-4.5')
+      expect(profile.customModels).toBeUndefined()
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.apiProfiles[0].customModels).toBeUndefined()
+    })
+
+    it('服务商默认模型列表不应混入 profile 历史模型', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        serviceProviderDefinitions: [{
+          id: 'other',
+          name: 'Other',
+          needsMapping: true,
+          baseUrl: 'https://example.com',
+          defaultModelMapping: null,
+          defaultModels: ['model-a']
+        }],
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Proxy',
+          baseUrl: 'https://example.com',
+          authToken: 'token',
+          serviceProvider: 'other',
+          selectedModelId: 'model-b',
+          customModels: [
+            { id: 'model-c', name: 'Model C', tier: 'sonnet' }
+          ]
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      const provider = newConfigManager.getServiceProviderDefinition('other')
+      const profile = newConfigManager.getConfig().apiProfiles[0]
+
+      expect(provider.defaultModels).toEqual(['model-a'])
+      expect(profile.customModels).toBeUndefined()
+    })
+
+    it('official 服务商不再强制清空映射配置', async () => {
+      await configManager.updateServiceProviderDefinition('official', {
+        needsMapping: true,
+        defaultModelMapping: {
+          opus: 'claude-opus-4-7',
+          sonnet: 'claude-sonnet-4-6',
+          haiku: 'claude-haiku-4-5-20251001'
+        }
+      })
+
+      const provider = configManager.getServiceProviderDefinition('official')
+
+      expect(provider.needsMapping).toBe(true)
+      expect(provider.defaultModelMapping).toEqual({
+        opus: 'claude-opus-4-7',
+        sonnet: 'claude-sonnet-4-6',
+        haiku: 'claude-haiku-4-5-20251001'
+      })
     })
   })
 })

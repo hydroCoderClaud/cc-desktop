@@ -3,22 +3,55 @@
  * 管理内置和自定义服务商的定义
  */
 
-const { SERVICE_PROVIDERS } = require('../utils/constants')
+const { SERVICE_PROVIDERS, LATEST_MODEL_ALIASES } = require('../utils/constants')
 
-// 官方/中转服务商（不需要模型映射）
-const OFFICIAL_PROVIDERS = ['official', 'proxy']
+const BUILTIN_PROVIDER_MODELS = {
+  official: [LATEST_MODEL_ALIASES.sonnet, LATEST_MODEL_ALIASES.opus, LATEST_MODEL_ALIASES.haiku],
+  proxy: [LATEST_MODEL_ALIASES.sonnet, LATEST_MODEL_ALIASES.opus, LATEST_MODEL_ALIASES.haiku]
+}
+
+function normalizeModelIds(modelIds) {
+  if (!Array.isArray(modelIds)) return []
+
+  const normalized = []
+  const seen = new Set()
+
+  for (const modelId of modelIds) {
+    const value = typeof modelId === 'string' ? modelId.trim() : ''
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    normalized.push(value)
+  }
+
+  return normalized
+}
+
+function normalizeProviderDefinition(definition) {
+  const providerId = typeof definition?.id === 'string' ? definition.id.trim() : ''
+  const builtinModels = BUILTIN_PROVIDER_MODELS[providerId] || []
+
+  return {
+    id: providerId,
+    name: definition?.name || providerId,
+    needsMapping: definition?.needsMapping !== false,
+    baseUrl: definition?.baseUrl || '',
+    defaultModelMapping: definition?.defaultModelMapping || null,
+    defaultModels: normalizeModelIds(definition?.defaultModels || builtinModels)
+  }
+}
 
 /**
  * 初始化默认服务商定义
  * @returns {Array} 默认服务商列表
  */
 function getDefaultProviders() {
-  return Object.keys(SERVICE_PROVIDERS).map(id => ({
+  return Object.keys(SERVICE_PROVIDERS).map(id => normalizeProviderDefinition({
     id,
     name: SERVICE_PROVIDERS[id].label,
     needsMapping: SERVICE_PROVIDERS[id].needsMapping,
     baseUrl: SERVICE_PROVIDERS[id].baseUrl || '',
-    defaultModelMapping: null
+    defaultModelMapping: null,
+    defaultModels: BUILTIN_PROVIDER_MODELS[id] || []
   }))
 }
 
@@ -39,7 +72,8 @@ const providerConfigMixin = {
         label: def.name,
         needsMapping: def.needsMapping,
         baseUrl: def.baseUrl,
-        defaultModelMapping: def.defaultModelMapping
+        defaultModelMapping: def.defaultModelMapping,
+        defaultModels: normalizeModelIds(def.defaultModels)
       }
     })
 
@@ -50,19 +84,42 @@ const providerConfigMixin = {
    * 获取所有服务商定义（从配置文件加载，如果为空则初始化默认值）
    */
   getServiceProviderDefinitions() {
-    // 如果配置文件中已有服务商定义，直接返回
-    if (this.config.serviceProviderDefinitions && this.config.serviceProviderDefinitions.length > 0) {
-      return this.config.serviceProviderDefinitions
+    const existingDefinitions = Array.isArray(this.config.serviceProviderDefinitions)
+      ? this.config.serviceProviderDefinitions
+      : []
+
+    const definitionMap = new Map()
+
+    for (const definition of existingDefinitions) {
+      const normalized = normalizeProviderDefinition({
+        ...definition
+      })
+      definitionMap.set(normalized.id, normalized)
     }
 
-    // 如果配置为空，初始化默认的内置服务商
-    const defaultProviders = getDefaultProviders()
+    for (const profile of Array.isArray(this.config.apiProfiles) ? this.config.apiProfiles : []) {
+      const providerId = typeof profile?.serviceProvider === 'string' ? profile.serviceProvider.trim() : ''
+      if (!providerId || definitionMap.has(providerId)) continue
 
-    // 保存到配置文件
-    this.config.serviceProviderDefinitions = defaultProviders
-    this.save()
+      definitionMap.set(providerId, normalizeProviderDefinition({
+        id: providerId,
+        name: providerId,
+        needsMapping: true,
+        baseUrl: '',
+        defaultModelMapping: null,
+        defaultModels: []
+      }))
+    }
 
-    return defaultProviders
+    const normalizedDefinitions = Array.from(definitionMap.values())
+    const hasChanged = JSON.stringify(normalizedDefinitions) !== JSON.stringify(existingDefinitions)
+
+    if (hasChanged || existingDefinitions.length === 0) {
+      this.config.serviceProviderDefinitions = normalizedDefinitions
+      this.save()
+    }
+
+    return normalizedDefinitions
   },
 
   /**
@@ -91,11 +148,7 @@ const providerConfigMixin = {
 
     // 创建新的服务商定义
     const newProvider = {
-      id: definition.id,
-      name: definition.name,
-      needsMapping: definition.needsMapping !== false,
-      baseUrl: definition.baseUrl || '',
-      defaultModelMapping: definition.defaultModelMapping || null,
+      ...normalizeProviderDefinition(definition),
       createdAt: new Date().toISOString()
     }
 
@@ -121,14 +174,12 @@ const providerConfigMixin = {
     // 不允许修改 ID
     const { id: newId, ...safeUpdates } = updates
 
-    // 特殊处理：official 和 proxy 的模型映射永久为 null
-    if (OFFICIAL_PROVIDERS.includes(id)) {
-      safeUpdates.needsMapping = false
-      safeUpdates.defaultModelMapping = null
-    }
-
     // 更新定义
-    Object.assign(this.config.serviceProviderDefinitions[index], safeUpdates)
+    const nextDefinition = normalizeProviderDefinition({
+      ...this.config.serviceProviderDefinitions[index],
+      ...safeUpdates
+    })
+    Object.assign(this.config.serviceProviderDefinitions[index], nextDefinition)
 
     return this.save()
   },
@@ -166,7 +217,7 @@ const providerConfigMixin = {
 }
 
 module.exports = {
-  OFFICIAL_PROVIDERS,
   getDefaultProviders,
+  normalizeModelIds,
   providerConfigMixin
 }

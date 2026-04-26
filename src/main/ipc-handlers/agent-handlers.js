@@ -31,10 +31,10 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   })
 
   // 发送消息（异步，流式推送结果）
-  ipcMain.handle('agent:sendMessage', async (event, { sessionId, message, modelTier, maxTurns }) => {
+  ipcMain.handle('agent:sendMessage', async (event, { sessionId, message, model, modelTier, maxTurns }) => {
     try {
       // 不等待完成，让流式消息通过 IPC 事件推送
-      agentSessionManager.sendMessage(sessionId, message, { modelTier, maxTurns }).catch(err => {
+      agentSessionManager.sendMessage(sessionId, message, { model: model || modelTier, maxTurns }).catch(err => {
         console.error('[IPC] agent:sendMessage async error:', err)
         // 推送错误到前端，使用 _safeSend 防止窗口已销毁时报错
         agentSessionManager._safeSend('agent:error', {
@@ -251,7 +251,11 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
     try {
       return await agentSessionManager.getInitResult(sessionId)
     } catch (err) {
-      console.error('[IPC] agent:getInitResult error:', err)
+      const message = String(err?.message || err || '')
+      const isExpectedMissingInit = message.includes('No active streaming session') || message.includes('not found')
+      if (!isExpectedMissingInit) {
+        console.error('[IPC] agent:getInitResult error:', err)
+      }
       return { error: err.message }
     }
   })

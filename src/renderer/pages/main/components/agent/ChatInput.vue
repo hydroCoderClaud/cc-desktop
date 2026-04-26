@@ -3,8 +3,7 @@
     <div ref="inputToolbarRef">
       <ChatInputToolbar
         :model-value="modelValue"
-        :model-mapping="modelMapping"
-        :active-model="activeModel"
+        :model-options="modelOptions"
         :context-tokens="contextTokens"
         :queue-enabled="queueEnabled"
         :is-expanded="isExpanded"
@@ -125,7 +124,7 @@ const props = defineProps({
   },
   modelValue: {
     type: String,
-    default: 'sonnet'
+    default: 'claude-sonnet-4-6'
   },
   contextTokens: {
     type: Number,
@@ -143,13 +142,9 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
-  activeModel: {
-    type: String,
-    default: ''
-  },
-  modelMapping: {
-    type: Object,
-    default: () => ({})
+  modelOptions: {
+    type: Array,
+    default: () => []
   },
   queueEnabled: {
     type: Boolean,

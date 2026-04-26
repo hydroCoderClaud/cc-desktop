@@ -9,9 +9,11 @@ const path = require('path');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { TIMEOUTS, LATEST_MODEL_ALIASES } = require('./utils/constants');
-const { providerConfigMixin } = require('./config/provider-config');
+const { providerConfigMixin, getDefaultProviders } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
+const { resolveProfileModel } = require('./utils/model-resolver');
+const { buildRuntimeProfile } = require('./utils/runtime-profile');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
 const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
@@ -38,8 +40,8 @@ class ConfigManager {
       apiProfiles: [],
       defaultProfileId: null,  // 默认 Profile（启动时推荐使用）
 
-      // 服务商定义（自定义服务商，内置的在 constants.js 中）
-      serviceProviderDefinitions: [],
+      // 服务商定义（首次初始化写入默认列表，之后以持久化配置为准）
+      serviceProviderDefinitions: getDefaultProviders(),
 
       // 快捷命令（右侧面板）
       quickCommands: [],
@@ -225,6 +227,14 @@ class ConfigManager {
           needsSave = true;
         }
 
+        // 规范化服务商定义，并将旧 profile 模型列表并入服务商默认模型列表
+        this.config = migratedConfig;
+        const normalizedProviderDefinitions = this.getServiceProviderDefinitions();
+        if (JSON.stringify(normalizedProviderDefinitions) !== JSON.stringify(migratedConfig.serviceProviderDefinitions)) {
+          migratedConfig.serviceProviderDefinitions = normalizedProviderDefinitions;
+          needsSave = true;
+        }
+
         // 如果发生了迁移，保存新配置
         if (needsSave || migratedConfig !== mergedConfig) {
           this.save(migratedConfig);
@@ -234,6 +244,7 @@ class ConfigManager {
       }
 
       // 配置文件不存在，使用默认配置
+      this.config = this.defaultConfig;
       this.save(this.defaultConfig);
       return this.defaultConfig;
     } catch (error) {
@@ -540,6 +551,7 @@ class ConfigManager {
         authType: defaultProfile.authType || 'api_key',  // 默认 api_key（官方标准）
         baseUrl: defaultProfile.baseUrl,
         serviceProvider: defaultProfile.serviceProvider || 'official',
+        selectedModelId: defaultProfile.selectedModelId || resolveProfileModel(defaultProfile),
         selectedModelTier: defaultProfile.selectedModelTier || 'sonnet',
         modelMapping: defaultProfile.modelMapping || null,
         requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
@@ -630,7 +642,7 @@ class ConfigManager {
    */
 
   /**
-   * 迁移 Profile 结构（从旧的 category/model/customModels 到新的 serviceProvider/selectedModelTier/modelMapping）
+   * 迁移 Profile 结构（兼容旧的 category/model/customModels，并补齐 selectedModelId）
    * @param {Object} config - 配置对象
    * @returns {Object} - 迁移后的配置
    */
@@ -640,11 +652,14 @@ class ConfigManager {
     }
 
     let migrated = false;
+    let nextConfig = config
+    const nextProfiles = config.apiProfiles.map(rawProfile => {
+      let profile = rawProfile
 
-    config.apiProfiles = config.apiProfiles.map(profile => {
       // 检查是否需要迁移（是否存在旧字段）
-      const needsMigration = profile.category !== undefined || 
-                            profile.model !== undefined || 
+      const needsMigration = profile.category !== undefined ||
+                            profile.model !== undefined ||
+                            profile.selectedModelId === undefined ||
                             profile.customModels !== undefined;
 
       if (!needsMigration) {
@@ -653,6 +668,16 @@ class ConfigManager {
 
       console.log(`[ConfigManager] Migrating profile structure for: ${profile.name}`);
       migrated = true;
+      profile = { ...profile }
+
+      const legacyCustomModels = Array.isArray(profile.customModels)
+        ? profile.customModels
+            .map(model => ({
+              id: typeof model?.id === 'string' ? model.id.trim() : '',
+              tier: typeof model?.tier === 'string' ? model.tier.trim() : ''
+            }))
+            .filter(model => model.id)
+        : []
 
       // 1. 迁移 category → serviceProvider
       if (profile.category !== undefined && profile.serviceProvider === undefined) {
@@ -660,7 +685,7 @@ class ConfigManager {
         delete profile.category;
       }
 
-      // 2. 迁移 model → selectedModelTier
+      // 2. 迁移 model → selectedModelTier / selectedModelId
       if (profile.model !== undefined && profile.selectedModelTier === undefined) {
         // 根据模型名称判断等级
         const modelName = profile.model.toLowerCase();
@@ -671,22 +696,32 @@ class ConfigManager {
         } else {
           profile.selectedModelTier = 'sonnet';  // 默认 Sonnet
         }
+      }
+
+      if (profile.model !== undefined && profile.selectedModelId === undefined) {
+        profile.selectedModelId = typeof profile.model === 'string' ? profile.model.trim() : '';
         delete profile.model;
       }
 
-      // 3. 删除 customModels
+      // 3. 确保新字段存在
+      if (profile.selectedModelId === undefined || profile.selectedModelId === null || profile.selectedModelId === '') {
+        const selectedTier = typeof profile.selectedModelTier === 'string' ? profile.selectedModelTier.trim() : ''
+        const tierMatchedLegacyModel = selectedTier
+          ? legacyCustomModels.find(model => model.tier === selectedTier)?.id
+          : ''
+        profile.selectedModelId = tierMatchedLegacyModel || legacyCustomModels[0]?.id || resolveProfileModel(profile);
+      }
       if (profile.customModels !== undefined) {
         delete profile.customModels;
       }
-
-      // 4. 确保新字段存在
+      if (profile.selectedModelId === undefined || profile.selectedModelId === null) {
+        profile.selectedModelId = resolveProfileModel(profile);
+      }
       if (profile.modelMapping === undefined) {
         profile.modelMapping = null;
       }
       if (profile.requestTimeout === undefined) {
-        // Use global timeout as default
-        const globalTimeout = this.getTimeout();
-        profile.requestTimeout = globalTimeout.request;
+        profile.requestTimeout = config.timeout?.request || TIMEOUTS.API_REQUEST;
       }
       if (profile.disableNonessentialTraffic === undefined) {
         profile.disableNonessentialTraffic = true;
@@ -695,21 +730,35 @@ class ConfigManager {
       return profile;
     });
 
-    // 5. 删除全局 customModels 配置（如果存在）
-    if (config.customModels !== undefined) {
+    const profilesChanged = nextProfiles.some((profile, index) => profile !== config.apiProfiles[index]);
+    if (profilesChanged) {
+      nextConfig = { ...nextConfig, apiProfiles: nextProfiles };
+    }
+
+    // 4. 删除全局 customModels 配置（如果存在）
+    if (nextConfig.customModels !== undefined) {
       console.log('[ConfigManager] Removing global customModels field');
-      delete config.customModels;
+      if (nextConfig === config) {
+        nextConfig = { ...nextConfig };
+      }
+      delete nextConfig.customModels;
       migrated = true;
     }
 
     // 6. 清理已废弃的 globalModels 配置
-    if (config.globalModels !== undefined) {
-      delete config.globalModels;
+    if (nextConfig.globalModels !== undefined) {
+      if (nextConfig === config) {
+        nextConfig = { ...nextConfig };
+      }
+      delete nextConfig.globalModels;
       migrated = true;
     }
 
-    if (config.timeout === undefined) {
-      config.timeout = {
+    if (nextConfig.timeout === undefined) {
+      if (nextConfig === config) {
+        nextConfig = { ...nextConfig };
+      }
+      nextConfig.timeout = {
         test: TIMEOUTS.API_TEST,
         request: TIMEOUTS.API_REQUEST
       };
@@ -720,7 +769,7 @@ class ConfigManager {
       console.log('[ConfigManager] Profile structure migration completed');
     }
 
-    return config;
+    return nextConfig;
   }
 
   /**
@@ -763,6 +812,7 @@ class ConfigManager {
       serviceProvider: 'official',
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
+      selectedModelId: oldApi.model || LATEST_MODEL_ALIASES.sonnet,
       selectedModelTier: 'sonnet',  // Default to Sonnet
       modelMapping: null,  // Not needed for official service
       requestTimeout: TIMEOUTS.API_REQUEST,
@@ -809,7 +859,7 @@ class ConfigManager {
     const { buildClaudeEnvVars, buildBasicEnv } = require('./utils/env-builder')
     const ClaudeCodeRunner = require('./runners/claude-code-runner')
 
-    const claudeEnv = buildClaudeEnvVars(apiConfig)
+    const claudeEnv = buildClaudeEnvVars(apiConfig, this)
     const env = buildBasicEnv(claudeEnv)
 
     const runner = new ClaudeCodeRunner()
@@ -996,8 +1046,7 @@ class ConfigManager {
         console.log('[API Test] Auth type:', apiConfig.authType);
 
         // 3. 构造请求体
-        const tier = apiConfig.selectedModelTier || 'sonnet'
-        const testModel = apiConfig.modelMapping?.[tier]?.trim() || LATEST_MODEL_ALIASES[tier] || 'claude-sonnet-4-6'
+        const testModel = resolveProfileModel(buildRuntimeProfile(apiConfig, this))
         const postData = JSON.stringify({
           model: testModel,
           max_tokens: 10,
