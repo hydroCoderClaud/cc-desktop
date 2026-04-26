@@ -4,14 +4,9 @@
  */
 
 const { v4: uuidv4 } = require('uuid')
-function resolveProviderDefaultModelId(configManager, serviceProvider) {
-  if (!serviceProvider || typeof configManager?.getServiceProviderDefinition !== 'function') {
-    return ''
-  }
 
-  const provider = configManager.getServiceProviderDefinition(serviceProvider)
-  const defaultModels = Array.isArray(provider?.defaultModels) ? provider.defaultModels : []
-  return typeof defaultModels[0] === 'string' ? defaultModels[0].trim() : ''
+function normalizeModelValue(value) {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 /**
@@ -52,7 +47,7 @@ const apiConfigMixin = {
       serviceProvider: profileData.serviceProvider || 'official',
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
-      selectedModelId: profileData.selectedModelId || '',
+      selectedModelId: normalizeModelValue(profileData.selectedModelId),
       selectedModelTier: profileData.selectedModelTier ?? null,
       requestTimeout: profileData.requestTimeout || globalTimeout.request,
       disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
@@ -63,10 +58,6 @@ const apiConfigMixin = {
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       icon: profileData.icon || '🔵'
-    }
-
-    if (!newProfile.selectedModelId) {
-      newProfile.selectedModelId = resolveProviderDefaultModelId(this, newProfile.serviceProvider) || ''
     }
 
     // 如果是第一个 Profile，自动设为默认
@@ -93,11 +84,9 @@ const apiConfigMixin = {
     // 更新字段（不允许通过此方法修改 isDefault）
     const { isDefault, modelMapping, ...safeUpdates } = updates
     Object.assign(profile, safeUpdates)
+    profile.selectedModelId = normalizeModelValue(profile.selectedModelId)
     if (Object.prototype.hasOwnProperty.call(profile, 'modelMapping')) {
       delete profile.modelMapping
-    }
-    if (!profile.selectedModelId) {
-      profile.selectedModelId = resolveProviderDefaultModelId(this, profile.serviceProvider) || ''
     }
     profile.lastUsed = new Date().toISOString()
 

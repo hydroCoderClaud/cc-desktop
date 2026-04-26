@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 describe('env-builder runtime model selection', () => {
-  it('keeps runtime model selection independent from tier mapping env vars', async () => {
+  it('does not inject runtime model when selectedModelId is blank', async () => {
     const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
 
     const env = buildClaudeEnvVars({
@@ -21,7 +21,7 @@ describe('env-builder runtime model selection', () => {
       }))
     })
 
-    expect(env.ANTHROPIC_MODEL).toBe('qwen-coder')
+    expect(env.ANTHROPIC_MODEL).toBeUndefined()
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('qwen-max')
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('qwen-plus')
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('qwen-turbo')

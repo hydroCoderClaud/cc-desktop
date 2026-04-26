@@ -21,28 +21,10 @@ function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function resolveProviderDefaultModelId(source, serviceProvider) {
-  const providerId = normalizeModelValue(serviceProvider);
-  if (!providerId) {
-    return '';
-  }
-
-  const definitions = Array.isArray(source?.serviceProviderDefinitions)
-    ? source.serviceProviderDefinitions
-    : Array.isArray(source?.config?.serviceProviderDefinitions)
-      ? source.config.serviceProviderDefinitions
-      : Array.isArray(source?.defaultConfig?.serviceProviderDefinitions)
-        ? source.defaultConfig.serviceProviderDefinitions
-        : [];
-  const provider = definitions.find(item => normalizeModelValue(item?.id) === providerId);
-  const defaultModels = Array.isArray(provider?.defaultModels) ? provider.defaultModels : [];
-  return normalizeModelValue(defaultModels[0]);
-}
-
-function resolveConfiguredModelId(source, profile) {
+function resolveConfiguredModelId(_source, profile) {
   const selectedModelId = normalizeModelValue(profile?.selectedModelId);
   if (selectedModelId) return selectedModelId;
-  return resolveProviderDefaultModelId(source, profile?.serviceProvider);
+  return '';
 }
 
 class ConfigManager {
@@ -676,11 +658,8 @@ class ConfigManager {
         delete profile.model;
       }
 
-      // 3. 清理旧 tier，并只按当前服务商默认模型补齐 selectedModelId
+      // 3. 清理旧 tier，并保留 selectedModelId 的显式配置
       profile.selectedModelTier = null;
-      if (!normalizeModelValue(profile.selectedModelId)) {
-        profile.selectedModelId = resolveConfiguredModelId(config, profile);
-      }
       if (profile.customModels !== undefined) {
         delete profile.customModels;
       }

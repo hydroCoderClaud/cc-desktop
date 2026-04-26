@@ -9,18 +9,10 @@ function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function resolveRuntimeSelectedModelId(profile, configManager) {
+function resolveRuntimeSelectedModelId(profile, _configManager) {
   const selectedModelId = normalizeModelValue(profile?.selectedModelId)
   if (selectedModelId) return selectedModelId
-
-  const providerId = normalizeModelValue(profile?.serviceProvider)
-  if (!providerId || typeof configManager?.getServiceProviderDefinition !== 'function') {
-    return ''
-  }
-
-  const provider = configManager.getServiceProviderDefinition(providerId)
-  const defaultModels = Array.isArray(provider?.defaultModels) ? provider.defaultModels : []
-  return normalizeModelValue(defaultModels[0])
+  return ''
 }
 
 /**
@@ -43,7 +35,7 @@ function isPackagedApp() {
  * |-----------------------------|-----------------------------------------|
  * | authToken + authType        | ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN |
  * | baseUrl                     | ANTHROPIC_BASE_URL                      |
- * | selectedModelId（为空时回退服务商默认模型 ID） | ANTHROPIC_MODEL (启动默认模型) |
+ * | selectedModelId             | ANTHROPIC_MODEL (启动默认模型) |
  * | requestTimeout              | API_TIMEOUT_MS                          |
  * | disableNonessentialTraffic  | CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC|
  * | modelMapping.opus           | ANTHROPIC_DEFAULT_OPUS_MODEL            |

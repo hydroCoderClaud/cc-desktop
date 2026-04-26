@@ -286,16 +286,10 @@ const modelSelectPlaceholder = computed(() => {
 // Watch for profile changes to populate form
 watch(() => props.profile, (newProfile) => {
   if (newProfile) {
-    const activeProvider = getActiveProvider(newProfile.serviceProvider)
-    const providerDefaultModels = normalizeModelIds(activeProvider?.defaultModels)
-    const resolvedSelectedModelId = newProfile.selectedModelId
-      || providerDefaultModels[0]
-      || ''
-
     formData.value = {
       ...defaultFormData(),
       ...newProfile,
-      selectedModelId: resolvedSelectedModelId,
+      selectedModelId: typeof newProfile.selectedModelId === 'string' ? newProfile.selectedModelId.trim() : '',
       selectedModelTier: newProfile.selectedModelTier ?? null,
       requestTimeout: (newProfile.requestTimeout || 120000) / 1000
     }
@@ -323,8 +317,11 @@ const onServiceProviderChange = (value) => {
       formData.value.baseUrl = provider.baseUrl
     }
     const providerDefaultModels = normalizeModelIds(provider.defaultModels)
-    if (!providerDefaultModels.includes(formData.value.selectedModelId)) {
-      formData.value.selectedModelId = providerDefaultModels[0] || ''
+    const currentSelectedModelId = typeof formData.value.selectedModelId === 'string'
+      ? formData.value.selectedModelId.trim()
+      : ''
+    if (currentSelectedModelId && !providerDefaultModels.includes(currentSelectedModelId)) {
+      formData.value.selectedModelId = ''
     }
   }
 }
@@ -333,7 +330,7 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate()
 
-    const selectedModelId = formData.value.selectedModelId?.trim() || customModelOptions.value[0]?.value || ''
+    const selectedModelId = formData.value.selectedModelId?.trim() || ''
 
     const data = {
       name: formData.value.name,

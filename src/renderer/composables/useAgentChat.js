@@ -94,21 +94,15 @@ export function useAgentChat(sessionId, options = {}) {
     const allowedModelIds = normalizeModelIds(modelOptions.value.map(model => model?.value))
 
     if (!currentModel) {
-      return allowedModelIds[0] || ''
+      return ''
     }
 
     if (allowedModelIds.length > 0 && !allowedModelIds.includes(currentModel)) {
-      const fallbackModel = allowedModelIds[0]
-      if (fallbackModel) {
-        console.warn('[useAgentChat] Detected stale selectedModel, falling back to current profile model:', {
-          sessionId,
-          staleModel: currentModel,
-          fallbackModel,
-          allowedModelIds
-        })
-        selectedModel.value = fallbackModel
-        return fallbackModel
-      }
+      console.warn('[useAgentChat] Detected stale selectedModel, keeping explicit selection for send:', {
+        sessionId,
+        selectedModel: currentModel,
+        allowedModelIds
+      })
     }
 
     return currentModel
@@ -141,7 +135,18 @@ export function useAgentChat(sessionId, options = {}) {
 
     if (canSetModelLive) {
       window.electronAPI.setAgentModel(sessionId, nextModel)
-        .then(() => {
+        .then(result => {
+          if (result?.ignored) {
+            console.warn('[useAgentChat] setAgentModel ignored by main process:', {
+              sessionId,
+              model: nextModel || null,
+              requestedModel: result.requestedModel || nextModel || null
+            })
+            if (prevModel !== nextModel) {
+              selectedModel.value = prevModel
+            }
+            return
+          }
           console.log('[useAgentChat] setAgentModel resolved:', {
             sessionId,
             model: nextModel || null
@@ -927,7 +932,7 @@ export function useAgentChat(sessionId, options = {}) {
           : false
         const nextSelectedModel = preferredModelExists
           ? normalizedPreferredModelId
-          : (profile.selectedModelId || nextModelOptions[0]?.value || '')
+          : normalizeModelValue(profile.selectedModelId)
         if (token !== modelInitToken) return false
         modelOptions.value = nextModelOptions
         selectedModel.value = nextSelectedModel

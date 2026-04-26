@@ -38,38 +38,10 @@ function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function getProfileModelIds(profile, configManager) {
-  const providerModels = Array.isArray(configManager?.getServiceProviderDefinition?.(profile?.serviceProvider)?.defaultModels)
-    ? configManager.getServiceProviderDefinition(profile.serviceProvider).defaultModels
-    : []
-  const candidates = [...providerModels, profile?.selectedModelId]
-  const normalized = []
-  const seen = new Set()
-
-  for (const candidate of candidates) {
-    const modelId = normalizeModelValue(candidate)
-    if (!modelId || seen.has(modelId)) continue
-    seen.add(modelId)
-    normalized.push(modelId)
-  }
-
-  return normalized
-}
-
-function resolveRequestedModel(profile, configManager, requestedModel) {
+function resolveRequestedModel(_profile, _configManager, requestedModel) {
   const normalizedRequestedModel = normalizeModelValue(requestedModel)
   if (!normalizedRequestedModel) {
     return { queryModel: null, ignored: false, requestedModel: '' }
-  }
-
-  const allowedModelIds = getProfileModelIds(profile, configManager)
-  if (allowedModelIds.length > 0 && !allowedModelIds.includes(normalizedRequestedModel)) {
-    return {
-      queryModel: null,
-      ignored: true,
-      requestedModel: normalizedRequestedModel,
-      allowedModelIds
-    }
   }
 
   return {
@@ -899,13 +871,6 @@ class AgentSessionManager extends EventEmitter {
               queryModel: resolvedRequest.queryModel,
               apiProfileId: profile?.id || null
             })
-          } else if (resolvedRequest.ignored) {
-            console.warn('[AgentSession] Ignoring stale requestedModel before push:', {
-              sessionId,
-              apiProfileId: profile?.id || null,
-              requestedModel: resolvedRequest.requestedModel,
-              allowedModelIds: resolvedRequest.allowedModelIds || []
-            })
           }
         } catch (e) {
           console.warn('[AgentSession] setModel before push failed:', {
@@ -1019,13 +984,6 @@ class AgentSessionManager extends EventEmitter {
           if (queryOptions.env && typeof queryOptions.env === 'object') {
             queryOptions.env.ANTHROPIC_MODEL = resolvedRequest.queryModel
           }
-        } else if (resolvedRequest.ignored) {
-          console.warn('[AgentSession] Ignoring stale requestedModel for createQuery:', {
-            sessionId,
-            apiProfileId: sessionProfile?.id || null,
-            requestedModel: resolvedRequest.requestedModel,
-            allowedModelIds: resolvedRequest.allowedModelIds || []
-          })
         }
       }
 
@@ -2028,25 +1986,10 @@ class AgentSessionManager extends EventEmitter {
       requestedModel: normalizedRequestedModel,
       resolvedModel: resolvedRequest.queryModel || null,
       ignored: resolvedRequest.ignored,
-      allowedModelIds: resolvedRequest.allowedModelIds || [],
       hasSession: !!session,
       hasQueryGenerator: !!session?.queryGenerator,
       apiProfileId: session?.apiProfileId || profile?.id || null
     })
-
-    if (!resolvedRequest.queryModel) {
-      console.warn('[AgentSession] setModel ignored unsupported requestedModel:', {
-        sessionId,
-        requestedModel: normalizedRequestedModel,
-        apiProfileId: session?.apiProfileId || profile?.id || null,
-        allowedModelIds: resolvedRequest.allowedModelIds || []
-      })
-      return {
-        ignored: true,
-        requestedModel: normalizedRequestedModel,
-        allowedModelIds: resolvedRequest.allowedModelIds || []
-      }
-    }
 
     try {
       const result = await this.queryManager.setModel(sessionId, resolvedRequest.queryModel)

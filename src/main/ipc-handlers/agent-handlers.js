@@ -198,8 +198,8 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
   // 切换模型（实时生效）
   ipcMain.handle('agent:setModel', async (event, { sessionId, model }) => {
     try {
-      await agentSessionManager.setModel(sessionId, model)
-      return { success: true }
+      const result = await agentSessionManager.setModel(sessionId, model)
+      return result && typeof result === 'object' ? result : { success: true }
     } catch (err) {
       console.error('[IPC] agent:setModel error:', err)
       return { error: err.message }

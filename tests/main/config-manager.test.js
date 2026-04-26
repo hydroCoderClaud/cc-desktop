@@ -141,6 +141,27 @@ describe('ConfigManager', () => {
       expect(configManager.getAPIProfile(profile.id)?.modelMapping).toBeUndefined()
     })
 
+    it('新增 profile selectedModelId 为空时不应从服务商默认模型回填', async () => {
+      configManager.addServiceProviderDefinition({
+        id: 'default-model-provider',
+        name: 'Default Model Provider',
+        baseUrl: 'https://example.com',
+        defaultModels: ['provider-default-model']
+      })
+
+      const profile = configManager.addAPIProfile({
+        name: 'Blank Model Profile',
+        authToken: 'token',
+        serviceProvider: 'default-model-provider',
+        baseUrl: 'https://example.com',
+        selectedModelId: ''
+      })
+      await configManager.saveQueue
+
+      expect(profile.selectedModelId).toBe('')
+      expect(configManager.getAPIProfile(profile.id)?.selectedModelId).toBe('')
+    })
+
     it('getAPIConfig 不应再从 tier 或 mapping 推导模型', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
@@ -174,7 +195,7 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
 
       const apiConfig = newConfigManager.getAPIConfig()
-      expect(apiConfig.selectedModelId).toBe('provider-default-model')
+      expect(apiConfig.selectedModelId).toBe('')
       expect(apiConfig.selectedModelTier).toBeNull()
       expect(apiConfig.modelMapping).toBeUndefined()
       expect(newConfigManager.getConfig().apiProfiles[0].selectedModelTier).toBeNull()
@@ -526,7 +547,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.apiProfiles[0].selectedModelTier).toBeNull()
     })
 
-    it('HTTP 测试不应从 tier 或 mapping 推导模型', async () => {
+    it('HTTP 测试在缺少 selectedModelId 时应直接失败', async () => {
       const { createServer } = await import('http')
       let capturedBody = ''
       const server = createServer((req, res) => {
@@ -577,8 +598,9 @@ describe('ConfigManager', () => {
 
       try {
         const result = await newConfigManager.testAPIConnectionViaHTTP(newConfigManager.getAPIConfig())
-        expect(result.success).toBe(true)
-        expect(JSON.parse(capturedBody).model).toBe('provider-default-model')
+        expect(result.success).toBe(false)
+        expect(result.message).toContain('未配置模型 ID')
+        expect(capturedBody).toBe('')
         expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
       } finally {
         await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))

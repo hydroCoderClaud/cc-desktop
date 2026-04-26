@@ -248,7 +248,7 @@ describe('AgentSessionManager interactions', () => {
     })
   })
 
-  it('ignores stale requestedModel when it is not supported by current profile', async () => {
+  it('passes explicit requestedModel through even when it is not listed by current profile', async () => {
     const { manager } = createManager()
     manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
       ? {
@@ -285,11 +285,11 @@ describe('AgentSessionManager interactions', () => {
     await manager.sendMessage('s-stale-model', 'hello', { model: 'kimi-k2.6' })
 
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
-    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6')
-    expect(createQueryOptions.model).toBeUndefined()
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('kimi-k2.6')
+    expect(createQueryOptions.model).toBe('kimi-k2.6')
   })
 
-  it('does not map tier aliases when agent runtime receives a model id request', async () => {
+  it('passes tier alias strings through without local remapping', async () => {
     const { manager } = createManager()
     manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
       ? {
@@ -326,8 +326,8 @@ describe('AgentSessionManager interactions', () => {
     await manager.sendMessage('s-tier-alias', 'hello', { model: 'sonnet' })
 
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
-    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('glm-4.5')
-    expect(createQueryOptions.model).toBeUndefined()
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('sonnet')
+    expect(createQueryOptions.model).toBe('sonnet')
   })
 
   it('syncs env model with requestedModel when createQuery is rebuilt from a restored session', async () => {
@@ -577,7 +577,7 @@ describe('AgentSessionManager interactions', () => {
     expect(result.message).toBe('Claude Code 已连通，收到模型回复：pong early')
   })
 
-  it('setModel only applies explicit model ids and ignores tier aliases', async () => {
+  it('setModel passes explicit model strings through without local filtering', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 'session-set-model', cwd: '/tmp', apiProfileId: 'profile-1' })
     manager.sessions.set(session.id, session)
@@ -593,15 +593,12 @@ describe('AgentSessionManager interactions', () => {
     manager.queryManager.setModel = vi.fn(async () => {})
 
     await manager.setModel(session.id, 'glm-4.5')
-    const ignoredResult = await manager.setModel(session.id, 'sonnet')
+    const secondResult = await manager.setModel(session.id, 'sonnet')
 
-    expect(manager.queryManager.setModel).toHaveBeenCalledTimes(1)
+    expect(manager.queryManager.setModel).toHaveBeenCalledTimes(2)
     expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(1, session.id, 'glm-4.5')
-    expect(ignoredResult).toEqual({
-      ignored: true,
-      requestedModel: 'sonnet',
-      allowedModelIds: ['glm-4.5']
-    })
+    expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(2, session.id, 'sonnet')
+    expect(secondResult).toBeUndefined()
   })
 
   it('probeConnection labels API refusal clearly', async () => {
