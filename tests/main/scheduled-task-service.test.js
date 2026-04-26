@@ -7,15 +7,13 @@ vi.mock('electron', () => ({
 }))
 
 describe('ScheduledTaskService', () => {
-  it('normalizes legacy model tier aliases to agent-supported tiers', async () => {
+  it('normalizes explicit scheduled-task model ids', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const service = new ScheduledTaskService({}, { on: vi.fn() })
 
-    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'balanced' }).modelTier).toBe('sonnet')
-    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'powerful' }).modelTier).toBe('opus')
-    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'fast' }).modelTier).toBe('haiku')
-    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'sonnet' }).modelTier).toBe('sonnet')
-    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelTier: 'Qwen/Qwen3.6-27B' }).modelTier).toBeNull()
+    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelId: ' glm-5.1 ' }).modelId).toBe('glm-5.1')
+    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelId: 'Qwen/Qwen3.6-27B' }).modelId).toBe('Qwen/Qwen3.6-27B')
+    expect(service._normalizeTaskInput({ name: 'a', prompt: 'b', scheduleType: 'interval', intervalMinutes: 5, modelId: '' }).modelId).toBeNull()
   })
 
   it('rejects invalid daily and weekly clock times', async () => {
@@ -177,6 +175,7 @@ describe('ScheduledTaskService', () => {
 
     expect(prompt).toContain('Continue scheduled task "Night Review".')
     expect(prompt).toContain('Trigger Reason: Scheduled')
+    expect(prompt).toContain('Do not query the current system time again')
     expect(prompt).toContain('Task Content:')
   })
 
@@ -195,6 +194,7 @@ describe('ScheduledTaskService', () => {
 
     expect(prompt).toContain('# 定时智能体任务')
     expect(prompt).toContain('触发原因：定时触发')
+    expect(prompt).toContain('不要再次查询系统当前时间')
     expect(prompt).toContain('# 任务内容')
   })
 
@@ -243,6 +243,7 @@ describe('ScheduledTaskService', () => {
       enabled: true,
       scheduleType: 'interval',
       intervalMinutes: 30,
+      modelId: 'glm-5.1',
       firstRunMode: 'immediate',
       firstRunAt: null,
       lastRunAt: null,
@@ -250,7 +251,7 @@ describe('ScheduledTaskService', () => {
     }
 
     const sessionDatabase = {
-      createScheduledTask: vi.fn(() => ({ ...taskState })),
+      createScheduledTask: vi.fn((task) => ({ ...taskState, ...task })),
       updateScheduledTaskState: vi.fn((_taskId, updates) => {
         Object.assign(taskState, updates)
         return { ...taskState }
@@ -276,11 +277,19 @@ describe('ScheduledTaskService', () => {
       prompt: '执行巡检',
       scheduleType: 'interval',
       intervalMinutes: 30,
-      firstRunMode: 'immediate'
+      firstRunMode: 'immediate',
+      modelId: 'glm-5.1'
     })
 
     expect(agentSessionManager.create).toHaveBeenCalled()
-    expect(agentSessionManager.sendMessage).toHaveBeenCalled()
+    expect(agentSessionManager.sendMessage).toHaveBeenCalledWith(
+      'agent-session-immediate',
+      expect.any(String),
+      expect.objectContaining({
+        model: 'glm-5.1',
+        meta: { source: 'scheduled' }
+      })
+    )
     expect(created.sessionId).toBe('agent-session-immediate')
   })
 

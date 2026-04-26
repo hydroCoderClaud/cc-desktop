@@ -25,20 +25,11 @@ function normalizeTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function normalizeModelTier(tier) {
-  if (!tier) return null
+function normalizeModelId(modelId) {
+  if (typeof modelId !== 'string') return null
 
-  const normalized = String(tier).trim().toLowerCase()
-  if (!normalized) return null
-
-  const aliases = {
-    powerful: 'opus',
-    balanced: 'sonnet',
-    fast: 'haiku'
-  }
-
-  const resolved = aliases[normalized] || normalized
-  return ['sonnet', 'opus', 'haiku'].includes(resolved) ? resolved : null
+  const normalized = modelId.trim()
+  return normalized || null
 }
 
 function normalizeWeeklyDays(days) {
@@ -96,12 +87,14 @@ const PROMPT_I18N = {
     continuedTitle: (name) => `继续执行定时任务“${name}”。`,
     triggerReason: (value) => `触发原因：${value}`,
     triggerTime: (value) => `触发时间：${value}`,
+    triggerTimeNote: '以上触发时间由桌面调度器提供。除非任务内容明确要求，否则不要再次查询系统当前时间。',
     runtimeState: (value) => `运行态：\n${value}`,
     taskPromptTitle: '任务内容：',
     bootstrapTitle: '# 定时智能体任务',
     bootstrapTaskName: (value) => `任务名称：${value}`,
     bootstrapTriggerReason: (value) => `触发原因：${value}`,
     bootstrapTriggerTime: (value) => `触发时间：${value}`,
+    bootstrapTriggerTimeNote: '以上触发时间由桌面调度器提供。除非任务内容明确要求，否则不要再次查询系统当前时间。',
     bootstrapStartedByScheduler: '本次执行由桌面端定时调度自动触发。',
     bootstrapRuntimeState: (value) => `\n\n# 运行态\n${value}`,
     bootstrapTaskPromptTitle: '# 任务内容'
@@ -115,12 +108,14 @@ const PROMPT_I18N = {
     continuedTitle: (name) => `Continue scheduled task "${name}".`,
     triggerReason: (value) => `Trigger Reason: ${value}`,
     triggerTime: (value) => `Trigger Time: ${value}`,
+    triggerTimeNote: 'The trigger time above is provided by the desktop scheduler. Do not query the current system time again unless the task content explicitly requires it.',
     runtimeState: (value) => `Runtime State:\n${value}`,
     taskPromptTitle: 'Task Content:',
     bootstrapTitle: '# Scheduled Agent Task',
     bootstrapTaskName: (value) => `Task Name: ${value}`,
     bootstrapTriggerReason: (value) => `Trigger Reason: ${value}`,
     bootstrapTriggerTime: (value) => `Trigger Time: ${value}`,
+    bootstrapTriggerTimeNote: 'The trigger time above is provided by the desktop scheduler. Do not query the current system time again unless the task content explicitly requires it.',
     bootstrapStartedByScheduler: 'This run was started automatically by the desktop scheduler.',
     bootstrapRuntimeState: (value) => `\n\n# Runtime State\n${value}`,
     bootstrapTaskPromptTitle: '# Task Content'
@@ -360,7 +355,7 @@ class ScheduledTaskService {
         sessionId,
         this._buildTaskPrompt(task, triggerReason, startedAt, { bootstrap: isBootstrapRun }),
         {
-          modelTier: task.modelTier || undefined,
+          model: task.modelId || undefined,
           maxTurns: task.maxTurns || undefined,
           meta: { source: 'scheduled' }
         }
@@ -694,7 +689,7 @@ class ScheduledTaskService {
       prompt: Object.prototype.hasOwnProperty.call(input, 'prompt') ? String(input.prompt || '').trim() : undefined,
       cwd: Object.prototype.hasOwnProperty.call(input, 'cwd') ? (String(input.cwd || '').trim() || null) : undefined,
       apiProfileId: Object.prototype.hasOwnProperty.call(input, 'apiProfileId') ? (input.apiProfileId || null) : undefined,
-      modelTier: Object.prototype.hasOwnProperty.call(input, 'modelTier') ? normalizeModelTier(input.modelTier) : undefined,
+      modelId: Object.prototype.hasOwnProperty.call(input, 'modelId') ? normalizeModelId(input.modelId) : undefined,
       maxTurns,
       enabled: Object.prototype.hasOwnProperty.call(input, 'enabled') ? !!input.enabled : undefined,
       scheduleType,
@@ -850,6 +845,7 @@ class ScheduledTaskService {
         promptText.continuedTitle(task.name),
         promptText.triggerReason(localizedTriggerReason),
         promptText.triggerTime(triggerTime),
+        promptText.triggerTimeNote,
         runtimeState ? promptText.runtimeState(runtimeState) : '',
         '',
         promptText.taskPromptTitle,
@@ -862,6 +858,7 @@ class ScheduledTaskService {
       promptText.bootstrapTaskName(task.name),
       promptText.bootstrapTriggerReason(localizedTriggerReason),
       promptText.bootstrapTriggerTime(triggerTime),
+      promptText.bootstrapTriggerTimeNote,
       promptText.bootstrapStartedByScheduler,
       runtimeState ? promptText.bootstrapRuntimeState(runtimeState) : '',
       '',

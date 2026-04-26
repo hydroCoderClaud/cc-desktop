@@ -1,12 +1,48 @@
 const DEFAULT_DAILY_TIME = '09:00'
 
+function normalizeModelValue(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeModelIds(values) {
+  const normalized = []
+  const seen = new Set()
+
+  for (const value of Array.isArray(values) ? values : []) {
+    const modelId = normalizeModelValue(value)
+    if (!modelId || seen.has(modelId)) continue
+    seen.add(modelId)
+    normalized.push(modelId)
+  }
+
+  return normalized
+}
+
+function resolveScheduledTaskProfile({ apiProfiles = [], defaultProfileId = null, apiProfileId = null } = {}) {
+  const normalizedApiProfileId = normalizeModelValue(apiProfileId)
+  const normalizedDefaultProfileId = normalizeModelValue(defaultProfileId)
+  const profiles = Array.isArray(apiProfiles) ? apiProfiles : []
+
+  return profiles.find(profile => profile?.id === normalizedApiProfileId)
+    || profiles.find(profile => profile?.id === normalizedDefaultProfileId)
+    || profiles[0]
+    || null
+}
+
+function getProviderModelIds(serviceProviderDefinitions = [], serviceProvider = '') {
+  const normalizedProviderId = normalizeModelValue(serviceProvider)
+  const providers = Array.isArray(serviceProviderDefinitions) ? serviceProviderDefinitions : []
+  const provider = providers.find(item => item?.id === normalizedProviderId)
+  return normalizeModelIds(provider?.defaultModels)
+}
+
 export function createScheduledTaskFormDefaults(defaultCwd = '') {
   return {
     name: '',
     prompt: '',
     cwd: defaultCwd,
     apiProfileId: null,
-    modelTier: 'sonnet',
+    modelId: '',
     maxTurns: null,
     enabled: true,
     scheduleType: 'interval',
@@ -53,17 +89,45 @@ export function buildMonthlyModeOptions(t) {
   ]
 }
 
-export function getScheduledTaskModelTierOptions(t) {
-  return [
-    { label: t('agent.tierBalanced'), value: 'sonnet' },
-    { label: t('agent.tierPowerful'), value: 'opus' },
-    { label: t('agent.tierFast'), value: 'haiku' }
-  ]
+export function getScheduledTaskProfileModelIds({
+  apiProfiles = [],
+  serviceProviderDefinitions = [],
+  defaultProfileId = null,
+  apiProfileId = null
+} = {}) {
+  const profile = resolveScheduledTaskProfile({ apiProfiles, defaultProfileId, apiProfileId })
+  return normalizeModelIds([
+    ...getProviderModelIds(serviceProviderDefinitions, profile?.serviceProvider),
+    profile?.selectedModelId
+  ])
 }
 
-export function getScheduledTaskModelTierLabel(tier, t) {
-  if (!tier) return t('rightPanel.scheduledTasks.defaultModelTier')
-  return getScheduledTaskModelTierOptions(t).find(item => item.value === tier)?.label || tier
+export function buildScheduledTaskModelOptions(context = {}) {
+  return getScheduledTaskProfileModelIds(context).map(modelId => ({
+    label: modelId,
+    value: modelId
+  }))
+}
+
+export function resolveScheduledTaskModelId(context = {}, preferredModelId = '') {
+  const modelIds = getScheduledTaskProfileModelIds(context)
+  const normalizedPreferredModelId = normalizeModelValue(preferredModelId)
+
+  if (normalizedPreferredModelId && modelIds.includes(normalizedPreferredModelId)) {
+    return normalizedPreferredModelId
+  }
+
+  const profile = resolveScheduledTaskProfile(context)
+  const profileSelectedModelId = normalizeModelValue(profile?.selectedModelId)
+  if (profileSelectedModelId && modelIds.includes(profileSelectedModelId)) {
+    return profileSelectedModelId
+  }
+
+  return modelIds[0] || ''
+}
+
+export function getScheduledTaskModelLabel(modelId, t) {
+  return normalizeModelValue(modelId) || t('rightPanel.scheduledTasks.defaultModelId')
 }
 
 export function formatScheduledTaskDateTime(value) {

@@ -43,7 +43,7 @@ describe('desktop capability query options', () => {
       lastError: 'recent failure',
       failureCount: 2,
       apiProfileId: 'profile-1',
-      modelTier: 'sonnet',
+      modelId: 'glm-5.1',
       maxTurns: 6,
       cwd: '/tmp/project',
       ...overrides
@@ -127,7 +127,7 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('Do not claim there are no tasks')
     expect(options.appendSystemPrompt).toContain('You do have direct access to HydroDesktop scheduled tasks')
     expect(options.appendSystemPrompt).toContain('Do not say you cannot access HydroDesktop scheduled tasks')
-    expect(options.appendSystemPrompt).toContain('Never append raw internal tier codes in parentheses')
+    expect(options.appendSystemPrompt).toContain('modelId')
   })
 
   it('serializes task diagnostics in list/get responses', async () => {
@@ -140,13 +140,12 @@ describe('desktop capability query options', () => {
       sessionId: 'session-7',
       lastError: 'recent failure',
       failureCount: 2,
-      modelTierLabel: '均衡'
+      modelId: 'glm-5.1'
     })
     expect(listPayload.tasks[0].updatedAtIso).toBeTypeOf('string')
     expect(listPayload.tasks[0]).not.toHaveProperty('modelTier')
-    expect(listPayload.tasks[0].summary).not.toContain('sonnet')
-    expect(listPayload.tasks[0].summary).not.toContain('opus')
-    expect(listPayload.tasks[0].summary).not.toContain('haiku')
+    expect(listPayload.tasks[0]).not.toHaveProperty('modelTierLabel')
+    expect(listPayload.tasks[0].summary).toContain('glm-5.1')
 
     const getPayload = parseToolPayload(await tools.schedule_get.handler({ taskId: 7 }))
     expect(getPayload.action).toBe('get')
@@ -155,12 +154,12 @@ describe('desktop capability query options', () => {
       sessionId: 'session-7',
       lastError: 'recent failure',
       failureCount: 2,
-      modelTierLabel: '均衡'
+      modelId: 'glm-5.1'
     })
     expect(getPayload.task).not.toHaveProperty('modelTier')
   })
 
-  it('localizes model tier labels for english locale', async () => {
+  it('serializes model ids for english locale', async () => {
     const { tools } = await createOptions({
       configManager: {
         getConfig: () => ({
@@ -174,12 +173,9 @@ describe('desktop capability query options', () => {
     const payload = parseToolPayload(await tools.schedule_get.handler({ taskId: 7 }))
 
     expect(payload.task).toMatchObject({
-      modelTierLabel: 'Balanced'
+      modelId: 'glm-5.1'
     })
-    expect(payload.task.summary).toContain('Balanced')
-    expect(payload.task.summary).not.toContain('sonnet')
-    expect(payload.task.summary).not.toContain('opus')
-    expect(payload.task.summary).not.toContain('haiku')
+    expect(payload.task.summary).toContain('glm-5.1')
   })
 
   it('reads task runs and returns run metadata', async () => {

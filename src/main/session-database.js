@@ -210,6 +210,7 @@ class SessionDatabaseBase {
     const scheduledTaskColumns = scheduledTaskInfo.map(col => col.name)
 
     const scheduledTaskNewColumns = [
+      { name: 'model_id', type: 'TEXT' },
       { name: 'first_run_mode', type: "TEXT DEFAULT 'next_slot'" },
       { name: 'first_run_at', type: 'INTEGER' },
       { name: 'monthly_mode', type: "TEXT DEFAULT 'day_of_month'" },
@@ -543,7 +544,7 @@ class SessionDatabaseBase {
         prompt TEXT NOT NULL DEFAULT '',
         cwd TEXT,
         api_profile_id TEXT,
-        model_tier TEXT,
+        model_id TEXT,
         max_turns INTEGER,
         enabled INTEGER NOT NULL DEFAULT 1,
         run_on_startup INTEGER NOT NULL DEFAULT 1,

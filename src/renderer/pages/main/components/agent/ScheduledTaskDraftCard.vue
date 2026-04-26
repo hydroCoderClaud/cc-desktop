@@ -37,10 +37,10 @@
 
       <div class="task-grid st-form-grid">
         <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')">
-          <n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable />
+        <n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable />
         </n-form-item>
-        <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')">
-          <n-select v-model:value="form.modelTier" :options="modelTierOptions" clearable />
+        <n-form-item :label="t('rightPanel.scheduledTasks.modelId')">
+          <n-select v-model:value="form.modelId" :options="modelOptions" :placeholder="t('rightPanel.scheduledTasks.modelIdPlaceholder')" />
         </n-form-item>
         <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')">
           <n-input-number v-model:value="form.maxTurns" :min="1" style="width: 100%;" />
@@ -127,10 +127,11 @@ import Icon from '@components/icons/Icon.vue'
 import {
   buildFirstRunModeOptions,
   buildMonthlyModeOptions,
+  buildScheduledTaskModelOptions,
   buildScheduleTypeOptions,
   buildWeeklyDayOptions,
   createScheduledTaskFormDefaults,
-  getScheduledTaskModelTierOptions
+  resolveScheduledTaskModelId
 } from '@utils/scheduled-task-meta'
 
 const props = defineProps({
@@ -148,6 +149,8 @@ const emit = defineEmits(['submit', 'cancel'])
 const { t } = useLocale()
 
 const apiProfiles = ref([])
+const defaultProfileId = ref(null)
+const serviceProviderDefinitions = ref([])
 const form = ref(createDefaultForm())
 
 function createDefaultForm() {
@@ -203,13 +206,23 @@ const finalizedNextRunText = computed(() => {
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
 const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
 const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
-
-const modelTierOptions = computed(() => getScheduledTaskModelTierOptions(t))
-
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
+const modelOptions = computed(() => buildScheduledTaskModelOptions({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: form.value.apiProfileId || null
+}))
 
 const apiProfileOptions = computed(() => [
-  { label: t('rightPanel.scheduledTasks.defaultProfile'), value: null },
+  {
+    label: apiProfiles.value.find(profile => profile.id === defaultProfileId.value)?.name
+      ? t('rightPanel.scheduledTasks.defaultProfileResolved', {
+          name: apiProfiles.value.find(profile => profile.id === defaultProfileId.value)?.name
+        })
+      : t('rightPanel.scheduledTasks.defaultProfile'),
+    value: null
+  },
   ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))
 ])
 
@@ -241,11 +254,23 @@ const canSubmit = computed(() => !nameError.value && !promptError.value && !time
 
 const loadProfiles = async () => {
   try {
+    const config = await window.electronAPI?.getConfig?.()
+    if (config) {
+      apiProfiles.value = Array.isArray(config.apiProfiles) ? config.apiProfiles : []
+      defaultProfileId.value = config.defaultProfileId || null
+      serviceProviderDefinitions.value = Array.isArray(config.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
+      return
+    }
+
     const profiles = await window.electronAPI?.listAPIProfiles?.()
     apiProfiles.value = Array.isArray(profiles) ? profiles : []
+    defaultProfileId.value = null
+    serviceProviderDefinitions.value = []
   } catch (err) {
     console.error('[ScheduledTaskDraftCard] Failed to load API profiles:', err)
     apiProfiles.value = []
+    defaultProfileId.value = null
+    serviceProviderDefinitions.value = []
   }
 }
 
@@ -269,6 +294,7 @@ const handleSubmit = () => {
       name: form.value.name.trim(),
       prompt: form.value.prompt.trim(),
       cwd: form.value.cwd?.trim() || null,
+      modelId: form.value.modelId || null,
       monthlyMode: form.value.monthlyMode,
       monthlyDay: form.value.monthlyMode === 'last_day' ? null : (form.value.monthlyDay ?? null),
       firstRunMode: form.value.scheduleType === 'once' ? 'custom' : form.value.firstRunMode,
@@ -276,6 +302,19 @@ const handleSubmit = () => {
     }
   })
 }
+
+watch([apiProfiles, serviceProviderDefinitions, defaultProfileId, () => form.value.apiProfileId], () => {
+  const nextModelId = resolveScheduledTaskModelId({
+    apiProfiles: apiProfiles.value,
+    serviceProviderDefinitions: serviceProviderDefinitions.value,
+    defaultProfileId: defaultProfileId.value,
+    apiProfileId: form.value.apiProfileId || null
+  }, form.value.modelId)
+
+  if (form.value.modelId !== nextModelId) {
+    form.value.modelId = nextModelId
+  }
+}, { deep: true })
 </script>
 
 <style src="@/styles/scheduled-task-common.css"></style>

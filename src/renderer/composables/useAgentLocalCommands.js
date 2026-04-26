@@ -15,9 +15,9 @@ export function useAgentLocalCommands({
   addAssistantMessage,
   compactConversation
 }) {
-  const normalizeScheduledTaskModelTier = (value) => {
-    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
-    return ['sonnet', 'opus', 'haiku'].includes(normalized) ? normalized : null
+  const normalizeScheduledTaskModelId = (value) => {
+    const normalized = typeof value === 'string' ? value.trim() : ''
+    return normalized || null
   }
 
   const buildScheduledTaskName = (prompt) => {
@@ -73,7 +73,7 @@ export function useAgentLocalCommands({
       prompt: String(draft.prompt || '').trim(),
       cwd: typeof draft.cwd === 'string' && draft.cwd.trim() ? draft.cwd.trim() : null,
       apiProfileId: draft.apiProfileId || null,
-      modelTier: normalizeScheduledTaskModelTier(draft.modelTier),
+      modelId: normalizeScheduledTaskModelId(draft.modelId),
       maxTurns,
       enabled: draft.enabled !== false,
       scheduleType,
@@ -97,7 +97,7 @@ export function useAgentLocalCommands({
       prompt,
       cwd: options.sessionCwd || null,
       apiProfileId: options.apiProfileId || null,
-      modelTier: normalizeScheduledTaskModelTier(selectedModel.value),
+      modelId: normalizeScheduledTaskModelId(selectedModel.value),
       maxTurns: null,
       enabled: true,
       scheduleType: 'interval',

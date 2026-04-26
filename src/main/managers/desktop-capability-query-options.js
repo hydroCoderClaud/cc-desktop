@@ -13,8 +13,8 @@ const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'Before modifying or deleting an existing task, call schedule_list unless the user already provided an explicit task ID.',
   'Do not claim there are no tasks, no history, or a task is disabled without calling the relevant tool first.',
   'After any mutation or inspection, summarize the actual task state returned by the tool, especially enabled, nextRunAt, lastError, and failureCount.',
-  'When presenting model tier to the user, prefer the localized display fields such as modelTierLabel instead of raw tier codes like opus, sonnet, or haiku.',
-  'Never append raw internal tier codes in parentheses or elsewhere after the localized label. Do not write strings like 最强(opus), 均衡(sonnet), 最快(haiku), Most Powerful (opus), Balanced (sonnet), or Fastest (haiku).'
+  'When presenting model configuration to the user, use the actual modelId returned by the tool.',
+  'If modelId is empty, say the task follows the selected API profile default model instead of inventing tier names.'
 ].join(' ')
 
 const CONFLICTING_CRON_TOOLS = [
@@ -46,13 +46,12 @@ const DESKTOP_CAPABILITY_ALLOWED_TOOLS = DESKTOP_CAPABILITY_TOOL_NAMES.map(
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
 const MONTHLY_MODES = ['day_of_month', 'last_day']
 const FIRST_RUN_MODES = ['immediate', 'next_slot', 'custom']
-const MODEL_TIERS = ['haiku', 'sonnet', 'opus']
 const UPDATE_FIELDS = [
   'name',
   'prompt',
   'cwd',
   'apiProfileId',
-  'modelTier',
+  'modelId',
   'maxTurns',
   'enabled',
   'scheduleType',
@@ -80,13 +79,8 @@ const DISPLAY_I18N = {
     scheduleOnce: (time) => `单次 ${time}`,
     scheduleInterval: (minutes) => `每隔 ${minutes} 分钟`,
     summaryNextRun: (time) => `下次执行 ${time}`,
-    summaryModelTier: (label) => `模型档位 ${label}`,
-    summaryWorkingDirectory: (cwd) => `工作目录 ${cwd}`,
-    modelTierLabels: {
-      opus: '最强',
-      sonnet: '均衡',
-      haiku: '最快'
-    }
+    summaryModel: (label) => `模型 ${label}`,
+    summaryWorkingDirectory: (cwd) => `工作目录 ${cwd}`
   },
   'en-US': {
     statusEnabled: 'Enabled',
@@ -102,13 +96,8 @@ const DISPLAY_I18N = {
     scheduleOnce: (time) => `Once ${time}`,
     scheduleInterval: (minutes) => `Every ${minutes} minutes`,
     summaryNextRun: (time) => `Next run ${time}`,
-    summaryModelTier: (label) => `Model Tier ${label}`,
-    summaryWorkingDirectory: (cwd) => `Working Directory ${cwd}`,
-    modelTierLabels: {
-      opus: 'Most Powerful',
-      sonnet: 'Balanced',
-      haiku: 'Fastest'
-    }
+    summaryModel: (label) => `Model ${label}`,
+    summaryWorkingDirectory: (cwd) => `Working Directory ${cwd}`
   }
 }
 
@@ -121,10 +110,8 @@ function getDisplayDict(locale) {
   return DISPLAY_I18N[DISPLAY_I18N[locale] ? locale : 'zh-CN']
 }
 
-function getModelTierLabel(tier, locale) {
-  if (!tier) return null
-  const dict = getDisplayDict(locale)
-  return dict.modelTierLabels[tier] || tier
+function normalizeModelId(modelId) {
+  return typeof modelId === 'string' ? modelId.trim() : ''
 }
 
 function toSerializableTask(task = {}, locale = 'zh-CN') {
@@ -149,7 +136,7 @@ function toSerializableTask(task = {}, locale = 'zh-CN') {
     lastError: task.lastError || null,
     failureCount: task.failureCount ?? 0,
     apiProfileId: task.apiProfileId || null,
-    modelTierLabel: getModelTierLabel(task.modelTier || null, locale),
+    modelId: normalizeModelId(task.modelId) || null,
     maxTurns: task.maxTurns ?? null,
     cwd: task.cwd || null
   }
@@ -208,9 +195,9 @@ function buildTaskSummary(task, locale = 'zh-CN') {
     dict.summaryNextRun(nextRunAt)
   ]
 
-  const modelTierLabel = getModelTierLabel(task.modelTier || null, locale)
-  if (modelTierLabel) {
-    summaryParts.push(dict.summaryModelTier(modelTierLabel))
+  const modelId = normalizeModelId(task.modelId)
+  if (modelId) {
+    summaryParts.push(dict.summaryModel(modelId))
   }
 
   summaryParts.push(dict.summaryWorkingDirectory(task.cwd || dict.defaultWorkspace))
@@ -313,7 +300,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
     prompt: z.string().min(1).optional().describe('任务执行时发送给智能体的提示词'),
     cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
     apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
-    modelTier: z.enum(MODEL_TIERS).optional().describe('模型档位'),
+    modelId: z.string().min(1).optional().describe('真实模型 ID'),
     maxTurns: z.number().int().positive().nullable().optional().describe('最大轮次，可为 null'),
     enabled: z.boolean().optional().describe('是否启用'),
     scheduleType: z.enum(SCHEDULE_TYPES).optional().describe('调度类型'),
@@ -391,7 +378,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
         firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用'),
         cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
         apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
-        modelTier: z.enum(MODEL_TIERS).optional().describe('模型档位'),
+        modelId: z.string().min(1).optional().describe('真实模型 ID'),
         maxTurns: z.number().int().positive().nullable().optional().describe('最大轮次，可为 null'),
         enabled: z.boolean().optional().describe('是否启用')
       },

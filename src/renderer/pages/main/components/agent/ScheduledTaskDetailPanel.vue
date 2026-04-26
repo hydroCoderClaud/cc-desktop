@@ -24,7 +24,7 @@
               </div>
               <div class="title-meta">
                 <span>{{ describeSchedule(task) }}</span>
-                <span>{{ t('rightPanel.scheduledTasks.modelTier') }}: {{ getModelTierLabel(task.modelTier) }}</span>
+                <span>{{ t('rightPanel.scheduledTasks.modelId') }}: {{ getTaskModelLabel(task) }}</span>
                 <span>{{ task.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
               </div>
             </div>
@@ -74,7 +74,7 @@
             <div class="panel-title st-panel-title">{{ t('rightPanel.scheduledTasks.executionSettings') }}</div>
             <div class="grid compact-grid st-form-grid st-form-grid--three">
               <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')"><n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')"><n-select v-model:value="form.modelTier" :options="modelTierOptions" clearable /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.modelId')"><n-select v-model:value="form.modelId" :options="modelOptions" :placeholder="t('rightPanel.scheduledTasks.modelIdPlaceholder')" /></n-form-item>
               <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')"><n-input-number v-model:value="form.maxTurns" :min="1" style="width: 100%;" /></n-form-item>
             </div>
           </section>
@@ -164,14 +164,15 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import {
   buildFirstRunModeOptions,
+  buildScheduledTaskModelOptions,
   buildMonthlyModeOptions,
-  getScheduledTaskModelTierLabel,
-  getScheduledTaskModelTierOptions,
+  getScheduledTaskModelLabel,
   buildScheduleTypeOptions,
   buildWeeklyDayOptions,
   createScheduledTaskFormDefaults,
   describeScheduledTask,
-  formatScheduledTaskDateTime
+  formatScheduledTaskDateTime,
+  resolveScheduledTaskModelId
 } from '@utils/scheduled-task-meta'
 
 const props = defineProps({ taskId: { type: Number, default: null }, currentProject: { type: Object, default: null } })
@@ -186,6 +187,7 @@ const showDeleteConfirm = ref(false)
 const task = ref(null)
 const runs = ref([])
 const apiProfiles = ref([])
+const serviceProviderDefinitions = ref([])
 const defaultProfileId = ref(null)
 const cleanupTaskChanged = ref(null)
 const showHistory = ref(false)
@@ -193,14 +195,27 @@ const form = ref({ ...createScheduledTaskFormDefaults(''), apiProfileId: DEFAULT
 
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
 const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
-const modelTierOptions = computed(() => getScheduledTaskModelTierOptions(t))
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
 const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
+const resolvedFormApiProfileId = computed(() => form.value.apiProfileId === DEFAULT_PROFILE ? null : form.value.apiProfileId)
+const modelOptions = computed(() => buildScheduledTaskModelOptions({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: resolvedFormApiProfileId.value
+}))
 const defaultProfileLabel = computed(() => {
   const profile = apiProfiles.value.find(item => item.id === defaultProfileId.value)
   return profile?.name ? t('rightPanel.scheduledTasks.defaultProfileResolved', { name: profile.name }) : t('rightPanel.scheduledTasks.defaultProfile')
 })
 const apiProfileOptions = computed(() => [{ label: defaultProfileLabel.value, value: DEFAULT_PROFILE }, ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))])
+
+const resolveTaskModelId = (value) => resolveScheduledTaskModelId({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: value?.apiProfileId || null
+}, value?.modelId || '')
 
 const syncForm = (value) => {
   form.value = {
@@ -208,7 +223,7 @@ const syncForm = (value) => {
     prompt: value?.prompt || '',
     cwd: value?.cwd || '',
     apiProfileId: value?.apiProfileId || DEFAULT_PROFILE,
-    modelTier: value?.modelTier || 'sonnet',
+    modelId: resolveTaskModelId(value),
     maxTurns: value?.maxTurns || null,
     enabled: !!value?.enabled,
     scheduleType: value?.scheduleType || 'interval',
@@ -241,6 +256,7 @@ const loadData = async () => {
     task.value = Array.isArray(taskList) ? taskList.find(item => item.id === props.taskId) || null : null
     apiProfiles.value = Array.isArray(profiles) ? profiles : []
     defaultProfileId.value = config?.defaultProfileId || null
+    serviceProviderDefinitions.value = Array.isArray(config?.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
     syncForm(task.value)
     if (showHistory.value) {
       await loadRuns()
@@ -262,7 +278,7 @@ const saveTask = async () => {
       prompt: form.value.prompt.trim(),
       cwd: form.value.cwd?.trim() || null,
       apiProfileId: form.value.apiProfileId === DEFAULT_PROFILE ? null : form.value.apiProfileId,
-      modelTier: form.value.modelTier || null,
+      modelId: form.value.modelId || null,
       maxTurns: form.value.maxTurns ?? null,
       enabled: !!form.value.enabled,
       scheduleType: form.value.scheduleType,
@@ -315,7 +331,7 @@ const pickFolder = async () => {
 }
 
 const describeSchedule = (value) => describeScheduledTask(value, t, weeklyDayOptions.value)
-const getModelTierLabel = (tier) => getScheduledTaskModelTierLabel(tier, t)
+const getTaskModelLabel = (value) => getScheduledTaskModelLabel(resolveTaskModelId(value), t)
 const formatTimestamp = (value) => formatScheduledTaskDateTime(value)
 const runTagType = (status) => status === 'success' ? 'success' : status === 'failed' ? 'error' : status === 'skipped' ? 'warning' : 'default'
 const runStatusLabel = (status) => status === 'success' ? t('rightPanel.scheduledTasks.runStatusSuccess') : status === 'failed' ? t('rightPanel.scheduledTasks.runStatusFailed') : status === 'skipped' ? t('rightPanel.scheduledTasks.runStatusSkipped') : status
@@ -328,6 +344,18 @@ const toggleHistory = async () => {
 }
 
 watch(() => props.taskId, loadData, { immediate: true })
+watch([resolvedFormApiProfileId, apiProfiles, serviceProviderDefinitions, defaultProfileId], () => {
+  const nextModelId = resolveScheduledTaskModelId({
+    apiProfiles: apiProfiles.value,
+    serviceProviderDefinitions: serviceProviderDefinitions.value,
+    defaultProfileId: defaultProfileId.value,
+    apiProfileId: resolvedFormApiProfileId.value
+  }, form.value.modelId)
+
+  if (form.value.modelId !== nextModelId) {
+    form.value.modelId = nextModelId
+  }
+}, { deep: true })
 
 onMounted(() => {
   if (window.electronAPI?.onScheduledTaskChanged) {

@@ -60,8 +60,8 @@
                 <span>{{ task.cwd || t('rightPanel.scheduledTasks.defaultWorkspace') }}</span>
               </div>
               <div class="task-line">
-                <Icon :name="task.modelTier === 'opus' ? 'rocket' : task.modelTier === 'haiku' ? 'wind' : 'zap'" :size="12" />
-                <span>{{ t('rightPanel.scheduledTasks.modelTier') }}: {{ getModelTierLabel(task.modelTier) }}</span>
+                <Icon name="zap" :size="12" />
+                <span>{{ t('rightPanel.scheduledTasks.modelId') }}: {{ getTaskModelLabel(task) }}</span>
               </div>
               <div class="task-line">
                 <Icon name="clock" :size="12" />
@@ -135,12 +135,11 @@
               clearable
             />
           </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.modelTier')">
+          <n-form-item :label="t('rightPanel.scheduledTasks.modelId')">
             <n-select
-              v-model:value="form.modelTier"
-              :options="modelTierOptions"
-              :placeholder="t('rightPanel.scheduledTasks.modelTierPlaceholder')"
-              clearable
+              v-model:value="form.modelId"
+              :options="modelOptions"
+              :placeholder="t('rightPanel.scheduledTasks.modelIdPlaceholder')"
             />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')">
@@ -280,8 +279,8 @@
             <span>{{ describeSchedule(historyTarget) }}</span>
           </div>
           <div class="history-summary-item st-history-item">
-            <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelTier') }}</span>
-            <span>{{ getModelTierLabel(historyTarget.modelTier) }}</span>
+            <span class="detail-label">{{ t('rightPanel.scheduledTasks.modelId') }}</span>
+            <span>{{ getTaskModelLabel(historyTarget) }}</span>
           </div>
           <div class="history-summary-item st-history-item">
             <span class="detail-label">{{ t('rightPanel.scheduledTasks.workingDirectory') }}</span>
@@ -330,13 +329,14 @@ import Icon from '@components/icons/Icon.vue'
 import {
   buildFirstRunModeOptions,
   buildMonthlyModeOptions,
-  getScheduledTaskModelTierLabel,
-  getScheduledTaskModelTierOptions,
+  buildScheduledTaskModelOptions,
+  getScheduledTaskModelLabel,
   buildScheduleTypeOptions,
   buildWeeklyDayOptions,
   createScheduledTaskFormDefaults,
   describeScheduledTask,
-  formatScheduledTaskDateTime
+  formatScheduledTaskDateTime,
+  resolveScheduledTaskModelId
 } from '@utils/scheduled-task-meta'
 
 const props = defineProps({
@@ -362,6 +362,7 @@ const searchText = ref('')
 const statusFilter = ref('all')
 const tasks = ref([])
 const apiProfiles = ref([])
+const serviceProviderDefinitions = ref([])
 const defaultProfileId = ref(null)
 const selectedTaskId = ref(null)
 const selectedTaskRuns = ref([])
@@ -391,10 +392,14 @@ const statusOptions = computed(() => [
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
 const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
 const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
-
-const modelTierOptions = computed(() => getScheduledTaskModelTierOptions(t))
-
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
+const resolvedFormApiProfileId = computed(() => form.value.apiProfileId === DEFAULT_PROFILE_OPTION_VALUE ? null : form.value.apiProfileId)
+const modelOptions = computed(() => buildScheduledTaskModelOptions({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: resolvedFormApiProfileId.value
+}))
 
 const defaultProfileLabel = computed(() => {
   const profile = apiProfiles.value.find(item => item.id === defaultProfileId.value)
@@ -408,6 +413,13 @@ const apiProfileOptions = computed(() => [
   { label: defaultProfileLabel.value, value: DEFAULT_PROFILE_OPTION_VALUE },
   ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))
 ])
+
+const resolveTaskModelId = (task) => resolveScheduledTaskModelId({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: task?.apiProfileId || null
+}, task?.modelId || '')
 
 const filteredTasks = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
@@ -466,6 +478,7 @@ const loadTasks = async () => {
     tasks.value = Array.isArray(taskList) ? taskList : []
     apiProfiles.value = Array.isArray(profiles) ? profiles : []
     defaultProfileId.value = config?.defaultProfileId || null
+    serviceProviderDefinitions.value = Array.isArray(config?.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
 
     if (!selectedTaskId.value && tasks.value.length > 0) {
       selectedTaskId.value = tasks.value[0].id
@@ -514,7 +527,7 @@ const openEditModal = (task) => {
     prompt: task.prompt || '',
     cwd: task.cwd || '',
     apiProfileId: task.apiProfileId || DEFAULT_PROFILE_OPTION_VALUE,
-    modelTier: task.modelTier || 'sonnet',
+    modelId: resolveTaskModelId(task),
     maxTurns: task.maxTurns || null,
     enabled: !!task.enabled,
     scheduleType: task.scheduleType || 'interval',
@@ -641,7 +654,11 @@ const getProfileName = (profileId) => {
 }
 
 const getModelTierLabel = (tier) => {
-  return getScheduledTaskModelTierLabel(tier, t)
+  return getScheduledTaskModelLabel(tier, t)
+}
+
+const getTaskModelLabel = (task) => {
+  return getModelTierLabel(resolveTaskModelId(task))
 }
 
 const describeSchedule = (task) => {
@@ -674,6 +691,19 @@ watch(() => props.currentProject?.path, (path) => {
   if (!showModal.value || editingTaskId.value || form.value.cwd) return
   form.value.cwd = path || ''
 })
+
+watch([resolvedFormApiProfileId, apiProfiles, serviceProviderDefinitions, defaultProfileId], () => {
+  const nextModelId = resolveScheduledTaskModelId({
+    apiProfiles: apiProfiles.value,
+    serviceProviderDefinitions: serviceProviderDefinitions.value,
+    defaultProfileId: defaultProfileId.value,
+    apiProfileId: resolvedFormApiProfileId.value
+  }, form.value.modelId)
+
+  if (form.value.modelId !== nextModelId) {
+    form.value.modelId = nextModelId
+  }
+}, { deep: true })
 
 watch(() => props.openRequest?.nonce, async () => {
   await applyOpenRequest()

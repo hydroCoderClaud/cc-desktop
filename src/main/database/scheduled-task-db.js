@@ -13,20 +13,11 @@ function parseJSON(value, fallback) {
   }
 }
 
-function normalizeModelTier(tier) {
-  if (!tier) return null
+function normalizeModelId(modelId) {
+  if (typeof modelId !== 'string') return null
 
-  const normalized = String(tier).trim().toLowerCase()
-  if (!normalized) return null
-
-  const aliases = {
-    powerful: 'opus',
-    balanced: 'sonnet',
-    fast: 'haiku'
-  }
-
-  const resolved = aliases[normalized] || normalized
-  return ['sonnet', 'opus', 'haiku'].includes(resolved) ? resolved : null
+  const normalized = modelId.trim()
+  return normalized || null
 }
 
 function mapScheduledTaskRow(row) {
@@ -37,7 +28,7 @@ function mapScheduledTaskRow(row) {
     prompt: row.prompt || '',
     cwd: row.cwd || null,
     apiProfileId: row.api_profile_id || null,
-    modelTier: normalizeModelTier(row.model_tier),
+    modelId: normalizeModelId(row.model_id),
     maxTurns: row.max_turns || null,
     enabled: !!row.enabled,
     scheduleType: row.schedule_type || 'interval',
@@ -116,7 +107,7 @@ function withScheduledTaskOperations(BaseClass) {
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO scheduled_tasks (
-          name, prompt, cwd, api_profile_id, model_tier, max_turns,
+          name, prompt, cwd, api_profile_id, model_id, max_turns,
           enabled, run_on_startup, schedule_type, interval_minutes, daily_time, weekly_days, first_run_mode, first_run_at,
           monthly_mode, monthly_day,
           created_at, updated_at
@@ -127,7 +118,7 @@ function withScheduledTaskOperations(BaseClass) {
         task.prompt || '',
         task.cwd || null,
         task.apiProfileId || null,
-        task.modelTier || null,
+        task.modelId || null,
         task.maxTurns || null,
         task.enabled ? 1 : 0,
         0,
@@ -156,7 +147,7 @@ function withScheduledTaskOperations(BaseClass) {
         prompt: 'prompt',
         cwd: 'cwd',
         apiProfileId: 'api_profile_id',
-        modelTier: 'model_tier',
+        modelId: 'model_id',
         maxTurns: 'max_turns',
         enabled: 'enabled',
         scheduleType: 'schedule_type',
