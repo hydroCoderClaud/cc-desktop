@@ -728,9 +728,9 @@ describe('AgentSessionManager interactions', () => {
 
     expect(createQueryOptions).toBeTruthy()
     expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
-    expect(createQueryOptions.appendSystemPrompt).toContain('你好，我是 Hydro Desktop助手。')
-    expect(createQueryOptions.appendSystemPrompt).toContain('水文水利相关 AI 助手')
-    expect(createQueryOptions.appendSystemPrompt).toContain('hydrology and water-resources AI capabilities')
+    expect(createQueryOptions.appendSystemPrompt).toContain('你好，我是 Hydro Desktop，是智水工坊研发的AI个人桌面助手')
+    expect(createQueryOptions.appendSystemPrompt).toContain('智水工坊研发的AI个人桌面助手')
+    expect(createQueryOptions.appendSystemPrompt).toContain('connect to mainstream large models')
     expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')
     expect(createQueryOptions.mcpServers).toBeUndefined()
   })
