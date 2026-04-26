@@ -17,14 +17,14 @@ const DINGTALK_I18N = {
     sessionCreating: '会话创建中，请等待信息返回后，即可开始聊天',
     alreadyConnected: '您选择的是当前会话，无需重新连接，请继续聊天',
     sessionSwitched: '✅ 已切换到会话：{title}\n\n现在可以继续对话了',
-    replyTitle: 'CC助手回复'
+    replyTitle: 'CC Agent 回复'
   },
   'en-US': {
     sessionActivating: 'Session activating, please wait for the response to start chatting',
     sessionCreating: 'Session creating, please wait for the response to start chatting',
     alreadyConnected: 'You selected the current session, no need to reconnect, please continue chatting',
     sessionSwitched: '✅ Switched to session: {title}\n\nYou can continue chatting now',
-    replyTitle: 'CC Assistant Reply'
+    replyTitle: 'CC Agent Reply'
   }
 }
 

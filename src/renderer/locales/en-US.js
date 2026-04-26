@@ -1283,7 +1283,7 @@ export default {
     outputDir: 'Output Directory',
     openOutputDir: 'Open Output Directory',
     welcomeTitle: 'Hi, how can I help you?',
-    welcomeDesc: 'I\'m your AI assistant, ready to help with various tasks. Try the examples below, or type your question directly.',
+    welcomeDesc: 'I\'m your agent, ready to help with various tasks. Try the examples below, or type your question directly.',
     hintTranslate: 'Translate a paragraph for me',
     hintSummarize: 'Summarize the key points of an article',
     hintCode: 'Write a Python script for me',

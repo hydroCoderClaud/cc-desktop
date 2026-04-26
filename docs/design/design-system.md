@@ -1009,7 +1009,6 @@ if (terminalSettings?.fontFamily) {
 - [ ] `src/renderer/pages/main/components/TerminalTab.vue` - 使用 `var(--font-mono)`
 - [ ] `src/renderer/components/ProviderCard.vue:123` - 改用 `var(--font-mono)`
 - [ ] `src/renderer/pages/main/components/MainContent.vue:536` - 改用 `var(--font-mono)`
-- [ ] `src/renderer/pages/main/components/RightPanel/tabs/AITab.vue:811` - 改用 `var(--font-mono)`
 - [ ] 所有 `font-family: monospace` → `var(--font-mono)`
 - [ ] 初始化时从用户设置同步 `--font-mono` CSS 变量
 

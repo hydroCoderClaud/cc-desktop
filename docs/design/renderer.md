@@ -128,7 +128,6 @@ const currentModeTabs = computed(() =>
 | MCP | MCPTab (398 行) | MCP 服务器管理（兼容 Claude Desktop 格式） |
 | Plugins | PluginsTab (824 行) | 插件管理/市场安装 |
 | Settings | SettingsTab (505 行) | CLI 权限/环境变量配置 |
-| AI | AITab (964 行) | AI 模型/参数配置（暂时禁用） |
 | Prompts | PromptsTab (925 行) | 提示词管理/标签/搜索 |
 | Commands | QuickCommands (664 行) | 快捷命令面板 |
 

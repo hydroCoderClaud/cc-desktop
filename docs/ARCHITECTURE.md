@@ -109,11 +109,11 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 | 类别 | 文件数 | 关键模块 |
 |------|--------|---------|
 | 顶层模块 | 13 | index.js, config-manager.js, agent-session-manager.js, active-session-manager.js, session-database.js, update-manager.js |
-| IPC Handlers | 12 | agent, plugin, ai, config, prompt, project, session, active-session, capability, update, dingtalk, queue |
+| IPC Handlers | 11 | agent, plugin, config, prompt, project, session, active-session, capability, update, dingtalk, queue |
 | Managers | 32 | capability, dingtalk-bridge, hooks, mcp, settings, agent-file, agent-query, skills/\*, agents/\* |
 | Plugin Runtime | 9 | plugin-runtime/PluginService, core/plugins, core/marketplaces, core/installed-registry, core/state-lock |
 | Database | 10 | project-db, session-db, message-db, agent-db, tag-db, prompt-db, prompt-market-db, favorite-db, queue-db |
-| Utils | 10 | env-builder, http-client, path-utils, constants, message-queue, ipc-utils, token-counter |
+| Utils | 9 | env-builder, http-client, path-utils, constants, message-queue, ipc-utils |
 | Config | 2 | api-config, provider-config |
 
 > 兼容说明：`src/main/managers/plugin-cli.js` 仍保留在仓库中，但已标注废弃，仅作为历史兼容与排障入口，不再参与主流程。

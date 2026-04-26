@@ -83,7 +83,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | MCP | `tabs/MCPTab.vue` | 398 | MCP 服务器管理 |
 | Plugins | `tabs/PluginsTab.vue` | 824 | 插件管理/市场 |
 | Settings | `tabs/SettingsTab.vue` | 505 | CLI 设置（权限/环境变量） |
-| AI | `tabs/AITab.vue` | 964 | AI 模型/参数配置 |
 | Prompts | `tabs/PromptsTab.vue` | 925 | 提示词管理/标签 |
 | Commands | — | — | 通过 QuickCommands 实现 |
 

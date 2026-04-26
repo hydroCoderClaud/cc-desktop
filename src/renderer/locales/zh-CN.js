@@ -1288,7 +1288,7 @@ export default {
     outputDir: '输出目录',
     openOutputDir: '打开输出目录',
     welcomeTitle: '你好，有什么可以帮你的？',
-    welcomeDesc: '我是你的 AI 助手，可以帮你完成各种任务。试试下面的示例，或直接输入你的问题。',
+    welcomeDesc: '我是你的智能体，可以帮你完成各种任务。试试下面的示例，或直接输入你的问题。',
     hintTranslate: '帮我把一段英文翻译成中文',
     hintSummarize: '帮我总结一篇文章的要点',
     hintCode: '帮我写一个 Python 脚本',

@@ -8,11 +8,11 @@
 
 ## English
 
-**CC Desktop** — An Electron-based desktop AI assistant and terminal emulator for Claude Code CLI. Manage AI-powered coding sessions with a native desktop app featuring three work modes: Developer mode (PTY direct connection), Agent mode (streaming chat with vision support), and Notebook mode (source/achievement workspace for structured generation).
+**CC Desktop** — An Electron-based desktop Agent workspace and terminal emulator for Claude Code CLI. Manage coding sessions with a native desktop app featuring three work modes: Developer mode (PTY direct connection), Agent mode (streaming chat with vision support), and Notebook mode (source/achievement workspace for structured generation).
 
 ### Features
 
-- **Developer + Agent + Notebook** — Full CLI terminal with multi-session management, AI chat with image recognition and streaming output, plus a Notebook workspace for source curation and achievement generation
+- **Developer + Agent + Notebook** — Full CLI terminal with multi-session management, Agent chat with image recognition and streaming output, plus a Notebook workspace for source curation and achievement generation
 - **MCP / Skills / Plugins / Agents / Hooks** — Extensible capability system with visual management, capability settings workbench, and a built-in marketplace
 - **Built-in Plugin Runtime** — Plugin marketplace add/remove/refresh and plugin install/uninstall/update now run in the desktop main process instead of shelling out to `claude plugin ...`
 - **Multi-Provider API Management** — Configure multiple API providers (Anthropic official, proxies, compatible endpoints) with custom model mapping
@@ -53,11 +53,11 @@ Custom license — personal use, learning, and development permitted; commercial
 
 ## 中文
 
-**CC Desktop** — 基于 Electron 的桌面 AI 助手与终端模拟器，为 Claude Code CLI 提供图形化界面。三种工作模式：Developer 模式（PTY 直连 CLI）、Agent 模式（流式对话，支持图片识别）、Notebook 模式（资料源/成果工作台）。
+**CC Desktop** — 基于 Electron 的桌面 Agent 工作台与终端模拟器，为 Claude Code CLI 提供图形化界面。三种工作模式：Developer 模式（PTY 直连 CLI）、Agent 模式（流式对话，支持图片识别）、Notebook 模式（资料源/成果工作台）。
 
 ### 功能特性
 
-- **Developer + Agent + Notebook 三模式** — 完整 CLI 终端 + 多会话管理、AI 对话界面（图片识别、流式输出），以及 Notebook 资料整理与成果生成工作台
+- **Developer + Agent + Notebook 三模式** — 完整 CLI 终端 + 多会话管理、Agent 对话界面（图片识别、流式输出），以及 Notebook 资料整理与成果生成工作台
 - **MCP / Skills / Plugins / Agents / Hooks** — 可扩展能力体系，可视化管理，内置组件市场与能力设置工作台
 - **内建插件运行时** — 插件市场增删改查与插件安装、卸载、启停、更新已由桌面端主进程直接处理，不再依赖 `claude plugin ...`
 - **多服务商 API 管理** — 支持官方 API、中转服务、兼容端点，自定义模型映射

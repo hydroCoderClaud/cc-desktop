@@ -73,7 +73,7 @@ const MODEL_TIERS = {
   }
 };
 
-// Model aliases for AI assistant API calls (短别名，无日期后缀)
+// Model aliases for tier resolution and provider defaults (短别名，无日期后缀)
 // 大版本更新时只需修改此处
 const LATEST_MODEL_ALIASES = {
   opus: 'claude-opus-4-6',

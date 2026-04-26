@@ -4,7 +4,7 @@
 
 ## 概览
 
-- **总通道数**：175 | **Handler 模块数**：12（+ ipc-handlers.js 主入口） | **事件通道数**（main→renderer）：29
+- 当前清单按 Handler 模块与事件域整理，移除了已废弃的独立助手通道。
 - 类型：`handle` = invoke 请求-响应 | `on` = 单向发送/同步 | `send` = main→renderer 推送
 
 ## 通道索引
@@ -74,7 +74,7 @@
 | api:updateCustomModel | handle | 更新自定义模型 |
 | api:fetchOfficialModels | handle | 拉取官方模型列表 |
 
-### provider / quickCommands / aiAssistant 域（config-handlers.js）
+### provider / quickCommands 域（config-handlers.js）
 
 | 通道名 | 类型 | 简述 |
 |--------|------|------|
@@ -87,9 +87,6 @@
 | quickCommands:add | handle | 添加快捷命令 |
 | quickCommands:update | handle | 更新快捷命令 |
 | quickCommands:delete | handle | 删除快捷命令 |
-| aiAssistant:getConfig | handle | 获取 AI 助手配置 |
-| aiAssistant:updateConfig | handle | 更新 AI 助手配置 |
-
 ### project 域（project-handlers.js）
 
 | 通道名 | 类型 | 简述 |
@@ -368,15 +365,6 @@
 | promptTags:update | handle | 更新提示词标签 |
 | promptTags:delete | handle | 删除提示词标签 |
 
-### ai 域（ai-handlers.js）
-
-| 通道名 | 类型 | 简述 |
-|--------|------|------|
-| ai:chat | handle | AI 对话（同步） |
-| ai:stream | handle | AI 流式对话 |
-| ai:compact | handle | 压缩对话历史 |
-| ai:countTokens | handle | 计算 Token 数 |
-
 ### file / dialog / shell / claude 域（plugin-handlers.js + ipc-handlers.js）
 
 | 通道名 | 类型 | Handler | 简述 |
@@ -520,13 +508,10 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | agent:usage | Token 用量 |
 | agent:allSessionsClosed | 所有会话已关闭 |
 
-### AI / 设置 / 更新 / 钉钉事件
+### 设置 / 更新 / 钉钉事件
 
 | 事件名 | 发送位置 | 简述 |
 |--------|---------|------|
-| ai:stream-chunk | ai-handlers.js | AI 流式文本块 |
-| ai:stream-end | ai-handlers.js | AI 流式结束 |
-| ai:stream-error | ai-handlers.js | AI 流式错误 |
 | settings:changed | config-handlers.js | 设置变更广播 |
 | capabilities-update-available | ipc-handlers.js | 能力清单有更新 |
 | update-checking | update-manager.js | 正在检查更新 |

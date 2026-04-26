@@ -27,7 +27,7 @@
 
 ### config-manager.js
 - **行数**：1056
-- **职责**：应用配置管理（config.json），含 API Profile、服务商、市场、MCP 代理、AI 助手等
+- **职责**：应用配置管理（config.json），含 API Profile、服务商、市场、MCP 代理、全局设置与配置迁移
 - **关键方法**：`load()`, `save()`, `getConfig()`, `getAPIConfig()`, `testAPIConnection()`, `getMarketConfig()`, `getMcpProxyConfig()`, `ensureProxySupport()`, `migrateToProfiles()`, `migrateProfileStructure()`
 - **Mixin**：`providerConfigMixin`（服务商 CRUD）、`apiConfigMixin`（API Profile CRUD）
 - **架构上下文**：-> [配置管理](../design/main-process.md#配置管理)
@@ -111,7 +111,6 @@
 |------|---------|------|-------------|
 | agent-handlers.js | agent: | 474 | sendMessage, cancel, create, close, reopen, rename, getMessages, listConversations, searchFiles |
 | plugin-handlers.js | plugins: / skills: / agents: / hooks: / mcp: / settings: | 1236 | listPlugins, getAllSkills, createSkill, importSkills, getAllAgents, getGlobalHooks, listMcpAll |
-| ai-handlers.js | ai: | 333 | ai:stream（独立 AI 对话） |
 | config-handlers.js | config: / providers: | 278 | getConfig, updateSettings, testAPI, getProfiles, addProfile |
 | prompt-handlers.js | prompt: | 278 | getPrompts, createPrompt, updatePrompt, deletePrompt, getPromptTags |
 | project-handlers.js | project: | 290 | listProjects, createProject, updateProject, deleteProject, hasProblematicPath |
@@ -253,7 +252,6 @@
 | constants.js | 101 | `TIMEOUTS`, `LATEST_MODEL_ALIASES`, `BUILT_IN_SERVICE_PROVIDERS` |
 | message-queue.js | 84 | `MessageQueue`（类：enqueue, drain, cancel, isDone） |
 | ipc-utils.js | 79 | `createIPCHandler`, `createIPCHandlerWithEvent`, `createSyncIPCHandler`, `createIPCListener` |
-| token-counter.js | 55 | `countTokens`, `countMessagesTokens`, `shouldCompact` |
 | process-tree-kill.js | 39 | `killProcessTree` |
 | safe-send.js | 25 | `safeSend`（防御性 IPC 发送） |
 
