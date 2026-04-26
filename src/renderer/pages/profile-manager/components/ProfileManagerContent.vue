@@ -137,12 +137,7 @@ const handleTest = async (profile) => {
     authType: profile.authType,
     serviceProvider: profile.serviceProvider,
     selectedModelId: profile.selectedModelId || '',
-    selectedModelTier: profile.selectedModelTier,
-    modelMapping: profile.modelMapping ? {
-      opus: profile.modelMapping.opus || '',
-      sonnet: profile.modelMapping.sonnet || '',
-      haiku: profile.modelMapping.haiku || ''
-    } : null,
+    selectedModelTier: null,
     useProxy: profile.useProxy,
     httpsProxy: profile.httpsProxy,
     httpProxy: profile.httpProxy

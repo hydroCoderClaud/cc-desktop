@@ -579,7 +579,6 @@ class ConfigManager {
         serviceProvider: defaultProfile.serviceProvider || 'official',
         selectedModelId: resolveConfiguredModelId(this.config, defaultProfile),
         selectedModelTier: null,
-        modelMapping: defaultProfile.modelMapping || null,
         requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
         disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
         useProxy: defaultProfile.useProxy,
@@ -595,7 +594,6 @@ class ConfigManager {
       serviceProvider: '',
       selectedModelId: '',
       selectedModelTier: null,
-      modelMapping: null,
       requestTimeout: this.getTimeout().request,
       disableNonessentialTraffic: true,
       useProxy: false,
@@ -685,6 +683,7 @@ class ConfigManager {
                             profile.model !== undefined ||
                             profile.selectedModelId === undefined ||
                             profile.customModels !== undefined ||
+                            profile.modelMapping !== undefined ||
                             profile.selectedModelTier !== undefined && profile.selectedModelTier !== null;
 
       if (!needsMigration) {
@@ -721,8 +720,8 @@ class ConfigManager {
       if (profile.selectedModelId === undefined || profile.selectedModelId === null) {
         profile.selectedModelId = '';
       }
-      if (profile.modelMapping === undefined) {
-        profile.modelMapping = null;
+      if (profile.modelMapping !== undefined) {
+        delete profile.modelMapping;
       }
       if (profile.requestTimeout === undefined) {
         profile.requestTimeout = config.timeout?.request || TIMEOUTS.API_REQUEST;
@@ -818,7 +817,6 @@ class ConfigManager {
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
       selectedModelId: normalizeModelValue(oldApi.model),
       selectedModelTier: null,
-      modelMapping: null,  // Not needed for official service
       requestTimeout: TIMEOUTS.API_REQUEST,
       disableNonessentialTraffic: true,
       useProxy: oldApi.useProxy || false,

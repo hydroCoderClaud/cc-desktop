@@ -136,7 +136,9 @@ describe('ConfigManager', () => {
       await configManager.saveQueue
 
       expect(profile.selectedModelId).toBe('')
+      expect(profile.modelMapping).toBeUndefined()
       expect(configManager.getAPIProfile(profile.id)?.selectedModelId).toBe('')
+      expect(configManager.getAPIProfile(profile.id)?.modelMapping).toBeUndefined()
     })
 
     it('getAPIConfig 不应再从 tier 或 mapping 推导模型', async () => {
@@ -174,7 +176,9 @@ describe('ConfigManager', () => {
       const apiConfig = newConfigManager.getAPIConfig()
       expect(apiConfig.selectedModelId).toBe('provider-default-model')
       expect(apiConfig.selectedModelTier).toBeNull()
+      expect(apiConfig.modelMapping).toBeUndefined()
       expect(newConfigManager.getConfig().apiProfiles[0].selectedModelTier).toBeNull()
+      expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
     })
 
     it('应该有正确的默认超时设置', () => {
@@ -575,6 +579,7 @@ describe('ConfigManager', () => {
         const result = await newConfigManager.testAPIConnectionViaHTTP(newConfigManager.getAPIConfig())
         expect(result.success).toBe(true)
         expect(JSON.parse(capturedBody).model).toBe('provider-default-model')
+        expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
       } finally {
         await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
       }

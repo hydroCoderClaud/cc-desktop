@@ -35,7 +35,7 @@ function isPackagedApp() {
 /**
  * 从 API Profile 生成 Claude Code CLI 环境变量
  * @param {Object} profile - API Profile 对象
- * @param {Object} [configManager] - ConfigManager 实例，用于补齐服务商默认映射
+ * @param {Object} [configManager] - ConfigManager 实例，用于读取服务商默认映射
  * @returns {Object} 环境变量对象（只包含有值的变量）
  *
  * 映射关系：
@@ -98,7 +98,7 @@ function buildClaudeEnvVars(profile, configManager) {
     envVars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
   }
 
-  // 模型映射（服务商默认映射 + Profile 兼容覆盖）
+  // 模型映射（仅服务商默认映射）
   if (runtimeProfile.modelMapping) {
     const mapping = runtimeProfile.modelMapping
     if (mapping.opus && mapping.opus.trim()) {
