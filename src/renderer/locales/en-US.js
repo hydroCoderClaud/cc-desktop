@@ -118,7 +118,6 @@ export default {
       agents: 'Agents',
       scheduledTasks: 'Scheduled',
       prompts: 'Prompts',
-      ai: 'AI',
       settings: 'Settings'
     },
     // Quick Commands
@@ -703,36 +702,6 @@ export default {
       insertToInput: 'Insert to input',
       // Market
       marketBadge: 'Market'
-    },
-    // AI Assistant
-    ai: {
-      empty: 'AI Assistant',
-      emptyHint: 'Ask questions for instant help',
-      placeholder: 'Ask a question...',
-      clear: 'Clear chat',
-      clearConfirm: 'Clear chat history?',
-      insertToInput: 'Fill to input',
-      notConfigured: 'AI assistant is not configured. Please set up API in settings.',
-      error: 'Request failed. Please try again.',
-      tokenInfo: 'Current context token count',
-      noApiKey: 'Please configure API Key first',
-      contextLarge: 'Context is large, consider compacting to save tokens',
-      compact: 'Compact',
-      compactedHistory: 'Compacted History',
-      compactSuccess: 'Chat history compacted',
-      compactFailed: 'Compact failed, please try again',
-      settings: 'Settings',
-      profile: 'API Profile',
-      useDefault: 'Use default profile',
-      model: 'Model',
-      modelPlaceholder: 'e.g. claude-3-haiku-20240307',
-      maxTokens: 'Max Output Tokens',
-      temperature: 'Temperature',
-      systemPrompt: 'System Prompt',
-      systemPromptPlaceholder: 'Set AI role and behavior...',
-      saveAsPrompt: 'Save',
-      contextMaxTokens: 'Context Limit',
-      compactThreshold: 'Compact At(%)'
     },
     // Message Queue
     messageQueue: {

@@ -118,7 +118,6 @@ export default {
       agents: 'Agents',
       scheduledTasks: '定时任务',
       prompts: '提示词',
-      ai: 'AI 助手',
       settings: '设置'
     },
     // 快捷命令
@@ -706,36 +705,6 @@ export default {
       insertToInput: '填入输入框',
       // 市场
       marketBadge: '市场'
-    },
-    // AI 助手
-    ai: {
-      empty: 'AI 助手',
-      emptyHint: '输入问题获取即时帮助',
-      placeholder: '输入问题...',
-      clear: '清空对话',
-      clearConfirm: '确定清空对话历史吗？',
-      insertToInput: '填入输入框',
-      notConfigured: 'AI 助手功能尚未配置，请先在设置中配置 API。',
-      error: '请求失败，请稍后重试',
-      tokenInfo: '当前上下文 Token 数量',
-      noApiKey: '请先配置 API Key',
-      contextLarge: '上下文较大，建议压缩以节省 Token',
-      compact: '压缩',
-      compactedHistory: '压缩的对话历史',
-      compactSuccess: '对话历史已压缩',
-      compactFailed: '压缩失败，请重试',
-      settings: '设置',
-      profile: 'API 配置',
-      useDefault: '使用默认配置',
-      model: '模型',
-      modelPlaceholder: '如 claude-3-haiku-20240307',
-      maxTokens: '最大输出 Token',
-      temperature: '温度',
-      systemPrompt: '系统提示词',
-      systemPromptPlaceholder: '设置 AI 的角色和行为...',
-      saveAsPrompt: '存提示词',
-      contextMaxTokens: '上下文上限',
-      compactThreshold: '压缩阈值(%)'
     },
     // 消息队列
     messageQueue: {

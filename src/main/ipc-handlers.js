@@ -27,7 +27,6 @@ const projectFilesHandlersMod = safeRequire('./ipc-handlers/project-files-handle
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
-const aiHandlersMod = safeRequire('./ipc-handlers/ai-handlers', 'ai-handlers');
 const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
 const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-handlers');
 const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 'capability-handlers');
@@ -45,7 +44,6 @@ const setupProjectFilesHandlers = projectFilesHandlersMod?.setupProjectFilesHand
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
-const setupAIHandlers = aiHandlersMod?.setupAIHandlers;
 const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
 const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
 const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
@@ -542,13 +540,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (setupQueueHandlers) {
     setupQueueHandlers(ipcMain, sessionDatabase);
-  }
-
-  // ========================================
-  // AI 助手
-  // ========================================
-  if (setupAIHandlers) {
-    setupAIHandlers(ipcMain, configManager);
   }
 
   // ========================================
