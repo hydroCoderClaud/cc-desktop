@@ -139,6 +139,44 @@ describe('ConfigManager', () => {
       expect(configManager.getAPIProfile(profile.id)?.selectedModelId).toBe('')
     })
 
+    it('getAPIConfig 不应再从 tier 或 mapping 推导模型', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        defaultProfileId: 'p1',
+        serviceProviderDefinitions: [{
+          id: 'other',
+          name: 'Other',
+          needsMapping: true,
+          baseUrl: 'https://example.com',
+          defaultModelMapping: null,
+          defaultModels: ['provider-default-model']
+        }],
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Proxy',
+          baseUrl: 'https://example.com',
+          authToken: 'token',
+          serviceProvider: 'other',
+          selectedModelId: '',
+          selectedModelTier: 'sonnet',
+          modelMapping: {
+            sonnet: 'mapped-model'
+          }
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      const apiConfig = newConfigManager.getAPIConfig()
+      expect(apiConfig.selectedModelId).toBe('provider-default-model')
+      expect(apiConfig.selectedModelTier).toBeNull()
+      expect(newConfigManager.getConfig().apiProfiles[0].selectedModelTier).toBeNull()
+    })
+
     it('应该有正确的默认超时设置', () => {
       const config = configManager.getConfig()
       expect(config.timeout).toBeDefined()
@@ -370,7 +408,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.updateMirrorUrl).toBe('')
     })
 
-    it('应该删除旧 profile.customModels 字段并回退到当前默认模型', async () => {
+    it('应该删除旧 profile.customModels 字段且不再凭空补默认 sonnet 模型', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         apiProfiles: [{
@@ -393,10 +431,12 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
       const profile = newConfigManager.getConfig().apiProfiles[0]
 
-      expect(profile.selectedModelId).toBe('claude-sonnet-4-6')
+      expect(profile.selectedModelId).toBe('')
+      expect(profile.selectedModelTier).toBeNull()
       expect(profile.customModels).toBeUndefined()
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.apiProfiles[0].selectedModelTier).toBeNull()
       expect(savedConfig.apiProfiles[0].customModels).toBeUndefined()
     })
 
@@ -453,6 +493,91 @@ describe('ConfigManager', () => {
         sonnet: 'claude-sonnet-4-6',
         haiku: 'claude-haiku-4-5-20251001'
       })
+    })
+
+    it('旧 settings.api 迁移后不应写入隐藏 selectedModelTier 或默认 sonnet 模型', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        settings: {
+          api: {
+            authToken: 'token',
+            baseUrl: 'https://example.com'
+          }
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      const profile = newConfigManager.getConfig().apiProfiles[0]
+      expect(profile.selectedModelId).toBe('')
+      expect(profile.selectedModelTier).toBeNull()
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.settings.api).toBeUndefined()
+      expect(savedConfig.apiProfiles[0].selectedModelId).toBe('')
+      expect(savedConfig.apiProfiles[0].selectedModelTier).toBeNull()
+    })
+
+    it('HTTP 测试不应从 tier 或 mapping 推导模型', async () => {
+      const { createServer } = await import('http')
+      let capturedBody = ''
+      const server = createServer((req, res) => {
+        req.on('data', chunk => {
+          capturedBody += chunk
+        })
+        req.on('end', () => {
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end('{}')
+        })
+      })
+
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const address = server.address()
+      const port = typeof address === 'object' && address ? address.port : null
+
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        defaultProfileId: 'p1',
+        serviceProviderDefinitions: [{
+          id: 'other',
+          name: 'Other',
+          needsMapping: true,
+          baseUrl: `http://127.0.0.1:${port}`,
+          defaultModelMapping: null,
+          defaultModels: ['provider-default-model']
+        }],
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Proxy',
+          baseUrl: `http://127.0.0.1:${port}`,
+          authToken: 'token',
+          serviceProvider: 'other',
+          selectedModelId: '',
+          selectedModelTier: 'sonnet',
+          modelMapping: {
+            sonnet: 'mapped-model'
+          }
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      try {
+        const result = await newConfigManager.testAPIConnectionViaHTTP(newConfigManager.getAPIConfig())
+        expect(result.success).toBe(true)
+        expect(JSON.parse(capturedBody).model).toBe('provider-default-model')
+      } finally {
+        await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+      }
     })
   })
 })

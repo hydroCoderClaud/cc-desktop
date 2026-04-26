@@ -40,7 +40,7 @@ export function useAgentChat(sessionId, options = {}) {
   const isRestored = ref(false)
   const currentStreamText = ref('')
   const error = ref(null)
-  const selectedModel = ref('claude-sonnet-4-6')  // 默认值，initDefaultModel() 会从配置覆盖
+  const selectedModel = ref('')
   const streamingElapsed = ref(0)
   const contextTokens = ref(0)      // 上下文 token 数量
   const isCompacting = ref(false)    // 是否正在压缩
@@ -51,7 +51,6 @@ export function useAgentChat(sessionId, options = {}) {
   let currentBlockType = null  // 当前流式 content block 的类型（text / tool_use 等）
   let streamTextReceived = false  // 本轮是否收到过流式 text delta（用于判断是否为非流式 API）
 
-  const DEFAULT_MODEL_NAMES = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
   const modelOptions = ref([])
   let modelInitToken = 0
 
@@ -83,8 +82,7 @@ export function useAgentChat(sessionId, options = {}) {
       profile?.selectedModelId
     ])
 
-    const fallbackIds = modelIds.length > 0 ? modelIds : DEFAULT_MODEL_NAMES
-    return fallbackIds.map(modelId => ({
+    return modelIds.map(modelId => ({
       value: modelId,
       label: modelId,
       id: modelId
@@ -96,7 +94,7 @@ export function useAgentChat(sessionId, options = {}) {
     const allowedModelIds = normalizeModelIds(modelOptions.value.map(model => model?.value))
 
     if (!currentModel) {
-      return allowedModelIds[0] || DEFAULT_MODEL_NAMES[0]
+      return allowedModelIds[0] || ''
     }
 
     if (allowedModelIds.length > 0 && !allowedModelIds.includes(currentModel)) {
@@ -907,7 +905,7 @@ export function useAgentChat(sessionId, options = {}) {
   }
 
   /**
-   * 从配置读取模型，覆盖硬编码的 'sonnet'
+   * 从配置读取模型
    * @param {string} [apiProfileId] - 会话绑定的 profile ID，不传则使用默认 profile
    * @param {string} [preferredModelId] - notebook/session 级别的模型覆盖
    */
@@ -929,7 +927,7 @@ export function useAgentChat(sessionId, options = {}) {
           : false
         const nextSelectedModel = preferredModelExists
           ? normalizedPreferredModelId
-          : (profile.selectedModelId || nextModelOptions[0]?.value || DEFAULT_MODEL_NAMES[0])
+          : (profile.selectedModelId || nextModelOptions[0]?.value || '')
         if (token !== modelInitToken) return false
         modelOptions.value = nextModelOptions
         selectedModel.value = nextSelectedModel

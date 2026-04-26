@@ -8,16 +8,42 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
-const { TIMEOUTS, LATEST_MODEL_ALIASES } = require('./utils/constants');
+const { TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin, getDefaultProviders } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
-const { resolveProfileModel } = require('./utils/model-resolver');
-const { buildRuntimeProfile } = require('./utils/runtime-profile');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
 const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
 const UPDATE_MIRROR_OSS = 'https://hdupdate.myseek.fun/hydrodesktop_update';
+
+function normalizeModelValue(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveProviderDefaultModelId(source, serviceProvider) {
+  const providerId = normalizeModelValue(serviceProvider);
+  if (!providerId) {
+    return '';
+  }
+
+  const definitions = Array.isArray(source?.serviceProviderDefinitions)
+    ? source.serviceProviderDefinitions
+    : Array.isArray(source?.config?.serviceProviderDefinitions)
+      ? source.config.serviceProviderDefinitions
+      : Array.isArray(source?.defaultConfig?.serviceProviderDefinitions)
+        ? source.defaultConfig.serviceProviderDefinitions
+        : [];
+  const provider = definitions.find(item => normalizeModelValue(item?.id) === providerId);
+  const defaultModels = Array.isArray(provider?.defaultModels) ? provider.defaultModels : [];
+  return normalizeModelValue(defaultModels[0]);
+}
+
+function resolveConfiguredModelId(source, profile) {
+  const selectedModelId = normalizeModelValue(profile?.selectedModelId);
+  if (selectedModelId) return selectedModelId;
+  return resolveProviderDefaultModelId(source, profile?.serviceProvider);
+}
 
 class ConfigManager {
   /**
@@ -551,8 +577,8 @@ class ConfigManager {
         authType: defaultProfile.authType || 'api_key',  // 默认 api_key（官方标准）
         baseUrl: defaultProfile.baseUrl,
         serviceProvider: defaultProfile.serviceProvider || 'official',
-        selectedModelId: defaultProfile.selectedModelId || resolveProfileModel(defaultProfile),
-        selectedModelTier: defaultProfile.selectedModelTier || 'sonnet',
+        selectedModelId: resolveConfiguredModelId(this.config, defaultProfile),
+        selectedModelTier: null,
         modelMapping: defaultProfile.modelMapping || null,
         requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
         disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
@@ -562,21 +588,19 @@ class ConfigManager {
       };
     }
 
-    // 回退到旧的 settings.api（兼容性）
-    const settings = this.config.settings;
-    const authToken = settings.api?.authToken
-      || settings.anthropicApiKey
-      || settings.claudeApiKey
-      || '';
-
     return {
-      authToken,
-      authType: 'api_key',  // 旧配置默认使用 api_key（官方标准）
-      baseUrl: settings.api?.baseUrl || 'https://api.anthropic.com',
-      model: settings.api?.model || 'claude-sonnet-4-6',
-      useProxy: settings.api?.useProxy || false,
-      httpsProxy: settings.api?.httpsProxy || '',
-      httpProxy: settings.api?.httpProxy || ''
+      authToken: '',
+      authType: 'api_key',
+      baseUrl: '',
+      serviceProvider: '',
+      selectedModelId: '',
+      selectedModelTier: null,
+      modelMapping: null,
+      requestTimeout: this.getTimeout().request,
+      disableNonessentialTraffic: true,
+      useProxy: false,
+      httpsProxy: '',
+      httpProxy: ''
     };
   }
 
@@ -660,7 +684,8 @@ class ConfigManager {
       const needsMigration = profile.category !== undefined ||
                             profile.model !== undefined ||
                             profile.selectedModelId === undefined ||
-                            profile.customModels !== undefined;
+                            profile.customModels !== undefined ||
+                            profile.selectedModelTier !== undefined && profile.selectedModelTier !== null;
 
       if (!needsMigration) {
         return profile;
@@ -676,33 +701,25 @@ class ConfigManager {
         delete profile.category;
       }
 
-      // 2. 迁移 model → selectedModelTier / selectedModelId
-      if (profile.model !== undefined && profile.selectedModelTier === undefined) {
-        // 根据模型名称判断等级
-        const modelName = profile.model.toLowerCase();
-        if (modelName.includes('opus')) {
-          profile.selectedModelTier = 'opus';
-        } else if (modelName.includes('haiku')) {
-          profile.selectedModelTier = 'haiku';
-        } else {
-          profile.selectedModelTier = 'sonnet';  // 默认 Sonnet
+      // 2. 迁移旧 model 字段，仅保留真实模型 ID，不再推导 tier
+      if (profile.model !== undefined) {
+        const legacyModelId = normalizeModelValue(profile.model);
+        if (!normalizeModelValue(profile.selectedModelId) && legacyModelId) {
+          profile.selectedModelId = legacyModelId;
         }
-      }
-
-      if (profile.model !== undefined && profile.selectedModelId === undefined) {
-        profile.selectedModelId = typeof profile.model === 'string' ? profile.model.trim() : '';
         delete profile.model;
       }
 
-      // 3. 确保新字段存在
-      if (profile.selectedModelId === undefined || profile.selectedModelId === null || profile.selectedModelId === '') {
-        profile.selectedModelId = resolveProfileModel(profile);
+      // 3. 清理旧 tier，并只按当前服务商默认模型补齐 selectedModelId
+      profile.selectedModelTier = null;
+      if (!normalizeModelValue(profile.selectedModelId)) {
+        profile.selectedModelId = resolveConfiguredModelId(config, profile);
       }
       if (profile.customModels !== undefined) {
         delete profile.customModels;
       }
       if (profile.selectedModelId === undefined || profile.selectedModelId === null) {
-        profile.selectedModelId = resolveProfileModel(profile);
+        profile.selectedModelId = '';
       }
       if (profile.modelMapping === undefined) {
         profile.modelMapping = null;
@@ -799,8 +816,8 @@ class ConfigManager {
       serviceProvider: 'official',
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
-      selectedModelId: oldApi.model || LATEST_MODEL_ALIASES.sonnet,
-      selectedModelTier: 'sonnet',  // Default to Sonnet
+      selectedModelId: normalizeModelValue(oldApi.model),
+      selectedModelTier: null,
       modelMapping: null,  // Not needed for official service
       requestTimeout: TIMEOUTS.API_REQUEST,
       disableNonessentialTraffic: true,
@@ -945,10 +962,11 @@ class ConfigManager {
    */
   async testAPIConnectionViaHTTP(apiConfig) {
     console.log('[API Test] ========== Starting new connection test ==========');
+    const configuredModelId = resolveConfiguredModelId(this.config, apiConfig);
     console.log('[API Test] Config:', JSON.stringify({
       baseUrl: apiConfig.baseUrl,
       authType: apiConfig.authType,
-      model: apiConfig.model,
+      selectedModelId: configuredModelId || null,
       useProxy: apiConfig.useProxy,
       httpsProxy: apiConfig.httpsProxy
     }, null, 2));
@@ -1032,10 +1050,17 @@ class ConfigManager {
         
         console.log('[API Test] Auth type:', apiConfig.authType);
 
+        if (!configuredModelId) {
+          safeResolve({
+            success: false,
+            message: '未配置模型 ID，请先为当前 API Profile 选择模型 ID'
+          });
+          return;
+        }
+
         // 3. 构造请求体
-        const testModel = resolveProfileModel(buildRuntimeProfile(apiConfig, this))
         const postData = JSON.stringify({
-          model: testModel,
+          model: configuredModelId,
           max_tokens: 10,
           messages: [{ role: 'user', content: 'test' }]
         });
