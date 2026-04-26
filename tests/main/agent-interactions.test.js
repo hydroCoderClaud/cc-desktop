@@ -287,6 +287,7 @@ describe('AgentSessionManager interactions', () => {
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
     expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('kimi-k2.6')
     expect(createQueryOptions.model).toBe('kimi-k2.6')
+    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
   })
 
   it('passes tier alias strings through without local remapping', async () => {
@@ -663,6 +664,7 @@ describe('AgentSessionManager interactions', () => {
     await manager.sendMessage(session.id, '帮我创建一个定时任务')
 
     expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
     expect(createQueryOptions.appendSystemPrompt).toContain('scheduled tasks')
     expect(createQueryOptions.mcpServers).toBeTruthy()
     expect(Object.keys(createQueryOptions.mcpServers)).toContain('hydrodesktop')
@@ -701,6 +703,36 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toBeUndefined()
     expect(createQueryOptions.allowedTools).toBeUndefined()
     expect(createQueryOptions.disallowedTools).toBeUndefined()
+  })
+
+  it('injects Hydro Desktop AI identity prompt for normal chat sessions', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-identity', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '你是谁？')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).toContain('你好，我是 Hydro Desktop助手。')
+    expect(createQueryOptions.appendSystemPrompt).toContain('水文水利相关 AI 助手')
+    expect(createQueryOptions.appendSystemPrompt).toContain('hydrology and water-resources AI capabilities')
+    expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')
+    expect(createQueryOptions.mcpServers).toBeUndefined()
   })
 
   it('probeConnection marks CLI unavailable as HTTP-fallback eligible', async () => {

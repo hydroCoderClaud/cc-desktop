@@ -156,7 +156,15 @@ class ClaudeCodeRunner {
     if (options.maxTurns) queryOptions.maxTurns = options.maxTurns
     if (options.resume) queryOptions.resume = options.resume
     if (options.mcpServers) queryOptions.mcpServers = options.mcpServers
-    if (options.appendSystemPrompt) queryOptions.appendSystemPrompt = options.appendSystemPrompt
+    if (options.systemPrompt) {
+      queryOptions.systemPrompt = options.systemPrompt
+    } else if (options.appendSystemPrompt) {
+      queryOptions.systemPrompt = {
+        type: 'preset',
+        preset: 'claude_code',
+        append: options.appendSystemPrompt
+      }
+    }
     if (options.allowedTools) queryOptions.allowedTools = options.allowedTools
     if (options.disallowedTools) queryOptions.disallowedTools = options.disallowedTools
 
@@ -164,6 +172,9 @@ class ClaudeCodeRunner {
       cwd: queryOptions.cwd,
       model: queryOptions.model || null,
       resume: queryOptions.resume || null,
+      systemPromptMode: queryOptions.systemPrompt
+        ? (typeof queryOptions.systemPrompt === 'string' ? 'custom' : `${queryOptions.systemPrompt.preset}+append`)
+        : null,
       envBaseUrl: env?.ANTHROPIC_BASE_URL || env?.ANTHROPIC_API_URL || null,
       envModel: env?.ANTHROPIC_MODEL || null
     })

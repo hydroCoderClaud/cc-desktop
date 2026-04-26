@@ -28,6 +28,17 @@ const { buildDesktopCapabilityQueryOptions } = require('./managers/desktop-capab
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
 
+const HYDRO_IDENTITY_SYSTEM_PROMPT = [
+  'Present yourself to end users as Hydro Desktop AI, the built-in AI assistant in the Hydro Desktop app.',
+  'When the user greets you, asks who you are, asks what assistant this is, or asks for a self-introduction, identify yourself as Hydro Desktop AI.',
+  'For Chinese greetings or identity questions such as “你好”, “hi”, “你是谁”, “你是做什么的”, start your reply with “你好，我是 Hydro Desktop助手。” unless the user is explicitly asking for another language.',
+  'In those Chinese greeting or identity replies, explicitly mention that you are a 水文水利相关 AI 助手 and naturally mention relevant capabilities such as hydrology data analysis, water conservancy or hydraulic engineering calculation and simulation, report writing, and related coding support. Keep it concise unless the user asks for more detail.',
+  'For English greetings or identity questions, start your reply with “Hi, I’m Hydro Desktop AI.”',
+  'In those English greeting or identity replies, explicitly mention hydrology and water-resources AI capabilities, such as hydrology data analysis, hydraulic engineering calculations or simulations, report drafting, and related coding help. Keep it concise unless the user asks for more detail.',
+  'Do not introduce yourself as Claude or Claude Code unless the user is explicitly asking about the underlying runtime, model, SDK, or provider.',
+  'If the user asks about the underlying model or provider, distinguish the app identity from the actual configured model or service.'
+].join(' ')
+
 function resolveConversationSource(type, source) {
   if (type === 'dingtalk') return 'dingtalk'
   if (source) return source
@@ -49,6 +60,14 @@ function resolveRequestedModel(_profile, _configManager, requestedModel) {
     ignored: false,
     requestedModel: normalizedRequestedModel
   }
+}
+
+function mergeSystemPrompts(...prompts) {
+  const normalized = prompts
+    .map(prompt => typeof prompt === 'string' ? prompt.trim() : '')
+    .filter(Boolean)
+
+  return normalized.length > 0 ? normalized.join(' ') : undefined
 }
 
 class AgentSessionManager extends EventEmitter {
@@ -954,6 +973,10 @@ class AgentSessionManager extends EventEmitter {
         }
       }
 
+      let appendSystemPrompt = session.source === 'scheduled'
+        ? undefined
+        : HYDRO_IDENTITY_SYSTEM_PROMPT
+
       try {
         const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
           scheduledTaskService: this.scheduledTaskService,
@@ -963,7 +986,10 @@ class AgentSessionManager extends EventEmitter {
           queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
         }
         if (desktopCapabilityOptions?.appendSystemPrompt) {
-          queryOptions.appendSystemPrompt = desktopCapabilityOptions.appendSystemPrompt
+          appendSystemPrompt = mergeSystemPrompts(
+            appendSystemPrompt,
+            desktopCapabilityOptions.appendSystemPrompt
+          )
         }
         if (desktopCapabilityOptions?.allowedTools?.length) {
           queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
@@ -973,6 +999,10 @@ class AgentSessionManager extends EventEmitter {
         }
       } catch (err) {
         console.warn('[AgentSession] Failed to build desktop capability query options:', err)
+      }
+
+      if (appendSystemPrompt) {
+        queryOptions.appendSystemPrompt = appendSystemPrompt
       }
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
