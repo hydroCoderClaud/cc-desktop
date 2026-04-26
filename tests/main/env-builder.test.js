@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
-describe('env-builder runtime model mapping', () => {
-  it('uses provider default mapping when profile only has a model tier', async () => {
+describe('env-builder runtime model selection', () => {
+  it('keeps runtime model selection independent from tier mapping env vars', async () => {
     const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
 
     const env = buildClaudeEnvVars({
@@ -12,6 +12,7 @@ describe('env-builder runtime model mapping', () => {
       selectedModelTier: 'sonnet'
     }, {
       getServiceProviderDefinition: vi.fn(() => ({
+        defaultModels: ['qwen-coder'],
         defaultModelMapping: {
           opus: 'qwen-max',
           sonnet: 'qwen-plus',
@@ -20,13 +21,13 @@ describe('env-builder runtime model mapping', () => {
       }))
     })
 
-    expect(env.ANTHROPIC_MODEL).toBe('qwen-plus')
+    expect(env.ANTHROPIC_MODEL).toBe('qwen-coder')
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('qwen-max')
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('qwen-plus')
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('qwen-turbo')
   })
 
-  it('keeps explicit profile mapping over provider defaults', async () => {
+  it('keeps explicit selectedModelId independent from mapping env vars', async () => {
     const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
 
     const env = buildClaudeEnvVars({
@@ -34,12 +35,13 @@ describe('env-builder runtime model mapping', () => {
       authToken: 'token',
       authType: 'api_key',
       baseUrl: 'https://example.com',
-      selectedModelTier: 'sonnet',
+      selectedModelId: 'actual-selected-model',
       modelMapping: {
         sonnet: 'custom-sonnet'
       }
     }, {
       getServiceProviderDefinition: vi.fn(() => ({
+        defaultModels: ['provider-default-model'],
         defaultModelMapping: {
           opus: 'provider-opus',
           sonnet: 'provider-sonnet',
@@ -48,7 +50,7 @@ describe('env-builder runtime model mapping', () => {
       }))
     })
 
-    expect(env.ANTHROPIC_MODEL).toBe('custom-sonnet')
+    expect(env.ANTHROPIC_MODEL).toBe('actual-selected-model')
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('provider-opus')
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('custom-sonnet')
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('provider-haiku')

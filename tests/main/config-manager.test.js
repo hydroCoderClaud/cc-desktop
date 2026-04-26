@@ -101,6 +101,44 @@ describe('ConfigManager', () => {
       expect(proxy?.needsMapping).toBe(true)
     })
 
+    it('新增 profile 不应强制写入隐藏 selectedModelTier', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Test Profile',
+        authToken: 'token',
+        serviceProvider: 'other',
+        baseUrl: 'https://example.com',
+        selectedModelId: 'glm-5.1'
+      })
+      await configManager.saveQueue
+
+      expect(profile.selectedModelId).toBe('glm-5.1')
+      expect(profile.selectedModelTier).toBeNull()
+      expect(configManager.getAPIProfile(profile.id)?.selectedModelTier).toBeNull()
+    })
+
+    it('新增 profile 不应从 mapping 回填 selectedModelId', async () => {
+      configManager.addServiceProviderDefinition({
+        id: 'mapping-only-provider',
+        name: 'Mapping Only Provider',
+        baseUrl: 'https://example.com',
+        defaultModels: []
+      })
+
+      const profile = configManager.addAPIProfile({
+        name: 'Mapped Profile',
+        authToken: 'token',
+        serviceProvider: 'mapping-only-provider',
+        baseUrl: 'https://example.com',
+        modelMapping: {
+          sonnet: 'glm-5.1'
+        }
+      })
+      await configManager.saveQueue
+
+      expect(profile.selectedModelId).toBe('')
+      expect(configManager.getAPIProfile(profile.id)?.selectedModelId).toBe('')
+    })
+
     it('应该有正确的默认超时设置', () => {
       const config = configManager.getConfig()
       expect(config.timeout).toBeDefined()

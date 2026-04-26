@@ -21,8 +21,6 @@ const { MessageQueue } = require('./utils/message-queue')
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const { AgentStatus, AgentType } = require('./utils/agent-constants')
-const { resolveProfileModel } = require('./utils/model-resolver')
-const { buildRuntimeProfile } = require('./utils/runtime-profile')
 const { AgentSession } = require('./agent-session')
 const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
@@ -64,16 +62,7 @@ function resolveRequestedModel(profile, configManager, requestedModel) {
     return { queryModel: null, ignored: false, requestedModel: '' }
   }
 
-  const runtimeProfile = buildRuntimeProfile(profile, configManager)
-  if (['sonnet', 'opus', 'haiku'].includes(normalizedRequestedModel)) {
-    return {
-      queryModel: resolveProfileModel(runtimeProfile, normalizedRequestedModel),
-      ignored: false,
-      requestedModel: normalizedRequestedModel
-    }
-  }
-
-  const allowedModelIds = getProfileModelIds(runtimeProfile, configManager)
+  const allowedModelIds = getProfileModelIds(profile, configManager)
   if (allowedModelIds.length > 0 && !allowedModelIds.includes(normalizedRequestedModel)) {
     return {
       queryModel: null,
@@ -84,7 +73,7 @@ function resolveRequestedModel(profile, configManager, requestedModel) {
   }
 
   return {
-    queryModel: resolveProfileModel(runtimeProfile, normalizedRequestedModel),
+    queryModel: normalizedRequestedModel,
     ignored: false,
     requestedModel: normalizedRequestedModel
   }
@@ -2019,29 +2008,58 @@ class AgentSessionManager extends EventEmitter {
     const profile = session?.apiProfileId
       ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
       : this.configManager.getDefaultProfile()
-    const runtimeProfile = buildRuntimeProfile(profile, this.configManager)
-    const resolvedModel = resolveProfileModel(runtimeProfile, model)
+    const normalizedRequestedModel = normalizeModelValue(model)
+
+    if (!normalizedRequestedModel) {
+      console.log('[AgentSession] setModel request:', {
+        sessionId,
+        requestedModel: null,
+        resolvedModel: null,
+        hasSession: !!session,
+        hasQueryGenerator: !!session?.queryGenerator,
+        apiProfileId: session?.apiProfileId || profile?.id || null
+      })
+      return this.queryManager.setModel(sessionId, undefined)
+    }
+
+    const resolvedRequest = resolveRequestedModel(profile, this.configManager, normalizedRequestedModel)
     console.log('[AgentSession] setModel request:', {
       sessionId,
-      requestedModel: model || null,
-      resolvedModel: resolvedModel || null,
+      requestedModel: normalizedRequestedModel,
+      resolvedModel: resolvedRequest.queryModel || null,
+      ignored: resolvedRequest.ignored,
+      allowedModelIds: resolvedRequest.allowedModelIds || [],
       hasSession: !!session,
       hasQueryGenerator: !!session?.queryGenerator,
       apiProfileId: session?.apiProfileId || profile?.id || null
     })
 
+    if (!resolvedRequest.queryModel) {
+      console.warn('[AgentSession] setModel ignored unsupported requestedModel:', {
+        sessionId,
+        requestedModel: normalizedRequestedModel,
+        apiProfileId: session?.apiProfileId || profile?.id || null,
+        allowedModelIds: resolvedRequest.allowedModelIds || []
+      })
+      return {
+        ignored: true,
+        requestedModel: normalizedRequestedModel,
+        allowedModelIds: resolvedRequest.allowedModelIds || []
+      }
+    }
+
     try {
-      const result = await this.queryManager.setModel(sessionId, resolvedModel)
+      const result = await this.queryManager.setModel(sessionId, resolvedRequest.queryModel)
       console.log('[AgentSession] setModel request applied:', {
         sessionId,
-        resolvedModel: resolvedModel || null
+        resolvedModel: resolvedRequest.queryModel || null
       })
       return result
     } catch (error) {
       console.warn('[AgentSession] setModel request failed:', {
         sessionId,
-        requestedModel: model || null,
-        resolvedModel: resolvedModel || null,
+        requestedModel: normalizedRequestedModel,
+        resolvedModel: resolvedRequest.queryModel || null,
         error: error.message
       })
       throw error

@@ -4,8 +4,6 @@
  */
 
 const { v4: uuidv4 } = require('uuid')
-const { resolveProfileModel } = require('../utils/model-resolver')
-
 function resolveProviderDefaultModelId(configManager, serviceProvider) {
   if (!serviceProvider || typeof configManager?.getServiceProviderDefinition !== 'function') {
     return ''
@@ -55,7 +53,7 @@ const apiConfigMixin = {
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
       selectedModelId: profileData.selectedModelId || '',
-      selectedModelTier: profileData.selectedModelTier || 'sonnet',
+      selectedModelTier: profileData.selectedModelTier ?? null,
       modelMapping: profileData.modelMapping || null,
       requestTimeout: profileData.requestTimeout || globalTimeout.request,
       disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
@@ -69,7 +67,7 @@ const apiConfigMixin = {
     }
 
     if (!newProfile.selectedModelId) {
-      newProfile.selectedModelId = resolveProviderDefaultModelId(this, newProfile.serviceProvider) || resolveProfileModel(newProfile)
+      newProfile.selectedModelId = resolveProviderDefaultModelId(this, newProfile.serviceProvider) || ''
     }
 
     // 如果是第一个 Profile，自动设为默认
@@ -97,7 +95,7 @@ const apiConfigMixin = {
     const { isDefault, ...safeUpdates } = updates
     Object.assign(profile, safeUpdates)
     if (!profile.selectedModelId) {
-      profile.selectedModelId = resolveProviderDefaultModelId(this, profile.serviceProvider) || resolveProfileModel(profile)
+      profile.selectedModelId = resolveProviderDefaultModelId(this, profile.serviceProvider) || ''
     }
     profile.lastUsed = new Date().toISOString()
 

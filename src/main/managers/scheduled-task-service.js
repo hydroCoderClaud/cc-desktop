@@ -37,7 +37,8 @@ function normalizeModelTier(tier) {
     fast: 'haiku'
   }
 
-  return aliases[normalized] || normalized
+  const resolved = aliases[normalized] || normalized
+  return ['sonnet', 'opus', 'haiku'].includes(resolved) ? resolved : null
 }
 
 function normalizeWeeklyDays(days) {

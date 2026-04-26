@@ -3,8 +3,25 @@
  * 从 API Profile 生成 Claude Code CLI 所需的环境变量
  */
 
-const { resolveProfileModel } = require('./model-resolver')
 const { buildRuntimeProfile } = require('./runtime-profile')
+
+function normalizeModelValue(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function resolveRuntimeSelectedModelId(profile, configManager) {
+  const selectedModelId = normalizeModelValue(profile?.selectedModelId)
+  if (selectedModelId) return selectedModelId
+
+  const providerId = normalizeModelValue(profile?.serviceProvider)
+  if (!providerId || typeof configManager?.getServiceProviderDefinition !== 'function') {
+    return ''
+  }
+
+  const provider = configManager.getServiceProviderDefinition(providerId)
+  const defaultModels = Array.isArray(provider?.defaultModels) ? provider.defaultModels : []
+  return normalizeModelValue(defaultModels[0])
+}
 
 /**
  * 检测是否在打包后的应用中运行
@@ -26,7 +43,7 @@ function isPackagedApp() {
  * |-----------------------------|-----------------------------------------|
  * | authToken + authType        | ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN |
  * | baseUrl                     | ANTHROPIC_BASE_URL                      |
- * | selectedModelId / selectedModelTier | ANTHROPIC_MODEL (启动默认模型)    |
+ * | selectedModelId（为空时回退服务商默认模型 ID） | ANTHROPIC_MODEL (启动默认模型) |
  * | requestTimeout              | API_TIMEOUT_MS                          |
  * | disableNonessentialTraffic  | CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC|
  * | modelMapping.opus           | ANTHROPIC_DEFAULT_OPUS_MODEL            |
@@ -65,8 +82,8 @@ function buildClaudeEnvVars(profile, configManager) {
     envVars.ANTHROPIC_BASE_URL = runtimeProfile.baseUrl.trim()
   }
 
-  // 默认启动模型（优先直接模型 ID，回退旧 tier/mapping）
-  const modelName = resolveProfileModel(runtimeProfile)
+  // 默认启动模型只认真实模型 ID；mapping 仅用于 tier 默认环境变量
+  const modelName = resolveRuntimeSelectedModelId(runtimeProfile, configManager)
   if (modelName) {
     envVars.ANTHROPIC_MODEL = modelName
   }

@@ -212,7 +212,7 @@ const defaultFormData = () => ({
   authToken: '',
   baseUrl: 'https://api.anthropic.com',
   selectedModelId: '',
-  selectedModelTier: 'sonnet',
+  selectedModelTier: null,
   modelMapping: { opus: '', sonnet: '', haiku: '' },
   requestTimeout: 120,
   disableNonessentialTraffic: true,
@@ -243,10 +243,6 @@ const providerOptions = computed(() => {
     value: p.id
   }))
 })
-
-const normalizeTier = (tier) => {
-  return supportedModelTiers.includes(tier) ? tier : 'sonnet'
-}
 
 const normalizeModelIds = (modelIds) => {
   const normalized = []
@@ -311,14 +307,13 @@ watch(() => props.profile, (newProfile) => {
     const providerDefaultModels = normalizeModelIds(activeProvider?.defaultModels)
     const resolvedSelectedModelId = newProfile.selectedModelId
       || providerDefaultModels[0]
-      || newProfile.modelMapping?.[newProfile.selectedModelTier]
       || ''
 
     formData.value = {
       ...defaultFormData(),
       ...newProfile,
       selectedModelId: resolvedSelectedModelId,
-      selectedModelTier: normalizeTier(newProfile.selectedModelTier),
+      selectedModelTier: newProfile.selectedModelTier ?? null,
       modelMapping: normalizeModelMapping(newProfile.modelMapping) || defaultFormData().modelMapping,
       requestTimeout: (newProfile.requestTimeout || 120000) / 1000
     }
@@ -366,7 +361,7 @@ const handleSave = async () => {
       authToken: formData.value.authToken,
       baseUrl: formData.value.baseUrl,
       selectedModelId,
-      selectedModelTier: formData.value.selectedModelTier,
+      selectedModelTier: null,
       requestTimeout: formData.value.requestTimeout * 1000,
       disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
       useProxy: formData.value.useProxy,
@@ -389,7 +384,7 @@ const handleTest = () => {
     authType: formData.value.authType,
     serviceProvider: formData.value.serviceProvider,
     selectedModelId: formData.value.selectedModelId?.trim() || '',
-    selectedModelTier: formData.value.selectedModelTier,
+    selectedModelTier: null,
     modelMapping: normalizeModelMapping(formData.value.modelMapping),
     useProxy: formData.value.useProxy,
     httpsProxy: formData.value.httpsProxy,

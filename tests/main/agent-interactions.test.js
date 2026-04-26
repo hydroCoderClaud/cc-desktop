@@ -289,6 +289,47 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.model).toBeUndefined()
   })
 
+  it('does not map tier aliases when agent runtime receives a model id request', async () => {
+    const { manager } = createManager()
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? {
+          id: 'p2',
+          name: 'runtime-clean',
+          baseUrl: 'https://models.example.com',
+          serviceProvider: 'runtime-clean',
+          selectedModelId: 'glm-4.5'
+        }
+      : null)
+    manager.configManager.getServiceProviderDefinition = vi.fn((id) => id === 'runtime-clean'
+      ? { id: 'runtime-clean', defaultModels: ['glm-4.5'] }
+      : null)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://models.example.com',
+        ANTHROPIC_MODEL: 'glm-4.5'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({ id: 's-tier-alias', cwd: '/tmp', apiProfileId: 'p2' })
+    session.dbConversationId = 1
+    manager.sessions.set('s-tier-alias', session)
+
+    await manager.sendMessage('s-tier-alias', 'hello', { model: 'sonnet' })
+
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('glm-4.5')
+    expect(createQueryOptions.model).toBeUndefined()
+  })
+
   it('syncs env model with requestedModel when createQuery is rebuilt from a restored session', async () => {
     const { manager } = createManager()
     manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
@@ -536,22 +577,31 @@ describe('AgentSessionManager interactions', () => {
     expect(result.message).toBe('Claude Code 已连通，收到模型回复：pong early')
   })
 
-  it('setModel resolves explicit model ids and tier fallback via selectedModelId', async () => {
+  it('setModel only applies explicit model ids and ignores tier aliases', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 'session-set-model', cwd: '/tmp', apiProfileId: 'profile-1' })
     manager.sessions.set(session.id, session)
     manager.configManager.getAPIProfile = vi.fn(() => ({
       id: 'profile-1',
       selectedModelId: 'glm-4.5',
-      selectedModelTier: 'sonnet'
+      serviceProvider: 'provider-1'
+    }))
+    manager.configManager.getServiceProviderDefinition = vi.fn(() => ({
+      id: 'provider-1',
+      defaultModels: ['glm-4.5']
     }))
     manager.queryManager.setModel = vi.fn(async () => {})
 
     await manager.setModel(session.id, 'glm-4.5')
-    await manager.setModel(session.id, 'sonnet')
+    const ignoredResult = await manager.setModel(session.id, 'sonnet')
 
+    expect(manager.queryManager.setModel).toHaveBeenCalledTimes(1)
     expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(1, session.id, 'glm-4.5')
-    expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(2, session.id, 'glm-4.5')
+    expect(ignoredResult).toEqual({
+      ignored: true,
+      requestedModel: 'sonnet',
+      allowedModelIds: ['glm-4.5']
+    })
   })
 
   it('probeConnection labels API refusal clearly', async () => {
