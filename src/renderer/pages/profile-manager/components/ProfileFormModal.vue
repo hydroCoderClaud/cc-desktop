@@ -211,7 +211,6 @@ const defaultFormData = () => ({
   authToken: '',
   baseUrl: 'https://api.anthropic.com',
   selectedModelId: '',
-  selectedModelTier: null,
   requestTimeout: 120,
   disableNonessentialTraffic: true,
   useProxy: false,
@@ -290,7 +289,6 @@ watch(() => props.profile, (newProfile) => {
       ...defaultFormData(),
       ...newProfile,
       selectedModelId: typeof newProfile.selectedModelId === 'string' ? newProfile.selectedModelId.trim() : '',
-      selectedModelTier: newProfile.selectedModelTier ?? null,
       requestTimeout: (newProfile.requestTimeout || 120000) / 1000
     }
   } else {
@@ -340,7 +338,6 @@ const handleSave = async () => {
       authToken: formData.value.authToken,
       baseUrl: formData.value.baseUrl,
       selectedModelId,
-      selectedModelTier: null,
       requestTimeout: formData.value.requestTimeout * 1000,
       disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
       useProxy: formData.value.useProxy,
@@ -362,7 +359,6 @@ const handleTest = () => {
     authType: formData.value.authType,
     serviceProvider: formData.value.serviceProvider,
     selectedModelId: formData.value.selectedModelId?.trim() || '',
-    selectedModelTier: null,
     useProxy: formData.value.useProxy,
     httpsProxy: formData.value.httpsProxy,
     httpProxy: formData.value.httpProxy

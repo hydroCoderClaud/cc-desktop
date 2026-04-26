@@ -8,8 +8,7 @@ describe('env-builder runtime model selection', () => {
       serviceProvider: 'qwen',
       authToken: 'token',
       authType: 'api_key',
-      baseUrl: 'https://example.com',
-      selectedModelTier: 'sonnet'
+      baseUrl: 'https://example.com'
     }, {
       getServiceProviderDefinition: vi.fn(() => ({
         defaultModels: ['qwen-coder'],

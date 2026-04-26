@@ -97,11 +97,11 @@ describe('ConfigManager', () => {
         'claude-opus-4-6',
         'claude-haiku-4-5'
       ])
-      expect(official?.needsMapping).toBe(true)
-      expect(proxy?.needsMapping).toBe(true)
+      expect(official).not.toHaveProperty('needsMapping')
+      expect(proxy).not.toHaveProperty('needsMapping')
     })
 
-    it('新增 profile 不应强制写入隐藏 selectedModelTier', async () => {
+    it('新增 profile 不应写入已废弃的 selectedModelTier', async () => {
       const profile = configManager.addAPIProfile({
         name: 'Test Profile',
         authToken: 'token',
@@ -112,8 +112,8 @@ describe('ConfigManager', () => {
       await configManager.saveQueue
 
       expect(profile.selectedModelId).toBe('glm-5.1')
-      expect(profile.selectedModelTier).toBeNull()
-      expect(configManager.getAPIProfile(profile.id)?.selectedModelTier).toBeNull()
+      expect(profile).not.toHaveProperty('selectedModelTier')
+      expect(configManager.getAPIProfile(profile.id)).not.toHaveProperty('selectedModelTier')
     })
 
     it('新增 profile 不应从 mapping 回填 selectedModelId', async () => {
@@ -169,7 +169,6 @@ describe('ConfigManager', () => {
         serviceProviderDefinitions: [{
           id: 'other',
           name: 'Other',
-          needsMapping: true,
           baseUrl: 'https://example.com',
           defaultModelMapping: null,
           defaultModels: ['provider-default-model']
@@ -196,9 +195,9 @@ describe('ConfigManager', () => {
 
       const apiConfig = newConfigManager.getAPIConfig()
       expect(apiConfig.selectedModelId).toBe('')
-      expect(apiConfig.selectedModelTier).toBeNull()
+      expect(apiConfig).not.toHaveProperty('selectedModelTier')
       expect(apiConfig.modelMapping).toBeUndefined()
-      expect(newConfigManager.getConfig().apiProfiles[0].selectedModelTier).toBeNull()
+      expect(newConfigManager.getConfig().apiProfiles[0]).not.toHaveProperty('selectedModelTier')
       expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
     })
 
@@ -457,11 +456,11 @@ describe('ConfigManager', () => {
       const profile = newConfigManager.getConfig().apiProfiles[0]
 
       expect(profile.selectedModelId).toBe('')
-      expect(profile.selectedModelTier).toBeNull()
+      expect(profile).not.toHaveProperty('selectedModelTier')
       expect(profile.customModels).toBeUndefined()
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      expect(savedConfig.apiProfiles[0].selectedModelTier).toBeNull()
+      expect(savedConfig.apiProfiles[0]).not.toHaveProperty('selectedModelTier')
       expect(savedConfig.apiProfiles[0].customModels).toBeUndefined()
     })
 
@@ -471,7 +470,6 @@ describe('ConfigManager', () => {
         serviceProviderDefinitions: [{
           id: 'other',
           name: 'Other',
-          needsMapping: true,
           baseUrl: 'https://example.com',
           defaultModelMapping: null,
           defaultModels: ['model-a']
@@ -502,7 +500,6 @@ describe('ConfigManager', () => {
 
     it('official 服务商不再强制清空映射配置', async () => {
       await configManager.updateServiceProviderDefinition('official', {
-        needsMapping: true,
         defaultModelMapping: {
           opus: 'claude-opus-4-7',
           sonnet: 'claude-sonnet-4-6',
@@ -512,7 +509,7 @@ describe('ConfigManager', () => {
 
       const provider = configManager.getServiceProviderDefinition('official')
 
-      expect(provider.needsMapping).toBe(true)
+      expect(provider).not.toHaveProperty('needsMapping')
       expect(provider.defaultModelMapping).toEqual({
         opus: 'claude-opus-4-7',
         sonnet: 'claude-sonnet-4-6',
@@ -520,7 +517,7 @@ describe('ConfigManager', () => {
       })
     })
 
-    it('旧 settings.api 迁移后不应写入隐藏 selectedModelTier 或默认 sonnet 模型', async () => {
+    it('旧 settings.api 迁移后不应写入已废弃的 selectedModelTier 或默认 sonnet 模型', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         settings: {
@@ -539,12 +536,12 @@ describe('ConfigManager', () => {
 
       const profile = newConfigManager.getConfig().apiProfiles[0]
       expect(profile.selectedModelId).toBe('')
-      expect(profile.selectedModelTier).toBeNull()
+      expect(profile).not.toHaveProperty('selectedModelTier')
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       expect(savedConfig.settings.api).toBeUndefined()
       expect(savedConfig.apiProfiles[0].selectedModelId).toBe('')
-      expect(savedConfig.apiProfiles[0].selectedModelTier).toBeNull()
+      expect(savedConfig.apiProfiles[0]).not.toHaveProperty('selectedModelTier')
     })
 
     it('HTTP 测试在缺少 selectedModelId 时应直接失败', async () => {
@@ -570,7 +567,6 @@ describe('ConfigManager', () => {
         serviceProviderDefinitions: [{
           id: 'other',
           name: 'Other',
-          needsMapping: true,
           baseUrl: `http://127.0.0.1:${port}`,
           defaultModelMapping: null,
           defaultModels: ['provider-default-model']

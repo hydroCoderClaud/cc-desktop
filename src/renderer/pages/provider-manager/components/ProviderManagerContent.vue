@@ -68,14 +68,7 @@
           />
         </n-form-item>
 
-        <n-form-item label=" ">
-          <n-space align="center">
-            <n-switch v-model:value="formData.needsMapping" />
-            <span>{{ t('providerManager.needsMapping') }}</span>
-          </n-space>
-        </n-form-item>
-
-        <div v-if="formData.needsMapping" class="model-mapping-section">
+        <div class="model-mapping-section">
           <n-divider>{{ t('providerManager.defaultModelMapping') }}</n-divider>
           <n-grid :cols="1" :y-gap="12">
             <n-grid-item>
@@ -94,7 +87,7 @@
               </n-form-item>
             </n-grid-item>
           </n-grid>
-          <p class="help-text">{{ t('providerManager.needsMappingHint') }}</p>
+          <p class="help-text">{{ t('providerManager.defaultModelMappingHint') }}</p>
         </div>
       </n-form>
 
@@ -130,7 +123,6 @@ const defaultFormData = () => ({
   name: '',
   baseUrl: '',
   defaultModelsText: '',
-  needsMapping: true,
   defaultModelMapping: {
     opus: '',
     sonnet: '',
@@ -172,7 +164,6 @@ const handleEdit = (provider) => {
     name: provider.name,
     baseUrl: provider.baseUrl || '',
     defaultModelsText: Array.isArray(provider.defaultModels) ? provider.defaultModels.join('\n') : '',
-    needsMapping: provider.needsMapping !== false,
     defaultModelMapping: {
       opus: provider.defaultModelMapping?.opus || '',
       sonnet: provider.defaultModelMapping?.sonnet || '',
@@ -209,18 +200,19 @@ const handleSave = async () => {
         .map(item => item.trim())
         .filter(Boolean)
     ))
+    const defaultModelMapping = {
+      opus: formData.value.defaultModelMapping.opus || null,
+      sonnet: formData.value.defaultModelMapping.sonnet || null,
+      haiku: formData.value.defaultModelMapping.haiku || null
+    }
+    const hasModelMapping = Object.values(defaultModelMapping).some(Boolean)
 
     const data = {
       id: formData.value.id,
       name: formData.value.name,
       baseUrl: formData.value.baseUrl || null,
       defaultModels,
-      needsMapping: formData.value.needsMapping,
-      defaultModelMapping: formData.value.needsMapping ? {
-        opus: formData.value.defaultModelMapping.opus || null,
-        sonnet: formData.value.defaultModelMapping.sonnet || null,
-        haiku: formData.value.defaultModelMapping.haiku || null
-      } : null
+      defaultModelMapping: hasModelMapping ? defaultModelMapping : null
     }
 
     if (isEdit.value) {

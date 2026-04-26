@@ -30,13 +30,8 @@ function getProviderDefaultModelMapping(profile, configManager) {
 function buildRuntimeProfile(profile, configManager) {
   if (!profile || typeof profile !== 'object') return profile
 
-  const modelMapping = getProviderDefaultModelMapping(profile, configManager)
-
-  if (!modelMapping && !Object.prototype.hasOwnProperty.call(profile, 'modelMapping')) {
-    return profile
-  }
-
   const runtimeProfile = { ...profile }
+  const modelMapping = getProviderDefaultModelMapping(profile, configManager)
   if (modelMapping) {
     runtimeProfile.modelMapping = modelMapping
   } else {

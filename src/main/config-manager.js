@@ -148,7 +148,7 @@ class ConfigManager {
         // 迁移旧的单 API 配置到 apiProfiles
         let migratedConfig = this.migrateToProfiles(mergedConfig);
 
-        // 迁移 Profile 结构（category/model → serviceProvider/selectedModelTier）
+        // 迁移 Profile 结构（category/model → serviceProvider/selectedModelId）
         migratedConfig = this.migrateProfileStructure(migratedConfig);
 
         // 迁移 skillsMarket → market
@@ -527,7 +527,6 @@ class ConfigManager {
         baseUrl: defaultProfile.baseUrl,
         serviceProvider: defaultProfile.serviceProvider || 'official',
         selectedModelId: resolveConfiguredModelId(this.config, defaultProfile),
-        selectedModelTier: null,
         requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
         disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
         useProxy: defaultProfile.useProxy,
@@ -542,7 +541,6 @@ class ConfigManager {
       baseUrl: '',
       serviceProvider: '',
       selectedModelId: '',
-      selectedModelTier: null,
       requestTimeout: this.getTimeout().request,
       disableNonessentialTraffic: true,
       useProxy: false,
@@ -633,7 +631,7 @@ class ConfigManager {
                             profile.selectedModelId === undefined ||
                             profile.customModels !== undefined ||
                             profile.modelMapping !== undefined ||
-                            profile.selectedModelTier !== undefined && profile.selectedModelTier !== null;
+                            profile.selectedModelTier !== undefined;
 
       if (!needsMigration) {
         return profile;
@@ -659,7 +657,9 @@ class ConfigManager {
       }
 
       // 3. 清理旧 tier，并保留 selectedModelId 的显式配置
-      profile.selectedModelTier = null;
+      if (profile.selectedModelTier !== undefined) {
+        delete profile.selectedModelTier;
+      }
       if (profile.customModels !== undefined) {
         delete profile.customModels;
       }
@@ -762,7 +762,6 @@ class ConfigManager {
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
       selectedModelId: normalizeModelValue(oldApi.model),
-      selectedModelTier: null,
       requestTimeout: TIMEOUTS.API_REQUEST,
       disableNonessentialTraffic: true,
       useProxy: oldApi.useProxy || false,

@@ -26,6 +26,21 @@ function normalizeModelIds(modelIds) {
   return normalized
 }
 
+function normalizeProviderModelMapping(mapping) {
+  if (!mapping || typeof mapping !== 'object') return null
+
+  const normalized = {}
+
+  for (const tier of ['opus', 'sonnet', 'haiku']) {
+    const value = typeof mapping[tier] === 'string' ? mapping[tier].trim() : ''
+    if (value) {
+      normalized[tier] = value
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null
+}
+
 function normalizeProviderDefinition(definition) {
   const providerId = typeof definition?.id === 'string' ? definition.id.trim() : ''
   const builtinModels = BUILTIN_PROVIDER_MODELS[providerId] || []
@@ -33,9 +48,8 @@ function normalizeProviderDefinition(definition) {
   return {
     id: providerId,
     name: definition?.name || providerId,
-    needsMapping: definition?.needsMapping !== false,
     baseUrl: definition?.baseUrl || '',
-    defaultModelMapping: definition?.defaultModelMapping || null,
+    defaultModelMapping: normalizeProviderModelMapping(definition?.defaultModelMapping),
     defaultModels: normalizeModelIds(definition?.defaultModels || builtinModels)
   }
 }
@@ -48,7 +62,6 @@ function getDefaultProviders() {
   return Object.keys(SERVICE_PROVIDERS).map(id => normalizeProviderDefinition({
     id,
     name: SERVICE_PROVIDERS[id].label,
-    needsMapping: SERVICE_PROVIDERS[id].needsMapping,
     baseUrl: SERVICE_PROVIDERS[id].baseUrl || '',
     defaultModelMapping: null,
     defaultModels: BUILTIN_PROVIDER_MODELS[id] || []
@@ -70,7 +83,6 @@ const providerConfigMixin = {
     definitions.forEach(def => {
       providers[def.id] = {
         label: def.name,
-        needsMapping: def.needsMapping,
         baseUrl: def.baseUrl,
         defaultModelMapping: def.defaultModelMapping,
         defaultModels: normalizeModelIds(def.defaultModels)
@@ -104,7 +116,6 @@ const providerConfigMixin = {
       definitionMap.set(providerId, normalizeProviderDefinition({
         id: providerId,
         name: providerId,
-        needsMapping: true,
         baseUrl: '',
         defaultModelMapping: null,
         defaultModels: []

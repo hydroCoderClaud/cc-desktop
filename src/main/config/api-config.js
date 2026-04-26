@@ -48,7 +48,6 @@ const apiConfigMixin = {
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || 'https://api.anthropic.com',
       selectedModelId: normalizeModelValue(profileData.selectedModelId),
-      selectedModelTier: profileData.selectedModelTier ?? null,
       requestTimeout: profileData.requestTimeout || globalTimeout.request,
       disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
       useProxy: profileData.useProxy || false,
@@ -82,7 +81,7 @@ const apiConfigMixin = {
     }
 
     // 更新字段（不允许通过此方法修改 isDefault）
-    const { isDefault, modelMapping, ...safeUpdates } = updates
+    const { isDefault, modelMapping, selectedModelTier, ...safeUpdates } = updates
     Object.assign(profile, safeUpdates)
     profile.selectedModelId = normalizeModelValue(profile.selectedModelId)
     if (Object.prototype.hasOwnProperty.call(profile, 'modelMapping')) {

@@ -504,8 +504,7 @@ describe('AgentSessionManager interactions', () => {
       id: 'profile-1',
       baseUrl: 'https://example.com',
       authToken: 'token',
-      authType: 'api_key',
-      selectedModelTier: 'sonnet'
+      authType: 'api_key'
     })
 
     expect(result.success).toBe(true)
@@ -569,8 +568,7 @@ describe('AgentSessionManager interactions', () => {
       id: 'profile-1',
       baseUrl: 'https://example.com',
       authToken: 'token',
-      authType: 'api_key',
-      selectedModelTier: 'sonnet'
+      authType: 'api_key'
     })
 
     expect(result.success).toBe(true)
@@ -630,8 +628,7 @@ describe('AgentSessionManager interactions', () => {
       id: 'profile-1',
       baseUrl: 'https://example.com',
       authToken: 'token',
-      authType: 'api_key',
-      selectedModelTier: 'sonnet'
+      authType: 'api_key'
     })
 
     expect(result.success).toBe(false)
@@ -720,8 +717,7 @@ describe('AgentSessionManager interactions', () => {
       id: 'profile-1',
       baseUrl: 'https://example.com',
       authToken: 'token',
-      authType: 'api_key',
-      selectedModelTier: 'sonnet'
+      authType: 'api_key'
     })
 
     expect(result.success).toBe(false)

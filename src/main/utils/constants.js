@@ -34,22 +34,18 @@ const SERVICE_PROVIDERS = {
   },
   zhipu: {
     label: '智谱AI',
-    needsMapping: true,
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4'
   },
   minimax: {
     label: 'MiniMax',
-    needsMapping: true,
     baseUrl: 'https://api.minimax.chat/v1'
   },
   qwen: {
     label: '阿里千问',
-    needsMapping: true,
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
   },
   other: {
     label: '其他第三方',
-    needsMapping: true,
     baseUrl: ''
   }
 };

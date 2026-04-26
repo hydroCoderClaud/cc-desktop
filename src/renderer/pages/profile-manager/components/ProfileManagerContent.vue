@@ -137,7 +137,6 @@ const handleTest = async (profile) => {
     authType: profile.authType,
     serviceProvider: profile.serviceProvider,
     selectedModelId: profile.selectedModelId || '',
-    selectedModelTier: null,
     useProxy: profile.useProxy,
     httpsProxy: profile.httpsProxy,
     httpProxy: profile.httpProxy

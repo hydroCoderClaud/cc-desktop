@@ -10,14 +10,12 @@ const mockData = {
     {
       id: 'official',
       name: '官方 API',
-      needsMapping: false,
       baseUrl: 'https://api.anthropic.com',
       defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
     },
     {
       id: 'proxy',
       name: '中转服务',
-      needsMapping: false,
       baseUrl: null,
       defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
     }
