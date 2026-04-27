@@ -5,6 +5,7 @@ const path = require('path')
 const QRCode = require('qrcode')
 
 const DEFAULT_BASE_URL = 'https://ilinkai.weixin.qq.com'
+const DEFAULT_CDN_BASE_URL = 'https://novac2c.cdn.weixin.qq.com/c2c'
 const DEFAULT_BOT_TYPE = '3'
 const CHANNEL_VERSION = '2.1.7'
 const ILINK_APP_ID = 'bot'
@@ -14,6 +15,14 @@ const QR_POLL_TIMEOUT_MS = 35 * 1000
 const API_TIMEOUT_MS = 15 * 1000
 const UPDATES_TIMEOUT_MS = 45 * 1000
 const BACKGROUND_POLL_INTERVAL_MS = 1000
+const IMAGE_MAX_SIZE = 20 * 1024 * 1024
+const MESSAGE_ITEM_TYPE = {
+  TEXT: 1,
+  IMAGE: 2
+}
+const UPLOAD_MEDIA_TYPE = {
+  IMAGE: 1
+}
 
 function ensureTrailingSlash(url) {
   return url.endsWith('/') ? url : `${url}/`
@@ -28,6 +37,72 @@ function buildClientId() {
   return `hydro-weixin-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
 }
 
+function aesEcbPaddedSize(size) {
+  const blockSize = 16
+  const remainder = size % blockSize
+  return size + (remainder === 0 ? blockSize : blockSize - remainder)
+}
+
+function encryptAesEcb(buffer, key) {
+  const cipher = crypto.createCipheriv('aes-128-ecb', key, null)
+  cipher.setAutoPadding(true)
+  return Buffer.concat([cipher.update(buffer), cipher.final()])
+}
+
+function decryptAesEcb(buffer, key) {
+  const decipher = crypto.createDecipheriv('aes-128-ecb', key, null)
+  decipher.setAutoPadding(true)
+  return Buffer.concat([decipher.update(buffer), decipher.final()])
+}
+
+function parseAesKey(aesKeyBase64, label = 'weixin media') {
+  const decoded = Buffer.from(String(aesKeyBase64 || ''), 'base64')
+  if (decoded.length === 16) return decoded
+  if (decoded.length === 32 && /^[0-9a-fA-F]{32}$/.test(decoded.toString('ascii'))) {
+    return Buffer.from(decoded.toString('ascii'), 'hex')
+  }
+  throw new Error(`${label}: invalid aes_key`)
+}
+
+function buildCdnDownloadUrl(encryptedQueryParam, cdnBaseUrl = DEFAULT_CDN_BASE_URL) {
+  return `${ensureTrailingSlash(cdnBaseUrl)}download?encrypted_query_param=${encodeURIComponent(encryptedQueryParam)}`
+}
+
+function buildCdnUploadUrl({ uploadParam, filekey, cdnBaseUrl = DEFAULT_CDN_BASE_URL }) {
+  return `${ensureTrailingSlash(cdnBaseUrl)}upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`
+}
+
+function detectImageMediaType(buffer, fallback = 'image/jpeg') {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return fallback
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'image/png'
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg'
+  if (buffer.slice(0, 6).toString('ascii') === 'GIF87a' || buffer.slice(0, 6).toString('ascii') === 'GIF89a') return 'image/gif'
+  if (buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') return 'image/webp'
+  return fallback
+}
+
+function imageMediaTypeFromPath(filePath) {
+  const ext = path.extname(filePath).slice(1).toLowerCase()
+  const map = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    bmp: 'image/bmp'
+  }
+  return map[ext] || 'image/png'
+}
+
+function normalizeBase64Image(image) {
+  if (!image?.base64) return null
+  const mediaType = image.mediaType || image.mimeType || 'image/png'
+  return {
+    buffer: Buffer.from(String(image.base64).replace(/^data:image\/[a-z0-9.+-]+;base64,/i, ''), 'base64'),
+    mediaType
+  }
+}
+
 async function buildQRCodeDataUrl(content) {
   return QRCode.toDataURL(content, {
     errorCorrectionLevel: 'M',
@@ -39,9 +114,15 @@ async function buildQRCodeDataUrl(content) {
 
 function getTextFromMessage(message) {
   const textItem = Array.isArray(message?.item_list)
-    ? message.item_list.find(item => item?.type === 1 && item?.text_item?.text)
+    ? message.item_list.find(item => item?.type === MESSAGE_ITEM_TYPE.TEXT && item?.text_item?.text)
     : null
   return textItem?.text_item?.text || ''
+}
+
+function getImageItemsFromMessage(message) {
+  return Array.isArray(message?.item_list)
+    ? message.item_list.filter(item => item?.type === MESSAGE_ITEM_TYPE.IMAGE && item?.image_item)
+    : []
 }
 
 function publicAccount(account) {
@@ -50,6 +131,7 @@ function publicAccount(account) {
     accountId: account.accountId,
     userId: account.userId || null,
     baseUrl: account.baseUrl || DEFAULT_BASE_URL,
+    cdnBaseUrl: account.cdnBaseUrl || DEFAULT_CDN_BASE_URL,
     savedAt: account.savedAt || null,
     hasToken: Boolean(account.token)
   }
@@ -268,6 +350,7 @@ class WeixinNotifyService {
           accountId: status.ilink_bot_id,
           token: status.bot_token,
           baseUrl: status.baseurl || login.baseUrl || DEFAULT_BASE_URL,
+          cdnBaseUrl: DEFAULT_CDN_BASE_URL,
           userId: status.ilink_user_id || null,
           savedAt: Date.now()
         }
@@ -313,7 +396,8 @@ class WeixinNotifyService {
       for (const message of response.msgs || []) {
         if (!message?.from_user_id) continue
         const text = getTextFromMessage(message)
-        if (!text && !message.context_token) continue
+        const images = await this._downloadImagesFromMessage(account, message)
+        if (!text && images.length === 0 && !message.context_token) continue
         const target = this._upsertTarget({
           accountId: account.accountId,
           accountUserId: account.userId || null,
@@ -332,6 +416,7 @@ class WeixinNotifyService {
           targetId: target.id,
           from: message.from_user_id,
           text,
+          images,
           hasContextToken: Boolean(message.context_token),
           contextToken: message.context_token || null,
           createTimeMs: message.create_time_ms || null,
@@ -350,33 +435,111 @@ class WeixinNotifyService {
     const normalizedText = String(text || '').trim()
     if (!normalizedText) throw new Error('发送内容不能为空')
 
+    return this._sendMessageItems({
+      accountId,
+      targetId,
+      sessionId,
+      items: [{ type: MESSAGE_ITEM_TYPE.TEXT, text_item: { text: normalizedText } }],
+      text: normalizedText
+    })
+  }
+
+  async sendImages({ accountId, targetId, text = '', images = [], imagePaths = [], sessionId } = {}) {
+    const normalizedText = String(text || '').trim()
+    const normalizedImages = []
+
+    for (const image of images || []) {
+      const normalized = normalizeBase64Image(image)
+      if (normalized?.buffer?.length > 0) normalizedImages.push(normalized)
+    }
+    for (const filePath of imagePaths || []) {
+      const stats = await fs.promises.stat(filePath).catch(() => null)
+      if (!stats || stats.size <= 0 || stats.size > IMAGE_MAX_SIZE) continue
+      const buffer = await fs.promises.readFile(filePath)
+      normalizedImages.push({ buffer, mediaType: detectImageMediaType(buffer, imageMediaTypeFromPath(filePath)) })
+    }
+    if (!normalizedText && normalizedImages.length === 0) throw new Error('发送内容不能为空')
+
     const target = this._resolveTarget({ accountId, targetId })
     const account = this._requireAccount(target.accountId)
     if (!target.contextToken) {
       throw new Error('目标缺少 contextToken，请先让该微信用户向 bot 发送一条消息')
     }
 
-    const clientId = buildClientId()
-    const response = await this._apiPost(account.baseUrl, 'ilink/bot/sendmessage', account.token, {
-      msg: {
-        from_user_id: '',
-        to_user_id: target.userId,
-        client_id: clientId,
-        message_type: 2,
-        message_state: 2,
-        context_token: target.contextToken,
-        item_list: [{ type: 1, text_item: { text: normalizedText } }]
-      },
-      base_info: { channel_version: CHANNEL_VERSION }
-    }, API_TIMEOUT_MS)
-    const businessError = getWeixinBusinessError(response, 'sendmessage')
-    if (businessError?.errcode === -14 || businessError?.ret === -14) {
-      target.contextExpiredAt = Date.now()
-      target.lastError = 'session timeout'
-      this._saveState()
-      throw buildSessionTimeoutError('sendmessage')
+    let lastResult = null
+    if (normalizedText) {
+      lastResult = await this._sendMessageItems({
+        accountId: target.accountId,
+        targetId: target.id,
+        sessionId,
+        items: [{ type: MESSAGE_ITEM_TYPE.TEXT, text_item: { text: normalizedText } }],
+        text: normalizedText,
+        target,
+        account
+      })
     }
-    if (businessError) throw businessError
+
+    for (const image of normalizedImages) {
+      const uploaded = await this._uploadImageBuffer(account, target, image.buffer, image.mediaType)
+      lastResult = await this._sendMessageItems({
+        accountId: target.accountId,
+        targetId: target.id,
+        sessionId,
+        items: [{
+          type: MESSAGE_ITEM_TYPE.IMAGE,
+          image_item: {
+            media: {
+              encrypt_query_param: uploaded.downloadEncryptedQueryParam,
+              aes_key: Buffer.from(uploaded.aeskey).toString('base64'),
+              encrypt_type: 1
+            },
+            mid_size: uploaded.fileSizeCiphertext
+          }
+        }],
+        text: normalizedText,
+        imageCount: 1,
+        target,
+        account
+      })
+    }
+
+    return lastResult || { success: true }
+  }
+
+  async _sendMessageItems({ accountId, targetId, items, text = '', sessionId, imageCount = 0, target: resolvedTarget, account: resolvedAccount } = {}) {
+    const target = resolvedTarget || this._resolveTarget({ accountId, targetId })
+    const account = resolvedAccount || this._requireAccount(target.accountId)
+    if (!target.contextToken) {
+      throw new Error('目标缺少 contextToken，请先让该微信用户向 bot 发送一条消息')
+    }
+
+    let lastResponse = null
+    let lastClientId = null
+    for (const item of items) {
+      const clientId = buildClientId()
+      const response = await this._apiPost(account.baseUrl, 'ilink/bot/sendmessage', account.token, {
+        msg: {
+          from_user_id: '',
+          to_user_id: target.userId,
+          client_id: clientId,
+          message_type: 2,
+          message_state: 2,
+          context_token: target.contextToken,
+          item_list: [item]
+        },
+        base_info: { channel_version: CHANNEL_VERSION }
+      }, API_TIMEOUT_MS)
+      const businessError = getWeixinBusinessError(response, 'sendmessage')
+      if (businessError?.errcode === -14 || businessError?.ret === -14) {
+        target.contextExpiredAt = Date.now()
+        target.lastError = 'session timeout'
+        this._saveState()
+        throw buildSessionTimeoutError('sendmessage')
+      }
+      if (businessError) throw businessError
+      lastResponse = response
+      lastClientId = clientId
+    }
 
     target.lastSentAt = Date.now()
     target.contextExpiredAt = null
@@ -384,19 +547,120 @@ class WeixinNotifyService {
     this._saveState()
     const result = {
       success: true,
-      messageId: clientId,
-      response: publicSendResponse(response),
+      messageId: lastClientId,
+      response: publicSendResponse(lastResponse),
       target: publicTarget(target)
     }
     this.events.emit('sent', {
       accountId: target.accountId,
       targetId: target.id,
       sessionId: sessionId || null,
-      messageId: clientId,
-      text: normalizedText,
+      messageId: lastClientId,
+      text,
+      imageCount,
       target: result.target
     })
     return result
+  }
+
+  async _downloadImagesFromMessage(account, message) {
+    const items = getImageItemsFromMessage(message)
+    if (!items.length) return []
+
+    const images = []
+    for (const item of items) {
+      try {
+        const image = await this._downloadImageItem(account, item)
+        if (image) images.push(image)
+      } catch (err) {
+        console.warn('[WeixinNotify] Image download failed:', err.message)
+      }
+    }
+    return images
+  }
+
+  async _downloadImageItem(account, item) {
+    const imageItem = item?.image_item
+    const media = imageItem?.media
+    if (!media?.encrypt_query_param && !media?.full_url) return null
+
+    const aesKeyBase64 = imageItem.aeskey
+      ? Buffer.from(imageItem.aeskey, 'hex').toString('base64')
+      : media.aes_key
+    const url = media.full_url || buildCdnDownloadUrl(media.encrypt_query_param, account.cdnBaseUrl || DEFAULT_CDN_BASE_URL)
+    const response = await globalThis.fetch(url)
+    if (!response.ok) throw new Error(`CDN download failed: ${response.status}`)
+    const downloaded = Buffer.from(await response.arrayBuffer())
+    const buffer = aesKeyBase64
+      ? decryptAesEcb(downloaded, parseAesKey(aesKeyBase64, 'weixin image'))
+      : downloaded
+    if (buffer.length > IMAGE_MAX_SIZE) throw new Error('微信图片过大')
+    const headerType = response.headers?.get?.('content-type')?.split(';')[0]?.trim()
+    const mediaType = headerType?.startsWith('image/') ? headerType : detectImageMediaType(buffer)
+    return {
+      base64: buffer.toString('base64'),
+      mediaType,
+      sizeBytes: buffer.length
+    }
+  }
+
+  async _uploadImageBuffer(account, target, buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw new Error('图片内容不能为空')
+    if (buffer.length > IMAGE_MAX_SIZE) throw new Error('图片过大，不能超过 20MB')
+
+    const rawsize = buffer.length
+    const rawfilemd5 = crypto.createHash('md5').update(buffer).digest('hex')
+    const filesize = aesEcbPaddedSize(rawsize)
+    const filekey = crypto.randomBytes(16).toString('hex')
+    const aeskey = crypto.randomBytes(16)
+    const aeskeyHex = aeskey.toString('hex')
+
+    const uploadUrlResp = await this._apiPost(account.baseUrl, 'ilink/bot/getuploadurl', account.token, {
+      filekey,
+      media_type: UPLOAD_MEDIA_TYPE.IMAGE,
+      to_user_id: target.userId,
+      rawsize,
+      rawfilemd5,
+      filesize,
+      no_need_thumb: true,
+      aeskey: aeskeyHex,
+      base_info: { channel_version: CHANNEL_VERSION }
+    }, API_TIMEOUT_MS)
+    assertWeixinResponseOk(uploadUrlResp, 'getuploadurl')
+
+    const uploadFullUrl = uploadUrlResp.upload_full_url?.trim()
+    const uploadParam = uploadUrlResp.upload_param
+    if (!uploadFullUrl && !uploadParam) {
+      throw new Error('微信图片上传失败：未返回 CDN 上传地址')
+    }
+
+    const uploadUrl = uploadFullUrl || buildCdnUploadUrl({
+      uploadParam,
+      filekey,
+      cdnBaseUrl: account.cdnBaseUrl || DEFAULT_CDN_BASE_URL
+    })
+    const encrypted = encryptAesEcb(buffer, aeskey)
+    const uploadResponse = await globalThis.fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: new Uint8Array(encrypted)
+    })
+    if (!uploadResponse.ok) {
+      const detail = await uploadResponse.text().catch(() => '')
+      throw new Error(`微信图片 CDN 上传失败：${uploadResponse.status} ${detail}`)
+    }
+    const downloadEncryptedQueryParam = uploadResponse.headers?.get?.('x-encrypted-param')
+    if (!downloadEncryptedQueryParam) {
+      throw new Error('微信图片 CDN 上传失败：缺少 x-encrypted-param')
+    }
+
+    return {
+      filekey,
+      downloadEncryptedQueryParam,
+      aeskey: aeskeyHex,
+      fileSize: rawsize,
+      fileSizeCiphertext: encrypted.length
+    }
   }
 
   _loadState() {
@@ -486,7 +750,7 @@ class WeixinNotifyService {
 
   _emitInboundMessages(messages) {
     for (const message of messages) {
-      if (!message.text && !message.hasContextToken) continue
+      if (!message.text && !message.images?.length && !message.hasContextToken) continue
       this.events.emit('message', message)
     }
     if (messages.length) {
@@ -611,5 +875,6 @@ class WeixinNotifyService {
 
 module.exports = {
   WeixinNotifyService,
-  DEFAULT_BASE_URL
+  DEFAULT_BASE_URL,
+  DEFAULT_CDN_BASE_URL
 }

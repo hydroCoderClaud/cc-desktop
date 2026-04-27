@@ -909,14 +909,18 @@ export function useAgentChat(sessionId, options = {}) {
     cleanupFns.push(window.electronAPI.onWeixinMessageReceived((data) => {
       console.log(`[useAgentChat] weixin:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
       if (data.sessionId !== sessionId) return
-      messages.value.push({
+      const msg = {
         id: data.messageId || `msg-wx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: MessageRole.USER,
         content: data.text,
         timestamp: data.timestamp || Date.now(),
         source: 'weixin',
         senderNick: data.senderNick
-      })
+      }
+      if (data.images && data.images.length > 0) {
+        msg.images = data.images
+      }
+      messages.value.push(msg)
     }))
   }
 

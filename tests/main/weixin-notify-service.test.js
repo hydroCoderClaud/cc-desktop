@@ -32,6 +32,19 @@ describe('WeixinNotifyService', () => {
     }
   }
 
+  function binaryResponse(buffer, headers = {}, ok = true, status = 200) {
+    const normalizedHeaders = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]))
+    return {
+      ok,
+      status,
+      headers: {
+        get: key => normalizedHeaders.get(String(key).toLowerCase()) || null
+      },
+      arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+      text: async () => buffer.toString('utf-8')
+    }
+  }
+
   it('logs in with qr flow and stores a public account', async () => {
     const service = createService()
     fetchMock
@@ -176,6 +189,101 @@ describe('WeixinNotifyService', () => {
         isAuthorizedAccountUser: true
       }
     })
+  })
+
+  it('downloads inbound image messages and exposes base64 image data', async () => {
+    const service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'target@im.wechat'
+    })
+    const imageBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4])
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-1',
+        msgs: [{
+          from_user_id: 'target@im.wechat',
+          context_token: 'ctx-1',
+          item_list: [{
+            type: 2,
+            image_item: {
+              media: {
+                full_url: 'https://cdn.example/image',
+                encrypt_query_param: 'download-param'
+              }
+            }
+          }]
+        }]
+      }))
+      .mockResolvedValueOnce(binaryResponse(imageBuffer, { 'content-type': 'image/png' }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+
+    expect(poll.messages[0]).toMatchObject({
+      text: '',
+      images: [{
+        base64: imageBuffer.toString('base64'),
+        mediaType: 'image/png',
+        sizeBytes: imageBuffer.length
+      }]
+    })
+    expect(received).toHaveLength(1)
+    expect(received[0].images).toHaveLength(1)
+  })
+
+  it('uploads and sends outbound image messages', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      contextToken: 'ctx-1'
+    })
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        upload_full_url: 'https://cdn.example/upload'
+      }))
+      .mockResolvedValueOnce(binaryResponse(Buffer.from('ok'), { 'x-encrypted-param': 'download-param' }))
+      .mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    const sent = await service.sendImages({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      images: [{ base64: Buffer.from('image-bytes').toString('base64'), mediaType: 'image/png' }]
+    })
+
+    expect(sent.success).toBe(true)
+    const uploadUrlRequest = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(uploadUrlRequest).toMatchObject({
+      media_type: 1,
+      to_user_id: 'target@im.wechat',
+      no_need_thumb: true
+    })
+    expect(fetchMock.mock.calls[1][0]).toBe('https://cdn.example/upload')
+    const sendRequest = JSON.parse(fetchMock.mock.calls[2][1].body)
+    expect(sendRequest.msg.item_list[0]).toMatchObject({
+      type: 2,
+      image_item: {
+        media: {
+          encrypt_query_param: 'download-param',
+          encrypt_type: 1
+        }
+      }
+    })
+    expect(sendRequest.msg.context_token).toBe('ctx-1')
   })
 
   it('runs background polling and emits inbound messages', async () => {

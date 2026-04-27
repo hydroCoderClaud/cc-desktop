@@ -3,6 +3,9 @@
  * Receives inbound Weixin notify messages and displays them in desktop Agent sessions.
  */
 
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|bmp)$/i
+const IMAGE_PATH_MAX_DEPTH = 10
+
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
     this.configManager = configManager
@@ -49,12 +52,14 @@ class WeixinBridge {
 
   async _handleMessage(message) {
     const text = String(message?.text || '').trim()
-    if (!text) return null
+    const images = Array.isArray(message?.images) ? message.images : []
+    if (!text && images.length === 0) return null
 
     const session = this._ensureSession(message)
     const senderNick = this._getTargetDisplayName(message)
     this._rememberSessionTarget(session.id, message)
-    await this.agentSessionManager.sendMessage(session.id, text, {
+    const userMessage = images.length > 0 ? { text, images } : text
+    await this.agentSessionManager.sendMessage(session.id, userMessage, {
       meta: {
         source: 'weixin',
         senderNick,
@@ -68,14 +73,15 @@ class WeixinBridge {
 
     const storedMessage = [...(this.agentSessionManager.sessions.get(session.id)?.messages || [])]
       .reverse()
-      .find(item => item.role === 'user' && item.source === 'weixin' && item.content === text)
+      .find(item => item.role === 'user' && item.source === 'weixin' && item.content === (text || '[图片]'))
 
     this._notifyFrontend('weixin:messageReceived', {
       sessionId: session.id,
       accountId: message.accountId,
       targetId: message.targetId,
       from: message.from,
-      text,
+      text: text || '[图片]',
+      images,
       senderNick,
       timestamp: storedMessage?.timestamp || Date.now(),
       messageId: storedMessage?.id || null
@@ -128,6 +134,7 @@ class WeixinBridge {
     const desktopPending = this.desktopPendingBlocks.get(sessionId)
     if (desktopPending) {
       this._collectTextChunks(desktopPending, message)
+      this._collectImagePaths(desktopPending, message)
       return
     }
 
@@ -136,7 +143,10 @@ class WeixinBridge {
 
     const pending = this.pendingReplies.get(sessionId) || { textChunks: [] }
     this._collectTextChunks(pending, message)
+    this._collectImagePaths(pending, message)
     if (pending.textChunks.length > 0) {
+      this.pendingReplies.set(sessionId, pending)
+    } else if (pending.imagePaths?.size > 0) {
       this.pendingReplies.set(sessionId, pending)
     }
   }
@@ -151,6 +161,16 @@ class WeixinBridge {
     pending.textChunks.push(textParts.join('\n\n'))
   }
 
+  _collectImagePaths(pending, message) {
+    const blocks = Array.isArray(message?.content) ? message.content : []
+    if (!pending.imagePaths) pending.imagePaths = new Set()
+    for (const block of blocks) {
+      if (block?.type === 'tool_use' && block.input) {
+        this._extractImagePaths(block.input).forEach(filePath => pending.imagePaths.add(filePath))
+      }
+    }
+  }
+
   async _flushAgentReply(sessionId) {
     if (this.desktopPendingBlocks.has(sessionId)) {
       return this._flushDesktopIntervention(sessionId)
@@ -160,8 +180,19 @@ class WeixinBridge {
     const pending = this.pendingReplies.get(sessionId)
     this.pendingReplies.delete(sessionId)
 
-    const text = pending?.textChunks?.join('\n\n').trim()
-    if (!target || !text) return null
+    const text = pending?.textChunks?.join('\n\n').trim() || ''
+    const imagePaths = [...(pending?.imagePaths || [])]
+    if (!target || (!text && imagePaths.length === 0)) return null
+
+    if (imagePaths.length > 0 && this.weixinNotifyService.sendImages) {
+      return this.weixinNotifyService.sendImages({
+        accountId: target.accountId,
+        targetId: target.targetId,
+        text,
+        imagePaths,
+        sessionId
+      })
+    }
 
     return this.weixinNotifyService.sendText({
       accountId: target.accountId,
@@ -178,7 +209,8 @@ class WeixinBridge {
     this.desktopPendingBlocks.set(sessionId, {
       userInput: String(userInput || ''),
       inputImages: Array.isArray(inputImages) ? inputImages : [],
-      textChunks: []
+      textChunks: [],
+      imagePaths: new Set()
     })
   }
 
@@ -201,17 +233,48 @@ class WeixinBridge {
       lines.push(responseText)
     }
 
-    if (pending.inputImages.length > 0) {
-      lines.push('')
-      lines.push(`（桌面端还发送了 ${pending.inputImages.length} 张图片，当前微信通知仅同步文本。）`)
+    const text = lines.join('\n')
+    const imagePaths = [...(pending.imagePaths || [])]
+    if ((pending.inputImages.length > 0 || imagePaths.length > 0) && this.weixinNotifyService.sendImages) {
+      return this.weixinNotifyService.sendImages({
+        accountId: target.accountId,
+        targetId: target.targetId,
+        text,
+        images: pending.inputImages,
+        imagePaths,
+        sessionId
+      })
     }
 
     return this.weixinNotifyService.sendText({
       accountId: target.accountId,
       targetId: target.targetId,
-      text: lines.join('\n'),
+      text,
       sessionId
     })
+  }
+
+  _extractImagePaths(obj, depth = 0) {
+    if (depth > IMAGE_PATH_MAX_DEPTH) return []
+    const paths = []
+    if (typeof obj === 'string') {
+      if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:[/\\]/.test(obj))) {
+        paths.push(this._normalizePath(obj))
+      }
+    } else if (obj && typeof obj === 'object') {
+      for (const value of Object.values(obj)) {
+        paths.push(...this._extractImagePaths(value, depth + 1))
+      }
+    }
+    return paths
+  }
+
+  _normalizePath(filePath) {
+    const msysMatch = filePath.match(/^\/([a-zA-Z])\/(.*)$/)
+    if (msysMatch) {
+      return `${msysMatch[1].toUpperCase()}:/${msysMatch[2]}`
+    }
+    return filePath
   }
 
   _ensureSession(message) {

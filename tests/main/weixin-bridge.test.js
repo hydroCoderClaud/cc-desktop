@@ -41,6 +41,7 @@ describe('WeixinBridge', () => {
     }
     const service = {
       sendText: vi.fn(async payload => ({ success: true, target: { id: payload.targetId } })),
+      sendImages: vi.fn(async payload => ({ success: true, target: { id: payload.targetId } })),
       on: (eventName, listener) => {
         events.on(eventName, listener)
         return () => events.off(eventName, listener)
@@ -64,14 +65,21 @@ describe('WeixinBridge', () => {
   }
 
   function stubSendMessage(manager) {
-    return vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId, text, options = {}) => {
+    return vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId, userMessage, options = {}) => {
       const meta = options.meta || {}
-      manager.appendExternalUserMessage(sessionId, {
+      const session = manager.sessions.get(sessionId)
+      const text = typeof userMessage === 'string' ? userMessage : (userMessage?.text || '[图片]')
+      const message = {
+        id: `msg-ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: 'user',
         content: text,
+        timestamp: Date.now(),
         source: meta.source,
         senderNick: meta.senderNick,
         meta
-      })
+      }
+      if (userMessage?.images?.length) message.images = userMessage.images
+      session.messages.push(message)
     })
   }
 
@@ -128,6 +136,31 @@ describe('WeixinBridge', () => {
     const sessions = Array.from(manager.sessions.values())
     expect(sessions).toHaveLength(1)
     expect(sessions[0].messages.map(msg => msg.content)).toEqual(['第一条', '第二条'])
+  })
+
+  it('submits inbound Weixin images to Agent and frontend', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const images = [{ base64: Buffer.from('image').toString('base64'), mediaType: 'image/png' }]
+
+    await bridge._handleMessage(inboundMessage({ text: '', images }))
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      { text: '', images },
+      expect.objectContaining({
+        meta: expect.objectContaining({ source: 'weixin' })
+      })
+    )
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session.messages[0]).toMatchObject({
+      content: '[图片]',
+      images
+    })
+    expect(sent.find(item => item.channel === 'weixin:messageReceived').data).toMatchObject({
+      text: '[图片]',
+      images
+    })
   })
 
   it('routes replies to the session that sent the Weixin notification', async () => {
@@ -215,6 +248,41 @@ describe('WeixinBridge', () => {
     })
   })
 
+  it('syncs desktop intervention images back to Weixin', async () => {
+    const { bridge, manager, events } = createHarness()
+    const session = manager.create({ type: 'weixin', source: 'weixin', title: '微信 · 雷斯林' })
+    const images = [{ base64: Buffer.from('image').toString('base64'), mediaType: 'image/png' }]
+
+    bridge.start()
+    events.emit('sent', {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      sessionId: session.id,
+      target: { displayName: '雷斯林' }
+    })
+    manager.emit('userMessage', {
+      sessionId: session.id,
+      sessionType: 'weixin',
+      content: '桌面发图',
+      images,
+      source: null
+    })
+    manager.emit('agentResult', session.id)
+    await Promise.resolve()
+
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: [
+        '桌面端介入：',
+        '> 桌面发图'
+      ].join('\n'),
+      images,
+      imagePaths: [],
+      sessionId: session.id
+    })
+  })
+
   it('forwards assistant replies back to Weixin after inbound message activates the target', async () => {
     const { bridge, manager, events } = createHarness()
     stubSendMessage(manager)
@@ -239,6 +307,33 @@ describe('WeixinBridge', () => {
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
       text: '收到，我稍后联系你。',
+      sessionId: session.id
+    })
+  })
+
+  it('forwards assistant image paths back to Weixin after inbound message activates the target', async () => {
+    const { bridge, manager } = createHarness()
+    stubSendMessage(manager)
+    const imagePath = 'C:/workspace/out/result.png'
+
+    bridge.start()
+    await bridge._handleMessage(inboundMessage({ text: '帮我画图' }))
+    const session = Array.from(manager.sessions.values())[0]
+    manager.emit('agentMessage', session.id, {
+      type: 'assistant',
+      content: [
+        { type: 'text', text: '图片生成好了。' },
+        { type: 'tool_use', input: { path: imagePath } }
+      ]
+    })
+    manager.emit('agentResult', session.id)
+    await Promise.resolve()
+
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: '图片生成好了。',
+      imagePaths: [imagePath],
       sessionId: session.id
     })
   })
