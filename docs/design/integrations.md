@@ -2,7 +2,9 @@
 
 > Hydro Desktop v1.7.54 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
 
-本文档覆盖 Hydro Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
+本文档覆盖 Hydro Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、内置 MCP 能力、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
+
+> 内置 MCP 能力现状见 [内置 MCP 能力现状](./built-in-mcp.md)。当前只落地了 `hydrodesktop` 定时任务管理工具。
 
 ---
 
