@@ -668,7 +668,9 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toContain('scheduled tasks')
     expect(createQueryOptions.mcpServers).toBeTruthy()
     expect(Object.keys(createQueryOptions.mcpServers)).toContain('hydrodesktop')
-    expect(createQueryOptions.allowedTools).toEqual(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    expect(createQueryOptions.allowedTools).toEqual(
+      expect.arrayContaining(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    )
     expect(createQueryOptions.disallowedTools).toEqual(
       expect.arrayContaining(['CronList', 'CronCreate', 'CronUpdate', 'CronDelete', 'cronList', 'cronCreate', 'cronUpdate', 'cronDelete'])
     )

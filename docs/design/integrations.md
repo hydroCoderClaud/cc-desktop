@@ -4,7 +4,7 @@
 
 本文档覆盖 Hydro Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、内置 MCP 能力、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
 
-> 内置 MCP 能力现状见 [内置 MCP 能力现状](./built-in-mcp.md)。当前只落地了 `hydrodesktop` 定时任务管理工具。
+> 内置 MCP 能力现状见 [内置 MCP 能力现状](./built-in-mcp.md)。当前 `hydrodesktop` 已包含定时任务管理工具和微信通知工具；微信通知绑定入口在“能力管理 → 微信通知”。
 
 ---
 

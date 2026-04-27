@@ -34,6 +34,7 @@ const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-
 const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
 const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
 const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-handlers', 'scheduled-task-handlers');
+const weixinNotifyHandlersMod = safeRequire('./ipc-handlers/weixin-notify-handlers', 'weixin-notify-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 const appI18nMod = safeRequire('./utils/app-i18n', 'app-i18n');
 
@@ -51,6 +52,7 @@ const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
 const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
 const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
 const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskHandlers;
+const setupWeixinNotifyHandlers = weixinNotifyHandlersMod?.setupWeixinNotifyHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 const tMain = appI18nMod?.tMain;
 
@@ -72,7 +74,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -754,6 +756,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (dingtalkBridge && setupDingTalkHandlers) {
     setupDingTalkHandlers(ipcMain, dingtalkBridge, configManager);
+  }
+
+  // ========================================
+  // 微信通知
+  // ========================================
+  if (weixinNotifyService && setupWeixinNotifyHandlers) {
+    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService);
   }
 
   // ========================================

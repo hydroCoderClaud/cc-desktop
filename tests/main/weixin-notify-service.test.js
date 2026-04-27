@@ -1,0 +1,436 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { WeixinNotifyService } = await import('../../src/main/managers/weixin-notify-service.js')
+
+describe('WeixinNotifyService', () => {
+  let tempDir
+  let fetchMock
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hydro-weixin-notify-'))
+    fetchMock = vi.fn()
+    globalThis.fetch = fetchMock
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  })
+
+  function createService() {
+    return new WeixinNotifyService({ userDataPath: tempDir })
+  }
+
+  function jsonResponse(payload, ok = true, status = 200) {
+    return {
+      ok,
+      status,
+      text: async () => JSON.stringify(payload)
+    }
+  }
+
+  it('logs in with qr flow and stores a public account', async () => {
+    const service = createService()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        qrcode: 'qr-token',
+        qrcode_img_content: 'https://liteapp.weixin.qq.com/q/demo'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'confirmed',
+        bot_token: 'secret-token',
+        ilink_bot_id: 'bot@im.bot',
+        ilink_user_id: 'user@im.wechat',
+        baseurl: 'https://ilinkai.weixin.qq.com'
+      }))
+
+    const login = await service.startLogin()
+    expect(login.qrcodeUrl).toMatch(/^data:image\/png;base64,/)
+    expect(login.qrcodeContent).toBe('https://liteapp.weixin.qq.com/q/demo')
+
+    const result = await service.waitLogin({ sessionKey: login.sessionKey, timeoutMs: 1000 })
+    expect(result.connected).toBe(true)
+    expect(result.account).toMatchObject({
+      accountId: 'bot@im.bot',
+      userId: 'user@im.wechat',
+      hasToken: true
+    })
+    expect(service.listAccounts()[0]).not.toHaveProperty('token')
+  })
+
+  it('captures inbound targets and sends text with context token', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-1',
+        msgs: [{
+          from_user_id: 'target@im.wechat',
+          context_token: 'ctx-1',
+          item_list: [{ type: 1, text_item: { text: 'hello' } }]
+        }]
+      }))
+      .mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+    expect(poll.targets[0]).toMatchObject({
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      hasContextToken: true
+    })
+
+    const sent = await service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'Hydro notification'
+    })
+
+    expect(sent.success).toBe(true)
+    const sendRequest = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(sendRequest.msg.to_user_id).toBe('target@im.wechat')
+    expect(sendRequest.msg.context_token).toBe('ctx-1')
+    expect(sendRequest.msg.item_list[0].text_item.text).toBe('Hydro notification')
+  })
+
+  it('updates target display names and resolves send target by display name', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      contextToken: 'ctx-1'
+    })
+
+    const updated = service.updateTarget({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      displayName: '张三'
+    })
+    expect(updated.displayName).toBe('张三')
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-1',
+        msgs: [{
+          from_user_id: 'target@im.wechat',
+          context_token: 'ctx-2',
+          item_list: [{ type: 1, text_item: { text: 'hello again' } }]
+        }]
+      }))
+      .mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+    expect(poll.targets[0].displayName).toBe('张三')
+
+    await service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: '张三',
+      text: 'alias notification'
+    })
+
+    const sendRequest = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(sendRequest.msg.to_user_id).toBe('target@im.wechat')
+    expect(sendRequest.msg.context_token).toBe('ctx-2')
+  })
+
+  it('keeps only the latest bot account and clears stale targets for the same scanning user', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'old-bot@im.bot',
+      token: 'old-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'scanner@im.wechat'
+    })
+    service.state.targets.push({
+      id: 'old-bot@im.bot:target@im.wechat',
+      accountId: 'old-bot@im.bot',
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      contextToken: 'old-ctx'
+    })
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        qrcode: 'qr-token',
+        qrcode_img_content: 'https://liteapp.weixin.qq.com/q/demo'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'confirmed',
+        bot_token: 'new-token',
+        ilink_bot_id: 'new-bot@im.bot',
+        ilink_user_id: 'scanner@im.wechat',
+        baseurl: 'https://ilinkai.weixin.qq.com'
+      }))
+
+    const login = await service.startLogin()
+    await service.waitLogin({ sessionKey: login.sessionKey, timeoutMs: 1000 })
+
+    expect(service.listAccounts()).toHaveLength(1)
+    expect(service.listAccounts()[0]).toMatchObject({
+      accountId: 'new-bot@im.bot',
+      userId: 'scanner@im.wechat'
+    })
+    expect(service.listTargets()).toHaveLength(0)
+  })
+
+  it('does not create target placeholders after qr login', async () => {
+    const service = createService()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        qrcode: 'qr-token',
+        qrcode_img_content: 'https://liteapp.weixin.qq.com/q/demo'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'confirmed',
+        bot_token: 'secret-token',
+        ilink_bot_id: 'bot@im.bot',
+        ilink_user_id: 'scanner@im.wechat',
+        baseurl: 'https://ilinkai.weixin.qq.com'
+      }))
+
+    const login = await service.startLogin()
+    await service.waitLogin({ sessionKey: login.sessionKey, timeoutMs: 1000 })
+
+    expect(service.listTargets()).toHaveLength(0)
+  })
+
+  it('overwrites conflicting targets when the same user is captured on a new account', async () => {
+    const service = createService()
+    service.state.accounts.push(
+      {
+        accountId: 'old-bot@im.bot',
+        token: 'old-token',
+        baseUrl: 'https://ilinkai.weixin.qq.com'
+      },
+      {
+        accountId: 'new-bot@im.bot',
+        token: 'new-token',
+        baseUrl: 'https://ilinkai.weixin.qq.com'
+      }
+    )
+    service.state.targets.push({
+      id: 'old-bot@im.bot:target@im.wechat',
+      accountId: 'old-bot@im.bot',
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      contextToken: 'old-ctx'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [{
+        from_user_id: 'target@im.wechat',
+        context_token: 'new-ctx',
+        item_list: [{ type: 1, text_item: { text: 'hi' } }]
+      }]
+    }))
+
+    await service.pollOnce({ accountId: 'new-bot@im.bot' })
+
+    expect(service.listTargets()).toHaveLength(1)
+    expect(service.listTargets()[0]).toMatchObject({
+      id: 'new-bot@im.bot:target@im.wechat',
+      accountId: 'new-bot@im.bot',
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      hasContextToken: true,
+      lastInboundText: 'hi'
+    })
+  })
+
+  it('reloads persisted targets when listing state', async () => {
+    const service = createService()
+    fs.mkdirSync(path.join(tempDir, 'weixin-notify'), { recursive: true })
+    fs.writeFileSync(path.join(tempDir, 'weixin-notify', 'state.json'), JSON.stringify({
+      accounts: [{
+        accountId: 'bot@im.bot',
+        token: 'secret-token',
+        baseUrl: 'https://ilinkai.weixin.qq.com',
+        userId: 'scanner@im.wechat'
+      }],
+      targets: [{
+        id: 'bot@im.bot:target@im.wechat',
+        accountId: 'bot@im.bot',
+        userId: 'target@im.wechat',
+        displayName: '张三',
+        contextToken: 'ctx-1'
+      }]
+    }), 'utf-8')
+
+    expect(service.listTargets()).toEqual([
+      expect.objectContaining({
+        id: 'bot@im.bot:target@im.wechat',
+        displayName: '张三',
+        hasContextToken: true
+      })
+    ])
+  })
+
+  it('deletes a captured target without removing the account', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'scanner@im.wechat'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      contextToken: 'ctx-1'
+    })
+
+    const result = service.deleteTarget({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat'
+    })
+
+    expect(result.deleted).toBe(true)
+    expect(result.target).toMatchObject({
+      displayName: '张三',
+      userId: 'target@im.wechat'
+    })
+    expect(service.listTargets()).toHaveLength(0)
+    expect(service.listAccounts()).toHaveLength(1)
+  })
+
+  it('rejects sending to a target without context token', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat'
+    })
+
+    await expect(service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'hello'
+    })).rejects.toThrow('contextToken')
+  })
+
+  it('rejects nonzero getupdates business responses', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: -1,
+      errcode: 40001,
+      errmsg: 'invalid token'
+    }))
+
+    await expect(service.pollOnce({
+      accountId: 'bot@im.bot',
+      timeoutMs: 3000
+    })).rejects.toThrow('getupdates')
+  })
+
+  it('uses caller-provided poll timeout up to the service maximum', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: []
+    }))
+
+    await service.pollOnce({
+      accountId: 'bot@im.bot',
+      timeoutMs: 3000
+    })
+
+    const signal = fetchMock.mock.calls[0][1].signal
+    expect(signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('rejects nonzero sendmessage business responses', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      contextToken: 'ctx-1'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: -1,
+      errcode: 40003,
+      errmsg: 'context expired'
+    }))
+
+    await expect(service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'hello'
+    })).rejects.toThrow('sendmessage')
+  })
+
+  it('marks target context expired when sendmessage returns session timeout', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      contextToken: 'ctx-1'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      errcode: -14,
+      errmsg: 'session timeout'
+    }))
+
+    await expect(service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'hello'
+    })).rejects.toThrow('会话已过期')
+
+    const target = service.listTargets()[0]
+    expect(target.hasContextToken).toBe(false)
+    expect(target.contextExpiredAt).toBeTruthy()
+    expect(target.lastError).toBe('session timeout')
+  })
+})

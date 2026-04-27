@@ -14,6 +14,7 @@ const UpdateManager = require('./update-manager');
 const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
+const { WeixinNotifyService } = require('./managers/weixin-notify-service');
 const { setupIPCHandlers } = require('./ipc-handlers');
 const { tMain } = require('./utils/app-i18n');
 
@@ -28,6 +29,7 @@ let updateManager = null;
 let dingtalkBridge = null;
 let notebookManager = null;
 let scheduledTaskService = null;
+let weixinNotifyService = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 
@@ -49,6 +51,7 @@ function cleanupAllSessions() {
       console.log('[Main] PowerSaveBlocker stopped')
     }
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
+    if (weixinNotifyService) weixinNotifyService.stop();
     if (terminalManager) terminalManager.kill();
     if (activeSessionManager) activeSessionManager.closeAll(false);
     if (agentSessionManager) agentSessionManager.closeAllSync();
@@ -243,8 +246,13 @@ app.whenReady().then(async () => {
   scheduledTaskService = new ScheduledTaskService(configManager, agentSessionManager)
   agentSessionManager.scheduledTaskService = scheduledTaskService
 
+  // 初始化微信通知服务（内建 iLink 通道，不依赖 OpenClaw）
+  weixinNotifyService = new WeixinNotifyService(configManager)
+  weixinNotifyService.start()
+  agentSessionManager.weixinNotifyService = weixinNotifyService
+
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService);
 
   // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')

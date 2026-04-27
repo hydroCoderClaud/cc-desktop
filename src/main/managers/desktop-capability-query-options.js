@@ -42,6 +42,22 @@ const DESKTOP_CAPABILITY_TOOL_NAMES = [
 const DESKTOP_CAPABILITY_ALLOWED_TOOLS = DESKTOP_CAPABILITY_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
 )
+const WEIXIN_NOTIFY_TOOL_NAMES = [
+  'weixin_notify_list_targets',
+  'weixin_notify_send'
+]
+const WEIXIN_NOTIFY_ALLOWED_TOOLS = WEIXIN_NOTIFY_TOOL_NAMES.map(
+  toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
+)
+
+const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
+  'You can send Weixin notification messages through Hydro Desktop when the user explicitly asks to notify someone or when a scheduled task needs to report its result.',
+  'Use weixin_notify_list_targets before sending unless the user already provided an exact target name, targetId, and accountId.',
+  'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient.',
+  'Use weixin_notify_send only for short notification text to an already bound Weixin target.',
+  'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to targets that have already been captured by the Weixin notification channel.',
+  'After sending, report the targetId and messageId returned by the tool.'
+].join(' ')
 
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
 const MONTHLY_MODES = ['day_of_month', 'last_day']
@@ -214,6 +230,10 @@ function buildToolResult(payload) {
   }
 }
 
+function mergeSystemPrompts(...prompts) {
+  return prompts.filter(Boolean).join('\n\n')
+}
+
 function getTaskCandidates(scheduledTaskService) {
   const tasks = scheduledTaskService?.listTasks?.()
   return Array.isArray(tasks) ? tasks : []
@@ -279,8 +299,11 @@ function pickUpdates(args) {
   return updates
 }
 
-async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, session }) {
-  if (!scheduledTaskService || session?.source === 'scheduled') {
+async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixinNotifyService, session }) {
+  const includeScheduleTools = Boolean(scheduledTaskService && session?.source !== 'scheduled')
+  const includeWeixinNotifyTools = Boolean(weixinNotifyService)
+
+  if (!includeScheduleTools && !includeWeixinNotifyTools) {
     return {}
   }
 
@@ -313,7 +336,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
     firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用')
   }
 
-  const scheduleTools = [
+  const scheduleTools = includeScheduleTools ? [
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[0],
       '列出当前 Hydro Desktop 中的全部定时任务，便于后续通过 taskId 或任务名做修改。',
@@ -463,18 +486,69 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, sessio
         })
       }
     )
-  ]
+  ] : []
+
+  const weixinNotifyTools = includeWeixinNotifyTools ? [
+    tool(
+      WEIXIN_NOTIFY_TOOL_NAMES[0],
+      '列出 Hydro Desktop 已绑定且可通知的微信目标。目标必须来自扫码登录并收到过对方消息的微信通知通道。',
+      {},
+      async () => {
+        const accounts = typeof weixinNotifyService.listAccounts === 'function'
+          ? weixinNotifyService.listAccounts()
+          : []
+        const targets = typeof weixinNotifyService.listTargets === 'function'
+          ? weixinNotifyService.listTargets()
+          : []
+
+        return buildToolResult({
+          action: 'weixin_notify_list_targets',
+          accountCount: Array.isArray(accounts) ? accounts.length : 0,
+          targetCount: Array.isArray(targets) ? targets.length : 0,
+          accounts,
+          targets
+        })
+      }
+    ),
+    tool(
+      WEIXIN_NOTIFY_TOOL_NAMES[1],
+      '通过 Hydro Desktop 微信通知通道发送一条文本通知。仅支持已绑定且已有 contextToken 的目标。',
+      {
+        targetId: z.string().min(1).describe('微信通知目标，可使用 list_targets 返回的 displayName、id 或 userId。'),
+        accountId: z.string().min(1).optional().describe('发送账号 ID；多账号时必须提供。'),
+        text: z.string().min(1).max(4000).describe('要发送的通知文本。')
+      },
+      async (args) => {
+        const result = await weixinNotifyService.sendText(args)
+        return buildToolResult({
+          action: 'weixin_notify_send',
+          result
+        })
+      }
+    )
+  ] : []
 
   return {
     mcpServers: {
       [DESKTOP_CAPABILITY_SERVER_NAME]: createSdkMcpServer({
         name: DESKTOP_CAPABILITY_SERVER_NAME,
-        tools: scheduleTools
+        tools: [
+          ...scheduleTools,
+          ...weixinNotifyTools
+        ]
       })
     },
-    appendSystemPrompt: DESKTOP_CAPABILITY_SYSTEM_PROMPT,
-    allowedTools: DESKTOP_CAPABILITY_ALLOWED_TOOLS,
-    disallowedTools: CONFLICTING_CRON_TOOLS
+    appendSystemPrompt: mergeSystemPrompts(
+      includeScheduleTools ? DESKTOP_CAPABILITY_SYSTEM_PROMPT : null,
+      includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null
+    ),
+    allowedTools: includeScheduleTools
+      ? [
+          ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+          ...WEIXIN_NOTIFY_ALLOWED_TOOLS
+        ]
+      : undefined,
+    disallowedTools: includeScheduleTools ? CONFLICTING_CRON_TOOLS : undefined
   }
 }
 
@@ -482,5 +556,6 @@ module.exports = {
   buildDesktopCapabilityQueryOptions,
   DESKTOP_CAPABILITY_SYSTEM_PROMPT,
   CONFLICTING_CRON_TOOLS,
-  DESKTOP_CAPABILITY_ALLOWED_TOOLS
+  DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  WEIXIN_NOTIFY_ALLOWED_TOOLS
 }

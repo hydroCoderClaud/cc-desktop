@@ -138,6 +138,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pathExists: (targetPath) => ipcRenderer.invoke('path:exists', targetPath),
 
   // ========================================
+  // 微信通知
+  // ========================================
+  startWeixinNotifyLogin: (options) => ipcRenderer.invoke('weixin-notify:startLogin', options),
+  waitWeixinNotifyLogin: (options) => ipcRenderer.invoke('weixin-notify:waitLogin', options),
+  listWeixinNotifyAccounts: () => ipcRenderer.invoke('weixin-notify:listAccounts'),
+  listWeixinNotifyTargets: () => ipcRenderer.invoke('weixin-notify:listTargets'),
+  updateWeixinNotifyTarget: (payload) => ipcRenderer.invoke('weixin-notify:updateTarget', payload),
+  deleteWeixinNotifyTarget: (payload) => ipcRenderer.invoke('weixin-notify:deleteTarget', payload),
+  pollWeixinNotifyOnce: (options) => ipcRenderer.invoke('weixin-notify:pollOnce', options),
+  sendWeixinNotifyText: (payload) => ipcRenderer.invoke('weixin-notify:sendText', payload),
+
+  // ========================================
   // Claude 配置文件
   // ========================================
   getClaudeSettingsPath: () => ipcRenderer.invoke('claude:getSettingsPath'),

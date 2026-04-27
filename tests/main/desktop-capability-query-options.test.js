@@ -96,6 +96,36 @@ describe('desktop capability query options', () => {
     return { options, tools, scheduledTaskService, task }
   }
 
+  async function createOptionsWithWeixin({ session = { source: 'manual' } } = {}) {
+    const weixinNotifyService = {
+      listAccounts: vi.fn(() => [{ accountId: 'bot@im.bot', hasToken: true }]),
+      listTargets: vi.fn(() => [{
+        id: 'bot@im.bot:target@im.wechat',
+        accountId: 'bot@im.bot',
+        userId: 'target@im.wechat',
+        displayName: '张三',
+        hasContextToken: true
+      }]),
+      sendText: vi.fn(async input => ({
+        success: true,
+        messageId: 'msg-1',
+        target: { id: input.targetId }
+      }))
+    }
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: session.source === 'scheduled' ? null : {
+        configManager: { getConfig: () => ({ settings: { locale: 'zh-CN' } }) },
+        listTasks: vi.fn(() => [])
+      },
+      weixinNotifyService,
+      session
+    })
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+    return { options, tools, weixinNotifyService }
+  }
+
   it('exposes the extended scheduled-task toolset', async () => {
     const { options, tools } = await createOptions()
 
@@ -234,5 +264,57 @@ describe('desktop capability query options', () => {
       id: 7,
       name: '巡检任务'
     })
+  })
+
+  it('exposes weixin notification tools without leaking credentials', async () => {
+    const { options, tools, weixinNotifyService } = await createOptionsWithWeixin()
+
+    expect(Object.keys(tools)).toEqual(expect.arrayContaining([
+      'schedule_list',
+      'weixin_notify_list_targets',
+      'weixin_notify_send'
+    ]))
+    expect(options.allowedTools).toEqual(expect.arrayContaining([
+      'mcp__hydrodesktop__weixin_notify_list_targets',
+      'mcp__hydrodesktop__weixin_notify_send'
+    ]))
+    expect(options.appendSystemPrompt).toContain('Weixin notification')
+
+    const listPayload = parseToolPayload(await tools.weixin_notify_list_targets.handler())
+    expect(listPayload.accounts[0]).not.toHaveProperty('token')
+    expect(listPayload.targets[0]).toMatchObject({
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      hasContextToken: true
+    })
+
+    const sendPayload = parseToolPayload(await tools.weixin_notify_send.handler({
+      accountId: 'bot@im.bot',
+      targetId: '张三',
+      text: 'hello'
+    }))
+    expect(weixinNotifyService.sendText).toHaveBeenCalledWith({
+      accountId: 'bot@im.bot',
+      targetId: '张三',
+      text: 'hello'
+    })
+    expect(sendPayload.result).toMatchObject({
+      success: true,
+      messageId: 'msg-1'
+    })
+  })
+
+  it('keeps scheduled source sessions limited to weixin notification tools', async () => {
+    const { options, tools } = await createOptionsWithWeixin({
+      session: { source: 'scheduled' }
+    })
+
+    expect(Object.keys(tools)).toEqual([
+      'weixin_notify_list_targets',
+      'weixin_notify_send'
+    ])
+    expect(options.allowedTools).toBeUndefined()
+    expect(options.disallowedTools).toBeUndefined()
+    expect(options.appendSystemPrompt).toContain('Weixin notification')
   })
 })

@@ -980,6 +980,7 @@ class AgentSessionManager extends EventEmitter {
       try {
         const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
           scheduledTaskService: this.scheduledTaskService,
+          weixinNotifyService: this.weixinNotifyService,
           session
         })
         if (desktopCapabilityOptions?.mcpServers) {

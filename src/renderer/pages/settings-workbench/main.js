@@ -16,7 +16,10 @@ import {
   NDivider,
   NSelect,
   NButtonGroup,
-  NDropdown
+  NDropdown,
+  NAlert,
+  NCard,
+  NTag
 } from 'naive-ui'
 import App from './App.vue'
 import '@/styles/common.css'
@@ -43,7 +46,10 @@ const naive = create({
     NDivider,
     NSelect,
     NButtonGroup,
-    NDropdown
+    NDropdown,
+    NAlert,
+    NCard,
+    NTag
   ]
 })
 

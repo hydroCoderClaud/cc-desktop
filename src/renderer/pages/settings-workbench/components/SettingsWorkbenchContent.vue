@@ -90,6 +90,7 @@ import HooksTab from '@/pages/main/components/RightPanel/tabs/HooksTab.vue'
 import PluginsTab from '@/pages/main/components/RightPanel/tabs/PluginsTab.vue'
 import SettingsTab from '@/pages/main/components/RightPanel/tabs/SettingsTab.vue'
 import ScheduledTasksWorkbenchTab from './ScheduledTasksWorkbenchTab.vue'
+import WeixinNotifyWorkbenchTab from './WeixinNotifyWorkbenchTab.vue'
 
 const { cssVars } = useTheme()
 const { t, initLocale } = useLocale()
@@ -291,6 +292,7 @@ const tabs = computed(() => [
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
   { id: 'scheduledTasks', icon: 'clock', label: t('rightPanel.tabs.scheduledTasks') },
+  { id: 'weixinNotify', icon: 'message', label: t('weixinNotify.tab') },
   { id: 'settings', icon: 'wrench', label: t('rightPanel.tabs.settings') }
 ])
 
@@ -301,6 +303,7 @@ const tabComponents = {
   hooks: markRaw(HooksTab),
   plugins: markRaw(PluginsTab),
   scheduledTasks: markRaw(ScheduledTasksWorkbenchTab),
+  weixinNotify: markRaw(WeixinNotifyWorkbenchTab),
   settings: markRaw(SettingsTab)
 }
 
