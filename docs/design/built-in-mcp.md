@@ -117,6 +117,10 @@ AgentSessionManager.sendMessage()
 - GitNexus 当前没有识别出这些工具为标准 MCP tool nodes，理解链路时需要直接看源码和测试。
 - 微信通知状态文件保存 bot token 和 contextToken，属于敏感凭证；正式 UI 需要明确提示本地存储边界，后续可考虑迁移到系统凭据存储或加密存储。
 
+待回头处理的问题：
+
+- 定时任务执行时偶发出现 `Bash: 获取当前日期和时间` 这类无关工具调用/回复，怀疑与定时任务 MCP 注入、系统提示或工具选择策略有关。微信双向聊天阶段完成后，需要回到 `buildDesktopCapabilityQueryOptions()` 和定时任务执行链路排查：确认 scheduled source 会话的 MCP 注入、allowed/disallowedTools、prompt 约束和模型工具选择是否导致任务结果被 Bash 时间查询污染。
+
 ---
 
 ## 微信通知三阶段计划
@@ -136,7 +140,9 @@ AgentSessionManager.sendMessage()
 
 目标：用户收到通知后可以回发消息，Hydro Desktop 能在桌面端显示。
 
-- 后台持续长轮询微信入站消息。
+- 已完成基础层：`WeixinNotifyService.start()` 会启动后台长轮询，轮询与手动捕获共用串行队列，避免并发调用 `getupdates`。
+- 已完成基础层：轮询到入站消息后会发出 `message` / `messages` 服务事件，事件包含 `accountId`、`targetId`、`displayName`、`text`、`contextToken`、`createTimeMs` 和目标元数据。
+- 待实现：将服务事件接入桌面会话显示。
 - 如果回信对应某次桌面主动发送的通知，将回信写入该通知所属 Agent 会话，显示在发送通知的聊天窗口内。
 - 如果桌面端没有主动发过通知，但捕获到已绑定微信目标的新消息，可以创建一个新的 `source === 'weixin'` 会话并显示入站消息。
 - 会话标题应优先使用微信目标备注名，并保留 `accountId/targetId` 映射用于后续回复。

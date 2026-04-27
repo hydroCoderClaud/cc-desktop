@@ -103,6 +103,152 @@ describe('WeixinNotifyService', () => {
     expect(sendRequest.msg.item_list[0].text_item.text).toBe('Hydro notification')
   })
 
+  it('emits sent event with session binding metadata', async () => {
+    const service = createService()
+    const sentEvents = []
+    service.on('sent', event => sentEvents.push(event))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      displayName: '张三',
+      contextToken: 'ctx-1'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    await service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: '张三',
+      text: 'Hydro notification',
+      sessionId: 'session-1'
+    })
+
+    expect(sentEvents).toHaveLength(1)
+    expect(sentEvents[0]).toMatchObject({
+      accountId: 'bot@im.bot',
+      targetId: 'bot@im.bot:target@im.wechat',
+      sessionId: 'session-1',
+      text: 'Hydro notification'
+    })
+  })
+
+  it('emits normalized inbound message events when polling captures updates', async () => {
+    const service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'target@im.wechat'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [{
+        from_user_id: 'target@im.wechat',
+        context_token: 'ctx-1',
+        create_time_ms: 1710000000000,
+        item_list: [{ type: 1, text_item: { text: 'reply' } }]
+      }]
+    }))
+
+    await service.pollOnce({ accountId: 'bot@im.bot' })
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({
+      accountId: 'bot@im.bot',
+      targetId: 'bot@im.bot:target@im.wechat',
+      from: 'target@im.wechat',
+      text: 'reply',
+      contextToken: 'ctx-1',
+      createTimeMs: 1710000000000,
+      target: {
+        id: 'bot@im.bot:target@im.wechat',
+        targetSource: 'authorized_user',
+        isAuthorizedAccountUser: true
+      }
+    })
+  })
+
+  it('runs background polling and emits inbound messages', async () => {
+    vi.useFakeTimers()
+    const service = new WeixinNotifyService(
+      { userDataPath: tempDir },
+      { backgroundPollIntervalMs: 100, backgroundPollTimeoutMs: 1000 }
+    )
+    const received = []
+    service.on('message', message => received.push(message))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'target@im.wechat'
+    })
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [{
+        from_user_id: 'target@im.wechat',
+        context_token: 'ctx-1',
+        item_list: [{ type: 1, text_item: { text: 'background reply' } }]
+      }]
+    }))
+
+    service.startBackgroundPolling()
+    await vi.advanceTimersByTimeAsync(0)
+    await Promise.resolve()
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({
+      text: 'background reply',
+      targetId: 'bot@im.bot:target@im.wechat'
+    })
+
+    service.stop()
+    vi.useRealTimers()
+  })
+
+  it('serializes concurrent polling calls', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    let releaseFirstPoll
+    fetchMock
+      .mockImplementationOnce(() => new Promise(resolve => {
+        releaseFirstPoll = () => resolve(jsonResponse({
+          ret: 0,
+          get_updates_buf: 'cursor-1',
+          msgs: []
+        }))
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-2',
+        msgs: []
+      }))
+
+    const firstPoll = service.pollOnce({ accountId: 'bot@im.bot' })
+    const secondPoll = service.pollOnce({ accountId: 'bot@im.bot' })
+
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    releaseFirstPoll()
+    await firstPoll
+    await secondPoll
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('updates target display names and resolves send target by display name', async () => {
     const service = createService()
     service.state.accounts.push({

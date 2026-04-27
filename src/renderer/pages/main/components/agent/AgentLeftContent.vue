@@ -158,7 +158,8 @@ const sourceOptions = computed(() => ([
   { label: t('agent.allSources'), value: 'all' },
   { label: t('agent.sourceManual'), value: 'manual' },
   { label: t('agent.sourceScheduled'), value: 'scheduled' },
-  { label: t('agent.sourceDingtalk'), value: 'dingtalk' }
+  { label: t('agent.sourceDingtalk'), value: 'dingtalk' },
+  { label: t('agent.sourceWeixin'), value: 'weixin' }
 ]))
 
 // 渲染选项 label，非"全部"选项加 title 显示完整路径
@@ -207,12 +208,17 @@ const getProfileName = (profileId) => {
   return profile?.name || null
 }
 
-const getConversationSource = (conv) => (conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual'))
+const getConversationSource = (conv) => {
+  if (conv.type === 'dingtalk') return 'dingtalk'
+  if (conv.type === 'weixin') return 'weixin'
+  return conv.source || 'manual'
+}
 
 const getConversationIcon = (conv) => {
   const source = getConversationSource(conv)
   if (source === 'scheduled') return 'clock'
   if (conv.type === 'dingtalk') return 'dingtalk'
+  if (conv.type === 'weixin') return 'chat'
   return 'chat'
 }
 
@@ -274,6 +280,7 @@ let cleanupRenamed = null
 let cleanupAgentResult = null
 let cleanupDingtalkSession = null
 let cleanupDingtalkSessionClosed = null
+let cleanupWeixinSession = null
 let cleanupAgentStatus = null
 let cleanupScheduledTask = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
@@ -320,6 +327,11 @@ onMounted(() => {
       loadConversations()
     })
   }
+  if (window.electronAPI?.onWeixinSessionCreated) {
+    cleanupWeixinSession = window.electronAPI.onWeixinSessionCreated(() => {
+      loadConversations()
+    })
+  }
   if (window.electronAPI?.onDingTalkSessionClosed) {
     cleanupDingtalkSessionClosed = window.electronAPI.onDingTalkSessionClosed(() => {
       loadConversations()
@@ -340,6 +352,7 @@ onUnmounted(() => {
   if (cleanupAgentStatus) cleanupAgentStatus()
   if (cleanupDingtalkSession) cleanupDingtalkSession()
   if (cleanupDingtalkSessionClosed) cleanupDingtalkSessionClosed()
+  if (cleanupWeixinSession) cleanupWeixinSession()
   if (cleanupScheduledTask) cleanupScheduledTask()
 })
 

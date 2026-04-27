@@ -903,10 +903,28 @@ export function useAgentChat(sessionId, options = {}) {
     }))
   }
 
+  const setupWeixinListeners = () => {
+    if (!window.electronAPI?.onWeixinMessageReceived) return
+
+    cleanupFns.push(window.electronAPI.onWeixinMessageReceived((data) => {
+      console.log(`[useAgentChat] weixin:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
+      if (data.sessionId !== sessionId) return
+      messages.value.push({
+        id: data.messageId || `msg-wx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: MessageRole.USER,
+        content: data.text,
+        timestamp: data.timestamp || Date.now(),
+        source: 'weixin',
+        senderNick: data.senderNick
+      })
+    }))
+  }
+
   // 向后兼容：保留 setupListeners 供外部调用（已拆分为两步）
   const setupListeners = () => {
     setupStreamListeners()
     setupDingTalkListeners()
+    setupWeixinListeners()
   }
 
   /**
@@ -984,6 +1002,7 @@ export function useAgentChat(sessionId, options = {}) {
     syncActiveSessionState,
     setupStreamListeners,
     setupDingTalkListeners,
+    setupWeixinListeners,
     setupListeners,
     initDefaultModel,
     cleanup

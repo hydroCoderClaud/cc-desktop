@@ -51,7 +51,7 @@
       </template>
 
       <!-- 历史会话恢复提示 -->
-      <div v-if="isRestored && !isStreaming && messages.length > 0 && sessionType !== 'dingtalk'" class="restored-divider">
+      <div v-if="isRestored && !isStreaming && messages.length > 0 && !isExternalObserveSession" class="restored-divider">
         <span class="restored-line"></span>
         <span class="restored-text">{{ t('agent.restoredHint') }}</span>
         <span class="restored-line"></span>
@@ -75,13 +75,17 @@
     </div>
 
     <!-- 提示条：根据会话状态显示不同提示 -->
-    <div v-if="!hasActiveSession" class="status-hint-bar">
-      <Icon name="info" :size="14" />
-      <span>{{ t('agent.historyHint') }}</span>
-    </div>
-    <div v-else-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
+    <div v-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
       <Icon name="dingtalk" :size="14" />
       <span>{{ t('agent.dingtalkObserving') }}</span>
+    </div>
+    <div v-else-if="sessionType === 'weixin'" class="dingtalk-observe-bar">
+      <Icon name="chat" :size="14" />
+      <span>{{ t('agent.weixinObserving') }}</span>
+    </div>
+    <div v-else-if="!hasActiveSession" class="status-hint-bar">
+      <Icon name="info" :size="14" />
+      <span>{{ t('agent.historyHint') }}</span>
     </div>
 
     <!-- 输入框 -->
@@ -93,8 +97,8 @@
       :placeholder="queueEnabled ? t('agent.inputPlaceholder') : t('agent.inputPlaceholderDisabled')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
-      :slash-commands-supported="sessionType !== 'dingtalk'"
-      :enable-slash-commands="sessionType !== 'dingtalk' && hasActiveSession"
+      :slash-commands-supported="!isExternalObserveSession"
+      :enable-slash-commands="!isExternalObserveSession && hasActiveSession"
       :model-options="modelOptions"
       v-model:model-value="selectedModel"
       @send="handleSend"
@@ -131,7 +135,7 @@ const props = defineProps({
   },
   sessionType: {
     type: String,
-    default: 'chat'  // 'chat' | 'dingtalk'
+    default: 'chat'  // 'chat' | 'dingtalk' | 'weixin'
   },
   sessionCwd: {
     type: String,
@@ -176,17 +180,20 @@ const {
   syncActiveSessionState,
   setupStreamListeners,
   setupDingTalkListeners,
+  setupWeixinListeners,
   setupListeners,
   initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId, {
-  enableSlashCommands: props.sessionType !== 'dingtalk',
+  enableSlashCommands: !['dingtalk', 'weixin'].includes(props.sessionType),
   sessionCwd: props.sessionCwd,
   apiProfileId: props.apiProfileId,
   onClearRequested: () => {
     emit('request-clear-session')
   }
 })
+
+const isExternalObserveSession = computed(() => ['dingtalk', 'weixin'].includes(props.sessionType))
 
 // 消息队列开关（从配置读取）
 const queueEnabled = ref(true)
@@ -507,6 +514,7 @@ onMounted(async () => {
   await syncActiveSessionState()
 
   setupDingTalkListeners()  // 钉钉监听器在历史加载后注册，避免与 loadMessages 竞争
+  setupWeixinListeners()
   // 绑定滚动事件检测用户手动滚动
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })

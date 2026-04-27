@@ -39,7 +39,11 @@ export function useAgentPanel() {
   const conversations = ref([])
   const loading = ref(false)
   const selectedSource = ref('all')
-  const getConversationSource = (conv) => (conv.type === 'dingtalk' ? 'dingtalk' : (conv.source || 'manual'))
+  const getConversationSource = (conv) => {
+    if (conv.type === 'dingtalk') return 'dingtalk'
+    if (conv.type === 'weixin') return 'weixin'
+    return conv.source || 'manual'
+  }
 
   /**
    * 加载对话列表（后端已合并活跃+历史）

@@ -5,9 +5,9 @@
     </div>
     <div class="bubble-content">
       <div class="bubble-capture" ref="captureRef">
-        <!-- 钉钉来源标识 -->
-        <div v-if="message.source === 'dingtalk' && message.senderNick" class="dingtalk-sender">
-          {{ message.senderNick }}{{ t('agent.dingtalkSuffix') }}
+        <!-- 外部来源标识 -->
+        <div v-if="externalSenderLabel" class="external-sender">
+          {{ externalSenderLabel }}
         </div>
         <!-- 图片区域（如果消息包含图片） -->
         <div v-if="message.images && message.images.length > 0" class="bubble-images">
@@ -117,6 +117,12 @@ const isUserOverflowing = ref(false)
 const isNotebookMode = computed(() => props.chatMode === 'notebook')
 const isNotebookAssistant = computed(() => isNotebookMode.value && props.message.role === 'assistant')
 const shouldClampUserMessage = computed(() => isNotebookMode.value && props.message.role === 'user' && isUserOverflowing.value)
+const externalSenderLabel = computed(() => {
+  if (!props.message.senderNick) return ''
+  if (props.message.source === 'dingtalk') return `${props.message.senderNick}${t('agent.dingtalkSuffix')}`
+  if (props.message.source === 'weixin') return `${props.message.senderNick}${t('agent.weixinSuffix')}`
+  return ''
+})
 const normalizePathForAction = async (rawPath) => {
   if (!rawPath) return rawPath
 
@@ -692,15 +698,15 @@ const copyContentToAchievement = async () => {
   justify-content: flex-end;
 }
 
-/* 钉钉来源标识 */
-.dingtalk-sender {
+/* 外部来源标识 */
+.external-sender {
   font-size: 11px;
   color: var(--text-color-muted);
   margin-bottom: 4px;
   padding: 0 4px;
 }
 
-.message-bubble.user .dingtalk-sender {
+.message-bubble.user .external-sender {
   text-align: right;
 }
 

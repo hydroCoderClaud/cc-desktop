@@ -641,6 +641,26 @@ const setupSessionListeners = () => {
     )
   }
 
+  if (window.electronAPI.onWeixinSessionCreated) {
+    cleanupFns.push(
+      window.electronAPI.onWeixinSessionCreated(async (data) => {
+        if (data?.sessionId) {
+          if (isDeveloperMode.value) {
+            await switchMode(AppMode.AGENT)
+          }
+          const tab = ensureAgentTab({
+            id: data.sessionId,
+            type: 'weixin',
+            title: data.title || (data.senderNick ? `微信 · ${data.senderNick}` : '微信'),
+          })
+          if (tab) {
+            activeTabId.value = tab.id
+          }
+        }
+      })
+    )
+  }
+
   // 监听设置变化（终端字体大小、字体类型等）
   if (window.electronAPI.onSettingsChanged) {
     cleanupFns.push(

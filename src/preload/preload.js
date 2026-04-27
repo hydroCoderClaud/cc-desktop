@@ -726,6 +726,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('dingtalk:sessionClosed', listener);
     return () => ipcRenderer.removeListener('dingtalk:sessionClosed', listener);
   },
+  onWeixinMessageReceived: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('weixin:messageReceived', listener);
+    return () => ipcRenderer.removeListener('weixin:messageReceived', listener);
+  },
+  onWeixinSessionCreated: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('weixin:sessionCreated', listener);
+    return () => ipcRenderer.removeListener('weixin:sessionCreated', listener);
+  },
   onScheduledTaskChanged: (callback) => {
     const listener = (event, data) => callback(data)
     ipcRenderer.on('scheduled-task:changed', listener)

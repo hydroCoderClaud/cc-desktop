@@ -12,7 +12,8 @@ describe('useAgentPanel filters', () => {
           { id: 'manual-2', source: 'manual', cwd: 'C:/shared', updatedAt: '2026-04-22T02:00:00.000Z' },
           { id: 'scheduled-1', source: 'scheduled', cwd: 'C:/scheduled-a', updatedAt: '2026-04-22T03:00:00.000Z' },
           { id: 'scheduled-2', source: 'scheduled', cwd: 'C:/shared', updatedAt: '2026-04-21T03:00:00.000Z' },
-          { id: 'ding-1', type: 'dingtalk', source: 'dingtalk', cwd: 'C:/dingtalk-a', updatedAt: '2026-04-20T03:00:00.000Z' }
+          { id: 'ding-1', type: 'dingtalk', source: 'dingtalk', cwd: 'C:/dingtalk-a', updatedAt: '2026-04-20T03:00:00.000Z' },
+          { id: 'wx-1', type: 'weixin', source: 'weixin', cwd: 'C:/weixin-a', updatedAt: '2026-04-20T04:00:00.000Z' }
         ])
       }
     }
@@ -26,7 +27,8 @@ describe('useAgentPanel filters', () => {
       'C:/dingtalk-a',
       'C:/manual-a',
       'C:/scheduled-a',
-      'C:/shared'
+      'C:/shared',
+      'C:/weixin-a'
     ])
 
     panel.selectedSource.value = 'scheduled'
@@ -35,6 +37,13 @@ describe('useAgentPanel filters', () => {
     expect(panel.availableCwds.value).toEqual([
       'C:/scheduled-a',
       'C:/shared'
+    ])
+
+    panel.selectedSource.value = 'weixin'
+    await nextTick()
+
+    expect(panel.availableCwds.value).toEqual([
+      'C:/weixin-a'
     ])
   })
 

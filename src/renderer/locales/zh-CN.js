@@ -1311,6 +1311,7 @@ export default {
     sourceManual: '常规',
     sourceScheduled: '定时任务',
     sourceDingtalk: '钉钉',
+    sourceWeixin: '微信',
     apiProfile: 'API 配置',
     send: '发送',
     stopGeneration: '停止生成',
@@ -1409,6 +1410,7 @@ export default {
 
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
+    weixinObserving: '微信观察模式 — 来自微信的消息将实时显示',
     historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
     interaction: {
       titleDefault: '需要你的选择',
@@ -1429,6 +1431,7 @@ export default {
     copySelection: '复制选中文字',
     copyContent: '复制消息内容',
     dingtalkSuffix: '（钉钉）',
+    weixinSuffix: '（来自微信）',
     dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 
     // 文件浏览面板

@@ -1306,6 +1306,7 @@ export default {
     sourceManual: 'Regular',
     sourceScheduled: 'Scheduled',
     sourceDingtalk: 'DingTalk',
+    sourceWeixin: 'Weixin',
     apiProfile: 'API Profile',
     send: 'Send',
     stopGeneration: 'Stop Generation',
@@ -1404,6 +1405,7 @@ export default {
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
+    weixinObserving: 'Weixin Observe Mode — Messages from Weixin will be displayed in real time',
     historyHint: 'Above are historical messages. Type in the input box to activate this session',
     interaction: {
       titleDefault: 'Your input is required',
@@ -1424,6 +1426,7 @@ export default {
     copySelection: 'Copy Selected Text',
     copyContent: 'Copy Message Content',
     dingtalkSuffix: ' (DingTalk)',
+    weixinSuffix: ' (from Weixin)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 
     // File browser panel

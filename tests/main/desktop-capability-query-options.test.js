@@ -333,6 +333,25 @@ describe('desktop capability query options', () => {
     })
   })
 
+  it('passes current session id to weixin notification sends', async () => {
+    const { tools, weixinNotifyService } = await createOptionsWithWeixin({
+      session: { id: 'chat-session-1', source: 'manual' }
+    })
+
+    await tools.weixin_notify_send.handler({
+      accountId: 'bot@im.bot',
+      targetKey: '张三',
+      text: 'hello'
+    })
+
+    expect(weixinNotifyService.sendText).toHaveBeenCalledWith({
+      accountId: 'bot@im.bot',
+      targetId: '张三',
+      text: 'hello',
+      sessionId: 'chat-session-1'
+    })
+  })
+
   it('uses full target id as targetKey when display names are ambiguous', async () => {
     const { tools } = await createOptionsWithWeixin({
       serviceOverrides: {

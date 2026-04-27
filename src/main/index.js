@@ -15,6 +15,7 @@ const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { WeixinNotifyService } = require('./managers/weixin-notify-service');
+const { WeixinBridge } = require('./managers/weixin-bridge');
 const { setupIPCHandlers } = require('./ipc-handlers');
 const { tMain } = require('./utils/app-i18n');
 
@@ -30,6 +31,7 @@ let dingtalkBridge = null;
 let notebookManager = null;
 let scheduledTaskService = null;
 let weixinNotifyService = null;
+let weixinBridge = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 
@@ -51,6 +53,7 @@ function cleanupAllSessions() {
       console.log('[Main] PowerSaveBlocker stopped')
     }
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
+    if (weixinBridge) weixinBridge.stop();
     if (weixinNotifyService) weixinNotifyService.stop();
     if (terminalManager) terminalManager.kill();
     if (activeSessionManager) activeSessionManager.closeAll(false);
@@ -250,6 +253,8 @@ app.whenReady().then(async () => {
   weixinNotifyService = new WeixinNotifyService(configManager)
   weixinNotifyService.start()
   agentSessionManager.weixinNotifyService = weixinNotifyService
+  weixinBridge = new WeixinBridge(configManager, agentSessionManager, weixinNotifyService, mainWindow)
+  weixinBridge.start()
 
   // 设置 IPC 处理器
   setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService);
@@ -317,6 +322,9 @@ app.whenReady().then(async () => {
         dingtalkBridge.start().catch(err => {
           console.error('[Main] DingTalk bridge restart on activate failed:', err.message)
         })
+      }
+      if (weixinBridge) {
+        weixinBridge.mainWindow = mainWindow;
       }
     }
   });

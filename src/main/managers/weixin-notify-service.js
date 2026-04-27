@@ -1,4 +1,5 @@
 const crypto = require('crypto')
+const { EventEmitter } = require('events')
 const fs = require('fs')
 const path = require('path')
 const QRCode = require('qrcode')
@@ -12,6 +13,7 @@ const QR_LOGIN_TTL_MS = 5 * 60 * 1000
 const QR_POLL_TIMEOUT_MS = 35 * 1000
 const API_TIMEOUT_MS = 15 * 1000
 const UPDATES_TIMEOUT_MS = 45 * 1000
+const BACKGROUND_POLL_INTERVAL_MS = 1000
 
 function ensureTrailingSlash(url) {
   return url.endsWith('/') ? url : `${url}/`
@@ -117,14 +119,48 @@ class WeixinNotifyService {
     this.statePath = path.join(this.stateDir, 'state.json')
     this.activeLogins = new Map()
     this.state = this._loadState()
+    this.events = new EventEmitter()
+    this.pollQueue = Promise.resolve()
+    this.backgroundTimer = null
+    this.backgroundStopped = true
+    this.backgroundPollIntervalMs = Math.max(Number(options.backgroundPollIntervalMs) || BACKGROUND_POLL_INTERVAL_MS, 100)
+    this.backgroundPollTimeoutMs = Math.min(
+      Math.max(Number(options.backgroundPollTimeoutMs) || UPDATES_TIMEOUT_MS, 1000),
+      UPDATES_TIMEOUT_MS
+    )
   }
 
   start() {
     this.state = this._loadState()
+    this.startBackgroundPolling()
   }
 
   stop() {
+    this.stopBackgroundPolling()
     this.activeLogins.clear()
+  }
+
+  on(eventName, listener) {
+    this.events.on(eventName, listener)
+    return () => this.off(eventName, listener)
+  }
+
+  off(eventName, listener) {
+    this.events.off(eventName, listener)
+  }
+
+  startBackgroundPolling() {
+    if (!this.backgroundStopped) return
+    this.backgroundStopped = false
+    this._scheduleBackgroundPoll(0)
+  }
+
+  stopBackgroundPolling() {
+    this.backgroundStopped = true
+    if (this.backgroundTimer) {
+      clearTimeout(this.backgroundTimer)
+      this.backgroundTimer = null
+    }
   }
 
   listAccounts() {
@@ -249,6 +285,12 @@ class WeixinNotifyService {
   }
 
   async pollOnce({ accountId, timeoutMs } = {}) {
+    const run = () => this._pollOnceUnlocked({ accountId, timeoutMs })
+    this.pollQueue = this.pollQueue.then(run, run)
+    return this.pollQueue
+  }
+
+  async _pollOnceUnlocked({ accountId, timeoutMs } = {}) {
     const accounts = accountId ? [this._requireAccount(accountId)] : this.state.accounts
     const messages = []
     const targets = []
@@ -283,22 +325,28 @@ class WeixinNotifyService {
           contextExpiredAt: null,
           lastError: null
         })
-        targets.push(publicTarget(target))
+        const publicMessageTarget = publicTarget(target)
+        targets.push(publicMessageTarget)
         messages.push({
           accountId: account.accountId,
+          targetId: target.id,
           from: message.from_user_id,
           text,
           hasContextToken: Boolean(message.context_token),
-          createTimeMs: message.create_time_ms || null
+          contextToken: message.context_token || null,
+          createTimeMs: message.create_time_ms || null,
+          target: publicMessageTarget
         })
       }
     }
 
     this._saveState()
-    return { messages, targets }
+    const result = { messages, targets }
+    this._emitInboundMessages(messages)
+    return result
   }
 
-  async sendText({ accountId, targetId, text } = {}) {
+  async sendText({ accountId, targetId, text, sessionId } = {}) {
     const normalizedText = String(text || '').trim()
     if (!normalizedText) throw new Error('发送内容不能为空')
 
@@ -334,12 +382,21 @@ class WeixinNotifyService {
     target.contextExpiredAt = null
     target.lastError = null
     this._saveState()
-    return {
+    const result = {
       success: true,
       messageId: clientId,
       response: publicSendResponse(response),
       target: publicTarget(target)
     }
+    this.events.emit('sent', {
+      accountId: target.accountId,
+      targetId: target.id,
+      sessionId: sessionId || null,
+      messageId: clientId,
+      text: normalizedText,
+      target: result.target
+    })
+    return result
   }
 
   _loadState() {
@@ -425,6 +482,42 @@ class WeixinNotifyService {
 
   _isVisibleTarget(target) {
     return Boolean(target && !target.deletedAt && target.preferred !== false)
+  }
+
+  _emitInboundMessages(messages) {
+    for (const message of messages) {
+      if (!message.text && !message.hasContextToken) continue
+      this.events.emit('message', message)
+    }
+    if (messages.length) {
+      this.events.emit('messages', messages)
+    }
+  }
+
+  _scheduleBackgroundPoll(delayMs = this.backgroundPollIntervalMs) {
+    if (this.backgroundStopped) return
+    if (this.backgroundTimer) clearTimeout(this.backgroundTimer)
+    this.backgroundTimer = setTimeout(() => {
+      this.backgroundTimer = null
+      this._runBackgroundPoll()
+    }, delayMs)
+    if (typeof this.backgroundTimer.unref === 'function') {
+      this.backgroundTimer.unref()
+    }
+  }
+
+  async _runBackgroundPoll() {
+    if (this.backgroundStopped) return
+    try {
+      if (this.state.accounts.length) {
+        await this.pollOnce({ timeoutMs: this.backgroundPollTimeoutMs })
+      }
+    } catch (err) {
+      console.warn('[WeixinNotify] Background poll failed:', err.message)
+      this.events.emit('pollError', err)
+    } finally {
+      this._scheduleBackgroundPoll()
+    }
   }
 
   _requireAccount(accountId) {

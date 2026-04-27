@@ -280,11 +280,13 @@ function serializeWeixinTargetsForTool(targets) {
 }
 
 function buildWeixinSendArgs(args = {}) {
-  return {
+  const sendArgs = {
     accountId: args.accountId || undefined,
     targetId: args.targetKey || args.targetId || args.displayName,
     text: args.text
   }
+  if (args.sessionId) sendArgs.sessionId = args.sessionId
+  return sendArgs
 }
 
 function mergeSystemPrompts(...prompts) {
@@ -585,6 +587,9 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
         const sendArgs = buildWeixinSendArgs(args)
         if (!sendArgs.targetId) {
           throw new Error('必须提供 targetKey、targetId 或 displayName')
+        }
+        if (session?.id) {
+          sendArgs.sessionId = session.id
         }
         const result = await weixinNotifyService.sendText(sendArgs)
         return buildToolResult({
