@@ -1,4 +1,4 @@
-function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService) {
+function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge) {
   if (!weixinNotifyService) {
     console.warn('[IPC] WeixinNotifyService not available, skipping handlers')
     return
@@ -59,6 +59,40 @@ function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService) {
       return { error: err.message }
     }
   })
+
+  // ========================================
+  // 会话与微信目标绑定
+  // ========================================
+  if (weixinBridge) {
+    ipcMain.handle('weixin-notify:bindSessionToTarget', async (_event, payload = {}) => {
+      try {
+        return weixinBridge.bindSessionToTarget(payload.sessionId, {
+          accountId: payload.accountId,
+          targetId: payload.targetId,
+          displayName: payload.displayName
+        })
+      } catch (err) {
+        return { error: err.message }
+      }
+    })
+
+    ipcMain.handle('weixin-notify:unbindSessionTarget', async (_event, payload = {}) => {
+      try {
+        return weixinBridge.unbindSessionTarget(payload.sessionId)
+      } catch (err) {
+        return { error: err.message }
+      }
+    })
+
+    ipcMain.handle('weixin-notify:getSessionBinding', async (_event, sessionId) => {
+      try {
+        const binding = weixinBridge.getSessionBinding(sessionId)
+        return binding || null
+      } catch (err) {
+        return { error: err.message }
+      }
+    })
+  }
 }
 
 module.exports = {

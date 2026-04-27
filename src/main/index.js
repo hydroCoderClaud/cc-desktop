@@ -257,7 +257,7 @@ app.whenReady().then(async () => {
   weixinBridge.start()
 
   // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService);
+  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService, weixinBridge);
 
   // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')

@@ -95,7 +95,8 @@ class WeixinBridge {
 
     this._agentListeners = {
       userMessage: ({ sessionId, sessionType, content, images, source }) => {
-        if (source !== 'weixin' && sessionType === 'weixin') {
+        const hasBinding = this.sessionTargets.has(sessionId)
+        if (source !== 'weixin' && (sessionType === 'weixin' || hasBinding)) {
           try { this._recordDesktopIntervention(sessionId, content, images) } catch (err) {
             console.error('[WeixinBridge] Record desktop intervention failed:', err)
           }
@@ -365,6 +366,56 @@ class WeixinBridge {
 
   _getTargetDisplayName(message) {
     return message?.target?.displayName || message?.from || message?.targetId || '未知用户'
+  }
+
+  /**
+   * 将普通 chat 会话绑定到微信目标，建立双向通道
+   */
+  bindSessionToTarget(sessionId, { accountId, targetId, displayName } = {}) {
+    if (!sessionId || !accountId || !targetId) {
+      throw new Error('sessionId, accountId 和 targetId 不能为空')
+    }
+    const session = this._resolveSession(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} 不存在或已关闭`)
+    }
+    const target = { accountId, targetId, displayName: displayName || targetId }
+    this.sessionMap.set(targetId, sessionId)
+    this.knownTargets.set(sessionId, target)
+    this.sessionTargets.set(sessionId, target)
+    console.log(`[WeixinBridge] Bound session ${sessionId} to target ${targetId} (${displayName || targetId})`)
+    return { success: true, target }
+  }
+
+  /**
+   * 解除会话与微信目标的绑定
+   */
+  unbindSessionTarget(sessionId) {
+    if (!sessionId) return { success: false, error: 'sessionId 不能为空' }
+    const target = this.knownTargets.get(sessionId)
+    if (target?.targetId) {
+      this.sessionMap.delete(target.targetId)
+    }
+    this.knownTargets.delete(sessionId)
+    this.sessionTargets.delete(sessionId)
+    this.pendingReplies.delete(sessionId)
+    this.desktopPendingBlocks.delete(sessionId)
+    console.log(`[WeixinBridge] Unbound session ${sessionId}`)
+    return { success: true }
+  }
+
+  /**
+   * 获取会话的微信绑定信息
+   */
+  getSessionBinding(sessionId) {
+    if (!sessionId) return null
+    const target = this.knownTargets.get(sessionId) || this.sessionTargets.get(sessionId) || null
+    if (!target) return null
+    return {
+      accountId: target.accountId,
+      targetId: target.targetId,
+      displayName: target.displayName
+    }
   }
 
   _notifyFrontend(channel, data) {

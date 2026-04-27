@@ -148,6 +148,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteWeixinNotifyTarget: (payload) => ipcRenderer.invoke('weixin-notify:deleteTarget', payload),
   pollWeixinNotifyOnce: (options) => ipcRenderer.invoke('weixin-notify:pollOnce', options),
   sendWeixinNotifyText: (payload) => ipcRenderer.invoke('weixin-notify:sendText', payload),
+  bindSessionToWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:bindSessionToTarget', payload),
+  unbindSessionWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:unbindSessionTarget', payload),
+  getSessionWeixinBinding: (sessionId) => ipcRenderer.invoke('weixin-notify:getSessionBinding', sessionId),
 
   // ========================================
   // Claude 配置文件

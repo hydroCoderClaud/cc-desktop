@@ -1406,6 +1406,11 @@ export default {
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
     weixinObserving: 'Weixin Observe Mode — Messages from Weixin will be displayed in real time',
+    weixinBindTitle: 'Bind a Weixin target to connect this session to Weixin',
+    weixinBoundTitle: 'Bound to Weixin: {name}',
+    weixinBoundTo: 'Bound: {name}',
+    weixinUnbind: 'Unbind',
+    weixinNoTargets: 'No Weixin targets available. Please scan QR code in settings first.',
     historyHint: 'Above are historical messages. Type in the input box to activate this session',
     interaction: {
       titleDefault: 'Your input is required',

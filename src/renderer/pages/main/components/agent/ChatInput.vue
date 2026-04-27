@@ -7,6 +7,8 @@
         :context-tokens="contextTokens"
         :queue-enabled="queueEnabled"
         :is-expanded="isExpanded"
+        :session-id="sessionId"
+        :session-type="sessionType"
         @update:model-value="$emit('update:modelValue', $event)"
         @toggle-queue="$emit('update:queueEnabled', !queueEnabled)"
         @toggle-expanded="toggleExpanded"
@@ -165,6 +167,14 @@ const props = defineProps({
   expandedHeightRatio: {
     type: Number,
     default: 3 / 4
+  },
+  sessionId: {
+    type: String,
+    default: null
+  },
+  sessionType: {
+    type: String,
+    default: 'chat'
   }
 })
 

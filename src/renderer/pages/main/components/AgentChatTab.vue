@@ -100,6 +100,8 @@
       :slash-commands-supported="!isExternalObserveSession"
       :enable-slash-commands="!isExternalObserveSession && hasActiveSession"
       :model-options="modelOptions"
+      :session-id="props.sessionId"
+      :session-type="props.sessionType"
       v-model:model-value="selectedModel"
       @send="handleSend"
       @schedule="handleScheduleDraftCreate"

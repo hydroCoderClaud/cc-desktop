@@ -74,7 +74,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService, weixinBridge) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -762,7 +762,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 微信通知
   // ========================================
   if (weixinNotifyService && setupWeixinNotifyHandlers) {
-    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService);
+    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge);
   }
 
   // ========================================

@@ -1411,6 +1411,11 @@ export default {
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
     weixinObserving: '微信观察模式 — 来自微信的消息将实时显示',
+    weixinBindTitle: '绑定微信目标，建立当前会话与微信的通道',
+    weixinBoundTitle: '已绑定到微信：{name}',
+    weixinBoundTo: '已绑定：{name}',
+    weixinUnbind: '解绑',
+    weixinNoTargets: '暂无可用微信目标，请先在设置中扫码绑定',
     historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
     interaction: {
       titleDefault: '需要你的选择',
