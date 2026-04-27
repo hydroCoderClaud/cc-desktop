@@ -102,8 +102,11 @@ describe('desktop capability query options', () => {
       listTargets: vi.fn(() => [{
         id: 'bot@im.bot:target@im.wechat',
         accountId: 'bot@im.bot',
+        accountUserId: 'target@im.wechat',
         userId: 'target@im.wechat',
         displayName: '张三',
+        targetSource: 'authorized_user',
+        isAuthorizedAccountUser: true,
         hasContextToken: true
       }]),
       sendText: vi.fn(async input => ({
@@ -112,8 +115,11 @@ describe('desktop capability query options', () => {
         target: {
           id: 'bot@im.bot:target@im.wechat',
           accountId: input.accountId,
+          accountUserId: 'target@im.wechat',
           userId: 'target@im.wechat',
           displayName: '张三',
+          targetSource: 'authorized_user',
+          isAuthorizedAccountUser: true,
           hasContextToken: true
         }
       })),
@@ -294,6 +300,8 @@ describe('desktop capability query options', () => {
       displayName: '张三',
       targetKey: '张三',
       displayLabel: '张三',
+      targetSource: 'authorized_user',
+      isAuthorizedAccountUser: true,
       sendable: true,
       hasContextToken: true
     })

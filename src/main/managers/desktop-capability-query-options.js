@@ -56,7 +56,7 @@ const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
   'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient, but send with targetKey when it is available.',
   'If a recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
   'Use weixin_notify_send only for short notification text to an already bound Weixin target.',
-  'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to targets that have already been captured by the Weixin notification channel.',
+  'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to Weixin users who completed iLink QR authorization and have a captured sendable target.',
   'After sending, report the recipient displayName and messageId returned by the tool.'
 ].join(' ')
 
@@ -252,8 +252,11 @@ function serializeWeixinTargetForTool(target, displayNameCounts = new Map()) {
       ? displayName
       : `${displayName} (${target.accountId})`,
     accountId: target.accountId,
+    accountUserId: target.accountUserId || null,
     userId: target.userId,
     displayName,
+    targetSource: target.targetSource || null,
+    isAuthorizedAccountUser: Boolean(target.isAuthorizedAccountUser),
     aliases: [
       targetKey,
       displayName,
@@ -545,7 +548,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
   const weixinNotifyTools = includeWeixinNotifyTools ? [
     tool(
       WEIXIN_NOTIFY_TOOL_NAMES[0],
-      '列出 Hydro Desktop 已绑定且可通知的微信目标。目标必须来自扫码登录并收到过对方消息的微信通知通道。',
+      '列出 Hydro Desktop 已绑定且可通知的微信目标。目标来自用户完成 iLink 扫码授权后捕获到的可发送上下文。',
       {},
       async () => {
         const accounts = typeof weixinNotifyService.listAccounts === 'function'
@@ -563,7 +566,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
           accounts,
           targets: serializedTargets,
           usage: {
-            sendWith: 'Use targetKey as weixin_notify_send.targetKey. If sendable is false, ask the user to have the recipient message the bot and capture latest messages first.'
+            sendWith: 'Use targetKey as weixin_notify_send.targetKey. If sendable is false, ask that Weixin user to scan the authorization QR code again, then capture latest messages.'
           }
         })
       }

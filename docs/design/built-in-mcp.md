@@ -74,7 +74,13 @@ AgentSessionManager.sendMessage()
 | `weixin_notify_list_targets` | 列出已绑定且可通知的微信目标 |
 | `weixin_notify_send` | 向已绑定目标发送一条微信文本通知 |
 
-微信通知工具只支持已捕获目标：用户需要先扫码授权，并至少给 bot 发过一次消息，Hydro Desktop 才能保存 `targetId/accountId/contextToken` 并在后续聊天或定时任务中主动发送通知。该能力不读取个人微信通讯录，也不承诺给任意微信好友代发。
+微信通知工具只支持已授权且已捕获的目标：需要接收通知的微信用户必须自己扫码授权，Hydro Desktop 通过 `getupdates` 保存 `targetId/accountId/contextToken` 后，才能在后续聊天或定时任务中主动发送通知。该能力不读取个人微信通讯录，也不能给扫码用户的普通微信好友代发。
+
+已验证的 iLink 边界：
+
+- `get_bot_qrcode?bot_type=3` 生成的是登录/授权二维码，`get_qrcode_status` 返回 `bot_token`、`ilink_bot_id` 和扫码用户 `ilink_user_id`。
+- 未发现“目标用户进入 bot 会话”的独立入口二维码或 invite/contact/session-entry 类接口；公开协议也只覆盖登录、`getupdates`、`sendmessage`、`getconfig`、`sendtyping` 和媒体上传。
+- 因此当前可落地模型是“接收通知的人自己扫码授权后成为可通知目标”，不是“A 扫码后给 A 的任意微信好友 B 发消息”。
 
 当前 MCP 工具面向聊天发送做了第一步优化：
 
@@ -117,13 +123,13 @@ AgentSessionManager.sendMessage()
 
 ### 阶段 1：主动通知发送
 
-目标：让 Hydro Desktop 定时任务可向已绑定微信目标主动推送结果。
+目标：让 Hydro Desktop 定时任务可向已授权微信目标主动推送结果。
 
 - 内建 iLink HTTP 协议调用，不依赖 OpenClaw runtime 或 npm 包。
 - 支持扫码登录，保存 `accountId`、`botToken`、`userId`。
-- 支持轮询一次 `getupdates` 捕获目标用户的 `userId/contextToken`。
+- 支持轮询一次 `getupdates` 捕获已授权用户的 `userId/contextToken`。
 - 支持 `weixin_notify_list_targets` 和 `weixin_notify_send`。
-- 桌面端入口位于“能力管理 → 微信通知”，用于扫码绑定、捕获目标和发送测试通知。
+- 桌面端入口位于“能力管理 → 微信通知”，用于目标用户扫码授权、捕获目标和发送测试通知。
 - 不做通讯录读取，不做任意好友发送，不做自动 AI 回复。
 
 ### 阶段 2：回信展示
@@ -135,6 +141,13 @@ AgentSessionManager.sendMessage()
 - 如果桌面端没有主动发过通知，但捕获到已绑定微信目标的新消息，可以创建一个新的 `source === 'weixin'` 会话并显示入站消息。
 - 会话标题应优先使用微信目标备注名，并保留 `accountId/targetId` 映射用于后续回复。
 - 默认不触发 AI 自动回复。
+
+基础存储约束：
+
+- 底层按 `accountId + userId` 保留通道绑定，重复捕获同一个微信用户时不再物理删除旧绑定。
+- UI 和 MCP 默认只展示 `preferred !== false` 且未 `deletedAt` 的首选目标，保持“一个用户一条可用目标”的体验。
+- 新捕获的同一 `userId` 会成为首选目标，旧绑定标记为 `preferred=false` 和 `supersededAt`。
+- 删除目标采用软删除：标记 `deletedAt` 且 `preferred=false`，为后续历史会话回流保留基础数据。
 
 ### 阶段 3：回信触发 Agent
 

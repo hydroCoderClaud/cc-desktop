@@ -85,6 +85,8 @@ describe('WeixinNotifyService', () => {
     expect(poll.targets[0]).toMatchObject({
       accountId: 'bot@im.bot',
       userId: 'target@im.wechat',
+      targetSource: 'inbound_context',
+      isAuthorizedAccountUser: false,
       hasContextToken: true
     })
 
@@ -148,7 +150,7 @@ describe('WeixinNotifyService', () => {
     expect(sendRequest.msg.context_token).toBe('ctx-2')
   })
 
-  it('keeps only the latest bot account and clears stale targets for the same scanning user', async () => {
+  it('keeps only the latest bot account and hides stale targets for the same scanning user', async () => {
     const service = createService()
     service.state.accounts.push({
       accountId: 'old-bot@im.bot',
@@ -186,6 +188,12 @@ describe('WeixinNotifyService', () => {
       userId: 'scanner@im.wechat'
     })
     expect(service.listTargets()).toHaveLength(0)
+    expect(service.state.targets).toHaveLength(1)
+    expect(service.state.targets[0]).toMatchObject({
+      accountId: 'old-bot@im.bot',
+      preferred: false
+    })
+    expect(service.state.targets[0].supersededAt).toBeTruthy()
   })
 
   it('does not create target placeholders after qr login', async () => {
@@ -209,18 +217,20 @@ describe('WeixinNotifyService', () => {
     expect(service.listTargets()).toHaveLength(0)
   })
 
-  it('overwrites conflicting targets when the same user is captured on a new account', async () => {
+  it('keeps old channel bindings hidden when the same user is captured on a new account', async () => {
     const service = createService()
     service.state.accounts.push(
       {
         accountId: 'old-bot@im.bot',
         token: 'old-token',
-        baseUrl: 'https://ilinkai.weixin.qq.com'
+        baseUrl: 'https://ilinkai.weixin.qq.com',
+        userId: 'target@im.wechat'
       },
       {
         accountId: 'new-bot@im.bot',
         token: 'new-token',
-        baseUrl: 'https://ilinkai.weixin.qq.com'
+        baseUrl: 'https://ilinkai.weixin.qq.com',
+        userId: 'target@im.wechat'
       }
     )
     service.state.targets.push({
@@ -247,10 +257,56 @@ describe('WeixinNotifyService', () => {
     expect(service.listTargets()[0]).toMatchObject({
       id: 'new-bot@im.bot:target@im.wechat',
       accountId: 'new-bot@im.bot',
+      accountUserId: 'target@im.wechat',
       userId: 'target@im.wechat',
       displayName: '张三',
+      targetSource: 'authorized_user',
+      isAuthorizedAccountUser: true,
       hasContextToken: true,
       lastInboundText: 'hi'
+    })
+    expect(service.state.targets).toHaveLength(2)
+    expect(service.state.targets.find(target => target.id === 'old-bot@im.bot:target@im.wechat')).toMatchObject({
+      preferred: false,
+      displayName: '张三'
+    })
+    expect(service.state.targets.find(target => target.id === 'new-bot@im.bot:target@im.wechat')).toMatchObject({
+      preferred: true,
+      displayName: '张三',
+      targetSource: 'authorized_user',
+      supersededAt: null
+    })
+  })
+
+  it('marks captured scanner events as authorized notification targets', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'scanner@im.wechat'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [{
+        from_user_id: 'scanner@im.wechat',
+        context_token: 'ctx-scanner',
+        item_list: [{ type: 1, text_item: { text: 'authorized' } }]
+      }]
+    }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+
+    expect(poll.targets[0]).toMatchObject({
+      id: 'bot@im.bot:scanner@im.wechat',
+      accountId: 'bot@im.bot',
+      accountUserId: 'scanner@im.wechat',
+      userId: 'scanner@im.wechat',
+      targetSource: 'authorized_user',
+      isAuthorizedAccountUser: true,
+      hasContextToken: true
     })
   })
 
@@ -309,6 +365,11 @@ describe('WeixinNotifyService', () => {
       userId: 'target@im.wechat'
     })
     expect(service.listTargets()).toHaveLength(0)
+    expect(service.state.targets).toHaveLength(1)
+    expect(service.state.targets[0]).toMatchObject({
+      preferred: false
+    })
+    expect(service.state.targets[0].deletedAt).toBeTruthy()
     expect(service.listAccounts()).toHaveLength(1)
   })
 

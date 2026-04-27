@@ -58,8 +58,13 @@ function publicTarget(target) {
   return {
     id: target.id,
     accountId: target.accountId,
+    accountUserId: target.accountUserId || null,
     userId: target.userId,
     displayName: target.displayName || target.userId,
+    targetSource: target.targetSource || (target.accountUserId && target.accountUserId === target.userId ? 'authorized_user' : 'inbound_context'),
+    isAuthorizedAccountUser: Boolean(target.accountUserId && target.accountUserId === target.userId),
+    preferred: target.preferred !== false,
+    supersededAt: target.supersededAt || null,
     lastSeenAt: target.lastSeenAt || null,
     lastSentAt: target.lastSentAt || null,
     lastInboundText: target.lastInboundText || '',
@@ -129,7 +134,9 @@ class WeixinNotifyService {
 
   listTargets() {
     this.state = this._loadState()
-    return this.state.targets.map(publicTarget)
+    return this.state.targets
+      .filter(target => this._isVisibleTarget(target))
+      .map(publicTarget)
   }
 
   updateTarget({ accountId, targetId, displayName } = {}) {
@@ -143,7 +150,8 @@ class WeixinNotifyService {
 
   deleteTarget({ accountId, targetId } = {}) {
     const target = this._resolveTarget({ accountId, targetId })
-    this.state.targets = this.state.targets.filter(item => item.id !== target.id)
+    target.deletedAt = Date.now()
+    target.preferred = false
     this._saveState()
     return {
       deleted: true,
@@ -266,8 +274,10 @@ class WeixinNotifyService {
         if (!text && !message.context_token) continue
         const target = this._upsertTarget({
           accountId: account.accountId,
+          accountUserId: account.userId || null,
           userId: message.from_user_id,
           contextToken: message.context_token || null,
+          targetSource: account.userId && account.userId === message.from_user_id ? 'authorized_user' : 'inbound_context',
           lastInboundText: text,
           lastSeenAt: Date.now(),
           contextExpiredAt: null,
@@ -365,7 +375,12 @@ class WeixinNotifyService {
       if (staleAccountIds.length) {
         const staleAccountIdSet = new Set(staleAccountIds)
         this.state.accounts = this.state.accounts.filter(item => !staleAccountIdSet.has(item.accountId))
-        this.state.targets = this.state.targets.filter(item => !staleAccountIdSet.has(item.accountId))
+        for (const target of this.state.targets) {
+          if (staleAccountIdSet.has(target.accountId)) {
+            target.preferred = false
+            target.supersededAt = target.supersededAt || Date.now()
+          }
+        }
       }
     }
 
@@ -381,13 +396,13 @@ class WeixinNotifyService {
   _upsertTarget(target) {
     const id = `${target.accountId}:${target.userId}`
     const conflictingTargets = this.state.targets.filter(item =>
-      item.userId === target.userId && item.accountId !== target.accountId
+      item.userId === target.userId && item.accountId !== target.accountId && !item.deletedAt
     )
     const inheritedDisplayName = conflictingTargets.find(item => item.displayName)?.displayName
-    if (conflictingTargets.length) {
-      this.state.targets = this.state.targets.filter(item =>
-        !(item.userId === target.userId && item.accountId !== target.accountId)
-      )
+    const now = Date.now()
+    for (const conflictingTarget of conflictingTargets) {
+      conflictingTarget.preferred = false
+      conflictingTarget.supersededAt = conflictingTarget.supersededAt || now
     }
     const existingIndex = this.state.targets.findIndex(item => item.id === id)
     const existing = existingIndex >= 0 ? this.state.targets[existingIndex] : null
@@ -395,7 +410,10 @@ class WeixinNotifyService {
       id,
       displayName: target.displayName || existing?.displayName || inheritedDisplayName || target.userId,
       ...target,
-      contextToken: target.contextToken || existing?.contextToken || null
+      contextToken: target.contextToken || existing?.contextToken || null,
+      preferred: true,
+      supersededAt: null,
+      deletedAt: null
     }
     if (existingIndex >= 0) {
       this.state.targets[existingIndex] = { ...this.state.targets[existingIndex], ...next }
@@ -403,6 +421,10 @@ class WeixinNotifyService {
     }
     this.state.targets.push(next)
     return next
+  }
+
+  _isVisibleTarget(target) {
+    return Boolean(target && !target.deletedAt && target.preferred !== false)
   }
 
   _requireAccount(accountId) {
@@ -416,6 +438,7 @@ class WeixinNotifyService {
     if (!rawTarget) throw new Error('必须指定 targetId')
 
     const matches = this.state.targets.filter(target => {
+      if (!this._isVisibleTarget(target)) return false
       const targetMatched = target.id === rawTarget ||
         target.userId === rawTarget ||
         target.displayName === rawTarget
