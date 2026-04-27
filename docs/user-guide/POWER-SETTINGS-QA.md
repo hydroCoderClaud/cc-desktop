@@ -2,7 +2,7 @@
 
 ## Problem
 
-CC Desktop stops responding after the screen turns off (e.g., DingTalk bridge disconnects, WebSocket connections drop), and only resumes when the screen is turned back on. This interrupts background tasks and prevents unattended automation scenarios.
+Hydro Desktop stops responding after the screen turns off (e.g., DingTalk bridge disconnects, WebSocket connections drop), and only resumes when the screen is turned back on. This interrupts background tasks and prevents unattended automation scenarios.
 
 ## Root Cause
 
@@ -72,11 +72,11 @@ If using a Wi-Fi connection:
 | Screen | Turns off after configured timeout |
 | System | Stays fully running |
 | Network | Stays active |
-| CC Desktop | Continues responding (DingTalk bridge, Agent sessions, etc.) |
+| Hydro Desktop | Continues responding (DingTalk bridge, Agent sessions, etc.) |
 
-## Built-in Protection in CC Desktop
+## Built-in Protection in Hydro Desktop
 
-CC Desktop includes the following mechanisms (no user action needed):
+Hydro Desktop includes the following mechanisms (no user action needed):
 
 - **`powerSaveBlocker`**: Tells the OS not to suspend the app process
-- **`powerMonitor.on('resume')`**: Auto-reconnects DingTalk bridge after system wakes from sleep
+- **`powerMonitor.on('resume')`**: Auto-reconnects the DingTalk bridge and immediately re-checks due scheduled tasks after the system wakes from sleep

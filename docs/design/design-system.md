@@ -1,4 +1,4 @@
-# Claude Code Desktop 设计系统规范
+# Hydro Desktop 设计系统规范
 
 > 版本 1.0 | 精致工业风 (Refined Industrial)
 

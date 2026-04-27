@@ -1,6 +1,6 @@
 # 快速入门指南
 
-## 5分钟上手 Claude Code Desktop
+## 5分钟上手 Hydro Desktop
 
 ### 步骤 1：安装依赖
 
@@ -15,75 +15,51 @@ npm install
 npm run dev
 ```
 
-应用窗口会自动打开，并显示 Claude Code Desktop 界面。
+应用窗口会自动打开，并显示 `Hydro Desktop` 主界面。
 
-### 步骤 3：添加第一个项目
+### 步骤 3：添加或选择一个项目
 
-1. 点击左上角的 **"+ New session"** 按钮
-2. 在文件选择对话框中，选择一个项目文件夹
-3. 项目会自动添加到左侧项目列表
+1. 在左侧项目面板中选择已有项目，或按界面提示添加一个项目目录。
+2. 确认项目路径有效后，再创建会话或打开终端。
 
-### 步骤 4：连接到项目
+### 步骤 4：启动会话
 
-1. 点击左侧项目列表中的项目（会高亮显示）
-2. 点击中间区域的 **"Connect"** 按钮
-3. 终端会自动打开并切换到该项目目录
+1. 选中项目后点击 **连接** / **Connect**。
+2. 桌面端会创建 Claude 会话，并在终端中自动启动 `claude`。
+3. 如果只想打开纯终端而不启动 Claude，会话列表旁可使用单独的终端入口。
 
-### 步骤 5：启动 Claude Code CLI
+### 步骤 5：开始使用
 
-在终端中输入：
+- **Developer 模式**：在终端中直接执行命令。
+- **Agent 模式**：切换到 Agent，对话发送需求。
+- **Notebook 模式**：在 Notebook 工作台整理资料、对话和产出。
 
-```bash
-claude code
-```
-
-现在您可以开始与 Claude Code 交互了！
+如果机器上还没有 `claude` 命令，请先完成 [INSTALL.md](./INSTALL.md) 中的 CLI 安装步骤。
 
 ---
 
 ## 常见操作
 
-### 切换主题
+### 配置 API
 
-点击左下角的 🌙/☀️ 图标即可在浅色和深色主题之间切换。
-
-### 切换项目
-
-1. 点击左侧列表中的另一个项目
-2. 点击 "Connect" 按钮
-3. 旧的终端进程会自动关闭，新的终端会在新项目目录打开
-
-### 配置 API Key
-
-1. 点击右上角的 ⚙ 图标
-2. 在设置面板中选择 "API Profiles" 标签
-3. 点击"添加 Profile"，输入您的 API Key 和配置
-4. API Key 会自动传递给 Claude Code CLI
+1. 点击右上角的 API 配置入口，打开 **API 配置管理** 窗口。
+2. 新增或编辑 Profile，填写 API Key、服务商、模型 ID 和代理等信息。
+3. 点击 **测试连接** 确认配置可用。
 
 **配置文件位置**：
-- Windows: `%APPDATA%\claude-code-desktop\config.json`
-- macOS/Linux: `~/.config/claude-code-desktop/config.json`
+- Windows：`%APPDATA%\cc-desktop\config.json`
+- macOS：`~/Library/Application Support/cc-desktop/config.json`
+- Linux：`~/.config/cc-desktop/config.json`
 
-**配置结构**（参考）：
-```json
-{
-  "apiProfiles": [
-    {
-      "id": "uuid",
-      "name": "My API Key",
-      "authToken": "sk-ant-your-key-here",
-      "baseUrl": "https://api.anthropic.com",
-      "isDefault": true
-    }
-  ]
-}
-```
+### 切换主题
 
-### 移除项目
+点击左下角的主题按钮即可在浅色和深色方案之间切换。
 
-（功能即将添加）
+### 切换项目或会话
 
-右键点击项目 → 选择 "Remove from list"
+1. 在左侧切换项目。
+2. 对目标项目点击 **连接**，或恢复历史会话。
+3. 运行中的 Claude 会话会自动绑定到对应项目目录。
 
 ---
 
@@ -92,7 +68,7 @@ claude code
 | 快捷键 | 功能 |
 |--------|------|
 | `F12` | 切换开发者工具 |
-| `Ctrl + C` | 在终端中发送 SIGINT（终止进程） |
+| `Ctrl + C` | 在终端中发送 SIGINT |
 | `Ctrl + V` | 在终端中粘贴 |
 
 ---
@@ -101,9 +77,8 @@ claude code
 
 ### 问题：终端无法启动
 
-**原因**：可能是 node-pty 安装失败
+可能是 `node-pty` 安装失败。可尝试：
 
-**解决**：
 ```bash
 npm install node-pty --force
 npm rebuild node-pty
@@ -111,45 +86,23 @@ npm rebuild node-pty
 
 ### 问题：找不到 `claude` 命令
 
-**原因**：Claude Code CLI 未安装或不在 PATH 中
+1. 按 [INSTALL.md](./INSTALL.md) 安装 Claude Code CLI。
+2. 确认 `claude --version` 可以在系统终端中正常执行。
 
-**解决**：
-1. 安装 Claude Code CLI：参考官方文档
-2. 确保 `claude` 命令在系统 PATH 中
+### 问题：API 配置修改后没有影响现有会话
 
-### 问题：API Key 无效
+运行中的会话不会热切换 API 配置。请新建会话，或重新连接对应会话后再验证新配置。
 
-**原因**：未配置或配置错误
+### 问题：手动配置文件后不生效
 
-**解决**：
-1. 方式 1：通过 UI 配置（推荐）
-   - 打开应用，点击右上角 ⚙ 图标
-   - 在 "API Profiles" 标签中添加或编辑配置
-
-2. 方式 2：手动编辑配置文件
-   - 位置：`%APPDATA%\claude-code-desktop\config.json` (Windows)
-   - 或：`~/.config/claude-code-desktop/config.json` (macOS/Linux)
-   - 配置格式：
-   ```json
-   {
-     "apiProfiles": [
-       {
-         "id": "generated-uuid",
-         "name": "Default API",
-         "authToken": "sk-ant-your-key-here",
-         "authType": "api_key",
-         "baseUrl": "https://api.anthropic.com",
-         "isDefault": true
-       }
-     ],
-     "defaultProfileId": "generated-uuid"
-   }
-   ```
+1. 检查配置文件路径是否是 `cc-desktop`，而不是旧的 `claude-code-desktop`。
+2. 检查 JSON 结构是否使用 `apiProfiles` 和 `defaultProfileId`。
+3. 修改后重新启动应用。
 
 ---
 
 ## 下一步
 
-- 📖 阅读 [架构文档](./ARCHITECTURE.md)
-- 🔧 查看 [开发指南](./DEVELOPMENT.md)
-- 🐛 报告问题：创建 GitHub Issue
+- 阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 了解整体架构
+- 阅读 [BUILD.md](./BUILD.md) 查看构建与打包流程
+- 阅读 [API-CONFIG-GUIDE.zh.md](./user-guide/API-CONFIG-GUIDE.zh.md) 了解 API Profile 结构

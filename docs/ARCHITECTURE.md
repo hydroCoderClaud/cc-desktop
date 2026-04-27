@@ -1,4 +1,4 @@
-# CC Desktop 架构总览
+# Hydro Desktop 架构总览
 
 > v1.7.54+ | 本文档是架构设计的入口，概述整体设计和模块关系，详细实现见各子文档。
 
@@ -6,9 +6,9 @@
 
 ## 设计理念
 
-> **Desktop = Claude Code CLI 的本地桌面宿主 + AI 工作台**
+> **Hydro Desktop = Claude Code CLI 的本地桌面宿主 + AI 工作台**
 
-CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本地桌面工作流、Agent 对话、Notebook 工作台和钉钉桥接能力。
+Hydro Desktop（仓库 / 包名仍为 `cc-desktop`）是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本地桌面工作流、Agent 对话、Notebook 工作台、桌面端定时任务和钉钉桥接能力。
 
 **核心原则**：
 - **单用户无认证** -- 无 JWT、无用户管理，所有数据纯本地
@@ -60,7 +60,7 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │ Vue 3 + Naive UI + xterm.js                      │   │
-│  │ 11 个独立 BrowserWindow 页面                      │   │
+│  │ 10 个独立 BrowserWindow 页面                      │   │
 │  │ 21 个 Composables                                │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
@@ -100,6 +100,17 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
   → 图片转发走 API（单聊 batchSend / 群聊 groupMessages）
 ```
 
+### 桌面定时任务
+
+```
+聊天中的定时任务草案 / 设置工作台编辑
+  → scheduled-task:* IPC
+  → ScheduledTaskService
+  → AgentSessionManager（执行任务）
+  → SQLite 记录任务定义 / 运行历史
+  → scheduled-task:changed 通知前端刷新
+```
+
 ---
 
 ## 模块地图
@@ -109,8 +120,8 @@ CC Desktop 是独立的 Electron 桌面应用，围绕 Claude Code CLI 提供本
 | 类别 | 文件数 | 关键模块 |
 |------|--------|---------|
 | 顶层模块 | 13 | index.js, config-manager.js, agent-session-manager.js, active-session-manager.js, session-database.js, update-manager.js |
-| IPC Handlers | 11 | agent, plugin, config, prompt, project, session, active-session, capability, update, dingtalk, queue |
-| Managers | 32 | capability, dingtalk-bridge, hooks, mcp, settings, agent-file, agent-query, skills/\*, agents/\* |
+| IPC Handlers | 12 | agent, plugin-domain, config, prompt, project, session, active-session, capability, notebook, update, dingtalk, scheduled-task/queue |
+| Managers | 32 | capability, dingtalk-bridge, scheduled-task-service, hooks, mcp, settings, agent-file, agent-query, notebook, skills/\*, agents/\* |
 | Plugin Runtime | 9 | plugin-runtime/PluginService, core/plugins, core/marketplaces, core/installed-registry, core/state-lock |
 | Database | 10 | project-db, session-db, message-db, agent-db, tag-db, prompt-db, prompt-market-db, favorite-db, queue-db |
 | Utils | 9 | env-builder, http-client, path-utils, constants, message-queue, ipc-utils |

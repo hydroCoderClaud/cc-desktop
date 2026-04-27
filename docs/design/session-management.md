@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the design for the session management feature in Claude Code Desktop. Based on our investigation, Claude Code stores conversation history in `~/.claude/projects/<project-path>/` directory as JSONL files.
+This document describes the design for the session management feature in Hydro Desktop. Based on our investigation, Claude Code stores conversation history in `~/.claude/projects/<project-path>/` directory as JSONL files.
 
 ## Data Source
 
@@ -85,7 +85,7 @@ We adopt a **hybrid mode** approach:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CC Desktop App                        │
+│                  Hydro Desktop App                       │
 ├─────────────────────────────────────────────────────────┤
 │  Terminal Session Manager    │  Session History Reader   │
 │  (Our Control)               │  (Read-Only)              │

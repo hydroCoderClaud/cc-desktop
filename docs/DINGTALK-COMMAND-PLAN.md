@@ -1,10 +1,12 @@
 # 钉钉远程命令系统计划
 
 > 历史预研/设计稿：本文创建于 2026-02-22。其部分思路已被当前钉钉桥接实现吸收，但**本文不是现行实现说明**；实际行为请以代码和 `docs/design/integrations.md` 为准。
+>
+> 当前实现只落地了 `/help`、`/status`、`/sessions`、`/new`、`/resume`、`/rename`、`/close`。文中的 `/config`、`/model`、`/restart`、`/export` 等仍停留在历史设想阶段。
 
 ## 一、目标
 
-在钉钉桥接中增加**命令拦截层**，以 `/` 前缀的消息作为系统命令处理，不进入 Agent 对话。实现通过钉钉远程管理 CC Desktop：查看状态、管理会话、切换配置等。
+在钉钉桥接中增加**命令拦截层**，以 `/` 前缀的消息作为系统命令处理，不进入 Agent 对话。实现通过钉钉远程管理 Hydro Desktop：查看状态、管理会话、切换配置等。
 
 ## 二、现状分析
 
@@ -88,7 +90,7 @@ if (typeof agentMessage === 'string' && agentMessage.startsWith('/')) {
 | `/config` | 查看当前 API 配置概要 | configManager |
 | `/config list` | 列出所有 API 配置 | configManager |
 | `/config switch <name>` | 切换默认 API 配置 | configManager |
-| `/model <tier>` | 切换模型级别（opus/sonnet/haiku） | configManager |
+| `/model <tier>` | 历史设想：切换模型级别（当前实现未落地） | configManager |
 | `/mcp list` | 列出 MCP 服务及状态 | capabilityManager |
 | `/skills list` | 列出已安装 Skills | pluginManager |
 | `/agents list` | 列出已安装 Agents | pluginManager |
@@ -178,7 +180,7 @@ _cmdHelp() {
   for (const [name, { desc }] of this._commands) {
     lines.push(`  /${name} — ${desc}`)
   }
-  lines.push('', '💬 不带 / 前缀的消息将发送给 AI 助手')
+  lines.push('', '💬 不带 / 前缀的消息将发送给当前 Agent 会话')
   return lines.join('\n')
 }
 ```

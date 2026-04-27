@@ -1,10 +1,10 @@
 # IPC 通道清单
 
-> CC Desktop v1.7.54+ | [← 返回架构文档](../ARCHITECTURE.md)
+> Hydro Desktop v1.7.54+ | [← 返回架构文档](../ARCHITECTURE.md)
 
 ## 概览
 
-- 当前清单按 Handler 模块与事件域整理，移除了已废弃的独立助手通道。
+- 当前清单按 Handler 模块与事件域整理，已移除废弃的独立助手与自定义模型通道。
 - 类型：`handle` = invoke 请求-响应 | `on` = 单向发送/同步 | `send` = main→renderer 推送
 
 ## 通道索引
@@ -67,11 +67,6 @@
 | api:deleteProfile | handle | 删除 Profile |
 | api:setDefault | handle | 设置默认 Profile |
 | api:getCurrentProfile | handle | 获取默认 Profile |
-| api:getCustomModels | handle | 获取自定义模型列表 |
-| api:updateCustomModels | handle | 批量更新自定义模型 |
-| api:addCustomModel | handle | 添加自定义模型 |
-| api:deleteCustomModel | handle | 删除自定义模型 |
-| api:updateCustomModel | handle | 更新自定义模型 |
 | api:fetchOfficialModels | handle | 拉取官方模型列表 |
 
 ### provider / quickCommands 域（config-handlers.js）
@@ -161,6 +156,17 @@
 | queue:delete | handle | 删除队列项 |
 | queue:clear | handle | 清空队列 |
 | queue:swap | handle | 交换队列项顺序 |
+
+### scheduled-task 域（scheduled-task-handlers.js）
+
+| 通道名 | 类型 | 简述 |
+|--------|------|------|
+| scheduled-task:list | handle | 获取全部定时任务 |
+| scheduled-task:create | handle | 创建定时任务 |
+| scheduled-task:update | handle | 更新定时任务 |
+| scheduled-task:delete | handle | 删除定时任务 |
+| scheduled-task:runNow | handle | 立即执行一次定时任务 |
+| scheduled-task:listRuns | handle | 获取定时任务运行历史 |
 
 ### terminal 域（ipc-handlers.js，旧版单终端）
 
@@ -522,6 +528,7 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | update-error | update-manager.js | 更新错误 |
 | update-need-redownload | update-manager.js | 需要重新下载 |
 | update-install-failed | update-manager.js | 安装失败 |
+| scheduled-task:changed | scheduled-task-service.js | 定时任务状态或运行记录变更 |
 | dingtalk:statusChange | dingtalk-bridge.js | 钉钉状态变更 |
 | dingtalk:error | dingtalk-bridge.js | 钉钉错误 |
 | dingtalk:messageReceived | dingtalk-bridge.js | 收到钉钉消息 |

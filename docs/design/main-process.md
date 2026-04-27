@@ -1,6 +1,6 @@
 # 主进程设计
 
-> CC Desktop v1.6.99 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
+> Hydro Desktop v1.7.54 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
 
 ---
 
@@ -21,11 +21,12 @@
 8. CapabilityManager        ← 能力市场
 9. UpdateManager            ← 自动更新
 10. DingTalkBridge          ← 钉钉桥接
-11. Notebook handlers/manager  ← Notebook 工作台相关后端能力
-12. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化
-13. powerSaveBlocker.start  ← 防止系统挂起
-14. scheduleUpdateCheck(5s) ← 延迟检查更新
-15. DingTalk.start (3s)     ← 延迟启动钉钉
+11. NotebookManager         ← Notebook 工作台后端能力
+12. ScheduledTaskService    ← 桌面端定时任务调度
+13. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化 + scheduledTaskService.start()
+14. powerSaveBlocker.start  ← 防止系统挂起
+15. scheduleUpdateCheck(5s) ← 延迟检查更新
+16. DingTalk.start (3s)     ← 延迟启动钉钉
 ```
 
 **关键文件**: `src/main/index.js`
@@ -34,6 +35,7 @@
 
 - `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于 CLI 会话 UUID 的跨模式占用检查
 - `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `ActiveSessionManager` 和 `AgentSessionManager`
+- `ScheduledTaskService` 在创建后先挂到 `agentSessionManager.scheduledTaskService`，再在 `setupIPCHandlers()` 内注入 `SessionDatabase` 并启动轮询
 - `CapabilityManager` 依赖 `PluginService`、`SkillsManager`、`AgentsManager`、`McpManager`，需在它们之后创建
 - `McpManager.configManager` 和 `McpManager.settingsManager` 通过属性注入（非构造函数参数）
 
@@ -89,7 +91,7 @@ ConfigManager (config-manager.js, 1056行)
 | 迁移 | 方法 | 说明 |
 |------|------|------|
 | 单 API → 多 Profile | `migrateToProfiles()` | 旧版单个 `apiConfig` 迁移到 `apiProfiles[]` |
-| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `serviceProvider/selectedModelTier` |
+| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `serviceProvider/selectedModelId`，并清理 `customModels` / `modelMapping` / `selectedModelTier` |
 | 字段重命名 | 内联代码 | `skillsMarket` → `market`、清理废弃的 `updateUrl` |
 
 ### API Profile 系统
@@ -103,25 +105,22 @@ ConfigManager (config-manager.js, 1056行)
   authToken: "sk-ant-...",
   authType: "api_key",       // 'api_key' | 'auth_token'
   baseUrl: "https://api.anthropic.com",
-  serviceProvider: "anthropic",
-  selectedModelTier: "sonnet", // 启动默认模型
-  modelMapping: {
-    opus: "claude-opus-4-6",
-    sonnet: "claude-sonnet-4-6",
-    haiku: "claude-haiku-4-5"
-  },
+  serviceProvider: "official",
+  selectedModelId: "claude-sonnet-4-6", // 启动默认模型 ID
   useProxy: false,
   httpsProxy: "",
-  requestTimeout: 0,
-  disableNonessentialTraffic: false
+  requestTimeout: 120000,
+  disableNonessentialTraffic: true
 }
 ```
 
 Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()` 完成，详见 [环境变量构建](#环境变量构建)。
 
+运行时还会通过 `buildRuntimeProfile()` 从 `serviceProviderDefinitions[].defaultModelMapping` 临时补全 `modelMapping`，仅用于填充 `ANTHROPIC_DEFAULT_*_MODEL`，不会回写到 Profile 配置本身。
+
 ### 服务商管理
 
-所有服务商均可编辑/删除，无"内置只读"概念。预设服务商定义在 `constants.js` 的 `BUILT_IN_SERVICE_PROVIDERS` 中，用户自定义服务商存储在 `config.serviceProviderDefinitions[]`。
+所有服务商均可编辑/删除，无"内置只读"概念。预设服务商定义在 `constants.js` 的 `SERVICE_PROVIDERS` 中，用户自定义服务商存储在 `config.serviceProviderDefinitions[]`。
 
 ---
 
@@ -278,13 +277,56 @@ Profile 字段到环境变量的映射：
 | `authToken` + `authType='api_key'` | `ANTHROPIC_API_KEY` |
 | `authToken` + `authType='auth_token'` | `ANTHROPIC_AUTH_TOKEN` |
 | `baseUrl` | `ANTHROPIC_BASE_URL` |
-| `selectedModelTier` | `ANTHROPIC_MODEL` |
-| `modelMapping.opus/sonnet/haiku` | `ANTHROPIC_DEFAULT_{TIER}_MODEL` |
+| `selectedModelId` | `ANTHROPIC_MODEL` |
+| `serviceProviderDefinitions[].defaultModelMapping.{tier}` | `ANTHROPIC_DEFAULT_{TIER}_MODEL` |
 | `useProxy` + `httpsProxy` | `HTTPS_PROXY` / `HTTP_PROXY` |
 | `requestTimeout` | `API_TIMEOUT_MS` |
 | `disableNonessentialTraffic` | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` |
 
 `buildStandardExtraVars()` 额外注入 `TERM=xterm-256color`、`SHELL`、`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`。
+
+---
+
+## 定时任务服务
+
+### ScheduledTaskService
+
+`ScheduledTaskService` 负责桌面端本地定时任务调度，构造时依赖 `ConfigManager` 和 `AgentSessionManager`，启动时再注入 `SessionDatabase`：
+
+```
+new ScheduledTaskService(configManager, agentSessionManager)
+  → setSessionDatabase(sessionDatabase)
+  → start()        // 30 秒轮询一次到期任务
+  → _executeTask() // 复用 AgentSessionManager 执行
+```
+
+### 支持的调度类型
+
+- `interval`
+- `daily`
+- `weekly`
+- `monthly`
+- `workdays`
+- `once`
+
+首次执行策略支持 `immediate`、`next_slot`、`custom`；其中 `once` 任务固定走 `custom` 时间。
+
+### IPC 接口
+
+当前通过 `scheduled-task-handlers.js` 暴露：
+
+- `scheduled-task:list`
+- `scheduled-task:create`
+- `scheduled-task:update`
+- `scheduled-task:delete`
+- `scheduled-task:runNow`
+- `scheduled-task:listRuns`
+
+状态变更后主进程会推送 `scheduled-task:changed`，供主窗口和设置工作台刷新。
+
+### 系统恢复处理
+
+系统从睡眠恢复后，主进程除了重连钉钉桥接，还会调用 `scheduledTaskService.onSystemResume()`，补做恢复后的到期任务检查。
 
 ---
 

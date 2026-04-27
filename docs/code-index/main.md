@@ -1,6 +1,6 @@
 # 主进程代码索引
 
-> CC Desktop v1.7.54+ | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
+> Hydro Desktop v1.7.54+ | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
 
 ## 概览
 
@@ -22,7 +22,7 @@
 - **行数**：331
 - **职责**：应用入口，创建 BrowserWindow，初始化所有 Manager，注册生命周期事件
 - **关键导出**：无（入口文件）
-- **关键逻辑**：`createWindow()` 创建主窗口、`cleanupAllSessions()` 统一清理、`app.whenReady()` 初始化 Manager 链、macOS `activate` 重建窗口、`powerSaveBlocker` 防挂起、`powerMonitor.on('resume')` 钉钉重连
+- **关键逻辑**：`createWindow()` 创建主窗口、`cleanupAllSessions()` 统一清理、`app.whenReady()` 初始化 Manager 链、`ScheduledTaskService` 注入与启动、macOS `activate` 重建窗口、`powerSaveBlocker` 防挂起、`powerMonitor.on('resume')` 处理钉钉与定时任务恢复
 - **架构上下文**：-> [应用生命周期](../design/main-process.md#应用生命周期)
 
 ### config-manager.js
@@ -97,7 +97,7 @@
 
 ### ipc-handlers.js
 - **行数**：662
-- **职责**：IPC 注册入口，初始化 SessionDatabase/SyncService/FileWatcher，注册所有 Handler 模块，并负责设置工作台 / Notebook 等独立窗口打开入口
+- **职责**：IPC 注册入口，初始化 SessionDatabase/SyncService/FileWatcher，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
 - **关键导出**：`setupIPCHandlers()`
 - **架构上下文**：-> [IPC 通信](../design/main-process.md#ipc-通信)
 
@@ -120,6 +120,7 @@
 | notebook-handlers.js | notebook: | 488 | list, create, bindSession, listSources, listAchievements, listTools, prepareGeneration, previewGeneration |
 | update-handlers.js | update: | 59 | checkForUpdates, downloadUpdate, quitAndInstall, getStatus |
 | dingtalk-handlers.js | dingtalk: | 55 | getStatus, start, stop, getConfig, saveConfig |
+| scheduled-task-handlers.js | scheduled-task: | 63 | list, create, update, delete, runNow, listRuns |
 | queue-handlers.js | queue: | 45 | getQueue, addToQueue, deleteItem, clearQueue |
 
 ---
@@ -139,6 +140,11 @@
 - **内部方法**：`_handleDingTalkMessage()`, `_ensureSession()`, `_sendCollectedImages()`, `_handleCommand()`, `_replyToDingTalk()`
 - **命令**：`/help`, `/new`, `/close`, `/resume`, `/rename`, `/status`, `/sessions`
 - **架构上下文**：-> [钉钉桥接](../design/integrations.md#钉钉桥接)
+
+### scheduled-task-service.js
+- **职责**：桌面端定时任务调度，负责任务定义、轮询执行、运行历史和系统恢复后的补偿检查
+- **关键方法**：`start()`, `stop()`, `listTasks()`, `createTask()`, `updateTask()`, `deleteTask()`, `runTaskNow()`, `getTaskRuns()`, `onSystemResume()`
+- **关键特性**：支持 `interval` / `daily` / `weekly` / `monthly` / `workdays` / `once`，并通过 `scheduled-task:changed` 通知前端刷新
 
 ### hooks-manager.js
 - **行数**：462

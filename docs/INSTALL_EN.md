@@ -1,4 +1,4 @@
-# CC Desktop Installation Guide
+# Hydro Desktop Installation Guide
 
 [← Back to README](../README.md)
 
@@ -95,11 +95,13 @@ node --version
 claude --version
 ```
 
-## 2. Install CC Desktop
+## 2. Install Hydro Desktop
 
 ### Option A: Release Download (Recommended)
 
 Download the installer for your platform from [latest Release](https://github.com/hydroCoderClaud/cc-desktop/releases/latest).
+
+> **Naming note**: Current installers, DMGs, and the macOS app bundle still use `CC Desktop` / `CC-Desktop` in their literal filenames. This is expected for the current build output.
 
 #### Windows
 
@@ -122,7 +124,7 @@ Download the installer for your platform from [latest Release](https://github.co
 - Optionally configures a proxy (recommended for users in China, default: `http://127.0.0.1:15236`)
 - Automatically detects Claude Code CLI; installs if missing
 - Provides detailed manual installation guidance on failure
-- Installs CC Desktop
+- Installs Hydro Desktop
 
 #### macOS Security Note
 
@@ -139,8 +141,8 @@ Or go to **System Settings → Privacy & Security**, find the blocked app messag
 To install without the script, download the installer directly (ensure prerequisites from Section 1 are installed):
 
 - **Windows**: `CC Desktop Setup *.exe`
-- **macOS (Apple Silicon)**: `*-darwin-arm64.dmg`
-- **macOS (Intel)**: `*-darwin-x64.dmg`
+- **macOS (Apple Silicon)**: `CC-Desktop-*-darwin-arm64.dmg`
+- **macOS (Intel)**: `CC-Desktop-*-darwin-x64.dmg`
 
 ### Option B: Build from Source (Developers)
 

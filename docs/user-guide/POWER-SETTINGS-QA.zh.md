@@ -2,7 +2,7 @@
 
 ## 问题描述
 
-CC Desktop 在屏幕关闭后，程序停止响应（如钉钉桥接断开、WebSocket 连接中断），直到屏幕重新点亮后才恢复。这会导致后台任务中断，无法实现无人值守的自动化场景。
+Hydro Desktop 在屏幕关闭后，程序停止响应（如钉钉桥接断开、WebSocket 连接中断），直到屏幕重新点亮后才恢复。这会导致后台任务中断，无法实现无人值守的自动化场景。
 
 ## 原因分析
 
@@ -72,11 +72,11 @@ powercfg /a
 | 屏幕 | 按设定时间自动关闭 |
 | 系统 | 保持完全运行 |
 | 网络连接 | 保持活跃 |
-| CC Desktop | 持续响应（钉钉桥接、Agent 会话等正常工作） |
+| Hydro Desktop | 持续响应（钉钉桥接、Agent 会话等正常工作） |
 
-## CC Desktop 内置保护
+## Hydro Desktop 内置保护
 
-CC Desktop 已内置以下机制（无需用户操作）：
+Hydro Desktop 已内置以下机制（无需用户操作）：
 
 - **`powerSaveBlocker`**：告知系统不要挂起本进程
-- **`powerMonitor.on('resume')`**：系统从睡眠恢复后，自动重连钉钉桥接
+- **`powerMonitor.on('resume')`**：系统从睡眠恢复后，自动重连钉钉桥接，并立即补查到期的定时任务

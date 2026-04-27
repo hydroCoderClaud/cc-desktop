@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 项目概述
 
-Claude Code Desktop 是独立的 Electron 桌面应用，作为 Claude Code CLI 的本地桌面宿主，当前包含：
+Hydro Desktop（仓库名仍为 `cc-desktop`）是独立的 Electron 桌面应用，作为 Claude Code CLI 的本地桌面宿主，当前包含：
 - **Developer 模式**：项目/终端/配置管理
 - **Agent 模式**：对话式 Agent 工作流
 - **Notebook 模式**：专业工作台（实验性，默认开放）
@@ -141,7 +141,7 @@ npm run rebuild:sqlite
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cc-desktop** (2338 symbols, 6991 relationships, 180 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cc-desktop** (2344 symbols, 6994 relationships, 180 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

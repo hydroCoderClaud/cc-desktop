@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> CC Desktop v1.7.35+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> Hydro Desktop v1.7.54+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
@@ -27,7 +27,7 @@
 | profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
 | global-settings | 全局设置（语言/路径/CLI 配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
-| settings-workbench | 能力设置工作台（目录上下文来源整理） | 主窗口与 Notebook 工具入口 |
+| settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理） | 主窗口与 Notebook 工具入口 |
 | update-manager | 更新管理（下载进度/安装控制） | 发现新版本时自动打开 |
 
 窗口通过 `window.electronAPI.openXxxManager()` → IPC `window:openXxxManager` 打开，主进程保证单例（同一窗口不重复创建）。独立窗口间通过 **设置广播机制** 同步状态（详见 [跨窗口广播](#跨窗口广播机制)）。
@@ -194,7 +194,7 @@ const currentModeTabs = computed(() =>
 - `Ctrl+Enter` / `Shift+Enter` 发送
 - 图片粘贴 / 文件拖放 → base64 预览缩略图
 - `/` 触发 capability 快捷列表（skill/agent/plugin 调用）
-- 模型切换下拉（sonnet/opus/haiku），实时通过 `setAgentModel` IPC 同步
+- 模型切换下拉（候选项来自当前服务商 `defaultModels` 与 Profile 的 `selectedModelId`），实时通过 `setAgentModel` IPC 同步
 - Token 计数显示、历史消息上下翻
 
 #### StreamingIndicator (131 行)

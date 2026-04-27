@@ -1,4 +1,4 @@
-# CC Desktop 安装指南
+# Hydro Desktop 安装指南
 
 [← 返回 README](../README.md)
 
@@ -95,11 +95,13 @@ node --version
 claude --version
 ```
 
-## 二、安装 CC Desktop
+## 二、安装 Hydro Desktop
 
 ### 方式 A：Release 版本安装（推荐）
 
 从 [最新版本 Release](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 下载对应平台安装包。
+
+> **命名说明**：当前安装包、DMG、应用 bundle 仍沿用 `CC Desktop` / `CC-Desktop` 作为实际文件名，这是当前打包产物的正常现状。
 
 #### Windows
 
@@ -122,7 +124,7 @@ claude --version
 - 可选配置代理（国内用户推荐，默认 `http://127.0.0.1:15236`）
 - 自动检测 Claude Code CLI，未安装时自动安装
 - 安装失败时提供详细的手动安装指引
-- 自动安装 CC Desktop
+- 自动安装 Hydro Desktop
 
 #### macOS 安全提示
 
@@ -139,8 +141,8 @@ xattr -cr /Applications/CC\ Desktop.app
 如果不使用安装脚本，可直接下载对应安装包双击安装（需提前完成第一节的环境依赖安装）：
 
 - **Windows**：`CC Desktop Setup *.exe`
-- **macOS (Apple Silicon)**：`*-darwin-arm64.dmg`
-- **macOS (Intel)**：`*-darwin-x64.dmg`
+- **macOS (Apple Silicon)**：`CC-Desktop-*-darwin-arm64.dmg`
+- **macOS (Intel)**：`CC-Desktop-*-darwin-x64.dmg`
 
 ### 方式 B：源码编译安装（开发者）
 

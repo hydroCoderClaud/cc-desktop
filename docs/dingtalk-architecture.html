@@ -219,7 +219,7 @@
 <body>
 
 <h1>钉钉接入 Agent 模式 · 架构图</h1>
-<p class="subtitle">手机钉钉 ↔ 钉钉云 ↔ CC Desktop（本地） ↔ Claude API</p>
+<p class="subtitle">手机钉钉 ↔ 钉钉云 ↔ Hydro Desktop（本地） ↔ Claude API</p>
 
 <div class="diagram">
 
@@ -283,9 +283,9 @@
     </div>
   </div>
 
-  <!-- CC Desktop -->
+  <!-- Hydro Desktop -->
   <div class="box desktop-zone">
-    <div class="zone-title">🖥️ CC Desktop（本地运行）</div>
+    <div class="zone-title">🖥️ Hydro Desktop（本地运行）</div>
     <div class="desktop-inner">
 
       <div class="component new-module full-width">
@@ -347,7 +347,7 @@
     <div class="flow-step">
       <div class="step-num">2</div>
       <div class="step-title">钉钉云推送</div>
-      <div class="step-desc">通过 WebSocket 将消息推送到 CC Desktop 的 DingTalk Bridge</div>
+      <div class="step-desc">通过 WebSocket 将消息推送到 Hydro Desktop 的 DingTalk Bridge</div>
     </div>
     <div class="flow-step">
       <div class="step-num">3</div>
@@ -390,9 +390,9 @@
     <li><strong>零公网依赖</strong>：Stream 模式由本地主动建立 WebSocket 连接到钉钉云，不需要公网 IP、域名、内网穿透</li>
     <li><strong>复用现有架构</strong>：核心对话逻辑完全复用 AgentSessionManager + Claude SDK，DingTalk Bridge 只是新的 "入口"</li>
     <li><strong>新增模块约 200-300 行</strong>：DingTalk Bridge + 会话映射 + 消息适配，符合项目小模块原则</li>
-    <li><strong>配置项</strong>：在 CC Desktop 设置中添加钉钉 AppKey / AppSecret / 开关，用户可随时启停</li>
+    <li><strong>配置项</strong>：在 Hydro Desktop 设置中添加钉钉 AppKey / AppSecret / 开关，用户可随时启停</li>
     <li><strong>前提条件</strong>：需要在钉钉开发者后台创建企业内部应用（免费），获取 AppKey + AppSecret</li>
-    <li><strong>局限</strong>：CC Desktop 必须保持运行；流式输出无法实时推送（钉钉不支持），只能攒完后一次发送</li>
+    <li><strong>局限</strong>：Hydro Desktop 必须保持运行；流式输出无法实时推送（钉钉不支持），只能攒完后一次发送</li>
   </ul>
 </div>
 

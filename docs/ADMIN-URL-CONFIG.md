@@ -1,6 +1,6 @@
 # 管理员维护手册 — 源地址配置
 
-CC Desktop 有 4 个关键源地址通过配置文件管理，**不在 UI 中暴露**（防止用户误改导致功能失效）。
+Hydro Desktop 有 5 个关键源地址通过配置文件管理，**不在 UI 中暴露**（防止用户误改导致功能失效）。
 
 ## 配置文件位置
 
@@ -9,7 +9,7 @@ CC Desktop 有 4 个关键源地址通过配置文件管理，**不在 UI 中暴
 | **Windows** | `%APPDATA%\cc-desktop\config.json` |
 | **macOS** | `~/.config/cc-desktop/config.json` |
 
-## 4 个源地址一览
+## 5 个源地址一览
 
 ### 1. 组件市场 — 主地址
 
