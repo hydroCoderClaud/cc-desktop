@@ -74,7 +74,14 @@ AgentSessionManager.sendMessage()
 | `weixin_notify_list_targets` | 列出已绑定且可通知的微信目标 |
 | `weixin_notify_send` | 向已绑定目标发送一条微信文本通知 |
 
-微信通知工具只支持已捕获目标：用户需要先扫码授权，并至少给 bot 发过一次消息，Hydro Desktop 才能保存 `targetId/accountId/contextToken` 并在后续定时任务中主动发送通知。该能力不依赖 OpenClaw 包，不读取个人微信通讯录，也不承诺给任意微信好友代发。
+微信通知工具只支持已捕获目标：用户需要先扫码授权，并至少给 bot 发过一次消息，Hydro Desktop 才能保存 `targetId/accountId/contextToken` 并在后续聊天或定时任务中主动发送通知。该能力不读取个人微信通讯录，也不承诺给任意微信好友代发。
+
+当前 MCP 工具面向聊天发送做了第一步优化：
+
+- `weixin_notify_list_targets` 返回 `targetKey`、`displayLabel`、`aliases`、`sendable`，让 LLM 优先使用稳定的 `targetKey` 发送。
+- 当目标备注名唯一时，`targetKey` 使用备注名；当备注名重复时，`targetKey` 退回完整目标 `id`，避免误发。
+- `weixin_notify_send` 支持 `targetKey`，同时兼容旧的 `targetId/displayName`。
+- 发送结果返回 `recipient`，用于聊天窗口向用户展示“发给了谁”和 `messageId`。
 
 ---
 
@@ -124,8 +131,9 @@ AgentSessionManager.sendMessage()
 目标：用户收到通知后可以回发消息，Hydro Desktop 能在桌面端显示。
 
 - 后台持续长轮询微信入站消息。
-- 将回信写入通知记录或任务回执记录。
-- 桌面端显示通知和对应任务上下文。
+- 如果回信对应某次桌面主动发送的通知，将回信写入该通知所属 Agent 会话，显示在发送通知的聊天窗口内。
+- 如果桌面端没有主动发过通知，但捕获到已绑定微信目标的新消息，可以创建一个新的 `source === 'weixin'` 会话并显示入站消息。
+- 会话标题应优先使用微信目标备注名，并保留 `accountId/targetId` 映射用于后续回复。
 - 默认不触发 AI 自动回复。
 
 ### 阶段 3：回信触发 Agent
@@ -133,6 +141,7 @@ AgentSessionManager.sendMessage()
 目标：允许微信回信继续驱动指定 Agent 会话。
 
 - 建立微信目标与 Agent 会话/定时任务的映射。
+- 对“通知回执继续同一会话”和“无上下文新建会话”分别建模，不复用钉钉 webhook 语义。
 - 同一目标消息串行处理，避免并发竞态。
 - 加入权限、防骚扰、频率限制和审计。
 - 明确区分“通知通道”和“外部 IM 会话桥接”。

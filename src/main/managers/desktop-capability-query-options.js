@@ -52,11 +52,12 @@ const WEIXIN_NOTIFY_ALLOWED_TOOLS = WEIXIN_NOTIFY_TOOL_NAMES.map(
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
   'You can send Weixin notification messages through Hydro Desktop when the user explicitly asks to notify someone or when a scheduled task needs to report its result.',
-  'Use weixin_notify_list_targets before sending unless the user already provided an exact target name, targetId, and accountId.',
-  'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient.',
+  'Use weixin_notify_list_targets before sending unless the user already provided an exact targetKey from a previous weixin_notify_list_targets response.',
+  'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient, but send with targetKey when it is available.',
+  'If a recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
   'Use weixin_notify_send only for short notification text to an already bound Weixin target.',
   'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to targets that have already been captured by the Weixin notification channel.',
-  'After sending, report the targetId and messageId returned by the tool.'
+  'After sending, report the recipient displayName and messageId returned by the tool.'
 ].join(' ')
 
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
@@ -227,6 +228,59 @@ function buildToolResult(payload) {
       type: 'text',
       text: JSON.stringify(payload, null, 2)
     }]
+  }
+}
+
+function countBy(items, getKey) {
+  const counts = new Map()
+  for (const item of items) {
+    const key = String(getKey(item) || '').trim()
+    if (!key) continue
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  return counts
+}
+
+function serializeWeixinTargetForTool(target, displayNameCounts = new Map()) {
+  const displayName = target.displayName || target.userId || target.id
+  const displayNameIsUnique = displayNameCounts.get(displayName) === 1
+  const targetKey = displayNameIsUnique ? displayName : target.id
+  return {
+    id: target.id,
+    targetKey,
+    displayLabel: displayNameIsUnique
+      ? displayName
+      : `${displayName} (${target.accountId})`,
+    accountId: target.accountId,
+    userId: target.userId,
+    displayName,
+    aliases: [
+      targetKey,
+      displayName,
+      target.id,
+      target.userId
+    ].filter(Boolean),
+    sendable: Boolean(target.hasContextToken),
+    hasContextToken: Boolean(target.hasContextToken),
+    lastSeenAt: target.lastSeenAt || null,
+    lastSentAt: target.lastSentAt || null,
+    lastInboundText: target.lastInboundText || '',
+    contextExpiredAt: target.contextExpiredAt || null,
+    lastError: target.lastError || null
+  }
+}
+
+function serializeWeixinTargetsForTool(targets) {
+  const targetList = Array.isArray(targets) ? targets : []
+  const displayNameCounts = countBy(targetList, target => target.displayName || target.userId || target.id)
+  return targetList.map(target => serializeWeixinTargetForTool(target, displayNameCounts))
+}
+
+function buildWeixinSendArgs(args = {}) {
+  return {
+    accountId: args.accountId || undefined,
+    targetId: args.targetKey || args.targetId || args.displayName,
+    text: args.text
   }
 }
 
@@ -500,28 +554,41 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
         const targets = typeof weixinNotifyService.listTargets === 'function'
           ? weixinNotifyService.listTargets()
           : []
+        const serializedTargets = serializeWeixinTargetsForTool(targets)
 
         return buildToolResult({
           action: 'weixin_notify_list_targets',
           accountCount: Array.isArray(accounts) ? accounts.length : 0,
-          targetCount: Array.isArray(targets) ? targets.length : 0,
+          targetCount: serializedTargets.length,
           accounts,
-          targets
+          targets: serializedTargets,
+          usage: {
+            sendWith: 'Use targetKey as weixin_notify_send.targetKey. If sendable is false, ask the user to have the recipient message the bot and capture latest messages first.'
+          }
         })
       }
     ),
     tool(
       WEIXIN_NOTIFY_TOOL_NAMES[1],
-      '通过 Hydro Desktop 微信通知通道发送一条文本通知。仅支持已绑定且已有 contextToken 的目标。',
+      '通过 Hydro Desktop 微信通知通道发送一条文本通知。仅支持 weixin_notify_list_targets 返回且 sendable=true 的目标。',
       {
-        targetId: z.string().min(1).describe('微信通知目标，可使用 list_targets 返回的 displayName、id 或 userId。'),
+        targetKey: z.string().min(1).optional().describe('推荐使用 weixin_notify_list_targets 返回的 targetKey。'),
+        targetId: z.string().min(1).optional().describe('兼容字段：可使用 list_targets 返回的 id、displayName 或 userId。'),
+        displayName: z.string().min(1).optional().describe('兼容字段：目标备注名；若同名目标不唯一，需要同时提供 accountId。'),
         accountId: z.string().min(1).optional().describe('发送账号 ID；多账号时必须提供。'),
         text: z.string().min(1).max(4000).describe('要发送的通知文本。')
       },
       async (args) => {
-        const result = await weixinNotifyService.sendText(args)
+        const sendArgs = buildWeixinSendArgs(args)
+        if (!sendArgs.targetId) {
+          throw new Error('必须提供 targetKey、targetId 或 displayName')
+        }
+        const result = await weixinNotifyService.sendText(sendArgs)
         return buildToolResult({
           action: 'weixin_notify_send',
+          recipient: result.target
+            ? serializeWeixinTargetForTool(result.target, new Map([[result.target.displayName || result.target.userId || result.target.id, 1]]))
+            : null,
           result
         })
       }

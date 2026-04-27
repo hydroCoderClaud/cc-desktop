@@ -96,7 +96,7 @@ describe('desktop capability query options', () => {
     return { options, tools, scheduledTaskService, task }
   }
 
-  async function createOptionsWithWeixin({ session = { source: 'manual' } } = {}) {
+  async function createOptionsWithWeixin({ session = { source: 'manual' }, serviceOverrides = {} } = {}) {
     const weixinNotifyService = {
       listAccounts: vi.fn(() => [{ accountId: 'bot@im.bot', hasToken: true }]),
       listTargets: vi.fn(() => [{
@@ -109,8 +109,15 @@ describe('desktop capability query options', () => {
       sendText: vi.fn(async input => ({
         success: true,
         messageId: 'msg-1',
-        target: { id: input.targetId }
-      }))
+        target: {
+          id: 'bot@im.bot:target@im.wechat',
+          accountId: input.accountId,
+          userId: 'target@im.wechat',
+          displayName: '张三',
+          hasContextToken: true
+        }
+      })),
+      ...serviceOverrides
     }
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService: session.source === 'scheduled' ? null : {
@@ -285,12 +292,21 @@ describe('desktop capability query options', () => {
     expect(listPayload.targets[0]).toMatchObject({
       userId: 'target@im.wechat',
       displayName: '张三',
+      targetKey: '张三',
+      displayLabel: '张三',
+      sendable: true,
       hasContextToken: true
     })
+    expect(listPayload.targets[0].aliases).toEqual(expect.arrayContaining([
+      '张三',
+      'bot@im.bot:target@im.wechat',
+      'target@im.wechat'
+    ]))
+    expect(listPayload.usage.sendWith).toContain('targetKey')
 
     const sendPayload = parseToolPayload(await tools.weixin_notify_send.handler({
       accountId: 'bot@im.bot',
-      targetId: '张三',
+      targetKey: '张三',
       text: 'hello'
     }))
     expect(weixinNotifyService.sendText).toHaveBeenCalledWith({
@@ -298,9 +314,40 @@ describe('desktop capability query options', () => {
       targetId: '张三',
       text: 'hello'
     })
+    expect(sendPayload.recipient).toMatchObject({
+      displayName: '张三',
+      targetKey: '张三',
+      sendable: true
+    })
     expect(sendPayload.result).toMatchObject({
       success: true,
       messageId: 'msg-1'
+    })
+  })
+
+  it('uses full target id as targetKey when display names are ambiguous', async () => {
+    const { tools } = await createOptionsWithWeixin({
+      serviceOverrides: {
+        listTargets: vi.fn(() => [{
+          id: 'bot-a@im.bot:target@im.wechat',
+          accountId: 'bot-a@im.bot',
+          userId: 'target@im.wechat',
+          displayName: '张三',
+          hasContextToken: true
+        }, {
+          id: 'bot-b@im.bot:target@im.wechat',
+          accountId: 'bot-b@im.bot',
+          userId: 'target@im.wechat',
+          displayName: '张三',
+          hasContextToken: true
+        }])
+      }
+    })
+
+    const payload = parseToolPayload(await tools.weixin_notify_list_targets.handler())
+    expect(payload.targets[0]).toMatchObject({
+      targetKey: 'bot-a@im.bot:target@im.wechat',
+      displayLabel: '张三 (bot-a@im.bot)'
     })
   })
 
