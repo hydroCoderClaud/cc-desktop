@@ -1,6 +1,6 @@
 {
   "name": "cc-desktop",
-  "version": "1.7.53",
+  "version": "1.7.54",
   "description": "Hydro Desktop - 水利AI智能体桌面程序",
   "main": "src/main/index.js",
   "author": "HydroCoder",
