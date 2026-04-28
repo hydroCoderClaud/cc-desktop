@@ -116,6 +116,8 @@
       :slash-commands-supported="true"
       :enable-slash-commands="hasActiveSession"
       :model-options="modelOptions"
+      :session-id="props.sessionId"
+      :session-type="'chat'"
       v-model:model-value="selectedModel"
       @send="handleInputSend"
       @input-change="handleInputChange"
@@ -240,6 +242,7 @@ const {
   cancelInteraction,
   syncActiveSessionState,
   setupStreamListeners,
+  setupWeixinListeners,
   initDefaultModel,
   isInterrupting
 } = useAgentChat(props.sessionId, {
@@ -506,6 +509,7 @@ onMounted(async () => {
   await loadQueueSetting()
   await loadApiProfiles()
   await loadMessages()
+  setupWeixinListeners()
   await syncActiveSessionState()
   document.addEventListener('click', onApiSwitcherClickOutside, true)
   window.addEventListener('resize', onWindowResize)
