@@ -16,6 +16,7 @@ class WeixinBridge {
     this.knownTargets = new Map()
     this.sessionTargets = new Map()
     this.pendingReplies = new Map()
+    this.replySendQueues = new Map()
     this.desktopPendingBlocks = new Map()
     this._unbindMessage = null
     this._unbindSent = null
@@ -47,6 +48,7 @@ class WeixinBridge {
     }
     this._unbindAgentEvents()
     this.pendingReplies.clear()
+    this.replySendQueues.clear()
     this.desktopPendingBlocks.clear()
   }
 
@@ -142,14 +144,48 @@ class WeixinBridge {
     const target = this.sessionTargets.get(sessionId)
     if (!target) return
 
-    const pending = this.pendingReplies.get(sessionId) || { textChunks: [] }
-    this._collectTextChunks(pending, message)
+    const text = this._extractTextFromMessage(message)
+    if (text) {
+      this._queueAgentTextReply(sessionId, target, text)
+    }
+
+    const pending = this.pendingReplies.get(sessionId) || { imagePaths: new Set() }
     this._collectImagePaths(pending, message)
-    if (pending.textChunks.length > 0) {
-      this.pendingReplies.set(sessionId, pending)
-    } else if (pending.imagePaths?.size > 0) {
+    if (pending.imagePaths?.size > 0) {
       this.pendingReplies.set(sessionId, pending)
     }
+  }
+
+  _extractTextFromMessage(message) {
+    const blocks = Array.isArray(message?.content) ? message.content : []
+    const textParts = blocks
+      .filter(block => block?.type === 'text' && block.text)
+      .map(block => block.text)
+
+    return textParts.join('\n\n').trim()
+  }
+
+  _queueAgentTextReply(sessionId, target, text) {
+    const previous = this.replySendQueues.get(sessionId) || Promise.resolve()
+    const next = previous
+      .catch(() => {})
+      .then(() => this.weixinNotifyService.sendText({
+        accountId: target.accountId,
+        targetId: target.targetId,
+        text,
+        sessionId
+      }))
+      .catch(err => {
+        console.error('[WeixinBridge] Immediate agent reply failed:', err.message)
+      })
+      .finally(() => {
+        if (this.replySendQueues.get(sessionId) === next) {
+          this.replySendQueues.delete(sessionId)
+        }
+      })
+
+    this.replySendQueues.set(sessionId, next)
+    return next
   }
 
   _collectTextChunks(pending, message) {
@@ -181,26 +217,23 @@ class WeixinBridge {
     const pending = this.pendingReplies.get(sessionId)
     this.pendingReplies.delete(sessionId)
 
-    const text = pending?.textChunks?.join('\n\n').trim() || ''
     const imagePaths = [...(pending?.imagePaths || [])]
-    if (!target || (!text && imagePaths.length === 0)) return null
+    if (!target || imagePaths.length === 0) return null
+
+    const pendingTextSend = this.replySendQueues.get(sessionId)
+    if (pendingTextSend) {
+      await pendingTextSend.catch(() => {})
+    }
 
     if (imagePaths.length > 0 && this.weixinNotifyService.sendImages) {
       return this.weixinNotifyService.sendImages({
         accountId: target.accountId,
         targetId: target.targetId,
-        text,
+        text: '',
         imagePaths,
         sessionId
       })
     }
-
-    return this.weixinNotifyService.sendText({
-      accountId: target.accountId,
-      targetId: target.targetId,
-      text,
-      sessionId
-    })
   }
 
   _recordDesktopIntervention(sessionId, userInput, inputImages = null) {

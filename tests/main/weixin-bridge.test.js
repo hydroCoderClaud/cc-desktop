@@ -283,7 +283,7 @@ describe('WeixinBridge', () => {
     })
   })
 
-  it('forwards assistant replies back to Weixin after inbound message activates the target', async () => {
+  it('forwards assistant replies back to Weixin immediately after inbound message activates the target', async () => {
     const { bridge, manager, events } = createHarness()
     stubSendMessage(manager)
     const session = manager.create({ type: 'chat', source: 'manual', title: '原会话' })
@@ -300,8 +300,7 @@ describe('WeixinBridge', () => {
       type: 'assistant',
       content: [{ type: 'text', text: '收到，我稍后联系你。' }]
     })
-    manager.emit('agentResult', session.id)
-    await Promise.resolve()
+    await bridge.replySendQueues.get(session.id)
 
     expect(bridge.weixinNotifyService.sendText).toHaveBeenCalledWith({
       accountId: 'acc-1',
@@ -309,6 +308,10 @@ describe('WeixinBridge', () => {
       text: '收到，我稍后联系你。',
       sessionId: session.id
     })
+    bridge.weixinNotifyService.sendText.mockClear()
+    manager.emit('agentResult', session.id)
+    await Promise.resolve()
+    expect(bridge.weixinNotifyService.sendText).not.toHaveBeenCalled()
   })
 
   it('forwards assistant image paths back to Weixin after inbound message activates the target', async () => {
@@ -327,12 +330,19 @@ describe('WeixinBridge', () => {
       ]
     })
     manager.emit('agentResult', session.id)
+    await bridge.replySendQueues.get(session.id)
     await Promise.resolve()
 
-    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+    expect(bridge.weixinNotifyService.sendText).toHaveBeenCalledWith({
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
       text: '图片生成好了。',
+      sessionId: session.id
+    })
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: '',
       imagePaths: [imagePath],
       sessionId: session.id
     })

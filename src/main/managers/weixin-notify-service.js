@@ -14,7 +14,11 @@ const QR_LOGIN_TTL_MS = 5 * 60 * 1000
 const QR_POLL_TIMEOUT_MS = 35 * 1000
 const API_TIMEOUT_MS = 15 * 1000
 const UPDATES_TIMEOUT_MS = 45 * 1000
-const BACKGROUND_POLL_INTERVAL_MS = 1000
+const BACKGROUND_POLL_INTERVAL_MS = 1500
+const BACKGROUND_FAST_POLL_INTERVAL_MS = 500
+const BACKGROUND_POLL_TIMEOUT_MS = 5000
+const BACKGROUND_FAST_POLL_TIMEOUT_MS = 2000
+const FAST_POLL_WINDOW_MS = 60 * 1000
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024
 const PRE_CAPTURE_WELCOME_TEXT = '您已经绑定HydroDesktop，可以随时接收和发送信息给后台大模型。'
 const MESSAGE_ITEM_TYPE = {
@@ -195,6 +199,10 @@ function publicSendResponse(response) {
   }
 }
 
+function isAbortError(err) {
+  return err?.name === 'AbortError' || err?.message === 'This operation was aborted'
+}
+
 class WeixinNotifyService {
   constructor(configManager, options = {}) {
     this.configManager = configManager
@@ -204,14 +212,20 @@ class WeixinNotifyService {
     this.state = this._loadState()
     this.events = new EventEmitter()
     this.preCaptureAccountIds = new Set()
-    this.pollQueue = Promise.resolve()
+    this.accountPollQueues = new Map()
     this.backgroundTimer = null
     this.backgroundStopped = true
     this.backgroundPollIntervalMs = Math.max(Number(options.backgroundPollIntervalMs) || BACKGROUND_POLL_INTERVAL_MS, 100)
+    this.backgroundFastPollIntervalMs = Math.max(Number(options.backgroundFastPollIntervalMs) || BACKGROUND_FAST_POLL_INTERVAL_MS, 100)
     this.backgroundPollTimeoutMs = Math.min(
-      Math.max(Number(options.backgroundPollTimeoutMs) || UPDATES_TIMEOUT_MS, 1000),
+      Math.max(Number(options.backgroundPollTimeoutMs) || BACKGROUND_POLL_TIMEOUT_MS, 1000),
       UPDATES_TIMEOUT_MS
     )
+    this.backgroundFastPollTimeoutMs = Math.min(
+      Math.max(Number(options.backgroundFastPollTimeoutMs) || BACKGROUND_FAST_POLL_TIMEOUT_MS, 1000),
+      UPDATES_TIMEOUT_MS
+    )
+    this.fastPollUntilMs = 0
   }
 
   start() {
@@ -358,6 +372,7 @@ class WeixinNotifyService {
         }
         this._upsertAccount(account)
         this.preCaptureAccountIds.add(account.accountId)
+        this._activateFastPolling()
         this._saveState()
         return {
           connected: true,
@@ -371,84 +386,115 @@ class WeixinNotifyService {
   }
 
   async pollOnce({ accountId, timeoutMs, emitInbound = true } = {}) {
-    const run = () => this._pollOnceUnlocked({ accountId, timeoutMs, emitInbound })
-    this.pollQueue = this.pollQueue.then(run, run)
-    return this.pollQueue
+    return this._pollOnceUnlocked({ accountId, timeoutMs, emitInbound })
   }
 
   async _pollOnceUnlocked({ accountId, timeoutMs, emitInbound = true } = {}) {
     const accounts = accountId ? [this._requireAccount(accountId)] : this.state.accounts
-    const messages = []
-    const inboundMessages = []
-    const targets = []
     const pollTimeoutMs = Math.min(
       Math.max(Number(timeoutMs) || UPDATES_TIMEOUT_MS, 1000),
       UPDATES_TIMEOUT_MS
     )
+    const results = await Promise.all(accounts.map(account => this._queueAccountPoll(
+      account.accountId,
+      () => this._pollAccountOnce(account, pollTimeoutMs)
+    )))
+    const messages = results.flatMap(result => result.messages)
+    const inboundMessages = results.flatMap(result => result.inboundMessages)
+    const targets = results.flatMap(result => result.targets)
 
-    for (const account of accounts) {
-      const preCapturing = this.preCaptureAccountIds.has(account.accountId)
-      let capturedForPreCapture = false
-      const response = await this._apiPost(account.baseUrl, 'ilink/bot/getupdates', account.token, {
-        get_updates_buf: account.cursor || '',
-        base_info: { channel_version: CHANNEL_VERSION }
-      }, pollTimeoutMs)
-      assertWeixinResponseOk(response, 'getupdates')
-
-      if (response.get_updates_buf) {
-        account.cursor = response.get_updates_buf
-      }
-
-      for (const message of response.msgs || []) {
-        if (!message?.from_user_id) continue
-        const text = getTextFromMessage(message)
-        const images = await this._downloadImagesFromMessage(account, message)
-        if (!text && images.length === 0 && !message.context_token) continue
-        const target = this._upsertTarget({
-          accountId: account.accountId,
-          accountUserId: account.userId || null,
-          userId: message.from_user_id,
-          contextToken: message.context_token || null,
-          targetSource: account.userId && account.userId === message.from_user_id ? 'authorized_user' : 'inbound_context',
-          lastInboundText: text,
-          lastSeenAt: Date.now(),
-          contextExpiredAt: null,
-          lastError: null
-        })
-        const publicMessageTarget = publicTarget(target)
-        targets.push(publicMessageTarget)
-        const normalizedMessage = {
-          accountId: account.accountId,
-          targetId: target.id,
-          from: message.from_user_id,
-          text,
-          images,
-          hasContextToken: Boolean(message.context_token),
-          contextToken: message.context_token || null,
-          createTimeMs: message.create_time_ms || null,
-          target: publicMessageTarget
-        }
-        messages.push(normalizedMessage)
-        if (preCapturing) {
-          capturedForPreCapture = true
-          if (target.contextToken) {
-            await this._sendPreCaptureWelcome(account, target)
-          }
-        } else {
-          inboundMessages.push(normalizedMessage)
-        }
-      }
-      if (capturedForPreCapture) {
-        this.preCaptureAccountIds.delete(account.accountId)
-      }
-    }
-
-    this._saveState()
     const result = { messages, targets }
     if (emitInbound) {
       this._emitInboundMessages(inboundMessages)
     }
     return result
+  }
+
+  _queueAccountPoll(accountId, run) {
+    const previous = this.accountPollQueues.get(accountId) || Promise.resolve()
+    const next = previous
+      .catch(() => {})
+      .then(run)
+      .finally(() => {
+        if (this.accountPollQueues.get(accountId) === next) {
+          this.accountPollQueues.delete(accountId)
+        }
+      })
+    this.accountPollQueues.set(accountId, next)
+    return next
+  }
+
+  async _pollAccountOnce(account, pollTimeoutMs) {
+    const messages = []
+    const inboundMessages = []
+    const targets = []
+    const preCapturing = this.preCaptureAccountIds.has(account.accountId)
+    let capturedForPreCapture = false
+    let response
+    try {
+      response = await this._apiPost(account.baseUrl, 'ilink/bot/getupdates', account.token, {
+        get_updates_buf: account.cursor || '',
+        base_info: { channel_version: CHANNEL_VERSION }
+      }, pollTimeoutMs)
+    } catch (err) {
+      if (isAbortError(err)) {
+        return { messages, inboundMessages, targets }
+      }
+      throw err
+    }
+    assertWeixinResponseOk(response, 'getupdates')
+
+    if (response.get_updates_buf) {
+      account.cursor = response.get_updates_buf
+    }
+
+    for (const message of response.msgs || []) {
+      if (!message?.from_user_id) continue
+      const text = getTextFromMessage(message)
+      const images = await this._downloadImagesFromMessage(account, message)
+      if (!text && images.length === 0 && !message.context_token) continue
+      const target = this._upsertTarget({
+        accountId: account.accountId,
+        accountUserId: account.userId || null,
+        userId: message.from_user_id,
+        contextToken: message.context_token || null,
+        targetSource: account.userId && account.userId === message.from_user_id ? 'authorized_user' : 'inbound_context',
+        lastInboundText: text,
+        lastSeenAt: Date.now(),
+        contextExpiredAt: null,
+        lastError: null
+      })
+      const publicMessageTarget = publicTarget(target)
+      targets.push(publicMessageTarget)
+      const normalizedMessage = {
+        accountId: account.accountId,
+        targetId: target.id,
+        from: message.from_user_id,
+        text,
+        images,
+        hasContextToken: Boolean(message.context_token),
+        contextToken: message.context_token || null,
+        createTimeMs: message.create_time_ms || null,
+        target: publicMessageTarget
+      }
+      messages.push(normalizedMessage)
+      if (preCapturing) {
+        capturedForPreCapture = true
+        if (target.contextToken) {
+          await this._sendPreCaptureWelcome(account, target)
+        }
+      } else {
+        inboundMessages.push(normalizedMessage)
+      }
+    }
+    if (capturedForPreCapture) {
+      this.preCaptureAccountIds.delete(account.accountId)
+    }
+    if (messages.length) {
+      this._activateFastPolling()
+    }
+    this._saveState()
+    return { messages, inboundMessages, targets }
   }
 
   async _sendPreCaptureWelcome(account, target) {
@@ -579,6 +625,7 @@ class WeixinNotifyService {
     target.lastSentAt = Date.now()
     target.contextExpiredAt = null
     target.lastError = null
+    this._activateFastPolling()
     this._saveState()
     const result = {
       success: true,
@@ -793,7 +840,23 @@ class WeixinNotifyService {
     }
   }
 
-  _scheduleBackgroundPoll(delayMs = this.backgroundPollIntervalMs) {
+  _isFastPollingActive() {
+    return Date.now() < this.fastPollUntilMs
+  }
+
+  _activateFastPolling(windowMs = FAST_POLL_WINDOW_MS) {
+    this.fastPollUntilMs = Math.max(this.fastPollUntilMs, Date.now() + windowMs)
+  }
+
+  _getBackgroundPollIntervalMs() {
+    return this._isFastPollingActive() ? this.backgroundFastPollIntervalMs : this.backgroundPollIntervalMs
+  }
+
+  _getBackgroundPollTimeoutMs() {
+    return this._isFastPollingActive() ? this.backgroundFastPollTimeoutMs : this.backgroundPollTimeoutMs
+  }
+
+  _scheduleBackgroundPoll(delayMs = this._getBackgroundPollIntervalMs()) {
     if (this.backgroundStopped) return
     if (this.backgroundTimer) clearTimeout(this.backgroundTimer)
     this.backgroundTimer = setTimeout(() => {
@@ -809,7 +872,7 @@ class WeixinNotifyService {
     if (this.backgroundStopped) return
     try {
       if (this.state.accounts.length) {
-        await this.pollOnce({ timeoutMs: this.backgroundPollTimeoutMs })
+        await this.pollOnce({ timeoutMs: this._getBackgroundPollTimeoutMs() })
       }
     } catch (err) {
       console.warn('[WeixinNotify] Background poll failed:', err.message)

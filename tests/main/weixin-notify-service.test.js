@@ -45,6 +45,14 @@ describe('WeixinNotifyService', () => {
     }
   }
 
+  function deferredJson(payload) {
+    let resolve
+    const promise = new Promise(done => {
+      resolve = () => done(jsonResponse(payload))
+    })
+    return { promise, resolve }
+  }
+
   it('logs in with qr flow and stores a public account', async () => {
     const service = createService()
     fetchMock
@@ -279,6 +287,109 @@ describe('WeixinNotifyService', () => {
     expect(received).toHaveLength(0)
   })
 
+  it('polls different accounts concurrently without one long poll blocking the other', async () => {
+    const service = createService()
+    service.state.accounts.push(
+      {
+        accountId: 'bot-a@im.bot',
+        token: 'token-a',
+        baseUrl: 'https://ilinkai.weixin.qq.com'
+      },
+      {
+        accountId: 'bot-b@im.bot',
+        token: 'token-b',
+        baseUrl: 'https://ilinkai.weixin.qq.com'
+      }
+    )
+    const firstPoll = deferredJson({
+      ret: 0,
+      get_updates_buf: 'cursor-a',
+      msgs: []
+    })
+    const secondPoll = deferredJson({
+      ret: 0,
+      get_updates_buf: 'cursor-b',
+      msgs: [{
+        from_user_id: 'target-b@im.wechat',
+        context_token: 'ctx-b',
+        item_list: [{ type: 1, text_item: { text: 'from b' } }]
+      }]
+    })
+    fetchMock
+      .mockImplementationOnce(() => firstPoll.promise)
+      .mockImplementationOnce(() => secondPoll.promise)
+
+    const pollPromise = service.pollOnce({ timeoutMs: 1000 })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+    secondPoll.resolve()
+    await Promise.resolve()
+    firstPoll.resolve()
+    const result = await pollPromise
+
+    expect(result.messages).toHaveLength(1)
+    expect(result.messages[0]).toMatchObject({
+      accountId: 'bot-b@im.bot',
+      text: 'from b'
+    })
+    expect(service.state.accounts.find(account => account.accountId === 'bot-a@im.bot').cursor).toBe('cursor-a')
+    expect(service.state.accounts.find(account => account.accountId === 'bot-b@im.bot').cursor).toBe('cursor-b')
+  })
+
+  it('serializes polls for the same account to avoid cursor races', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot-a@im.bot',
+      token: 'token-a',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    const firstPoll = deferredJson({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: []
+    })
+    const secondPoll = deferredJson({
+      ret: 0,
+      get_updates_buf: 'cursor-2',
+      msgs: []
+    })
+    fetchMock
+      .mockImplementationOnce(() => firstPoll.promise)
+      .mockImplementationOnce(() => secondPoll.promise)
+
+    const firstPromise = service.pollOnce({ accountId: 'bot-a@im.bot', timeoutMs: 1000 })
+    const secondPromise = service.pollOnce({ accountId: 'bot-a@im.bot', timeoutMs: 1000 })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    firstPoll.resolve()
+    await firstPromise
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    secondPoll.resolve()
+    await secondPromise
+
+    const firstRequest = JSON.parse(fetchMock.mock.calls[0][1].body)
+    const secondRequest = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(firstRequest.get_updates_buf).toBe('')
+    expect(secondRequest.get_updates_buf).toBe('cursor-1')
+    expect(service.state.accounts[0].cursor).toBe('cursor-2')
+  })
+
+  it('treats getupdates abort timeout as an empty poll result', async () => {
+    const service = createService()
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    fetchMock.mockRejectedValueOnce(Object.assign(new Error('This operation was aborted'), {
+      name: 'AbortError'
+    }))
+
+    const result = await service.pollOnce({ accountId: 'bot@im.bot', timeoutMs: 1000 })
+
+    expect(result).toEqual({ messages: [], targets: [] })
+  })
+
   it('downloads inbound image messages and exposes base64 image data', async () => {
     const service = createService()
     const received = []
@@ -437,8 +548,7 @@ describe('WeixinNotifyService', () => {
     const firstPoll = service.pollOnce({ accountId: 'bot@im.bot' })
     const secondPoll = service.pollOnce({ accountId: 'bot@im.bot' })
 
-    await Promise.resolve()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     releaseFirstPoll()
     await firstPoll
     await secondPoll
