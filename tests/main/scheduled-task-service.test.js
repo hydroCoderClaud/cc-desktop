@@ -159,13 +159,11 @@ describe('ScheduledTaskService', () => {
     expect(lastDay.getHours()).toBe(18)
   })
 
-  it('builds localized scheduled task prompts based on current locale', async () => {
+  it('passes scheduled task prompt through without framework wrapper', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const service = new ScheduledTaskService({
       getConfig: () => ({ settings: { locale: 'en-US' } })
     }, { on: vi.fn() })
-
-    vi.spyOn(service, '_publicRuntimeState').mockReturnValue({ step: 1 })
 
     const prompt = service._buildTaskPrompt({
       name: 'Night Review',
@@ -173,29 +171,21 @@ describe('ScheduledTaskService', () => {
       runtimeState: { step: 1 }
     }, 'scheduled', Date.UTC(2026, 3, 23, 1, 2, 3))
 
-    expect(prompt).toContain('Continue scheduled task "Night Review".')
-    expect(prompt).toContain('Trigger Reason: Scheduled')
-    expect(prompt).toContain('Do not query the current system time again')
-    expect(prompt).toContain('Task Content:')
+    expect(prompt).toBe('Check repo status')
   })
 
-  it('builds localized bootstrap prompts in Chinese by default', async () => {
+  it('passes bootstrap scheduled task prompt through without wrapper', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const service = new ScheduledTaskService({
       getConfig: () => ({ settings: { locale: 'zh-CN' } })
     }, { on: vi.fn() })
-
-    vi.spyOn(service, '_publicRuntimeState').mockReturnValue(null)
 
     const prompt = service._buildTaskPrompt({
       name: '日报',
       prompt: '整理进展'
     }, 'scheduled', Date.UTC(2026, 3, 23, 1, 2, 3), { bootstrap: true })
 
-    expect(prompt).toContain('# 定时智能体任务')
-    expect(prompt).toContain('触发原因：定时触发')
-    expect(prompt).toContain('不要再次查询系统当前时间')
-    expect(prompt).toContain('# 任务内容')
+    expect(prompt).toBe('整理进展')
   })
 
   it('does not execute enabled tasks immediately when the service starts', async () => {

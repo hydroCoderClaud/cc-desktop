@@ -830,41 +830,7 @@ class ScheduledTaskService {
   }
 
   _buildTaskPrompt(task, triggerReason, timestamp, { bootstrap = false } = {}) {
-    const locale = this._getPromptLocale()
-    const promptText = PROMPT_I18N[locale] || PROMPT_I18N['zh-CN']
-    const { year, month, day } = formatDateParts(timestamp)
-    const runtimeStateForPrompt = this._publicRuntimeState(task.runtimeState)
-    const runtimeState = runtimeStateForPrompt
-      ? JSON.stringify(runtimeStateForPrompt, null, 2)
-      : ''
-    const localizedTriggerReason = promptText.triggerReasons[triggerReason] || triggerReason
-    const triggerTime = `${year}-${month}-${day} ${new Date(timestamp).toLocaleTimeString(locale, { hour12: false })}`
-
-    if (!bootstrap) {
-      return [
-        promptText.continuedTitle(task.name),
-        promptText.triggerReason(localizedTriggerReason),
-        promptText.triggerTime(triggerTime),
-        promptText.triggerTimeNote,
-        runtimeState ? promptText.runtimeState(runtimeState) : '',
-        '',
-        promptText.taskPromptTitle,
-        task.prompt
-      ].filter(Boolean).join('\n')
-    }
-
-    return [
-      promptText.bootstrapTitle,
-      promptText.bootstrapTaskName(task.name),
-      promptText.bootstrapTriggerReason(localizedTriggerReason),
-      promptText.bootstrapTriggerTime(triggerTime),
-      promptText.bootstrapTriggerTimeNote,
-      promptText.bootstrapStartedByScheduler,
-      runtimeState ? promptText.bootstrapRuntimeState(runtimeState) : '',
-      '',
-      promptText.bootstrapTaskPromptTitle,
-      task.prompt
-    ].join('\n')
+    return String(task?.prompt || '').trim()
   }
 
   _broadcastChange(taskId, reason) {
