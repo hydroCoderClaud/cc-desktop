@@ -1406,11 +1406,13 @@ export default {
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
     weixinObserving: 'Weixin Observe Mode — Messages from Weixin will be displayed in real time',
-    weixinBindTitle: 'Bind a Weixin target to connect this session to Weixin',
-    weixinBoundTitle: 'Bound to Weixin: {name}',
-    weixinBoundTo: 'Bound: {name}',
-    weixinUnbind: 'Unbind',
-    weixinNoTargets: 'No Weixin targets available. Please scan QR code in settings first.',
+    weixinQuickSendTitle: 'Send Weixin Notification',
+    weixinQuickSendHint: 'Choose a captured Weixin target. The message is sent from this session, and replies return here.',
+    weixinQuickSendPlaceholder: 'Enter the message to send to Weixin',
+    weixinQuickSend: 'Send Weixin',
+    weixinQuickSending: 'Sending...',
+    weixinQuickSendFailed: 'Failed to send Weixin message',
+    weixinNoTargets: 'No sendable Weixin targets. Scan and capture a target in settings first.',
     historyHint: 'Above are historical messages. Type in the input box to activate this session',
     interaction: {
       titleDefault: 'Your input is required',
@@ -1430,7 +1432,7 @@ export default {
     imageSaved: 'Image saved',
     copySelection: 'Copy Selected Text',
     copyContent: 'Copy Message Content',
-    dingtalkSuffix: ' (DingTalk)',
+    dingtalkSuffix: ' (from DingTalk)',
     weixinSuffix: ' (from Weixin)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 

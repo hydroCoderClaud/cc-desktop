@@ -1411,11 +1411,13 @@ export default {
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
     weixinObserving: '微信观察模式 — 来自微信的消息将实时显示',
-    weixinBindTitle: '绑定微信目标，建立当前会话与微信的通道',
-    weixinBoundTitle: '已绑定到微信：{name}',
-    weixinBoundTo: '已绑定：{name}',
-    weixinUnbind: '解绑',
-    weixinNoTargets: '暂无可用微信目标，请先在设置中扫码绑定',
+    weixinQuickSendTitle: '发送微信通知',
+    weixinQuickSendHint: '选择已捕获的微信目标，消息会从当前会话发出，回复也会回到当前会话。',
+    weixinQuickSendPlaceholder: '输入要发送到微信的内容',
+    weixinQuickSend: '发送微信',
+    weixinQuickSending: '发送中...',
+    weixinQuickSendFailed: '微信发送失败',
+    weixinNoTargets: '暂无可发送微信目标，请先在设置中扫码并捕获目标',
     historyHint: '上面为会话的历史信息，请在输入框输入文字激活当前会话',
     interaction: {
       titleDefault: '需要你的选择',
@@ -1435,7 +1437,7 @@ export default {
     imageSaved: '图片已保存',
     copySelection: '复制选中文字',
     copyContent: '复制消息内容',
-    dingtalkSuffix: '（钉钉）',
+    dingtalkSuffix: '（来自钉钉）',
     weixinSuffix: '（来自微信）',
     dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 

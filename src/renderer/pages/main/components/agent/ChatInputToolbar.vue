@@ -76,31 +76,53 @@
       <div
         v-if="showWeixinBtn"
         class="weixin-btn"
-        :class="{ bound: weixinBinding }"
+        :class="{ sending: weixinSending }"
         :title="weixinBtnTitle"
         @click="toggleWeixinDropdown"
       >
-        <Icon name="chat" :size="13" />
+        <Icon name="weixin" :size="13" />
       </div>
       <Transition name="dropdown">
         <div v-if="showWeixinDropdown && showWeixinBtn" class="weixin-dropdown">
           <div v-if="weixinLoading" class="weixin-loading">{{ t('common.loading') }}...</div>
           <template v-else>
-            <div v-if="weixinBinding" class="weixin-bound-header">
-              <span class="weixin-bound-label">{{ t('agent.weixinBoundTo', { name: weixinBinding.displayName }) }}</span>
-              <span class="weixin-unbind" @click="handleUnbind">{{ t('agent.weixinUnbind') }}</span>
-            </div>
-            <div v-if="weixinBinding" class="weixin-divider" />
-            <div
-              v-for="target in weixinTargets"
-              :key="target.id"
-              class="weixin-target-item"
-              :class="{ active: weixinBinding?.targetId === target.id }"
-              @click="handleBind(target)"
-            >
-              <span class="weixin-target-name">{{ target.displayName || target.userId || target.id }}</span>
+            <div class="weixin-panel-title">{{ t('agent.weixinQuickSendTitle') }}</div>
+            <div class="weixin-panel-hint">{{ t('agent.weixinQuickSendHint') }}</div>
+            <div v-if="weixinTargets.length > 0" class="weixin-target-list">
+              <div
+                v-for="target in weixinTargets"
+                :key="target.id"
+                class="weixin-target-item"
+                :class="{ active: selectedWeixinTargetId === target.id }"
+                @click="selectedWeixinTargetId = target.id"
+              >
+                <span class="weixin-target-name">{{ target.displayName || target.userId || target.id }}</span>
+                <span class="weixin-target-account">{{ target.accountId }}</span>
+              </div>
             </div>
             <div v-if="weixinTargets.length === 0" class="weixin-empty">{{ t('agent.weixinNoTargets') }}</div>
+            <template v-else>
+              <textarea
+                v-model="weixinText"
+                class="weixin-message-input"
+                :placeholder="t('agent.weixinQuickSendPlaceholder')"
+                rows="3"
+              />
+              <div v-if="weixinError" class="weixin-error">{{ weixinError }}</div>
+              <div class="weixin-actions">
+                <button class="weixin-action secondary" type="button" @click="closeWeixinDropdown">
+                  {{ t('common.cancel') }}
+                </button>
+                <button
+                  class="weixin-action primary"
+                  type="button"
+                  :disabled="!canSendWeixin || weixinSending"
+                  @click="sendWeixinQuickMessage"
+                >
+                  {{ weixinSending ? t('agent.weixinQuickSending') : t('agent.weixinQuickSend') }}
+                </button>
+              </div>
+            </template>
           </template>
         </div>
       </Transition>
@@ -134,7 +156,8 @@ const props = defineProps({
   queueEnabled: { type: Boolean, default: true },
   isExpanded: { type: Boolean, default: false },
   sessionId: { type: String, default: null },
-  sessionType: { type: String, default: 'chat' }
+  sessionType: { type: String, default: 'chat' },
+  draftText: { type: String, default: '' }
 })
 
 const emit = defineEmits([
@@ -154,26 +177,38 @@ const showCapDropdown = ref(false)
 const capList = ref([])
 const capLoading = ref(false)
 
-// 微信快捷发送
 const showWeixinDropdown = ref(false)
 const weixinTargets = ref([])
-const weixinBinding = ref(null)
+const selectedWeixinTargetId = ref(null)
+const weixinText = ref('')
+const weixinError = ref('')
 const weixinLoading = ref(false)
+const weixinSending = ref(false)
 
-const showWeixinBtn = computed(() => props.sessionType === 'chat' && props.sessionId)
-const weixinBtnTitle = computed(() => {
-  if (weixinBinding.value) {
-    return t('agent.weixinBoundTitle', { name: weixinBinding.value.displayName })
-  }
-  return t('agent.weixinBindTitle')
-})
+const showWeixinBtn = computed(() => ['chat', 'weixin'].includes(props.sessionType) && props.sessionId)
+const weixinBtnTitle = computed(() => t('agent.weixinQuickSendTitle'))
+const selectedWeixinTarget = computed(() => weixinTargets.value.find(target => target.id === selectedWeixinTargetId.value) || null)
+const canSendWeixin = computed(() => Boolean(selectedWeixinTarget.value && weixinText.value.trim()))
 
 const loadWeixinTargets = async () => {
   if (!window.electronAPI?.listWeixinNotifyTargets) return
   weixinLoading.value = true
   try {
-    const targets = await window.electronAPI.listWeixinNotifyTargets()
-    weixinTargets.value = Array.isArray(targets) ? targets : []
+    const [targets, binding] = await Promise.all([
+      window.electronAPI.listWeixinNotifyTargets(),
+      props.sessionId && window.electronAPI?.getSessionWeixinBinding
+        ? window.electronAPI.getSessionWeixinBinding(props.sessionId).catch(() => null)
+        : null
+    ])
+    weixinTargets.value = Array.isArray(targets)
+      ? targets.filter(target => target?.hasContextToken)
+      : []
+    const bindingTargetId = binding?.targetId || null
+    if (bindingTargetId && weixinTargets.value.some(target => target.id === bindingTargetId)) {
+      selectedWeixinTargetId.value = bindingTargetId
+    } else if (!weixinTargets.value.some(target => target.id === selectedWeixinTargetId.value)) {
+      selectedWeixinTargetId.value = weixinTargets.value[0]?.id || null
+    }
   } catch (err) {
     console.error('[ChatInputToolbar] loadWeixinTargets error:', err)
     weixinTargets.value = []
@@ -182,71 +217,52 @@ const loadWeixinTargets = async () => {
   }
 }
 
-const loadWeixinBinding = async () => {
-  if (!props.sessionId || !window.electronAPI?.getSessionWeixinBinding) {
-    weixinBinding.value = null
-    return
-  }
-  try {
-    const binding = await window.electronAPI.getSessionWeixinBinding(props.sessionId)
-    weixinBinding.value = binding || null
-  } catch (err) {
-    console.error('[ChatInputToolbar] loadWeixinBinding error:', err)
-    weixinBinding.value = null
-  }
-}
-
 const toggleWeixinDropdown = () => {
   showWeixinDropdown.value = !showWeixinDropdown.value
   showDropdown.value = false
   showCapDropdown.value = false
   if (showWeixinDropdown.value) {
+    weixinText.value = props.draftText || ''
+    weixinError.value = ''
     loadWeixinTargets()
-    loadWeixinBinding()
   }
 }
 
-const handleBind = async (target) => {
-  if (!props.sessionId || !target) return
-  if (weixinBinding.value?.targetId === target.id) {
-    showWeixinDropdown.value = false
-    return
-  }
+const closeWeixinDropdown = () => {
+  showWeixinDropdown.value = false
+  weixinError.value = ''
+}
+
+const sendWeixinQuickMessage = async () => {
+  if (!canSendWeixin.value || !props.sessionId || !window.electronAPI?.sendWeixinNotifyText) return
+  weixinSending.value = true
+  weixinError.value = ''
   try {
-    const result = await window.electronAPI.bindSessionToWeixinTarget({
+    const target = selectedWeixinTarget.value
+    const result = await window.electronAPI.sendWeixinNotifyText({
       sessionId: props.sessionId,
       accountId: target.accountId,
       targetId: target.id,
-      displayName: target.displayName || target.userId || target.id
+      text: weixinText.value.trim()
     })
-    if (result?.success) {
-      weixinBinding.value = result.target || null
-      showWeixinDropdown.value = false
+    if (result?.error) {
+      console.error('[ChatInputToolbar] send weixin failed:', result.error)
+      weixinError.value = result.error || t('agent.weixinQuickSendFailed')
     } else {
-      console.error('[ChatInputToolbar] bind failed:', result?.error)
+      showWeixinDropdown.value = false
     }
   } catch (err) {
-    console.error('[ChatInputToolbar] handleBind error:', err)
-  }
-}
-
-const handleUnbind = async () => {
-  if (!props.sessionId) return
-  try {
-    await window.electronAPI.unbindSessionWeixinTarget({ sessionId: props.sessionId })
-    weixinBinding.value = null
-    showWeixinDropdown.value = false
-  } catch (err) {
-    console.error('[ChatInputToolbar] handleUnbind error:', err)
+    console.error('[ChatInputToolbar] send weixin error:', err)
+    weixinError.value = err?.message || t('agent.weixinQuickSendFailed')
+  } finally {
+    weixinSending.value = false
   }
 }
 
 watch(() => props.sessionId, () => {
-  weixinBinding.value = null
-  if (props.sessionId) {
-    loadWeixinBinding()
-  }
-}, { immediate: true })
+  showWeixinDropdown.value = false
+  selectedWeixinTargetId.value = null
+})
 
 const formatTokens = (value) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
@@ -278,6 +294,7 @@ const selectModel = (value) => {
 const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
   showCapDropdown.value = false
+  showWeixinDropdown.value = false
 }
 
 const loadCapabilities = async () => {
@@ -345,6 +362,7 @@ const loadCapabilities = async () => {
 const toggleCapDropdown = () => {
   showCapDropdown.value = !showCapDropdown.value
   showDropdown.value = false
+  showWeixinDropdown.value = false
   if (showCapDropdown.value) {
     loadCapabilities()
   }
@@ -427,12 +445,12 @@ onUnmounted(() => {
 .weixin-btn:hover,
 .cap-trigger.active,
 .queue-toggle.enabled,
-.weixin-btn.bound {
+.weixin-btn.sending {
   background: var(--hover-bg);
   color: var(--primary-color);
 }
 
-.weixin-btn.bound {
+.weixin-btn.sending {
   color: #07c160;
 }
 
@@ -565,54 +583,44 @@ onUnmounted(() => {
   bottom: calc(100% + 8px);
   left: 0;
   z-index: 20;
-  min-width: 180px;
-  max-width: min(320px, calc(100vw - 32px));
+  min-width: 300px;
+  max-width: min(380px, calc(100vw - 32px));
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
-  padding: 6px;
-  max-height: 280px;
+  padding: 10px;
+  max-height: min(420px, 60vh);
   overflow: auto;
 }
 
-.weixin-bound-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  font-size: 12px;
+.weixin-panel-title {
   color: var(--text-color);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
-.weixin-bound-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.weixin-panel-hint {
+  color: var(--text-color-3);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 8px;
 }
 
-.weixin-unbind {
-  color: #ff4d4f;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.weixin-unbind:hover {
-  text-decoration: underline;
-}
-
-.weixin-divider {
-  height: 1px;
-  background: var(--border-color);
-  margin: 4px 0;
+.weixin-target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 150px;
+  overflow: auto;
+  margin-bottom: 8px;
 }
 
 .weixin-target-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
@@ -626,9 +634,75 @@ onUnmounted(() => {
 }
 
 .weixin-target-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.weixin-target-account {
+  flex-shrink: 0;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-color-3);
+}
+
+.weixin-message-input {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-color);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.weixin-message-input:focus {
+  border-color: var(--primary-color);
+}
+
+.weixin-error {
+  margin-top: 6px;
+  color: #ff4d4f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.weixin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.weixin-action {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.weixin-action.secondary {
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+}
+
+.weixin-action.primary {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.weixin-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .weixin-empty,

@@ -9,6 +9,7 @@
         :is-expanded="isExpanded"
         :session-id="sessionId"
         :session-type="sessionType"
+        :draft-text="inputText"
         @update:model-value="$emit('update:modelValue', $event)"
         @toggle-queue="$emit('update:queueEnabled', !queueEnabled)"
         @toggle-expanded="toggleExpanded"
