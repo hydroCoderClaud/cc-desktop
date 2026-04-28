@@ -65,6 +65,7 @@
       @created="handleAgentCreated"
       @select="handleAgentSelected"
       @close="handleAgentClosed"
+      @profile-updated="emit('agent-profile-updated', $event)"
       @new-conversation-request="showNewConvModal = true"
     />
 
@@ -255,7 +256,8 @@ const emit = defineEmits([
   'mode-changed',
   'agent-created',
   'agent-selected',
-  'agent-closed'
+  'agent-closed',
+  'agent-profile-updated'
 ])
 
 // Use session panel composable

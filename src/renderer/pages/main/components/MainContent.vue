@@ -43,6 +43,7 @@
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
+      @agent-profile-updated="handleAgentProfileUpdated"
     />
 
     <!-- Main Content Area -->
@@ -119,6 +120,7 @@
               :session-type="tab.sessionType"
               :session-cwd="tab.cwd"
               :api-profile-id="tab.apiProfileId"
+              :model-id="tab.modelId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
               @request-clear-session="handleAgentClearSession(tab.sessionId)"
@@ -941,6 +943,14 @@ const handleAgentClosed = (conv) => {
 
   closeAgentTabFully(tab)
   ensureActiveTabInCurrentMode()
+}
+
+const handleAgentProfileUpdated = ({ sessionId, apiProfileId, modelId }) => {
+  if (!sessionId) return
+  const tab = allTabs.value.find(item => item.sessionId === sessionId && item.type === 'agent-chat')
+  if (!tab) return
+  tab.apiProfileId = apiProfileId || null
+  tab.modelId = modelId || null
 }
 
 const handleAgentTabReady = ({ sessionId }) => {

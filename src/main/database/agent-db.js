@@ -9,6 +9,12 @@
  * @param {Function} BaseClass - 基类
  * @returns {Function} - 扩展后的类
  */
+function normalizeModelId(modelId) {
+  if (typeof modelId !== 'string') return null
+  const normalized = modelId.trim()
+  return normalized || null
+}
+
 function withAgentOperations(BaseClass) {
   return class extends BaseClass {
     // ========================================
@@ -18,13 +24,13 @@ function withAgentOperations(BaseClass) {
     /**
      * 创建 Agent 对话记录
      */
-    createAgentConversation({ sessionId, type, title, cwd, cwdAuto, apiProfileId, apiBaseUrl, source, taskId }) {
+    createAgentConversation({ sessionId, type, title, cwd, cwdAuto, apiProfileId, apiBaseUrl, modelId, source, taskId }) {
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO agent_conversations (
-          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, source, task_id, created_at, updated_at
+          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, task_id, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         type || 'chat',
@@ -33,6 +39,7 @@ function withAgentOperations(BaseClass) {
         cwdAuto ? 1 : 0,
         apiProfileId || null,
         apiBaseUrl || null,
+        normalizeModelId(modelId),
         source || 'manual',
         taskId || null,
         now,
@@ -49,6 +56,7 @@ function withAgentOperations(BaseClass) {
         cwdAuto: !!cwdAuto,
         apiProfileId: apiProfileId || null,
         apiBaseUrl: apiBaseUrl || null,
+        modelId: normalizeModelId(modelId),
         source: source || 'manual',
         taskId: taskId || null,
         createdAt: now,
@@ -118,6 +126,15 @@ function withAgentOperations(BaseClass) {
       this.db.prepare(
         `UPDATE agent_conversations SET ${fields.join(', ')} WHERE session_id = ?`
       ).run(...values)
+    }
+
+    /**
+     * 更新会话模型快照
+     */
+    updateAgentConversationModel(sessionId, modelId) {
+      this.db.prepare(`
+        UPDATE agent_conversations SET model_id = ?, updated_at = ? WHERE session_id = ?
+      `).run(normalizeModelId(modelId), Date.now(), sessionId)
     }
 
     /**

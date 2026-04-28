@@ -25,7 +25,9 @@ describe('AgentSessionManager interactions', () => {
     })
     manager.sessionDatabase = {
       insertAgentMessage: vi.fn(),
-      updateAgentMessageToolOutput: vi.fn()
+      updateAgentMessageToolOutput: vi.fn(),
+      updateAgentConversationModel: vi.fn(),
+      getAgentConversation: vi.fn(() => null)
     }
     return { manager, sent }
   }
@@ -189,31 +191,41 @@ describe('AgentSessionManager interactions', () => {
   it('preserves sdkSessionId when switching API profile', async () => {
     const { manager } = createManager()
     const updateAgentConversation = vi.fn()
+    const updateAgentConversationModel = vi.fn()
     manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
-      ? { id: 'p2', name: 'Qwen', baseUrl: 'https://example-qwen.test' }
+      ? { id: 'p2', name: 'Qwen', baseUrl: 'https://example-qwen.test', selectedModelId: 'qwen-max-latest' }
       : null)
-    manager.sessionDatabase = { updateAgentConversation }
+    manager.sessionDatabase = { updateAgentConversation, updateAgentConversationModel }
 
     const session = new AgentSession({ id: 's-switch', cwd: '/tmp', apiProfileId: 'p1' })
     session.sdkSessionId = 'sdk-old'
     manager.sessions.set('s-switch', session)
 
-    await manager.switchApiProfile('s-switch', 'p2')
+    const result = await manager.switchApiProfile('s-switch', 'p2')
 
     expect(session.apiProfileId).toBe('p2')
     expect(session.apiBaseUrl).toBe('https://example-qwen.test')
+    expect(session.modelId).toBe('qwen-max-latest')
     expect(session.sdkSessionId).toBe('sdk-old')
     expect(updateAgentConversation).toHaveBeenCalledWith('s-switch', {
       apiProfileId: 'p2',
       apiBaseUrl: 'https://example-qwen.test'
+    })
+    expect(updateAgentConversationModel).toHaveBeenCalledWith('s-switch', 'qwen-max-latest')
+    expect(result).toEqual({
+      success: true,
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://example-qwen.test',
+      modelId: 'qwen-max-latest'
     })
   })
 
   it('reopens session from DB before switching API profile', async () => {
     const { manager } = createManager()
     const updateAgentConversation = vi.fn()
+    const updateAgentConversationModel = vi.fn()
     manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
-      ? { id: 'p2', name: 'Volc', baseUrl: 'https://volc.example' }
+      ? { id: 'p2', name: 'Volc', baseUrl: 'https://volc.example', selectedModelId: 'volc-model' }
       : null)
     manager.sessionDatabase = {
       getAgentConversation: vi.fn(() => ({
@@ -230,9 +242,11 @@ describe('AgentSessionManager interactions', () => {
         total_cost_usd: 0,
         created_at: Date.now(),
         api_profile_id: 'p1',
-        api_base_url: 'https://old.example'
+        api_base_url: 'https://old.example',
+        model_id: 'legacy-model'
       })),
-      updateAgentConversation
+      updateAgentConversation,
+      updateAgentConversationModel
     }
 
     await manager.switchApiProfile('s-reopen-switch', 'p2')
@@ -241,11 +255,13 @@ describe('AgentSessionManager interactions', () => {
     expect(session).toBeTruthy()
     expect(session.apiProfileId).toBe('p2')
     expect(session.apiBaseUrl).toBe('https://volc.example')
+    expect(session.modelId).toBe('volc-model')
     expect(session.sdkSessionId).toBe('sdk-old')
     expect(updateAgentConversation).toHaveBeenCalledWith('s-reopen-switch', {
       apiProfileId: 'p2',
       apiBaseUrl: 'https://volc.example'
     })
+    expect(updateAgentConversationModel).toHaveBeenCalledWith('s-reopen-switch', 'volc-model')
   })
 
   it('passes explicit requestedModel through even when it is not listed by current profile', async () => {
@@ -579,6 +595,7 @@ describe('AgentSessionManager interactions', () => {
   it('setModel passes explicit model strings through without local filtering', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 'session-set-model', cwd: '/tmp', apiProfileId: 'profile-1' })
+    session.queryGenerator = { setModel: vi.fn(async () => {}) }
     manager.sessions.set(session.id, session)
     manager.configManager.getAPIProfile = vi.fn(() => ({
       id: 'profile-1',
@@ -597,7 +614,109 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.queryManager.setModel).toHaveBeenCalledTimes(2)
     expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(1, session.id, 'glm-4.5')
     expect(manager.queryManager.setModel).toHaveBeenNthCalledWith(2, session.id, 'sonnet')
+    expect(manager.sessionDatabase.updateAgentConversationModel).toHaveBeenNthCalledWith(1, session.id, 'glm-4.5')
+    expect(manager.sessionDatabase.updateAgentConversationModel).toHaveBeenNthCalledWith(2, session.id, 'sonnet')
+    expect(session.modelId).toBe('sonnet')
     expect(secondResult).toBeUndefined()
+  })
+
+  it('setModel persists snapshot even without active query', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-set-model-idle', cwd: '/tmp', apiProfileId: 'profile-1' })
+    manager.sessions.set(session.id, session)
+    manager.configManager.getAPIProfile = vi.fn(() => ({
+      id: 'profile-1',
+      selectedModelId: 'glm-4.5',
+      serviceProvider: 'provider-1'
+    }))
+    manager.queryManager.setModel = vi.fn(async () => {})
+
+    const result = await manager.setModel(session.id, 'deepseek-v3')
+
+    expect(manager.queryManager.setModel).not.toHaveBeenCalled()
+    expect(manager.sessionDatabase.updateAgentConversationModel).toHaveBeenCalledWith(session.id, 'deepseek-v3')
+    expect(session.modelId).toBe('deepseek-v3')
+    expect(result).toEqual({ success: true, persistedOnly: true })
+  })
+
+  it('setModel clears snapshot even without active query', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-clear-model-idle', cwd: '/tmp', apiProfileId: 'profile-1' })
+    session.modelId = 'glm-4.5'
+    manager.sessions.set(session.id, session)
+    manager.queryManager.setModel = vi.fn(async () => {})
+
+    const result = await manager.setModel(session.id, '')
+
+    expect(manager.queryManager.setModel).not.toHaveBeenCalled()
+    expect(manager.sessionDatabase.updateAgentConversationModel).toHaveBeenCalledWith(session.id, null)
+    expect(session.modelId).toBeNull()
+    expect(result).toEqual({ success: true, persistedOnly: true })
+  })
+
+  it('creates agent sessions with initial model snapshot from profile', () => {
+    const { manager } = createManager()
+    manager.configManager.getDefaultProfile = vi.fn(() => ({
+      id: 'p-default',
+      baseUrl: 'https://example.com',
+      selectedModelId: 'glm-5.1'
+    }))
+    manager.sessionDatabase = {
+      createAgentConversation: vi.fn(() => ({ id: 7 }))
+    }
+
+    const session = manager.create({ type: 'chat', title: 'Demo' })
+
+    expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(expect.objectContaining({
+      modelId: 'glm-5.1'
+    }))
+    expect(session.modelId).toBe('glm-5.1')
+  })
+
+  it('preserves session when query exit is triggered by api switching', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-preserve', cwd: '/tmp', apiProfileId: 'p1' })
+    async function * emptyGenerator() {}
+    session.queryGenerator = emptyGenerator()
+    session.preserveSessionOnQueryExit = true
+    manager.sessions.set(session.id, session)
+
+    await manager._runOutputLoop(session)
+
+    expect(manager.sessions.has(session.id)).toBe(true)
+    expect(sent.some(item => item.channel === 'agent:statusChange'
+      && item.data.sessionId === 's-preserve'
+      && item.data.activeSessionEnded === true
+      && !item.data.cliExited)).toBe(true)
+  })
+
+  it('lists persisted model snapshots from DB history rows', () => {
+    const { manager } = createManager()
+    manager.sessionDatabase = {
+      listAllAgentConversations: vi.fn(() => ([{
+        session_id: 'db-row-1',
+        type: 'chat',
+        status: 'closed',
+        sdk_session_id: null,
+        title: '历史会话',
+        cwd: '/tmp',
+        cwd_auto: 1,
+        message_count: 2,
+        total_cost_usd: 0,
+        api_profile_id: 'p1',
+        api_base_url: 'https://example.com',
+        model_id: 'glm-4.5',
+        source: 'manual',
+        task_id: null,
+        created_at: Date.now(),
+        updated_at: Date.now()
+      }]))
+    }
+
+    const sessions = manager.list()
+
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].modelId).toBe('glm-4.5')
   })
 
   it('probeConnection labels API refusal clearly', async () => {

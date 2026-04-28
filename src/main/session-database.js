@@ -192,6 +192,7 @@ class SessionDatabaseBase {
     const agentConvNewColumns = [
       { name: 'api_profile_id', type: 'TEXT' },
       { name: 'api_base_url', type: 'TEXT' },
+      { name: 'model_id', type: 'TEXT' },
       { name: 'queued_messages', type: "TEXT DEFAULT '[]'" },  // 存储队列消息（JSON 数组）
       { name: 'staff_id', type: 'TEXT' },         // 钉钉发送者 staffId
       { name: 'conversation_id', type: 'TEXT' },   // 钉钉群/单聊会话 ID
@@ -529,6 +530,7 @@ class SessionDatabaseBase {
         total_cost_usd REAL DEFAULT 0,
         api_profile_id TEXT,
         api_base_url TEXT,
+        model_id TEXT,
         queued_messages TEXT DEFAULT '[]',
         source TEXT DEFAULT 'manual',
         task_id INTEGER,

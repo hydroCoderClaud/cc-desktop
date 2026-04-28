@@ -129,6 +129,7 @@ import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
 const message = useMessage()
+const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
 
 const props = defineProps({
   sessionId: {
@@ -150,10 +151,16 @@ const props = defineProps({
   apiProfileId: {
     type: String,
     default: null
+  },
+  modelId: {
+    type: String,
+    default: null
   }
 })
 
 const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session'])
+const resolvedApiProfileId = ref(props.apiProfileId)
+const resolvedModelId = ref(props.modelId)
 
 // 使用 Agent 对话 composable
 const {
@@ -511,7 +518,22 @@ onMounted(async () => {
   // 先注册流式监听器，再加载历史消息，确保钉钉第一条消息的 streaming 事件不被错过
   setupStreamListeners()
   await loadQueueSetting()
-  await initDefaultModel(props.apiProfileId)  // 从配置读取会话绑定的模型
+  if (window.electronAPI?.getAgentSession) {
+    try {
+      const latestSession = await window.electronAPI.getAgentSession(props.sessionId)
+      if (latestSession) {
+        resolvedApiProfileId.value = latestSession.apiProfileId !== undefined
+          ? latestSession.apiProfileId
+          : (props.apiProfileId || null)
+        resolvedModelId.value = latestSession.modelId !== undefined
+          ? latestSession.modelId
+          : (props.modelId || null)
+      }
+    } catch (err) {
+      console.warn('[AgentChatTab] Failed to read latest session snapshot:', err)
+    }
+  }
+  await initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)  // 从会话快照读取模型
   await loadMessages()  // 加载历史消息
   await syncActiveSessionState()
 
@@ -557,6 +579,13 @@ onMounted(async () => {
 
   scrollToBottom(true, true)
   emit('ready', { sessionId: props.sessionId })
+})
+
+watch(() => [props.apiProfileId, props.modelId], ([apiProfileId, modelId]) => {
+  resolvedApiProfileId.value = apiProfileId || null
+  const normalizedModelId = normalizeModelValue(modelId)
+  resolvedModelId.value = normalizedModelId || null
+  void initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)
 })
 
 // 在组件卸载前保存队列（此时子组件还存在）

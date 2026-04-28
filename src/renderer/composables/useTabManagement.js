@@ -289,6 +289,9 @@ export function useTabManagement() {
       if (agentSession.type) {
         existingTab.sessionType = agentSession.type
       }
+      existingTab.apiProfileId = agentSession.apiProfileId || null
+      existingTab.modelId = agentSession.modelId || null
+      existingTab.cwd = agentSession.cwd || existingTab.cwd || null
       activeTabId.value = existingTab.id
 
       // 如果不在 tabs 中，添加回去
@@ -308,6 +311,7 @@ export function useTabManagement() {
       title: agentSession.title || t('agent.chat'),
       status: agentSession.status || 'idle',
       apiProfileId: agentSession.apiProfileId || null,
+      modelId: agentSession.modelId || null,
       cwd: agentSession.cwd || null
     }
 

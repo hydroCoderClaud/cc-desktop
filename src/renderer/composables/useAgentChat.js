@@ -123,7 +123,7 @@ export function useAgentChat(sessionId, options = {}) {
   watch(selectedModel, (newVal, oldVal) => {
     const nextModel = normalizeModelValue(newVal)
     const prevModel = normalizeModelValue(oldVal)
-    const canSetModelLive = !!(hasActiveSession.value && window.electronAPI?.setAgentModel)
+    const canSetModelLive = !!window.electronAPI?.setAgentModel
 
     console.log('[useAgentChat] selectedModel changed:', {
       sessionId,
@@ -149,7 +149,8 @@ export function useAgentChat(sessionId, options = {}) {
           }
           console.log('[useAgentChat] setAgentModel resolved:', {
             sessionId,
-            model: nextModel || null
+            model: nextModel || null,
+            persistedOnly: !!result?.persistedOnly
           })
         })
         .catch(err =>
@@ -731,6 +732,9 @@ export function useAgentChat(sessionId, options = {}) {
       }
       // CLI 进程退出时重置标记，下次发消息会重建 query
       if (data.cliExited) {
+        hasActiveSession.value = false
+      }
+      if (data.activeSessionEnded) {
         hasActiveSession.value = false
       }
     } else if (data.status === 'streaming') {

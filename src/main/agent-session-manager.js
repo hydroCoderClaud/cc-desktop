@@ -50,6 +50,11 @@ function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizeModelIdOrNull(value) {
+  const normalized = normalizeModelValue(value)
+  return normalized || null
+}
+
 function resolveRequestedModel(_profile, _configManager, requestedModel) {
   const normalizedRequestedModel = normalizeModelValue(requestedModel)
   if (!normalizedRequestedModel) {
@@ -138,6 +143,43 @@ class AgentSessionManager extends EventEmitter {
    */
   _safeSend(channel, data) {
     return safeSend(this.mainWindow, channel, data)
+  }
+
+  _getPersistedSessionModelId(sessionId) {
+    if (!this.sessionDatabase?.getAgentConversation || !sessionId) {
+      return null
+    }
+
+    try {
+      const row = this.sessionDatabase.getAgentConversation(sessionId)
+      return normalizeModelIdOrNull(row?.model_id)
+    } catch (err) {
+      console.warn('[AgentSession] Failed to load persisted model snapshot:', {
+        sessionId,
+        error: err.message
+      })
+      return null
+    }
+  }
+
+  _resolveSessionModelId(session) {
+    if (!session) return null
+    const current = normalizeModelIdOrNull(session.modelId)
+    if (current) return current
+
+    const persisted = this._getPersistedSessionModelId(session.id)
+    if (persisted) {
+      session.modelId = persisted
+    }
+    return persisted
+  }
+
+  _serializeSession(session) {
+    const modelId = this._resolveSessionModelId(session)
+    return {
+      ...session.toJSON(),
+      modelId
+    }
   }
 
   /**
@@ -424,6 +466,7 @@ class AgentSessionManager extends EventEmitter {
       profile = this.configManager.getDefaultProfile()
     }
 
+    const initialModelId = normalizeModelIdOrNull(options.modelId || profile?.selectedModelId)
     const session = new AgentSession({
       type: options.type,
       title: options.title,
@@ -434,6 +477,7 @@ class AgentSessionManager extends EventEmitter {
       taskId: options.taskId || null,
       meta: options.meta || {}
     })
+    session.modelId = initialModelId
 
     // 自动分配工作目录
     if (!session.cwd) {
@@ -453,6 +497,7 @@ class AgentSessionManager extends EventEmitter {
           cwdAuto: session.cwdAuto,
           apiProfileId: profile?.id || null,
           apiBaseUrl: profile?.baseUrl || null,
+          modelId: session.modelId,
           source: session.source,
           taskId: session.taskId
         })
@@ -463,7 +508,7 @@ class AgentSessionManager extends EventEmitter {
     }
 
     console.log(`[AgentSession] Created session ${session.id}, type: ${session.type}, cwd: ${session.cwd}`)
-    return session.toJSON()
+    return this._serializeSession(session)
   }
 
   appendExternalUserMessage(sessionId, { content, source, senderNick, meta } = {}) {
@@ -1159,6 +1204,16 @@ class AgentSessionManager extends EventEmitter {
       session._lastCliExitCode = null
       session._lastCliStderr = null
 
+      if (session.preserveSessionOnQueryExit) {
+        session.preserveSessionOnQueryExit = false
+        this._safeSend('agent:statusChange', {
+          sessionId: session.id,
+          status: session.status,
+          activeSessionEnded: true
+        })
+        return
+      }
+
       // CLI 进程退出 = 用户主动结束对话 = 完全关闭会话
       // 从内存 Map 中移除会话
       const sessionId = session.id
@@ -1491,6 +1546,7 @@ class AgentSessionManager extends EventEmitter {
       session.messageQueue = null
     }
     if (session.queryGenerator) {
+      session.preserveSessionOnQueryExit = true
       try { killProcessTree(session.cliPid) } catch {}
       try { session.queryGenerator.close() } catch {}
       session.queryGenerator = null
@@ -1500,20 +1556,29 @@ class AgentSessionManager extends EventEmitter {
     // 更新 apiProfileId（内存 + DB）
     session.apiProfileId = newProfileId
     session.apiBaseUrl = profile.baseUrl || null
+    session.modelId = normalizeModelIdOrNull(profile.selectedModelId)
     console.log('[AgentSession] switchApiProfile:', {
       sessionId,
       newProfileId,
       profileName: profile.name || null,
       profileBaseUrl: profile.baseUrl || null,
+      modelId: session.modelId,
       sdkSessionId: session.sdkSessionId || null
     })
     this.sessionDatabase.updateAgentConversation(sessionId, {
       apiProfileId: newProfileId,
       apiBaseUrl: profile.baseUrl || null
     })
+    this.sessionDatabase.updateAgentConversationModel(sessionId, session.modelId)
 
     session.status = AgentStatus.IDLE
     this._safeSend('agent:statusChange', { sessionId, status: AgentStatus.IDLE })
+    return {
+      success: true,
+      apiProfileId: session.apiProfileId,
+      apiBaseUrl: session.apiBaseUrl,
+      modelId: session.modelId
+    }
   }
 
   /**
@@ -1533,6 +1598,7 @@ class AgentSessionManager extends EventEmitter {
     const newTitle = overrides.title !== undefined ? overrides.title : '' // 新会话默认空标题，由首条消息触发自动命名
     const newCwd = overrides.cwd || oldSession.cwd
     const newApiProfileId = oldSession.apiProfileId
+    const newModelId = this._resolveSessionModelId(oldSession)
 
     // 软关闭旧会话（保留历史）
     await this.close(sessionId)
@@ -1543,6 +1609,7 @@ class AgentSessionManager extends EventEmitter {
       title: newTitle,
       cwd: newCwd,
       apiProfileId: newApiProfileId,
+      modelId: newModelId,
       cwdSubDir: overrides.cwdSubDir
     })
 
@@ -1657,7 +1724,7 @@ class AgentSessionManager extends EventEmitter {
    */
   get(sessionId) {
     const session = this.sessions.get(sessionId)
-    return session ? session.toJSON() : null
+    return session ? this._serializeSession(session) : null
   }
 
   /**
@@ -1692,7 +1759,7 @@ class AgentSessionManager extends EventEmitter {
 
     for (const session of this.sessions.values()) {
       if (session.type !== 'notebook') {
-        result.push(session.toJSON())
+        result.push(this._serializeSession(session))
         activeIds.add(session.id)
       }
     }
@@ -1718,6 +1785,7 @@ class AgentSessionManager extends EventEmitter {
             totalCostUsd: row.total_cost_usd || 0,
             apiProfileId: row.api_profile_id || null,
             apiBaseUrl: row.api_base_url || null,
+            modelId: normalizeModelIdOrNull(row.model_id),
             source: resolveConversationSource(row.type, row.source),
             taskId: row.task_id || null
           })
@@ -2048,7 +2116,19 @@ class AgentSessionManager extends EventEmitter {
         hasQueryGenerator: !!session?.queryGenerator,
         apiProfileId: session?.apiProfileId || profile?.id || null
       })
-      return this.queryManager.setModel(sessionId, undefined)
+      if (session) {
+        session.modelId = null
+      }
+      this.sessionDatabase?.updateAgentConversationModel?.(sessionId, null)
+      if (!session?.queryGenerator) {
+        console.log('[AgentSession] setModel persisted without active query:', {
+          sessionId,
+          resolvedModel: null
+        })
+        return { success: true, persistedOnly: true }
+      }
+      const result = await this.queryManager.setModel(sessionId, undefined)
+      return result
     }
 
     const resolvedRequest = resolveRequestedModel(profile, this.configManager, normalizedRequestedModel)
@@ -2063,6 +2143,17 @@ class AgentSessionManager extends EventEmitter {
     })
 
     try {
+      if (session) {
+        session.modelId = normalizeModelIdOrNull(resolvedRequest.queryModel)
+      }
+      this.sessionDatabase?.updateAgentConversationModel?.(sessionId, resolvedRequest.queryModel)
+      if (!session?.queryGenerator) {
+        console.log('[AgentSession] setModel persisted without active query:', {
+          sessionId,
+          resolvedModel: resolvedRequest.queryModel || null
+        })
+        return { success: true, persistedOnly: true }
+      }
       const result = await this.queryManager.setModel(sessionId, resolvedRequest.queryModel)
       console.log('[AgentSession] setModel request applied:', {
         sessionId,
