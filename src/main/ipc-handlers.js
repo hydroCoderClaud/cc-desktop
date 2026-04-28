@@ -91,6 +91,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
   }
 
+  const trustedWeixinWebContents = new Set()
+  const registerTrustedWeixinWindow = (window) => {
+    const webContents = window?.webContents
+    if (!webContents) return
+    trustedWeixinWebContents.add(webContents)
+    window.once('closed', () => {
+      trustedWeixinWebContents.delete(webContents)
+    })
+  }
+  registerTrustedWeixinWindow(mainWindow)
+
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
@@ -184,6 +195,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       window.loadFile(filePath, { query: query.replace('?', '') });
     }
 
+    if (options.trustWeixinNotifyIPC) {
+      registerTrustedWeixinWindow(window)
+    }
+
     return window;
   };
 
@@ -230,6 +245,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       height: 760,
       title: translate('app.windows.settingsWorkbench'),
       page: 'settings-workbench',
+      trustWeixinNotifyIPC: true,
       query: params.toString() ? `?${params.toString()}` : ''
     });
     return { success: true };
@@ -762,7 +778,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 微信通知
   // ========================================
   if (weixinNotifyService && setupWeixinNotifyHandlers) {
-    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, mainWindow);
+    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, mainWindow, {
+      isTrustedSender: (sender) => trustedWeixinWebContents.has(sender)
+    });
   }
 
   // ========================================

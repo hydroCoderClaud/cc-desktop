@@ -200,6 +200,9 @@ const loadWeixinTargets = async () => {
         ? window.electronAPI.getSessionWeixinBinding(props.sessionId).catch(() => null)
         : null
     ])
+    if (targets?.error) {
+      throw new Error(targets.error)
+    }
     weixinTargets.value = Array.isArray(targets)
       ? targets.filter(target => target?.hasContextToken)
       : []
@@ -239,6 +242,17 @@ const sendWeixinQuickMessage = async () => {
   weixinError.value = ''
   try {
     const target = selectedWeixinTarget.value
+    if (window.electronAPI?.bindSessionToWeixinTarget) {
+      const bindResult = await window.electronAPI.bindSessionToWeixinTarget({
+        sessionId: props.sessionId,
+        accountId: target.accountId,
+        targetId: target.id,
+        displayName: target.displayName || target.userId || target.id
+      })
+      if (bindResult?.error) {
+        throw new Error(bindResult.error)
+      }
+    }
     const result = await window.electronAPI.sendWeixinNotifyText({
       sessionId: props.sessionId,
       accountId: target.accountId,

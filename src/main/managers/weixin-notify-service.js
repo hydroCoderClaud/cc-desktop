@@ -647,10 +647,23 @@ class WeixinNotifyService {
         base_info: { channel_version: CHANNEL_VERSION }
       }, API_TIMEOUT_MS)
       const businessError = getWeixinBusinessError(response, 'sendmessage')
-      if (businessError?.errcode === -14 || businessError?.ret === -14) {
+      if (
+        businessError?.errcode === -14 ||
+        businessError?.ret === -14 ||
+        businessError?.errcode === -2 ||
+        businessError?.ret === -2
+      ) {
         target.contextExpiredAt = Date.now()
-        target.lastError = 'session timeout'
+        target.lastError = businessError?.errcode === -2 || businessError?.ret === -2 ? 'context invalid' : 'session timeout'
         this._saveState()
+        if (businessError?.errcode === -2 || businessError?.ret === -2) {
+          const error = new Error(
+            '微信接口 sendmessage 失败：目标上下文已失效，请让该微信用户重新给 bot 发送一条消息，然后重新捕获一次。'
+          )
+          error.errcode = -2
+          error.ret = -2
+          throw error
+        }
         throw buildSessionTimeoutError('sendmessage')
       }
       if (businessError) throw businessError

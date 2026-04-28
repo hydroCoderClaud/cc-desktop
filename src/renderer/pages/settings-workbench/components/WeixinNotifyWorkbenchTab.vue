@@ -195,10 +195,12 @@ const throwIfIpcError = (result) => {
 const refreshAll = async () => {
   loading.value = true
   try {
-    const [accountList, targetList] = await Promise.all([
+    const [accountListResult, targetListResult] = await Promise.all([
       window.electronAPI.listWeixinNotifyAccounts?.(),
       window.electronAPI.listWeixinNotifyTargets?.()
     ])
+    const accountList = throwIfIpcError(accountListResult)
+    const targetList = throwIfIpcError(targetListResult)
     accounts.value = Array.isArray(accountList) ? accountList : []
     targets.value = Array.isArray(targetList) ? targetList : []
     targetNameDrafts.value = Object.fromEntries(targets.value.map(target => [

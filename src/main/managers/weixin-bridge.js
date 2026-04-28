@@ -483,10 +483,18 @@ class WeixinBridge {
     if (!session) {
       throw new Error(`Session ${sessionId} 不存在或已关闭`)
     }
+    for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
+      if (mappedSessionId === sessionId && mapKey !== targetId) {
+        this.sessionMap.delete(mapKey)
+      }
+    }
+
     const target = { accountId, targetId, displayName: displayName || targetId }
     this.sessionMap.set(targetId, sessionId)
     this.knownTargets.set(sessionId, target)
     this.sessionTargets.set(sessionId, target)
+    this.pendingReplies.delete(sessionId)
+    this.desktopPendingBlocks.delete(sessionId)
     console.log(`[WeixinBridge] Bound session ${sessionId} to target ${targetId} (${displayName || targetId})`)
     return { success: true, target }
   }

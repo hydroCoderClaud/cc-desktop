@@ -1,4 +1,4 @@
-function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, mainWindow = null) {
+function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, mainWindow = null, options = {}) {
   if (!weixinNotifyService) {
     console.warn('[IPC] WeixinNotifyService not available, skipping handlers')
     return
@@ -6,7 +6,10 @@ function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, m
 
   const assertTrustedSender = (event) => {
     const expectedWebContents = mainWindow?.webContents
-    if (expectedWebContents && event?.sender !== expectedWebContents) {
+    const trustedByExtension = typeof options.isTrustedSender === 'function'
+      ? options.isTrustedSender(event?.sender)
+      : false
+    if (expectedWebContents && event?.sender !== expectedWebContents && !trustedByExtension) {
       throw new Error('未授权的微信通知 IPC 调用')
     }
   }
