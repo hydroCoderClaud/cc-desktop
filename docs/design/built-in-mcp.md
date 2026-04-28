@@ -14,6 +14,7 @@
 - 定时任务管理工具只注入普通手动聊天会话，不注入 `source === 'scheduled'` 的定时任务执行会话，避免任务执行过程中再递归管理任务。
 - 微信通知工具会注入定时任务执行会话，用于让定时任务主动把结果推送给已绑定的微信目标。
 - 当前通过会话级 `allowedTools` 和 `disallowedTools` 做短期工具路由：允许 `mcp__hydrodesktop__schedule_*`，禁用 Claude Code 内建 `Cron*` 工具，避免用户意图被路由到错误调度系统。
+- 测试时如果是在“由定时任务自动创建/恢复”的会话里继续聊天，该会话仍属于 `source === 'scheduled'`，因此不会注入 `schedule_*` 工具；要验证聊天里创建/管理 Hydro Desktop 定时任务，必须使用普通手动会话。
 
 ---
 
