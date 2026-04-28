@@ -55,7 +55,7 @@ export const iconPaths = {
   user: '<circle cx="10" cy="6" r="3"/><path d="M4 18v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1"/>',
   robot: '<rect x="4" y="6" width="12" height="10" rx="3"/><path d="M7 4v2M13 4v2"/><circle cx="7" cy="3" r="1"/><circle cx="13" cy="3" r="1"/><path d="M7 10h.01M13 10h.01"/><path d="M8 13.5q2 1.5 4 0"/>',
   dingtalk: '<path d="M10 3v2"/><rect x="4" y="5" width="12" height="12" rx="2"/><path d="M7 9l3 3 3-3"/>',
-  weixin: '<path d="M3 9a5 5 0 0 1 5.5-5 5.4 5.4 0 0 1 5.4 4.2"/><path d="M17 10.5a4.4 4.4 0 0 1-4.7 4.4c-.6 0-1.2-.1-1.7-.3L7.5 16l1-2.2a4.1 4.1 0 0 1-.9-2.6 4.4 4.4 0 0 1 4.7-4.4 4.4 4.4 0 0 1 4.7 3.7z"/><circle cx="6.8" cy="8.4" r=".5" fill="currentColor" stroke="none"/><circle cx="10.2" cy="8.4" r=".5" fill="currentColor" stroke="none"/><circle cx="11.2" cy="10.8" r=".45" fill="currentColor" stroke="none"/><circle cx="14.2" cy="10.8" r=".45" fill="currentColor" stroke="none"/>',
+  weixin: '<path d="M4 10a5.5 4.8 0 0 1 6-4.8 5.5 4.8 0 0 1 6 4.8 5.5 4.8 0 0 1-6 4.8c-.7 0-1.3-.1-1.9-.3L5 16l1-2.2A4.3 4.3 0 0 1 4 10z"/><path d="M8 9h.01M12 9h.01"/>',
 
   // 状态类
   check: '<path d="M4 10l4 4 8-8" stroke-width="2.5"/>',

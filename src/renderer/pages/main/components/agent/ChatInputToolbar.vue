@@ -80,7 +80,7 @@
         :title="weixinBtnTitle"
         @click="toggleWeixinDropdown"
       >
-        <Icon name="weixin" :size="13" />
+        <Icon name="weixin" :size="16" />
       </div>
       <Transition name="dropdown">
         <div v-if="showWeixinDropdown && showWeixinBtn" class="weixin-dropdown">

@@ -218,7 +218,7 @@ const getConversationIcon = (conv) => {
   const source = getConversationSource(conv)
   if (source === 'scheduled') return 'clock'
   if (conv.type === 'dingtalk') return 'dingtalk'
-  if (conv.type === 'weixin') return 'chat'
+  if (conv.type === 'weixin') return 'weixin'
   return 'chat'
 }
 

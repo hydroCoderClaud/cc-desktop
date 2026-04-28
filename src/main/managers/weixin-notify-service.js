@@ -21,6 +21,9 @@ const BACKGROUND_FAST_POLL_TIMEOUT_MS = 2000
 const FAST_POLL_WINDOW_MS = 60 * 1000
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024
 const PRE_CAPTURE_WELCOME_TEXT = '您已经绑定HydroDesktop，可以随时接收和发送信息给后台大模型。'
+const STATE_VERSION = 2
+const SECRET_ENCRYPTION = 'electron-safe-storage'
+const RECENT_MESSAGE_ID_LIMIT = 500
 const MESSAGE_ITEM_TYPE = {
   TEXT: 1,
   IMAGE: 2
@@ -203,15 +206,42 @@ function isAbortError(err) {
   return err?.name === 'AbortError' || err?.message === 'This operation was aborted'
 }
 
+function getDefaultSecretStore() {
+  try {
+    const { safeStorage } = require('electron')
+    if (safeStorage?.isEncryptionAvailable?.()) {
+      return {
+        encrypt: value => safeStorage.encryptString(String(value || '')).toString('base64'),
+        decrypt: value => safeStorage.decryptString(Buffer.from(String(value || ''), 'base64'))
+      }
+    }
+  } catch {
+    // Electron safeStorage is unavailable in unit tests or non-Electron contexts.
+  }
+  return null
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function stableStringify(value) {
+  if (value == null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
+}
+
 class WeixinNotifyService {
   constructor(configManager, options = {}) {
     this.configManager = configManager
     this.stateDir = options.stateDir || path.join(configManager.userDataPath, 'weixin-notify')
     this.statePath = path.join(this.stateDir, 'state.json')
     this.activeLogins = new Map()
+    this.secretStore = options.secretStore === undefined ? getDefaultSecretStore() : options.secretStore
     this.state = this._loadState()
     this.events = new EventEmitter()
-    this.preCaptureAccountIds = new Set()
+    this.preCaptureAccountIds = new Set(this.state.preCaptureAccountIds || [])
     this.accountPollQueues = new Map()
     this.backgroundTimer = null
     this.backgroundStopped = true
@@ -230,6 +260,7 @@ class WeixinNotifyService {
 
   start() {
     this.state = this._loadState()
+    this.preCaptureAccountIds = new Set(this.state.preCaptureAccountIds || [])
     this.startBackgroundPolling()
   }
 
@@ -372,6 +403,7 @@ class WeixinNotifyService {
         }
         this._upsertAccount(account)
         this.preCaptureAccountIds.add(account.accountId)
+        this._syncRuntimeState()
         this._activateFastPolling()
         this._saveState()
         return {
@@ -450,9 +482,12 @@ class WeixinNotifyService {
 
     for (const message of response.msgs || []) {
       if (!message?.from_user_id) continue
+      const messageKey = this._buildMessageKey(account, message)
+      if (this._hasSeenMessage(messageKey)) continue
       const text = getTextFromMessage(message)
       const images = await this._downloadImagesFromMessage(account, message)
       if (!text && images.length === 0 && !message.context_token) continue
+      this._rememberMessageKey(messageKey)
       const target = this._upsertTarget({
         accountId: account.accountId,
         accountUserId: account.userId || null,
@@ -489,6 +524,7 @@ class WeixinNotifyService {
     }
     if (capturedForPreCapture) {
       this.preCaptureAccountIds.delete(account.accountId)
+      this._syncRuntimeState()
     }
     if (messages.length) {
       this._activateFastPolling()
@@ -745,28 +781,121 @@ class WeixinNotifyService {
     }
   }
 
+  _normalizeState(parsed = {}) {
+    return {
+      version: Number(parsed.version) || 1,
+      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+      targets: Array.isArray(parsed.targets) ? parsed.targets : [],
+      preCaptureAccountIds: Array.isArray(parsed.preCaptureAccountIds) ? parsed.preCaptureAccountIds : [],
+      recentMessageIds: Array.isArray(parsed.recentMessageIds) ? parsed.recentMessageIds : []
+    }
+  }
+
   _loadState() {
     try {
       if (fs.existsSync(this.statePath)) {
         const parsed = JSON.parse(fs.readFileSync(this.statePath, 'utf-8'))
-        return {
-          accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-          targets: Array.isArray(parsed.targets) ? parsed.targets : []
-        }
+        return this._deserializeState(parsed)
       }
     } catch (err) {
       console.warn('[WeixinNotify] Failed to load state:', err.message)
     }
-    return { accounts: [], targets: [] }
+    return this._normalizeState()
   }
 
   _saveState() {
     fs.mkdirSync(this.stateDir, { recursive: true })
-    fs.writeFileSync(this.statePath, JSON.stringify(this.state, null, 2), 'utf-8')
+    this._syncRuntimeState()
+    fs.writeFileSync(this.statePath, JSON.stringify(this._serializeState(), null, 2), 'utf-8')
     try {
       fs.chmodSync(this.statePath, 0o600)
     } catch {
       // Windows may ignore chmod.
+    }
+  }
+
+  _syncRuntimeState() {
+    this.state.preCaptureAccountIds = [...this.preCaptureAccountIds]
+    if (!Array.isArray(this.state.recentMessageIds)) this.state.recentMessageIds = []
+    if (this.state.recentMessageIds.length > RECENT_MESSAGE_ID_LIMIT) {
+      this.state.recentMessageIds = this.state.recentMessageIds.slice(-RECENT_MESSAGE_ID_LIMIT)
+    }
+    this.state.version = STATE_VERSION
+  }
+
+  _serializeState() {
+    const serialized = cloneJson(this.state)
+    serialized.version = STATE_VERSION
+    for (const account of serialized.accounts || []) {
+      account.token = this._protectSecret(account.token)
+    }
+    for (const target of serialized.targets || []) {
+      target.contextToken = this._protectSecret(target.contextToken)
+    }
+    return serialized
+  }
+
+  _deserializeState(parsed) {
+    const state = this._normalizeState(parsed)
+    for (const account of state.accounts) {
+      account.token = this._unprotectSecret(account.token)
+    }
+    for (const target of state.targets) {
+      target.contextToken = this._unprotectSecret(target.contextToken)
+    }
+    return state
+  }
+
+  _protectSecret(value) {
+    if (!value || typeof value !== 'string') return value || null
+    if (!this.secretStore?.encrypt) return value
+    return {
+      __secret: SECRET_ENCRYPTION,
+      value: this.secretStore.encrypt(value)
+    }
+  }
+
+  _unprotectSecret(value) {
+    if (!value || typeof value === 'string') return value || null
+    if (value.__secret !== SECRET_ENCRYPTION) return null
+    if (!this.secretStore?.decrypt) {
+      console.warn('[WeixinNotify] Encrypted credential cannot be decrypted without safeStorage')
+      return null
+    }
+    try {
+      return this.secretStore.decrypt(value.value)
+    } catch (err) {
+      console.warn('[WeixinNotify] Failed to decrypt credential:', err.message)
+      return null
+    }
+  }
+
+  _buildMessageKey(account, message) {
+    const explicitId = message.msg_id || message.msgid || message.message_id || message.client_id || message.id
+    if (explicitId) return `${account.accountId}:${explicitId}`
+    const payload = {
+      accountId: account.accountId,
+      from: message.from_user_id,
+      createTimeMs: message.create_time_ms || null,
+      contextToken: message.context_token || null,
+      text: getTextFromMessage(message),
+      items: message.item_list || []
+    }
+    return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex')
+  }
+
+  _hasSeenMessage(messageKey) {
+    return Boolean(messageKey && this.state.recentMessageIds?.includes(messageKey))
+  }
+
+  _rememberMessageKey(messageKey) {
+    if (!messageKey) return
+    if (!Array.isArray(this.state.recentMessageIds)) this.state.recentMessageIds = []
+    if (!this.state.recentMessageIds.includes(messageKey)) {
+      this.state.recentMessageIds.push(messageKey)
+    }
+    if (this.state.recentMessageIds.length > RECENT_MESSAGE_ID_LIMIT) {
+      this.state.recentMessageIds = this.state.recentMessageIds.slice(-RECENT_MESSAGE_ID_LIMIT)
     }
   }
 

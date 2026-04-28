@@ -3,6 +3,8 @@
  * Receives inbound Weixin notify messages and displays them in desktop Agent sessions.
  */
 
+const path = require('path')
+
 const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|bmp)$/i
 const IMAGE_PATH_MAX_DEPTH = 10
 
@@ -18,6 +20,8 @@ class WeixinBridge {
     this.pendingReplies = new Map()
     this.replySendQueues = new Map()
     this.desktopPendingBlocks = new Map()
+    this.inboundMessageQueues = new Map()
+    this.inboundCompletionWaiters = new Map()
     this._unbindMessage = null
     this._unbindSent = null
     this._agentListeners = null
@@ -26,9 +30,7 @@ class WeixinBridge {
   start() {
     if (!this.weixinNotifyService || this._unbindMessage) return false
     this._unbindMessage = this.weixinNotifyService.on('message', (message) => {
-      this._handleMessage(message).catch(err => {
-        console.error('[WeixinBridge] Message handling error:', err)
-      })
+      this._enqueueInboundMessage(message)
     })
     this._unbindSent = this.weixinNotifyService.on('sent', (message) => {
       this._rememberSentSession(message)
@@ -50,6 +52,58 @@ class WeixinBridge {
     this.pendingReplies.clear()
     this.replySendQueues.clear()
     this.desktopPendingBlocks.clear()
+    this.inboundMessageQueues.clear()
+    this._resolveInboundCompletionWaiters()
+  }
+
+  _enqueueInboundMessage(message) {
+    const mapKey = this._getMapKey(message)
+    const previous = this.inboundMessageQueues.get(mapKey) || Promise.resolve()
+    const next = previous
+      .catch(() => {})
+      .then(() => this._handleMessageAndWait(message))
+      .catch(err => {
+        console.error('[WeixinBridge] Message handling error:', err)
+      })
+      .finally(() => {
+        if (this.inboundMessageQueues.get(mapKey) === next) {
+          this.inboundMessageQueues.delete(mapKey)
+        }
+      })
+    this.inboundMessageQueues.set(mapKey, next)
+    return next
+  }
+
+  async _handleMessageAndWait(message) {
+    const sessionId = await this._handleMessage(message)
+    if (!sessionId) return null
+    return this._waitForAgentCompletion(sessionId)
+  }
+
+  _waitForAgentCompletion(sessionId) {
+    if (!sessionId) return Promise.resolve()
+    const session = this.agentSessionManager?.sessions?.get(sessionId)
+    if (!session || session.status !== 'streaming') return Promise.resolve()
+
+    return new Promise(resolve => {
+      const waiters = this.inboundCompletionWaiters.get(sessionId) || []
+      waiters.push(resolve)
+      this.inboundCompletionWaiters.set(sessionId, waiters)
+    })
+  }
+
+  _resolveInboundCompletionWaiters(sessionId = null) {
+    if (sessionId) {
+      const waiters = this.inboundCompletionWaiters.get(sessionId) || []
+      this.inboundCompletionWaiters.delete(sessionId)
+      waiters.forEach(resolve => resolve())
+      return
+    }
+
+    for (const waiters of this.inboundCompletionWaiters.values()) {
+      waiters.forEach(resolve => resolve())
+    }
+    this.inboundCompletionWaiters.clear()
   }
 
   async _handleMessage(message) {
@@ -112,10 +166,13 @@ class WeixinBridge {
       agentResult: (sessionId) => {
         this._flushAgentReply(sessionId).catch(err => {
           console.error('[WeixinBridge] Flush agent reply failed:', err)
+        }).finally(() => {
+          this._resolveInboundCompletionWaiters(sessionId)
         })
       },
       agentError: (sessionId) => {
         this.pendingReplies.delete(sessionId)
+        this._resolveInboundCompletionWaiters(sessionId)
       }
     }
 
@@ -137,7 +194,7 @@ class WeixinBridge {
     const desktopPending = this.desktopPendingBlocks.get(sessionId)
     if (desktopPending) {
       this._collectTextChunks(desktopPending, message)
-      this._collectImagePaths(desktopPending, message)
+      this._collectImagePaths(desktopPending, message, sessionId)
       return
     }
 
@@ -150,7 +207,7 @@ class WeixinBridge {
     }
 
     const pending = this.pendingReplies.get(sessionId) || { imagePaths: new Set() }
-    this._collectImagePaths(pending, message)
+    this._collectImagePaths(pending, message, sessionId)
     if (pending.imagePaths?.size > 0) {
       this.pendingReplies.set(sessionId, pending)
     }
@@ -198,12 +255,12 @@ class WeixinBridge {
     pending.textChunks.push(textParts.join('\n\n'))
   }
 
-  _collectImagePaths(pending, message) {
+  _collectImagePaths(pending, message, sessionId) {
     const blocks = Array.isArray(message?.content) ? message.content : []
     if (!pending.imagePaths) pending.imagePaths = new Set()
     for (const block of blocks) {
       if (block?.type === 'tool_use' && block.input) {
-        this._extractImagePaths(block.input).forEach(filePath => pending.imagePaths.add(filePath))
+        this._extractImagePaths(block.input, sessionId).forEach(filePath => pending.imagePaths.add(filePath))
       }
     }
   }
@@ -288,19 +345,33 @@ class WeixinBridge {
     })
   }
 
-  _extractImagePaths(obj, depth = 0) {
+  _extractImagePaths(obj, sessionId, depth = 0) {
     if (depth > IMAGE_PATH_MAX_DEPTH) return []
     const paths = []
     if (typeof obj === 'string') {
       if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:[/\\]/.test(obj))) {
-        paths.push(this._normalizePath(obj))
+        const normalizedPath = this._normalizePath(obj)
+        if (this._isAllowedSessionImagePath(normalizedPath, sessionId)) {
+          paths.push(normalizedPath)
+        }
       }
     } else if (obj && typeof obj === 'object') {
       for (const value of Object.values(obj)) {
-        paths.push(...this._extractImagePaths(value, depth + 1))
+        paths.push(...this._extractImagePaths(value, sessionId, depth + 1))
       }
     }
     return paths
+  }
+
+  _isAllowedSessionImagePath(filePath, sessionId) {
+    const session = sessionId ? this._resolveSession(sessionId) : null
+    if (!session?.cwd) return false
+
+    const cwd = path.resolve(session.cwd)
+    const resolvedPath = path.resolve(filePath)
+    const normalizedCwd = cwd.toLowerCase()
+    const normalizedPath = resolvedPath.toLowerCase()
+    return normalizedPath === normalizedCwd || normalizedPath.startsWith(`${normalizedCwd}${path.sep}`)
   }
 
   _normalizePath(filePath) {

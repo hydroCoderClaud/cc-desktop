@@ -617,12 +617,10 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
       includeScheduleTools ? DESKTOP_CAPABILITY_SYSTEM_PROMPT : null,
       includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null
     ),
-    allowedTools: includeScheduleTools
-      ? [
-          ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
-          ...WEIXIN_NOTIFY_ALLOWED_TOOLS
-        ]
-      : undefined,
+    allowedTools: [
+      ...(includeScheduleTools ? DESKTOP_CAPABILITY_ALLOWED_TOOLS : []),
+      ...(includeWeixinNotifyTools ? WEIXIN_NOTIFY_ALLOWED_TOOLS : [])
+    ],
     disallowedTools: includeScheduleTools ? CONFLICTING_CRON_TOOLS : undefined
   }
 }

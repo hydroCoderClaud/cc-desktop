@@ -762,7 +762,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 微信通知
   // ========================================
   if (weixinNotifyService && setupWeixinNotifyHandlers) {
-    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge);
+    setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, mainWindow);
   }
 
   // ========================================

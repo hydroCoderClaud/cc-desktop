@@ -387,7 +387,10 @@ describe('desktop capability query options', () => {
       'weixin_notify_list_targets',
       'weixin_notify_send'
     ])
-    expect(options.allowedTools).toBeUndefined()
+    expect(options.allowedTools).toEqual([
+      'mcp__hydrodesktop__weixin_notify_list_targets',
+      'mcp__hydrodesktop__weixin_notify_send'
+    ])
     expect(options.disallowedTools).toBeUndefined()
     expect(options.appendSystemPrompt).toContain('Weixin notification')
   })

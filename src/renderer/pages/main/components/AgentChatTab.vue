@@ -80,7 +80,7 @@
       <span>{{ t('agent.dingtalkObserving') }}</span>
     </div>
     <div v-else-if="sessionType === 'weixin'" class="dingtalk-observe-bar">
-      <Icon name="chat" :size="14" />
+      <Icon name="weixin" :size="14" />
       <span>{{ t('agent.weixinObserving') }}</span>
     </div>
     <div v-else-if="!hasActiveSession" class="status-hint-bar">

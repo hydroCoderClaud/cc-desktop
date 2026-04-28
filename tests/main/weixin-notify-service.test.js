@@ -20,8 +20,19 @@ describe('WeixinNotifyService', () => {
     fs.rmSync(tempDir, { recursive: true, force: true })
   })
 
-  function createService() {
-    return new WeixinNotifyService({ userDataPath: tempDir })
+  function createService(options = {}) {
+    return new WeixinNotifyService({ userDataPath: tempDir }, options)
+  }
+
+  function statePath() {
+    return path.join(tempDir, 'weixin-notify', 'state.json')
+  }
+
+  function fakeSecretStore() {
+    return {
+      encrypt: value => `enc:${Buffer.from(String(value), 'utf-8').toString('base64')}`,
+      decrypt: value => Buffer.from(String(value).replace(/^enc:/, ''), 'base64').toString('utf-8')
+    }
   }
 
   function jsonResponse(payload, ok = true, status = 200) {
@@ -178,6 +189,152 @@ describe('WeixinNotifyService', () => {
     expect(sendRequest.msg.to_user_id).toBe('target@im.wechat')
     expect(sendRequest.msg.context_token).toBe('ctx-1')
     expect(sendRequest.msg.item_list[0].text_item.text).toBe('Hydro notification')
+  })
+
+  it('encrypts bot tokens and context tokens in persisted state', async () => {
+    const secretStore = fakeSecretStore()
+    const service = createService({ secretStore })
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    service.state.targets.push({
+      id: 'bot@im.bot:target@im.wechat',
+      accountId: 'bot@im.bot',
+      userId: 'target@im.wechat',
+      contextToken: 'ctx-1'
+    })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    await service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'encrypted notification'
+    })
+
+    const rawState = fs.readFileSync(statePath(), 'utf-8')
+    expect(rawState).not.toContain('secret-token')
+    expect(rawState).not.toContain('ctx-1')
+    const persisted = JSON.parse(rawState)
+    expect(persisted.accounts[0].token).toMatchObject({ __secret: 'electron-safe-storage' })
+    expect(persisted.targets[0].contextToken).toMatchObject({ __secret: 'electron-safe-storage' })
+
+    const reloaded = createService({ secretStore })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+    await reloaded.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'after reload'
+    })
+    const sendRequest = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer secret-token')
+    expect(sendRequest.msg.context_token).toBe('ctx-1')
+  })
+
+  it('loads plaintext legacy credentials and can rewrite them through the secret store', async () => {
+    fs.mkdirSync(path.dirname(statePath()), { recursive: true })
+    fs.writeFileSync(statePath(), JSON.stringify({
+      accounts: [{
+        accountId: 'bot@im.bot',
+        token: 'secret-token',
+        baseUrl: 'https://ilinkai.weixin.qq.com'
+      }],
+      targets: [{
+        id: 'bot@im.bot:target@im.wechat',
+        accountId: 'bot@im.bot',
+        userId: 'target@im.wechat',
+        contextToken: 'ctx-1'
+      }]
+    }), 'utf-8')
+
+    const service = createService({ secretStore: fakeSecretStore() })
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    await service.sendText({
+      accountId: 'bot@im.bot',
+      targetId: 'target@im.wechat',
+      text: 'legacy credentials'
+    })
+
+    const sendRequest = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer secret-token')
+    expect(sendRequest.msg.context_token).toBe('ctx-1')
+    const rewritten = fs.readFileSync(statePath(), 'utf-8')
+    expect(rewritten).not.toContain('secret-token')
+    expect(rewritten).not.toContain('ctx-1')
+  })
+
+  it('deduplicates repeated inbound messages by message id', async () => {
+    const service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com'
+    })
+    const duplicateMessage = {
+      msg_id: 'msg-1',
+      from_user_id: 'target@im.wechat',
+      context_token: 'ctx-1',
+      item_list: [{ type: 1, text_item: { text: 'only once' } }]
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [duplicateMessage, duplicateMessage]
+    }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+
+    expect(poll.messages).toHaveLength(1)
+    expect(poll.targets).toHaveLength(1)
+    expect(received).toHaveLength(1)
+    expect(service.state.recentMessageIds).toEqual(['bot@im.bot:msg-1'])
+  })
+
+  it('persists qr pre-capture state over restart and suppresses the binding message', async () => {
+    let service = createService()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        qrcode: 'qr-token',
+        qrcode_img_content: 'https://liteapp.weixin.qq.com/q/demo'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'confirmed',
+        bot_token: 'secret-token',
+        ilink_bot_id: 'bot@im.bot',
+        ilink_user_id: 'scanner@im.wechat',
+        baseurl: 'https://ilinkai.weixin.qq.com'
+      }))
+
+    const login = await service.startLogin()
+    await service.waitLogin({ sessionKey: login.sessionKey, timeoutMs: 1000 })
+
+    service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    expect(service.preCaptureAccountIds.has('bot@im.bot')).toBe(true)
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-1',
+        msgs: [{
+          from_user_id: 'scanner@im.wechat',
+          context_token: 'ctx-1',
+          item_list: [{ type: 1, text_item: { text: 'bind after restart' } }]
+        }]
+      }))
+      .mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot' })
+
+    expect(poll.targets).toHaveLength(1)
+    expect(received).toHaveLength(0)
+    expect(service.preCaptureAccountIds.has('bot@im.bot')).toBe(false)
+    const persisted = JSON.parse(fs.readFileSync(statePath(), 'utf-8'))
+    expect(persisted.preCaptureAccountIds).toEqual([])
   })
 
   it('emits sent event with session binding metadata', async () => {

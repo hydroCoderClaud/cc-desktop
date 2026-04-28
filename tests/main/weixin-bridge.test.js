@@ -89,7 +89,7 @@ describe('WeixinBridge', () => {
 
     bridge.start()
     events.emit('message', inboundMessage())
-    await Promise.resolve()
+    await bridge.inboundMessageQueues.get('acc-1:user-a')
 
     expect(sendMessage).toHaveBeenCalledWith(
       expect.any(String),
@@ -138,6 +138,34 @@ describe('WeixinBridge', () => {
     expect(sessions[0].messages.map(msg => msg.content)).toEqual(['第一条', '第二条'])
   })
 
+  it('queues inbound messages for the same Weixin target', async () => {
+    const { bridge, manager } = createHarness()
+    const calls = []
+    vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId, userMessage) => {
+      calls.push(userMessage)
+      manager.sessions.get(sessionId).status = 'streaming'
+    })
+
+    bridge.start()
+    const first = bridge._enqueueInboundMessage(inboundMessage({ text: '第一条' }))
+    const second = bridge._enqueueInboundMessage(inboundMessage({ text: '第二条' }))
+
+    await vi.waitFor(() => {
+      expect(calls).toEqual(['第一条'])
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    manager.emit('agentResult', session.id)
+
+    await vi.waitFor(() => {
+      expect(calls).toEqual(['第一条', '第二条'])
+    })
+    manager.emit('agentResult', session.id)
+
+    await Promise.all([first, second])
+    expect(calls).toEqual(['第一条', '第二条'])
+  })
+
   it('submits inbound Weixin images to Agent and frontend', async () => {
     const { bridge, manager, sent } = createHarness()
     const sendMessage = stubSendMessage(manager)
@@ -176,7 +204,7 @@ describe('WeixinBridge', () => {
       target: { displayName: '雷斯林' }
     })
     events.emit('message', inboundMessage({ text: '我收到了' }))
-    await Promise.resolve()
+    await bridge.inboundMessageQueues.get('acc-1:user-a')
 
     expect(manager.sessions.size).toBe(1)
     const originalSession = manager.sessions.get(session.id)
@@ -317,11 +345,11 @@ describe('WeixinBridge', () => {
   it('forwards assistant image paths back to Weixin after inbound message activates the target', async () => {
     const { bridge, manager } = createHarness()
     stubSendMessage(manager)
-    const imagePath = 'C:/workspace/out/result.png'
 
     bridge.start()
     await bridge._handleMessage(inboundMessage({ text: '帮我画图' }))
     const session = Array.from(manager.sessions.values())[0]
+    const imagePath = path.join(session.cwd, 'result.png')
     manager.emit('agentMessage', session.id, {
       type: 'assistant',
       content: [
@@ -346,6 +374,33 @@ describe('WeixinBridge', () => {
       imagePaths: [imagePath],
       sessionId: session.id
     })
+  })
+
+  it('does not forward assistant image paths outside the session directory', async () => {
+    const { bridge, manager } = createHarness()
+    stubSendMessage(manager)
+
+    bridge.start()
+    await bridge._handleMessage(inboundMessage({ text: '帮我画图' }))
+    const session = Array.from(manager.sessions.values())[0]
+    manager.emit('agentMessage', session.id, {
+      type: 'assistant',
+      content: [
+        { type: 'text', text: '图片生成好了。' },
+        { type: 'tool_use', input: { path: 'C:/workspace/out/result.png' } }
+      ]
+    })
+    manager.emit('agentResult', session.id)
+    await bridge.replySendQueues.get(session.id)
+    await Promise.resolve()
+
+    expect(bridge.weixinNotifyService.sendText).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: '图片生成好了。',
+      sessionId: session.id
+    })
+    expect(bridge.weixinNotifyService.sendImages).not.toHaveBeenCalled()
   })
 
   it('ignores context-only updates', async () => {
