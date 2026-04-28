@@ -26,6 +26,17 @@
           </n-button>
         </div>
 
+        <div
+          v-if="preCaptureStatus !== 'idle'"
+          class="pre-capture-status"
+          :class="'status-' + preCaptureStatus"
+        >
+          <span v-if="preCaptureStatus === 'waiting'" class="capture-spinner"></span>
+          <Icon v-else-if="preCaptureStatus === 'success'" name="check" :size="14" />
+          <Icon v-else name="warning" :size="14" />
+          <span>{{ preCaptureStatusText }}</span>
+        </div>
+
         <div v-if="loginQrcodeUrl" class="qr-panel">
           <img :src="loginQrcodeUrl" :alt="t('weixinNotify.qrAlt')" class="qr-image">
           <div class="qr-copy">
@@ -130,7 +141,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -153,8 +164,13 @@ const targetNameDrafts = ref({})
 const editingTargetId = ref(null)
 const savingTargetId = ref(null)
 const targetSelectVersion = ref(0)
+const preCaptureStatus = ref('idle')
 
 const MANUAL_CAPTURE_POLL_TIMEOUT_MS = 8000
+const PRE_CAPTURE_REFRESH_INTERVAL_MS = 2000
+const PRE_CAPTURE_REFRESH_TIMEOUT_MS = 30000
+let preCaptureRefreshTimer = null
+let preCaptureRefreshStartedAt = 0
 
 const targetOptions = computed(() => targets.value.map(target => ({
   label: `${target.displayName || target.userId} (${target.accountId})`,
@@ -164,6 +180,12 @@ const targetOptions = computed(() => targets.value.map(target => ({
 
 const selectedTarget = computed(() => targets.value.find(target => target.id === selectedTargetId.value) || null)
 const canSend = computed(() => Boolean(selectedTarget.value?.hasContextToken && testText.value.trim()))
+const preCaptureStatusText = computed(() => {
+  if (preCaptureStatus.value === 'waiting') return t('weixinNotify.preCaptureWaiting')
+  if (preCaptureStatus.value === 'success') return t('weixinNotify.preCaptureSuccess')
+  if (preCaptureStatus.value === 'timeout') return t('weixinNotify.preCaptureTimeout')
+  return ''
+})
 
 const throwIfIpcError = (result) => {
   if (result?.error) throw new Error(result.error)
@@ -215,6 +237,78 @@ const cancelTargetDisplayName = (target) => {
   }
 }
 
+const mergeCapturedTargets = (capturedTargets) => {
+  if (!Array.isArray(capturedTargets) || capturedTargets.length === 0) return
+  const nextTargets = [...targets.value]
+  for (const capturedTarget of capturedTargets) {
+    if (!capturedTarget?.id) continue
+    const existingIndex = nextTargets.findIndex(target => target.id === capturedTarget.id)
+    if (existingIndex >= 0) {
+      nextTargets[existingIndex] = { ...nextTargets[existingIndex], ...capturedTarget }
+    } else {
+      nextTargets.unshift(capturedTarget)
+    }
+    targetNameDrafts.value[capturedTarget.id] = capturedTarget.displayName || capturedTarget.userId || ''
+  }
+  targets.value = nextTargets
+  if (!selectedTargetId.value) {
+    selectedTargetId.value = capturedTargets.find(target => target?.hasContextToken)?.id || capturedTargets[0]?.id || null
+  }
+  targetSelectVersion.value += 1
+}
+
+const stopPreCaptureRefresh = () => {
+  if (preCaptureRefreshTimer) {
+    clearInterval(preCaptureRefreshTimer)
+    preCaptureRefreshTimer = null
+  }
+  preCaptureRefreshStartedAt = 0
+}
+
+const finishPreCapture = (status) => {
+  stopPreCaptureRefresh()
+  preCaptureStatus.value = status
+}
+
+const hasCapturedTargetForAccount = (accountId) => {
+  return targets.value.some(target => target.accountId === accountId && target.hasContextToken)
+}
+
+const runPreCapturePoll = async (accountId) => {
+  if (!accountId) return false
+  try {
+    await captureLatestMessages({
+      silent: true,
+      accountId,
+      timeoutMs: PRE_CAPTURE_REFRESH_INTERVAL_MS
+    })
+  } catch (err) {
+    console.error('[WeixinNotifyWorkbenchTab] pre-capture poll failed:', err)
+    await refreshAll()
+  }
+  return hasCapturedTargetForAccount(accountId)
+}
+
+const startPreCaptureRefresh = async (accountId) => {
+  stopPreCaptureRefresh()
+  if (!accountId) return
+  preCaptureStatus.value = 'waiting'
+  preCaptureRefreshStartedAt = Date.now()
+  if (await runPreCapturePoll(accountId)) {
+    finishPreCapture('success')
+    return
+  }
+  preCaptureRefreshTimer = setInterval(async () => {
+    if (Date.now() - preCaptureRefreshStartedAt > PRE_CAPTURE_REFRESH_TIMEOUT_MS) {
+      finishPreCapture('timeout')
+      return
+    }
+    if (await runPreCapturePoll(accountId)) {
+      finishPreCapture('success')
+    }
+  }, PRE_CAPTURE_REFRESH_INTERVAL_MS)
+}
+
 const captureLatestMessages = async ({
   silent = false,
   accountId = null,
@@ -222,10 +316,14 @@ const captureLatestMessages = async ({
 } = {}) => {
   const result = throwIfIpcError(await window.electronAPI.pollWeixinNotifyOnce?.({
     accountId,
-    timeoutMs
+    timeoutMs,
+    emitInbound: false
   }))
-  const count = Array.isArray(result?.targets) ? result.targets.length : 0
+  const capturedTargets = Array.isArray(result?.targets) ? result.targets : []
+  const count = capturedTargets.length
+  mergeCapturedTargets(capturedTargets)
   await refreshAll()
+  mergeCapturedTargets(capturedTargets)
   if (!silent) {
     message.success(t('weixinNotify.captureSuccess', { count }))
   }
@@ -235,6 +333,7 @@ const captureLatestMessages = async ({
 const startLogin = async () => {
   loginLoading.value = true
   loginQrcodeUrl.value = ''
+  preCaptureStatus.value = 'idle'
   try {
     const login = throwIfIpcError(await window.electronAPI.startWeixinNotifyLogin?.())
     loginQrcodeUrl.value = login?.qrcodeUrl || ''
@@ -246,6 +345,7 @@ const startLogin = async () => {
       message.success(t('weixinNotify.loginSuccess'))
       loginQrcodeUrl.value = ''
       await refreshAll()
+      startPreCaptureRefresh(result.account?.accountId)
       dialog.info({
         title: t('weixinNotify.loginNextStepTitle'),
         content: t('weixinNotify.loginNextStepContent'),
@@ -347,6 +447,10 @@ const sendTest = async () => {
 onMounted(() => {
   refreshAll()
 })
+
+onUnmounted(() => {
+  stopPreCaptureRefresh()
+})
 </script>
 
 <style scoped>
@@ -405,6 +509,47 @@ onMounted(() => {
 .login-actions {
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.pre-capture-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+}
+
+.pre-capture-status.status-waiting {
+  background: rgba(24, 160, 88, 0.10);
+  color: #18a058;
+}
+
+.pre-capture-status.status-success {
+  background: rgba(24, 160, 88, 0.12);
+  color: #18a058;
+}
+
+.pre-capture-status.status-timeout {
+  background: rgba(240, 160, 32, 0.12);
+  color: #f0a020;
+}
+
+.capture-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: capture-spin 0.8s linear infinite;
+}
+
+@keyframes capture-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .qr-panel {

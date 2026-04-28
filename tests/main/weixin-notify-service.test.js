@@ -74,6 +74,62 @@ describe('WeixinNotifyService', () => {
     expect(service.listAccounts()[0]).not.toHaveProperty('token')
   })
 
+  it('pre-captures the first inbound message after qr login without emitting it', async () => {
+    const service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        qrcode: 'qr-token',
+        qrcode_img_content: 'https://liteapp.weixin.qq.com/q/demo'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: 'confirmed',
+        bot_token: 'secret-token',
+        ilink_bot_id: 'bot@im.bot',
+        ilink_user_id: 'scanner@im.wechat',
+        baseurl: 'https://ilinkai.weixin.qq.com'
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-1',
+        msgs: [{
+          from_user_id: 'scanner@im.wechat',
+          context_token: 'ctx-1',
+          item_list: [{ type: 1, text_item: { text: 'bind me' } }]
+        }]
+      }))
+      .mockResolvedValueOnce(jsonResponse({ ret: 0 }))
+      .mockResolvedValueOnce(jsonResponse({
+        ret: 0,
+        get_updates_buf: 'cursor-2',
+        msgs: [{
+          from_user_id: 'scanner@im.wechat',
+          context_token: 'ctx-2',
+          item_list: [{ type: 1, text_item: { text: 'real message' } }]
+        }]
+      }))
+
+    const login = await service.startLogin()
+    const result = await service.waitLogin({ sessionKey: login.sessionKey, timeoutMs: 1000 })
+    expect(result.connected).toBe(true)
+
+    const preCapturePoll = await service.pollOnce({ accountId: 'bot@im.bot' })
+    expect(preCapturePoll.targets).toHaveLength(1)
+    expect(service.listTargets()[0]).toMatchObject({
+      id: 'bot@im.bot:scanner@im.wechat',
+      hasContextToken: true
+    })
+    expect(received).toHaveLength(0)
+    const welcomeRequest = JSON.parse(fetchMock.mock.calls[3][1].body)
+    expect(welcomeRequest.msg.context_token).toBe('ctx-1')
+    expect(welcomeRequest.msg.item_list[0].text_item.text).toContain('您已经绑定HydroDesktop')
+
+    await service.pollOnce({ accountId: 'bot@im.bot' })
+    expect(received).toHaveLength(1)
+    expect(received[0].text).toBe('real message')
+  })
+
   it('captures inbound targets and sends text with context token', async () => {
     const service = createService()
     service.state.accounts.push({
@@ -189,6 +245,38 @@ describe('WeixinNotifyService', () => {
         isAuthorizedAccountUser: true
       }
     })
+  })
+
+  it('can capture targets without emitting inbound message events', async () => {
+    const service = createService()
+    const received = []
+    service.on('message', message => received.push(message))
+    service.state.accounts.push({
+      accountId: 'bot@im.bot',
+      token: 'secret-token',
+      baseUrl: 'https://ilinkai.weixin.qq.com',
+      userId: 'target@im.wechat'
+    })
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      ret: 0,
+      get_updates_buf: 'cursor-1',
+      msgs: [{
+        from_user_id: 'target@im.wechat',
+        context_token: 'ctx-1',
+        item_list: [{ type: 1, text_item: { text: 'bind me' } }]
+      }]
+    }))
+
+    const poll = await service.pollOnce({ accountId: 'bot@im.bot', emitInbound: false })
+
+    expect(poll.targets).toHaveLength(1)
+    expect(poll.messages).toHaveLength(1)
+    expect(service.listTargets()[0]).toMatchObject({
+      id: 'bot@im.bot:target@im.wechat',
+      hasContextToken: true
+    })
+    expect(received).toHaveLength(0)
   })
 
   it('downloads inbound image messages and exposes base64 image data', async () => {

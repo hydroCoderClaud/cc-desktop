@@ -16,6 +16,7 @@ const API_TIMEOUT_MS = 15 * 1000
 const UPDATES_TIMEOUT_MS = 45 * 1000
 const BACKGROUND_POLL_INTERVAL_MS = 1000
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024
+const PRE_CAPTURE_WELCOME_TEXT = '您已经绑定HydroDesktop，可以随时接收和发送信息给后台大模型。'
 const MESSAGE_ITEM_TYPE = {
   TEXT: 1,
   IMAGE: 2
@@ -202,6 +203,7 @@ class WeixinNotifyService {
     this.activeLogins = new Map()
     this.state = this._loadState()
     this.events = new EventEmitter()
+    this.preCaptureAccountIds = new Set()
     this.pollQueue = Promise.resolve()
     this.backgroundTimer = null
     this.backgroundStopped = true
@@ -355,6 +357,7 @@ class WeixinNotifyService {
           savedAt: Date.now()
         }
         this._upsertAccount(account)
+        this.preCaptureAccountIds.add(account.accountId)
         this._saveState()
         return {
           connected: true,
@@ -367,15 +370,16 @@ class WeixinNotifyService {
     throw new Error('微信扫码登录超时')
   }
 
-  async pollOnce({ accountId, timeoutMs } = {}) {
-    const run = () => this._pollOnceUnlocked({ accountId, timeoutMs })
+  async pollOnce({ accountId, timeoutMs, emitInbound = true } = {}) {
+    const run = () => this._pollOnceUnlocked({ accountId, timeoutMs, emitInbound })
     this.pollQueue = this.pollQueue.then(run, run)
     return this.pollQueue
   }
 
-  async _pollOnceUnlocked({ accountId, timeoutMs } = {}) {
+  async _pollOnceUnlocked({ accountId, timeoutMs, emitInbound = true } = {}) {
     const accounts = accountId ? [this._requireAccount(accountId)] : this.state.accounts
     const messages = []
+    const inboundMessages = []
     const targets = []
     const pollTimeoutMs = Math.min(
       Math.max(Number(timeoutMs) || UPDATES_TIMEOUT_MS, 1000),
@@ -383,6 +387,8 @@ class WeixinNotifyService {
     )
 
     for (const account of accounts) {
+      const preCapturing = this.preCaptureAccountIds.has(account.accountId)
+      let capturedForPreCapture = false
       const response = await this._apiPost(account.baseUrl, 'ilink/bot/getupdates', account.token, {
         get_updates_buf: account.cursor || '',
         base_info: { channel_version: CHANNEL_VERSION }
@@ -411,7 +417,7 @@ class WeixinNotifyService {
         })
         const publicMessageTarget = publicTarget(target)
         targets.push(publicMessageTarget)
-        messages.push({
+        const normalizedMessage = {
           accountId: account.accountId,
           targetId: target.id,
           from: message.from_user_id,
@@ -421,14 +427,43 @@ class WeixinNotifyService {
           contextToken: message.context_token || null,
           createTimeMs: message.create_time_ms || null,
           target: publicMessageTarget
-        })
+        }
+        messages.push(normalizedMessage)
+        if (preCapturing) {
+          capturedForPreCapture = true
+          if (target.contextToken) {
+            await this._sendPreCaptureWelcome(account, target)
+          }
+        } else {
+          inboundMessages.push(normalizedMessage)
+        }
+      }
+      if (capturedForPreCapture) {
+        this.preCaptureAccountIds.delete(account.accountId)
       }
     }
 
     this._saveState()
     const result = { messages, targets }
-    this._emitInboundMessages(messages)
+    if (emitInbound) {
+      this._emitInboundMessages(inboundMessages)
+    }
     return result
+  }
+
+  async _sendPreCaptureWelcome(account, target) {
+    try {
+      await this._sendMessageItems({
+        accountId: account.accountId,
+        targetId: target.id,
+        items: [{ type: MESSAGE_ITEM_TYPE.TEXT, text_item: { text: PRE_CAPTURE_WELCOME_TEXT } }],
+        text: PRE_CAPTURE_WELCOME_TEXT,
+        target,
+        account
+      })
+    } catch (err) {
+      console.warn('[WeixinNotify] Failed to send pre-capture welcome:', err.message)
+    }
   }
 
   async sendText({ accountId, targetId, text, sessionId } = {}) {
