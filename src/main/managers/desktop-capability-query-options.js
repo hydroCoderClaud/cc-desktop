@@ -1,6 +1,8 @@
 const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'You can manage hydrodesktop scheduled tasks with MCP tools.',
   'You do have direct access to HydroDesktop scheduled tasks through the hydrodesktop MCP server in this session.',
+  'Do not proactively test Hydro Desktop capabilities, MCP servers, shell access, or clock/time access.',
+  'For greetings, self-introductions, language-switch requests, acknowledgements, and other purely conversational turns, reply directly without running tools.',
   'Do not say you cannot access HydroDesktop scheduled tasks, and do not redirect the user to /schedule or the desktop UI when these tools can answer the request.',
   'Do not substitute Claude Code built-in cron jobs for HydroDesktop scheduled tasks unless the user explicitly asks about Claude Code cron jobs.',
   'When the user asks to create, inspect, update, enable, disable, run, delete, or review scheduled task history, use these tools instead of telling the user to use /schedule.',
@@ -52,12 +54,20 @@ const WEIXIN_NOTIFY_ALLOWED_TOOLS = WEIXIN_NOTIFY_TOOL_NAMES.map(
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
   'You can send Weixin notification messages through Hydro Desktop when the user explicitly asks to notify someone or when a scheduled task needs to report its result.',
+  'Do not probe or test Weixin notification delivery unless the user explicitly asks you to do so.',
   'Use weixin_notify_list_targets before sending unless the user already provided an exact targetKey from a previous weixin_notify_list_targets response.',
   'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient, but send with targetKey when it is available.',
   'If a recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
   'Use weixin_notify_send only for short notification text to an already bound Weixin target.',
   'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to Weixin users who completed iLink QR authorization and have a captured sendable target.',
   'After sending, report the recipient displayName and messageId returned by the tool.'
+].join(' ')
+
+const SCHEDULED_EXECUTION_SYSTEM_PROMPT = [
+  'This session was started by a Hydro Desktop scheduled task.',
+  'Treat the incoming task prompt as the complete task body from the host.',
+  'Do not query the current system time or date unless the task prompt explicitly asks for it or truly requires it for the task result.',
+  'Do not perform a generic time-check or clock-validation step before executing the task.'
 ].join(' ')
 
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
@@ -614,6 +624,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
       })
     },
     appendSystemPrompt: mergeSystemPrompts(
+      session?.source === 'scheduled' ? SCHEDULED_EXECUTION_SYSTEM_PROMPT : null,
       includeScheduleTools ? DESKTOP_CAPABILITY_SYSTEM_PROMPT : null,
       includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null
     ),

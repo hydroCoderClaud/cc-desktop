@@ -170,6 +170,8 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('Do not claim there are no tasks')
     expect(options.appendSystemPrompt).toContain('You do have direct access to HydroDesktop scheduled tasks')
     expect(options.appendSystemPrompt).toContain('Do not say you cannot access HydroDesktop scheduled tasks')
+    expect(options.appendSystemPrompt).toContain('Do not proactively test Hydro Desktop capabilities')
+    expect(options.appendSystemPrompt).toContain('reply directly without running tools')
     expect(options.appendSystemPrompt).toContain('modelId')
   })
 
@@ -292,6 +294,7 @@ describe('desktop capability query options', () => {
       'mcp__hydrodesktop__weixin_notify_send'
     ]))
     expect(options.appendSystemPrompt).toContain('Weixin notification')
+    expect(options.appendSystemPrompt).toContain('Do not probe or test Weixin notification delivery')
 
     const listPayload = parseToolPayload(await tools.weixin_notify_list_targets.handler())
     expect(listPayload.accounts[0]).not.toHaveProperty('token')
@@ -392,6 +395,9 @@ describe('desktop capability query options', () => {
       'mcp__hydrodesktop__weixin_notify_send'
     ])
     expect(options.disallowedTools).toBeUndefined()
+    expect(options.appendSystemPrompt).toContain('scheduled task')
+    expect(options.appendSystemPrompt).toContain('Do not query the current system time or date')
     expect(options.appendSystemPrompt).toContain('Weixin notification')
+    expect(options.appendSystemPrompt).toContain('Do not probe or test Weixin notification delivery')
   })
 })
