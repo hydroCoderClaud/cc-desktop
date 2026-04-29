@@ -217,6 +217,57 @@ describe('WeixinBridge', () => {
     })
   })
 
+  it('rebinds a target to the latest session and clears the old session binding', () => {
+    const { bridge, manager } = createHarness()
+    const firstSession = manager.create({ type: 'chat', source: 'manual', title: '会话 A' })
+    const secondSession = manager.create({ type: 'chat', source: 'manual', title: '会话 B' })
+
+    bridge.bindSessionToTarget(firstSession.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+    bridge.bindSessionToTarget(secondSession.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+
+    expect(bridge.getSessionBinding(firstSession.id)).toBe(null)
+    expect(bridge.getSessionBinding(secondSession.id)).toEqual({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+    expect(bridge.sessionMap.get('acc-1:user-a')).toBe(secondSession.id)
+  })
+
+  it('does not remove the newer route when unbinding an old session', () => {
+    const { bridge, manager } = createHarness()
+    const firstSession = manager.create({ type: 'chat', source: 'manual', title: '会话 A' })
+    const secondSession = manager.create({ type: 'chat', source: 'manual', title: '会话 B' })
+
+    bridge.bindSessionToTarget(firstSession.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+    bridge.bindSessionToTarget(secondSession.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+
+    bridge.unbindSessionTarget(firstSession.id)
+
+    expect(bridge.sessionMap.get('acc-1:user-a')).toBe(secondSession.id)
+    expect(bridge.getSessionBinding(secondSession.id)).toEqual({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+  })
+
   it('does not forward assistant confirmation before Weixin user replies', async () => {
     const { bridge, manager, events } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '原会话' })

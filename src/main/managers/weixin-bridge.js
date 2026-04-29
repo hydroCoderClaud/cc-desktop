@@ -488,6 +488,19 @@ class WeixinBridge {
         this.sessionMap.delete(mapKey)
       }
     }
+    const previousSessionId = this.sessionMap.get(targetId)
+    if (previousSessionId && previousSessionId !== sessionId) {
+      this.knownTargets.delete(previousSessionId)
+      this.sessionTargets.delete(previousSessionId)
+      this.pendingReplies.delete(previousSessionId)
+      this.replySendQueues.delete(previousSessionId)
+      this.desktopPendingBlocks.delete(previousSessionId)
+      for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
+        if (mappedSessionId === previousSessionId && mapKey === targetId) {
+          this.sessionMap.delete(mapKey)
+        }
+      }
+    }
 
     const target = { accountId, targetId, displayName: displayName || targetId }
     this.sessionMap.set(targetId, sessionId)
@@ -504,13 +517,19 @@ class WeixinBridge {
    */
   unbindSessionTarget(sessionId) {
     if (!sessionId) return { success: false, error: 'sessionId 不能为空' }
-    const target = this.knownTargets.get(sessionId)
-    if (target?.targetId) {
+    const target = this.knownTargets.get(sessionId) || this.sessionTargets.get(sessionId)
+    if (target?.targetId && this.sessionMap.get(target.targetId) === sessionId) {
       this.sessionMap.delete(target.targetId)
+    }
+    for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
+      if (mappedSessionId === sessionId) {
+        this.sessionMap.delete(mapKey)
+      }
     }
     this.knownTargets.delete(sessionId)
     this.sessionTargets.delete(sessionId)
     this.pendingReplies.delete(sessionId)
+    this.replySendQueues.delete(sessionId)
     this.desktopPendingBlocks.delete(sessionId)
     console.log(`[WeixinBridge] Unbound session ${sessionId}`)
     return { success: true }

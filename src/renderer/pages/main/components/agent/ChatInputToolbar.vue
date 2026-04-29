@@ -206,6 +206,7 @@ const loadWeixinTargets = async () => {
     weixinTargets.value = Array.isArray(targets)
       ? targets.filter(target => target?.hasContextToken)
       : []
+    weixinError.value = ''
     const bindingTargetId = binding?.targetId || null
     if (bindingTargetId && weixinTargets.value.some(target => target.id === bindingTargetId)) {
       selectedWeixinTargetId.value = bindingTargetId
@@ -215,6 +216,8 @@ const loadWeixinTargets = async () => {
   } catch (err) {
     console.error('[ChatInputToolbar] loadWeixinTargets error:', err)
     weixinTargets.value = []
+    selectedWeixinTargetId.value = null
+    weixinError.value = err?.message || t('agent.weixinQuickSendFailed')
   } finally {
     weixinLoading.value = false
   }

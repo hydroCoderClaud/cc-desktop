@@ -145,6 +145,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import {
+  collectSendableTargetIds,
+  hasNewSendableTarget,
+  hasSendableCapturedTarget
+} from './weixin-notify-utils'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -207,8 +212,9 @@ const refreshAll = async () => {
       target.id,
       target.displayName || target.userId || ''
     ]))
-    if (!selectedTargetId.value && targets.value.length) {
-      selectedTargetId.value = targets.value.find(target => target.hasContextToken)?.id || targets.value[0].id
+    const hasSelectedTarget = targets.value.some(target => target.id === selectedTargetId.value)
+    if (!hasSelectedTarget) {
+      selectedTargetId.value = targets.value.find(target => target.hasContextToken)?.id || targets.value[0]?.id || null
     }
   } catch (err) {
     console.error('[WeixinNotifyWorkbenchTab] refresh failed:', err)
@@ -272,31 +278,30 @@ const finishPreCapture = (status) => {
   preCaptureStatus.value = status
 }
 
-const hasCapturedTargetForAccount = (accountId) => {
-  return targets.value.some(target => target.accountId === accountId && target.hasContextToken)
-}
-
-const runPreCapturePoll = async (accountId) => {
+const runPreCapturePoll = async (accountId, baselineTargetIds = new Set()) => {
   if (!accountId) return false
   try {
-    await captureLatestMessages({
+    const result = await captureLatestMessages({
       silent: true,
       accountId,
       timeoutMs: PRE_CAPTURE_REFRESH_INTERVAL_MS
     })
+    return hasSendableCapturedTarget(result.capturedTargets, accountId) ||
+      hasNewSendableTarget(targets.value, accountId, baselineTargetIds)
   } catch (err) {
     console.error('[WeixinNotifyWorkbenchTab] pre-capture poll failed:', err)
     await refreshAll()
+    return hasNewSendableTarget(targets.value, accountId, baselineTargetIds)
   }
-  return hasCapturedTargetForAccount(accountId)
 }
 
 const startPreCaptureRefresh = async (accountId) => {
   stopPreCaptureRefresh()
   if (!accountId) return
+  const baselineTargetIds = collectSendableTargetIds(targets.value, accountId)
   preCaptureStatus.value = 'waiting'
   preCaptureRefreshStartedAt = Date.now()
-  if (await runPreCapturePoll(accountId)) {
+  if (await runPreCapturePoll(accountId, baselineTargetIds)) {
     finishPreCapture('success')
     return
   }
@@ -305,7 +310,7 @@ const startPreCaptureRefresh = async (accountId) => {
       finishPreCapture('timeout')
       return
     }
-    if (await runPreCapturePoll(accountId)) {
+    if (await runPreCapturePoll(accountId, baselineTargetIds)) {
       finishPreCapture('success')
     }
   }, PRE_CAPTURE_REFRESH_INTERVAL_MS)
@@ -329,7 +334,10 @@ const captureLatestMessages = async ({
   if (!silent) {
     message.success(t('weixinNotify.captureSuccess', { count }))
   }
-  return count
+  return {
+    count,
+    capturedTargets
+  }
 }
 
 const startLogin = async () => {
