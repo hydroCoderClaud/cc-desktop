@@ -168,6 +168,22 @@
 | scheduled-task:runNow | handle | 立即执行一次定时任务 |
 | scheduled-task:listRuns | handle | 获取定时任务运行历史 |
 
+### weixin-notify 域（weixin-notify-handlers.js）
+
+| 通道名 | 类型 | 简述 |
+|--------|------|------|
+| weixin-notify:startLogin | handle | 开始微信扫码授权，获取二维码 |
+| weixin-notify:waitLogin | handle | 等待扫码授权完成 |
+| weixin-notify:listAccounts | handle | 获取已授权微信账号 |
+| weixin-notify:listTargets | handle | 获取已捕获微信目标 |
+| weixin-notify:updateTarget | handle | 更新目标备注名等信息 |
+| weixin-notify:deleteTarget | handle | 删除微信目标 |
+| weixin-notify:pollOnce | handle | 立即轮询一次最新微信消息 |
+| weixin-notify:sendText | handle | 发送微信文本消息 |
+| weixin-notify:bindSessionToTarget | handle | 绑定桌面会话到微信目标 |
+| weixin-notify:unbindSessionTarget | handle | 解除桌面会话与微信目标绑定 |
+| weixin-notify:getSessionBinding | handle | 查询会话当前绑定的微信目标 |
+
 ### terminal 域（ipc-handlers.js，旧版单终端）
 
 | 通道名 | 类型 | 简述 |
@@ -534,3 +550,5 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | dingtalk:messageReceived | dingtalk-bridge.js | 收到钉钉消息 |
 | dingtalk:sessionCreated | dingtalk-bridge.js | 钉钉会话创建 |
 | dingtalk:sessionClosed | dingtalk-bridge.js | 钉钉会话关闭 |
+| weixin:messageReceived | weixin-bridge.js | 收到微信消息并投递到桌面会话 |
+| weixin:sessionCreated | weixin-bridge.js | 自动创建新的微信会话 |

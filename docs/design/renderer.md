@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> Hydro Desktop v1.7.54+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> Hydro Desktop v1.7.56+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
@@ -27,7 +27,7 @@
 | profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
 | global-settings | 全局设置（语言/路径/CLI 配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
-| settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理） | 主窗口与 Notebook 工具入口 |
+| settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） | 主窗口与 Notebook 工具入口 |
 | update-manager | 更新管理（下载进度/安装控制） | 发现新版本时自动打开 |
 
 窗口通过 `window.electronAPI.openXxxManager()` → IPC `window:openXxxManager` 打开，主进程保证单例（同一窗口不重复创建）。独立窗口间通过 **设置广播机制** 同步状态（详见 [跨窗口广播](#跨窗口广播机制)）。
@@ -161,7 +161,7 @@ const currentModeTabs = computed(() =>
 │  │  ToolCallCard     │  │  ← 工具调用卡片
 │  │  StreamingIndicator│  │  ← 流式输出动画
 │  └───────────────────┘  │
-│  [钉钉观察模式提示条]     │  ← 仅 dingtalk 类型
+│  [外部 IM 观察模式提示条]  │  ← dingtalk / weixin 类型
 ├─────────────────────────┤
 │     ChatInput            │  ← 输入框
 └─────────────────────────┘
@@ -195,7 +195,26 @@ const currentModeTabs = computed(() =>
 - 图片粘贴 / 文件拖放 → base64 预览缩略图
 - `/` 触发 capability 快捷列表（skill/agent/plugin 调用）
 - 模型切换下拉（候选项来自当前服务商 `defaultModels` 与 Profile 的 `selectedModelId`），实时通过 `setAgentModel` IPC 同步
+- 工具栏支持快捷创建定时任务草案，以及向已绑定微信目标直接发送消息
 - Token 计数显示、历史消息上下翻
+
+### 外部 IM 会话表现
+
+当前 Agent 聊天界面已同时承载普通桌面对话、钉钉观察会话、微信观察会话：
+
+- `sessionType === 'dingtalk'` 时显示钉钉观察提示条
+- `sessionType === 'weixin'` 时显示微信观察提示条
+- 外部 IM 会话默认关闭 slash command 入口，避免把 IM 桥接会话误当作普通桌面会话
+- 来自钉钉/微信的用户消息会带来源标记；微信消息与图片也会实时注入聊天区
+
+### Notebook 对话面板
+
+Notebook 的 `ChatPanel` 已复用 Agent 聊天核心能力：
+
+- 继续使用 `useAgentChat` 处理流式消息与历史恢复
+- 已接入微信监听，能在 Notebook 内显示微信回流消息
+- 继续复用 `ChatInput`，因此同样具备微信快捷发送入口
+- Notebook 当前只补齐微信显示与发送，不改变其资料整理、成果生成主流程
 
 #### StreamingIndicator (131 行)
 

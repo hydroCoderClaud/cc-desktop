@@ -33,7 +33,7 @@
 | profile-manager | `pages/profile-manager/` | API Profile 管理 |
 | global-settings | `pages/global-settings/` | 全局设置 |
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
-| settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理 / 定时任务管理） |
+| settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） |
 | update-manager | `pages/update-manager/` | 更新管理器 |
 
 ---

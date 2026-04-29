@@ -33,6 +33,7 @@ npm run dev
 - **Developer 模式**：在终端中直接执行命令。
 - **Agent 模式**：切换到 Agent，对话发送需求。
 - **Notebook 模式**：在 Notebook 工作台整理资料、对话和产出。
+- **能力管理**：打开 `settings-workbench`，可管理目录上下文来源、桌面端定时任务和微信通知。
 
 如果机器上还没有 `claude` 命令，请先完成 [INSTALL.md](./INSTALL.md) 中的 CLI 安装步骤。
 
@@ -60,6 +61,21 @@ npm run dev
 1. 在左侧切换项目。
 2. 对目标项目点击 **连接**，或恢复历史会话。
 3. 运行中的 Claude 会话会自动绑定到对应项目目录。
+
+### 使用桌面端定时任务
+
+1. 在 Agent 会话中直接描述你的定时任务需求，模型会优先调用 Hydro Desktop 内置定时任务 MCP。
+2. 或打开 **能力管理** → **定时任务**，手动创建、编辑、立即执行和查看运行记录。
+3. 定时任务执行时会复用 Agent 会话能力，并把运行历史写入本地数据库。
+
+### 使用微信通知
+
+1. 打开 **能力管理** → **微信通知**。
+2. 让接收通知的微信用户扫码授权，然后发送第一条消息完成目标捕获。
+3. 捕获完成后，可以：
+   - 在该页面发送测试通知
+   - 在 Agent / Notebook 聊天工具栏里直接发微信
+   - 在定时任务中通过内置微信通知 MCP 主动推送结果
 
 ---
 
@@ -106,3 +122,5 @@ npm rebuild node-pty
 - 阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 了解整体架构
 - 阅读 [BUILD.md](./BUILD.md) 查看构建与打包流程
 - 阅读 [API-CONFIG-GUIDE.zh.md](./user-guide/API-CONFIG-GUIDE.zh.md) 了解 API Profile 结构
+- 阅读 [WEIXIN-GUIDE.zh.md](./user-guide/WEIXIN-GUIDE.zh.md) 了解微信通知与双向聊天能力
+- 阅读 [DINGTALK-GUIDE.zh.md](./user-guide/DINGTALK-GUIDE.zh.md) 了解钉钉桥接能力

@@ -1,6 +1,6 @@
 # 钉钉与微信桥接复用评估
 
-> Hydro Desktop v1.7.54+ | 目标：评估 `DingTalkBridge` 与 `WeixinBridge` 是否应进行部分复用整合
+> Hydro Desktop v1.7.56+ | 目标：评估 `DingTalkBridge` 与 `WeixinBridge` 是否应进行部分复用整合
 
 本文只评估“如何复用”，不直接推动代码重构。结论优先服务于后续低风险迁移，而不是追求一次性抽象到位。
 

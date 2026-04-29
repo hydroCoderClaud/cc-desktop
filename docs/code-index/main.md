@@ -22,7 +22,7 @@
 - **行数**：331
 - **职责**：应用入口，创建 BrowserWindow，初始化所有 Manager，注册生命周期事件
 - **关键导出**：无（入口文件）
-- **关键逻辑**：`createWindow()` 创建主窗口、`cleanupAllSessions()` 统一清理、`app.whenReady()` 初始化 Manager 链、`ScheduledTaskService` 注入与启动、macOS `activate` 重建窗口、`powerSaveBlocker` 防挂起、`powerMonitor.on('resume')` 处理钉钉与定时任务恢复
+- **关键逻辑**：`createWindow()` 创建主窗口、`cleanupAllSessions()` 统一清理、`app.whenReady()` 初始化 Manager 链、`ScheduledTaskService` 注入与启动、`WeixinNotifyService` / `WeixinBridge` 初始化、macOS `activate` 重建窗口、`powerSaveBlocker` 防挂起、`powerMonitor.on('resume')` 处理钉钉与定时任务恢复
 - **架构上下文**：-> [应用生命周期](../design/main-process.md#应用生命周期)
 
 ### config-manager.js
@@ -121,6 +121,7 @@
 | update-handlers.js | update: | 59 | checkForUpdates, downloadUpdate, quitAndInstall, getStatus |
 | dingtalk-handlers.js | dingtalk: | 55 | getStatus, start, stop, getConfig, saveConfig |
 | scheduled-task-handlers.js | scheduled-task: | 63 | list, create, update, delete, runNow, listRuns |
+| weixin-notify-handlers.js | weixin-notify: | 81 | startLogin, waitLogin, listAccounts, listTargets, updateTarget, deleteTarget, pollOnce, sendText, bindSessionToTarget |
 | queue-handlers.js | queue: | 45 | getQueue, addToQueue, deleteItem, clearQueue |
 
 ---
@@ -145,6 +146,16 @@
 - **职责**：桌面端定时任务调度，负责任务定义、轮询执行、运行历史和系统恢复后的补偿检查
 - **关键方法**：`start()`, `stop()`, `listTasks()`, `createTask()`, `updateTask()`, `deleteTask()`, `runTaskNow()`, `getTaskRuns()`, `onSystemResume()`
 - **关键特性**：支持 `interval` / `daily` / `weekly` / `monthly` / `workdays` / `once`，并通过 `scheduled-task:changed` 通知前端刷新
+
+### weixin-notify-service.js
+- **职责**：微信 iLink 通知服务，负责扫码授权、目标捕获、状态持久化、后台长轮询、文本/图片发送
+- **关键方法**：`start()`, `stop()`, `startLogin()`, `waitLogin()`, `listAccounts()`, `listTargets()`, `pollOnce()`, `sendText()`, `sendImages()`
+- **关键特性**：维护已授权账号与可发送目标、自动捕获首条消息、向桥接层发出 `message` / `sent` 事件
+
+### weixin-bridge.js
+- **职责**：微信会话桥接，负责会话绑定、微信入站消息路由、Agent 回复回推和前端通知
+- **关键方法**：`start()`, `stop()`, `bindSessionToTarget()`, `unbindSessionTarget()`, `getSessionBinding()`, `onAgentMessage()`, `onAgentResult()`
+- **关键特性**：支持 `source === 'weixin'` 会话、回信优先回原会话、图片双向回流
 
 ### hooks-manager.js
 - **行数**：462

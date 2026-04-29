@@ -1,8 +1,8 @@
 # 内置 MCP 能力现状
 
-> Hydro Desktop v1.7.54+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
+> Hydro Desktop v1.7.56+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
 
-本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力，并开始内建微信通知通道；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
+本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力和微信通知通道，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
 
 ---
 
@@ -132,9 +132,9 @@ AgentSessionManager.sendMessage()
 
 - 内建 iLink HTTP 协议调用，不依赖 OpenClaw runtime 或 npm 包。
 - 支持扫码登录，保存 `accountId`、`botToken`、`userId`。
-- 支持轮询一次 `getupdates` 捕获已授权用户的 `userId/contextToken`。
+- 支持通过后台轮询自动捕获已授权用户的 `userId/contextToken`，必要时也可手动补抓最新消息。
 - 支持 `weixin_notify_list_targets` 和 `weixin_notify_send`。
-- 桌面端入口位于“能力管理 → 微信通知”，用于目标用户扫码授权、捕获目标和发送测试通知。
+- 桌面端入口位于“能力管理 → 微信通知”，用于目标用户扫码授权、管理目标和发送测试通知。
 - 不做通讯录读取，不做任意好友发送，不做自动 AI 回复。
 
 ### 阶段 2：回信展示
@@ -144,6 +144,7 @@ AgentSessionManager.sendMessage()
 - 已完成基础层：`WeixinNotifyService.start()` 会启动后台长轮询，轮询与手动捕获共用串行队列，避免并发调用 `getupdates`。
 - 已完成基础层：轮询到入站消息后会发出 `message` / `messages` 服务事件，事件包含 `accountId`、`targetId`、`displayName`、`text`、`contextToken`、`createTimeMs` 和目标元数据。
 - 已完成会话接入：将服务事件写入桌面 Agent 会话，`source === 'weixin'` 的用户气泡带微信来源标记。
+- 已补齐 Notebook 会话接入：Notebook `ChatPanel` 也会监听并展示微信回流消息。
 - 如果回信对应某次桌面主动发送的通知，将回信写入该通知所属 Agent 会话，显示在发送通知的聊天窗口内。
 - 如果桌面端没有主动发过通知，但捕获到已绑定微信目标的新消息，可以创建一个新的 `source === 'weixin'` 会话并显示入站消息。
 - 会话标题优先使用微信目标备注名，并保留 `accountId/targetId` 映射用于后续回复。
@@ -162,6 +163,7 @@ AgentSessionManager.sendMessage()
 
 - 已建立微信目标与 Agent 会话映射：桌面主动发出的微信通知会记住 `sessionId -> target`，目标回信优先回到原会话；无上下文入站消息会新建微信会话。
 - 已实现基础双向聊天：微信用户消息进入 LLM，LLM 回复会发回微信端；桌面端在微信会话中介入时，会将桌面输入和本轮 Agent 回复组成块回发微信。
+- 已支持聊天工具栏快捷发微信：Agent 与 Notebook 对话面板都可直接选择目标发送，并建立当前会话绑定。
 - 同一目标消息后续仍需要进一步串行化和错误反馈优化，避免高频消息与 Agent streaming 竞态。
 - 权限、防骚扰、频率限制和审计仍未展开，当前仅依赖“已扫码授权 + 已捕获 contextToken”的发送边界。
 - 明确区分“通知通道”和“外部 IM 会话桥接”：MCP 工具仍是主动通知入口，微信会话桥接由后台轮询和 `WeixinBridge` 负责。

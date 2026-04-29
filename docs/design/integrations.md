@@ -1,6 +1,6 @@
 # 集成系统设计
 
-> Hydro Desktop v1.7.54 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
+> Hydro Desktop v1.7.56 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
 
 本文档覆盖 Hydro Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、内置 MCP 能力、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
 
@@ -111,6 +111,72 @@ const currentTask = prevTask
   .then(() => this._processOneMessage(...))
 this._sessionProcessQueues.set(sessionId, currentTask)
 ```
+
+---
+
+## 微信通知与桥接
+
+> 核心文件：`src/main/managers/weixin-notify-service.js` + `src/main/managers/weixin-bridge.js`
+
+微信集成分成两层：
+
+- `WeixinNotifyService`
+  - 基于微信 iLink HTTP 接口工作
+  - 负责扫码授权、目标捕获、状态持久化、后台长轮询、文本/图片发送
+- `WeixinBridge`
+  - 负责把微信入站消息路由到 Agent/Notebook 会话
+  - 负责会话与微信目标绑定，以及 Agent 回复再发回微信
+
+### 授权与捕获模型
+
+当前实现不是“读取通讯录后任意发给微信好友”，而是**目标用户自己扫码授权后成为可发送目标**：
+
+```
+开始登录 → 获取二维码
+  → 微信用户扫码授权
+  → 保存 accountId / botToken / userId
+  → 该用户发送第一条消息
+  → 后台轮询自动捕获 targetId / contextToken
+  → 目标进入可发送列表，并自动收到“已绑定 Hydro Desktop”提示
+```
+
+关键边界：
+
+- 只能发送给**已扫码授权且已捕获**的目标
+- 不读取微信通讯录
+- 不能由 A 扫码后代发给 A 的普通微信好友 B
+- 同一微信用户重复绑定时，新绑定会覆盖为首选可发送目标，旧绑定仅保留历史关联数据
+
+### 会话路由与双向聊天
+
+当前桌面端已支持两条微信链路：
+
+1. **主动通知链路**
+   - Agent 会话或定时任务通过内置 MCP `weixin_notify_send` 主动发微信
+   - 聊天工具栏也可直接选择已捕获目标发送
+2. **回信桥接链路**
+   - 目标用户回信后，优先回到原先绑定的会话
+   - 如果没有已绑定桌面会话，则自动创建/恢复 `source === 'weixin'` 会话
+
+当前行为约定：
+
+- Agent 模式与 Notebook 模式都能显示微信回流消息
+- 微信来源的用户气泡会带来源标记
+- 从桌面会话主动发给微信后，后续微信回信会优先落回该会话
+- Agent 文本回复会同步发回微信端
+- 图片已支持双向；语音、视频、文件暂未实现
+
+### 传输特征
+
+微信 iLink 当前没有直接给本集成使用的原生 WebSocket 回调模式，现实现依赖后台长轮询 `getupdates`：
+
+- 优点：不依赖外部常驻服务，打包后可直接集成进桌面端
+- 限制：收发时延受轮询窗口影响，天然不如钉钉 Stream WebSocket 实时
+
+因此钉钉和微信虽然在上层会话交互上已接近一致，但底层 transport 明显不同：
+
+- 钉钉：平台原生机器人 WebSocket 推送
+- 微信：iLink HTTP 轮询 + 桌面端本地桥接
 
 ### Notebook 创作工具市场行为约定
 

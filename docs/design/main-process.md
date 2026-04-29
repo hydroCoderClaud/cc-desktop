@@ -1,6 +1,6 @@
 # 主进程设计
 
-> Hydro Desktop v1.7.54 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
+> Hydro Desktop v1.7.56 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
 
 ---
 
@@ -23,10 +23,12 @@
 10. DingTalkBridge          ← 钉钉桥接
 11. NotebookManager         ← Notebook 工作台后端能力
 12. ScheduledTaskService    ← 桌面端定时任务调度
-13. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化 + scheduledTaskService.start()
-14. powerSaveBlocker.start  ← 防止系统挂起
-15. scheduleUpdateCheck(5s) ← 延迟检查更新
-16. DingTalk.start (3s)     ← 延迟启动钉钉
+13. WeixinNotifyService     ← 微信 iLink 授权 / 轮询 / 发送
+14. WeixinBridge            ← 微信会话桥接
+15. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化 + scheduledTaskService.start()
+16. powerSaveBlocker.start  ← 防止系统挂起
+17. scheduleUpdateCheck(5s) ← 延迟检查更新
+18. DingTalk.start (3s)     ← 延迟启动钉钉
 ```
 
 **关键文件**: `src/main/index.js`
@@ -36,6 +38,8 @@
 - `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于 CLI 会话 UUID 的跨模式占用检查
 - `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `ActiveSessionManager` 和 `AgentSessionManager`
 - `ScheduledTaskService` 在创建后先挂到 `agentSessionManager.scheduledTaskService`，再在 `setupIPCHandlers()` 内注入 `SessionDatabase` 并启动轮询
+- `WeixinNotifyService` 在 IPC 注册前就已启动，并先注入到 `agentSessionManager.weixinNotifyService`，供 Agent 会话构建内置微信 MCP
+- `WeixinBridge` 依赖 `AgentSessionManager` 和 `WeixinNotifyService`，负责会话绑定、入站微信路由和回复回推
 - `CapabilityManager` 依赖 `PluginService`、`SkillsManager`、`AgentsManager`、`McpManager`，需在它们之后创建
 - `McpManager.configManager` 和 `McpManager.settingsManager` 通过属性注入（非构造函数参数）
 
@@ -50,7 +54,7 @@
 | `process.on('SIGTERM/SIGINT')` | 外部终止信号 |
 | `process.on('uncaughtException')` | 未捕获异常 |
 
-清理内容：停止 powerSaveBlocker、停止钉钉桥接、kill 终端进程、关闭所有 Active/Agent 会话。
+清理内容：停止 powerSaveBlocker、停止钉钉桥接、停止微信桥接与微信后台轮询、kill 终端进程、关闭所有 Active/Agent 会话。
 
 ### macOS 特殊处理
 
@@ -61,7 +65,7 @@ macOS 关闭窗口不退出应用（`window-all-closed` 事件不调用 `app.qui
 3. 重启 `powerSaveBlocker`
 4. 更新所有 Manager 的 `mainWindow` 引用
 5. 通知前端 `agent:allSessionsClosed`（CLI 进程已在 cleanup 中终止）
-6. 重启钉钉桥接
+6. 重启钉钉桥接，并更新微信桥接的 `mainWindow` 引用
 
 ---
 
@@ -181,7 +185,7 @@ AgentSessionManager (1373行)
 ├── _queryFn: SDK query()（延迟加载 ESM）
 ├── fileManager: AgentFileManager（文件操作委托）
 ├── queryManager: AgentQueryManager（模型/命令/MCP 控制委托）
-├── messageListener: DingTalkBridge（外部消息监听）
+├── messageListener: 外部桥接监听（钉钉/微信）
 └── peerManager: ActiveSessionManager（跨模式检查）
 ```
 
@@ -228,7 +232,7 @@ CLI 进程退出后的新消息：
 | `system` | `init` | 保存 `sdkSessionId`，推送 `agent:init` |
 | `system` | `compact_boundary` | 推送 `agent:compacted` |
 | `system` | `status` | 推送 `agent:systemStatus` |
-| `assistant` | -- | 推送 `agent:message`，通知 `messageListener`，存储消息 |
+| `assistant` | -- | 推送 `agent:message`，通知外部桥接层并存储消息 |
 | `result` | -- | 推送 `agent:result`，更新状态为 IDLE |
 
 ### CWD 分配
@@ -239,7 +243,7 @@ Agent 会话的工作目录分配策略：
 2. 未指定 → `_assignCwd(session, subDir)` 自动分配
    - 基础目录：`settings.agent.outputBaseDir` 或 `~/cc-desktop-agent-output/`
    - 完整路径：`{baseDir}/{subDir}/conv-{sessionId前8位}/`
-   - `subDir` 默认 `'desktop'`，钉钉模式为 `'dingtalk'`
+   - `subDir` 默认 `'desktop'`，钉钉模式为 `'dingtalk'`，微信模式为 `'weixin'`
 
 ### 会话恢复（resume）
 
@@ -327,6 +331,40 @@ new ScheduledTaskService(configManager, agentSessionManager)
 ### 系统恢复处理
 
 系统从睡眠恢复后，主进程除了重连钉钉桥接，还会调用 `scheduledTaskService.onSystemResume()`，补做恢复后的到期任务检查。
+
+---
+
+## 微信通知与桥接
+
+### WeixinNotifyService
+
+`WeixinNotifyService` 负责桌面内建的微信 iLink 能力：
+
+```
+new WeixinNotifyService(configManager)
+  → start()                // 启动后台长轮询
+  → startLogin()           // 获取扫码二维码
+  → waitLogin()            // 等待扫码授权完成
+  → pollOnce() / getupdates
+  → sendText() / sendImages()
+```
+
+当前职责包括：
+
+- 保存已授权账号 `accountId / botToken / userId`
+- 保存可发送目标 `targetId / contextToken`
+- 维护“一个用户一个首选目标”的展示语义
+- 通过后台长轮询接收入站文本/图片消息
+
+### WeixinBridge
+
+`WeixinBridge` 负责把微信消息接入 Agent 会话体系：
+
+- 监听 `WeixinNotifyService` 的 `message` / `sent` 事件
+- 维护 `sessionId -> target` 绑定
+- 把微信入站消息写入现有会话，或创建 `source === 'weixin'` 新会话
+- 把 Agent 文本回复、桌面介入内容和图片回推给微信端
+- 向前端广播 `weixin:messageReceived` 与 `weixin:sessionCreated`
 
 ---
 
