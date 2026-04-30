@@ -1,5 +1,5 @@
 <template>
-  <div class="file-tree-header">
+  <div class="file-tree-header panel-shell-header">
     <div class="header-left">
       <span class="header-title">{{ t('agent.files.title') }}</span>
       <span v-if="cwd" class="header-path" :title="cwd">{{ shortenPath(cwd) }}</span>
@@ -73,15 +73,10 @@ const shortenPath = (p) => {
 </script>
 
 <style scoped>
+@import '@styles/common.css';
+
 .file-tree-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-color-secondary);
-  flex-shrink: 0;
-  min-height: 36px;
+  padding: 0 12px;
 }
 
 .header-left {
@@ -99,7 +94,7 @@ const shortenPath = (p) => {
 }
 
 .header-path {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-color-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -121,7 +116,7 @@ const shortenPath = (p) => {
   height: 24px;
   border: none;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
 }

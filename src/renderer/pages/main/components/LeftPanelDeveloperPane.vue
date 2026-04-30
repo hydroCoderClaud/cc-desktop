@@ -344,7 +344,7 @@ const handleProjectMenuSelect = (key) => {
 
 <style scoped>
 .project-section {
-  padding: 12px;
+  padding: 16px 16px 12px;
 }
 
 .section-header {
@@ -404,7 +404,7 @@ const handleProjectMenuSelect = (key) => {
 }
 
 .new-session-area {
-  padding: 12px;
+  padding: 8px 16px 12px;
   flex-shrink: 0;
   display: flex;
   gap: 8px;
@@ -420,7 +420,7 @@ const handleProjectMenuSelect = (key) => {
   background: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -430,7 +430,7 @@ const handleProjectMenuSelect = (key) => {
 .new-session-btn:hover {
   background: var(--primary-color-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  box-shadow: var(--primary-shadow);
 }
 
 .new-session-btn .icon {
@@ -444,10 +444,10 @@ const handleProjectMenuSelect = (key) => {
   justify-content: center;
   width: 40px;
   padding: 10px;
-  background: var(--bg-color-tertiary);
+  background: var(--panel-bg-subtle);
   color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-mono);
@@ -464,22 +464,23 @@ const handleProjectMenuSelect = (key) => {
 .session-section {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 8px 16px 16px;
 }
 
 .sessions-group {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .group-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-color-muted);
   text-transform: uppercase;
-  padding: 8px 4px;
+  letter-spacing: 0.06em;
+  padding: 12px 2px 8px;
 }
 
 .group-header .icon {
@@ -490,7 +491,7 @@ const handleProjectMenuSelect = (key) => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #52c41a;
+  background: var(--success-color);
 }
 
 .group-header .count {
@@ -580,19 +581,20 @@ const handleProjectMenuSelect = (key) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  margin-bottom: 4px;
-  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .session-item:hover {
-  background: var(--hover-bg);
+  background: var(--panel-bg-subtle);
 }
 
 .session-item.active {
-  background: var(--warning-bg);
-  border: 1px solid var(--primary-color);
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
 }
 
 .session-item.other-project {
@@ -632,7 +634,7 @@ const handleProjectMenuSelect = (key) => {
 }
 
 .status-dot.running {
-  background: #52c41a;
+  background: var(--success-color);
 }
 
 .session-meta {
@@ -685,7 +687,7 @@ const handleProjectMenuSelect = (key) => {
 }
 
 .delete-btn:hover {
-  background: #ff4d4f;
+  background: var(--danger-color);
   color: white;
 }
 

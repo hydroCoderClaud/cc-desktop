@@ -495,7 +495,7 @@ defineExpose({
 }
 
 .new-session-area {
-  padding: 12px;
+  padding: 8px 16px 12px;
   flex-shrink: 0;
 }
 
@@ -509,7 +509,7 @@ defineExpose({
   background: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -519,7 +519,7 @@ defineExpose({
 .new-session-btn:hover {
   background: var(--primary-color-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  box-shadow: var(--primary-shadow);
 }
 
 .new-session-btn .icon {
@@ -528,7 +528,7 @@ defineExpose({
 }
 
 .filter-area {
-  padding: 0 12px 8px;
+  padding: 0 16px 10px;
   flex-shrink: 0;
 }
 
@@ -544,24 +544,25 @@ defineExpose({
 }
 
 .dir-filter-area {
-  padding: 0 12px 8px;
+  padding: 0 16px 10px;
   flex-shrink: 0;
 }
 
 .conversation-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 12px 12px;
+  padding: 4px 16px 16px;
 }
 
 .group-header {
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-color-muted);
   text-transform: uppercase;
-  padding: 12px 4px 6px;
+  letter-spacing: 0.06em;
+  padding: 12px 2px 8px;
 }
 
 .conversation-item {
@@ -569,19 +570,20 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  margin-bottom: 2px;
-  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .conversation-item:hover {
-  background: var(--hover-bg);
+  background: var(--panel-bg-subtle);
 }
 
 .conversation-item.active {
-  background: var(--warning-bg);
-  border: 1px solid var(--primary-color);
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
 }
 
 .conversation-item.closed {
@@ -659,9 +661,9 @@ defineExpose({
 .profile-dropdown {
   min-width: 180px;
   padding: 6px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-color);
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
 }
 
@@ -678,7 +680,7 @@ defineExpose({
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-color);
   font-size: 12px;
@@ -711,8 +713,8 @@ defineExpose({
 .source-badge {
   padding: 0 6px;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.14);
-  color: #0284c7;
+  background: var(--primary-ghost);
+  color: var(--primary-color);
   font-size: 11px;
   line-height: 18px;
 }
@@ -761,8 +763,8 @@ defineExpose({
 }
 
 .action-btn.delete-btn:hover {
-  background: rgba(255, 77, 79, 0.1);
-  color: #ff4d4f;
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger-color);
 }
 
 .profile-badge {

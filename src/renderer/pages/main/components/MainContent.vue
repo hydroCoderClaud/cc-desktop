@@ -65,7 +65,7 @@
         <div v-show="isDeveloperMode" class="mode-content">
           <!-- Welcome Page -->
           <div v-show="activeTabId === 'welcome'" class="empty-state">
-            <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
+            <div class="pixel-mascot"><Icon name="robot" :size="72" /></div>
 
             <div class="welcome-message">
               <h2>{{ t('main.developerWelcome') }}</h2>
@@ -103,7 +103,7 @@
         <div v-show="!isDeveloperMode && !isNotebookMode" class="mode-content">
           <!-- Agent Welcome -->
           <div v-show="!hasAgentTabs || activeTabId === 'welcome'" class="empty-state">
-            <div class="pixel-mascot"><Icon name="robot" :size="80" /></div>
+            <div class="pixel-mascot"><Icon name="robot" :size="72" /></div>
             <div class="welcome-message">
               <h2>{{ t('mode.agentMode') }}</h2>
               <p>{{ t('mode.agentWelcome') }}</p>
@@ -1129,6 +1129,8 @@ const openApiProfileManager = async () => {
   display: flex;
   height: 100vh;
   width: 100vw;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
   background: var(--bg-color);
   color: var(--text-color);
   transition: all 0.3s ease;
@@ -1142,16 +1144,20 @@ const openApiProfileManager = async () => {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-color);
+  padding: 0;
+  margin: 0 8px;
 }
 
 .main-area {
   flex: 1;
   overflow: hidden;
   position: relative;
-  background: var(--bg-color);
-  border: 1px solid var(--primary-color);
-  border-radius: 4px;
-  margin-bottom: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-top: none;
+  border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+  box-shadow: none;
+  margin-bottom: 0;
 }
 
 .notebook-main-area {
@@ -1163,19 +1169,19 @@ const openApiProfileManager = async () => {
 /* Empty State */
 .empty-state {
   position: absolute;
-  top: 50%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
-  max-width: 500px;
-  width: calc(100% - 48px);
+  max-width: 460px;
+  width: calc(100% - 72px);
   text-align: center;
 }
 
 .pixel-mascot {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   animation: float 3s ease-in-out infinite;
   color: var(--primary-color);
-  opacity: 0.8;
+  opacity: 0.72;
 }
 
 @keyframes float {
@@ -1184,20 +1190,23 @@ const openApiProfileManager = async () => {
 }
 
 .welcome-message {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
 .welcome-message h2 {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   color: var(--text-color);
 }
 
 .welcome-message p {
   font-size: 14px;
+  line-height: 1.7;
   color: var(--text-color-muted);
+  max-width: 420px;
+  margin: 0 auto;
 }
 
 .warning-box {
@@ -1206,14 +1215,14 @@ const openApiProfileManager = async () => {
   gap: 12px;
   padding: 16px 20px;
   background: var(--warning-bg);
-  border: 1px solid var(--primary-color);
-  border-radius: 10px;
-  margin-top: 32px;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--panel-radius);
+  margin-top: 24px;
   text-align: left;
 }
 
 .warning-icon {
-  color: var(--primary-color);
+  color: var(--warning-color);
   font-size: 20px;
   flex-shrink: 0;
 }
@@ -1221,7 +1230,7 @@ const openApiProfileManager = async () => {
 .warning-text {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--warning-text);
+  color: var(--text-color-secondary);
 }
 
 /* Mode Content Wrapper (v-show 切换，保持子组件活跃) */

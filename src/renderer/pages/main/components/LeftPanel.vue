@@ -897,7 +897,10 @@ defineExpose({
 <style scoped>
 .left-panel {
   width: 280px;
-  background: var(--bg-color-secondary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;

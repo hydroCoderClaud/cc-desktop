@@ -77,28 +77,30 @@ const handleSettingsSelect = (key) => {
 
 <style scoped>
 .panel-footer {
-  padding: 12px;
+  padding: 10px 12px;
   margin-top: auto;
+  border-top: 1px solid var(--panel-border);
+  background: var(--panel-bg-subtle);
 }
 
 .footer-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .footer-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .settings-btn {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -109,8 +111,9 @@ const handleSettingsSelect = (key) => {
 }
 
 .settings-btn:hover {
-  transform: scale(1.05);
+  transform: none;
   border-color: var(--primary-color);
+  background: var(--hover-bg);
 }
 
 .update-badge {
@@ -125,11 +128,11 @@ const handleSettingsSelect = (key) => {
 }
 
 .theme-toggle-btn {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,17 +142,18 @@ const handleSettingsSelect = (key) => {
 }
 
 .theme-toggle-btn:hover {
-  transform: scale(1.05);
+  transform: none;
   border-color: var(--primary-color);
+  background: var(--hover-bg);
 }
 
 .capability-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  background: var(--bg-color-tertiary);
-  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -160,7 +164,7 @@ const handleSettingsSelect = (key) => {
 }
 
 .capability-btn:hover {
-  transform: scale(1.05);
+  transform: none;
   border-color: var(--primary-color);
   background: var(--hover-bg);
 }

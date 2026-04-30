@@ -148,19 +148,36 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 
 <style scoped>
 .tab-bar {
+  box-sizing: border-box;
+  position: relative;
   display: flex;
-  align-items: flex-end;
-  background: var(--bg-color-secondary);
-  padding: 0 8px;
-  height: 40px;
-  gap: 4px;
+  align-items: center;
+  background: var(--panel-bg-subtle);
+  border: 1px solid var(--panel-border);
+  border-bottom: none;
+  border-radius: var(--panel-radius) var(--panel-radius) 0 0;
+  padding: 0 10px;
+  height: 50px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tab-bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--panel-border);
 }
 
 .tabs-container {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: stretch;
+  gap: 4px;
   flex: 1;
+  height: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -170,41 +187,55 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 }
 
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
+  align-self: stretch;
   gap: 6px;
-  padding: 6px 12px;
-  background: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  height: 100%;
+  padding: 0 12px;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s;
   max-width: 180px;
-  min-width: 100px;
-  color: var(--text-color);
+  min-width: 84px;
+  color: var(--text-color-muted);
 }
 
 .tab:hover {
-  background: var(--hover-bg);
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--hover-bg) 45%, transparent);
 }
 
 .tab.active {
+  background: transparent;
+  color: var(--primary-color);
+  box-shadow: none;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
   background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
+  z-index: 1;
 }
 
 .welcome-tab {
   min-width: auto;
   max-width: none;
-  padding: 6px 10px;
-  background: var(--bg-color-tertiary);
+  padding: 0 10px 0 8px;
 }
 
 .welcome-tab.active {
-  background: var(--primary-color);
-  color: white;
+  background: transparent;
+  color: var(--primary-color);
 }
 
 .tab-icon {
@@ -222,12 +253,16 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 }
 
 .tab-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.tab.active .tab-name {
+  font-weight: 600;
 }
 
 .tab-close {
@@ -237,7 +272,7 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
   background: transparent;
   border: none;
   font-size: 14px;
-  color: var(--text-color-muted);
+  color: currentColor;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -248,23 +283,27 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 }
 
 .tab:hover .tab-close {
-  opacity: 1;
+  opacity: 0.55;
+}
+
+.tab.active .tab-close {
+  opacity: 0.38;
 }
 
 .tab-close:hover {
-  background: #ff4d4f;
+  background: var(--danger-color);
   color: white;
 }
 
 .new-tab-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--primary-color);
-  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
   font-size: 18px;
   font-weight: 500;
-  color: white;
+  color: var(--text-color-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -274,6 +313,7 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 }
 
 .new-tab-btn:hover {
-  background: var(--primary-color-hover);
+  background: var(--hover-bg);
+  color: var(--primary-color);
 }
 </style>

@@ -90,6 +90,18 @@
   color: var(--primary-color-hover);
 }
 
+/* 通用面板头部基线 */
+.panel-shell-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  background: var(--panel-bg-subtle);
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
 /* ========== 操作按钮 Hover 颜色变量 ========== */
 /* 统一定义，各组件引用这些变量 */
 :root {
