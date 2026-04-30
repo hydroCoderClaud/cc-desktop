@@ -17,11 +17,8 @@
       <div class="logo">{{ panelTitle }}</div>
     </div>
     <div class="header-actions">
-      <button class="panel-collapse-btn" @click="$emit('toggle-both-panels')" :title="t('panel.toggleBoth')">
-        <Icon name="panelsCollapse" :size="14" />
-      </button>
       <button class="panel-collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
-        <Icon name="chevronLeft" :size="14" />
+        <Icon name="panelLeft" :size="16" :strokeWidth="1.8" />
       </button>
     </div>
   </div>
@@ -46,7 +43,7 @@ defineProps({
   }
 })
 
-const emit = defineEmits(['mode-select', 'toggle-both-panels', 'collapse'])
+const emit = defineEmits(['mode-select', 'collapse'])
 
 const handleModeSelect = (key) => {
   emit('mode-select', key)

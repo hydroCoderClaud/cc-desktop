@@ -5,19 +5,21 @@
       v-if="!showLeftPanel && !isNotebookMode"
       class="panel-collapsed-strip panel-collapsed-left"
     >
-      <button
-        class="strip-toggle-btn"
-        @click.stop="toggleBothPanels"
-        :title="t('panel.toggleBoth')"
-      >
-        <Icon name="panelsCollapse" :size="12" />
-      </button>
-      <div
-        class="strip-expand"
-        @click="showLeftPanel = true"
-        :title="t('panel.showLeft')"
-      >
-        <span class="strip-icon">›</span>
+      <div class="strip-header">
+        <button
+          class="strip-toggle-btn"
+          @click="showLeftPanel = true"
+          :title="t('panel.showLeft')"
+        >
+          <Icon name="panelLeft" :size="18" :strokeWidth="1.8" class="strip-panel-icon" />
+        </button>
+      </div>
+      <div class="strip-body">
+        <div
+          class="strip-expand"
+          @click="showLeftPanel = true"
+          :title="t('panel.showLeft')"
+        ></div>
       </div>
     </div>
 
@@ -39,7 +41,6 @@
       @session-closed="onSessionClosed"
       @terminal-created="onTerminalCreated"
       @collapse="showLeftPanel = false"
-      @toggle-both-panels="toggleBothPanels"
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
@@ -173,11 +174,22 @@
     <div
       v-if="!showRightPanel && !isNotebookMode"
       class="panel-collapsed-strip panel-collapsed-right"
-      @click="showRightPanel = true"
-      :title="t('panel.showRight')"
     >
-      <div class="strip-expand">
-        <span class="strip-icon">‹</span>
+      <div class="strip-header">
+        <button
+          class="strip-toggle-btn"
+          @click="showRightPanel = true"
+          :title="t('panel.showRight')"
+        >
+          <Icon name="panelRight" :size="18" :strokeWidth="1.8" class="strip-panel-icon" />
+        </button>
+      </div>
+      <div class="strip-body">
+        <div
+          class="strip-expand"
+          @click="showRightPanel = true"
+          :title="t('panel.showRight')"
+        ></div>
       </div>
     </div>
 
@@ -393,13 +405,6 @@ watch(activeTabId, (newTabId) => {
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)  // 默认显示右侧面板
 let leftPanelVisibleBeforeNotebook = true
-
-// 一键切换两侧面板
-const toggleBothPanels = () => {
-  const bothVisible = showLeftPanel.value && showRightPanel.value
-  showLeftPanel.value = !bothVisible
-  showRightPanel.value = !bothVisible
-}
 
 // ========================================
 // Right Panel Resize
@@ -1296,27 +1301,52 @@ const openApiProfileManager = async () => {
   width: 20px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-color-secondary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.strip-header {
+  width: 100%;
+  height: 50px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.strip-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--panel-bg);
+  pointer-events: none;
 }
 
 .strip-toggle-btn {
-  width: 20px;
-  height: 42px;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--primary-color);
   cursor: pointer;
-  opacity: 0.6;
-  transition: all 0.15s ease;
+  padding: 0;
 }
 
-.strip-toggle-btn:hover {
-  opacity: 1;
-  background: var(--hover-bg);
+.strip-body {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .strip-expand {
@@ -1332,25 +1362,18 @@ const openApiProfileManager = async () => {
   background: var(--hover-bg);
 }
 
-.panel-collapsed-strip .strip-icon {
-  font-size: 14px;
+.strip-toggle-btn:hover {
+  background: var(--hover-bg);
+}
+
+.panel-collapsed-strip .strip-panel-icon {
   color: var(--primary-color);
-  font-weight: bold;
   opacity: 0.6;
   transition: opacity 0.15s ease;
 }
 
-.strip-expand:hover .strip-icon {
+.strip-expand:hover .strip-panel-icon {
   opacity: 1;
-}
-
-.panel-collapsed-left {
-  border-right: 1px solid var(--border-color);
-}
-
-.panel-collapsed-right {
-  border-left: 1px solid var(--border-color);
-  justify-content: center;
 }
 
 /* Resize Handle */

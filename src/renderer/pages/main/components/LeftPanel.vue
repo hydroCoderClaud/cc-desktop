@@ -5,7 +5,6 @@
       :panel-title="panelTitle"
       :mode-options="modeOptions"
       @mode-select="handleModeSelect"
-      @toggle-both-panels="$emit('toggle-both-panels')"
       @collapse="$emit('collapse')"
     />
 
@@ -252,7 +251,6 @@ const emit = defineEmits([
   'session-closed',
   'terminal-created',
   'collapse',
-  'toggle-both-panels',
   'mode-changed',
   'agent-created',
   'agent-selected',

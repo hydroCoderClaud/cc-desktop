@@ -117,7 +117,7 @@
           :title="t('common.collapse')"
           @click="$emit('collapse')"
         >
-          <Icon name="chevronRight" :size="14" />
+          <Icon name="panelRight" :size="16" :strokeWidth="1.8" />
         </button>
       </div>
       <div class="panel-empty">
