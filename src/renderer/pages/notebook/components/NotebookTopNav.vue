@@ -420,8 +420,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   background: transparent;
   border: none;
   border-radius: 50%;
@@ -438,15 +438,15 @@ onUnmounted(() => {
 
 .brand-title {
   font-family: var(--font-logo);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--text-color);
   white-space: nowrap;
 }
 
 .notebook-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 400;
   color: var(--text-color-secondary, var(--text-color-muted));
   margin: 0;
@@ -460,7 +460,7 @@ onUnmounted(() => {
 .notebook-title--no-notebook:hover { color: var(--text-primary); }
 
 .notebook-title-input {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 400;
   color: var(--text-color);
   margin: 0;
