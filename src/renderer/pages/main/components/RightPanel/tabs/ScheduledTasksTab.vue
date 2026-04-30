@@ -170,6 +170,7 @@
               <n-date-picker
                 v-model:value="form.firstRunAt"
                 type="datetime"
+                placement="bottom-end"
                 clearable
                 style="width: 100%;"
                 :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')"
@@ -206,6 +207,7 @@
             <n-time-picker
               v-model:value="form.firstRunAt"
               format="HH:mm"
+              placement="bottom-end"
               clearable
               style="width: 100%;"
               :placeholder="executionTimePlaceholder"
@@ -225,6 +227,7 @@
               <n-time-picker
                 v-model:value="form.firstRunAt"
                 format="HH:mm"
+                placement="bottom-end"
                 clearable
                 style="width: 100%;"
                 :placeholder="executionTimePlaceholder"
@@ -256,6 +259,7 @@
               <n-time-picker
                 v-model:value="form.firstRunAt"
                 format="HH:mm"
+                placement="bottom-end"
                 clearable
                 style="width: 100%;"
                 :placeholder="executionTimePlaceholder"
@@ -293,6 +297,7 @@
             <n-time-picker
               v-model:value="form.firstRunAt"
               format="HH:mm"
+              placement="bottom-end"
               clearable
               style="width: 100%;"
               :placeholder="executionTimePlaceholder"
@@ -311,6 +316,7 @@
             <n-date-picker
               v-model:value="form.firstRunAt"
               type="datetime"
+              placement="bottom-end"
               clearable
               style="width: 100%;"
               :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')"

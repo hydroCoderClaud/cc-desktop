@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="isDark ? darkTheme : null" :theme-overrides="themeOverrides">
+  <n-config-provider :theme="isDark ? darkTheme : null" :theme-overrides="themeOverrides" :locale="naiveLocale" :date-locale="naiveDateLocale">
     <n-message-provider>
       <n-dialog-provider>
         <n-notification-provider>
@@ -12,10 +12,14 @@
 
 <script setup>
 import { darkTheme } from 'naive-ui'
+import { useNaiveLocale } from '@composables/useNaiveLocale'
 import { useTheme } from '@composables/useTheme'
 import UpdateManagerContent from './components/UpdateManagerContent.vue'
 
 const { isDark, themeOverrides } = useTheme()
+const { naiveLocale, naiveDateLocale, initLocale } = useNaiveLocale()
+
+initLocale()
 </script>
 
 <style>

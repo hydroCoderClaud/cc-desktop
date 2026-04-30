@@ -72,7 +72,7 @@
         </div>
 
         <div class="side-col">
-          <section class="panel st-panel">
+          <section class="panel st-panel execution-panel">
             <div class="panel-title st-panel-title">{{ t('rightPanel.scheduledTasks.executionSettings') }}</div>
             <div class="grid compact-grid st-form-grid st-form-grid--three">
               <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')"><n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable /></n-form-item>
@@ -83,12 +83,12 @@
             </div>
           </section>
 
-          <section class="panel st-panel">
+          <section class="panel st-panel schedule-panel">
             <div class="panel-title st-panel-title">{{ t('rightPanel.scheduledTasks.scheduleSettings') }}</div>
             <template v-if="form.scheduleType === 'interval'">
               <div class="grid st-form-grid st-form-grid--schedule-pair">
                 <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" placement="bottom-end" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
               </div>
               <div class="grid st-form-grid st-form-grid--schedule-pair">
                 <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')"><n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" /></n-form-item>
@@ -97,12 +97,12 @@
             </template>
             <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'daily'">
               <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
             </div>
             <template v-else-if="form.scheduleType === 'monthly'">
               <div class="grid st-form-grid st-form-grid--schedule-pair">
                 <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
               </div>
               <div class="grid st-form-grid st-form-grid--schedule-pair">
                 <n-form-item :label="t('rightPanel.scheduledTasks.monthlyMode')"><n-select v-model:value="form.monthlyMode" :options="monthlyModeOptions" /></n-form-item>
@@ -112,7 +112,7 @@
             <template v-else-if="form.scheduleType === 'weekly'">
               <div class="grid st-form-grid st-form-grid--schedule-pair">
                 <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
               </div>
               <div class="grid st-form-grid st-form-grid--schedule-single">
                 <n-form-item :label="t('rightPanel.scheduledTasks.weeklyDays')"><n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable /></n-form-item>
@@ -120,15 +120,15 @@
             </template>
             <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'workdays'">
               <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
             </div>
             <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'once'">
               <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" placement="bottom-end" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
             </div>
           </section>
 
-          <section class="panel st-panel">
+          <section class="panel st-panel history-panel">
             <div class="panel-title st-panel-title row-title">
               <span>{{ t('rightPanel.scheduledTasks.historyTitle') }}</span>
               <div class="history-actions">
@@ -138,12 +138,9 @@
                 <button v-if="showHistory" class="icon-btn" :title="t('common.refresh')" @click="loadRuns"><Icon name="refresh" :size="14" /></button>
               </div>
             </div>
-            <div v-if="!showHistory" class="history-collapsed">
-              {{ t('common.expand') }}
-            </div>
-            <div v-else-if="runsLoading" class="state-box small"><Icon name="clock" :size="14" class="spin" /><span>{{ t('common.loading') }}</span></div>
-            <div v-else-if="!runs.length" class="state-box small"><span>{{ t('rightPanel.scheduledTasks.noRuns') }}</span></div>
-            <div v-else class="runs st-run-list">
+            <div v-if="showHistory && runsLoading" class="state-box small"><Icon name="clock" :size="14" class="spin" /><span>{{ t('common.loading') }}</span></div>
+            <div v-else-if="showHistory && !runs.length" class="state-box small"><span>{{ t('rightPanel.scheduledTasks.noRuns') }}</span></div>
+            <div v-else-if="showHistory" class="runs st-run-list">
               <div v-for="run in runs" :key="run.id" class="run-card st-run-card">
                 <div class="run-top">
                   <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
@@ -417,5 +414,5 @@ onUnmounted(() => {
 <style src="@/styles/scheduled-task-common.css"></style>
 
 <style scoped>
-.task-detail{display:flex;flex-direction:column;gap:12px;padding:16px}.header,.title-row,.title-line,.header-actions,.title-meta,.run-top,.row-title,.history-actions{display:flex;align-items:center;gap:10px}.header{justify-content:space-between;align-items:flex-start}.icon-wrap{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--primary-ghost,rgba(59,130,246,.12));color:var(--primary-color);flex-shrink:0}.title-copy{min-width:0}.title-line{flex-wrap:wrap}.title-line h3{margin:0;font-size:20px;font-weight:700}.title-meta{margin-top:4px;color:var(--text-color-secondary);font-size:13px;flex-wrap:wrap}.summary-grid,.grid,.layout{display:grid;gap:10px}.summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.summary-card{border:1px solid var(--border-color);background:var(--card-bg);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}.summary-card span,.run-top span,.run-error,.run-session,.state-box,.history-collapsed{color:var(--text-color-secondary);font-size:12px}.layout{grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);align-items:stretch}.main-col,.side-col{display:flex;flex-direction:column;gap:12px}.main-col{height:100%}.basic-grid{grid-template-columns:minmax(220px,.9fr) minmax(320px,1.1fr)}.compact-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.schedule-top-grid{grid-template-columns:minmax(0,1.2fr) 110px minmax(0,1fr);align-items:start}.schedule-enabled-item :deep(.n-form-item-blank){min-height:40px;align-items:center}.schedule-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:2px;gap:8px 10px}.schedule-first-run-grid{margin-top:0}.prompt-panel{flex:1;display:flex;flex-direction:column}.prompt-form-item{flex:1}.prompt-panel :deep(.n-form-item-blank),.prompt-panel :deep(.n-input),.prompt-panel :deep(.n-input-wrapper),.prompt-panel :deep(.n-input__textarea){height:100%}.prompt-panel :deep(textarea){min-height:260px!important;resize:vertical}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}.run-top{justify-content:space-between;align-items:flex-start;flex-wrap:wrap}.run-error{color:var(--warning-color,#d97706)}.history-collapsed{padding:2px 0 0}.icon-btn{width:32px;height:32px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-color-secondary);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s}.icon-btn:hover{color:var(--primary-color);border-color:var(--primary-color)}.state-box{min-height:100px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px}.state-box.small{min-height:64px}.spin{animation:rotate .9s linear infinite}.panel :deep(.n-form-item){margin-bottom:6px}.panel :deep(.n-form-item:last-child){margin-bottom:0}@keyframes rotate{from{transform:rotate(0)}to{transform:rotate(360deg)}}@media (max-width:900px){.summary-grid,.compact-grid,.schedule-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-top-grid{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.main-col{height:auto}.prompt-panel :deep(textarea){min-height:220px!important}}@media (max-width:760px){.header,.header-actions,.title-row,.summary-grid,.basic-grid,.compact-grid,.schedule-detail-grid,.schedule-top-grid{display:grid;grid-template-columns:1fr}}
+.task-detail{display:flex;flex-direction:column;gap:10px;padding:14px}.header,.title-row,.title-line,.header-actions,.title-meta,.run-top,.row-title,.history-actions{display:flex;align-items:center;gap:10px}.header{justify-content:space-between;align-items:flex-start}.icon-wrap{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--primary-ghost,rgba(59,130,246,.12));color:var(--primary-color);flex-shrink:0}.title-copy{min-width:0}.title-line{flex-wrap:wrap}.title-line h3{margin:0;font-size:20px;font-weight:700}.title-meta{margin-top:4px;color:var(--text-color-secondary);font-size:13px;flex-wrap:wrap}.summary-grid,.grid,.layout{display:grid;gap:10px}.summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.summary-card{border:1px solid var(--border-color);background:var(--card-bg);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:4px}.summary-card span,.run-top span,.run-error,.run-session,.state-box{color:var(--text-color-secondary);font-size:12px}.layout{grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);align-items:start}.main-col,.side-col{display:flex;flex-direction:column;gap:10px}.main-col{height:100%}.basic-grid{grid-template-columns:minmax(220px,.9fr) minmax(320px,1.1fr)}.compact-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.schedule-top-grid{grid-template-columns:minmax(0,1.2fr) 110px minmax(0,1fr);align-items:start}.schedule-enabled-item :deep(.n-form-item-blank){min-height:40px;align-items:center}.schedule-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:2px;gap:8px 10px}.schedule-first-run-grid{margin-top:0}.prompt-panel{flex:1;display:flex;flex-direction:column}.prompt-form-item{flex:1}.prompt-panel :deep(.n-form-item-blank),.prompt-panel :deep(.n-input),.prompt-panel :deep(.n-input-wrapper),.prompt-panel :deep(.n-input__textarea){height:100%}.prompt-panel :deep(textarea){min-height:260px!important;resize:vertical}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}.run-top{justify-content:space-between;align-items:flex-start;flex-wrap:wrap}.run-error{color:var(--warning-color,#d97706)}.icon-btn{width:32px;height:32px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-color-secondary);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s}.icon-btn:hover{color:var(--primary-color);border-color:var(--primary-color)}.state-box{min-height:100px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px}.state-box.small{min-height:64px}.spin{animation:rotate .9s linear infinite}.panel :deep(.n-form-item){margin-bottom:6px}.panel :deep(.n-form-item:last-child){margin-bottom:0}.execution-panel,.schedule-panel,.history-panel{padding:12px 14px}.execution-panel .grid,.schedule-panel .grid{gap:8px 10px}.execution-panel :deep(.n-form-item),.schedule-panel :deep(.n-form-item){margin-bottom:2px}.history-panel{padding-bottom:10px}@keyframes rotate{from{transform:rotate(0)}to{transform:rotate(360deg)}}@media (max-width:900px){.summary-grid,.compact-grid,.schedule-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule-top-grid{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.main-col{height:auto}.prompt-panel :deep(textarea){min-height:220px!important}}@media (max-width:760px){.header,.header-actions,.title-row,.summary-grid,.basic-grid,.compact-grid,.schedule-detail-grid,.schedule-top-grid{display:grid;grid-template-columns:1fr}}
 </style>

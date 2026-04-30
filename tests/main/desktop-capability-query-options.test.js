@@ -40,6 +40,13 @@ describe('desktop capability query options', () => {
       createdAt: 1709980000000,
       updatedAt: 1710005000000,
       sessionId: 'session-7',
+      runtimeState: {
+        keep: 'value',
+        _scheduler: {
+          resetSessionAfterRun: true,
+          reason: 'cwd-changed'
+        }
+      },
       lastError: 'recent failure',
       failureCount: 2,
       runCount: 4,
@@ -185,6 +192,7 @@ describe('desktop capability query options', () => {
     expect(listPayload.tasks[0]).toMatchObject({
       id: 7,
       sessionId: 'session-7',
+      runtimeState: { keep: 'value' },
       lastError: 'recent failure',
       failureCount: 2,
       runCount: 4,
@@ -200,12 +208,14 @@ describe('desktop capability query options', () => {
     expect(listPayload.tasks[0]).not.toHaveProperty('modelTierLabel')
     expect(listPayload.tasks[0]).not.toHaveProperty('firstRunMode')
     expect(listPayload.tasks[0].summary).toContain('glm-5.1')
+    expect(listPayload.tasks[0].runtimeState?._scheduler).toBeUndefined()
 
     const getPayload = parseToolPayload(await tools.schedule_get.handler({ taskId: 7 }))
     expect(getPayload.action).toBe('get')
     expect(getPayload.task).toMatchObject({
       id: 7,
       sessionId: 'session-7',
+      runtimeState: { keep: 'value' },
       lastError: 'recent failure',
       failureCount: 2,
       runCount: 4,
@@ -218,6 +228,26 @@ describe('desktop capability query options', () => {
     })
     expect(getPayload.task).not.toHaveProperty('modelTier')
     expect(getPayload.task).not.toHaveProperty('firstRunMode')
+    expect(getPayload.task.runtimeState?._scheduler).toBeUndefined()
+  })
+
+  it('aligns create/update schemas with the scheduled task service contract', async () => {
+    const { tools } = await createOptions()
+
+    expect(tools.schedule_create.inputSchema.cwd.safeParse('').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.apiProfileId.safeParse('').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.modelId.safeParse('').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.modelId.safeParse(null).success).toBe(true)
+    expect(tools.schedule_create.inputSchema.maxRuns.safeParse('6').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.intervalMinutes.safeParse('30').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.monthlyDay.safeParse('12').success).toBe(true)
+    expect(tools.schedule_create.inputSchema.weeklyDays.safeParse(['1', '3']).success).toBe(true)
+    expect(tools.schedule_create.inputSchema.firstRunAt.safeParse('2026-05-01T09:30:00+08:00').success).toBe(true)
+
+    expect(tools.schedule_update.inputSchema.cwd.safeParse('').success).toBe(true)
+    expect(tools.schedule_update.inputSchema.apiProfileId.safeParse('').success).toBe(true)
+    expect(tools.schedule_update.inputSchema.modelId.safeParse(null).success).toBe(true)
+    expect(tools.schedule_update.inputSchema.firstRunAt.safeParse('2026-05-01T09:30:00+08:00').success).toBe(true)
   })
 
   it('serializes model ids for english locale', async () => {

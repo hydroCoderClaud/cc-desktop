@@ -59,7 +59,7 @@
             <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-            <n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
+            <n-date-picker v-model:value="form.firstRunAt" type="datetime" placement="bottom-end" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
           </n-form-item>
         </div>
         <div class="task-grid st-form-grid st-form-grid--schedule-pair">
@@ -77,7 +77,7 @@
           <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
         </n-form-item>
         <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-          <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
+          <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
         </n-form-item>
       </div>
 
@@ -87,7 +87,7 @@
             <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-            <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
+            <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
           </n-form-item>
         </div>
         <div class="task-grid st-form-grid st-form-grid--schedule-pair">
@@ -105,7 +105,7 @@
             <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
           </n-form-item>
           <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-            <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
+            <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
           </n-form-item>
         </div>
         <div class="task-grid st-form-grid st-form-grid--schedule-single">
@@ -119,7 +119,7 @@
           <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
         </n-form-item>
         <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-          <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
+          <n-time-picker v-model:value="form.firstRunAt" format="HH:mm" placement="bottom-end" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" />
         </n-form-item>
       </div>
       <div class="task-grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'once'">
@@ -127,7 +127,7 @@
           <n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" />
         </n-form-item>
         <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')" :feedback="firstRunAtError || ''" :validation-status="firstRunAtError ? 'error' : undefined">
-          <n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
+          <n-date-picker v-model:value="form.firstRunAt" type="datetime" placement="bottom-end" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" />
         </n-form-item>
       </div>
 

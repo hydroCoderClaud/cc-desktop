@@ -210,6 +210,7 @@ function toSerializableTask(task = {}, locale = 'zh-CN') {
     createdAt: task.createdAt ?? null,
     updatedAt: task.updatedAt ?? null,
     sessionId: task.sessionId || null,
+    runtimeState: sanitizeRuntimeState(task.runtimeState),
     lastError: task.lastError || null,
     failureCount: task.failureCount ?? 0,
     runCount: task.runCount ?? 0,
@@ -242,6 +243,24 @@ function formatTimestamp(value) {
   const timestamp = Number(value)
   if (!Number.isFinite(timestamp)) return null
   return new Date(timestamp).toISOString()
+}
+
+function sanitizeRuntimeState(runtimeState) {
+  if (!runtimeState || typeof runtimeState !== 'object') return null
+
+  const next = { ...runtimeState }
+  if (next._scheduler && typeof next._scheduler === 'object') {
+    const schedulerState = { ...next._scheduler }
+    delete schedulerState.resetSessionAfterRun
+    delete schedulerState.reason
+    if (Object.keys(schedulerState).length > 0) {
+      next._scheduler = schedulerState
+    } else {
+      delete next._scheduler
+    }
+  }
+
+  return Object.keys(next).length > 0 ? next : null
 }
 
 function formatSchedule(task, locale = 'zh-CN') {
@@ -428,6 +447,35 @@ function pickUpdates(args) {
   return updates
 }
 
+function buildClearableStringSchema(z, description) {
+  return z.union([z.string(), z.null()]).optional().describe(description)
+}
+
+function buildPositiveIntegerLikeSchema(z, description, { max = null, nullable = false } = {}) {
+  let numberSchema = z.number().int().positive()
+  if (Number.isInteger(max)) {
+    numberSchema = numberSchema.max(max)
+  }
+
+  let schema = z.union([
+    numberSchema,
+    z.string()
+      .regex(/^\d+$/)
+      .refine(value => !Number.isInteger(max) || Number(value) <= max),
+    z.literal('')
+  ])
+
+  if (nullable) {
+    schema = schema.nullable()
+  }
+
+  return schema.optional().describe(description)
+}
+
+function buildExecutionTimeSchema(z, description) {
+  return z.union([z.number().int(), z.string(), z.null()]).optional().describe(description)
+}
+
 async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixinNotifyService, session }) {
   const includeScheduleTools = Boolean(scheduledTaskService && session?.source !== 'scheduled')
   const includeWeixinNotifyTools = Boolean(weixinNotifyService)
@@ -450,19 +498,19 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
   const sharedTaskFields = {
     name: z.string().min(1).optional().describe('任务名称'),
     prompt: z.string().min(1).optional().describe('任务执行时发送给智能体的提示词'),
-    cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
-    apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
-    modelId: z.string().min(1).optional().describe('真实模型 ID'),
-    maxRuns: z.number().int().positive().nullable().optional().describe('任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns'),
+    cwd: buildClearableStringSchema(z, '执行工作目录；传 null 或空字符串表示清空并回退到默认工作目录'),
+    apiProfileId: buildClearableStringSchema(z, 'API Profile ID；传 null 或空字符串表示清空并回退到默认 API Profile'),
+    modelId: buildClearableStringSchema(z, '真实模型 ID；传 null 或空字符串表示跟随所选 API Profile 的默认模型'),
+    maxRuns: buildPositiveIntegerLikeSchema(z, '任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns', { nullable: true }),
     resetCountOnEnable: z.boolean().optional().describe('从停用重新启用时，是否重置已执行次数和运行态'),
     intervalAnchorMode: z.enum(INTERVAL_ANCHOR_MODES).optional().describe('间隔调度推进基准：按开始时间或结束时间'),
     enabled: z.boolean().optional().describe('是否启用'),
     scheduleType: z.enum(SCHEDULE_TYPES).optional().describe('调度类型'),
-    intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-    weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
+    intervalMinutes: buildPositiveIntegerLikeSchema(z, '间隔分钟，仅 interval 使用'),
+    weeklyDays: z.array(z.union([z.number().int().min(0).max(6), z.string().regex(/^[0-6]$/)])).optional().describe('每周执行日，0=周日，6=周六'),
     monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
-    monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
-    firstRunAt: z.number().int().nullable().optional().describe('执行时间戳（毫秒）。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒')
+    monthlyDay: buildPositiveIntegerLikeSchema(z, '每月执行日，1-31，仅 monthly + day_of_month 使用', { max: 31 }),
+    firstRunAt: buildExecutionTimeSchema(z, '执行时间戳（毫秒）或可解析的日期时间字符串。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒')
   }
 
   const scheduleTools = includeScheduleTools ? [
@@ -497,11 +545,11 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
       '查看一个 Hydro Desktop 定时任务最近的执行记录。先提供 taskId；若没有 taskId，可提供 taskName。',
       {
         ...taskRefShape,
-        limit: z.number().int().positive().max(50).optional().describe('返回最近几条记录，默认 20，最大 50')
+        limit: buildPositiveIntegerLikeSchema(z, '返回最近几条记录，默认 20，最大 50', { max: 50 })
       },
       async (args) => {
         const task = resolveTaskReference(scheduledTaskService, args)
-        const limit = args.limit ?? 20
+        const limit = args.limit == null || args.limit === '' ? 20 : Number(args.limit)
         const runs = typeof scheduledTaskService.getTaskRuns === 'function'
           ? scheduledTaskService.getTaskRuns(task.id, limit)
           : []
@@ -521,15 +569,15 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
         name: z.string().min(1).describe('任务名称'),
         prompt: z.string().min(1).describe('任务提示词'),
         scheduleType: z.enum(SCHEDULE_TYPES).describe('调度类型'),
-        intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-        weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
+        intervalMinutes: buildPositiveIntegerLikeSchema(z, '间隔分钟，仅 interval 使用'),
+        weeklyDays: z.array(z.union([z.number().int().min(0).max(6), z.string().regex(/^[0-6]$/)])).optional().describe('每周执行日，0=周日，6=周六'),
         monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
-        monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
-        firstRunAt: z.number().int().nullable().optional().describe('执行时间戳（毫秒）。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒'),
-        cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
-        apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
-        modelId: z.string().min(1).optional().describe('真实模型 ID'),
-        maxRuns: z.number().int().positive().nullable().optional().describe('任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns'),
+        monthlyDay: buildPositiveIntegerLikeSchema(z, '每月执行日，1-31，仅 monthly + day_of_month 使用', { max: 31 }),
+        firstRunAt: buildExecutionTimeSchema(z, '执行时间戳（毫秒）或可解析的日期时间字符串。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒'),
+        cwd: buildClearableStringSchema(z, '执行工作目录；传 null 或空字符串表示清空并回退到默认工作目录'),
+        apiProfileId: buildClearableStringSchema(z, 'API Profile ID；传 null 或空字符串表示清空并回退到默认 API Profile'),
+        modelId: buildClearableStringSchema(z, '真实模型 ID；传 null 或空字符串表示跟随所选 API Profile 的默认模型'),
+        maxRuns: buildPositiveIntegerLikeSchema(z, '任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns', { nullable: true }),
         resetCountOnEnable: z.boolean().optional().describe('从停用重新启用时，是否重置已执行次数和运行态'),
         intervalAnchorMode: z.enum(INTERVAL_ANCHOR_MODES).optional().describe('间隔调度推进基准：按开始时间或结束时间'),
         enabled: z.boolean().optional().describe('是否启用')

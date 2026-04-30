@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides">
+  <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverrides" :locale="naiveLocale" :date-locale="naiveDateLocale">
     <n-message-provider>
       <n-dialog-provider>
         <div class="app-container" :style="cssVars">
@@ -12,12 +12,15 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import { useNaiveLocale } from '@composables/useNaiveLocale'
 import { useTheme } from '@composables/useTheme'
 import SettingsWorkbenchContent from './components/SettingsWorkbenchContent.vue'
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
+const { naiveLocale, naiveDateLocale, initLocale } = useNaiveLocale()
 
 onMounted(() => {
+  initLocale()
   initTheme()
 })
 </script>
