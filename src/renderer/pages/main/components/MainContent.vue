@@ -47,7 +47,7 @@
     />
 
     <!-- Main Content Area -->
-    <div class="main-content">
+    <div class="main-content" :class="{ 'notebook-main-content': isNotebookMode }">
       <!-- Tab Bar -->
       <TabBar
         v-if="!isNotebookMode"
@@ -1149,6 +1149,10 @@ const openApiProfileManager = async () => {
   margin: 0 8px;
 }
 
+.main-content.notebook-main-content {
+  margin: 0;
+}
+
 .main-area {
   flex: 1;
   overflow: hidden;
@@ -1249,10 +1253,6 @@ const openApiProfileManager = async () => {
 
 .notebook-mode-content :deep(.notebook-workspace) {
   height: 100%;
-}
-
-.notebook-mode-content :deep(.panels-container) {
-  padding: 0 12px 12px;
 }
 
 /* Terminal Container */
