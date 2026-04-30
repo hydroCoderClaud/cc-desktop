@@ -119,11 +119,11 @@ function withScheduledTaskOperations(BaseClass) {
       const result = this.db.prepare(`
         INSERT INTO scheduled_tasks (
           name, prompt, cwd, api_profile_id, model_id, max_runs, reset_count_on_enable, interval_anchor_mode,
-          enabled, run_on_startup, schedule_type, interval_minutes, daily_time, weekly_days, first_run_at,
+          enabled, schedule_type, interval_minutes, daily_time, weekly_days, first_run_at,
           monthly_mode, monthly_day,
           created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         task.name || '',
         task.prompt || '',
@@ -134,7 +134,6 @@ function withScheduledTaskOperations(BaseClass) {
         task.resetCountOnEnable ? 1 : 0,
         task.intervalAnchorMode || 'started_at',
         task.enabled ? 1 : 0,
-        0,
         task.scheduleType || 'interval',
         task.intervalMinutes || null,
         task.dailyTime || '',

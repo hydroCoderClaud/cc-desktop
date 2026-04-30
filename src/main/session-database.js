@@ -215,8 +215,6 @@ class SessionDatabaseBase {
       { name: 'max_runs', type: 'INTEGER' },
       { name: 'reset_count_on_enable', type: 'INTEGER NOT NULL DEFAULT 0' },
       { name: 'interval_anchor_mode', type: "TEXT DEFAULT 'started_at'" },
-      { name: 'run_on_startup', type: 'INTEGER NOT NULL DEFAULT 0' },
-      { name: 'first_run_mode', type: "TEXT DEFAULT 'next_slot'" },
       { name: 'first_run_at', type: 'INTEGER' },
       { name: 'monthly_mode', type: "TEXT DEFAULT 'day_of_month'" },
       { name: 'monthly_day', type: 'INTEGER DEFAULT 1' }
@@ -226,6 +224,63 @@ class SessionDatabaseBase {
       if (!scheduledTaskColumns.includes(col.name)) {
         console.log(`[SessionDB] Adding column: scheduled_tasks.${col.name}`)
         this.db.exec(`ALTER TABLE scheduled_tasks ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    const scheduledTaskLegacyColumns = ['run_on_startup', 'first_run_mode']
+    const needsScheduledTaskRebuild = scheduledTaskLegacyColumns.some(col => scheduledTaskColumns.includes(col))
+
+    if (needsScheduledTaskRebuild) {
+      console.log('[SessionDB] Migrating: rebuilding scheduled_tasks table (remove legacy compatibility columns)')
+      this.db.pragma('foreign_keys = OFF')
+      this.db.exec('BEGIN TRANSACTION')
+      try {
+        this.db.exec(`
+          CREATE TABLE scheduled_tasks_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL DEFAULT '',
+            prompt TEXT NOT NULL DEFAULT '',
+            cwd TEXT,
+            api_profile_id TEXT,
+            model_id TEXT,
+            max_runs INTEGER,
+            reset_count_on_enable INTEGER NOT NULL DEFAULT 0,
+            interval_anchor_mode TEXT NOT NULL DEFAULT 'started_at',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            schedule_type TEXT NOT NULL DEFAULT 'interval',
+            interval_minutes INTEGER,
+            daily_time TEXT DEFAULT '',
+            weekly_days TEXT DEFAULT '[]',
+            monthly_mode TEXT NOT NULL DEFAULT 'day_of_month',
+            monthly_day INTEGER DEFAULT 1,
+            first_run_at INTEGER,
+            created_at INTEGER,
+            updated_at INTEGER
+          )
+        `)
+
+        this.db.exec(`
+          INSERT INTO scheduled_tasks_new (
+            id, name, prompt, cwd, api_profile_id, model_id, max_runs, reset_count_on_enable,
+            interval_anchor_mode, enabled, schedule_type, interval_minutes, daily_time, weekly_days,
+            monthly_mode, monthly_day, first_run_at, created_at, updated_at
+          )
+          SELECT
+            id, name, prompt, cwd, api_profile_id, model_id, max_runs, reset_count_on_enable,
+            interval_anchor_mode, enabled, schedule_type, interval_minutes, daily_time, weekly_days,
+            monthly_mode, monthly_day, first_run_at, created_at, updated_at
+          FROM scheduled_tasks
+        `)
+
+        this.db.exec('DROP TABLE scheduled_tasks')
+        this.db.exec('ALTER TABLE scheduled_tasks_new RENAME TO scheduled_tasks')
+        this.db.exec('COMMIT')
+        console.log('[SessionDB] Migration completed: scheduled_tasks table rebuilt')
+      } catch (err) {
+        this.db.exec('ROLLBACK')
+        console.error('[SessionDB] Migration failed: scheduled_tasks rebuild failed', err)
+      } finally {
+        this.db.pragma('foreign_keys = ON')
       }
     }
 
@@ -585,14 +640,12 @@ class SessionDatabaseBase {
         reset_count_on_enable INTEGER NOT NULL DEFAULT 0,
         interval_anchor_mode TEXT NOT NULL DEFAULT 'started_at',
         enabled INTEGER NOT NULL DEFAULT 1,
-        run_on_startup INTEGER NOT NULL DEFAULT 0,
         schedule_type TEXT NOT NULL DEFAULT 'interval',
         interval_minutes INTEGER,
         daily_time TEXT DEFAULT '',
         weekly_days TEXT DEFAULT '[]',
         monthly_mode TEXT NOT NULL DEFAULT 'day_of_month',
         monthly_day INTEGER DEFAULT 1,
-        first_run_mode TEXT NOT NULL DEFAULT 'next_slot',
         first_run_at INTEGER,
         created_at INTEGER,
         updated_at INTEGER
