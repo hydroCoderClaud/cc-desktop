@@ -406,10 +406,10 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
-  padding: 10px 24px 0;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 4px 24px 4px 16px;
   background: var(--bg-color);
   flex-shrink: 0;
 }

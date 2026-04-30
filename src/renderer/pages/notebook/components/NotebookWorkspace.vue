@@ -1209,7 +1209,7 @@ const handleAgentCancelled = async (payload = {}) => {
   flex: 1;
   display: flex;
   gap: 0;
-  padding: 8px 0 16px;
+  padding: 8px 0 0;
   overflow: hidden;
   align-items: stretch;
 }
