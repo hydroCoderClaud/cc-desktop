@@ -154,6 +154,11 @@ function createWindow() {
       }
       return;
     }
+    if (input.type === 'keyDown' && input.key === 'Escape' && mainWindow.isFullScreen()) {
+      event.preventDefault();
+      mainWindow.setFullScreen(false);
+      return;
+    }
     if (input.type === 'keyDown' && input.control && !input.alt && !input.shift && input.key.toLowerCase() === 'f') {
       event.preventDefault();
       mainWindow.setFullScreen(!mainWindow.isFullScreen());
