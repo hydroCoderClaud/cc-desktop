@@ -607,7 +607,9 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg-color);
+  width: 100%;
+  min-width: 0;
+  background: var(--panel-bg);
   overflow: hidden;
   flex-shrink: 0;
   border: none;
@@ -617,12 +619,14 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
 .tree-section {
   flex: 1;
+  width: 100%;
   min-height: 100px;
   overflow: auto;
 }
@@ -680,20 +684,22 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   color: var(--text-color-muted);
-  font-size: 13px;
+  font-size: 12px;
+  text-align: center;
+  padding: 24px;
 }
 
 .empty-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-color-secondary);
+  padding: 0 14px;
+  min-height: 50px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel-bg-subtle);
   flex-shrink: 0;
-  min-height: 36px;
 }
 
 .empty-title {
@@ -725,11 +731,11 @@ defineExpose({
 .search-box {
   display: flex;
   align-items: center;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-color);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel-bg-subtle);
   flex-shrink: 0;
-  gap: 4px;
+  gap: 6px;
 }
 
 .search-icon {

@@ -9,7 +9,7 @@
     />
 
     <!-- Tab Content -->
-    <div class="panel-content">
+    <div class="right-panel-content">
       <!-- Queue Tab（单独处理，不参与 KeepAlive） -->
       <MessageQueue
         v-show="activeTab === 'queue'"
@@ -190,16 +190,21 @@ defineExpose({
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-color-secondary);
+  background: var(--panel-bg);
   flex-shrink: 0;
-  border: none;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
 }
 
-.panel-content {
+.right-panel-content {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
 }
 
 .tab-content-wrapper {
@@ -207,5 +212,14 @@ defineExpose({
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tab-content-wrapper > * {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 </style>

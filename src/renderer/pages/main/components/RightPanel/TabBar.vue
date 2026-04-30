@@ -53,8 +53,11 @@ defineEmits(['select', 'collapse'])
   align-items: center;
   gap: 4px;
   padding: 0 12px;
-  height: 60px;
-  background: var(--bg-color-secondary);
+  height: 50px;
+  box-sizing: border-box;
+  background: var(--panel-bg-subtle);
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
 }
 
 .panel-collapse-btn {
