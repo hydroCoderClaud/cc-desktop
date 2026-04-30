@@ -313,7 +313,11 @@ new ScheduledTaskService(configManager, agentSessionManager)
 - `workdays`
 - `once`
 
-首次执行策略支持 `immediate`、`next_slot`、`custom`；其中 `once` 任务固定走 `custom` 时间。
+调度配置统一使用 `firstRunAt`：
+
+- `interval`：`firstRunAt` 既是首次触发时间，也是整个间隔序列的固定相位基准，后续总是按该基准推算最近槽位。
+- `daily` / `weekly` / `monthly` / `workdays`：读取 `firstRunAt` 的时分作为周期执行时间，不再额外暴露“首次触发策略”。
+- `once`：`firstRunAt` 就是唯一一次触发时间。
 
 ### IPC 接口
 
