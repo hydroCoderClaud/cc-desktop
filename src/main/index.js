@@ -142,7 +142,9 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // F12 切换开发者工具
+  // 全局快捷键：
+  //   F12    — 切换开发者工具
+  //   Ctrl+F — 切换全屏
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'F12') {
       if (mainWindow.webContents.isDevToolsOpened()) {
@@ -150,6 +152,11 @@ function createWindow() {
       } else {
         mainWindow.webContents.openDevTools();
       }
+      return;
+    }
+    if (input.type === 'keyDown' && input.control && !input.alt && !input.shift && input.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
     }
   });
 }
