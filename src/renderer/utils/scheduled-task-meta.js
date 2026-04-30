@@ -1,5 +1,38 @@
 const DEFAULT_DAILY_TIME = '09:00'
 
+function padClock(value) {
+  return String(value).padStart(2, '0')
+}
+
+function parseClockTime(value) {
+  const raw = String(value || '').trim()
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw)
+  if (!match) return null
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  const seconds = match[3] == null ? 0 : Number(match[3])
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || !Number.isInteger(seconds)) return null
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null
+
+  return { hours, minutes, seconds }
+}
+
+function applyClockToTimestamp(baseTs, clock) {
+  const date = new Date(Number.isFinite(baseTs) ? baseTs : Date.now())
+  date.setHours(clock.hours, clock.minutes, clock.seconds || 0, 0)
+  return date.getTime()
+}
+
+function formatClockTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return DEFAULT_DAILY_TIME
+  const hh = padClock(date.getHours())
+  const mm = padClock(date.getMinutes())
+  const ss = padClock(date.getSeconds())
+  return date.getSeconds() > 0 ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`
+}
+
 function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -43,17 +76,21 @@ export function createScheduledTaskFormDefaults(defaultCwd = '') {
     cwd: defaultCwd,
     apiProfileId: null,
     modelId: '',
-    maxTurns: null,
+    maxRuns: null,
+    resetCountOnEnable: false,
+    intervalAnchorMode: 'started_at',
     enabled: true,
     scheduleType: 'interval',
     intervalMinutes: 60,
-    dailyTime: DEFAULT_DAILY_TIME,
     weeklyDays: [1],
     monthlyMode: 'day_of_month',
     monthlyDay: 1,
-    firstRunMode: 'next_slot',
     firstRunAt: null
   }
+}
+
+export function isClockOnlyScheduledTaskType(scheduleType) {
+  return ['daily', 'weekly', 'monthly', 'workdays'].includes(scheduleType)
 }
 
 export function buildScheduleTypeOptions(t) {
@@ -67,11 +104,10 @@ export function buildScheduleTypeOptions(t) {
   ]
 }
 
-export function buildFirstRunModeOptions(t) {
+export function buildIntervalAnchorOptions(t) {
   return [
-    { label: t('rightPanel.scheduledTasks.firstRunModeImmediate'), value: 'immediate' },
-    { label: t('rightPanel.scheduledTasks.firstRunModeNextSlot'), value: 'next_slot' },
-    { label: t('rightPanel.scheduledTasks.firstRunModeCustom'), value: 'custom' }
+    { label: t('rightPanel.scheduledTasks.intervalAnchorStartedAt'), value: 'started_at' },
+    { label: t('rightPanel.scheduledTasks.intervalAnchorFinishedAt'), value: 'finished_at' }
   ]
 }
 
@@ -110,10 +146,20 @@ export function buildScheduledTaskModelOptions(context = {}) {
 }
 
 export function resolveScheduledTaskModelId(context = {}, preferredModelId = '') {
-  const modelIds = getScheduledTaskProfileModelIds(context)
   const normalizedPreferredModelId = normalizeModelValue(preferredModelId)
+  if (!normalizedPreferredModelId) {
+    return ''
+  }
 
-  if (normalizedPreferredModelId && modelIds.includes(normalizedPreferredModelId)) {
+  const modelIds = getScheduledTaskProfileModelIds(context)
+  return modelIds.includes(normalizedPreferredModelId) ? normalizedPreferredModelId : ''
+}
+
+export function resolveScheduledTaskEffectiveModelId(context = {}, preferredModelId = '') {
+  const modelIds = getScheduledTaskProfileModelIds(context)
+  const normalizedPreferredModelId = resolveScheduledTaskModelId(context, preferredModelId)
+
+  if (normalizedPreferredModelId) {
     return normalizedPreferredModelId
   }
 
@@ -137,9 +183,42 @@ export function formatScheduledTaskDateTime(value) {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
 }
 
+export function resolveScheduledTaskExecutionAt(task, baseTs = Date.now()) {
+  if (!task || typeof task !== 'object') return null
+
+  const firstRunAt = Number(task.firstRunAt)
+  if (Number.isFinite(firstRunAt) && firstRunAt > 0) {
+    return Math.trunc(firstRunAt)
+  }
+
+  if (task.scheduleType === 'interval') {
+    for (const candidate of [task.nextRunAt, task.lastScheduledAt, task.lastStartedAt, task.lastRunAt, task.createdAt, task.updatedAt]) {
+      const timestamp = Number(candidate)
+      if (Number.isFinite(timestamp) && timestamp > 0) {
+        return Math.trunc(timestamp)
+      }
+    }
+    return null
+  }
+
+  if (task.scheduleType === 'once') {
+    return null
+  }
+
+  const clock = parseClockTime(task.dailyTime)
+  if (!clock) return null
+  return applyClockToTimestamp(baseTs, clock)
+}
+
+export function formatScheduledTaskExecutionTime(task) {
+  const executionAt = resolveScheduledTaskExecutionAt(task)
+  if (!executionAt) return DEFAULT_DAILY_TIME
+  return formatClockTime(executionAt)
+}
+
 function describeRecurringSchedule(task, t, weeklyDayOptions) {
   if (task.scheduleType === 'daily') {
-    return t('rightPanel.scheduledTasks.scheduleDailyDesc', { time: task.dailyTime || DEFAULT_DAILY_TIME })
+    return t('rightPanel.scheduledTasks.scheduleDailyDesc', { time: formatScheduledTaskExecutionTime(task) })
   }
   if (task.scheduleType === 'weekly') {
     const days = (task.weeklyDays || [])
@@ -147,22 +226,22 @@ function describeRecurringSchedule(task, t, weeklyDayOptions) {
       .join(', ')
     return t('rightPanel.scheduledTasks.scheduleWeeklyDesc', {
       days: days || '-',
-      time: task.dailyTime || DEFAULT_DAILY_TIME
+      time: formatScheduledTaskExecutionTime(task)
     })
   }
   if (task.scheduleType === 'monthly') {
     if (task.monthlyMode === 'last_day') {
       return t('rightPanel.scheduledTasks.scheduleMonthlyLastDayDesc', {
-        time: task.dailyTime || DEFAULT_DAILY_TIME
+        time: formatScheduledTaskExecutionTime(task)
       })
     }
     return t('rightPanel.scheduledTasks.scheduleMonthlyDesc', {
       day: task.monthlyDay || 1,
-      time: task.dailyTime || DEFAULT_DAILY_TIME
+      time: formatScheduledTaskExecutionTime(task)
     })
   }
   if (task.scheduleType === 'workdays') {
-    return t('rightPanel.scheduledTasks.scheduleWorkdaysDesc', { time: task.dailyTime || DEFAULT_DAILY_TIME })
+    return t('rightPanel.scheduledTasks.scheduleWorkdaysDesc', { time: formatScheduledTaskExecutionTime(task) })
   }
   return t('rightPanel.scheduledTasks.scheduleIntervalDesc', { minutes: task.intervalMinutes || 60 })
 }
@@ -172,23 +251,9 @@ export function describeScheduledTask(task, t, weeklyDayOptions) {
 
   if (task.scheduleType === 'once') {
     return t('rightPanel.scheduledTasks.scheduleOnceDesc', {
-      time: formatScheduledTaskDateTime(task.firstRunAt)
+      time: formatScheduledTaskDateTime(resolveScheduledTaskExecutionAt(task))
     })
   }
 
-  const recurring = describeRecurringSchedule(task, t, weeklyDayOptions)
-  if (task.lastRunAt) {
-    return recurring
-  }
-  if (task.firstRunMode === 'immediate') {
-    return t('rightPanel.scheduledTasks.firstRunImmediateDesc', { schedule: recurring })
-  }
-  if (task.firstRunMode === 'custom' && task.firstRunAt) {
-    return t('rightPanel.scheduledTasks.firstRunCustomDesc', {
-      time: formatScheduledTaskDateTime(task.firstRunAt),
-      schedule: recurring
-    })
-  }
-
-  return recurring
+  return describeRecurringSchedule(task, t, weeklyDayOptions)
 }

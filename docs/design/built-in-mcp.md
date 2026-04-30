@@ -68,6 +68,14 @@ AgentSessionManager.sendMessage()
 
 工具返回值统一包装为 MCP text content，文本内容是格式化后的 JSON。任务序列化结果包含 `id`、`name`、`prompt`、`enabled`、调度配置、`nextRunAt`、`lastRunAt`、`lastError`、`failureCount`、`modelId`、`cwd` 和本地化 `summary` 等字段。
 
+### 定时任务执行语义
+
+- 定时任务领域对外暴露的是 `maxRuns`，含义是“任务生命周期内最多允许执行多少次”。
+- `maxRuns` 计数的是任务启动次数，不是单次 Agent 对话内部的消息轮次。
+- 通用 Agent 能力里的 `maxTurns` 仍然存在，但它属于“单次会话/单次调用最多跑多少轮”的底层限制，不属于定时任务产品语义。
+- Hydro Desktop 当前刻意不在定时任务 UI、MCP schema、任务草案里暴露 `maxTurns`，避免把“执行次数”和“单次轮次”混为一谈。
+- 如果后续需要防止单次任务运行过长，应优先用系统级兜底或会话级底层限制处理，而不是重新把 `maxTurns` 暴露为定时任务配置项。
+
 `hydrodesktop` 还暴露 2 个微信通知工具：
 
 | 工具 | 作用 |

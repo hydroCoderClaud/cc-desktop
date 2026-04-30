@@ -212,6 +212,10 @@ class SessionDatabaseBase {
 
     const scheduledTaskNewColumns = [
       { name: 'model_id', type: 'TEXT' },
+      { name: 'max_runs', type: 'INTEGER' },
+      { name: 'reset_count_on_enable', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'interval_anchor_mode', type: "TEXT DEFAULT 'started_at'" },
+      { name: 'run_on_startup', type: 'INTEGER NOT NULL DEFAULT 0' },
       { name: 'first_run_mode', type: "TEXT DEFAULT 'next_slot'" },
       { name: 'first_run_at', type: 'INTEGER' },
       { name: 'monthly_mode', type: "TEXT DEFAULT 'day_of_month'" },
@@ -222,6 +226,36 @@ class SessionDatabaseBase {
       if (!scheduledTaskColumns.includes(col.name)) {
         console.log(`[SessionDB] Adding column: scheduled_tasks.${col.name}`)
         this.db.exec(`ALTER TABLE scheduled_tasks ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    const scheduledTaskStateInfo = this.db.prepare("PRAGMA table_info(scheduled_task_state)").all()
+    const scheduledTaskStateColumns = scheduledTaskStateInfo.map(col => col.name)
+
+    const scheduledTaskStateNewColumns = [
+      { name: 'run_count', type: 'INTEGER NOT NULL DEFAULT 0' },
+      { name: 'last_started_at', type: 'INTEGER' },
+      { name: 'last_scheduled_at', type: 'INTEGER' }
+    ]
+
+    for (const col of scheduledTaskStateNewColumns) {
+      if (!scheduledTaskStateColumns.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: scheduled_task_state.${col.name}`)
+        this.db.exec(`ALTER TABLE scheduled_task_state ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    const scheduledTaskRunInfo = this.db.prepare("PRAGMA table_info(scheduled_task_runs)").all()
+    const scheduledTaskRunColumns = scheduledTaskRunInfo.map(col => col.name)
+
+    const scheduledTaskRunNewColumns = [
+      { name: 'scheduled_at', type: 'INTEGER' }
+    ]
+
+    for (const col of scheduledTaskRunNewColumns) {
+      if (!scheduledTaskRunColumns.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: scheduled_task_runs.${col.name}`)
+        this.db.exec(`ALTER TABLE scheduled_task_runs ADD COLUMN ${col.name} ${col.type}`)
       }
     }
 
@@ -547,9 +581,11 @@ class SessionDatabaseBase {
         cwd TEXT,
         api_profile_id TEXT,
         model_id TEXT,
-        max_turns INTEGER,
+        max_runs INTEGER,
+        reset_count_on_enable INTEGER NOT NULL DEFAULT 0,
+        interval_anchor_mode TEXT NOT NULL DEFAULT 'started_at',
         enabled INTEGER NOT NULL DEFAULT 1,
-        run_on_startup INTEGER NOT NULL DEFAULT 1,
+        run_on_startup INTEGER NOT NULL DEFAULT 0,
         schedule_type TEXT NOT NULL DEFAULT 'interval',
         interval_minutes INTEGER,
         daily_time TEXT DEFAULT '',
@@ -568,10 +604,13 @@ class SessionDatabaseBase {
         task_id INTEGER PRIMARY KEY,
         session_id TEXT,
         runtime_state TEXT,
+        last_started_at INTEGER,
+        last_scheduled_at INTEGER,
         last_run_at INTEGER,
         next_run_at INTEGER,
         last_error TEXT,
         failure_count INTEGER NOT NULL DEFAULT 0,
+        run_count INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER,
         updated_at INTEGER,
         FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
@@ -586,6 +625,7 @@ class SessionDatabaseBase {
         trigger_reason TEXT NOT NULL DEFAULT 'scheduled',
         status TEXT NOT NULL DEFAULT 'success',
         error_message TEXT,
+        scheduled_at INTEGER,
         started_at INTEGER,
         finished_at INTEGER,
         created_at INTEGER,

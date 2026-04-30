@@ -29,22 +29,25 @@ describe('desktop capability query options', () => {
       enabled: true,
       scheduleType: 'interval',
       intervalMinutes: 30,
-      dailyTime: '',
       weeklyDays: [],
       monthlyMode: 'day_of_month',
       monthlyDay: 1,
-      firstRunMode: 'immediate',
-      firstRunAt: null,
+      firstRunAt: 1710001800000,
       nextRunAt: 1710000000000,
+      lastStartedAt: 1709995000000,
+      lastScheduledAt: 1709994900000,
       lastRunAt: 1709990000000,
       createdAt: 1709980000000,
       updatedAt: 1710005000000,
       sessionId: 'session-7',
       lastError: 'recent failure',
       failureCount: 2,
+      runCount: 4,
       apiProfileId: 'profile-1',
       modelId: 'glm-5.1',
-      maxTurns: 6,
+      maxRuns: 6,
+      resetCountOnEnable: true,
+      intervalAnchorMode: 'started_at',
       cwd: '/tmp/project',
       ...overrides
     }
@@ -58,6 +61,7 @@ describe('desktop capability query options', () => {
       triggerReason: 'manual',
       status: 'failed',
       errorMessage: 'network timeout',
+      scheduledAt: 1710000000000,
       startedAt: 1710000100000,
       finishedAt: 1710000200000,
       createdAt: 1710000205000,
@@ -183,11 +187,18 @@ describe('desktop capability query options', () => {
       sessionId: 'session-7',
       lastError: 'recent failure',
       failureCount: 2,
-      modelId: 'glm-5.1'
+      runCount: 4,
+      lastStartedAt: 1709995000000,
+      lastScheduledAt: 1709994900000,
+      modelId: 'glm-5.1',
+      maxRuns: 6,
+      resetCountOnEnable: true,
+      intervalAnchorMode: 'started_at'
     })
     expect(listPayload.tasks[0].updatedAtIso).toBeTypeOf('string')
     expect(listPayload.tasks[0]).not.toHaveProperty('modelTier')
     expect(listPayload.tasks[0]).not.toHaveProperty('modelTierLabel')
+    expect(listPayload.tasks[0]).not.toHaveProperty('firstRunMode')
     expect(listPayload.tasks[0].summary).toContain('glm-5.1')
 
     const getPayload = parseToolPayload(await tools.schedule_get.handler({ taskId: 7 }))
@@ -197,9 +208,16 @@ describe('desktop capability query options', () => {
       sessionId: 'session-7',
       lastError: 'recent failure',
       failureCount: 2,
-      modelId: 'glm-5.1'
+      runCount: 4,
+      lastStartedAt: 1709995000000,
+      lastScheduledAt: 1709994900000,
+      modelId: 'glm-5.1',
+      maxRuns: 6,
+      resetCountOnEnable: true,
+      intervalAnchorMode: 'started_at'
     })
     expect(getPayload.task).not.toHaveProperty('modelTier')
+    expect(getPayload.task).not.toHaveProperty('firstRunMode')
   })
 
   it('serializes model ids for english locale', async () => {
@@ -234,6 +252,7 @@ describe('desktop capability query options', () => {
       taskId: 7,
       triggerReason: 'manual',
       status: 'failed',
+      scheduledAt: 1710000000000,
       errorMessage: 'network timeout'
     })
     expect(payload.runs[0].startedAtIso).toBeTypeOf('string')
@@ -243,7 +262,7 @@ describe('desktop capability query options', () => {
     const { tools } = await createOptions({
       listTasks: vi.fn(() => [buildTask({
         scheduleType: 'monthly',
-        dailyTime: '09:30',
+        firstRunAt: Date.UTC(2026, 3, 1, 9, 30, 0),
         monthlyMode: 'last_day',
         monthlyDay: null
       })])

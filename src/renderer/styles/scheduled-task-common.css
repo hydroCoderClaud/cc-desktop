@@ -51,6 +51,15 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.st-form-grid--schedule-top,
+.st-form-grid--schedule-single {
+  grid-template-columns: minmax(220px, 320px);
+}
+
+.st-form-grid--schedule-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .st-form-grid--switches {
   grid-template-columns: repeat(2, 180px);
 }
@@ -123,6 +132,9 @@
   .st-form-grid--primary,
   .st-form-grid--config,
   .st-form-grid--interval,
+  .st-form-grid--schedule-top,
+  .st-form-grid--schedule-single,
+  .st-form-grid--schedule-pair,
   .st-form-grid--three,
   .st-form-grid--switches,
   .st-history-grid {

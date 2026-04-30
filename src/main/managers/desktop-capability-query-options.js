@@ -60,24 +60,25 @@ const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
   'After sending, report the recipient displayName and messageId returned by the tool.'
 ].join(' ')
 
+const DEFAULT_DAILY_TIME = '09:00'
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
 const MONTHLY_MODES = ['day_of_month', 'last_day']
-const FIRST_RUN_MODES = ['immediate', 'next_slot', 'custom']
+const INTERVAL_ANCHOR_MODES = ['started_at', 'finished_at']
 const UPDATE_FIELDS = [
   'name',
   'prompt',
   'cwd',
   'apiProfileId',
   'modelId',
-  'maxTurns',
+  'maxRuns',
+  'resetCountOnEnable',
+  'intervalAnchorMode',
   'enabled',
   'scheduleType',
   'intervalMinutes',
-  'dailyTime',
   'weeklyDays',
   'monthlyMode',
   'monthlyDay',
-  'firstRunMode',
   'firstRunAt'
 ]
 
@@ -131,7 +132,66 @@ function normalizeModelId(modelId) {
   return typeof modelId === 'string' ? modelId.trim() : ''
 }
 
+function parseClockTime(value) {
+  const raw = String(value || '').trim()
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw)
+  if (!match) return null
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  const seconds = match[3] == null ? 0 : Number(match[3])
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || !Number.isInteger(seconds)) return null
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null
+
+  return { hours, minutes, seconds }
+}
+
+function padClock(value) {
+  return String(value).padStart(2, '0')
+}
+
+function formatClockTimestamp(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return DEFAULT_DAILY_TIME
+  const hh = padClock(date.getHours())
+  const mm = padClock(date.getMinutes())
+  const ss = padClock(date.getSeconds())
+  return date.getSeconds() > 0 ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`
+}
+
+function applyClockToTimestamp(baseTimestamp, clock) {
+  const date = new Date(Number.isFinite(baseTimestamp) ? baseTimestamp : Date.now())
+  date.setHours(clock.hours, clock.minutes, clock.seconds || 0, 0)
+  return date.getTime()
+}
+
+function resolveExecutionAt(task = {}) {
+  const explicit = Number(task.firstRunAt)
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return Math.trunc(explicit)
+  }
+
+  if (task.scheduleType === 'interval') {
+    for (const candidate of [task.nextRunAt, task.lastScheduledAt, task.lastStartedAt, task.lastRunAt, task.createdAt, task.updatedAt]) {
+      const timestamp = Number(candidate)
+      if (Number.isFinite(timestamp) && timestamp > 0) {
+        return Math.trunc(timestamp)
+      }
+    }
+    return null
+  }
+
+  if (task.scheduleType === 'once') {
+    return null
+  }
+
+  const clock = parseClockTime(task.dailyTime)
+  if (!clock) return null
+  return applyClockToTimestamp(Number(task.createdAt) || Number(task.updatedAt) || Date.now(), clock)
+}
+
 function toSerializableTask(task = {}, locale = 'zh-CN') {
+  const executionAt = resolveExecutionAt(task)
   return {
     id: task.id ?? null,
     name: task.name || '',
@@ -139,22 +199,25 @@ function toSerializableTask(task = {}, locale = 'zh-CN') {
     enabled: task.enabled !== false,
     scheduleType: task.scheduleType || 'interval',
     intervalMinutes: task.intervalMinutes ?? null,
-    dailyTime: task.dailyTime || '',
     weeklyDays: Array.isArray(task.weeklyDays) ? task.weeklyDays : [],
     monthlyMode: task.monthlyMode || 'day_of_month',
     monthlyDay: task.monthlyMode === 'last_day' ? null : (task.monthlyDay ?? 1),
-    firstRunMode: task.firstRunMode || 'next_slot',
-    firstRunAt: task.firstRunAt ?? null,
+    firstRunAt: executionAt,
     nextRunAt: task.nextRunAt ?? null,
+    lastStartedAt: task.lastStartedAt ?? null,
+    lastScheduledAt: task.lastScheduledAt ?? null,
     lastRunAt: task.lastRunAt ?? null,
     createdAt: task.createdAt ?? null,
     updatedAt: task.updatedAt ?? null,
     sessionId: task.sessionId || null,
     lastError: task.lastError || null,
     failureCount: task.failureCount ?? 0,
+    runCount: task.runCount ?? 0,
     apiProfileId: task.apiProfileId || null,
     modelId: normalizeModelId(task.modelId) || null,
-    maxTurns: task.maxTurns ?? null,
+    maxRuns: task.maxRuns ?? null,
+    resetCountOnEnable: !!task.resetCountOnEnable,
+    intervalAnchorMode: task.intervalAnchorMode || 'started_at',
     cwd: task.cwd || null
   }
 }
@@ -167,6 +230,7 @@ function toSerializableTaskRun(run = {}) {
     triggerReason: run.triggerReason || 'scheduled',
     status: run.status || 'success',
     errorMessage: run.errorMessage || null,
+    scheduledAt: run.scheduledAt ?? null,
     startedAt: run.startedAt ?? null,
     finishedAt: run.finishedAt ?? null,
     createdAt: run.createdAt ?? null
@@ -182,19 +246,21 @@ function formatTimestamp(value) {
 
 function formatSchedule(task, locale = 'zh-CN') {
   const dict = getDisplayDict(locale)
+  const executionAt = resolveExecutionAt(task)
+  const executionTime = executionAt ? formatClockTimestamp(executionAt) : DEFAULT_DAILY_TIME
   switch (task.scheduleType) {
     case 'daily':
-      return dict.scheduleDaily(task.dailyTime || '09:00')
+      return dict.scheduleDaily(executionTime)
     case 'weekly':
-      return dict.scheduleWeekly(Array.isArray(task.weeklyDays) ? task.weeklyDays.join(',') : '', task.dailyTime || '09:00')
+      return dict.scheduleWeekly(Array.isArray(task.weeklyDays) ? task.weeklyDays.join(',') : '', executionTime)
     case 'monthly':
       return task.monthlyMode === 'last_day'
-        ? dict.scheduleMonthlyLastDay(task.dailyTime || '09:00')
-        : dict.scheduleMonthly(task.monthlyDay || 1, task.dailyTime || '09:00')
+        ? dict.scheduleMonthlyLastDay(executionTime)
+        : dict.scheduleMonthly(task.monthlyDay || 1, executionTime)
     case 'workdays':
-      return dict.scheduleWorkdays(task.dailyTime || '09:00')
+      return dict.scheduleWorkdays(executionTime)
     case 'once':
-      return dict.scheduleOnce(formatTimestamp(task.firstRunAt) || dict.onceNotSet)
+      return dict.scheduleOnce(formatTimestamp(executionAt) || dict.onceNotSet)
     case 'interval':
     default:
       return dict.scheduleInterval(task.intervalMinutes || 60)
@@ -328,12 +394,15 @@ function resolveTaskReference(scheduledTaskService, { taskId, taskName }) {
 }
 
 function serializeTaskWithMetadata(task, locale = 'zh-CN') {
+  const executionAt = resolveExecutionAt(task)
   return {
     ...toSerializableTask(task, locale),
     summary: buildTaskSummary(task, locale),
     nextRunAtIso: formatTimestamp(task.nextRunAt),
+    lastStartedAtIso: formatTimestamp(task.lastStartedAt),
+    lastScheduledAtIso: formatTimestamp(task.lastScheduledAt),
     lastRunAtIso: formatTimestamp(task.lastRunAt),
-    firstRunAtIso: formatTimestamp(task.firstRunAt),
+    firstRunAtIso: formatTimestamp(executionAt),
     createdAtIso: formatTimestamp(task.createdAt),
     updatedAtIso: formatTimestamp(task.updatedAt)
   }
@@ -342,6 +411,7 @@ function serializeTaskWithMetadata(task, locale = 'zh-CN') {
 function serializeTaskRunWithMetadata(run) {
   return {
     ...toSerializableTaskRun(run),
+    scheduledAtIso: formatTimestamp(run.scheduledAt),
     startedAtIso: formatTimestamp(run.startedAt),
     finishedAtIso: formatTimestamp(run.finishedAt),
     createdAtIso: formatTimestamp(run.createdAt)
@@ -383,16 +453,16 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
     cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
     apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
     modelId: z.string().min(1).optional().describe('真实模型 ID'),
-    maxTurns: z.number().int().positive().nullable().optional().describe('最大轮次，可为 null'),
+    maxRuns: z.number().int().positive().nullable().optional().describe('任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns'),
+    resetCountOnEnable: z.boolean().optional().describe('从停用重新启用时，是否重置已执行次数和运行态'),
+    intervalAnchorMode: z.enum(INTERVAL_ANCHOR_MODES).optional().describe('间隔调度推进基准：按开始时间或结束时间'),
     enabled: z.boolean().optional().describe('是否启用'),
     scheduleType: z.enum(SCHEDULE_TYPES).optional().describe('调度类型'),
     intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-    dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/monthly/workdays 使用'),
     weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
     monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
     monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
-    firstRunMode: z.enum(FIRST_RUN_MODES).optional().describe('首次启动策略'),
-    firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用')
+    firstRunAt: z.number().int().nullable().optional().describe('执行时间戳（毫秒）。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒')
   }
 
   const scheduleTools = includeScheduleTools ? [
@@ -452,16 +522,16 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
         prompt: z.string().min(1).describe('任务提示词'),
         scheduleType: z.enum(SCHEDULE_TYPES).describe('调度类型'),
         intervalMinutes: z.number().int().positive().optional().describe('间隔分钟，仅 interval 使用'),
-        dailyTime: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('HH:mm，仅 daily/weekly/monthly/workdays 使用'),
         weeklyDays: z.array(z.number().int().min(0).max(6)).optional().describe('每周执行日，0=周日，6=周六'),
         monthlyMode: z.enum(MONTHLY_MODES).optional().describe('每月规则：固定日期或最后一天'),
         monthlyDay: z.number().int().min(1).max(31).optional().describe('每月执行日，1-31，仅 monthly + day_of_month 使用'),
-        firstRunMode: z.enum(FIRST_RUN_MODES).optional().describe('首次启动策略'),
-        firstRunAt: z.number().int().nullable().optional().describe('首次执行时间戳（毫秒），custom/once 时使用'),
+        firstRunAt: z.number().int().nullable().optional().describe('执行时间戳（毫秒）。interval 用作固定相位基准；once 为唯一触发时间；daily/weekly/monthly/workdays 仅使用其中的时分秒'),
         cwd: z.string().min(1).nullable().optional().describe('执行工作目录，可为 null'),
         apiProfileId: z.string().min(1).nullable().optional().describe('API Profile ID，可为 null'),
         modelId: z.string().min(1).optional().describe('真实模型 ID'),
-        maxTurns: z.number().int().positive().nullable().optional().describe('最大轮次，可为 null'),
+        maxRuns: z.number().int().positive().nullable().optional().describe('任务生命周期内的累计执行次数上限，可为 null；这不是单次会话的 maxTurns'),
+        resetCountOnEnable: z.boolean().optional().describe('从停用重新启用时，是否重置已执行次数和运行态'),
+        intervalAnchorMode: z.enum(INTERVAL_ANCHOR_MODES).optional().describe('间隔调度推进基准：按开始时间或结束时间'),
         enabled: z.boolean().optional().describe('是否启用')
       },
       async (args) => {

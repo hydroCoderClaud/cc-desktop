@@ -1,20 +1,13 @@
 const { BrowserWindow } = require('electron')
 
-const CHECK_INTERVAL_MS = 30 * 1000
 const DEFAULT_INTERVAL_MINUTES = 60
 const DEFAULT_DAILY_TIME = '09:00'
+const MAX_TIMER_DELAY_MS = 60 * 60 * 1000
 
 function normalizeScheduleType(type) {
   const normalized = String(type || '').trim().toLowerCase()
   const allowed = new Set(['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once'])
   return allowed.has(normalized) ? normalized : 'interval'
-}
-
-function normalizeFirstRunMode(mode, scheduleType) {
-  if (scheduleType === 'once') return 'custom'
-  const normalized = String(mode || '').trim().toLowerCase()
-  const allowed = new Set(['immediate', 'next_slot', 'custom'])
-  return allowed.has(normalized) ? normalized : 'next_slot'
 }
 
 function normalizeTimestamp(value) {
@@ -30,6 +23,17 @@ function normalizeModelId(modelId) {
 
   const normalized = modelId.trim()
   return normalized || null
+}
+
+function normalizePositiveInteger(value) {
+  if (value == null || value === '') return null
+
+  const normalized = Number(value)
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    return Number.NaN
+  }
+
+  return normalized
 }
 
 function normalizeWeeklyDays(days) {
@@ -52,6 +56,11 @@ function normalizeMonthlyDay(day) {
   return normalized
 }
 
+function normalizeIntervalAnchorMode(mode) {
+  const normalized = String(mode || '').trim().toLowerCase()
+  return normalized === 'finished_at' ? 'finished_at' : 'started_at'
+}
+
 function getMonthDays(year, monthIndex) {
   return new Date(year, monthIndex + 1, 0).getDate()
 }
@@ -66,15 +75,74 @@ function formatDateParts(timestamp) {
 
 function parseClockTime(value) {
   const raw = String(value || '').trim()
-  const match = /^(\d{2}):(\d{2})$/.exec(raw)
+  const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw)
   if (!match) return null
 
   const hours = Number(match[1])
   const minutes = Number(match[2])
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  const seconds = match[3] == null ? 0 : Number(match[3])
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || !Number.isInteger(seconds)) return null
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null
 
-  return { hours, minutes }
+  return { hours, minutes, seconds }
+}
+
+function formatClockTime({ hours, minutes, seconds = 0 }) {
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  return seconds > 0 ? `${hh}:${mm}:${ss}` : `${hh}:${mm}`
+}
+
+function getClockTimeFromTimestamp(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return null
+  return {
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+    seconds: date.getSeconds()
+  }
+}
+
+function applyClockTimeToTimestamp(baseTimestamp, clock) {
+  const date = new Date(Number.isFinite(baseTimestamp) ? baseTimestamp : Date.now())
+  date.setHours(clock.hours, clock.minutes, clock.seconds || 0, 0)
+  return date.getTime()
+}
+
+function resolveExecutionAt(input, scheduleType) {
+  const explicit = normalizeTimestamp(input?.firstRunAt)
+  if (explicit) return explicit
+
+  if (scheduleType === 'interval') {
+    return normalizeTimestamp(input?.nextRunAt)
+      || normalizeTimestamp(input?.lastScheduledAt)
+      || normalizeTimestamp(input?.lastStartedAt)
+      || normalizeTimestamp(input?.lastRunAt)
+      || normalizeTimestamp(input?.createdAt)
+      || normalizeTimestamp(input?.updatedAt)
+      || null
+  }
+
+  if (scheduleType === 'once') {
+    return null
+  }
+
+  const legacyClock = parseClockTime(input?.dailyTime)
+  if (!legacyClock) return null
+
+  return applyClockTimeToTimestamp(
+    normalizeTimestamp(input?.createdAt) || normalizeTimestamp(input?.updatedAt) || Date.now(),
+    legacyClock
+  )
+}
+
+function resolveTaskClockTime(task) {
+  const executionAt = normalizeTimestamp(task?.firstRunAt)
+  if (executionAt) {
+    return getClockTimeFromTimestamp(executionAt) || parseClockTime(DEFAULT_DAILY_TIME)
+  }
+  return parseClockTime(task?.dailyTime) || parseClockTime(DEFAULT_DAILY_TIME)
 }
 
 const PROMPT_I18N = {
@@ -152,22 +220,12 @@ class ScheduledTaskService {
   start() {
     if (this.started || !this.sessionDatabase) return
     this.started = true
-    this.timer = setInterval(() => {
-      this._checkDueTasks().catch(err => {
-        console.error('[ScheduledTask] Due task check failed:', err)
-      })
-    }, CHECK_INTERVAL_MS)
-
-    setTimeout(() => {
-      this._checkDueTasks().catch(err => {
-        console.error('[ScheduledTask] Initial due task check failed:', err)
-      })
-    }, 2500)
+    this._rearmScheduler()
   }
 
   stop() {
     if (this.timer) {
-      clearInterval(this.timer)
+      clearTimeout(this.timer)
       this.timer = null
     }
     this.started = false
@@ -204,15 +262,14 @@ class ScheduledTaskService {
     this._assertReady()
     const normalized = this._normalizeTaskInput(input)
     const created = this.sessionDatabase.createScheduledTask(normalized)
-    const nextRunAt = normalized.enabled ? this._computeNextRunAt(created, Date.now()) : null
+    const nextRunAt = normalized.enabled && !this._hasReachedRunLimit(created)
+      ? this._computeNextRunAt(created, Date.now())
+      : null
     let task = this.sessionDatabase.updateScheduledTaskState(created.id, { nextRunAt })
+    task = this._applyRunLimit(task)
+    this._broadcastChange(task.id, 'created')
 
-    if (task.enabled && task.firstRunMode === 'immediate' && task.scheduleType !== 'once') {
-      await this._executeTask(task, 'startup', { allowDisabled: true })
-      task = this.sessionDatabase.getScheduledTask(task.id)
-    } else {
-      this._broadcastChange(task.id, 'created')
-    }
+    this._rearmScheduler()
 
     return task
   }
@@ -226,46 +283,67 @@ class ScheduledTaskService {
 
     const normalized = this._normalizeTaskInput({ ...current, ...updates }, { partial: true })
     const updated = this.sessionDatabase.updateScheduledTask(taskId, normalized)
+    const shouldResetOnEnable = !current.enabled && updated.enabled && !!updated.resetCountOnEnable
     const cwdChanged = normalized.cwd !== current.cwd
-    const shouldRunImmediatelyOnEnable = !current.enabled
-      && updated.enabled
-      && updated.firstRunMode === 'immediate'
-      && updated.scheduleType !== 'once'
+    const apiProfileChanged = normalized.apiProfileId !== current.apiProfileId
+    const sessionBindingChanged = cwdChanged || apiProfileChanged
     const shouldRearmOnceTask = updated.scheduleType === 'once' && (
       updated.scheduleType !== current.scheduleType ||
       normalizeTimestamp(updated.firstRunAt) !== normalizeTimestamp(current.firstRunAt)
     )
     const stateUpdates = {}
 
-    if (cwdChanged) {
+    if (sessionBindingChanged) {
       if (this.runningTasks.has(taskId)) {
-        stateUpdates.runtimeState = this._markSessionResetPending(current.runtimeState, 'cwd-changed')
+        stateUpdates.runtimeState = this._markSessionResetPending(
+          current.runtimeState,
+          cwdChanged ? 'cwd-changed' : 'api-profile-changed'
+        )
       } else {
         stateUpdates.sessionId = null
         stateUpdates.runtimeState = this._clearSessionResetPending(current.runtimeState)
+        this._detachTaskSession(current)
       }
     }
 
     if (shouldRearmOnceTask) {
+      stateUpdates.lastStartedAt = null
+      stateUpdates.lastScheduledAt = null
       stateUpdates.lastRunAt = null
     }
 
-    const nextRunAt = updated.enabled
+    if (shouldResetOnEnable) {
+      stateUpdates.lastStartedAt = null
+      stateUpdates.lastScheduledAt = null
+      stateUpdates.lastRunAt = null
+      stateUpdates.runCount = 0
+      stateUpdates.failureCount = 0
+      stateUpdates.lastError = null
+      stateUpdates.runtimeState = this._clearSessionResetPending(stateUpdates.runtimeState ?? current.runtimeState)
+    }
+
+    const nextRunTask = shouldResetOnEnable || shouldRearmOnceTask
+      ? {
+          ...updated,
+          lastRunAt: null,
+          runCount: shouldResetOnEnable ? 0 : (updated.runCount || 0)
+        }
+      : updated
+    const nextRunAt = updated.enabled && !this._hasReachedRunLimit(nextRunTask)
       ? this._computeNextRunAt(
-          shouldRearmOnceTask ? { ...updated, lastRunAt: null } : updated,
+          nextRunTask,
           Date.now()
         )
       : null
     stateUpdates.nextRunAt = nextRunAt
     let task = this.sessionDatabase.updateScheduledTaskState(taskId, stateUpdates)
-    this._syncTaskSessionTitle(current, updated)
-
-    if (shouldRunImmediatelyOnEnable) {
-      await this._executeTask(task, 'startup', { allowDisabled: true })
-      task = this.sessionDatabase.getScheduledTask(task.id)
-    } else {
-      this._broadcastChange(taskId, 'updated')
+    task = this._applyRunLimit(task)
+    if (!sessionBindingChanged) {
+      this._syncTaskSessionTitle(current, task)
     }
+    this._broadcastChange(taskId, 'updated')
+
+    this._rearmScheduler()
 
     return task
   }
@@ -281,6 +359,7 @@ class ScheduledTaskService {
     }
     const result = this.sessionDatabase.deleteScheduledTask(taskId)
     this._broadcastChange(taskId, 'deleted')
+    this._rearmScheduler()
     return result
   }
 
@@ -289,6 +368,15 @@ class ScheduledTaskService {
     const task = this.sessionDatabase.getScheduledTask(taskId)
     if (!task) {
       throw new Error(`Scheduled task ${taskId} not found`)
+    }
+    if (this.runningTasks.has(taskId)) {
+      throw new Error('Scheduled task is already running')
+    }
+    if (this._hasReachedRunLimit(task)) {
+      this._applyRunLimit(task)
+      this._broadcastChange(taskId, 'limit-reached')
+      this._rearmScheduler()
+      throw new Error('Scheduled task run limit reached')
     }
     await this._executeTask(task, 'manual', { allowDisabled: true })
     return this.sessionDatabase.getScheduledTask(taskId)
@@ -301,23 +389,43 @@ class ScheduledTaskService {
 
   async _checkDueTasks() {
     if (!this.sessionDatabase) return
-    const now = Date.now()
-    const tasks = this.sessionDatabase.listScheduledTasks()
-      .filter(task => task.enabled && task.nextRunAt && task.nextRunAt <= now)
+    try {
+      const now = Date.now()
+      const tasks = this.sessionDatabase.listScheduledTasks()
+        .filter(task => task.enabled && task.nextRunAt && task.nextRunAt <= now && !this.runningTasks.has(task.id))
+        .sort((left, right) => {
+          if (left.nextRunAt !== right.nextRunAt) {
+            return left.nextRunAt - right.nextRunAt
+          }
+          return left.id - right.id
+        })
 
-    for (const task of tasks) {
-      await this._executeTask(task, 'scheduled')
+      for (const task of tasks) {
+        await this._executeTask(task, 'scheduled')
+      }
+    } finally {
+      this._rearmScheduler()
     }
   }
 
   async _executeTask(task, triggerReason, { allowDisabled = false } = {}) {
     if (!allowDisabled && !task.enabled) return
+    if (this._hasReachedRunLimit(task)) {
+      this._applyRunLimit(task)
+      this._broadcastChange(task.id, 'limit-reached')
+      this._rearmScheduler()
+      if (triggerReason === 'manual') {
+        throw new Error('Scheduled task run limit reached')
+      }
+      return
+    }
     if (this.runningTasks.has(task.id)) return
 
     this.runningTasks.add(task.id)
-    const startedAt = Date.now()
     let awaitingCompletion = false
     let activeSessionId = task.sessionId || null
+    const scheduledAt = this._resolveScheduledAt(task, triggerReason)
+    let startedAt = null
 
     try {
       const sessionId = this._ensureTaskSession(task)
@@ -326,29 +434,48 @@ class ScheduledTaskService {
       const isBootstrapRun = !this._hasConversationHistory(sessionId)
 
       if (liveSession?.status === 'streaming') {
+        const skippedAt = Date.now()
+        const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+          startedAt: null,
+          scheduledAt,
+          finishedAt: skippedAt,
+          fallbackTs: skippedAt
+        })
         this.sessionDatabase.createScheduledTaskRun({
           taskId: task.id,
           sessionId,
           triggerReason,
           status: 'skipped',
           errorMessage: 'Agent session is busy',
-          startedAt,
-          finishedAt: Date.now()
+          scheduledAt,
+          startedAt: null,
+          finishedAt: skippedAt
         })
         const nextRunAt = task.enabled
-          ? this._computeNextRunAt({ ...task, lastRunAt: startedAt }, Date.now())
+          ? this._computeNextRunAt({ ...task, lastRunAt: intervalAnchorTs }, skippedAt, { intervalAnchorTs })
           : task.nextRunAt
-        this.sessionDatabase.updateScheduledTaskState(task.id, { nextRunAt })
+        this.sessionDatabase.updateScheduledTaskState(task.id, {
+          lastScheduledAt: scheduledAt ?? undefined,
+          lastError: 'Agent session is busy',
+          nextRunAt
+        })
         this._broadcastChange(task.id, 'skipped')
         this.runningTasks.delete(task.id)
+        this._rearmScheduler()
         return
       }
 
+      startedAt = Date.now()
       this.activeRuns.set(sessionId, {
         taskId: task.id,
         sessionId,
         triggerReason,
+        scheduledAt,
         startedAt
+      })
+      this.sessionDatabase.updateScheduledTaskState(task.id, {
+        lastStartedAt: startedAt,
+        lastScheduledAt: scheduledAt ?? undefined
       })
 
       await this.agentSessionManager.sendMessage(
@@ -356,10 +483,17 @@ class ScheduledTaskService {
         this._buildTaskPrompt(task, triggerReason, startedAt, { bootstrap: isBootstrapRun }),
         {
           model: task.modelId || undefined,
-          maxTurns: task.maxTurns || undefined,
           meta: { source: 'scheduled' }
         }
       )
+
+      this.sessionDatabase.updateScheduledTaskState(task.id, {
+        runCount: (task.runCount || 0) + 1
+      })
+      task = {
+        ...task,
+        runCount: (task.runCount || 0) + 1
+      }
 
       const latestSession = this.agentSessionManager.get(sessionId)
       if (latestSession?.status === 'error') {
@@ -370,11 +504,22 @@ class ScheduledTaskService {
       this._broadcastChange(task.id, 'started')
     } catch (err) {
       console.error(`[ScheduledTask] Run failed for task ${task.id}:`, err)
-      const nextRunAt = task.enabled
-        ? this._computeNextRunAt({ ...task, lastRunAt: startedAt }, Date.now())
+      const reachedRunLimit = this._hasReachedRunLimit(task)
+      const finishedAt = Date.now()
+      const effectiveStartedAt = Number.isFinite(startedAt) ? startedAt : null
+      const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+        startedAt: effectiveStartedAt,
+        scheduledAt,
+        finishedAt,
+        fallbackTs: finishedAt
+      })
+      const nextRunAt = task.enabled && !reachedRunLimit
+        ? this._computeNextRunAt({ ...task, lastRunAt: intervalAnchorTs }, finishedAt, { intervalAnchorTs })
         : task.nextRunAt
-      this.sessionDatabase.updateScheduledTaskState(task.id, {
-        lastRunAt: Date.now(),
+      let updatedTask = this.sessionDatabase.updateScheduledTaskState(task.id, {
+        lastScheduledAt: scheduledAt ?? undefined,
+        lastStartedAt: effectiveStartedAt ?? undefined,
+        lastRunAt: finishedAt,
         lastError: err.message || 'Unknown error',
         nextRunAt,
         failureCount: (task.failureCount || 0) + 1
@@ -385,10 +530,13 @@ class ScheduledTaskService {
         triggerReason,
         status: 'failed',
         errorMessage: err.message || 'Unknown error',
-        startedAt,
-        finishedAt: Date.now()
+        scheduledAt,
+        startedAt: effectiveStartedAt,
+        finishedAt
       })
+      updatedTask = this._applyRunLimit(updatedTask)
       this._broadcastChange(task.id, 'failed')
+      this._rearmScheduler()
       if (activeSessionId) {
         this.activeRuns.delete(activeSessionId)
       }
@@ -483,13 +631,27 @@ class ScheduledTaskService {
     this.runningTasks.delete(activeRun.taskId)
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
-    const nextRunAt = task?.enabled ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt) : null
+    const reachedRunLimit = this._hasReachedRunLimit(task)
+    const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+      startedAt: activeRun.startedAt,
+      scheduledAt: activeRun.scheduledAt,
+      finishedAt,
+      fallbackTs: finishedAt
+    })
+    const nextRunAt = task?.enabled && !reachedRunLimit
+      ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt, { intervalAnchorTs })
+      : null
     const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
     const runtimeState = this._clearSessionResetPending(task?.runtimeState)
+    if (shouldResetSession && task) {
+      this._detachTaskSession(task)
+    }
 
-    this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
+    let updatedTask = this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
       sessionId: shouldResetSession ? null : sessionId,
       runtimeState,
+      lastScheduledAt: activeRun.scheduledAt ?? undefined,
+      lastStartedAt: activeRun.startedAt,
       lastRunAt: finishedAt,
       nextRunAt,
       lastError: null,
@@ -501,11 +663,15 @@ class ScheduledTaskService {
       sessionId,
       triggerReason: activeRun.triggerReason,
       status: 'success',
+      scheduledAt: activeRun.scheduledAt,
       startedAt: activeRun.startedAt,
       finishedAt
     })
 
+    updatedTask = this._applyRunLimit(updatedTask)
+
     this._broadcastChange(activeRun.taskId, 'completed')
+    this._rearmScheduler()
   }
 
   _handleAgentError(sessionId, errorMessage) {
@@ -516,13 +682,27 @@ class ScheduledTaskService {
     this.runningTasks.delete(activeRun.taskId)
     const task = this.sessionDatabase.getScheduledTask(activeRun.taskId)
     const finishedAt = Date.now()
-    const nextRunAt = task?.enabled ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt) : null
+    const reachedRunLimit = this._hasReachedRunLimit(task)
+    const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+      startedAt: activeRun.startedAt,
+      scheduledAt: activeRun.scheduledAt,
+      finishedAt,
+      fallbackTs: finishedAt
+    })
+    const nextRunAt = task?.enabled && !reachedRunLimit
+      ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt, { intervalAnchorTs })
+      : null
     const shouldResetSession = this._shouldResetSessionBinding(task?.runtimeState)
     const runtimeState = this._clearSessionResetPending(task?.runtimeState)
+    if (shouldResetSession && task) {
+      this._detachTaskSession(task)
+    }
 
-    this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
+    let updatedTask = this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
       sessionId: shouldResetSession ? null : sessionId,
       runtimeState,
+      lastScheduledAt: activeRun.scheduledAt ?? undefined,
+      lastStartedAt: activeRun.startedAt,
       lastRunAt: finishedAt,
       nextRunAt,
       lastError: errorMessage || 'Unknown error',
@@ -535,11 +715,15 @@ class ScheduledTaskService {
       triggerReason: activeRun.triggerReason,
       status: 'failed',
       errorMessage: errorMessage || 'Unknown error',
+      scheduledAt: activeRun.scheduledAt,
       startedAt: activeRun.startedAt,
       finishedAt
     })
 
+    updatedTask = this._applyRunLimit(updatedTask)
+
     this._broadcastChange(activeRun.taskId, 'failed')
+    this._rearmScheduler()
   }
 
   _handleAgentDeleted(sessionId) {
@@ -558,11 +742,25 @@ class ScheduledTaskService {
     }
 
     for (const task of tasks) {
-      const stateUpdates = { sessionId: null }
+      const stateUpdates = {
+        sessionId: null,
+        runtimeState: this._clearSessionResetPending(task.runtimeState)
+      }
 
       if (activeRun?.taskId === task.id) {
-        stateUpdates.nextRunAt = task.enabled
-          ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt)
+        const reachedRunLimit = this._hasReachedRunLimit(task)
+        const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+          startedAt: activeRun.startedAt,
+          scheduledAt: activeRun.scheduledAt,
+          finishedAt,
+          fallbackTs: finishedAt
+        })
+        stateUpdates.lastScheduledAt = activeRun.scheduledAt ?? undefined
+        stateUpdates.lastStartedAt = activeRun.startedAt ?? undefined
+        stateUpdates.lastRunAt = finishedAt
+        stateUpdates.lastError = 'Agent session deleted by user'
+        stateUpdates.nextRunAt = task.enabled && !reachedRunLimit
+          ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt, { intervalAnchorTs })
           : null
         this.sessionDatabase.createScheduledTaskRun({
           taskId: task.id,
@@ -570,14 +768,17 @@ class ScheduledTaskService {
           triggerReason: activeRun.triggerReason,
           status: 'skipped',
           errorMessage: 'Agent session deleted by user',
+          scheduledAt: activeRun.scheduledAt,
           startedAt: activeRun.startedAt,
           finishedAt
         })
       }
 
-      this.sessionDatabase.updateScheduledTaskState(task.id, stateUpdates)
+      const updatedTask = this.sessionDatabase.updateScheduledTaskState(task.id, stateUpdates)
+      this._applyRunLimit(updatedTask)
       this._broadcastChange(task.id, 'session-unlinked')
     }
+    this._rearmScheduler()
   }
 
   _handleAgentInterrupted(sessionId, details = {}) {
@@ -597,15 +798,27 @@ class ScheduledTaskService {
     const message = reason === 'host-cleanup'
       ? 'Agent session interrupted by host cleanup'
       : 'Agent session interrupted'
-    const nextRunAt = task.enabled
-      ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt)
+    const reachedRunLimit = this._hasReachedRunLimit(task)
+    const intervalAnchorTs = this._resolveIntervalAnchorTs(task, {
+      startedAt: activeRun.startedAt,
+      scheduledAt: activeRun.scheduledAt,
+      finishedAt,
+      fallbackTs: finishedAt
+    })
+    const nextRunAt = task.enabled && !reachedRunLimit
+      ? this._computeNextRunAt({ ...task, lastRunAt: finishedAt }, finishedAt, { intervalAnchorTs })
       : null
     const shouldResetSession = this._shouldResetSessionBinding(task.runtimeState)
     const runtimeState = this._clearSessionResetPending(task.runtimeState)
+    if (shouldResetSession && task) {
+      this._detachTaskSession(task)
+    }
 
-    this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
+    let updatedTask = this.sessionDatabase.updateScheduledTaskState(activeRun.taskId, {
       sessionId: shouldResetSession ? null : sessionId,
       runtimeState,
+      lastScheduledAt: activeRun.scheduledAt ?? undefined,
+      lastStartedAt: activeRun.startedAt,
       lastRunAt: finishedAt,
       nextRunAt,
       lastError: message
@@ -617,23 +830,28 @@ class ScheduledTaskService {
       triggerReason: activeRun.triggerReason,
       status: 'skipped',
       errorMessage: message,
+      scheduledAt: activeRun.scheduledAt,
       startedAt: activeRun.startedAt,
       finishedAt
     })
 
+    updatedTask = this._applyRunLimit(updatedTask)
+
     this._broadcastChange(activeRun.taskId, 'interrupted')
+    this._rearmScheduler()
   }
 
   _normalizeTaskInput(input, { partial = false } = {}) {
     const scheduleType = input.scheduleType === undefined && partial
       ? undefined
       : normalizeScheduleType(input.scheduleType)
-    const intervalMinutes = input.intervalMinutes == null || input.intervalMinutes === ''
-      ? null
-      : Math.max(1, Number(input.intervalMinutes))
-    const maxTurns = input.maxTurns == null || input.maxTurns === ''
-      ? null
-      : Math.max(1, Number(input.maxTurns))
+    const intervalMinutes = normalizePositiveInteger(input.intervalMinutes)
+    // Scheduled-task domain uses maxRuns as a lifecycle cap.
+    // Per-conversation maxTurns remains a generic agent capability and is intentionally not exposed here.
+    const maxRuns = normalizePositiveInteger(input.maxRuns)
+    const resetCountOnEnable = Object.prototype.hasOwnProperty.call(input, 'resetCountOnEnable')
+      ? !!input.resetCountOnEnable
+      : undefined
     const weeklyDays = normalizeWeeklyDays(input.weeklyDays)
     const monthlyMode = input.monthlyMode === undefined && partial
       ? undefined
@@ -642,10 +860,7 @@ class ScheduledTaskService {
       ? undefined
       : normalizeMonthlyDay(input.monthlyDay)
     const monthlyDay = monthlyMode === 'last_day' ? null : rawMonthlyDay
-    const normalizedFirstRunAt = normalizeTimestamp(input.firstRunAt)
-    const firstRunMode = input.firstRunMode === undefined && partial
-      ? undefined
-      : normalizeFirstRunMode(input.firstRunMode, scheduleType)
+    const normalizedFirstRunAt = resolveExecutionAt(input, scheduleType)
 
     if (!partial || Object.prototype.hasOwnProperty.call(input, 'name')) {
       if (!String(input.name || '').trim()) throw new Error('Task name is required')
@@ -654,34 +869,40 @@ class ScheduledTaskService {
       if (!String(input.prompt || '').trim()) throw new Error('Task prompt is required')
     }
 
-    if (scheduleType === 'interval' && (!intervalMinutes || !Number.isFinite(intervalMinutes))) {
+    if (Object.prototype.hasOwnProperty.call(input, 'maxRuns') && Number.isNaN(maxRuns)) {
+      throw new Error('Max runs must be a positive integer')
+    }
+    if (scheduleType === 'interval' && Number.isNaN(intervalMinutes)) {
+      throw new Error('Interval minutes must be a positive integer')
+    }
+    if (scheduleType === 'interval' && !intervalMinutes) {
       throw new Error('Interval minutes must be greater than 0')
     }
-    if (scheduleType === 'daily' && !parseClockTime(input.dailyTime)) {
-      throw new Error('Daily schedule requires HH:mm time')
+    if (scheduleType === 'interval' && !normalizedFirstRunAt) {
+      throw new Error('Interval schedule requires execution time')
+    }
+    if (scheduleType === 'daily' && !normalizedFirstRunAt) {
+      throw new Error('Daily schedule requires execution time')
     }
     if (scheduleType === 'weekly') {
       if (!weeklyDays.length) throw new Error('Weekly schedule requires at least one day')
-      if (!parseClockTime(input.dailyTime)) {
-        throw new Error('Weekly schedule requires HH:mm time')
+      if (!normalizedFirstRunAt) {
+        throw new Error('Weekly schedule requires execution time')
       }
     }
     if (scheduleType === 'monthly') {
-      if (!parseClockTime(input.dailyTime)) {
-        throw new Error('Monthly schedule requires HH:mm time')
+      if (!normalizedFirstRunAt) {
+        throw new Error('Monthly schedule requires execution time')
       }
       if (monthlyMode !== 'last_day' && !monthlyDay) {
         throw new Error('Monthly schedule requires a valid day of month')
       }
     }
-    if (scheduleType === 'workdays' && !parseClockTime(input.dailyTime)) {
-      throw new Error('Workday schedule requires HH:mm time')
+    if (scheduleType === 'workdays' && !normalizedFirstRunAt) {
+      throw new Error('Workday schedule requires execution time')
     }
     if (scheduleType === 'once' && !normalizedFirstRunAt) {
-      throw new Error('One-time schedule requires valid first run time')
-    }
-    if (scheduleType !== 'once' && firstRunMode === 'custom' && !normalizedFirstRunAt) {
-      throw new Error('Custom first run requires valid datetime')
+      throw new Error('One-time schedule requires execution time')
     }
 
     return {
@@ -690,20 +911,25 @@ class ScheduledTaskService {
       cwd: Object.prototype.hasOwnProperty.call(input, 'cwd') ? (String(input.cwd || '').trim() || null) : undefined,
       apiProfileId: Object.prototype.hasOwnProperty.call(input, 'apiProfileId') ? (input.apiProfileId || null) : undefined,
       modelId: Object.prototype.hasOwnProperty.call(input, 'modelId') ? normalizeModelId(input.modelId) : undefined,
-      maxTurns,
+      maxRuns,
+      resetCountOnEnable: resetCountOnEnable ?? false,
+      intervalAnchorMode: Object.prototype.hasOwnProperty.call(input, 'intervalAnchorMode') || !partial
+        ? normalizeIntervalAnchorMode(input.intervalAnchorMode)
+        : undefined,
       enabled: Object.prototype.hasOwnProperty.call(input, 'enabled') ? !!input.enabled : undefined,
       scheduleType,
       intervalMinutes,
-      dailyTime: Object.prototype.hasOwnProperty.call(input, 'dailyTime') ? String(input.dailyTime || '') : undefined,
+      dailyTime: scheduleType && scheduleType !== 'interval' && scheduleType !== 'once' && normalizedFirstRunAt
+        ? formatClockTime(getClockTimeFromTimestamp(normalizedFirstRunAt) || parseClockTime(DEFAULT_DAILY_TIME))
+        : (Object.prototype.hasOwnProperty.call(input, 'dailyTime') ? String(input.dailyTime || '') : undefined),
       weeklyDays,
       monthlyMode,
       monthlyDay,
-      firstRunMode,
-      firstRunAt: Object.prototype.hasOwnProperty.call(input, 'firstRunAt') || !partial ? normalizedFirstRunAt : undefined
+      firstRunAt: normalizedFirstRunAt
     }
   }
 
-  _computeNextRunAt(task, nowTs) {
+  _computeNextRunAt(task, nowTs, options = {}) {
     if (!task?.enabled) return null
     const now = new Date(nowTs)
     const firstRunPending = !task.lastRunAt
@@ -713,34 +939,106 @@ class ScheduledTaskService {
       return firstRunPending ? firstRunAt : null
     }
 
-    if (firstRunPending) {
-      if (task.firstRunMode === 'immediate') {
-        return nowTs
+    if (task.scheduleType === 'interval') {
+      const intervalAnchorMode = normalizeIntervalAnchorMode(task.intervalAnchorMode)
+      if (firstRunPending && firstRunAt) {
+        return this._computeAnchoredIntervalSlot(task, nowTs, firstRunAt)
       }
-      if (task.firstRunMode === 'custom' && firstRunAt) {
-        return firstRunAt
+      if (intervalAnchorMode === 'started_at' && firstRunAt) {
+        return this._computeAnchoredIntervalSlot(task, nowTs, firstRunAt)
       }
     }
 
-    return this._computeRecurringNextRunAt(task, now, nowTs)
+    return this._computeRecurringNextRunAt(task, now, nowTs, options)
   }
 
-  _computeRecurringNextRunAt(task, now, nowTs) {
+  _computeRecurringNextRunAt(task, now, nowTs, { intervalAnchorTs } = {}) {
     switch (task.scheduleType) {
       case 'daily':
-        return this._computeNextDailyTime(task.dailyTime, now).getTime()
+        return this._computeNextDailyTime(task, now).getTime()
       case 'weekly':
-        return this._computeNextWeeklyTime(task.dailyTime, task.weeklyDays, now).getTime()
+        return this._computeNextWeeklyTime(task, now).getTime()
       case 'monthly':
-        return this._computeNextMonthlyTime(task.dailyTime, task.monthlyDay, task.monthlyMode, now).getTime()
+        return this._computeNextMonthlyTime(task, now).getTime()
       case 'workdays':
-        return this._computeNextWorkdayTime(task.dailyTime, now).getTime()
+        return this._computeNextWorkdayTime(task, now).getTime()
       case 'interval':
       default: {
         const minutes = Number(task.intervalMinutes) || DEFAULT_INTERVAL_MINUTES
-        return nowTs + minutes * 60 * 1000
+        const anchorTs = Number.isFinite(intervalAnchorTs) ? intervalAnchorTs : nowTs
+        return anchorTs + minutes * 60 * 1000
       }
     }
+  }
+
+  _computeAnchoredIntervalSlot(task, nowTs, anchorTs) {
+    const minutes = Number(task?.intervalMinutes) || DEFAULT_INTERVAL_MINUTES
+    const intervalMs = minutes * 60 * 1000
+    if (!Number.isFinite(anchorTs)) {
+      return nowTs + intervalMs
+    }
+    if (nowTs <= anchorTs) {
+      return anchorTs
+    }
+
+    const elapsed = nowTs - anchorTs
+    const steps = Math.ceil(elapsed / intervalMs)
+    return anchorTs + steps * intervalMs
+  }
+
+  _resolveScheduledAt(task, triggerReason) {
+    if (triggerReason !== 'scheduled') return null
+    return Number.isFinite(task?.nextRunAt) ? task.nextRunAt : null
+  }
+
+  _rearmScheduler() {
+    if (!this.started || !this.sessionDatabase) return
+
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+
+    const tasks = this.sessionDatabase.listScheduledTasks()
+      .filter(task => task.enabled && task.nextRunAt && !this.runningTasks.has(task.id))
+
+    if (!tasks.length) return
+
+    const nextRunAt = tasks.reduce((earliest, task) => (
+      earliest == null || task.nextRunAt < earliest ? task.nextRunAt : earliest
+    ), null)
+
+    if (!Number.isFinite(nextRunAt)) return
+
+    const delayMs = Math.min(Math.max(0, nextRunAt - Date.now()), MAX_TIMER_DELAY_MS)
+    this.timer = setTimeout(() => {
+      this.timer = null
+      this._checkDueTasks().catch(err => {
+        console.error('[ScheduledTask] Due task check failed:', err)
+        this._rearmScheduler()
+      })
+    }, delayMs)
+  }
+
+  _resolveIntervalAnchorTs(task, { startedAt, scheduledAt, finishedAt, fallbackTs }) {
+    if (task?.scheduleType !== 'interval') {
+      return Number.isFinite(fallbackTs) ? fallbackTs : finishedAt
+    }
+
+    const mode = normalizeIntervalAnchorMode(task.intervalAnchorMode)
+    if (mode === 'finished_at' && Number.isFinite(finishedAt)) {
+      return finishedAt
+    }
+    if (Number.isFinite(startedAt)) {
+      return startedAt
+    }
+    if (Number.isFinite(scheduledAt)) {
+      return scheduledAt
+    }
+    if (Number.isFinite(finishedAt)) {
+      return finishedAt
+    }
+    return fallbackTs
   }
 
   _getPromptLocale() {
@@ -748,48 +1046,55 @@ class ScheduledTaskService {
     return PROMPT_I18N[locale] ? locale : 'zh-CN'
   }
 
-  _computeNextDailyTime(time, now) {
-    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
-    const { hours, minutes } = parsed
+  _computeNextDailyTime(task, now) {
+    const parsed = resolveTaskClockTime(task)
+    const { hours, minutes, seconds } = parsed
     const target = new Date(now)
-    target.setHours(hours, minutes, 0, 0)
+    target.setHours(hours, minutes, seconds || 0, 0)
     if (target.getTime() <= now.getTime()) {
       target.setDate(target.getDate() + 1)
     }
     return target
   }
 
-  _computeNextWeeklyTime(time, weeklyDays, now) {
-    const days = normalizeWeeklyDays(weeklyDays)
-    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
-    const { hours, minutes } = parsed
+  _computeNextWeeklyTime(taskOrTime, weeklyDaysOrNow, maybeNow) {
+    const task = taskOrTime && typeof taskOrTime === 'object' && !Array.isArray(taskOrTime)
+      ? taskOrTime
+      : null
+    const now = task ? weeklyDaysOrNow : maybeNow
+    const days = task ? normalizeWeeklyDays(task.weeklyDays) : normalizeWeeklyDays(weeklyDaysOrNow)
+    const parsed = task ? resolveTaskClockTime(task) : (parseClockTime(taskOrTime) || parseClockTime(DEFAULT_DAILY_TIME))
+    const { hours, minutes, seconds } = parsed
     const base = new Date(now)
     base.setSeconds(0, 0)
 
     for (let offset = 0; offset <= 7; offset++) {
       const candidate = new Date(base)
       candidate.setDate(base.getDate() + offset)
-      candidate.setHours(hours, minutes, 0, 0)
+      candidate.setHours(hours, minutes, seconds || 0, 0)
       if (!days.includes(candidate.getDay())) continue
       if (candidate.getTime() > now.getTime()) return candidate
     }
 
     const fallback = new Date(base)
     fallback.setDate(base.getDate() + 7)
-    fallback.setHours(hours, minutes, 0, 0)
+    fallback.setHours(hours, minutes, seconds || 0, 0)
     return fallback
   }
 
-  _computeNextWorkdayTime(time, now) {
-    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
-    const { hours, minutes } = parsed
+  _computeNextWorkdayTime(taskOrTime, now) {
+    const task = taskOrTime && typeof taskOrTime === 'object' && !Array.isArray(taskOrTime)
+      ? taskOrTime
+      : null
+    const parsed = task ? resolveTaskClockTime(task) : (parseClockTime(taskOrTime) || parseClockTime(DEFAULT_DAILY_TIME))
+    const { hours, minutes, seconds } = parsed
     const base = new Date(now)
     base.setSeconds(0, 0)
 
     for (let offset = 0; offset <= 7; offset++) {
       const candidate = new Date(base)
       candidate.setDate(base.getDate() + offset)
-      candidate.setHours(hours, minutes, 0, 0)
+      candidate.setHours(hours, minutes, seconds || 0, 0)
       const day = candidate.getDay()
       if (day === 0 || day === 6) continue
       if (candidate.getTime() > now.getTime()) return candidate
@@ -797,21 +1102,27 @@ class ScheduledTaskService {
 
     const fallback = new Date(base)
     fallback.setDate(base.getDate() + 1)
-    fallback.setHours(hours, minutes, 0, 0)
+    fallback.setHours(hours, minutes, seconds || 0, 0)
     while (fallback.getDay() === 0 || fallback.getDay() === 6) {
       fallback.setDate(fallback.getDate() + 1)
     }
     return fallback
   }
 
-  _computeNextMonthlyTime(time, monthlyDay, monthlyMode, now) {
-    const parsed = parseClockTime(time) || parseClockTime(DEFAULT_DAILY_TIME)
-    const { hours, minutes } = parsed
+  _computeNextMonthlyTime(taskOrTime, monthlyDayOrNow, monthlyModeOrUndefined, maybeNow) {
+    const task = taskOrTime && typeof taskOrTime === 'object' && !Array.isArray(taskOrTime)
+      ? taskOrTime
+      : null
+    const now = task ? monthlyDayOrNow : maybeNow
+    const monthlyMode = task ? task.monthlyMode : monthlyModeOrUndefined
+    const monthlyDay = task ? task.monthlyDay : monthlyDayOrNow
+    const parsed = task ? resolveTaskClockTime(task) : (parseClockTime(taskOrTime) || parseClockTime(DEFAULT_DAILY_TIME))
+    const { hours, minutes, seconds } = parsed
     const base = new Date(now)
     base.setSeconds(0, 0)
 
     const buildCandidate = (year, monthIndex) => {
-      const candidate = new Date(year, monthIndex, 1, hours, minutes, 0, 0)
+      const candidate = new Date(year, monthIndex, 1, hours, minutes, seconds || 0, 0)
       const maxDay = getMonthDays(year, monthIndex)
       const day = monthlyMode === 'last_day'
         ? maxDay
@@ -825,12 +1136,28 @@ class ScheduledTaskService {
       return currentMonthCandidate
     }
 
-    const nextMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1, hours, minutes, 0, 0)
+    const nextMonth = new Date(base.getFullYear(), base.getMonth() + 1, 1, hours, minutes, seconds || 0, 0)
     return buildCandidate(nextMonth.getFullYear(), nextMonth.getMonth())
   }
 
   _buildTaskPrompt(task, triggerReason, timestamp, { bootstrap = false } = {}) {
     return String(task?.prompt || '').trim()
+  }
+
+  _hasReachedRunLimit(task) {
+    const maxRuns = Number(task?.maxRuns)
+    if (!Number.isInteger(maxRuns) || maxRuns <= 0) return false
+    return (task?.runCount || 0) >= maxRuns
+  }
+
+  _applyRunLimit(task) {
+    if (!task || !this._hasReachedRunLimit(task)) return task
+
+    if (task.enabled) {
+      this.sessionDatabase.updateScheduledTask(task.id, { enabled: false })
+    }
+
+    return this.sessionDatabase.updateScheduledTaskState(task.id, { nextRunAt: null })
   }
 
   _broadcastChange(taskId, reason) {

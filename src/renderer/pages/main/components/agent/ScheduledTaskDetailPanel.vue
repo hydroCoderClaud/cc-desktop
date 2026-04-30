@@ -33,16 +33,18 @@
         <div class="header-actions">
           <button class="icon-btn" :title="t('common.refresh')" @click="loadData"><Icon name="refresh" :size="14" /></button>
           <n-button secondary @click="runNow"><template #icon><Icon name="play" :size="14" /></template>{{ t('rightPanel.scheduledTasks.runNow') }}</n-button>
-          <n-button @click="$emit('close')">{{ t('common.close') }}</n-button>
-          <n-button type="error" ghost @click="showDeleteConfirm = true">{{ t('common.delete') }}</n-button>
           <n-button type="primary" :loading="saving" @click="saveTask">{{ t('common.save') }}</n-button>
+          <n-button type="error" ghost @click="showDeleteConfirm = true">{{ t('common.delete') }}</n-button>
+          <n-button @click="$emit('close')">{{ t('common.close') }}</n-button>
         </div>
       </div>
 
       <div class="summary-grid">
         <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.scheduleType') }}</span><strong>{{ describeSchedule(task) }}</strong></div>
         <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.nextRun') }}</span><strong>{{ formatTimestamp(task.nextRunAt) }}</strong></div>
-        <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.lastRun') }}</span><strong>{{ formatTimestamp(task.lastRunAt) }}</strong></div>
+        <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.lastStartedAt') }}</span><strong>{{ formatTimestamp(task.lastStartedAt) }}</strong></div>
+        <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.lastCompletedAt') }}</span><strong>{{ formatTimestamp(task.lastRunAt) }}</strong></div>
+        <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.runCount') }}</span><strong>{{ task.runCount || 0 }}{{ task.maxRuns ? ` / ${task.maxRuns}` : '' }}</strong></div>
         <div class="summary-card"><span>{{ t('rightPanel.scheduledTasks.failureCount') }}</span><strong>{{ task.failureCount || 0 }}</strong></div>
       </div>
 
@@ -75,40 +77,54 @@
             <div class="grid compact-grid st-form-grid st-form-grid--three">
               <n-form-item :label="t('rightPanel.scheduledTasks.apiProfile')"><n-select v-model:value="form.apiProfileId" :options="apiProfileOptions" clearable /></n-form-item>
               <n-form-item :label="t('rightPanel.scheduledTasks.modelId')"><n-select v-model:value="form.modelId" :options="modelOptions" :placeholder="t('rightPanel.scheduledTasks.modelIdPlaceholder')" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.maxTurns')"><n-input-number v-model:value="form.maxTurns" :min="1" style="width: 100%;" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.maxRuns')"><n-input-number v-model:value="form.maxRuns" :min="1" style="width: 100%;" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.resetCountOnEnable')"><n-switch v-model:value="form.resetCountOnEnable" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.enabled')"><n-switch v-model:value="form.enabled" /></n-form-item>
             </div>
           </section>
 
           <section class="panel st-panel">
             <div class="panel-title st-panel-title">{{ t('rightPanel.scheduledTasks.scheduleSettings') }}</div>
-            <div class="grid schedule-top-grid st-form-grid">
+            <template v-if="form.scheduleType === 'interval'">
+              <div class="grid st-form-grid st-form-grid--schedule-pair">
+                <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
+              </div>
+              <div class="grid st-form-grid st-form-grid--schedule-pair">
+                <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')"><n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.intervalAnchorMode')"><n-select v-model:value="form.intervalAnchorMode" :options="intervalAnchorOptions" /></n-form-item>
+              </div>
+            </template>
+            <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'daily'">
               <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
-              <n-form-item class="schedule-enabled-item" :label="t('rightPanel.scheduledTasks.enabled')"><n-switch v-model:value="form.enabled" /></n-form-item>
-              <n-form-item v-if="form.scheduleType !== 'once'" :label="t('rightPanel.scheduledTasks.firstRunMode')"><n-select v-model:value="form.firstRunMode" :options="firstRunModeOptions" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
             </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-if="form.scheduleType === 'interval'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.intervalMinutes')"><n-input-number v-model:value="form.intervalMinutes" :min="1" style="width: 100%;" /></n-form-item>
+            <template v-else-if="form.scheduleType === 'monthly'">
+              <div class="grid st-form-grid st-form-grid--schedule-pair">
+                <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+              </div>
+              <div class="grid st-form-grid st-form-grid--schedule-pair">
+                <n-form-item :label="t('rightPanel.scheduledTasks.monthlyMode')"><n-select v-model:value="form.monthlyMode" :options="monthlyModeOptions" /></n-form-item>
+                <n-form-item v-if="form.monthlyMode !== 'last_day'" :label="t('rightPanel.scheduledTasks.monthlyDay')"><n-input-number v-model:value="form.monthlyDay" :min="1" :max="31" style="width: 100%;" /></n-form-item>
+              </div>
+            </template>
+            <template v-else-if="form.scheduleType === 'weekly'">
+              <div class="grid st-form-grid st-form-grid--schedule-pair">
+                <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
+                <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
+              </div>
+              <div class="grid st-form-grid st-form-grid--schedule-single">
+                <n-form-item :label="t('rightPanel.scheduledTasks.weeklyDays')"><n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable /></n-form-item>
+              </div>
+            </template>
+            <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'workdays'">
+              <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-time-picker v-model:value="form.firstRunAt" format="HH:mm" clearable style="width: 100%;" :placeholder="executionTimePlaceholder" /></n-form-item>
             </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-else-if="form.scheduleType === 'daily'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.runTime')"><n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" /></n-form-item>
-            </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-else-if="form.scheduleType === 'weekly'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.runTime')"><n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.weeklyDays')"><n-select v-model:value="form.weeklyDays" :options="weeklyDayOptions" multiple clearable /></n-form-item>
-            </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-else-if="form.scheduleType === 'monthly'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.runTime')"><n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" /></n-form-item>
-              <n-form-item :label="t('rightPanel.scheduledTasks.monthlyMode')"><n-select v-model:value="form.monthlyMode" :options="monthlyModeOptions" /></n-form-item>
-              <n-form-item v-if="form.monthlyMode !== 'last_day'" :label="t('rightPanel.scheduledTasks.monthlyDay')"><n-input-number v-model:value="form.monthlyDay" :min="1" :max="31" style="width: 100%;" /></n-form-item>
-            </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-else-if="form.scheduleType === 'workdays'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.runTime')"><n-input v-model:value="form.dailyTime" :placeholder="t('rightPanel.scheduledTasks.runTimePlaceholder')" /></n-form-item>
-            </div>
-            <div class="grid compact-grid schedule-detail-grid st-form-grid" v-else-if="form.scheduleType === 'once'">
-              <n-form-item :label="t('rightPanel.scheduledTasks.runDateTime')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
-            </div>
-            <div class="grid compact-grid schedule-detail-grid schedule-first-run-grid st-form-grid" v-if="form.scheduleType !== 'once'">
-              <n-form-item v-if="form.firstRunMode === 'custom'" :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
+            <div class="grid st-form-grid st-form-grid--schedule-pair" v-else-if="form.scheduleType === 'once'">
+              <n-form-item :label="t('rightPanel.scheduledTasks.scheduleType')"><n-select v-model:value="form.scheduleType" :options="scheduleTypeOptions" /></n-form-item>
+              <n-form-item :label="t('rightPanel.scheduledTasks.firstRunAt')"><n-date-picker v-model:value="form.firstRunAt" type="datetime" clearable style="width: 100%;" :placeholder="t('rightPanel.scheduledTasks.firstRunAtPlaceholder')" /></n-form-item>
             </div>
           </section>
 
@@ -133,6 +149,11 @@
                   <n-tag size="small" :type="runTagType(run.status)">{{ runStatusLabel(run.status) }}</n-tag>
                   <span>{{ runReasonLabel(run.triggerReason) }}</span>
                   <span>{{ formatTimestamp(run.finishedAt || run.startedAt) }}</span>
+                </div>
+                <div class="run-meta">
+                  <span>{{ t('rightPanel.scheduledTasks.scheduledAt') }}: {{ formatTimestamp(run.scheduledAt) }}</span>
+                  <span>{{ t('rightPanel.scheduledTasks.startedAt') }}: {{ formatTimestamp(run.startedAt) }}</span>
+                  <span>{{ t('rightPanel.scheduledTasks.finishedAt') }}: {{ formatTimestamp(run.finishedAt) }}</span>
                 </div>
                 <div v-if="run.sessionId" class="mono run-session">{{ run.sessionId }}</div>
                 <div v-if="run.errorMessage" class="run-error">{{ run.errorMessage }}</div>
@@ -159,11 +180,11 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { NButton, NDatePicker, NFormItem, NInput, NInputNumber, NModal, NSelect, NSwitch, NTag, useMessage } from 'naive-ui'
+import { NButton, NDatePicker, NFormItem, NInput, NInputNumber, NModal, NSelect, NSwitch, NTag, NTimePicker, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import {
-  buildFirstRunModeOptions,
+  buildIntervalAnchorOptions,
   buildScheduledTaskModelOptions,
   buildMonthlyModeOptions,
   getScheduledTaskModelLabel,
@@ -172,6 +193,9 @@ import {
   createScheduledTaskFormDefaults,
   describeScheduledTask,
   formatScheduledTaskDateTime,
+  isClockOnlyScheduledTaskType,
+  resolveScheduledTaskEffectiveModelId,
+  resolveScheduledTaskExecutionAt,
   resolveScheduledTaskModelId
 } from '@utils/scheduled-task-meta'
 
@@ -194,23 +218,44 @@ const showHistory = ref(false)
 const form = ref({ ...createScheduledTaskFormDefaults(''), apiProfileId: DEFAULT_PROFILE })
 
 const scheduleTypeOptions = computed(() => buildScheduleTypeOptions(t))
-const firstRunModeOptions = computed(() => buildFirstRunModeOptions(t))
+const intervalAnchorOptions = computed(() => buildIntervalAnchorOptions(t))
 const weeklyDayOptions = computed(() => buildWeeklyDayOptions(t))
 const monthlyModeOptions = computed(() => buildMonthlyModeOptions(t))
+const executionTimePlaceholder = computed(() => (
+  isClockOnlyScheduledTaskType(form.value.scheduleType)
+    ? t('rightPanel.scheduledTasks.runTimePlaceholder')
+    : t('rightPanel.scheduledTasks.firstRunAtPlaceholder')
+))
 const resolvedFormApiProfileId = computed(() => form.value.apiProfileId === DEFAULT_PROFILE ? null : form.value.apiProfileId)
-const modelOptions = computed(() => buildScheduledTaskModelOptions({
+const baseModelOptions = computed(() => buildScheduledTaskModelOptions({
   apiProfiles: apiProfiles.value,
   serviceProviderDefinitions: serviceProviderDefinitions.value,
   defaultProfileId: defaultProfileId.value,
   apiProfileId: resolvedFormApiProfileId.value
 }))
+const modelOptions = computed(() => [
+  { label: t('rightPanel.scheduledTasks.defaultModelId'), value: '' },
+  ...baseModelOptions.value
+])
+
+watch(() => form.value.scheduleType, (nextType, previousType) => {
+  if (!previousType || nextType === previousType) return
+  if (!isClockOnlyScheduledTaskType(previousType) || isClockOnlyScheduledTaskType(nextType)) return
+  form.value.firstRunAt = null
+})
+
 const defaultProfileLabel = computed(() => {
   const profile = apiProfiles.value.find(item => item.id === defaultProfileId.value)
   return profile?.name ? t('rightPanel.scheduledTasks.defaultProfileResolved', { name: profile.name }) : t('rightPanel.scheduledTasks.defaultProfile')
 })
 const apiProfileOptions = computed(() => [{ label: defaultProfileLabel.value, value: DEFAULT_PROFILE }, ...apiProfiles.value.map(profile => ({ label: profile.name, value: profile.id }))])
-
 const resolveTaskModelId = (value) => resolveScheduledTaskModelId({
+  apiProfiles: apiProfiles.value,
+  serviceProviderDefinitions: serviceProviderDefinitions.value,
+  defaultProfileId: defaultProfileId.value,
+  apiProfileId: value?.apiProfileId || null
+}, value?.modelId || '')
+const resolveTaskEffectiveModelId = (value) => resolveScheduledTaskEffectiveModelId({
   apiProfiles: apiProfiles.value,
   serviceProviderDefinitions: serviceProviderDefinitions.value,
   defaultProfileId: defaultProfileId.value,
@@ -224,16 +269,16 @@ const syncForm = (value) => {
     cwd: value?.cwd || '',
     apiProfileId: value?.apiProfileId || DEFAULT_PROFILE,
     modelId: resolveTaskModelId(value),
-    maxTurns: value?.maxTurns || null,
+    maxRuns: value?.maxRuns || null,
+    resetCountOnEnable: !!value?.resetCountOnEnable,
+    intervalAnchorMode: value?.intervalAnchorMode || 'started_at',
     enabled: !!value?.enabled,
     scheduleType: value?.scheduleType || 'interval',
     intervalMinutes: value?.intervalMinutes || 60,
-    dailyTime: value?.dailyTime || '09:00',
     weeklyDays: Array.isArray(value?.weeklyDays) && value.weeklyDays.length ? [...value.weeklyDays] : [1],
     monthlyMode: value?.monthlyMode === 'last_day' ? 'last_day' : 'day_of_month',
     monthlyDay: value?.monthlyDay || 1,
-    firstRunMode: value?.firstRunMode || 'next_slot',
-    firstRunAt: value?.firstRunAt || null
+    firstRunAt: resolveScheduledTaskExecutionAt(value)
   }
 }
 
@@ -258,9 +303,7 @@ const loadData = async () => {
     defaultProfileId.value = config?.defaultProfileId || null
     serviceProviderDefinitions.value = Array.isArray(config?.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
     syncForm(task.value)
-    if (showHistory.value) {
-      await loadRuns()
-    }
+    await loadRuns()
   } catch (err) {
     console.error('[ScheduledTaskDetailPanel] loadData failed:', err)
     message.error(err.message || t('agent.loadFailed'))
@@ -279,15 +322,15 @@ const saveTask = async () => {
       cwd: form.value.cwd?.trim() || null,
       apiProfileId: form.value.apiProfileId === DEFAULT_PROFILE ? null : form.value.apiProfileId,
       modelId: form.value.modelId || null,
-      maxTurns: form.value.maxTurns ?? null,
+      maxRuns: form.value.maxRuns ?? null,
+      resetCountOnEnable: !!form.value.resetCountOnEnable,
+      intervalAnchorMode: form.value.intervalAnchorMode || 'started_at',
       enabled: !!form.value.enabled,
       scheduleType: form.value.scheduleType,
       intervalMinutes: form.value.intervalMinutes ?? null,
-      dailyTime: form.value.dailyTime || '',
       weeklyDays: Array.isArray(form.value.weeklyDays) ? [...form.value.weeklyDays] : [],
       monthlyMode: form.value.monthlyMode,
       monthlyDay: form.value.monthlyMode === 'last_day' ? null : (form.value.monthlyDay ?? null),
-      firstRunMode: form.value.scheduleType === 'once' ? 'custom' : form.value.firstRunMode,
       firstRunAt: form.value.firstRunAt ?? null
     }
     const result = await window.electronAPI.updateScheduledTask({ taskId: props.taskId, updates: payload })
@@ -331,7 +374,7 @@ const pickFolder = async () => {
 }
 
 const describeSchedule = (value) => describeScheduledTask(value, t, weeklyDayOptions.value)
-const getTaskModelLabel = (value) => getScheduledTaskModelLabel(resolveTaskModelId(value), t)
+const getTaskModelLabel = (value) => getScheduledTaskModelLabel(resolveTaskEffectiveModelId(value), t)
 const formatTimestamp = (value) => formatScheduledTaskDateTime(value)
 const runTagType = (status) => status === 'success' ? 'success' : status === 'failed' ? 'error' : status === 'skipped' ? 'warning' : 'default'
 const runStatusLabel = (status) => status === 'success' ? t('rightPanel.scheduledTasks.runStatusSuccess') : status === 'failed' ? t('rightPanel.scheduledTasks.runStatusFailed') : status === 'skipped' ? t('rightPanel.scheduledTasks.runStatusSkipped') : status

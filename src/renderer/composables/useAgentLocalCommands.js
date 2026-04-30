@@ -47,11 +47,9 @@ export function useAgentLocalCommands({
     const scheduleType = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once'].includes(draft.scheduleType)
       ? draft.scheduleType
       : 'interval'
-    const firstRunMode = scheduleType === 'once'
-      ? 'custom'
-      : ['immediate', 'next_slot', 'custom'].includes(draft.firstRunMode)
-        ? draft.firstRunMode
-        : 'next_slot'
+    const intervalAnchorMode = ['started_at', 'finished_at'].includes(draft.intervalAnchorMode)
+      ? draft.intervalAnchorMode
+      : 'started_at'
 
     const weeklyDays = Array.isArray(draft.weeklyDays)
       ? Array.from(new Set(draft.weeklyDays
@@ -65,8 +63,8 @@ export function useAgentLocalCommands({
       : 1
 
     const intervalMinutes = Math.max(1, Number(draft.intervalMinutes) || 60)
-    const maxTurnsValue = Number(draft.maxTurns)
-    const maxTurns = Number.isInteger(maxTurnsValue) && maxTurnsValue > 0 ? maxTurnsValue : null
+    const maxRunsValue = Number(draft.maxRuns)
+    const maxRuns = Number.isInteger(maxRunsValue) && maxRunsValue > 0 ? maxRunsValue : null
 
     return {
       name: String(draft.name || '').trim(),
@@ -74,15 +72,15 @@ export function useAgentLocalCommands({
       cwd: typeof draft.cwd === 'string' && draft.cwd.trim() ? draft.cwd.trim() : null,
       apiProfileId: draft.apiProfileId || null,
       modelId: normalizeScheduledTaskModelId(draft.modelId),
-      maxTurns,
+      maxRuns,
+      resetCountOnEnable: !!draft.resetCountOnEnable,
+      intervalAnchorMode,
       enabled: draft.enabled !== false,
       scheduleType,
       intervalMinutes,
-      dailyTime: String(draft.dailyTime || '09:00').trim() || '09:00',
       weeklyDays: weeklyDays.length > 0 ? weeklyDays : [1],
       monthlyMode,
       monthlyDay,
-      firstRunMode,
       firstRunAt: draft.firstRunAt ?? null
     }
   }
@@ -98,15 +96,15 @@ export function useAgentLocalCommands({
       cwd: options.sessionCwd || null,
       apiProfileId: options.apiProfileId || null,
       modelId: normalizeScheduledTaskModelId(selectedModel.value),
-      maxTurns: null,
+      maxRuns: null,
+      resetCountOnEnable: false,
+      intervalAnchorMode: 'started_at',
       enabled: true,
       scheduleType: 'interval',
       intervalMinutes: 60,
-      dailyTime: '09:00',
       weeklyDays: [1],
       monthlyMode: 'day_of_month',
       monthlyDay: 1,
-      firstRunMode: 'next_slot',
       firstRunAt: null
     })
 
