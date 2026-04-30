@@ -79,8 +79,7 @@ const handleSettingsSelect = (key) => {
 .panel-footer {
   padding: 10px 12px;
   margin-top: auto;
-  border-top: 1px solid var(--panel-border);
-  background: var(--panel-bg-subtle);
+  background: var(--panel-bg);
 }
 
 .footer-row {

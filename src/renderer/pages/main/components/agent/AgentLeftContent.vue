@@ -492,6 +492,7 @@ defineExpose({
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  background: var(--panel-bg);
 }
 
 .new-session-area {

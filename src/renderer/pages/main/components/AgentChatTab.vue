@@ -666,7 +666,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-color);
+  background: var(--panel-bg);
 }
 
 .messages-list {

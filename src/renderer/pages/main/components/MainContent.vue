@@ -1143,7 +1143,8 @@ const openApiProfileManager = async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-color);
+  background: var(--panel-bg);
+  border-radius: var(--panel-radius);
   padding: 0;
   margin: 0 8px;
 }
