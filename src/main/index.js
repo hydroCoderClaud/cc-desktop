@@ -3,7 +3,7 @@
  * Claude Code Desktop - 独立版本
  */
 
-const { app, BrowserWindow, powerSaveBlocker, powerMonitor } = require('electron');
+const { app, BrowserWindow, Menu, powerSaveBlocker, powerMonitor } = require('electron');
 const path = require('path');
 const ConfigManager = require('./config-manager');
 const TerminalManager = require('./terminal-manager');
@@ -88,6 +88,31 @@ function applyMacAppDisplayName() {
   }
 
   app.setName('Hydro Desktop')
+}
+
+function hideMacApplicationMenu() {
+  if (process.platform !== 'darwin') {
+    return
+  }
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate([]))
+}
+
+function isWindowFullScreen(window) {
+  if (process.platform === 'darwin' && typeof window.isSimpleFullScreen === 'function') {
+    return window.isSimpleFullScreen()
+  }
+
+  return window.isFullScreen()
+}
+
+function setWindowFullScreen(window, enabled) {
+  if (process.platform === 'darwin' && typeof window.setSimpleFullScreen === 'function') {
+    window.setSimpleFullScreen(enabled)
+    return
+  }
+
+  window.setFullScreen(enabled)
 }
 
 function rebindMainWindowReferences({ notifyAgentSessionsClosed = false, restartDingtalk = false } = {}) {
@@ -196,14 +221,14 @@ function createWindow() {
       }
       return;
     }
-    if (input.type === 'keyDown' && input.key === 'Escape' && mainWindow.isFullScreen()) {
+    if (input.type === 'keyDown' && input.key === 'Escape' && isWindowFullScreen(mainWindow)) {
       event.preventDefault();
-      mainWindow.setFullScreen(false);
+      setWindowFullScreen(mainWindow, false);
       return;
     }
     if (input.type === 'keyDown' && input.control && !input.alt && !input.shift && input.key.toLowerCase() === 'f') {
       event.preventDefault();
-      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      setWindowFullScreen(mainWindow, !isWindowFullScreen(mainWindow));
     }
   });
 }
@@ -261,6 +286,7 @@ app.whenReady().then(async () => {
   }
 
   applyMacAppDisplayName()
+  hideMacApplicationMenu()
 
   // 初始化管理器
   configManager = new ConfigManager();

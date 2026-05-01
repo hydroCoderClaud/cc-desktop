@@ -155,6 +155,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       show: false,  // 先隐藏，等待 ready-to-show
       backgroundColor: getThemeBackgroundColor(),
       autoHideMenuBar: true,
+      fullscreenable: !isMac,
       webPreferences: {
         preload: preloadPath,
         contextIsolation: true,
