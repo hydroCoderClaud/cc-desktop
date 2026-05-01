@@ -1171,8 +1171,9 @@ const openApiProfileManager = async () => {
 }
 
 .notebook-main-area {
-  border: none;
-  border-radius: 0;
+  background: var(--bg-color);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
   margin-bottom: 0;
 }
 
@@ -1258,6 +1259,7 @@ const openApiProfileManager = async () => {
 
 .notebook-mode-content :deep(.notebook-workspace) {
   height: 100%;
+  background: var(--bg-color);
 }
 
 /* Terminal Container */

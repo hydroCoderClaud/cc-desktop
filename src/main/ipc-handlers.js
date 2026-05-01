@@ -79,17 +79,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     ? tMain(configManager, key, params)
     : key
 
-  const getModeTitle = (mode) => {
-    switch (mode) {
-      case 'agent':
-        return translate('app.modes.agent')
-      case 'notebook':
-        return translate('app.modes.notebook')
-      case 'developer':
-      default:
-        return translate('app.modes.developer')
-    }
-  }
+  const getModeTitle = () => translate('app.windows.main')
 
   const trustedWeixinWebContents = new Set()
   const registerTrustedWeixinWindow = (window) => {
@@ -293,7 +283,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       return { success: false, error: 'Main window not available' }
     }
 
-    mainWindow.setTitle(getModeTitle(mode))
+    mainWindow.setTitle(getModeTitle())
     return { success: true }
   })
 

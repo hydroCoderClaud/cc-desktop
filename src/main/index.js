@@ -76,16 +76,8 @@ function getThemeBackgroundColor() {
   return '#f5f5f0';
 }
 
-function getMainWindowTitle(mode) {
-  switch (mode) {
-    case 'agent':
-      return tMain(configManager, 'app.modes.agent');
-    case 'notebook':
-      return tMain(configManager, 'app.modes.notebook');
-    case 'developer':
-    default:
-      return tMain(configManager, 'app.modes.developer');
-  }
+function getMainWindowTitle() {
+  return tMain(configManager, 'app.windows.main');
 }
 
 /**
@@ -100,7 +92,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     show: false,  // 先隐藏，准备好后再显示
-    title: getMainWindowTitle('agent'),
+    title: getMainWindowTitle(),
     backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏
     webPreferences: {
