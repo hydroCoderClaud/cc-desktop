@@ -3,23 +3,11 @@ const path = require('path')
 const { app, Menu, Tray, nativeImage } = require('electron')
 const { tMain } = require('./utils/app-i18n')
 
-const MACOS_TEMPLATE_ICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAuSURBVDhPY2AYMcCBgYGhgQQMUo8VgCT/k4BB6rGCUYNGDSIBDyGDqJbXBh4AAAXHj4h8aPISAAAAAElFTkSuQmCC'
-
 function createSvgDataUrl(svg) {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
 
-function buildFallbackTraySvg(platform) {
-  if (platform === 'darwin') {
-    return `
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-        <rect x="3" y="3" width="12" height="12" rx="3" fill="#000000"/>
-        <path d="M5 10.5C6.5 8.5 7.5 8.5 9 10.5C10.5 12.5 11.5 12.5 13 10.5" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M5 7.5C6.5 5.5 7.5 5.5 9 7.5C10.5 9.5 11.5 9.5 13 7.5" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round"/>
-      </svg>
-    `.trim()
-  }
-
+function buildFallbackTraySvg() {
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
       <rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="#3D6FA8"/>
@@ -30,18 +18,7 @@ function buildFallbackTraySvg(platform) {
 }
 
 function createFallbackTrayImage(platform, nativeImageModule = nativeImage) {
-  if (platform === 'darwin') {
-    const image = nativeImageModule.createFromBuffer(
-      Buffer.from(MACOS_TEMPLATE_ICON_BASE64, 'base64')
-    )
-    const resized = image.resize({ width: 18, height: 18 })
-    if (typeof resized.setTemplateImage === 'function') {
-      resized.setTemplateImage(true)
-    }
-    return resized
-  }
-
-  const image = nativeImageModule.createFromDataURL(createSvgDataUrl(buildFallbackTraySvg(platform)))
+  const image = nativeImageModule.createFromDataURL(createSvgDataUrl(buildFallbackTraySvg()))
   const size = 16
   const resized = image.resize({ width: size, height: size })
   return resized
@@ -53,15 +30,8 @@ function resolveTrayImage(platform, {
   fsModule = fs,
   pathModule = path
 } = {}) {
-  const iconCandidates = platform === 'darwin'
+  const iconCandidates = platform === 'win32' || platform === 'darwin'
     ? [
-        pathModule.join(appInstance.getAppPath(), 'assets', 'trayTemplate.png'),
-        pathModule.join(appInstance.getAppPath(), 'assets', 'trayTemplate@2x.png'),
-        pathModule.join(process.resourcesPath || '', 'assets', 'trayTemplate.png'),
-        pathModule.join(process.resourcesPath || '', 'assets', 'trayTemplate@2x.png')
-      ]
-    : platform === 'win32'
-      ? [
           pathModule.join(appInstance.getAppPath(), 'assets', 'tray.png'),
           pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'tray.png'),
           pathModule.join(process.resourcesPath || '', 'assets', 'tray.png'),
@@ -88,8 +58,8 @@ function resolveTrayImage(platform, {
     if (!candidate || !fsModule.existsSync(candidate)) continue
     const image = nativeImageModule.createFromPath(candidate)
     if (!image.isEmpty()) {
-      if (platform === 'darwin' && typeof image.setTemplateImage === 'function') {
-        image.setTemplateImage(true)
+      if (platform === 'darwin' && typeof image.resize === 'function') {
+        return image.resize({ width: 16, height: 16 })
       }
       return image
     }

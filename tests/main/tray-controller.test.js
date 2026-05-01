@@ -175,9 +175,17 @@ describe('tray-controller', () => {
     expect(dockShow).toHaveBeenCalledOnce()
   })
 
-  it('uses macOS buffer fallback instead of generic icon.png', async () => {
+  it('uses the same color tray png on macOS without template rendering', async () => {
+    const resizedNativeImage = {
+      setTemplateImage: vi.fn()
+    }
+    const nativeImage = {
+      isEmpty: () => false,
+      resize: vi.fn(() => resizedNativeImage),
+      setTemplateImage: vi.fn()
+    }
     const nativeImageModule = {
-      createFromPath: vi.fn(() => ({ isEmpty: () => false, setTemplateImage: vi.fn() })),
+      createFromPath: vi.fn(() => nativeImage),
       createFromBuffer: vi.fn(() => ({
         resize: vi.fn(() => ({
           setTemplateImage: vi.fn()
@@ -191,17 +199,22 @@ describe('tray-controller', () => {
     }
 
     const { resolveTrayImage } = await import('../../src/main/tray-controller.js')
-    resolveTrayImage('darwin', {
+    const result = resolveTrayImage('darwin', {
       appInstance: { getAppPath: () => 'C:/app' },
       nativeImageModule,
       fsModule: {
-        existsSync: vi.fn(filePath => filePath.endsWith('icon.png'))
+        existsSync: vi.fn(filePath => filePath.endsWith('assets/tray.png'))
       },
       pathModule: { join: (...parts) => parts.join('/') }
     })
 
-    expect(nativeImageModule.createFromPath).not.toHaveBeenCalled()
-    expect(nativeImageModule.createFromBuffer).toHaveBeenCalledOnce()
+    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/tray.png')
+    expect(nativeImage.resize).toHaveBeenCalledWith({ width: 16, height: 16 })
+    expect(nativeImage.setTemplateImage).not.toHaveBeenCalled()
+    expect(resizedNativeImage.setTemplateImage).not.toHaveBeenCalled()
+    expect(nativeImageModule.createFromBuffer).not.toHaveBeenCalled()
+    expect(nativeImageModule.createFromDataURL).not.toHaveBeenCalled()
+    expect(result).toBe(resizedNativeImage)
   })
 
   it('uses Windows SVG fallback when no tray asset exists', async () => {
