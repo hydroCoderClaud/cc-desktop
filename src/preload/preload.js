@@ -5,16 +5,22 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// 同步获取初始主题并立即应用到 DOM，避免闪白
+// 同步获取初始主题快照并立即应用到 DOM，避免启动时先闪默认配色
 try {
-  const initialTheme = ipcRenderer.sendSync('theme:getSync');
-  if (initialTheme === 'dark' && document.documentElement) {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.documentElement.style.backgroundColor = '#1a1a1a';
-    document.documentElement.style.colorScheme = 'dark';
+  const bootstrapTheme = ipcRenderer.sendSync('theme:bootstrapSync');
+  if (document.documentElement) {
+    const initialTheme = bootstrapTheme?.theme === 'dark' ? 'dark' : 'light'
+    const initialColorScheme = typeof bootstrapTheme?.colorScheme === 'string' && bootstrapTheme.colorScheme.trim()
+      ? bootstrapTheme.colorScheme.trim()
+      : 'claude'
+
+    document.documentElement.setAttribute('data-theme', initialTheme);
+    document.documentElement.setAttribute('data-color-scheme', initialColorScheme);
+    document.documentElement.style.backgroundColor = initialTheme === 'dark' ? '#1a1a1a' : '#f5f5f0';
+    document.documentElement.style.colorScheme = initialTheme;
   }
 } catch (err) {
-  console.warn('[Preload] Failed to get initial theme:', err.message);
+  console.warn('[Preload] Failed to get bootstrap theme:', err.message);
 }
 
 // 同步获取初始语言

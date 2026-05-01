@@ -145,10 +145,15 @@ const getInitialTheme = () => {
   return false
 }
 
+const getInitialColorScheme = () => {
+  if (typeof document === 'undefined') return 'claude'
+  return normalizeColorSchemeKey(document.documentElement.getAttribute('data-color-scheme')) || 'claude'
+}
+
 // 全局主题状态（跨组件共享）
 // HMR 时从 hot.data 恢复上一次的值，避免 colorScheme 被重置为初始值导致光标颜色跳动
 const isDark = ref(import.meta.hot?.data?.isDark ?? getInitialTheme())
-const colorScheme = ref(normalizeColorSchemeKey(import.meta.hot?.data?.colorScheme) ?? 'claude')
+const colorScheme = ref(normalizeColorSchemeKey(import.meta.hot?.data?.colorScheme) ?? getInitialColorScheme())
 const isInitialized = ref(import.meta.hot?.data?.isInitialized ?? false)
 
 // 全局监听清理函数（防止 HMR 重复注册）
@@ -158,6 +163,8 @@ let _settingsCleanup = null
 const syncDOMTheme = (dark) => {
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    document.documentElement.setAttribute('data-color-scheme', colorScheme.value)
+    document.documentElement.style.backgroundColor = dark ? '#1a1a1a' : '#f5f5f0'
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     document.body.style.backgroundColor = dark ? '#1a1a1a' : '#f5f5f0'
   }
@@ -277,6 +284,9 @@ watch(isDark, (dark) => {
 
 // 监听配色方案变化，同步 CSS 变量
 watch(colorScheme, () => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-color-scheme', colorScheme.value)
+  }
   syncCSSVarsToRoot()
 })
 

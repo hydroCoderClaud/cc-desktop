@@ -19,6 +19,14 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
   // 同步配置获取（用于 preload 避免闪白）
   // ========================================
 
+  ipcMain.on('theme:bootstrapSync', (event) => {
+    const settings = configManager.getConfig()?.settings || {}
+    event.returnValue = {
+      theme: settings.theme || 'light',
+      colorScheme: settings.colorScheme || 'claude'
+    }
+  })
+
   ipcMain.on('theme:getSync', (event) => {
     const config = configManager.getConfig()
     event.returnValue = config?.settings?.theme || 'light'
