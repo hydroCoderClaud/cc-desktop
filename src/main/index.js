@@ -17,6 +17,7 @@ const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { WeixinNotifyService } = require('./managers/weixin-notify-service');
 const { WeixinBridge } = require('./managers/weixin-bridge');
 const { setupIPCHandlers } = require('./ipc-handlers');
+const { createTrayController } = require('./tray-controller');
 const { tMain } = require('./utils/app-i18n');
 
 // 保持窗口引用
@@ -34,6 +35,7 @@ let weixinNotifyService = null;
 let weixinBridge = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
+let trayController = null;
 
 /**
  * 统一清理函数（幂等，可多次调用）
@@ -80,6 +82,40 @@ function getMainWindowTitle() {
   return tMain(configManager, 'app.windows.main');
 }
 
+function applyMacAppDisplayName() {
+  if (process.platform !== 'darwin' || typeof app.setName !== 'function') {
+    return
+  }
+
+  app.setName('Hydro Desktop')
+}
+
+function rebindMainWindowReferences({ notifyAgentSessionsClosed = false, restartDingtalk = false } = {}) {
+  if (terminalManager) {
+    terminalManager.mainWindow = mainWindow;
+  }
+  if (activeSessionManager) {
+    activeSessionManager.mainWindow = mainWindow;
+  }
+  if (agentSessionManager) {
+    agentSessionManager.mainWindow = mainWindow;
+    if (notifyAgentSessionsClosed) {
+      agentSessionManager.notifyAllSessionsClosed();
+    }
+  }
+  if (dingtalkBridge) {
+    dingtalkBridge.mainWindow = mainWindow;
+    if (restartDingtalk) {
+      dingtalkBridge.start().catch(err => {
+        console.error('[Main] DingTalk bridge restart on activate failed:', err.message)
+      })
+    }
+  }
+  if (weixinBridge) {
+    weixinBridge.mainWindow = mainWindow;
+  }
+}
+
 /**
  * 创建主窗口
  */
@@ -107,6 +143,7 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
     mainWindow.show();
+    trayController?.refreshTrayMenu();
   });
 
   // 加载渲染进程 HTML
@@ -128,10 +165,23 @@ function createWindow() {
   //   mainWindow.webContents.openDevTools();
   // }
 
+  mainWindow.on('close', (event) => {
+    trayController?.handleWindowClose(event);
+  });
+
+  mainWindow.on('show', () => {
+    trayController?.refreshTrayMenu();
+  });
+
+  mainWindow.on('hide', () => {
+    trayController?.refreshTrayMenu();
+  });
+
   // 窗口关闭事件
   mainWindow.on('closed', () => {
     cleanupAllSessions();
     mainWindow = null;
+    trayController?.refreshTrayMenu();
   });
 
   // 全局快捷键：
@@ -209,11 +259,25 @@ app.whenReady().then(async () => {
     app.quit()
     return
   }
+
+  applyMacAppDisplayName()
+
   // 初始化管理器
   configManager = new ConfigManager();
+  trayController = createTrayController({
+    appInstance: app,
+    configManager,
+    getMainWindow: () => mainWindow,
+    onQuitRequest: () => app.quit()
+  });
 
   // 创建主窗口
   createWindow();
+  try {
+    trayController.ensureTray();
+  } catch (error) {
+    console.error('[Main] Failed to initialize tray:', error)
+  }
 
   // 初始化终端管理器（需要窗口实例）- 保留兼容旧代码
   terminalManager = new TerminalManager(mainWindow, configManager);
@@ -299,40 +363,34 @@ app.whenReady().then(async () => {
 
   // macOS 特定行为
   app.on('activate', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      trayController?.showMainWindow()
+      return
+    }
+
     if (BrowserWindow.getAllWindows().length === 0) {
       // macOS 重建窗口时重置清理标志，让新一轮 closed 事件可以再次触发清理
       cleanupDone = false;
+      trayController?.resetQuitting();
       createWindow();
+      trayController?.refreshTrayMenu();
 
       // 重新启动 powerSaveBlocker（在 cleanup 中已 stop）
       powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')
       console.log(`[Main] PowerSaveBlocker restarted on activate (id=${powerSaveBlockerId})`)
 
       // 更新所有 manager 的 mainWindow 引用
-      if (terminalManager) {
-        terminalManager.mainWindow = mainWindow;
-      }
-      if (activeSessionManager) {
-        activeSessionManager.mainWindow = mainWindow;
-      }
-      if (agentSessionManager) {
-        agentSessionManager.mainWindow = mainWindow;
-        // macOS: CLI 进程在 closed 事件中已被 closeAllSync 清理，通知前端刷新状态
-        agentSessionManager.notifyAllSessionsClosed();
-      }
-      if (dingtalkBridge) {
-        dingtalkBridge.mainWindow = mainWindow;
-        // macOS: 桥接在 closed 事件的 cleanupAllSessions 中已 stop，需重启
-        dingtalkBridge.start().catch(err => {
-          console.error('[Main] DingTalk bridge restart on activate failed:', err.message)
-        })
-      }
-      if (weixinBridge) {
-        weixinBridge.mainWindow = mainWindow;
-      }
+      rebindMainWindowReferences({
+        notifyAgentSessionsClosed: true,
+        restartDingtalk: true
+      })
     }
   });
 });
+
+app.on('before-quit', () => {
+  trayController?.markQuitting()
+})
 
 /**
  * 所有窗口关闭事件
@@ -348,6 +406,7 @@ app.on('window-all-closed', () => {
  * 应用即将退出事件
  */
 app.on('will-quit', () => {
+  trayController?.destroyTray()
   cleanupAllSessions();
   if (scheduledTaskService) {
     scheduledTaskService.destroy()

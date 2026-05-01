@@ -18,6 +18,12 @@ const MAIN_I18N = {
         dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
         notebookWorkspace: 'Notebook - Hydro Desktop'
       },
+      tray: {
+        tooltip: 'Hydro Desktop',
+        show: '显示主窗口',
+        hide: '隐藏主窗口',
+        quit: '退出'
+      },
       dialogs: {
         selectProjectFolder: '选择项目文件夹',
         selectDirectory: '选择目录',
@@ -51,6 +57,12 @@ const MAIN_I18N = {
         updateManager: 'Application Update - Hydro Desktop',
         dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
         notebookWorkspace: 'Notebook - Hydro Desktop'
+      },
+      tray: {
+        tooltip: 'Hydro Desktop',
+        show: 'Show Main Window',
+        hide: 'Hide Main Window',
+        quit: 'Quit'
       },
       dialogs: {
         selectProjectFolder: 'Select Project Folder',
