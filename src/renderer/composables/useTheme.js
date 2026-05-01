@@ -98,23 +98,32 @@ const COLOR_SCHEMES = {
       ghostHover: 'rgba(167, 139, 250, 0.22)',
     }
   },
-  // Graphite - 灰色
-  graphite: {
-    name: 'Graphite',
-    icon: '⚫',
+  // Rose - 更常用的玫红色
+  rose: {
+    name: 'Rose',
+    icon: '🌹',
     light: {
-      primary: '#6B7280',
-      primaryHover: '#4B5563',
-      ghost: 'rgba(107, 114, 128, 0.08)',
-      ghostHover: 'rgba(107, 114, 128, 0.15)',
+      primary: '#E11D48',
+      primaryHover: '#BE123C',
+      ghost: 'rgba(225, 29, 72, 0.08)',
+      ghostHover: 'rgba(225, 29, 72, 0.15)',
     },
     dark: {
-      primary: '#9CA3AF',
-      primaryHover: '#6B7280',
-      ghost: 'rgba(156, 163, 175, 0.12)',
-      ghostHover: 'rgba(156, 163, 175, 0.22)',
+      primary: '#FB7185',
+      primaryHover: '#E11D48',
+      ghost: 'rgba(251, 113, 133, 0.12)',
+      ghostHover: 'rgba(251, 113, 133, 0.22)',
     }
   }
+}
+
+const LEGACY_COLOR_SCHEME_MAP = {
+  graphite: 'rose'
+}
+
+const normalizeColorSchemeKey = (scheme) => {
+  const normalizedScheme = LEGACY_COLOR_SCHEME_MAP[scheme] || scheme
+  return COLOR_SCHEMES[normalizedScheme] ? normalizedScheme : null
 }
 
 // 导出配色方案列表供 UI 使用
@@ -139,7 +148,7 @@ const getInitialTheme = () => {
 // 全局主题状态（跨组件共享）
 // HMR 时从 hot.data 恢复上一次的值，避免 colorScheme 被重置为初始值导致光标颜色跳动
 const isDark = ref(import.meta.hot?.data?.isDark ?? getInitialTheme())
-const colorScheme = ref(import.meta.hot?.data?.colorScheme ?? 'claude')
+const colorScheme = ref(normalizeColorSchemeKey(import.meta.hot?.data?.colorScheme) ?? 'claude')
 const isInitialized = ref(import.meta.hot?.data?.isInitialized ?? false)
 
 // 全局监听清理函数（防止 HMR 重复注册）
@@ -250,7 +259,8 @@ const buildCSSVars = (dark, colors) => {
  */
 const syncCSSVarsToRoot = () => {
   if (typeof document === 'undefined') return
-  const scheme = COLOR_SCHEMES[colorScheme.value] || COLOR_SCHEMES.claude
+  const schemeKey = normalizeColorSchemeKey(colorScheme.value) || 'claude'
+  const scheme = COLOR_SCHEMES[schemeKey]
   const colors = isDark.value ? scheme.dark : scheme.light
   const vars = buildCSSVars(isDark.value, colors)
   const root = document.documentElement
@@ -288,8 +298,9 @@ export function useTheme() {
         const config = await window.electronAPI.getConfig()
         isDark.value = config?.settings?.theme === 'dark'
         // 加载配色方案
-        if (config?.settings?.colorScheme && COLOR_SCHEMES[config.settings.colorScheme]) {
-          colorScheme.value = config.settings.colorScheme
+        const savedScheme = normalizeColorSchemeKey(config?.settings?.colorScheme)
+        if (savedScheme) {
+          colorScheme.value = savedScheme
         }
       }
     } catch (err) {
@@ -319,8 +330,9 @@ export function useTheme() {
    * 设置配色方案
    */
   const setColorScheme = async (scheme) => {
-    if (COLOR_SCHEMES[scheme]) {
-      colorScheme.value = scheme
+    const normalizedScheme = normalizeColorSchemeKey(scheme)
+    if (normalizedScheme) {
+      colorScheme.value = normalizedScheme
       await saveTheme()
     }
   }
@@ -360,9 +372,10 @@ export function useTheme() {
             isDark.value = newDark
           }
         }
-        if (settings.colorScheme !== undefined && COLOR_SCHEMES[settings.colorScheme]) {
-          if (colorScheme.value !== settings.colorScheme) {
-            colorScheme.value = settings.colorScheme
+        const nextScheme = normalizeColorSchemeKey(settings.colorScheme)
+        if (nextScheme) {
+          if (colorScheme.value !== nextScheme) {
+            colorScheme.value = nextScheme
           }
         }
       })
@@ -376,7 +389,8 @@ export function useTheme() {
    * 当前配色方案的颜色
    */
   const currentColors = computed(() => {
-    const scheme = COLOR_SCHEMES[colorScheme.value] || COLOR_SCHEMES.ember
+    const schemeKey = normalizeColorSchemeKey(colorScheme.value) || 'ember'
+    const scheme = COLOR_SCHEMES[schemeKey]
     return isDark.value ? scheme.dark : scheme.light
   })
 

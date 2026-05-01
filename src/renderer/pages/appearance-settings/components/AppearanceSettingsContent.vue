@@ -4,7 +4,7 @@
     <div class="settings-header">
       <h1>{{ t('globalSettings.appearance') }}</h1>
       <n-space>
-        <n-button @click="handleReset">{{ t('common.reset') }}</n-button>
+        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
       </n-space>
     </div>
@@ -47,7 +47,10 @@
               class="color-preview"
               :style="{ background: isDark ? scheme.primaryDark : scheme.primaryLight }"
             ></div>
-            <span class="color-name">{{ scheme.icon }} {{ scheme.name }}</span>
+            <span class="color-name">
+              <span class="color-icon">{{ scheme.icon }}</span>
+              <span class="color-label">{{ scheme.name }}</span>
+            </span>
           </div>
         </div>
       </n-form-item>
@@ -88,13 +91,6 @@
       </n-form-item>
     </n-card>
 
-    <!-- Footer Buttons -->
-    <div class="settings-footer">
-      <n-space>
-        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
-        <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
-      </n-space>
-    </div>
   </div>
 </template>
 
@@ -229,25 +225,6 @@ const handleSave = async () => {
   }
 }
 
-const handleReset = async () => {
-  try {
-    formData.value.terminalFontSize = DEFAULTS.terminalFontSize
-    formData.value.terminalFontFamily = DEFAULTS.terminalFontFamily
-    formData.value.terminalDarkBackground = DEFAULTS.terminalDarkBackground
-
-    await invoke('updateTerminalSettings', {
-      fontSize: DEFAULTS.terminalFontSize,
-      fontFamily: DEFAULTS.terminalFontFamily,
-      darkBackground: DEFAULTS.terminalDarkBackground
-    })
-
-    message.success(t('messages.saveSuccess'))
-  } catch (err) {
-    console.error('Failed to reset settings:', err)
-    message.error(t('messages.saveFailed') + ': ' + err.message)
-  }
-}
-
 const handleClose = () => {
   window.close()
 }
@@ -256,9 +233,10 @@ const handleClose = () => {
 <style scoped>
 /* 配色方案选择器 */
 .color-scheme-selector {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
 .color-scheme-item {
@@ -266,6 +244,9 @@ const handleClose = () => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
   border: 2px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
@@ -291,8 +272,27 @@ const handleClose = () => {
 }
 
 .color-name {
+  display: inline-grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-color);
+  line-height: 1;
 }
+
+.color-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.color-label {
+  display: inline-block;
+}
+
 </style>
