@@ -150,12 +150,18 @@
               style="width: 100%;"
             />
           </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.resetCountOnEnable')">
-            <n-switch v-model:value="form.resetCountOnEnable" />
-          </n-form-item>
-          <n-form-item :label="t('rightPanel.scheduledTasks.enabled')">
-            <n-switch v-model:value="form.enabled" />
-          </n-form-item>
+          <div class="st-switch-pair-field">
+            <div class="st-switch-pair">
+              <div class="st-switch-item">
+                <span class="st-switch-item-label">{{ t('rightPanel.scheduledTasks.resetCountOnEnable') }}</span>
+                <n-switch v-model:value="form.resetCountOnEnable" />
+              </div>
+              <div class="st-switch-item">
+                <span class="st-switch-item-label">{{ t('rightPanel.scheduledTasks.enabled') }}</span>
+                <n-switch v-model:value="form.enabled" />
+              </div>
+            </div>
+          </div>
         </div>
         <template v-if="form.scheduleType === 'interval'">
           <div class="task-grid st-form-grid st-form-grid--schedule-pair">

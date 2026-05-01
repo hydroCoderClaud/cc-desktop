@@ -18,13 +18,7 @@
           @mouseenter="emit('hover', index)"
         >
           <Icon :name="cmd.icon" :size="14" class="slash-item-icon" />
-          <div class="slash-item-info">
-            <div class="slash-item-title">
-              <span class="slash-item-name">{{ cmd.name }}</span>
-              <span v-if="cmd.argumentHint" class="slash-item-hint">{{ cmd.argumentHint }}</span>
-            </div>
-            <span v-if="cmd.description" class="slash-item-desc">{{ cmd.description }}</span>
-          </div>
+          <span class="slash-item-name">{{ cmd.name }}</span>
         </div>
       </template>
       <div v-if="!unavailable && commands.length === 0" class="slash-empty">
@@ -76,7 +70,7 @@ const { t } = useLocale()
 
 .slash-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 8px;
   border-radius: 8px;
@@ -88,34 +82,15 @@ const { t } = useLocale()
   background: var(--hover-bg);
 }
 
-.slash-item-info {
-  min-width: 0;
-}
-
-.slash-item-title {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
 .slash-item-name {
   font-size: 13px;
   color: var(--text-color);
+  min-width: 0;
 }
 
-.slash-item-hint,
-.slash-item-desc,
 .slash-empty {
   font-size: 12px;
   color: var(--text-color-3);
-}
-
-.slash-item-desc {
-  display: block;
-  margin-top: 2px;
-}
-
-.slash-empty {
   padding: 10px 8px;
 }
 
