@@ -1,5 +1,5 @@
 <template>
-  <div class="tab-bar">
+  <div class="tab-bar" :class="{ 'has-right-toggle': showRightToggle }">
     <div class="tabs-container">
       <!-- Welcome Tab (固定在最左边) -->
       <div
@@ -44,6 +44,14 @@
     >
       <Icon name="add" :size="16" />
     </button>
+    <button
+      v-if="showRightToggle"
+      class="header-side-toggle"
+      @click="$emit('open-right-panel')"
+      :title="t('panel.showRight')"
+    >
+      <Icon name="panelRight" :size="16" :strokeWidth="1.8" />
+    </button>
   </div>
 </template>
 
@@ -72,6 +80,10 @@ const props = defineProps({
   showNewButton: {
     type: Boolean,
     default: true
+  },
+  showRightToggle: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -79,7 +91,8 @@ const props = defineProps({
 const emit = defineEmits([
   'select-tab',
   'close-tab',
-  'new-tab'
+  'new-tab',
+  'open-right-panel'
 ])
 
 // 选择 Tab
@@ -160,6 +173,10 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
   height: 50px;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.tab-bar.has-right-toggle {
+  padding-right: 12px;
 }
 
 .tab-bar::after {
@@ -312,8 +329,28 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
   transition: all 0.2s;
 }
 
-.new-tab-btn:hover {
-  background: var(--hover-bg);
+.header-side-toggle {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 18px;
+  font-weight: 500;
   color: var(--primary-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 6px;
+  opacity: 0.82;
+  transition: all 0.2s;
+}
+
+.new-tab-btn:hover,
+.header-side-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color-hover);
 }
 </style>

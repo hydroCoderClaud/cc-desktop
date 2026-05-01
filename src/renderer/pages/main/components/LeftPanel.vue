@@ -5,7 +5,6 @@
       :panel-title="panelTitle"
       :mode-options="modeOptions"
       @mode-select="handleModeSelect"
-      @collapse="$emit('collapse')"
     />
 
     <LeftPanelDeveloperPane
@@ -250,7 +249,6 @@ const emit = defineEmits([
   'session-selected',
   'session-closed',
   'terminal-created',
-  'collapse',
   'mode-changed',
   'agent-created',
   'agent-selected',

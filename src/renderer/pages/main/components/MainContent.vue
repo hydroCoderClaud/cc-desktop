@@ -1,28 +1,5 @@
 <template>
   <div class="app-container" :class="{ 'dark-theme': isDark }" :style="cssVars">
-    <!-- Left Panel Collapsed Strip -->
-    <div
-      v-if="!showLeftPanel && !isNotebookMode"
-      class="panel-collapsed-strip panel-collapsed-left"
-    >
-      <div class="strip-header">
-        <button
-          class="strip-toggle-btn"
-          @click="showLeftPanel = true"
-          :title="t('panel.showLeft')"
-        >
-          <Icon name="panelLeft" :size="18" :strokeWidth="1.8" class="strip-panel-icon" />
-        </button>
-      </div>
-      <div class="strip-body">
-        <div
-          class="strip-expand"
-          @click="showLeftPanel = true"
-          :title="t('panel.showLeft')"
-        ></div>
-      </div>
-    </div>
-
     <!-- Left Panel (Project Selector + Sessions) -->
     <LeftPanel
       v-if="showLeftPanel && !isNotebookMode"
@@ -40,7 +17,6 @@
       @session-selected="handleSessionSelected"
       @session-closed="onSessionClosed"
       @terminal-created="onTerminalCreated"
-      @collapse="showLeftPanel = false"
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
@@ -48,7 +24,13 @@
     />
 
     <!-- Main Content Area -->
-    <div class="main-content" :class="{ 'notebook-main-content': isNotebookMode }">
+    <div
+      class="main-content"
+      :class="{
+        'notebook-main-content': isNotebookMode,
+        'right-panel-collapsed': !showRightPanel && !isNotebookMode
+      }"
+    >
       <!-- Tab Bar -->
       <TabBar
         v-if="!isNotebookMode"
@@ -56,8 +38,10 @@
         :active-tab-id="activeTabId"
         :current-project="currentProject"
         :show-new-button="false"
+        :show-right-toggle="!showRightPanel"
         @select-tab="handleSelectTab"
         @close-tab="handleCloseTab"
+        @open-right-panel="showRightPanel = true"
       />
 
       <!-- Main Area -->
@@ -169,29 +153,6 @@
         @insert-path="handleInsertPath"
       />
     </template>
-
-    <!-- Right Panel Collapsed Strip -->
-    <div
-      v-if="!showRightPanel && !isNotebookMode"
-      class="panel-collapsed-strip panel-collapsed-right"
-    >
-      <div class="strip-header">
-        <button
-          class="strip-toggle-btn"
-          @click="showRightPanel = true"
-          :title="t('panel.showRight')"
-        >
-          <Icon name="panelRight" :size="18" :strokeWidth="1.8" class="strip-panel-icon" />
-        </button>
-      </div>
-      <div class="strip-body">
-        <div
-          class="strip-expand"
-          @click="showRightPanel = true"
-          :title="t('panel.showRight')"
-        ></div>
-      </div>
-    </div>
 
     <!-- Project Edit Modal -->
     <ProjectEditModal
@@ -404,15 +365,24 @@ watch(activeTabId, (newTabId) => {
 // Panel visibility
 const showLeftPanel = ref(true)
 const showRightPanel = ref(true)  // 默认显示右侧面板
-let leftPanelVisibleBeforeNotebook = true
 
 // ========================================
 // Right Panel Resize
 // ========================================
-const rightPanelWidth = ref('25%')  // 默认 25%（最小宽度，用户可拖动调整）
+const defaultRightPanelWidth = 30
+const minRightPanelWidth = 24
+const rightPanelWidth = ref(`${defaultRightPanelWidth}%`)
 const isResizing = ref(false)
 const startX = ref(0)
 const startWidth = ref(0)
+
+const normalizeRightPanelWidth = (width) => {
+  const parsed = parseFloat(width)
+  if (!Number.isFinite(parsed)) {
+    return `${defaultRightPanelWidth}%`
+  }
+  return `${Math.max(minRightPanelWidth, Math.min(50, parsed)).toFixed(1)}%`
+}
 
 // 加载保存的宽度配置
 const loadRightPanelWidth = async () => {
@@ -420,7 +390,7 @@ const loadRightPanelWidth = async () => {
     const config = await window.electronAPI.getConfig()
     const savedWidth = config?.ui?.rightPanelWidth
     if (savedWidth) {
-      rightPanelWidth.value = savedWidth
+      rightPanelWidth.value = normalizeRightPanelWidth(savedWidth)
     }
   } catch (err) {
     console.error('Failed to load right panel width:', err)
@@ -465,8 +435,8 @@ const handleResize = (e) => {
   // 转换为百分比
   let newPercent = (newWidth / containerWidth) * 100
 
-  // 限制范围：20% ~ 50%
-  newPercent = Math.max(20, Math.min(50, newPercent))
+  // 限制范围：24% ~ 50%
+  newPercent = Math.max(minRightPanelWidth, Math.min(50, newPercent))
 
   rightPanelWidth.value = `${newPercent.toFixed(1)}%`
 }
@@ -907,14 +877,13 @@ watch(appMode, (mode) => {
 
   if (mode === AppMode.DEVELOPER) {
     activeTabId.value = lastDeveloperTabId
-    showLeftPanel.value = leftPanelVisibleBeforeNotebook
+    showLeftPanel.value = true
     showRightPanel.value = true
   } else if (mode === AppMode.AGENT) {
     activeTabId.value = lastAgentTabId
-    showLeftPanel.value = leftPanelVisibleBeforeNotebook
+    showLeftPanel.value = true
     showRightPanel.value = true
   } else if (mode === AppMode.NOTEBOOK) {
-    leftPanelVisibleBeforeNotebook = showLeftPanel.value
     activeTabId.value = 'welcome'
     showLeftPanel.value = false
     showRightPanel.value = false
@@ -1154,6 +1123,10 @@ const openApiProfileManager = async () => {
   margin: 0 8px;
 }
 
+.main-content.right-panel-collapsed {
+  margin-right: 0;
+}
+
 .main-content.notebook-main-content {
   margin: 0;
 }
@@ -1296,86 +1269,6 @@ const openApiProfileManager = async () => {
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 4px;
-}
-
-/* Panel Collapsed Strip */
-.panel-collapsed-strip {
-  width: 20px;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.strip-header {
-  width: 100%;
-  height: 50px;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.strip-header::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: var(--panel-bg);
-  pointer-events: none;
-}
-
-.strip-toggle-btn {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.strip-body {
-  width: 100%;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.strip-expand {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.strip-expand:hover {
-  background: var(--hover-bg);
-}
-
-.strip-toggle-btn:hover {
-  background: var(--hover-bg);
-}
-
-.panel-collapsed-strip .strip-panel-icon {
-  color: var(--primary-color);
-  opacity: 0.6;
-  transition: opacity 0.15s ease;
-}
-
-.strip-expand:hover .strip-panel-icon {
-  opacity: 1;
 }
 
 /* Resize Handle */

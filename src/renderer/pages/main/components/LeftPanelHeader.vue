@@ -16,17 +16,11 @@
       </n-dropdown>
       <div class="logo">{{ panelTitle }}</div>
     </div>
-    <div class="header-actions">
-      <button class="panel-collapse-btn" @click="$emit('collapse')" :title="t('panel.hideLeft')">
-        <Icon name="panelLeft" :size="16" :strokeWidth="1.8" />
-      </button>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { NDropdown } from 'naive-ui'
-import Icon from '@components/icons/Icon.vue'
 
 defineProps({
   t: {
@@ -43,7 +37,7 @@ defineProps({
   }
 })
 
-const emit = defineEmits(['mode-select', 'collapse'])
+const emit = defineEmits(['mode-select'])
 
 const handleModeSelect = (key) => {
   emit('mode-select', key)
@@ -88,15 +82,4 @@ const handleModeSelect = (key) => {
   white-space: nowrap;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  opacity: 0.82;
-}
-
-.header-actions :deep(.panel-collapse-btn) {
-  width: 22px;
-  height: 22px;
-}
 </style>
