@@ -93,13 +93,24 @@
 /* 通用面板头部基线 */
 .panel-shell-header {
   box-sizing: border-box;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 50px;
+  height: 49px;
   background: var(--panel-bg-subtle);
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: none;
   flex-shrink: 0;
+}
+
+.panel-shell-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--panel-border);
 }
 
 /* ========== 操作按钮 Hover 颜色变量 ========== */
