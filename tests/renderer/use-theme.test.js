@@ -9,11 +9,10 @@ vi.mock('@theme/claude-theme', () => ({
   claudeDarkTheme: { common: {}, Button: {}, Input: {}, Switch: {}, Spin: {}, Dialog: {}, Message: {}, Notification: {} }
 }))
 
-function createMockDocument({ theme = 'light', colorScheme = 'claude' } = {}) {
-  const attributes = new Map([
-    ['data-theme', theme],
-    ['data-color-scheme', colorScheme]
-  ])
+function createMockDocument({ theme = null, colorScheme = null } = {}) {
+  const attributes = new Map()
+  if (theme !== null) attributes.set('data-theme', theme)
+  if (colorScheme !== null) attributes.set('data-color-scheme', colorScheme)
   const styleStore = {}
   const style = {
     setProperty: vi.fn((key, value) => {
@@ -76,11 +75,15 @@ describe('useTheme', () => {
   })
 
   it('uses preloaded color scheme as the first rendered theme state', async () => {
-    global.document = createMockDocument({
-      theme: 'light',
-      colorScheme: 'ocean'
-    })
-    global.window = {}
+    global.document = createMockDocument()
+    global.window = {
+      electronAPI: {
+        bootstrap: {
+          theme: 'light',
+          colorScheme: 'ocean'
+        }
+      }
+    }
 
     const { useTheme } = await import('../../src/renderer/composables/useTheme.js')
     const { colorScheme, isDark } = useTheme()

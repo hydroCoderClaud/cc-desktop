@@ -138,7 +138,16 @@ export const colorSchemeList = Object.entries(COLOR_SCHEMES).map(([key, value]) 
 // ========== 全局状态 ==========
 
 // 从 preload 注入的 data-theme 读取初始主题（同步，避免闪白）
+const getBootstrapThemeState = () => {
+  if (typeof window === 'undefined') return null
+  return window.electronAPI?.bootstrap || null
+}
+
 const getInitialTheme = () => {
+  const bootstrapState = getBootstrapThemeState()
+  if (bootstrapState) {
+    return bootstrapState.theme === 'dark'
+  }
   if (typeof document !== 'undefined') {
     return document.documentElement.getAttribute('data-theme') === 'dark'
   }
@@ -146,6 +155,10 @@ const getInitialTheme = () => {
 }
 
 const getInitialColorScheme = () => {
+  const bootstrapState = getBootstrapThemeState()
+  if (bootstrapState) {
+    return normalizeColorSchemeKey(bootstrapState.colorScheme) || 'claude'
+  }
   if (typeof document === 'undefined') return 'claude'
   return normalizeColorSchemeKey(document.documentElement.getAttribute('data-color-scheme')) || 'claude'
 }

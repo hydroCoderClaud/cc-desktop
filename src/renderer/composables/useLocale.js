@@ -7,6 +7,12 @@ import { locales, localeNames, defaultLocale } from '@/locales'
 
 // 从 preload 注入的 data-locale 读取初始语言
 const getInitialLocale = () => {
+  if (typeof window !== 'undefined') {
+    const bootstrapLocale = window.electronAPI?.bootstrap?.locale
+    if (bootstrapLocale && locales[bootstrapLocale]) {
+      return bootstrapLocale
+    }
+  }
   if (typeof document !== 'undefined') {
     return document.documentElement.getAttribute('data-locale') || defaultLocale
   }

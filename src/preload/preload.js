@@ -5,37 +5,50 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// 同步获取初始主题快照并立即应用到 DOM，避免启动时先闪默认配色
-try {
-  const bootstrapTheme = ipcRenderer.sendSync('theme:bootstrapSync');
-  if (document.documentElement) {
-    const initialTheme = bootstrapTheme?.theme === 'dark' ? 'dark' : 'light'
-    const initialColorScheme = typeof bootstrapTheme?.colorScheme === 'string' && bootstrapTheme.colorScheme.trim()
-      ? bootstrapTheme.colorScheme.trim()
-      : 'claude'
-
-    document.documentElement.setAttribute('data-theme', initialTheme);
-    document.documentElement.setAttribute('data-color-scheme', initialColorScheme);
-    document.documentElement.style.backgroundColor = initialTheme === 'dark' ? '#1a1a1a' : '#f5f5f0';
-    document.documentElement.style.colorScheme = initialTheme;
+const bootstrapState = (() => {
+  try {
+    const bootstrap = ipcRenderer.sendSync('theme:bootstrapSync') || {};
+    return {
+      theme: bootstrap?.theme === 'dark' ? 'dark' : 'light',
+      colorScheme: typeof bootstrap?.colorScheme === 'string' && bootstrap.colorScheme.trim()
+        ? bootstrap.colorScheme.trim()
+        : 'claude',
+      locale: typeof bootstrap?.locale === 'string' && bootstrap.locale.trim()
+        ? bootstrap.locale.trim()
+        : 'zh-CN'
+    };
+  } catch (err) {
+    console.warn('[Preload] Failed to get bootstrap settings:', err.message);
+    return {
+      theme: 'light',
+      colorScheme: 'claude',
+      locale: 'zh-CN'
+    };
   }
-} catch (err) {
-  console.warn('[Preload] Failed to get bootstrap theme:', err.message);
-}
+})();
 
-// 同步获取初始语言
-try {
-  const initialLocale = ipcRenderer.sendSync('locale:getSync');
-  if (document.documentElement) {
-    document.documentElement.setAttribute('data-locale', initialLocale || 'en-US');
-    document.documentElement.setAttribute('lang', initialLocale === 'zh-CN' ? 'zh' : 'en');
+const applyBootstrapToDocument = () => {
+  if (!document.documentElement) return;
+
+  document.documentElement.setAttribute('data-theme', bootstrapState.theme);
+  document.documentElement.setAttribute('data-color-scheme', bootstrapState.colorScheme);
+  document.documentElement.setAttribute('data-locale', bootstrapState.locale);
+  document.documentElement.setAttribute('lang', bootstrapState.locale === 'zh-CN' ? 'zh' : 'en');
+  document.documentElement.style.backgroundColor = bootstrapState.theme === 'dark' ? '#1a1a1a' : '#f5f5f0';
+  document.documentElement.style.colorScheme = bootstrapState.theme;
+
+  if (document.body) {
+    document.body.style.backgroundColor = bootstrapState.theme === 'dark' ? '#1a1a1a' : '#f5f5f0';
   }
-} catch (err) {
-  console.warn('[Preload] Failed to get initial locale:', err.message);
-}
+};
+
+applyBootstrapToDocument();
+window.addEventListener('DOMContentLoaded', applyBootstrapToDocument, { once: true });
 
 // 暴露 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
+  bootstrap: bootstrapState,
+
   // 平台信息（供渲染进程判断 win32/darwin/linux）
   platform: process.platform,
 

@@ -23,7 +23,8 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
     const settings = configManager.getConfig()?.settings || {}
     event.returnValue = {
       theme: settings.theme || 'light',
-      colorScheme: settings.colorScheme || 'claude'
+      colorScheme: settings.colorScheme || 'claude',
+      locale: settings.locale || 'zh-CN'
     }
   })
 
