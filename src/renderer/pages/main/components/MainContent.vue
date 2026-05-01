@@ -1172,8 +1172,8 @@ const openApiProfileManager = async () => {
 
 .notebook-main-area {
   background: var(--bg-color);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
+  border: none;
+  border-radius: 0;
   margin-bottom: 0;
 }
 
