@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notebook Chat Action Icons Preview</title>
+  <style>
+    :root {
+      --bg: #f7f6f2;
+      --card: #ffffff;
+      --border: #e5e2da;
+      --text: #414141;
+      --muted: #8a8a8a;
+      --accent: #1db67d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .title {
+      margin: 0 0 10px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .desc {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .panel {
+      padding: 18px 18px 10px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 0 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .time {
+      color: var(--muted);
+      font-size: 15px;
+      min-width: 48px;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .action {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      color: #8d8d8d;
+    }
+    .action:hover {
+      background: #f4f4f1;
+      color: #505050;
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 24px;
+      padding-top: 18px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .legend-text {
+      min-width: 0;
+    }
+    .legend-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .legend-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .accent {
+      color: var(--accent);
+    }
+    @media (max-width: 720px) {
+      body { padding: 16px; }
+      .legend { grid-template-columns: 1fr; }
+      .row { gap: 12px; }
+      .actions { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">Notebook Chat 按钮图标预览</h1>
+    <p class="desc">简化预览：保留原来的图片/复制主体，只增加方向箭头。左箭头表示“到来源”，右箭头表示“到成果”。</p>
+
+    <div class="panel">
+      <div class="row">
+        <span class="time">00:10</span>
+        <div class="actions">
+          <span class="action" title="保存图片到来源">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"></path>
+              <path d="M6 10.5V5a2 2 0 0 1 2-2"></path>
+              <circle cx="10" cy="7.5" r="1"></circle>
+              <path d="M16 12 12.5 8.5 8 13"></path>
+              <path d="M6.5 15.5H3" stroke-width="1.5"></path>
+              <path d="M5 13.5l-2 2 2 2" stroke-width="1.5"></path>
+            </svg>
+          </span>
+          <span class="action" title="保存图片到成果">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <g transform="translate(20 0) scale(-1 1)">
+                <path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"></path>
+                <path d="M6 10.5V5a2 2 0 0 1 2-2"></path>
+                <circle cx="10" cy="7.5" r="1"></circle>
+                <path d="M16 12 12.5 8.5 8 13"></path>
+                <path d="M6.5 15.5H3" stroke-width="1.5"></path>
+                <path d="M5 13.5l-2 2 2 2" stroke-width="1.5"></path>
+              </g>
+            </svg>
+          </span>
+          <span class="action" title="复制消息">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="6" y="6" width="11" height="11" rx="1"></rect>
+              <path d="M3 14V4a1 1 0 0 1 1-1h10"></path>
+            </svg>
+          </span>
+          <span class="action" title="复制消息到来源">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <g transform="translate(20 0) scale(-1 1)">
+                <rect x="3" y="6" width="9" height="9" rx="1"></rect>
+                <path d="M6 3h9a1 1 0 0 1 1 1v8"></path>
+                <path d="M12 17h5" stroke-width="1.5"></path>
+                <path d="M15 15l2 2-2 2" stroke-width="1.5"></path>
+              </g>
+            </svg>
+          </span>
+          <span class="action" title="复制消息到成果">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="3" y="6" width="9" height="9" rx="1"></rect>
+              <path d="M6 3h9a1 1 0 0 1 1 1v8"></path>
+              <path d="M12 17h5" stroke-width="1.5"></path>
+              <path d="M15 15l2 2-2 2" stroke-width="1.5"></path>
+            </svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="action accent">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"></path>
+              <path d="M6 10.5V5a2 2 0 0 1 2-2"></path>
+              <circle cx="10" cy="7.5" r="1"></circle>
+              <path d="M16 12 12.5 8.5 8 13"></path>
+              <path d="M6.5 15.5H3" stroke-width="1.5"></path>
+              <path d="M5 13.5l-2 2 2 2" stroke-width="1.5"></path>
+            </svg>
+          </span>
+          <div class="legend-text">
+            <div class="legend-name">保存图片到来源</div>
+            <div class="legend-note">图片主体 + 左箭头</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <span class="action accent">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <g transform="translate(20 0) scale(-1 1)">
+                <path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"></path>
+                <path d="M6 10.5V5a2 2 0 0 1 2-2"></path>
+                <circle cx="10" cy="7.5" r="1"></circle>
+                <path d="M16 12 12.5 8.5 8 13"></path>
+                <path d="M6.5 15.5H3" stroke-width="1.5"></path>
+                <path d="M5 13.5l-2 2 2 2" stroke-width="1.5"></path>
+              </g>
+            </svg>
+          </span>
+          <div class="legend-text">
+            <div class="legend-name">保存图片到成果</div>
+            <div class="legend-note">图片主体 + 右箭头</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <span class="action accent">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="6" y="6" width="11" height="11" rx="1"></rect>
+              <path d="M3 14V4a1 1 0 0 1 1-1h10"></path>
+            </svg>
+          </span>
+          <div class="legend-text">
+            <div class="legend-name">复制消息</div>
+            <div class="legend-note">保留现有复制语义</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <span class="action accent">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <g transform="translate(20 0) scale(-1 1)">
+                <rect x="3" y="6" width="9" height="9" rx="1"></rect>
+                <path d="M6 3h9a1 1 0 0 1 1 1v8"></path>
+                <path d="M12 17h5" stroke-width="1.5"></path>
+                <path d="M15 15l2 2-2 2" stroke-width="1.5"></path>
+              </g>
+            </svg>
+          </span>
+          <div class="legend-text">
+            <div class="legend-name">复制消息到来源</div>
+            <div class="legend-note">复制主体 + 左箭头</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <span class="action accent">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="3" y="6" width="9" height="9" rx="1"></rect>
+              <path d="M6 3h9a1 1 0 0 1 1 1v8"></path>
+              <path d="M12 17h5" stroke-width="1.5"></path>
+              <path d="M15 15l2 2-2 2" stroke-width="1.5"></path>
+            </svg>
+          </span>
+          <div class="legend-text">
+            <div class="legend-name">复制消息到成果</div>
+            <div class="legend-note">复制主体 + 右箭头</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

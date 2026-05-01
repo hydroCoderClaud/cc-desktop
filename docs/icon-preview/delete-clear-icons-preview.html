@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete / Clear Icons Preview</title>
+  <style>
+    :root {
+      --bg: #f7f6f2;
+      --card: #ffffff;
+      --border: #e7e2d8;
+      --text: #2f3137;
+      --muted: #81858f;
+      --danger: #d94b4b;
+      --accent: #18b67a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--card);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 220px repeat(4, minmax(0, 1fr));
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .row:last-child {
+      border-bottom: none;
+    }
+    .cell {
+      padding: 18px 16px;
+      min-height: 112px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-right: 1px solid var(--border);
+    }
+    .cell:last-child {
+      border-right: none;
+    }
+    .head {
+      align-items: flex-start;
+      justify-content: center;
+      text-align: left;
+    }
+    .head-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .head-note {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .tag {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #f4f2ed;
+      border: 1px solid var(--border);
+    }
+    .tag.danger {
+      color: var(--danger);
+      background: rgba(217, 75, 75, 0.08);
+      border-color: rgba(217, 75, 75, 0.16);
+    }
+    .tag.accent {
+      color: var(--accent);
+      background: rgba(24, 182, 122, 0.08);
+      border-color: rgba(24, 182, 122, 0.16);
+    }
+    .icon-box {
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: #faf9f6;
+      border: 1px solid var(--border);
+      color: #2d2f36;
+    }
+    .icon-box.danger {
+      color: var(--danger);
+    }
+    .icon-box.accent {
+      color: var(--accent);
+    }
+    .size-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mini {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+    }
+    .icon-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .icon-desc {
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .mini svg {
+      width: 14px;
+      height: 14px;
+    }
+    @media (max-width: 900px) {
+      .row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .cell.head {
+        grid-column: 1 / -1;
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>删除 / 清除 图标预览</h1>
+    <p class="subtitle">这里对比 4 个方向：当前 `delete`、当前 `trash`、现有 `broom`，以及一版更简洁的新 `trash`。重点看 12px-14px 小尺寸下的识别度。</p>
+
+    <div class="panel">
+      <div class="row">
+        <div class="cell head">
+          <div class="head-title">当前 `delete`</div>
+          <div class="head-note">线条信息多，语义偏“删除”。在小尺寸下桶盖、竖线、外轮廓容易显得拥挤。</div>
+        </div>
+        <div class="cell">
+          <span class="tag danger">大按钮</span>
+          <div class="icon-box danger">
+            <svg viewBox="0 0 20 20"><path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/></svg>
+          </div>
+          <div class="icon-name">delete</div>
+        </div>
+        <div class="cell">
+          <span class="tag">小按钮</span>
+          <div class="size-row">
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/></svg>
+            </div>
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/></svg>
+            </div>
+          </div>
+          <div class="icon-desc">12-14px 下略挤</div>
+        </div>
+        <div class="cell">
+          <span class="tag">建议用途</span>
+          <div class="icon-desc">不建议继续大面积复用</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="cell head">
+          <div class="head-title">当前 `trash`</div>
+          <div class="head-note">比 `delete` 更像垃圾桶，但桶身、桶盖、底部的关系仍然偏复杂，视觉也比较重。</div>
+        </div>
+        <div class="cell">
+          <span class="tag danger">大按钮</span>
+          <div class="icon-box danger">
+            <svg viewBox="0 0 20 20"><path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+          </div>
+          <div class="icon-name">trash</div>
+        </div>
+        <div class="cell">
+          <span class="tag">小按钮</span>
+          <div class="size-row">
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+            </div>
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+            </div>
+          </div>
+          <div class="icon-desc">比 `delete` 好，但仍偏厚</div>
+        </div>
+        <div class="cell">
+          <span class="tag">建议用途</span>
+          <div class="icon-desc">能用，但还不够轻</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="cell head">
+          <div class="head-title">现有 `broom`</div>
+          <div class="head-note">更适合表达“清除 / 清空 / 清理”，而不是删除实体对象。语义上比垃圾桶更准确。</div>
+        </div>
+        <div class="cell">
+          <span class="tag accent">大按钮</span>
+          <div class="icon-box accent">
+            <svg viewBox="0 0 20 20"><path d="M14 3l3 3M10 7l-7 7v3h3l7-7M6 14l2 2"/></svg>
+          </div>
+          <div class="icon-name">broom</div>
+        </div>
+        <div class="cell">
+          <span class="tag">小按钮</span>
+          <div class="size-row">
+            <div class="icon-box mini accent">
+              <svg viewBox="0 0 20 20"><path d="M14 3l3 3M10 7l-7 7v3h3l7-7M6 14l2 2"/></svg>
+            </div>
+            <div class="icon-box mini accent">
+              <svg viewBox="0 0 20 20"><path d="M14 3l3 3M10 7l-7 7v3h3l7-7M6 14l2 2"/></svg>
+            </div>
+          </div>
+          <div class="icon-desc">小尺寸识别度更稳定</div>
+        </div>
+        <div class="cell">
+          <span class="tag accent">建议用途</span>
+          <div class="icon-desc">清空输入、清除筛选、清理历史、清理缓存</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="cell head">
+          <div class="head-title">建议的新 `trash`</div>
+          <div class="head-note">保留删除语义，但简化为更干净的桶形：少一层信息，更适合 12px-14px 按钮。</div>
+        </div>
+        <div class="cell">
+          <span class="tag danger">大按钮</span>
+          <div class="icon-box danger">
+            <svg viewBox="0 0 20 20"><path d="M4.2 6h11.6" stroke-width="1.7"/><path d="M6.6 6V4.7a1 1 0 0 1 1-1h4.8a1 1 0 0 1 1 1V6" stroke-width="1.7"/><path d="M6.2 6.5v8.8A1.7 1.7 0 0 0 7.9 17h4.2a1.7 1.7 0 0 0 1.7-1.7V6.5" stroke-width="1.7"/><path d="M10 8.6v4.5" stroke-width="1.2"/></svg>
+          </div>
+          <div class="icon-name">trashSlim</div>
+        </div>
+        <div class="cell">
+          <span class="tag">小按钮</span>
+          <div class="size-row">
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M4.2 6h11.6" stroke-width="1.7"/><path d="M6.6 6V4.7a1 1 0 0 1 1-1h4.8a1 1 0 0 1 1 1V6" stroke-width="1.7"/><path d="M6.2 6.5v8.8A1.7 1.7 0 0 0 7.9 17h4.2a1.7 1.7 0 0 0 1.7-1.7V6.5" stroke-width="1.7"/><path d="M10 8.6v4.5" stroke-width="1.2"/></svg>
+            </div>
+            <div class="icon-box mini danger">
+              <svg viewBox="0 0 20 20"><path d="M4.2 6h11.6" stroke-width="1.7"/><path d="M6.6 6V4.7a1 1 0 0 1 1-1h4.8a1 1 0 0 1 1 1V6" stroke-width="1.7"/><path d="M6.2 6.5v8.8A1.7 1.7 0 0 0 7.9 17h4.2a1.7 1.7 0 0 0 1.7-1.7V6.5" stroke-width="1.7"/><path d="M10 8.6v4.5" stroke-width="1.2"/></svg>
+            </div>
+          </div>
+          <div class="icon-desc">更轻、更干净</div>
+        </div>
+        <div class="cell">
+          <span class="tag danger">建议用途</span>
+          <div class="icon-desc">删文件、删记录、删卡片、永久删除</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

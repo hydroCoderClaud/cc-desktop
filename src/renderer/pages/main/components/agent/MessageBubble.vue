@@ -51,19 +51,19 @@
         </template>
         <template v-else-if="isNotebookAssistant">
           <button class="bubble-save-btn" :title="t('notebook.chat.saveImageToSource')" @click="emitNotebookImageAction('save-image-to-source')">
-            <Icon name="image" :size="12" />
+            <Icon name="imageArrowLeft" :size="12" />
           </button>
           <button class="bubble-save-btn" :title="t('notebook.chat.saveImageToAchievement')" @click="emitNotebookImageAction('save-image-to-achievement')">
-            <Icon name="download" :size="12" />
+            <Icon name="imageArrowRight" :size="12" />
           </button>
           <button class="bubble-save-btn" :title="t('agent.copyContent')" @click="copyContent">
             <Icon name="copy" :size="12" />
           </button>
           <button class="bubble-save-btn" :title="t('notebook.chat.copyContentToSource')" @click="copyContentToSource">
-            <Icon name="plus" :size="12" />
+            <Icon name="copyArrowLeft" :size="12" />
           </button>
           <button class="bubble-save-btn" :title="t('notebook.chat.copyContentToAchievement')" @click="copyContentToAchievement">
-            <Icon name="fileText" :size="12" />
+            <Icon name="copyArrowRight" :size="12" />
           </button>
         </template>
       </div>

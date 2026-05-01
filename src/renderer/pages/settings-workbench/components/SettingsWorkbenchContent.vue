@@ -56,7 +56,7 @@
           :title="tab.label"
           @click="activeTab = tab.id"
         >
-          <Icon :name="tab.icon" :size="16" class="tab-icon" />
+          <Icon :name="tab.icon" :size="tab.id === 'weixinNotify' ? 18 : 16" class="tab-icon" />
         </button>
       </div>
 
@@ -292,7 +292,7 @@ const tabs = computed(() => [
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
   { id: 'scheduledTasks', icon: 'clock', label: t('rightPanel.tabs.scheduledTasks') },
-  { id: 'weixinNotify', icon: 'message', label: t('weixinNotify.tab') },
+  { id: 'weixinNotify', icon: 'weixin', label: t('weixinNotify.tab') },
   { id: 'settings', icon: 'wrench', label: t('rightPanel.tabs.settings') }
 ])
 

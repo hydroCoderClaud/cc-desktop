@@ -14,9 +14,11 @@ export const iconPaths = {
   add: '<path d="M10 4v12M4 10h12"/>',
   close: '<path d="M5 5l10 10M15 5L5 15"/>',
   edit: '<path d="M12 3l5 5-9 9H3v-5l9-9z"/>',
-  delete: '<path d="M4 6h12M6 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M5 6l1 11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-11"/><path d="M8 9v5M12 9v5"/>',
-  trash: '<path d="M3 6h14"/><path d="M5 6v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>',
+  delete: '<path d="M3.8 5.9h12.4" stroke-width="1.7"/><path d="M6.2 5.9V4.5a1 1 0 0 1 1-1h5.6a1 1 0 0 1 1 1v1.4" stroke-width="1.7"/><path d="M5.8 6.4v9.2A1.8 1.8 0 0 0 7.6 17.4h4.8a1.8 1.8 0 0 0 1.8-1.8V6.4" stroke-width="1.7"/><path d="M10 8.4v4.8" stroke-width="1.2"/>',
+  trash: '<path d="M3.8 5.9h12.4" stroke-width="1.7"/><path d="M6.2 5.9V4.5a1 1 0 0 1 1-1h5.6a1 1 0 0 1 1 1v1.4" stroke-width="1.7"/><path d="M5.8 6.4v9.2A1.8 1.8 0 0 0 7.6 17.4h4.8a1.8 1.8 0 0 0 1.8-1.8V6.4" stroke-width="1.7"/><path d="M10 8.4v4.8" stroke-width="1.2"/>',
   copy: '<rect x="6" y="6" width="11" height="11" rx="1"/><path d="M3 14V4a1 1 0 0 1 1-1h10"/>',
+  copyArrowLeft: '<g transform="translate(20 0) scale(-1 1)"><rect x="3" y="6" width="9" height="9" rx="1"/><path d="M6 3h9a1 1 0 0 1 1 1v8"/><path d="M12 17h5" stroke-width="1.5"/><path d="M15 15l2 2-2 2" stroke-width="1.5"/></g>',
+  copyArrowRight: '<rect x="3" y="6" width="9" height="9" rx="1"/><path d="M6 3h9a1 1 0 0 1 1 1v8"/><path d="M12 17h5" stroke-width="1.5"/><path d="M15 15l2 2-2 2" stroke-width="1.5"/>',
 
   // 市场/商店
   store: '<path d="M6 6V5a4 4 0 0 1 8 0v1"/><rect x="3" y="6" width="14" height="11" rx="2"/>',
@@ -42,6 +44,8 @@ export const iconPaths = {
   fileText: '<path d="M6 2h6l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M12 2v4h4"/>',
   // 图片图标
   image: '<rect x="3" y="3" width="14" height="14" rx="2"/><circle cx="7.5" cy="7.5" r="1.5"/><path d="M17 13l-5-5-7 7"/>',
+  imageArrowLeft: '<path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"/><path d="M6 10.5V5a2 2 0 0 1 2-2"/><circle cx="10" cy="7.5" r="1"/><path d="M16 12 12.5 8.5 8 13"/><path d="M6.5 15.5H3" stroke-width="1.5"/><path d="M5 13.5l-2 2 2 2" stroke-width="1.5"/>',
+  imageArrowRight: '<g transform="translate(20 0) scale(-1 1)"><path d="M8 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.5"/><path d="M6 10.5V5a2 2 0 0 1 2-2"/><circle cx="10" cy="7.5" r="1"/><path d="M16 12 12.5 8.5 8 13"/><path d="M6.5 15.5H3" stroke-width="1.5"/><path d="M5 13.5l-2 2 2 2" stroke-width="1.5"/></g>',
   // 视频图标（简洁播放三角）
   video: '<path d="M6 4l10 6-10 6V4z"/>',
 
@@ -53,7 +57,7 @@ export const iconPaths = {
 
   // 用户类
   user: '<circle cx="10" cy="6" r="3"/><path d="M4 18v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1"/>',
-  robot: '<rect x="4" y="6" width="12" height="10" rx="3"/><path d="M7 4v2M13 4v2"/><circle cx="7" cy="3" r="1"/><circle cx="13" cy="3" r="1"/><path d="M7 10h.01M13 10h.01"/><path d="M8 13.5q2 1.5 4 0"/>',
+  robot: '<rect x="4" y="6" width="12" height="10" rx="3"/><path d="M7 5.1v.9M13 5.1v.9"/><circle cx="7" cy="3" r="1.5" stroke-width="1.15"/><circle cx="13" cy="3" r="1.5" stroke-width="1.15"/><path d="M7 10h.01M13 10h.01"/><path d="M8 13.5q2 1.5 4 0"/>',
   dingtalk: '<path d="M10 3v2"/><rect x="4" y="5" width="12" height="12" rx="2"/><path d="M7 9l3 3 3-3"/>',
   weixin: '<path d="M4 10a5.5 4.8 0 0 1 6-4.8 5.5 4.8 0 0 1 6 4.8 5.5 4.8 0 0 1-6 4.8c-.7 0-1.3-.1-1.9-.3L5 16l1-2.2A4.3 4.3 0 0 1 4 10z"/><path d="M8 9h.01M12 9h.01"/>',
 
