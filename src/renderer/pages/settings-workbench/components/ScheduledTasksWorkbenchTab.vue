@@ -38,6 +38,9 @@
           <button class="text-btn" @click="toggleEnabled(task)">
             {{ task.enabled ? t('rightPanel.scheduledTasks.disabled') : t('rightPanel.scheduledTasks.enabled') }}
           </button>
+          <button class="text-btn danger" @click="confirmDelete(task)">
+            {{ t('common.delete') }}
+          </button>
           <button class="text-btn primary" @click="openEditor(task)">
             {{ t('common.edit') }}
           </button>
@@ -57,6 +60,17 @@
         />
       </div>
     </n-modal>
+
+    <n-modal
+      v-model:show="showDeleteConfirm"
+      preset="dialog"
+      type="warning"
+      :title="t('rightPanel.scheduledTasks.deleteConfirmTitle')"
+      :content="t('rightPanel.scheduledTasks.deleteConfirmContent', { name: deleteTarget?.name || '' })"
+      :positive-text="t('common.delete')"
+      :negative-text="t('common.cancel')"
+      @positive-click="handleDelete"
+    />
   </div>
 </template>
 
@@ -84,6 +98,8 @@ const loading = ref(false)
 const runningTaskId = ref(null)
 const showEditor = ref(false)
 const editingTaskId = ref(null)
+const showDeleteConfirm = ref(false)
+const deleteTarget = ref(null)
 let cleanupTaskChanged = null
 
 const loadTasks = async () => {
@@ -135,12 +151,34 @@ const openEditor = (task) => {
   showEditor.value = true
 }
 
+const confirmDelete = (task) => {
+  deleteTarget.value = task
+  showDeleteConfirm.value = true
+}
+
 const handleTaskChanged = async () => {
   await loadTasks()
 }
 
 const handleTaskDeleted = async () => {
   showEditor.value = false
+  await loadTasks()
+}
+
+const handleDelete = async () => {
+  if (!deleteTarget.value) return
+  const result = await window.electronAPI.deleteScheduledTask(deleteTarget.value.id)
+  if (result?.error) {
+    message.error(result.error)
+    return
+  }
+  if (editingTaskId.value === deleteTarget.value.id) {
+    showEditor.value = false
+    editingTaskId.value = null
+  }
+  showDeleteConfirm.value = false
+  deleteTarget.value = null
+  message.success(t('common.deleteSuccess'))
   await loadTasks()
 }
 
@@ -276,6 +314,10 @@ onUnmounted(() => {
 
 .text-btn.primary {
   color: var(--primary-color);
+}
+
+.text-btn.danger {
+  color: var(--danger-color);
 }
 
 .text-btn:disabled {
