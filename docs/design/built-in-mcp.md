@@ -1,6 +1,6 @@
 # 内置 MCP 能力现状
 
-> Hydro Desktop v1.7.56+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
+> Hydro Desktop v1.7.64+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
 
 本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力和微信通知通道，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
 

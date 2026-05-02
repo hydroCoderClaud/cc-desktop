@@ -1,6 +1,6 @@
 # 主进程设计
 
-> Hydro Desktop v1.7.56 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
+> Hydro Desktop v1.7.64 | [<< 架构总览](../ARCHITECTURE.md) | [代码索引](../code-index/main.md) | [IPC 通道](../code-index/ipc-channels.md) | [集成模块](integrations.md)
 
 ---
 

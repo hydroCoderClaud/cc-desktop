@@ -1,6 +1,6 @@
 # 集成系统设计
 
-> Hydro Desktop v1.7.56 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
+> Hydro Desktop v1.7.64 | [← 架构总览](../ARCHITECTURE.md) | [主进程设计](./main-process.md) | [渲染进程设计](./renderer.md)
 
 本文档覆盖 Hydro Desktop 与外部系统的所有集成：钉钉桥接、MCP 管理、内置 MCP 能力、Skills/Agents/Hooks/Plugin 管理、能力市场、Settings 管理。
 

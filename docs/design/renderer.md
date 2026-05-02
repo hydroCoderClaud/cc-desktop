@@ -1,6 +1,6 @@
 # 渲染进程与 UI 设计
 
-> Hydro Desktop v1.7.56+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
+> Hydro Desktop v1.7.64+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
 技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
 
