@@ -359,7 +359,7 @@ jobs:
           // 从 CHANGELOG.md 提取当前版本的更新说明
           const changelog = fs.readFileSync('docs/CHANGELOG.md', 'utf8');
           const escaped = version.replace(/\./g, '\\\\.');
-          const regex = new RegExp('## v' + escaped + '[^\\\\n]*\\\\n([\\\\s\\\\S]*?)(?=\\\\n---|$)');
+          const regex = new RegExp('## v' + escaped + '[^\\\\n]*\\\\n([\\\\s\\\\S]*?)(?=\\\\n## v|\\\\n---|$)');
           const match = changelog.match(regex);
           const notes = match ? match[1].trim() : '';
 
