@@ -35,7 +35,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -58,7 +58,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -128,9 +128,9 @@ jobs:
             dist/cc-desktop-*-windows.zip
           if-no-files-found: ignore
 
-  build-macos:
+  build-macos-arm64:
     needs: test
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 30
     if: ${{ github.event.inputs.skip_macos != 'true' }}
     permissions:
@@ -143,7 +143,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -153,31 +153,102 @@ jobs:
         run: npm run build:vue
 
       - name: Build Electron
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac dmg zip --arm64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package macOS installer archives
-        run: bash scripts/package-mac-installers.sh
+        run: bash scripts/package-mac-installers.sh "$(node -p "require('./package.json').version")" dist arm64
+
+      - name: Verify arm64 artifact architecture
+        run: |
+          APP_PATH="dist/mac-arm64/CC Desktop.app"
+          test -d "$APP_PATH"
+          find "$APP_PATH" -path "*sharp*" -type f -print0 | while IFS= read -r -d '' file; do
+            INFO=$(file "$file")
+            echo "$INFO"
+            if echo "$INFO" | grep -q "x86_64"; then
+              echo "Unexpected x64 sharp artifact inside arm64 app: $file"
+              exit 1
+            fi
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mac-build
+          name: mac-build-arm64
           path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*-installer.tar.gz
-            dist/*.blockmap
+            dist/*darwin-arm64.dmg
+            dist/*darwin-arm64.zip
+            dist/*macos-arm64-installer.tar.gz
+            dist/*darwin-arm64.dmg.blockmap
+            dist/*darwin-arm64.zip.blockmap
             dist/latest-mac.yml
           if-no-files-found: ignore
 
+  build-macos-x64:
+    needs: test
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    if: ${{ github.event.inputs.skip_macos != 'true' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vue
+        run: npm run build:vue
+
+      - name: Build Electron
+        run: npx electron-builder --mac dmg zip --x64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package macOS installer archives
+        run: bash scripts/package-mac-installers.sh "$(node -p "require('./package.json').version")" dist x64
+
+      - name: Verify x64 artifact architecture
+        run: |
+          APP_PATH="dist/mac/CC Desktop.app"
+          test -d "$APP_PATH"
+          find "$APP_PATH" -path "*sharp*" -type f -print0 | while IFS= read -r -d '' file; do
+            INFO=$(file "$file")
+            echo "$INFO"
+            if echo "$INFO" | grep -q "arm64"; then
+              echo "Unexpected arm64 sharp artifact inside x64 app: $file"
+              exit 1
+            fi
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build-x64
+          path: |
+            dist/*darwin-x64.dmg
+            dist/*darwin-x64.zip
+            dist/*macos-x64-installer.tar.gz
+            dist/*darwin-x64.dmg.blockmap
+            dist/*darwin-x64.zip.blockmap
+          if-no-files-found: ignore
+
   release:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos-arm64, build-macos-x64]
     runs-on: ubuntu-latest
     # 触发条件：推送 tag 或手动触发时填写了版本号
     # Windows 必须成功，macOS 可以跳过（skip_macos）或成功
-    if: ${{ always() && needs.build-windows.result == 'success' && (needs.build-macos.result == 'success' || needs.build-macos.result == 'skipped') && (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '') }}
+    if: ${{ always() && needs.build-windows.result == 'success' && ((needs.build-macos-arm64.result == 'success' && needs.build-macos-x64.result == 'success') || (needs.build-macos-arm64.result == 'skipped' && needs.build-macos-x64.result == 'skipped')) && (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != '') }}
 
     permissions:
       contents: write
@@ -226,6 +297,46 @@ jobs:
       - name: Display structure
         run: ls -R artifacts
 
+      - name: Merge macOS update metadata
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const yaml = require('js-yaml');
+
+          const arm64Path = path.join('artifacts', 'mac-build-arm64', 'latest-mac.yml');
+          const x64Path = path.join('artifacts', 'mac-build-x64', 'latest-mac.yml');
+
+          if (!fs.existsSync(arm64Path) || !fs.existsSync(x64Path)) {
+            console.log('Skip merge: missing latest-mac.yml artifact');
+            process.exit(0);
+          }
+
+          const arm64Meta = yaml.load(fs.readFileSync(arm64Path, 'utf8'));
+          const x64Meta = yaml.load(fs.readFileSync(x64Path, 'utf8'));
+          const mergedFiles = [...(arm64Meta.files || []), ...(x64Meta.files || [])];
+          const seen = new Set();
+          const dedupedFiles = mergedFiles.filter((file) => {
+            if (!file || !file.url || seen.has(file.url)) return false;
+            seen.add(file.url);
+            return true;
+          });
+
+          const merged = {
+            ...arm64Meta,
+            files: dedupedFiles,
+          };
+
+          if (arm64Meta.path && arm64Meta.path.includes('x64') && x64Meta.path) {
+            merged.path = x64Meta.path;
+            merged.sha512 = x64Meta.sha512;
+          }
+
+          fs.writeFileSync(arm64Path, yaml.dump(merged, { lineWidth: -1 }));
+          fs.rmSync(x64Path, { force: true });
+          console.log('Merged macOS metadata into', arm64Path);
+          "
+
       - name: Extract changelog and inject release notes
         id: changelog
         run: |
@@ -254,7 +365,7 @@ jobs:
 
           // 注入到 latest-mac.yml 和 latest.yml（generic provider 从此字段读取更新说明）
           const ymlFiles = [
-            'artifacts/mac-build/latest-mac.yml',
+            'artifacts/mac-build-arm64/latest-mac.yml',
             'artifacts/win-build/latest.yml',
           ];
           for (const f of ymlFiles) {

@@ -3,6 +3,12 @@ set -euo pipefail
 
 VERSION="${1:-$(node -p "require('./package.json').version")}"
 DIST_DIR="${2:-dist}"
+shift $(( $# >= 2 ? 2 : $# ))
+ARCHES=("$@")
+
+if [ ${#ARCHES[@]} -eq 0 ]; then
+  ARCHES=("arm64" "x64")
+fi
 
 package_arch() {
   local arch="$1"
@@ -54,5 +60,6 @@ EOF
   echo "Done: ${output}"
 }
 
-package_arch "arm64"
-package_arch "x64"
+for arch in "${ARCHES[@]}"; do
+  package_arch "$arch"
+done
