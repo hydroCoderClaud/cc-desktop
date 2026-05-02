@@ -709,6 +709,22 @@ export function useAgentChat(sessionId, options = {}) {
     error.value = typeof resolver === 'function' ? resolver() : (resolver || rawError)
   }
 
+  const handleCliError = (data) => {
+    if (data.sessionId !== sessionId) return
+
+    const stderr = typeof data.stderr === 'string' ? data.stderr.trim() : ''
+    const exitCode = Number.isFinite(data.exitCode) ? data.exitCode : null
+
+    if (stderr) {
+      error.value = stderr
+      return
+    }
+
+    error.value = exitCode == null
+      ? 'Claude Code CLI exited unexpectedly'
+      : `Claude Code CLI exited unexpectedly (code ${exitCode})`
+  }
+
   /**
    * 处理状态变化事件（统一管理 streaming/idle 状态）
    */
@@ -718,7 +734,8 @@ export function useAgentChat(sessionId, options = {}) {
     console.log('[useAgentChat] statusChange:', {
       sessionId,
       status: data.status || null,
-      cliExited: !!data.cliExited
+      cliExited: !!data.cliExited,
+      cliExitWasError: !!data.cliExitWasError
     })
 
     if (data.status === 'idle' || data.status === 'error') {
@@ -733,9 +750,11 @@ export function useAgentChat(sessionId, options = {}) {
       // CLI 进程退出时重置标记，下次发消息会重建 query
       if (data.cliExited) {
         hasActiveSession.value = false
+        isRestored.value = true
       }
       if (data.activeSessionEnded) {
         hasActiveSession.value = false
+        isRestored.value = true
       }
     } else if (data.status === 'streaming') {
       hasActiveSession.value = true
@@ -854,6 +873,9 @@ export function useAgentChat(sessionId, options = {}) {
     }
     if (window.electronAPI.onAgentError) {
       cleanupFns.push(window.electronAPI.onAgentError(handleError))
+    }
+    if (window.electronAPI.onAgentCliError) {
+      cleanupFns.push(window.electronAPI.onAgentCliError(handleCliError))
     }
     if (window.electronAPI.onAgentToolProgress) {
       cleanupFns.push(window.electronAPI.onAgentToolProgress(handleToolProgress))

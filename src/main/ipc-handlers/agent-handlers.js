@@ -10,6 +10,8 @@ const fs = require('fs')
 const path = require('path')
 const { VIDEO_EXTS, VIDEO_MIME_MAP, MAX_VIDEO_SIZE, MAX_IMG_SIZE } = require('../utils/agent-constants')
 
+const MAX_TEXT_PREVIEW_SIZE = 1024 * 1024
+
 function setupAgentHandlers(ipcMain, agentSessionManager) {
   if (!agentSessionManager) {
     console.warn('[IPC] AgentSessionManager not available, skipping agent handlers')
@@ -470,6 +472,10 @@ function setupAgentHandlers(ipcMain, agentSessionManager) {
       }
 
       // 文本文件
+      if (stats.size > MAX_TEXT_PREVIEW_SIZE) {
+        return { error: `File too large to preview as text (max ${MAX_TEXT_PREVIEW_SIZE / 1024 / 1024}MB)` }
+      }
+
       const content = fs.readFileSync(filePath, 'utf-8')
       return {
         type: 'text',

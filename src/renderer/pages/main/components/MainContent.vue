@@ -584,7 +584,7 @@ const setupSessionListeners = () => {
   if (window.electronAPI?.onAgentStatusChange) {
     cleanupFns.push(
       window.electronAPI.onAgentStatusChange((data) => {
-        if (data?.sessionId && data?.cliExited) {
+        if (data?.sessionId && data?.cliExited && !data?.cliExitWasError) {
           console.log(`[MainContent] CLI exited for session ${data.sessionId}, closing tab`)
           const tab = allTabs.value.find(t => t.sessionId === data.sessionId && t.type === 'agent-chat')
           if (tab) {

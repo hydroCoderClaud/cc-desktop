@@ -773,6 +773,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ['onAgentStream', 'agent:stream'],
       ['onAgentResult', 'agent:result'],
       ['onAgentError', 'agent:error'],
+      ['onAgentCliError', 'agent:cliError'],
       ['onAgentStatusChange', 'agent:statusChange'],
       ['onAgentToolProgress', 'agent:toolProgress'],
       ['onAgentSystemStatus', 'agent:systemStatus'],
