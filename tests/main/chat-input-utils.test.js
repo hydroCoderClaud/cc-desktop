@@ -12,6 +12,7 @@ describe('chat input utils', () => {
     expect(isLikelyAbsolutePathInput('/Volumes/Data/test.png')).toBe(true)
     expect(isLikelyAbsolutePathInput('/tmp/demo')).toBe(true)
     expect(isLikelyAbsolutePathInput('/Applications')).toBe(true)
+    expect(isLikelyAbsolutePathInput('/Users/mac/My Project')).toBe(true)
   })
 
   it('does not treat slash commands as absolute paths', () => {
@@ -27,5 +28,7 @@ describe('chat input utils', () => {
   it('does not open slash panel for absolute paths', () => {
     expect(shouldOpenSlashPanel({ text: '/Users/mac/Documents', slashCommandsSupported: true })).toBe(false)
     expect(shouldBlockAsUnavailableSlash({ text: '/Users/mac/Documents', slashUnavailable: true })).toBe(false)
+    expect(shouldOpenSlashPanel({ text: '/Users/mac/My Project', slashCommandsSupported: true })).toBe(false)
+    expect(shouldBlockAsUnavailableSlash({ text: '/Users/mac/My Project', slashUnavailable: true })).toBe(false)
   })
 })

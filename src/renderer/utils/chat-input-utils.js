@@ -20,7 +20,6 @@ export function isLikelyAbsolutePathInput(text) {
   const value = text.trim()
   if (!value.startsWith('/')) return false
   if (value === '/') return false
-  if (value.includes(' ')) return false
 
   if (KNOWN_ABSOLUTE_PATH_ROOTS.has(value)) return true
 
@@ -43,6 +42,7 @@ export function shouldOpenSlashPanel({ text, slashCommandsSupported }) {
 export function shouldBlockAsUnavailableSlash({ text, slashUnavailable }) {
   if (!slashUnavailable || typeof text !== 'string') return false
   if (!text.startsWith('/')) return false
+  if (text.includes(' ') && !isLikelyAbsolutePathInput(text)) return true
   if (isLikelyAbsolutePathInput(text)) return false
 
   return true
