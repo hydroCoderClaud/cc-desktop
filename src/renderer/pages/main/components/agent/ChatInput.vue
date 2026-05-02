@@ -109,6 +109,10 @@ import {
   normalizeSlashCommands,
   shouldAutoSubmitSlashCommand
 } from '@utils/slash-commands'
+import {
+  shouldOpenSlashPanel,
+  shouldBlockAsUnavailableSlash
+} from '@utils/chat-input-utils'
 
 const { t } = useLocale()
 
@@ -316,7 +320,7 @@ const handleInput = () => {
 
   // 检测 slash 命令
   const text = inputText.value
-  if (props.slashCommandsSupported && text.startsWith('/') && !text.includes(' ')) {
+  if (shouldOpenSlashPanel({ text, slashCommandsSupported: props.slashCommandsSupported })) {
     showSlashPanel.value = true
     slashFilter.value = text
   } else {
@@ -495,7 +499,7 @@ const handleSend = () => {
   // 队列关闭时，流式输出中禁止发送
   if (props.isStreaming && !props.queueEnabled) return
 
-  if (showSlashUnavailableHint.value && text.startsWith('/')) {
+  if (shouldBlockAsUnavailableSlash({ text, slashUnavailable: showSlashUnavailableHint.value })) {
     showSlashPanel.value = false
     window.electronAPI?.showNotification({
       title: t('agent.slashDisabledTitle'),

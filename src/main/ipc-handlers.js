@@ -3,7 +3,7 @@
  * 处理渲染进程和主进程之间的通信
  */
 
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -442,6 +442,27 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const buffer = Buffer.from(base64, 'base64');
     fs.writeFileSync(filePath, buffer);
     return { success: true, filePath };
+  });
+
+  ipcMain.handle('notification:show', async (_event, options = {}) => {
+    const title = typeof options.title === 'string' ? options.title.trim() : '';
+    const body = typeof options.body === 'string' ? options.body : '';
+
+    if (!title) {
+      return { success: false, error: 'Notification title is required' };
+    }
+
+    if (!Notification.isSupported()) {
+      return { success: false, error: 'Notifications are not supported on this system' };
+    }
+
+    try {
+      new Notification({ title, body }).show();
+      return { success: true };
+    } catch (err) {
+      console.error('[IPC] notification:show error:', err);
+      return { success: false, error: err.message || 'Failed to show notification' };
+    }
   });
 
   ipcMain.handle('shell:openExternal', async (event, url) => {
