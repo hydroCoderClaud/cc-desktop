@@ -101,7 +101,7 @@ claude --version
 
 Download the installer for your platform from [latest Release](https://github.com/hydroCoderClaud/cc-desktop/releases/latest).
 
-> **Naming note**: Current installers, DMGs, and the macOS app bundle still use `CC Desktop` / `CC-Desktop` in their literal filenames. This is expected for the current build output.
+> **Naming note**: Package identifiers and build artifact names remain unchanged. Windows installers and the macOS DMG / app bundle still use the `CC Desktop` / `CC-Desktop` naming, while the macOS top menu name is shown separately as `Hydro Desktop`.
 
 #### Windows
 

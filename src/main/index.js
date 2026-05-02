@@ -87,7 +87,7 @@ function applyMacAppDisplayName() {
     return
   }
 
-  app.setName('HydroDesktop')
+  app.setName('Hydro Desktop')
 }
 
 function hideMacApplicationMenu() {

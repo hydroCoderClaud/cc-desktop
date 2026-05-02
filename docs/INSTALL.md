@@ -101,7 +101,7 @@ claude --version
 
 从 [最新版本 Release](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 下载对应平台安装包。
 
-> **命名说明**：当前安装包、DMG、应用 bundle 仍沿用 `CC Desktop` / `CC-Desktop` 作为实际文件名，这是当前打包产物的正常现状。
+> **命名说明**：当前包名与打包产物命名保持不变。Windows 安装包与 macOS DMG / 应用 bundle 仍沿用 `CC Desktop` / `CC-Desktop`；macOS 顶部菜单名称单独显示为 `Hydro Desktop`。
 
 #### Windows
 
