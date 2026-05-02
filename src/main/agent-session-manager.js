@@ -1192,14 +1192,18 @@ class AgentSessionManager extends EventEmitter {
       session.messageQueue = null
       session.outputLoopPromise = null
 
-      // CLI 进程异常退出时通知前端（stderr 由 Runner 记录在 session 上）
-      if (session._lastCliExitCode != null && session._lastCliExitCode !== 0 && session._lastCliStderr) {
+      // CLI 进程异常退出时通知前端；即使 stderr 为空，也要把退出码透出给 UI。
+      if (session._lastCliExitCode != null && session._lastCliExitCode !== 0) {
         this._safeSend('agent:cliError', {
           sessionId: session.id,
           exitCode: session._lastCliExitCode,
           stderr: session._lastCliStderr
         })
       }
+      const cliExitWasError = session.status === AgentStatus.ERROR
+        || (session._lastCliExitCode != null && session._lastCliExitCode !== 0)
+      const sessionStatus = cliExitWasError ? AgentStatus.ERROR : session.status
+
       session.cliPid = null
       session._lastCliExitCode = null
       session._lastCliStderr = null
@@ -1208,13 +1212,11 @@ class AgentSessionManager extends EventEmitter {
         session.preserveSessionOnQueryExit = false
         this._safeSend('agent:statusChange', {
           sessionId: session.id,
-          status: session.status,
+          status: sessionStatus,
           activeSessionEnded: true
         })
         return
       }
-
-      const cliExitWasError = session.status === AgentStatus.ERROR
 
       // 结束当前激活连接：从内存 Map 中移除会话。
       // 注意：异常退出不应被视为“用户主动关闭会话”，因此不在这里写 closed。
@@ -1224,7 +1226,7 @@ class AgentSessionManager extends EventEmitter {
 
       this._safeSend('agent:statusChange', {
         sessionId: session.id,
-        status: session.status,
+        status: sessionStatus,
         cliExited: true,
         cliExitWasError
       })

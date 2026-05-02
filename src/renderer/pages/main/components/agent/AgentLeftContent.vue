@@ -435,7 +435,9 @@ onMounted(() => {
     cleanupAgentStatus = window.electronAPI.onAgentStatusChange((data) => {
       const conv = conversations.value.find(item => item.id === data.sessionId)
       if (conv) {
-        conv.status = data.cliExited ? 'closed' : data.status
+        conv.status = data.cliExited
+          ? (data.cliExitWasError ? 'error' : 'closed')
+          : data.status
         return
       }
       loadConversations()

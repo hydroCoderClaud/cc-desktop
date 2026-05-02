@@ -690,6 +690,37 @@ describe('AgentSessionManager interactions', () => {
       && !item.data.cliExited)).toBe(true)
   })
 
+  it('emits cliError on abnormal exit even without stderr', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-cli-error', cwd: '/tmp' })
+    async function * emptyGenerator() {}
+    session.queryGenerator = emptyGenerator()
+    session.status = 'error'
+    session._lastCliExitCode = 9
+    session._lastCliStderr = ''
+    manager.sessions.set(session.id, session)
+
+    await manager._runOutputLoop(session)
+
+    expect(sent).toContainEqual({
+      channel: 'agent:cliError',
+      data: {
+        sessionId: 's-cli-error',
+        exitCode: 9,
+        stderr: ''
+      }
+    })
+    expect(sent).toContainEqual({
+      channel: 'agent:statusChange',
+      data: {
+        sessionId: 's-cli-error',
+        status: 'error',
+        cliExited: true,
+        cliExitWasError: true
+      }
+    })
+  })
+
   it('lists persisted model snapshots from DB history rows', () => {
     const { manager } = createManager()
     manager.sessionDatabase = {
