@@ -302,7 +302,6 @@ jobs:
           node -e "
           const fs = require('fs');
           const path = require('path');
-          const yaml = require('js-yaml');
 
           const arm64Path = path.join('artifacts', 'mac-build-arm64', 'latest-mac.yml');
           const x64Path = path.join('artifacts', 'mac-build-x64', 'latest-mac.yml');
@@ -312,27 +311,39 @@ jobs:
             process.exit(0);
           }
 
-          const arm64Meta = yaml.load(fs.readFileSync(arm64Path, 'utf8'));
-          const x64Meta = yaml.load(fs.readFileSync(x64Path, 'utf8'));
-          const mergedFiles = [...(arm64Meta.files || []), ...(x64Meta.files || [])];
-          const seen = new Set();
-          const dedupedFiles = mergedFiles.filter((file) => {
-            if (!file || !file.url || seen.has(file.url)) return false;
-            seen.add(file.url);
+          const arm64Content = fs.readFileSync(arm64Path, 'utf8');
+          const x64Content = fs.readFileSync(x64Path, 'utf8');
+          const filesBlockPattern = /files:\\n([\\s\\S]*?)\\npath:/;
+          const arm64Match = arm64Content.match(filesBlockPattern);
+          const x64Match = x64Content.match(filesBlockPattern);
+
+          if (!arm64Match || !x64Match) {
+            console.log('Skip merge: unable to locate files blocks');
+            process.exit(0);
+          }
+
+          const extractEntries = (block) => {
+            return block
+              .split(/\\n(?=  - url: )/)
+              .map((entry) => entry.trimEnd())
+              .filter(Boolean);
+          };
+
+          const mergedEntries = [...extractEntries(arm64Match[1]), ...extractEntries(x64Match[1])];
+          const seenUrls = new Set();
+          const dedupedEntries = mergedEntries.filter((entry) => {
+            const urlMatch = entry.match(/- url: (.+)/);
+            if (!urlMatch) return false;
+            const url = urlMatch[1].trim();
+            if (seenUrls.has(url)) return false;
+            seenUrls.add(url);
             return true;
           });
 
-          const merged = {
-            ...arm64Meta,
-            files: dedupedFiles,
-          };
+          const mergedFilesBlock = 'files:\\n' + dedupedEntries.join('\\n');
+          const mergedContent = arm64Content.replace(filesBlockPattern, mergedFilesBlock + '\\npath:');
 
-          if (arm64Meta.path && arm64Meta.path.includes('x64') && x64Meta.path) {
-            merged.path = x64Meta.path;
-            merged.sha512 = x64Meta.sha512;
-          }
-
-          fs.writeFileSync(arm64Path, yaml.dump(merged, { lineWidth: -1 }));
+          fs.writeFileSync(arm64Path, mergedContent);
           fs.rmSync(x64Path, { force: true });
           console.log('Merged macOS metadata into', arm64Path);
           "
