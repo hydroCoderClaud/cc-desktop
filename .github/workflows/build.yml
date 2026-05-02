@@ -241,6 +241,7 @@ jobs:
             dist/*macos-x64-installer.tar.gz
             dist/*darwin-x64.dmg.blockmap
             dist/*darwin-x64.zip.blockmap
+            dist/latest-mac.yml
           if-no-files-found: ignore
 
   release:
