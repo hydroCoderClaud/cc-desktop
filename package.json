@@ -117,6 +117,7 @@
       "createStartMenuShortcut": true
     },
     "mac": {
+      "artifactName": "HydroDesktop-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -134,6 +135,11 @@
         }
       ],
       "icon": "assets/icon.icns",
+      "executableName": "HydroDesktop",
+      "extendInfo": {
+        "CFBundleDisplayName": "HydroDesktop",
+        "CFBundleName": "HydroDesktop"
+      },
       "category": "public.app-category.developer-tools"
     },
     "linux": {
