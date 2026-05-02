@@ -14,6 +14,16 @@ const KNOWN_ABSOLUTE_PATH_ROOTS = new Set([
   '/var'
 ])
 
+export function getLeadingSlashInputKind(text) {
+  if (typeof text !== 'string') return 'plain'
+
+  const value = text.trim()
+  if (!value.startsWith('/')) return 'plain'
+  if (isLikelyAbsolutePathInput(value)) return 'absolute-path'
+
+  return 'slash-command'
+}
+
 export function isLikelyAbsolutePathInput(text) {
   if (typeof text !== 'string') return false
 
@@ -32,18 +42,15 @@ export function isLikelyAbsolutePathInput(text) {
 
 export function shouldOpenSlashPanel({ text, slashCommandsSupported }) {
   if (!slashCommandsSupported || typeof text !== 'string') return false
-  if (!text.startsWith('/')) return false
+  if (getLeadingSlashInputKind(text) !== 'slash-command') return false
   if (text.includes(' ')) return false
-  if (isLikelyAbsolutePathInput(text)) return false
 
   return true
 }
 
 export function shouldBlockAsUnavailableSlash({ text, slashUnavailable }) {
   if (!slashUnavailable || typeof text !== 'string') return false
-  if (!text.startsWith('/')) return false
-  if (text.includes(' ') && !isLikelyAbsolutePathInput(text)) return true
-  if (isLikelyAbsolutePathInput(text)) return false
+  if (getLeadingSlashInputKind(text) !== 'slash-command') return false
 
   return true
 }

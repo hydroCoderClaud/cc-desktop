@@ -20,6 +20,7 @@ import {
   normalizeSlashCommands,
   parseSlashCommand
 } from '@utils/slash-commands'
+import { getLeadingSlashInputKind } from '@utils/chat-input-utils'
 
 /**
  * Agent 消息角色
@@ -458,9 +459,10 @@ export function useAgentChat(sessionId, options = {}) {
 
     const trimmed = textContent.trim()
     const parsedSlashCommand = parseSlashCommand(trimmed)
+    const isActualSlashCommand = getLeadingSlashInputKind(trimmed) === 'slash-command'
 
     // 本地 slash 命令拦截（仅对纯文本消息）
-    if (slashCommandsReady.value && parsedSlashCommand.isSlashCommand) {
+    if (slashCommandsReady.value && isActualSlashCommand && parsedSlashCommand.isSlashCommand) {
       // /clear 比较特殊，不添加到消息列表（因为会重建 session）
       if (parsedSlashCommand.lowerName === '/clear') {
         return await handleLocalSlashCommand(parsedSlashCommand)
@@ -477,7 +479,7 @@ export function useAgentChat(sessionId, options = {}) {
     isInterrupting.value = false  // 重置中断标志，允许正常队列消费
 
     // 添加用户消息到界面
-    if (trimmed && !trimmed.startsWith('/')) {
+    if (trimmed && !isActualSlashCommand) {
       // 有文字内容，传递图片数据（如果有）
       addUserMessage(trimmed, hasImages ? originalMessage.images : null)
     } else if (hasImages && !trimmed) {
@@ -487,7 +489,7 @@ export function useAgentChat(sessionId, options = {}) {
 
     // 第一条用户消息 → 自动设为对话标题（截取前10个字符）
     const userMessages = messages.value.filter(m => m.role === MessageRole.USER)
-    if (userMessages.length === 1 && trimmed && !trimmed.startsWith('/') && !trimmed.startsWith('@')) {
+    if (userMessages.length === 1 && trimmed && !isActualSlashCommand && !trimmed.startsWith('@')) {
       const autoTitle = trimmed.length > 10 ? trimmed.slice(0, 10) + '…' : trimmed
       window.electronAPI?.renameAgentSession?.({ sessionId, title: autoTitle }).catch(() => {})
     } else if (userMessages.length === 1 && hasImages && !trimmed) {

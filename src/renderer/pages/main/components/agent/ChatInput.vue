@@ -87,6 +87,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
@@ -115,6 +116,7 @@ import {
 } from '@utils/chat-input-utils'
 
 const { t } = useLocale()
+const message = useMessage()
 
 const props = defineProps({
   isStreaming: {
@@ -433,10 +435,7 @@ const processImages = async (files) => {
   // 检查数量限制
   const remaining = MAX_IMAGES - attachedImages.value.length
   if (remaining <= 0) {
-    window.electronAPI?.showNotification({
-      title: t('agent.imageUploadTitle'),
-      body: t('agent.imageLimitReached', { max: MAX_IMAGES })
-    })
+    message.warning(t('agent.imageLimitReached', { max: MAX_IMAGES }))
     return
   }
 
@@ -501,17 +500,14 @@ const handleSend = () => {
 
   if (shouldBlockAsUnavailableSlash({ text, slashUnavailable: showSlashUnavailableHint.value })) {
     showSlashPanel.value = false
-    window.electronAPI?.showNotification({
-      title: t('agent.slashDisabledTitle'),
-      body: t('agent.slashDisabledHint')
-    })
+    message.warning(t('agent.slashDisabledHint'))
     return
   }
 
   showSlashPanel.value = false
 
   // 构建消息对象
-  const message = {
+  const outgoingMessage = {
     text,
     images: attachedImages.value.map(img => ({
       base64: img.base64,
@@ -527,10 +523,7 @@ const handleSend = () => {
     if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
     if (attachedImages.value.length > 0) {
       // 有图片时，不允许加入队列，提示用户等待
-      window.electronAPI?.showNotification({
-        title: t('agent.queueTitle'),
-        body: t('agent.imageQueueNotSupported')
-      })
+      message.warning(t('agent.imageQueueNotSupported'))
       return
     }
     messageQueue.value.push({ id: ++queueIdCounter, text })
@@ -539,7 +532,7 @@ const handleSend = () => {
     // 根据是否有图片决定发送格式
     if (attachedImages.value.length > 0) {
       // 有图片：发送对象格式
-      emit('send', message)
+      emit('send', outgoingMessage)
     } else {
       // 无图片：发送纯文本（兼容旧代码）
       emit('send', text)
