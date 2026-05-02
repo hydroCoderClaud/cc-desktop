@@ -1,6 +1,6 @@
 # 主进程代码索引
 
-> Hydro Desktop v1.7.61+ | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
+> Hydro Desktop v1.7.62+ | [<< 架构总览](../ARCHITECTURE.md) | [IPC 通道索引](ipc-channels.md) | [渲染进程索引](renderer.md)
 
 ## 概览
 
