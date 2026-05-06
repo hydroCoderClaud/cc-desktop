@@ -20,6 +20,7 @@ describe('AgentSessionManager interactions', () => {
       }
     }, {
       getConfig: () => ({}),
+      getAutocompactPctOverride: () => null,
       getDefaultProfile: () => ({ id: 'p1', baseUrl: 'https://example.com' }),
       getAPIProfile: () => null
     })
@@ -218,6 +219,39 @@ describe('AgentSessionManager interactions', () => {
       apiBaseUrl: 'https://example-qwen.test',
       modelId: 'qwen-max-latest'
     })
+  })
+
+  it('passes bundled claude executable path during probe connection', async () => {
+    const { manager } = createManager()
+    const createQuery = vi.fn(async () => ({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'result',
+          subtype: 'success',
+          is_error: false,
+          result: 'ok'
+        }
+      },
+      async close() {}
+    }))
+
+    manager.configManager.getConfig = () => ({
+      settings: {
+        developerClaudeSource: 'bundled'
+      }
+    })
+    manager.runner.createQuery = createQuery
+
+    const result = await manager.probeConnection({
+      id: 'profile-1',
+      baseUrl: 'https://example.com'
+    }, {
+      timeoutMs: 1000
+    })
+
+    expect(result.success).toBe(true)
+    expect(createQuery).toHaveBeenCalledTimes(1)
+    expect(createQuery.mock.calls[0][1].pathToClaudeCodeExecutable).toContain('claude')
   })
 
   it('reopens session from DB before switching API profile', async () => {

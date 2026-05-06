@@ -628,11 +628,21 @@ class AgentSessionManager extends EventEmitter {
       const env = this.runner.buildEnv(apiConfig, this.configManager)
       const messageQueue = new MessageQueue()
       session.messageQueue = messageQueue
+      const developerClaudeSource = normalizeDeveloperClaudeSource(
+        this.configManager?.getConfig?.()?.settings?.developerClaudeSource
+      )
+      const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
+        source: developerClaudeSource
+      })
+      if (!claudeCodeExecutablePath) {
+        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+      }
 
       const generator = await this.runner.createQuery(messageQueue, {
         cwd: tempDir,
         env,
-        maxTurns
+        maxTurns,
+        pathToClaudeCodeExecutable: claudeCodeExecutablePath
       }, session)
       session.queryGenerator = generator
 

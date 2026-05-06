@@ -35,6 +35,28 @@ describe('ActiveSessionManager Claude launch helpers', () => {
     expect(resolved).toBe('C:\\app\\resources\\app.asar.unpacked\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe')
   })
 
+  it('prefers unpacked binary even if asar path also appears to exist', () => {
+    const resolved = resolveBundledClaudeBinaryPath(
+      'win32',
+      'x64',
+      vi.fn(() => 'C:\\app\\resources\\app.asar\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\package.json'),
+      vi.fn((candidate) => candidate.endsWith('claude.exe'))
+    )
+
+    expect(resolved).toBe('C:\\app\\resources\\app.asar.unpacked\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe')
+  })
+
+  it('uses unpacked bundled binary on macOS packaged installs', () => {
+    const resolved = resolveBundledClaudeBinaryPath(
+      'darwin',
+      'arm64',
+      vi.fn(() => '/Applications/CC Desktop.app/Contents/Resources/app.asar/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/package.json'),
+      vi.fn((candidate) => candidate.endsWith('/claude'))
+    )
+
+    expect(resolved).toBe('/Applications/CC Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude')
+  })
+
   it('returns system claude command when developer source is system', () => {
     const resolved = resolveClaudeCodeExecutablePath({
       source: 'system'

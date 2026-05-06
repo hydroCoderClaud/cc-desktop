@@ -20,13 +20,22 @@ function resolveBundledClaudeBinaryPath(
     const packageJsonPath = resolvePackage(`${packageName}/package.json`)
     const packageDir = pathImpl.dirname(packageJsonPath)
     const bundledPath = pathImpl.join(packageDir, binaryName)
-    const candidates = [bundledPath]
+    const unpackedPath = bundledPath.includes('app.asar') && !bundledPath.includes('app.asar.unpacked')
+      ? bundledPath.replace(/app\.asar/g, 'app.asar.unpacked')
+      : null
+    const candidates = []
 
-    if (bundledPath.includes('app.asar') && !bundledPath.includes('app.asar.unpacked')) {
-      candidates.push(bundledPath.replace(/app\.asar/g, 'app.asar.unpacked'))
+    // In packaged Electron apps, fs.existsSync() can succeed for app.asar paths even though
+    // the native binary must be executed from app.asar.unpacked.
+    if (unpackedPath) {
+      candidates.push(unpackedPath)
     }
+    candidates.push(bundledPath)
 
     for (const candidate of candidates) {
+      if (candidate.includes('app.asar') && !candidate.includes('app.asar.unpacked')) {
+        continue
+      }
       if (fileExists(candidate)) {
         return candidate
       }
