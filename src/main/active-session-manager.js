@@ -16,6 +16,10 @@ const path = require('path')
 const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder')
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
+const {
+  normalizeDeveloperClaudeSource,
+  resolveBundledClaudeBinaryPath
+} = require('./utils/claude-executable-path')
 
 /**
  * 活动会话状态
@@ -46,42 +50,6 @@ function quoteShellPath(targetPath, isWin) {
     return `"${targetPath.replace(/"/g, '""')}"`
   }
   return `'${targetPath.replace(/'/g, `'\\''`)}'`
-}
-
-function normalizeDeveloperClaudeSource(value) {
-  return value === 'system' ? 'system' : 'bundled'
-}
-
-function resolveBundledClaudeBinaryPath(
-  platform = os.platform(),
-  arch = os.arch(),
-  resolvePackage = require.resolve,
-  fileExists = fs.existsSync
-) {
-  const pathImpl = platform === 'win32' ? path.win32 : path.posix
-  const packageName = `@anthropic-ai/claude-agent-sdk-${platform}-${arch}`
-  const binaryName = platform === 'win32' ? 'claude.exe' : 'claude'
-
-  try {
-    const packageJsonPath = resolvePackage(`${packageName}/package.json`)
-    const packageDir = pathImpl.dirname(packageJsonPath)
-    const bundledPath = pathImpl.join(packageDir, binaryName)
-    const candidates = [bundledPath]
-
-    if (bundledPath.includes('app.asar') && !bundledPath.includes('app.asar.unpacked')) {
-      candidates.push(bundledPath.replace(/app\.asar/g, 'app.asar.unpacked'))
-    }
-
-    for (const candidate of candidates) {
-      if (fileExists(candidate)) {
-        return candidate
-      }
-    }
-  } catch (error) {
-    console.warn(`[ActiveSession] Failed to resolve bundled Claude binary from ${packageName}: ${error.message}`)
-  }
-
-  return null
 }
 
 function buildClaudeLaunchCommand({

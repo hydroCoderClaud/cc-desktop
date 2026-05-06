@@ -12,6 +12,10 @@ const { TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin, getDefaultProviders } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
+const {
+  normalizeDeveloperClaudeSource,
+  resolveClaudeCodeExecutablePath
+} = require('./utils/claude-executable-path');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
 const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
@@ -25,10 +29,6 @@ function resolveConfiguredModelId(_source, profile) {
   const selectedModelId = normalizeModelValue(profile?.selectedModelId);
   if (selectedModelId) return selectedModelId;
   return '';
-}
-
-function normalizeDeveloperClaudeSource(value) {
-  return value === 'system' ? 'system' : 'bundled';
 }
 
 class ConfigManager {
@@ -840,11 +840,21 @@ class ConfigManager {
     const testPromise = (async () => {
       try {
         const queryFn = await runner._loadSDK()
+        const developerClaudeSource = normalizeDeveloperClaudeSource(
+          this.getConfig()?.settings?.developerClaudeSource
+        )
+        const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
+          source: developerClaudeSource
+        })
+        if (!claudeCodeExecutablePath) {
+          throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+        }
         const generator = queryFn({
           prompt: 'hi',
           options: {
             maxTurns: 1,
             env,
+            pathToClaudeCodeExecutable: claudeCodeExecutablePath,
             spawnClaudeCodeProcess: (spawnOpts) => {
               const { spawn: cpSpawn } = require('child_process')
               // 修正 CLI 路径：SDK 在 asar 里，需重定向到 unpacked

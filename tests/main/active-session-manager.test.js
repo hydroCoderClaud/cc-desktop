@@ -10,6 +10,7 @@ const {
   resolveBundledClaudeBinaryPath,
   buildClaudeLaunchCommand
 } = require('../../src/main/active-session-manager.js')
+const { resolveClaudeCodeExecutablePath } = require('../../src/main/utils/claude-executable-path.js')
 
 describe('ActiveSessionManager Claude launch helpers', () => {
   it('resolves bundled Windows Claude binary from platform package', () => {
@@ -32,6 +33,14 @@ describe('ActiveSessionManager Claude launch helpers', () => {
     )
 
     expect(resolved).toBe('C:\\app\\resources\\app.asar.unpacked\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe')
+  })
+
+  it('returns system claude command when developer source is system', () => {
+    const resolved = resolveClaudeCodeExecutablePath({
+      source: 'system'
+    })
+
+    expect(resolved).toBe('claude')
   })
 
   it('falls back to plain claude when bundled binary is unavailable', () => {

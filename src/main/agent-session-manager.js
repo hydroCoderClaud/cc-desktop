@@ -27,6 +27,10 @@ const AgentQueryManager = require('./managers/agent-query-manager')
 const { buildDesktopCapabilityQueryOptions } = require('./managers/desktop-capability-query-options')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
+const {
+  normalizeDeveloperClaudeSource,
+  resolveClaudeCodeExecutablePath
+} = require('./utils/claude-executable-path')
 
 const HYDRO_IDENTITY_SYSTEM_PROMPT = [
   'Present yourself to end users as Hydro Desktop AI, an AI personal desktop assistant developed by Zhishui Workshop.',
@@ -1107,6 +1111,17 @@ class AgentSessionManager extends EventEmitter {
         queryOptions.maxTurns = maxTurns
       }
 
+      const developerClaudeSource = normalizeDeveloperClaudeSource(
+        this.configManager?.getConfig?.()?.settings?.developerClaudeSource
+      )
+      const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
+        source: developerClaudeSource
+      })
+      if (!claudeCodeExecutablePath) {
+        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+      }
+      queryOptions.pathToClaudeCodeExecutable = claudeCodeExecutablePath
+
       // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
       if (session.sdkSessionId) {
         // 跨模式占用检查：该 CLI 会话是否正在 Terminal 模式中使用
@@ -1121,6 +1136,7 @@ class AgentSessionManager extends EventEmitter {
         apiProfileId: sessionProfile?.id || null,
         profileName: sessionProfile?.name || null,
         profileBaseUrl: sessionProfile?.baseUrl || null,
+        claudeCodeExecutablePath,
         requestedModel: requestedModel || null,
         queryModel: queryOptions.model || null,
         resume: queryOptions.resume || null,

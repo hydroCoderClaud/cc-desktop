@@ -154,6 +154,9 @@ class ClaudeCodeRunner {
     if (options.model) queryOptions.model = options.model
     if (options.maxTurns) queryOptions.maxTurns = options.maxTurns
     if (options.resume) queryOptions.resume = options.resume
+    if (options.pathToClaudeCodeExecutable) {
+      queryOptions.pathToClaudeCodeExecutable = options.pathToClaudeCodeExecutable
+    }
     if (options.mcpServers) queryOptions.mcpServers = options.mcpServers
     if (options.systemPrompt) {
       queryOptions.systemPrompt = options.systemPrompt
