@@ -921,6 +921,31 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.mcpServers).toBeUndefined()
   })
 
+  it('does not override runner settingSources for normal chat sessions', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-setting-sources', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '测试项目级 Claude 配置')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.settingSources).toBeUndefined()
+  })
+
   it('probeConnection marks CLI unavailable as HTTP-fallback eligible', async () => {
     const { manager } = createManager()
 

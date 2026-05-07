@@ -68,7 +68,7 @@ class ClaudeCodeRunner {
     const queryOptions = {
       cwd: options.cwd,
       permissionMode: options.permissionMode || 'acceptEdits',
-      settingSources: options.settingSources || ['user'],
+      settingSources: options.settingSources || ['user', 'project'],
       includePartialMessages: true,
       env,
       spawnClaudeCodeProcess: (spawnOpts) => {

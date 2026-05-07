@@ -24,4 +24,37 @@ describe('ClaudeCodeRunner createQuery system prompt mapping', () => {
     })
     expect(queryFn.mock.calls[0][0].options.appendSystemPrompt).toBeUndefined()
   })
+
+  it('defaults settingSources to user and project without local', async () => {
+    const runner = new ClaudeCodeRunner()
+    const queryFn = vi.fn(() => ({
+      async *[Symbol.asyncIterator]() {}
+    }))
+    runner._queryFn = queryFn
+
+    await runner.createQuery(null, {
+      cwd: '/tmp',
+      env: { ANTHROPIC_BASE_URL: 'https://example.com' }
+    })
+
+    expect(queryFn).toHaveBeenCalledTimes(1)
+    expect(queryFn.mock.calls[0][0].options.settingSources).toEqual(['user', 'project'])
+  })
+
+  it('respects explicit settingSources overrides', async () => {
+    const runner = new ClaudeCodeRunner()
+    const queryFn = vi.fn(() => ({
+      async *[Symbol.asyncIterator]() {}
+    }))
+    runner._queryFn = queryFn
+
+    await runner.createQuery(null, {
+      cwd: '/tmp',
+      env: { ANTHROPIC_BASE_URL: 'https://example.com' },
+      settingSources: ['user']
+    })
+
+    expect(queryFn).toHaveBeenCalledTimes(1)
+    expect(queryFn.mock.calls[0][0].options.settingSources).toEqual(['user'])
+  })
 })
