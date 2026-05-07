@@ -54,4 +54,26 @@ describe('env-builder runtime model selection', () => {
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('provider-sonnet')
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('provider-haiku')
   })
+
+  it('skips ANTHROPIC_MODEL when includeModel is false', async () => {
+    const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
+
+    const env = buildClaudeEnvVars({
+      serviceProvider: 'other',
+      authToken: 'token',
+      authType: 'api_key',
+      baseUrl: 'https://example.com',
+      selectedModelId: 'actual-selected-model'
+    }, {
+      getServiceProviderDefinition: vi.fn(() => ({
+        defaultModels: ['provider-default-model']
+      }))
+    }, {
+      includeModel: false
+    })
+
+    expect(env.ANTHROPIC_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_API_KEY).toBe('token')
+    expect(env.ANTHROPIC_BASE_URL).toBe('https://example.com')
+  })
 })

@@ -96,6 +96,7 @@
       :session-id="props.sessionId"
       :session-type="props.sessionType"
       v-model:model-value="selectedModel"
+      @update:model-value="applyUserSelectedModel"
       @send="handleSend"
       @schedule="handleScheduleDraftCreate"
       @cancel="handleCancel"
@@ -162,6 +163,7 @@ const {
   currentStreamText,
   error,
   selectedModel,
+  applyUserSelectedModel,
   streamingElapsed,
   contextTokens,
   isCompacting,

@@ -48,7 +48,7 @@ function isPackagedApp() {
  * - 'api_key' (默认) → ANTHROPIC_API_KEY（官方 API 标准）
  * - 'auth_token'     → ANTHROPIC_AUTH_TOKEN（第三方代理服务）
  */
-function buildClaudeEnvVars(profile, configManager) {
+function buildClaudeEnvVars(profile, configManager, options = {}) {
   const envVars = {}
 
   if (!profile) return envVars
@@ -75,8 +75,9 @@ function buildClaudeEnvVars(profile, configManager) {
   }
 
   // 默认启动模型只认真实模型 ID；mapping 仅用于 tier 默认环境变量
+  const includeModel = options.includeModel !== false
   const modelName = resolveRuntimeSelectedModelId(runtimeProfile, configManager)
-  if (modelName) {
+  if (includeModel && modelName) {
     envVars.ANTHROPIC_MODEL = modelName
   }
 
@@ -266,14 +267,15 @@ function buildStandardExtraVars(configManager) {
  * @param {Object} profile - API Profile 对象
  * @param {Object} [extraVars={}] - 额外环境变量（如 TERM、CLAUDE_AUTOCOMPACT_PCT_OVERRIDE）
  * @param {Object} [configManager] - ConfigManager 实例，用于补齐服务商默认映射
+ * @param {Object} [options] - 额外控制选项
  * @returns {Object} 完整的环境变量对象
  */
-function buildProcessEnv(profile, extraVars = {}, configManager = null) {
+function buildProcessEnv(profile, extraVars = {}, configManager = null, options = {}) {
   // 先构建基础环境（PATH 增强）
   const baseEnv = buildBasicEnv({})
 
   // 添加 Claude API 配置
-  const claudeEnvVars = buildClaudeEnvVars(profile, configManager)
+  const claudeEnvVars = buildClaudeEnvVars(profile, configManager, options)
 
   // 合并所有环境变量
   const env = { ...baseEnv, ...claudeEnvVars, ...extraVars }

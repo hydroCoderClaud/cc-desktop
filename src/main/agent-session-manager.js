@@ -59,6 +59,32 @@ function normalizeModelIdOrNull(value) {
   return normalized || null
 }
 
+function buildRuntimeSignature({ apiProfileId = null, apiBaseUrl = null, modelId = null, executablePath = null } = {}) {
+  return {
+    apiProfileId: apiProfileId || null,
+    apiBaseUrl: apiBaseUrl || null,
+    modelId: normalizeModelIdOrNull(modelId),
+    executablePath: executablePath || null
+  }
+}
+
+function runtimeSignaturesEqual(left, right) {
+  if (!left || !right) return false
+  return (left.apiProfileId || null) === (right.apiProfileId || null) &&
+    (left.apiBaseUrl || null) === (right.apiBaseUrl || null) &&
+    normalizeModelIdOrNull(left.modelId) === normalizeModelIdOrNull(right.modelId) &&
+    (left.executablePath || null) === (right.executablePath || null)
+}
+
+function runtimeChangeKind(current, target) {
+  if (!current || !target) return 'hard'
+  if (runtimeSignaturesEqual(current, target)) return 'none'
+  if ((current.apiProfileId || null) !== (target.apiProfileId || null)) return 'hard'
+  if ((current.apiBaseUrl || null) !== (target.apiBaseUrl || null)) return 'hard'
+  if ((current.executablePath || null) !== (target.executablePath || null)) return 'hard'
+  return 'soft'
+}
+
 function resolveRequestedModel(_profile, _configManager, requestedModel) {
   const normalizedRequestedModel = normalizeModelValue(requestedModel)
   if (!normalizedRequestedModel) {
@@ -176,6 +202,24 @@ class AgentSessionManager extends EventEmitter {
       session.modelId = persisted
     }
     return persisted
+  }
+
+  _getDeveloperClaudeExecutablePath() {
+    const developerClaudeSource = normalizeDeveloperClaudeSource(
+      this.configManager?.getConfig?.()?.settings?.developerClaudeSource
+    )
+    return resolveClaudeCodeExecutablePath({
+      source: developerClaudeSource
+    })
+  }
+
+  _buildSessionRuntimeSignature(session, overrides = {}) {
+    return buildRuntimeSignature({
+      apiProfileId: overrides.apiProfileId !== undefined ? overrides.apiProfileId : session?.apiProfileId,
+      apiBaseUrl: overrides.apiBaseUrl !== undefined ? overrides.apiBaseUrl : session?.apiBaseUrl,
+      modelId: overrides.modelId !== undefined ? overrides.modelId : this._resolveSessionModelId(session),
+      executablePath: overrides.executablePath !== undefined ? overrides.executablePath : session?.lastBootstrappedRuntime?.executablePath || null
+    })
   }
 
   _serializeSession(session) {
@@ -477,11 +521,11 @@ class AgentSessionManager extends EventEmitter {
       cwd: options.cwd,
       apiProfileId: profile?.id || null,
       apiBaseUrl: profile?.baseUrl || null,
+      modelId: initialModelId,
       source: resolveConversationSource(options.type, options.source),
       taskId: options.taskId || null,
       meta: options.meta || {}
     })
-    session.modelId = initialModelId
 
     // 自动分配工作目录
     if (!session.cwd) {
@@ -808,6 +852,8 @@ class AgentSessionManager extends EventEmitter {
       session.createdAt = row.created_at ? new Date(row.created_at) : new Date()
       session.apiProfileId = row.api_profile_id || null
       session.apiBaseUrl = row.api_base_url || null
+      session.modelId = normalizeModelIdOrNull(row.model_id)
+      session.pendingRuntimeChange = session.sdkSessionId ? 'none' : 'unknown'
 
       // 放回内存 Map
       this.sessions.set(session.id, session)
@@ -1023,7 +1069,26 @@ class AgentSessionManager extends EventEmitter {
       const sessionProfile = session.apiProfileId
         ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
         : this.configManager.getDefaultProfile()
-      const env = this.runner.buildEnv(sessionProfile, this.configManager)
+      const claudeCodeExecutablePath = this._getDeveloperClaudeExecutablePath()
+      if (!claudeCodeExecutablePath) {
+        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+      }
+
+      const targetModelId = requestedModel
+        ? normalizeModelIdOrNull(requestedModel)
+        : this._resolveSessionModelId(session) || normalizeModelIdOrNull(sessionProfile?.selectedModelId)
+      const targetSignature = buildRuntimeSignature({
+        apiProfileId: sessionProfile?.id || null,
+        apiBaseUrl: sessionProfile?.baseUrl || null,
+        modelId: targetModelId,
+        executablePath: claudeCodeExecutablePath
+      })
+      const currentSignature = session.lastBootstrappedRuntime
+      const runtimeDiff = runtimeChangeKind(currentSignature, targetSignature)
+      const shouldReuseRuntimeDefaults = runtimeDiff === 'none' && session.pendingRuntimeChange === 'none'
+      const env = this.runner.buildEnv(sessionProfile, this.configManager, {
+        includeModel: !shouldReuseRuntimeDefaults
+      })
 
       // 创建 MessageQueue
       const messageQueue = new MessageQueue()
@@ -1109,31 +1174,24 @@ class AgentSessionManager extends EventEmitter {
       let resolvedRequest = null
       if (requestedModel) {
         resolvedRequest = resolveRequestedModel(sessionProfile, this.configManager, requestedModel)
-        if (resolvedRequest.queryModel) {
+        if (resolvedRequest.queryModel && !shouldReuseRuntimeDefaults) {
           queryOptions.model = resolvedRequest.queryModel
           if (queryOptions.env && typeof queryOptions.env === 'object') {
             queryOptions.env.ANTHROPIC_MODEL = resolvedRequest.queryModel
           }
         }
+      } else if (!shouldReuseRuntimeDefaults && targetModelId && queryOptions.env && typeof queryOptions.env === 'object') {
+        queryOptions.env.ANTHROPIC_MODEL = targetModelId
       }
 
       if (maxTurns) {
         queryOptions.maxTurns = maxTurns
       }
 
-      const developerClaudeSource = normalizeDeveloperClaudeSource(
-        this.configManager?.getConfig?.()?.settings?.developerClaudeSource
-      )
-      const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
-        source: developerClaudeSource
-      })
-      if (!claudeCodeExecutablePath) {
-        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
-      }
       queryOptions.pathToClaudeCodeExecutable = claudeCodeExecutablePath
 
       // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
-      if (session.sdkSessionId) {
+      if (session.sdkSessionId && runtimeDiff !== 'hard') {
         // 跨模式占用检查：该 CLI 会话是否正在 Terminal 模式中使用
         if (this.peerManager?.isCliSessionActive(session.sdkSessionId)) {
           throw new Error('SESSION_IN_USE_BY_TERMINAL')
@@ -1151,12 +1209,16 @@ class AgentSessionManager extends EventEmitter {
         queryModel: queryOptions.model || null,
         resume: queryOptions.resume || null,
         envBaseUrl: env.ANTHROPIC_BASE_URL || env.ANTHROPIC_API_URL || null,
-        envModel: env.ANTHROPIC_MODEL || null
+        envModel: env.ANTHROPIC_MODEL || null,
+        runtimeDiff,
+        pendingRuntimeChange: session.pendingRuntimeChange || 'unknown'
       })
 
       // 通过 Runner 创建持久 query（AsyncIterable 模式）
       const generator = await this.runner.createQuery(messageQueue, queryOptions, session)
       session.queryGenerator = generator
+      session.lastBootstrappedRuntime = targetSignature
+      session.pendingRuntimeChange = 'none'
 
       // push 第一条消息
       messageQueue.push(sdkUserMessage)
@@ -1586,8 +1648,9 @@ class AgentSessionManager extends EventEmitter {
 
     // 更新 apiProfileId（内存 + DB）
     session.apiProfileId = newProfileId
-    session.apiBaseUrl = profile.baseUrl || null
-    session.modelId = normalizeModelIdOrNull(profile.selectedModelId)
+      session.apiBaseUrl = profile.baseUrl || null
+      session.modelId = normalizeModelIdOrNull(profile.selectedModelId)
+      session.pendingRuntimeChange = 'hard'
     console.log('[AgentSession] switchApiProfile:', {
       sessionId,
       newProfileId,
@@ -2149,6 +2212,7 @@ class AgentSessionManager extends EventEmitter {
       })
       if (session) {
         session.modelId = null
+        session.pendingRuntimeChange = 'soft'
       }
       this.sessionDatabase?.updateAgentConversationModel?.(sessionId, null)
       if (!session?.queryGenerator) {
@@ -2176,6 +2240,7 @@ class AgentSessionManager extends EventEmitter {
     try {
       if (session) {
         session.modelId = normalizeModelIdOrNull(resolvedRequest.queryModel)
+        session.pendingRuntimeChange = 'soft'
       }
       this.sessionDatabase?.updateAgentConversationModel?.(sessionId, resolvedRequest.queryModel)
       if (!session?.queryGenerator) {

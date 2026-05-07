@@ -47,10 +47,10 @@ class ClaudeCodeRunner {
    * @param {object} profile - API Profile
    * @param {object} configManager - ConfigManager 实例
    */
-  buildEnv(profile, configManager) {
+  buildEnv(profile, configManager, options = {}) {
     const { buildProcessEnv, buildStandardExtraVars } = require('../utils/env-builder')
     const extraVars = buildStandardExtraVars(configManager)
-    return buildProcessEnv(profile, extraVars, configManager)
+    return buildProcessEnv(profile, extraVars, configManager, options)
   }
 
   /**

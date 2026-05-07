@@ -57,6 +57,7 @@ export function useAgentChat(sessionId, options = {}) {
 
   const modelOptions = ref([])
   let modelInitToken = 0
+  let selectedModelChangeSource = 'bootstrap'
 
   const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
 
@@ -94,6 +95,10 @@ export function useAgentChat(sessionId, options = {}) {
   }
 
   const resolveSendModel = () => {
+    if (selectedModelChangeSource !== 'user') {
+      return ''
+    }
+
     const currentModel = normalizeModelValue(selectedModel.value)
     const allowedModelIds = normalizeModelIds(modelOptions.value.map(model => model?.value))
 
@@ -110,6 +115,11 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     return currentModel
+  }
+
+  const applyUserSelectedModel = (value) => {
+    selectedModelChangeSource = 'user'
+    selectedModel.value = normalizeModelValue(value)
   }
   // 是否已有活跃的 streaming 连接（CLI 进程在跑）
   const hasActiveSession = ref(false)
@@ -128,14 +138,21 @@ export function useAgentChat(sessionId, options = {}) {
     const nextModel = normalizeModelValue(newVal)
     const prevModel = normalizeModelValue(oldVal)
     const canSetModelLive = !!window.electronAPI?.setAgentModel
+    const changeSource = selectedModelChangeSource
 
     console.log('[useAgentChat] selectedModel changed:', {
       sessionId,
       previousModel: prevModel || null,
       nextModel: nextModel || null,
+      changeSource,
       hasActiveSession: hasActiveSession.value,
       willCallSetModel: canSetModelLive
     })
+
+    if (changeSource !== 'user') {
+      selectedModelChangeSource = 'idle'
+      return
+    }
 
     if (canSetModelLive) {
       window.electronAPI.setAgentModel(sessionId, nextModel)
@@ -165,6 +182,8 @@ export function useAgentChat(sessionId, options = {}) {
           })
         )
     }
+
+    selectedModelChangeSource = 'idle'
   })
 
   // 清理函数列表
@@ -1208,6 +1227,7 @@ export function useAgentChat(sessionId, options = {}) {
           : normalizeModelValue(profile.selectedModelId)
         if (token !== modelInitToken) return false
         modelOptions.value = nextModelOptions
+        selectedModelChangeSource = 'bootstrap'
         selectedModel.value = nextSelectedModel
         return true
       }
@@ -1236,6 +1256,7 @@ export function useAgentChat(sessionId, options = {}) {
     currentStreamText,
     error,
     selectedModel,
+    applyUserSelectedModel,
     streamingElapsed,
     contextTokens,
     isCompacting,

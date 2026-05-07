@@ -417,6 +417,12 @@ describe('AgentSessionManager interactions', () => {
     const session = new AgentSession({ id: 's-restored-model', cwd: '/tmp', apiProfileId: 'p2' })
     session.dbConversationId = 1
     session.sdkSessionId = 'sdk-old'
+    session.lastBootstrappedRuntime = {
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://api-inference.modelscope.cn',
+      modelId: 'deepseek-ai/DeepSeek-V4-Pro',
+      executablePath: 'C:\\workspace\\develop\\HydroCoder\\cc-desktop\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe'
+    }
     manager.sessions.set('s-restored-model', session)
 
     await manager.sendMessage('s-restored-model', 'hello', { model: 'Qwen/Qwen3.6-27B' })
@@ -425,6 +431,122 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.model).toBe('Qwen/Qwen3.6-27B')
     expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('Qwen/Qwen3.6-27B')
     expect(createQueryOptions.resume).toBe('sdk-old')
+  })
+
+  it('does not re-inject env model or explicit model when restored session runtime is unchanged', async () => {
+    const { manager } = createManager()
+    manager.configManager.getConfig = vi.fn(() => ({
+      settings: {
+        developerClaudeSource: 'bundled'
+      }
+    }))
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? {
+          id: 'p2',
+          name: 'ModelScope',
+          baseUrl: 'https://api-inference.modelscope.cn',
+          serviceProvider: 'modelscope',
+          selectedModelId: 'deepseek-ai/DeepSeek-V4-Pro'
+        }
+      : null)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://api-inference.modelscope.cn'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({
+      id: 's-restored-same-runtime',
+      cwd: '/tmp',
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://api-inference.modelscope.cn',
+      modelId: 'deepseek-ai/DeepSeek-V4-Pro'
+    })
+    session.dbConversationId = 1
+    session.sdkSessionId = 'sdk-old'
+    session.lastBootstrappedRuntime = {
+      apiProfileId: 'p2',
+      apiBaseUrl: 'https://api-inference.modelscope.cn',
+      modelId: 'deepseek-ai/DeepSeek-V4-Pro',
+      executablePath: 'C:\\workspace\\develop\\HydroCoder\\cc-desktop\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe'
+    }
+    session.pendingRuntimeChange = 'none'
+    manager.sessions.set(session.id, session)
+
+    await manager.sendMessage(session.id, 'hello')
+
+    expect(manager.runner.buildEnv).toHaveBeenCalledWith(expect.any(Object), manager.configManager, { includeModel: false })
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.model).toBeUndefined()
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBeUndefined()
+    expect(createQueryOptions.resume).toBe('sdk-old')
+  })
+
+  it('does not resume prior sdk session when api profile changes with same model id', async () => {
+    const { manager } = createManager()
+    manager.sessionDatabase.updateAgentConversation = vi.fn()
+    manager.configManager.getConfig = vi.fn(() => ({
+      settings: {
+        developerClaudeSource: 'bundled'
+      }
+    }))
+    manager.configManager.getAPIProfile = vi.fn((id) => id === 'p2'
+      ? {
+          id: 'p2',
+          name: 'Mirror Provider',
+          baseUrl: 'https://mirror.example.com',
+          serviceProvider: 'mirror',
+          selectedModelId: 'shared-model'
+        }
+      : null)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://mirror.example.com',
+        ANTHROPIC_MODEL: 'shared-model'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({
+      id: 's-profile-hard-change',
+      cwd: '/tmp',
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'shared-model'
+    })
+    session.dbConversationId = 1
+    session.sdkSessionId = 'sdk-old'
+    session.lastBootstrappedRuntime = {
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'shared-model',
+      executablePath: 'C:\\workspace\\develop\\HydroCoder\\cc-desktop\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe'
+    }
+    manager.sessions.set(session.id, session)
+
+    await manager.switchApiProfile(session.id, 'p2')
+    await manager.sendMessage(session.id, 'hello')
+
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.resume).toBeUndefined()
+    expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('shared-model')
   })
 
   it('attaches standard tool_use_result to the matching tool message', async () => {
