@@ -105,7 +105,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon-win.ico"
     },
     "nsis": {
       "oneClick": false,
