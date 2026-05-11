@@ -65,6 +65,12 @@ class AgentSessionBroker {
     return sessionLike
   }
 
+  getSessionOwnerClientId(sessionId) {
+    const activeSession = this.agentSessionManager.get(sessionId)
+    if (activeSession?.ownerClientId) return activeSession.ownerClientId
+    return this._loadPersistedSession(sessionId)?.ownerClientId || null
+  }
+
   create(options = {}, client) {
     const normalizedClient = this._normalizeClient(client)
     return this.agentSessionManager.create({

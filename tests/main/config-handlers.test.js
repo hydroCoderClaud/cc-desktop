@@ -66,4 +66,44 @@ describe('config-handlers api:testConnection', () => {
     expect(configManager.testAPIConnectionViaHTTP).toHaveBeenCalledOnce()
     expect(result).toEqual({ success: true, message: 'http-ok' })
   })
+
+  it('restarts local agent api server after config:updateLocalAgentApi', async () => {
+    const { setupConfigHandlers } = await import('../../src/main/ipc-handlers/config-handlers.js')
+    const ipcMain = createMockIpcMain()
+    const configManager = {
+      getConfig: () => ({
+        settings: {
+          localAgentApi: { enabled: false }
+        }
+      }),
+      updateSettings: vi.fn(async (settings) => ({
+        settings
+      })),
+      validateAPIConfig: vi.fn(),
+      testAPIConnectionViaHTTP: vi.fn()
+    }
+    const localAgentApiServer = {
+      restartIfEnabled: vi.fn(async () => ({ enabled: true, running: true }))
+    }
+
+    setupConfigHandlers(ipcMain, configManager, null, localAgentApiServer)
+    const handler = ipcMain.handlers.get('config:updateLocalAgentApi')
+
+    const result = await handler(null, { enabled: true })
+
+    expect(configManager.updateSettings).toHaveBeenCalledOnce()
+    expect(configManager.updateSettings).toHaveBeenCalledWith({
+      localAgentApi: {
+        enabled: true
+      }
+    })
+    expect(localAgentApiServer.restartIfEnabled).toHaveBeenCalledOnce()
+    expect(result).toEqual({
+      settings: {
+        localAgentApi: {
+          enabled: true
+        }
+      }
+    })
+  })
 })

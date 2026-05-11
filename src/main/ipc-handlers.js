@@ -30,6 +30,7 @@ const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-han
 const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
 const agentHandlersMod = safeRequire('./ipc-handlers/agent-handlers', 'agent-handlers');
 const agentSessionBrokerMod = safeRequire('./agent-platform/agent-session-broker', 'agent-session-broker');
+const agentEventRouterMod = safeRequire('./agent-platform/agent-event-router', 'agent-event-router');
 const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 'capability-handlers');
 const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-handlers');
 const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
@@ -49,6 +50,7 @@ const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
 const setupAgentHandlers = agentHandlersMod?.setupAgentHandlers;
 const AgentSessionBroker = agentSessionBrokerMod?.AgentSessionBroker;
+const AgentEventRouter = agentEventRouterMod?.AgentEventRouter;
 const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
 const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
@@ -76,7 +78,7 @@ const registerHandler = (channelName, handler) => {
   }
 };
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService, weixinBridge) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService, weixinBridge, localAgentApiServer = null) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -120,6 +122,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const agentSessionBroker = agentSessionManager && AgentSessionBroker
     ? new AgentSessionBroker(agentSessionManager)
     : null
+  const agentEventRouter = agentSessionManager && AgentEventRouter
+    ? new AgentEventRouter({
+        resolveOwnerClientId: (sessionId) => agentSessionBroker?.getSessionOwnerClientId(sessionId)
+          || agentSessionManager.getSessionOwnerClientId?.(sessionId)
+          || 'host-ui',
+        defaultOwnerClientId: 'host-ui'
+      })
+    : null
+  if (agentSessionManager?.setEventRouter) {
+    agentSessionManager.setEventRouter(agentEventRouter)
+  }
   if (sessionFileWatcher) {
     sessionFileWatcher.setDependencies({
       sessionDatabase,
@@ -130,7 +143,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   // 配置相关处理器（提取到独立模块）
   // ========================================
-  setupConfigHandlers(ipcMain, configManager, agentSessionManager);
+  setupConfigHandlers(ipcMain, configManager, agentSessionManager, localAgentApiServer);
 
   // ========================================
   // 窗口管理
@@ -753,6 +766,131 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     setupAgentHandlers(ipcMain, agentSessionManager, agentSessionBroker);
   }
 
+  if (agentSessionBroker && agentEventRouter) {
+    const embeddedSubscriptions = new Map()
+
+    const normalizeEmbeddedClient = (client = {}) => {
+      const rawAppId = typeof client.appId === 'string' ? client.appId.trim() : ''
+      const appId = rawAppId || 'embedded-app'
+      return {
+        appId,
+        clientId: `embed:${appId}`,
+        clientType: 'embedded',
+        clientMeta: client.clientMeta && typeof client.clientMeta === 'object' && !Array.isArray(client.clientMeta)
+          ? client.clientMeta
+          : {}
+      }
+    }
+
+    const registerEmbeddedSubscription = (client, event) => {
+      const normalizedClient = normalizeEmbeddedClient(client)
+      const sender = event?.sender
+      if (!sender) {
+        throw new Error('Embedded event sender not available')
+      }
+
+      const existingId = embeddedSubscriptions.get(sender.id)
+      if (existingId) {
+        agentEventRouter.unregisterClient(existingId)
+      }
+
+      const { subscriptionId } = agentEventRouter.registerClient(normalizedClient, (payload) => {
+        if (!sender.isDestroyed()) {
+          sender.send('hydro-agent:event', payload)
+        }
+      })
+
+      embeddedSubscriptions.set(sender.id, subscriptionId)
+      sender.once('destroyed', () => {
+        const currentId = embeddedSubscriptions.get(sender.id)
+        if (currentId) {
+          agentEventRouter.unregisterClient(currentId)
+          embeddedSubscriptions.delete(sender.id)
+        }
+      })
+
+      return normalizedClient
+    }
+
+    const withEmbeddedClient = (event, client, handler) => {
+      const normalizedClient = normalizeEmbeddedClient(client)
+      return handler(normalizedClient)
+    }
+
+    ipcMain.handle('hydro-agent:connect', async (event, payload = {}) => {
+      const client = registerEmbeddedSubscription(payload, event)
+      return {
+        success: true,
+        clientId: client.clientId,
+        appId: client.appId
+      }
+    })
+
+    ipcMain.handle('hydro-agent:disconnect', async (event) => {
+      const subscriptionId = embeddedSubscriptions.get(event.sender.id)
+      if (subscriptionId) {
+        agentEventRouter.unregisterClient(subscriptionId)
+        embeddedSubscriptions.delete(event.sender.id)
+      }
+      return { success: true }
+    })
+
+    ipcMain.handle('hydro-agent:createSession', async (event, { client, options } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.create(options || {}, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:listSessions', async (event, { client } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.list(normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:getSession', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.get(sessionId, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:getMessages', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.getMessages(sessionId, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:sendMessage', async (event, { client, sessionId, message, options } = {}) => {
+      return withEmbeddedClient(event, client, async (normalizedClient) => {
+        await agentSessionBroker.sendMessage(sessionId, message, options || {}, normalizedClient)
+        return { success: true }
+      })
+    })
+    ipcMain.handle('hydro-agent:cancel', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, async (normalizedClient) => {
+        await agentSessionBroker.cancel(sessionId, normalizedClient)
+        return { success: true }
+      })
+    })
+    ipcMain.handle('hydro-agent:close', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, async (normalizedClient) => {
+        await agentSessionBroker.close(sessionId, normalizedClient)
+        return { success: true }
+      })
+    })
+    ipcMain.handle('hydro-agent:reopen', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.reopen(sessionId, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:setModel', async (event, { client, sessionId, model } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.setModel(sessionId, model, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:respondInteraction', async (event, { client, sessionId, interactionId, response } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.resolveInteraction(sessionId, interactionId, response || {}, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:cancelInteraction', async (event, { client, sessionId, interactionId, reason } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.cancelInteraction(sessionId, interactionId, reason, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:listDir', async (event, { client, sessionId, relativePath, showHidden } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.listDir(sessionId, relativePath || '', !!showHidden, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:readFile', async (event, { client, sessionId, relativePath } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.readFile(sessionId, relativePath, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:saveFile', async (event, { client, sessionId, relativePath, content } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.saveFile(sessionId, relativePath, content, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:searchFiles', async (event, { client, sessionId, keyword, showHidden } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.searchFiles(sessionId, keyword, !!showHidden, normalizedClient))
+    })
+  }
+
   // ========================================
   // 能力管理（Agent 模式）
   // ========================================
@@ -836,6 +974,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     });
     return { success: true };
   });
+
+  return {
+    agentSessionBroker,
+    agentEventRouter
+  }
 }
 
 module.exports = { setupIPCHandlers };

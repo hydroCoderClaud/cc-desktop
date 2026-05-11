@@ -10,8 +10,9 @@ const { createIPCHandler, createSyncIPCHandler } = require('../utils/ipc-utils')
  * @param {Object} ipcMain - Electron ipcMain module
  * @param {ConfigManager} configManager - ConfigManager instance
  * @param {import('../agent-session-manager').AgentSessionManager} [agentSessionManager]
+ * @param {{ restartIfEnabled?: Function }} [localAgentApiServer]
  */
-function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
+function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localAgentApiServer = null) {
   // Helper for creating handlers with configManager context
   const registerHandler = (channel, handler) => createIPCHandler(ipcMain, channel, handler)
 
@@ -194,6 +195,26 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager) {
 
   registerHandler('config:updateTerminalSettings', (terminalSettings) => {
     return configManager.updateTerminalSettings(terminalSettings)
+  })
+
+  registerHandler('config:getLocalAgentApi', () => {
+    return configManager.getConfig()?.settings?.localAgentApi || { enabled: false }
+  })
+
+  registerHandler('config:updateLocalAgentApi', (localAgentApi) => {
+    const current = configManager.getConfig()?.settings?.localAgentApi || { enabled: false }
+    const result = configManager.updateSettings({
+      localAgentApi: {
+        ...current,
+        enabled: !!localAgentApi?.enabled
+      }
+    })
+    return Promise.resolve(result).then(async (savedConfig) => {
+      if (localAgentApiServer?.restartIfEnabled) {
+        await localAgentApiServer.restartIfEnabled()
+      }
+      return savedConfig
+    })
   })
 
   // 服务商定义管理

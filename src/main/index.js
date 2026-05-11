@@ -16,6 +16,7 @@ const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { WeixinNotifyService } = require('./managers/weixin-notify-service');
 const { WeixinBridge } = require('./managers/weixin-bridge');
+const { LocalAgentApiServer } = require('./agent-platform/local-agent-api-server');
 const { setupIPCHandlers } = require('./ipc-handlers');
 const { createTrayController } = require('./tray-controller');
 const { tMain } = require('./utils/app-i18n');
@@ -37,6 +38,7 @@ let notebookManager = null;
 let scheduledTaskService = null;
 let weixinNotifyService = null;
 let weixinBridge = null;
+let localAgentApiServer = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 let trayController = null;
@@ -61,6 +63,9 @@ function cleanupAllSessions() {
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
     if (weixinBridge) weixinBridge.stop();
     if (weixinNotifyService) weixinNotifyService.stop();
+    if (localAgentApiServer) {
+      localAgentApiServer.stop().catch(() => {})
+    }
     if (terminalManager) terminalManager.kill();
     if (activeSessionManager) activeSessionManager.closeAll(false);
     if (agentSessionManager) agentSessionManager.closeAllSync();
@@ -400,8 +405,32 @@ app.whenReady().then(async () => {
   weixinBridge = new WeixinBridge(configManager, agentSessionManager, weixinNotifyService, mainWindow)
   weixinBridge.start()
 
-  // 设置 IPC 处理器
-  setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, scheduledTaskService, weixinNotifyService, weixinBridge);
+  localAgentApiServer = new LocalAgentApiServer({
+    configManager
+  })
+
+  const { agentSessionBroker, agentEventRouter } = setupIPCHandlers(
+    mainWindow,
+    configManager,
+    terminalManager,
+    activeSessionManager,
+    agentSessionManager,
+    capabilityManager,
+    updateManager,
+    dingtalkBridge,
+    notebookManager,
+    scheduledTaskService,
+    weixinNotifyService,
+    weixinBridge,
+    localAgentApiServer
+  ) || {}
+
+  localAgentApiServer.setDependencies({
+    agentSessionBroker,
+    agentEventRouter,
+    configManager
+  })
+  await localAgentApiServer.restartIfEnabled()
 
   // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
   powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension')

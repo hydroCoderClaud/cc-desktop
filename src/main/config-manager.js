@@ -124,6 +124,10 @@ class ConfigManager {
           messageQueue: true           // 消息队列：流式输出期间允许排队发送
         },
 
+        localAgentApi: {
+          enabled: false
+        },
+
       }
     };
 

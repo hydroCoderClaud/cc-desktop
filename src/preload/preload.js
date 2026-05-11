@@ -5,6 +5,70 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+const settingsChangedListeners = new Set();
+let settingsChangedBridgeBound = false;
+const hydroAgentState = {
+  appId: null,
+  clientId: null,
+  clientMeta: null,
+  unsubscribeIpc: null,
+  callbacks: new Set()
+};
+
+function ensureSettingsChangedBridge() {
+  if (settingsChangedBridgeBound) return;
+  settingsChangedBridgeBound = true;
+  ipcRenderer.on('settings:changed', (_event, settings) => {
+    if (settings && typeof settings === 'object') {
+      if (settings.theme === 'dark' || settings.theme === 'light') {
+        bootstrapState.theme = settings.theme;
+      }
+      if (typeof settings.colorScheme === 'string' && settings.colorScheme.trim()) {
+        bootstrapState.colorScheme = settings.colorScheme.trim();
+      }
+      if (typeof settings.locale === 'string' && settings.locale.trim()) {
+        bootstrapState.locale = settings.locale.trim();
+      }
+    }
+    for (const listener of settingsChangedListeners) {
+      try {
+        listener(settings);
+      } catch (err) {
+        console.warn('[Preload] settings:changed listener failed:', err.message);
+      }
+    }
+  });
+}
+
+function buildHydroAgentClientPayload() {
+  if (!hydroAgentState.appId) {
+    throw new Error('hydroAgent is not connected. Call hydroAgent.connect({ appId }) first.');
+  }
+  return {
+    appId: hydroAgentState.appId,
+    clientMeta: hydroAgentState.clientMeta || {}
+  };
+}
+
+function ensureHydroAgentEventBridge() {
+  if (hydroAgentState.unsubscribeIpc) return;
+  const listener = (_event, envelope) => {
+    const sessionId = envelope?.payload?.sessionId || null;
+    for (const callback of hydroAgentState.callbacks) {
+      try {
+        callback(envelope, sessionId);
+      } catch (err) {
+        console.warn('[Preload] hydroAgent event listener failed:', err.message);
+      }
+    }
+  };
+  ipcRenderer.on('hydro-agent:event', listener);
+  hydroAgentState.unsubscribeIpc = () => {
+    ipcRenderer.removeListener('hydro-agent:event', listener);
+    hydroAgentState.unsubscribeIpc = null;
+  };
+}
+
 const bootstrapState = (() => {
   try {
     const bootstrap = ipcRenderer.sendSync('theme:bootstrapSync') || {};
@@ -44,6 +108,155 @@ const applyBootstrapToDocument = () => {
 
 applyBootstrapToDocument();
 window.addEventListener('DOMContentLoaded', applyBootstrapToDocument, { once: true });
+ensureSettingsChangedBridge();
+
+const hydroAgent = {
+  connect: async ({ appId, clientMeta } = {}) => {
+    const normalizedAppId = typeof appId === 'string' ? appId.trim() : '';
+    if (!normalizedAppId) {
+      throw new Error('hydroAgent.connect requires a non-empty appId');
+    }
+    const normalizedMeta = clientMeta && typeof clientMeta === 'object' && !Array.isArray(clientMeta)
+      ? clientMeta
+      : {};
+    const result = await ipcRenderer.invoke('hydro-agent:connect', {
+      appId: normalizedAppId,
+      clientMeta: normalizedMeta
+    });
+    hydroAgentState.appId = normalizedAppId;
+    hydroAgentState.clientId = result?.clientId || null;
+    hydroAgentState.clientMeta = normalizedMeta;
+    ensureHydroAgentEventBridge();
+    return result;
+  },
+  disconnect: async () => {
+    await ipcRenderer.invoke('hydro-agent:disconnect');
+    hydroAgentState.appId = null;
+    hydroAgentState.clientId = null;
+    hydroAgentState.clientMeta = null;
+    hydroAgentState.callbacks.clear();
+    if (hydroAgentState.unsubscribeIpc) {
+      hydroAgentState.unsubscribeIpc();
+    }
+    return { success: true };
+  },
+  createSession: (options = {}) => ipcRenderer.invoke('hydro-agent:createSession', {
+    client: buildHydroAgentClientPayload(),
+    options
+  }),
+  listSessions: () => ipcRenderer.invoke('hydro-agent:listSessions', {
+    client: buildHydroAgentClientPayload()
+  }),
+  getSession: (sessionId) => ipcRenderer.invoke('hydro-agent:getSession', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
+  getMessages: (sessionId) => ipcRenderer.invoke('hydro-agent:getMessages', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
+  sendMessage: (sessionId, payload = {}) => ipcRenderer.invoke('hydro-agent:sendMessage', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    message: typeof payload === 'string' ? payload : payload.message,
+    options: {
+      model: typeof payload === 'string' ? undefined : (payload.model || payload.modelTier),
+      maxTurns: typeof payload === 'string' ? undefined : payload.maxTurns
+    }
+  }),
+  cancel: (sessionId) => ipcRenderer.invoke('hydro-agent:cancel', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
+  close: (sessionId) => ipcRenderer.invoke('hydro-agent:close', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
+  reopen: (sessionId) => ipcRenderer.invoke('hydro-agent:reopen', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
+  setModel: (sessionId, model) => ipcRenderer.invoke('hydro-agent:setModel', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    model
+  }),
+  respondInteraction: (sessionId, interactionId, response = {}) => ipcRenderer.invoke('hydro-agent:respondInteraction', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    interactionId,
+    response
+  }),
+  cancelInteraction: (sessionId, interactionId, reason) => ipcRenderer.invoke('hydro-agent:cancelInteraction', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    interactionId,
+    reason
+  }),
+  listDir: (sessionId, relativePath = '', showHidden = false) => ipcRenderer.invoke('hydro-agent:listDir', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    relativePath,
+    showHidden
+  }),
+  readFile: (sessionId, relativePath) => ipcRenderer.invoke('hydro-agent:readFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    relativePath
+  }),
+  saveFile: (sessionId, relativePath, content) => ipcRenderer.invoke('hydro-agent:saveFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    relativePath,
+    content
+  }),
+  searchFiles: (sessionId, keyword, showHidden = false) => ipcRenderer.invoke('hydro-agent:searchFiles', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    keyword,
+    showHidden
+  }),
+  onEvent: (sessionId, callback) => {
+    if (typeof callback !== 'function') {
+      throw new Error('hydroAgent.onEvent requires a callback');
+    }
+    ensureHydroAgentEventBridge();
+    const wrapped = (envelope, eventSessionId) => {
+      if (!sessionId || sessionId === eventSessionId) {
+        callback(envelope);
+      }
+    };
+    hydroAgentState.callbacks.add(wrapped);
+    return () => {
+      hydroAgentState.callbacks.delete(wrapped);
+    };
+  }
+};
+
+const hydroHostTheme = {
+  getSnapshot: () => ({ ...bootstrapState }),
+  onThemeChanged: (callback) => {
+    if (typeof callback !== 'function') {
+      throw new Error('hydroHostTheme.onThemeChanged requires a callback');
+    }
+    ensureSettingsChangedBridge();
+    const wrapped = (settings = {}) => {
+      callback({
+        theme: settings?.theme === 'dark' ? 'dark' : 'light',
+        colorScheme: typeof settings?.colorScheme === 'string' && settings.colorScheme.trim()
+          ? settings.colorScheme.trim()
+          : bootstrapState.colorScheme,
+        locale: typeof settings?.locale === 'string' && settings.locale.trim()
+          ? settings.locale.trim()
+          : bootstrapState.locale
+      });
+    };
+    settingsChangedListeners.add(wrapped);
+    return () => {
+      settingsChangedListeners.delete(wrapped);
+    };
+  }
+};
 
 // 暴露 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -851,5 +1064,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notebookUninstallTool: (toolId) => ipcRenderer.invoke('notebook:uninstallTool', toolId)
   })
 ;
+
+contextBridge.exposeInMainWorld('hydroAgent', hydroAgent);
+contextBridge.exposeInMainWorld('hydroHostTheme', hydroHostTheme);
 
 console.log('[Preload] ElectronAPI exposed to renderer successfully');

@@ -123,6 +123,7 @@ class AgentSessionManager extends EventEmitter {
     super()
     this.mainWindow = mainWindow
     this.configManager = configManager
+    this.eventRouter = null
 
     // Agent 会话映射: sessionId -> AgentSession
     this.sessions = new Map()
@@ -145,6 +146,10 @@ class AgentSessionManager extends EventEmitter {
    */
   setPeerManager(activeSessionManager) {
     this.peerManager = activeSessionManager
+  }
+
+  setEventRouter(eventRouter) {
+    this.eventRouter = eventRouter || null
   }
 
   /**
@@ -184,7 +189,44 @@ class AgentSessionManager extends EventEmitter {
    * 安全地发送消息到渲染进程（委托给共享工具函数）
    */
   _safeSend(channel, data) {
-    return safeSend(this.mainWindow, channel, data)
+    const sessionId = data?.sessionId
+    const ownerClientId = sessionId ? this.getSessionOwnerClientId(sessionId) : null
+    const shouldSendToHost = !ownerClientId || ownerClientId === 'host-ui' || channel === 'agent:allSessionsClosed'
+
+    if (this.eventRouter) {
+      this.eventRouter.publish(channel, data, {
+        ownerClientId
+      })
+    }
+
+    if (shouldSendToHost) {
+      return safeSend(this.mainWindow, channel, data)
+    }
+    return false
+  }
+
+  getSessionOwnerClientId(sessionId) {
+    if (!sessionId) return null
+
+    const activeSession = this.sessions.get(sessionId)
+    if (activeSession?.ownerClientId) {
+      return activeSession.ownerClientId
+    }
+
+    if (!this.sessionDatabase?.getAgentConversation) {
+      return null
+    }
+
+    try {
+      const row = this.sessionDatabase.getAgentConversation(sessionId)
+      return row?.owner_client_id || null
+    } catch (err) {
+      console.warn('[AgentSession] Failed to resolve session owner:', {
+        sessionId,
+        error: err.message
+      })
+      return null
+    }
   }
 
   _getPersistedSessionModelId(sessionId) {
