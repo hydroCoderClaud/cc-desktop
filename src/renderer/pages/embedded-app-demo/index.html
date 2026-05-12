@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedded App Demo - Hydro Desktop</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="status-panel">
+      <div class="panel-head">
+        <p class="eyebrow">Hydro Embedded Demo</p>
+        <h1>Agent Minimal</h1>
+      </div>
+
+      <div class="status-block">
+        <div class="status-row">
+          <span>Bridge</span>
+          <strong id="bridgeStatus">checking</strong>
+        </div>
+        <div class="status-row">
+          <span>Client</span>
+          <strong id="clientStatus">disconnected</strong>
+        </div>
+        <div class="status-row">
+          <span>Session</span>
+          <strong id="sessionStatus">none</strong>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="appIdInput">App ID</label>
+        <input id="appIdInput" type="text" value="embedded-agent-minimal">
+      </div>
+
+      <div class="control-group">
+        <label for="cwdInput">Session CWD</label>
+        <input id="cwdInput" type="text" placeholder="C:/workspace/develop/HydroCoder/cc-desktop">
+      </div>
+
+      <div class="button-row">
+        <button id="connectBtn" type="button">Connect</button>
+        <button id="newSessionBtn" type="button">New Session</button>
+      </div>
+
+      <div class="theme-box">
+        <div>Theme: <strong id="themeValue">unknown</strong></div>
+        <div>Scheme: <strong id="schemeValue">unknown</strong></div>
+        <div>Locale: <strong id="localeValue">unknown</strong></div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="composer">
+        <div class="composer-head">
+          <h2>Conversation</h2>
+          <p id="sessionMeta">No session</p>
+        </div>
+
+        <div id="messageList" class="message-list"></div>
+
+        <div class="input-wrap">
+          <textarea id="messageInput" rows="4" placeholder="输入一条消息，发送给当前 embedded session"></textarea>
+          <div class="button-row">
+            <button id="sendBtn" type="button">Send</button>
+            <button id="cancelBtn" type="button">Cancel</button>
+            <button id="closeBtn" type="button">Close</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="event-panel">
+        <div class="composer-head">
+          <h2>Events</h2>
+          <button id="clearEventsBtn" type="button" class="ghost-btn">Clear</button>
+        </div>
+        <pre id="eventLog" class="event-log"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

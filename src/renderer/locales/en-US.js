@@ -861,6 +861,22 @@ export default {
     projectTipSelected: 'Current project: {name}. Global and project scopes are both available.'
   },
 
+  embeddedApps: {
+    tab: 'Embedded Apps',
+    title: 'Embedded Apps',
+    subtitle: 'This area hosts embedded app entries that run inside Hydro Desktop and reuse Agent Platform.',
+    boundary: 'This is a temporary entry point for now, not the final unified portal. These apps are still embedded apps, not standalone programs.',
+    demoTitle: 'Agent Platform Demo',
+    demoTag: 'Demo',
+    demoDescription: 'Use this to validate window.hydroAgent, event streaming, interaction handling, and host theme bridging.',
+    featureConnect: 'Connect an embedded client and register appId',
+    featureSession: 'Create an isolated session and send messages',
+    featureStreaming: 'Inspect streaming events and interaction requests',
+    featureTheme: 'Sync host theme and locale snapshot',
+    openDemo: 'Open Demo',
+    openFailed: 'Failed to open demo'
+  },
+
   weixinNotify: {
     tab: 'Weixin Notify',
     title: 'Weixin Notify',
@@ -1877,6 +1893,7 @@ export default {
       profileManager: 'API Profile Manager - Hydro Desktop',
       globalSettings: 'Global Settings - Hydro Desktop',
       appearanceSettings: 'Appearance Settings - Hydro Desktop',
+      embeddedAppDemo: 'Embedded App Demo - Hydro Desktop',
       dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
       providerManager: 'Provider Manager - Hydro Desktop',
       sessionManager: 'Session Browser - Hydro Desktop',

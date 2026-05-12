@@ -864,6 +864,22 @@ export default {
     projectTipSelected: '当前目录：{name}，可同时管理全局与项目级能力。'
   },
 
+  embeddedApps: {
+    tab: '内嵌应用',
+    title: '内嵌应用',
+    subtitle: '这里集中放置运行在 Hydro Desktop 内部、复用 Agent Platform 的内嵌应用入口。',
+    boundary: '当前阶段这是临时入口，不是最终统一门户。这里的应用仍然是 embedded app，不是独立运行程序。',
+    demoTitle: 'Agent Platform Demo',
+    demoTag: 'Demo',
+    demoDescription: '用于验证 window.hydroAgent、事件流、交互响应和主题桥是否打通。',
+    featureConnect: '连接 embedded client 并注册 appId',
+    featureSession: '创建独立 session 并发送消息',
+    featureStreaming: '查看流式事件与交互请求',
+    featureTheme: '同步宿主主题与语言信息',
+    openDemo: '打开 Demo',
+    openFailed: '打开 Demo 失败'
+  },
+
   weixinNotify: {
     tab: '微信通知',
     title: '微信通知',
@@ -1883,6 +1899,7 @@ export default {
       profileManager: 'API 配置管理 - Hydro Desktop',
       globalSettings: '全局设置 - Hydro Desktop',
       appearanceSettings: '外观设置 - Hydro Desktop',
+      embeddedAppDemo: '内嵌应用 Demo - Hydro Desktop',
       dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
       providerManager: '服务商管理 - Hydro Desktop',
       sessionManager: '会话查询 - Hydro Desktop',

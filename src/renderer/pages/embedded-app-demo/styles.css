@@ -1,0 +1,248 @@
+:root {
+  --bg: #f4f1e8;
+  --panel: rgba(255, 252, 245, 0.9);
+  --panel-strong: #fffaf0;
+  --text: #1f2a24;
+  --muted: #6a736c;
+  --border: rgba(31, 42, 36, 0.14);
+  --accent: #1d6b57;
+  --accent-strong: #155140;
+  --event-bg: #f1ede2;
+  --message-user: #dceee8;
+  --message-agent: #fff7e5;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121815;
+  --panel: rgba(23, 31, 27, 0.92);
+  --panel-strong: #1a221e;
+  --text: #eef5f0;
+  --muted: #9cad9f;
+  --border: rgba(238, 245, 240, 0.12);
+  --accent: #5fc9aa;
+  --accent-strong: #74dbbe;
+  --event-bg: #101613;
+  --message-user: #193229;
+  --message-agent: #2a2417;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(29, 107, 87, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent),
+    var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", sans-serif;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: 100vh;
+  gap: 20px;
+  padding: 20px;
+}
+
+.status-panel,
+.composer,
+.event-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.status-panel {
+  padding: 20px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 20px;
+}
+
+.composer,
+.event-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.composer {
+  padding: 20px;
+}
+
+.event-panel {
+  padding: 20px;
+}
+
+.panel-head h1,
+.composer-head h2 {
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status-block,
+.theme-box {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.control-group {
+  margin-top: 16px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 12px 14px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-strong);
+}
+
+.ghost-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.composer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+#sessionMeta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.message-list {
+  flex: 1;
+  min-height: 260px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 2px 16px;
+}
+
+.message-item {
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.message-item.user {
+  background: var(--message-user);
+}
+
+.message-item.agent {
+  background: var(--message-agent);
+}
+
+.message-role {
+  margin-bottom: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.event-log {
+  margin: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--event-bg);
+  border: 1px solid var(--border);
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.input-wrap {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}

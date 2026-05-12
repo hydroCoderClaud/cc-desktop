@@ -398,6 +398,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
   openAppearanceSettings: () => ipcRenderer.invoke('window:openAppearanceSettings'),
   openSettingsWorkbench: (options) => ipcRenderer.invoke('window:openSettingsWorkbench', options),
+  openEmbeddedAppDemo: () => ipcRenderer.invoke('window:openEmbeddedAppDemo'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),

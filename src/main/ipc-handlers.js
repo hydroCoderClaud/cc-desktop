@@ -975,6 +975,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  ipcMain.handle('window:openEmbeddedAppDemo', async () => {
+    createSubWindow({
+      width: 1280,
+      height: 860,
+      title: translate('app.windows.embeddedAppDemo'),
+      page: 'embedded-app-demo'
+    });
+    return { success: true };
+  });
+
   return {
     agentSessionBroker,
     agentEventRouter
