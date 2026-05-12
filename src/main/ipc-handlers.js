@@ -39,6 +39,7 @@ const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-hand
 const weixinNotifyHandlersMod = safeRequire('./ipc-handlers/weixin-notify-handlers', 'weixin-notify-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
 const appI18nMod = safeRequire('./utils/app-i18n', 'app-i18n');
+const embeddedAppRegistryMod = safeRequire('./embedded-app-registry', 'embedded-app-registry');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
@@ -59,6 +60,8 @@ const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskH
 const setupWeixinNotifyHandlers = weixinNotifyHandlersMod?.setupWeixinNotifyHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
 const tMain = appI18nMod?.tMain;
+const listEmbeddedApps = embeddedAppRegistryMod?.listEmbeddedApps;
+const getEmbeddedAppByMenuKey = embeddedAppRegistryMod?.getEmbeddedAppByMenuKey;
 
 // Bind ipcMain to createIPCHandler for local use
 const registerHandler = (channelName, handler) => {
@@ -148,6 +151,24 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   // 窗口管理
   // ========================================
+
+  const openEmbeddedAppWindow = (menuKey) => {
+    const app = typeof getEmbeddedAppByMenuKey === 'function'
+      ? getEmbeddedAppByMenuKey(menuKey)
+      : null;
+
+    if (!app) {
+      return { success: false, error: `Unknown embedded app: ${menuKey}` };
+    }
+
+    createSubWindow({
+      width: app.window?.width || 1200,
+      height: app.window?.height || 800,
+      title: translate(app.titleKey || app.labelKey || app.id),
+      page: app.page
+    });
+    return { success: true };
+  };
 
   // 获取当前主题的背景色
   const getThemeBackgroundColor = () => {
@@ -975,14 +996,22 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  ipcMain.handle('embedded-app:list', async () => {
+    const apps = typeof listEmbeddedApps === 'function' ? listEmbeddedApps() : [];
+    return apps.map((app) => ({
+      id: app.id,
+      menuKey: app.menuKey,
+      icon: app.icon,
+      label: translate(app.labelKey || app.titleKey || app.id)
+    }));
+  });
+
+  ipcMain.handle('embedded-app:open', async (_event, menuKey) => {
+    return openEmbeddedAppWindow(menuKey);
+  });
+
   ipcMain.handle('window:openEmbeddedAppDemo', async () => {
-    createSubWindow({
-      width: 1280,
-      height: 860,
-      title: translate('app.windows.embeddedAppDemo'),
-      page: 'embedded-app-demo'
-    });
-    return { success: true };
+    return openEmbeddedAppWindow('embedded-app-demo');
   });
 
   return {

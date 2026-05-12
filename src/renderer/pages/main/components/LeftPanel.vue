@@ -104,6 +104,7 @@ import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
 import { useSessionPanel } from '@composables/useSessionPanel'
 import { useAppMode, AppMode } from '@composables/useAppMode'
+import { useEmbeddedApps } from '@composables/useEmbeddedApps'
 import Icon from '@components/icons/Icon.vue'
 import LeftPanelHeader from './LeftPanelHeader.vue'
 import LeftPanelDeveloperPane from './LeftPanelDeveloperPane.vue'
@@ -117,6 +118,7 @@ const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale } = useLocale()
 const { isDeveloperMode, isAgentMode, isNotebookMode, developerModeEnabled, switchMode, appMode } = useAppMode()
+const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
@@ -351,9 +353,11 @@ const settingsOptions = computed(() => [
     label: t('settingsMenu.embeddedApps'),
     key: 'embedded-apps',
     icon: renderMenuIcon('panelLeft'),
-    children: [
-      { label: t('embeddedApps.demoTitle'), key: 'embedded-app-demo' }
-    ]
+    children: embeddedApps.value.map((app) => ({
+      label: app.label,
+      key: app.menuKey,
+      icon: renderMenuIcon(app.icon || 'panelLeft')
+    }))
   },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   { type: 'divider', key: 'd1' },
@@ -454,6 +458,11 @@ const handleOpenProjectConfig = async () => {
 const handleSettingsSelect = async (key) => {
   if (!window.electronAPI) {
     console.error('Electron API not available')
+    return
+  }
+
+  if (embeddedApps.value.some((app) => app.menuKey === key)) {
+    await openEmbeddedApp(key)
     return
   }
 
@@ -804,6 +813,7 @@ let capUpdateCleanup = null
 
 onMounted(async () => {
   await loadConfig()
+  await loadEmbeddedApps()
 
   // 初始加载活动会话列表
   await loadActiveSessions()

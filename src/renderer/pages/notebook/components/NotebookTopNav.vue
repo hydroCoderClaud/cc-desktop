@@ -139,6 +139,7 @@ import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useAppMode } from '@composables/useAppMode'
+import { useEmbeddedApps } from '@composables/useEmbeddedApps'
 
 const props = defineProps({
   currentNotebook: { type: Object, default: null },
@@ -152,6 +153,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
 const { developerModeEnabled, switchMode } = useAppMode()
+const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
@@ -288,9 +290,11 @@ const settingsOptions = computed(() => [
     label: t('settingsMenu.embeddedApps'),
     key: 'embedded-apps',
     icon: renderMenuIcon('panelLeft'),
-    children: [
-      { label: t('embeddedApps.demoTitle'), key: 'embedded-app-demo' }
-    ]
+    children: embeddedApps.value.map((app) => ({
+      label: app.label,
+      key: app.menuKey,
+      icon: renderMenuIcon(app.icon || 'panelLeft')
+    }))
   },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   { type: 'divider', key: 'd1' },
@@ -311,6 +315,11 @@ const renderSettingsLabel = (option) => {
 
 const handleSettingsSelect = (key) => {
   if (!window.electronAPI) return
+
+  if (embeddedApps.value.some((app) => app.menuKey === key)) {
+    openEmbeddedApp(key)
+    return
+  }
 
   switch (key) {
     case 'api-config':
@@ -387,6 +396,7 @@ const handleGlobalClick = (e) => {
 
 onMounted(async () => {
   document.addEventListener('click', handleGlobalClick, true)
+  await loadEmbeddedApps()
 
   if (window.electronAPI?.getUpdateStatus) {
     try {
