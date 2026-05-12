@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ipcHandlersPath = path.resolve(__dirname, '../../src/main/ipc-handlers.js')
 const registryPath = path.resolve(__dirname, '../../src/main/embedded-app-registry.js')
 const preloadPath = path.resolve(__dirname, '../../src/preload/preload.js')
+const appI18nPath = path.resolve(__dirname, '../../src/main/utils/app-i18n.js')
 const embeddedAppsComposablePath = path.resolve(__dirname, '../../src/renderer/composables/useEmbeddedApps.js')
 const leftPanelPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/LeftPanel.vue')
 const notebookTopNavPath = path.resolve(__dirname, '../../src/renderer/pages/notebook/components/NotebookTopNav.vue')
@@ -27,6 +28,14 @@ describe('embedded app demo wiring', () => {
     expect(source).toContain("ipcMain.handle('embedded-app:open'")
     expect(source).toContain("ipcMain.handle('window:openEmbeddedAppDemo'")
     expect(source).toContain("openEmbeddedAppWindow('embedded-app-demo')")
+  })
+
+  it('defines main-process labels for registered embedded apps', () => {
+    const source = fs.readFileSync(appI18nPath, 'utf-8')
+
+    expect(source).toContain('embeddedApps:')
+    expect(source).toContain("demoTitle: 'Agent 平台 Demo'")
+    expect(source).toContain("demoTitle: 'Agent Platform Demo'")
   })
 
   it('exposes embedded app demo opener in preload', () => {

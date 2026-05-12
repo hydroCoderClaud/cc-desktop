@@ -19,6 +19,9 @@ const MAIN_I18N = {
         dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
         notebookWorkspace: 'Notebook - Hydro Desktop'
       },
+      embeddedApps: {
+        demoTitle: 'Agent 平台 Demo'
+      },
       tray: {
         tooltip: 'Hydro Desktop',
         show: '显示主窗口',
@@ -59,6 +62,9 @@ const MAIN_I18N = {
         updateManager: 'Application Update - Hydro Desktop',
         dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
         notebookWorkspace: 'Notebook - Hydro Desktop'
+      },
+      embeddedApps: {
+        demoTitle: 'Agent Platform Demo'
       },
       tray: {
         tooltip: 'Hydro Desktop',
