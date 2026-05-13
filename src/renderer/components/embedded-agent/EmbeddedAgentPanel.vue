@@ -140,9 +140,9 @@ const buildContextPrompt = (context) => {
   ].filter(Boolean).join('\n')
 }
 
-const findLatestRestorableSession = (sessions) => {
+const findLatestSession = (sessions) => {
   const candidates = Array.isArray(sessions)
-    ? sessions.filter(session => session?.id && session.status !== 'closed')
+    ? sessions.filter(session => session?.id)
     : []
 
   candidates.sort((a, b) => {
@@ -166,6 +166,18 @@ const createNewSession = async (overrides = {}) => {
     return null
   }
   return session
+}
+
+const reopenSessionIfNeeded = async (session) => {
+  if (!session?.id) return null
+  if (session.status !== 'closed') return session
+
+  const reopened = await agentApi.value.reopenAgentSession(session.id)
+  if (reopened?.error) {
+    error.value = reopened.error
+    return null
+  }
+  return reopened || session
 }
 
 const applySession = (session) => {
@@ -201,13 +213,17 @@ const initializeSession = async () => {
     const sessions = await window.hydroAgent.listSessions()
     const storedSessionId = readStoredSessionId()
     const storedSession = storedSessionId
-      ? sessions.find(session => session?.id === storedSessionId && session.status !== 'closed')
+      ? sessions.find(session => session?.id === storedSessionId)
       : null
-    const restorableSession = storedSession || findLatestRestorableSession(sessions)
+    const latestSession = findLatestSession(sessions)
+    const restorableSession = storedSession || latestSession
 
     if (restorableSession) {
-      applySession(restorableSession)
-      return
+      const activeSession = await reopenSessionIfNeeded(restorableSession)
+      if (activeSession) {
+        applySession(activeSession)
+        return
+      }
     }
 
     const session = await createNewSession()
