@@ -4,9 +4,9 @@
       <n-dialog-provider>
         <div class="embedded-agent-panel" :style="cssVars">
           <header class="embedded-agent-header">
-            <div>
-              <p class="embedded-agent-eyebrow">{{ appLabel }}</p>
-              <h3>{{ title }}</h3>
+            <div v-if="appLabel || title">
+              <p v-if="appLabel" class="embedded-agent-eyebrow">{{ appLabel }}</p>
+              <h3 v-if="title">{{ title }}</h3>
             </div>
             <div class="embedded-agent-actions">
               <div class="embedded-profile-switcher" ref="profileSwitcherRef">
@@ -542,7 +542,7 @@ onBeforeUnmount(() => {
 .embedded-agent-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .embedded-profile-switcher {
@@ -554,13 +554,22 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border-color);
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: var(--bg-color-secondary);
-  color: var(--text-color);
+  border-radius: 10px;
+  height: 34px;
+  padding: 0 11px;
+  background: var(--panel-bg, var(--bg-color-secondary));
+  color: var(--text-color-secondary, var(--text-color));
   cursor: pointer;
-  min-width: 116px;
-  max-width: 180px;
+  min-width: 110px;
+  max-width: 168px;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.embedded-profile-btn:hover:not(:disabled) {
+  border-color: var(--selected-border, var(--border-color));
+  background: var(--hover-bg);
+  color: var(--text-color);
+  box-shadow: var(--primary-shadow, none);
 }
 
 .embedded-profile-btn:disabled {
@@ -576,14 +585,15 @@ onBeforeUnmount(() => {
 
 .embedded-profile-caret {
   color: var(--text-color-muted);
+  font-size: 11px;
 }
 
 .embedded-profile-dropdown {
   min-width: 180px;
-  background: var(--bg-color-secondary);
+  background: var(--panel-bg, var(--bg-color-secondary));
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--panel-shadow-soft, 0 12px 32px rgba(15, 23, 42, 0.16));
   padding: 6px;
 }
 
@@ -629,12 +639,19 @@ onBeforeUnmount(() => {
 
 .context-send-btn {
   border: 1px solid var(--border-color);
-  border-radius: 999px;
-  padding: 8px 11px;
-  background: var(--primary-ghost);
+  border-radius: 10px;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--panel-bg, var(--bg-color-secondary));
   color: var(--primary-color);
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.context-send-btn:hover:not(:disabled) {
+  border-color: var(--selected-border, var(--border-color));
+  background: var(--primary-ghost);
 }
 
 .context-send-btn:disabled {
@@ -668,5 +685,39 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 18px;
+}
+
+.embedded-agent-chat :deep(.chat-input-area) {
+  padding: 8px 12px 12px;
+}
+
+.embedded-agent-chat :deep(.input-toolbar) {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.embedded-agent-chat :deep(.toolbar-left) {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.embedded-agent-chat :deep(.toolbar-right) {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.embedded-agent-chat :deep(.model-selector) {
+  flex: 1 1 180px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.embedded-agent-chat :deep(.model-label),
+.embedded-agent-chat :deep(.token-count) {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

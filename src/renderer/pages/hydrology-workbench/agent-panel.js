@@ -15,8 +15,8 @@ export function mountHydrologyAgentPanel({ target, getContext, cwd = '' }) {
 
   const app = createApp(EmbeddedAgentPanel, {
     appId: 'hydrology-workbench',
-    appLabel: 'Hydrology Workbench',
-    title: '水文站 Agent 助手',
+    appLabel: '',
+    title: '',
     cwd,
     contextProvider: getContext
   })
