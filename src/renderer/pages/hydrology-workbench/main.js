@@ -64,6 +64,7 @@ let realtimeState = {
   trendPreset: '24h',
   trendZoomStart: null,
   trendZoomEnd: null,
+  trendDragState: null,
   trendSeriesVisibility: {
     manual: true,
     telemetry: true,
@@ -101,6 +102,8 @@ const deleteConfirmOkBtn = document.getElementById('deleteConfirmOkBtn')
 const hydrologyAgentPanelEl = document.getElementById('hydrologyAgentPanel')
 let agentPanel = null
 let pendingDeleteStationId = null
+let trendViewportBindingsController = null
+let trendViewportRenderFrame = null
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -604,6 +607,172 @@ function bindTrendChartHover() {
   hideHover()
 }
 
+function bindTrendViewportInteractions(slots) {
+  trendViewportBindingsController?.abort()
+  trendViewportBindingsController = new AbortController()
+  const { signal } = trendViewportBindingsController
+  if (trendViewportRenderFrame != null) {
+    window.cancelAnimationFrame(trendViewportRenderFrame)
+    trendViewportRenderFrame = null
+  }
+  const shell = document.getElementById('trendChartShell')
+  const svg = shell?.querySelector('.trend-chart-svg')
+  const overview = document.getElementById('trendOverview')
+  const overviewSvg = overview?.querySelector('.trend-overview-svg')
+  const sortedSlots = sortRealtimeSlots(slots)
+  const bounds = getVisibleTrendRange(sortedSlots)
+
+  if (!shell || !svg || !overviewSvg || bounds.start == null || bounds.end == null || bounds.allStart == null || bounds.allEnd == null) {
+    return
+  }
+
+  const startDrag = (payload) => {
+    realtimeState.trendDragState = payload
+  }
+
+  const stopDrag = () => {
+    realtimeState.trendDragState = null
+  }
+
+  const requestTrendRender = () => {
+    if (trendViewportRenderFrame != null) return
+    trendViewportRenderFrame = window.requestAnimationFrame(() => {
+      trendViewportRenderFrame = null
+      if (!signal.aborted) {
+        renderWorkbench()
+      }
+    })
+  }
+
+  const blockSelection = (event) => {
+    event.preventDefault()
+  }
+
+  shell.addEventListener('mousedown', blockSelection, { signal })
+  shell.addEventListener('selectstart', blockSelection, { signal })
+  shell.addEventListener('dragstart', blockSelection, { signal })
+  svg.addEventListener('dragstart', blockSelection, { signal })
+  overviewSvg.addEventListener('dragstart', blockSelection, { signal })
+  overviewSvg.addEventListener('selectstart', blockSelection, { signal })
+
+  shell.addEventListener('wheel', (event) => {
+    event.preventDefault()
+    const rect = shell.getBoundingClientRect()
+    const ratio = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const currentRange = getVisibleTrendRange(sortedSlots)
+    const currentSpan = currentRange.end - currentRange.start
+    const center = currentRange.start + currentSpan * ratio
+    const factor = event.deltaY < 0 ? 0.82 : 1.22
+    setTrendViewport(center, currentSpan * factor, currentRange)
+    requestTrendRender()
+  }, { passive: false, signal })
+
+  svg.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const currentRange = getVisibleTrendRange(sortedSlots)
+    startDrag({
+      type: 'pan',
+      originX: event.clientX,
+      start: currentRange.start,
+      end: currentRange.end,
+      bounds: currentRange,
+      shellWidth: shell.getBoundingClientRect().width
+    })
+    svg.setPointerCapture?.(event.pointerId)
+  }, { signal })
+
+  overviewSvg.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return
+    const target = event.target
+    if (!target?.dataset?.trendOverviewHandle && target?.dataset?.trendOverviewWindow !== 'true') {
+      return
+    }
+    const currentRange = getVisibleTrendRange(sortedSlots)
+    const svgRect = overviewSvg.getBoundingClientRect()
+    const ratio = clamp((event.clientX - svgRect.left) / Math.max(svgRect.width, 1), 0, 1)
+    const totalSpan = Math.max(currentRange.allEnd - currentRange.allStart, 1)
+    const windowStartRatio = (currentRange.start - currentRange.allStart) / totalSpan
+    const windowEndRatio = (currentRange.end - currentRange.allStart) / totalSpan
+    const windowSpanRatio = Math.max(windowEndRatio - windowStartRatio, 0)
+    const edgeThresholdRatio = 0.018
+    let handle = target?.dataset?.trendOverviewHandle || null
+
+    if (!handle && target?.dataset?.trendOverviewWindow === 'true') {
+      const distanceToLeft = Math.abs(ratio - windowStartRatio)
+      const distanceToRight = Math.abs(ratio - windowEndRatio)
+      if (distanceToLeft <= edgeThresholdRatio || distanceToRight <= edgeThresholdRatio) {
+        handle = distanceToLeft <= distanceToRight ? 'left' : 'right'
+      }
+    }
+
+    const mode = handle ? `resize-${handle}` : 'move-window'
+    startDrag({
+      type: mode,
+      originX: event.clientX,
+      ratio,
+      start: currentRange.start,
+      end: currentRange.end,
+      bounds: currentRange,
+      svgRect,
+      pointerOffsetRatio: ratio - windowStartRatio,
+      windowSpanRatio
+    })
+    overviewSvg.setPointerCapture?.(event.pointerId)
+  }, { signal })
+
+  const onPointerMove = (event) => {
+    const dragState = realtimeState.trendDragState
+    if (!dragState) return
+
+    if (dragState.type === 'pan') {
+      const deltaRatio = (event.clientX - dragState.originX) / Math.max(dragState.shellWidth, 1)
+      const span = dragState.end - dragState.start
+      const shift = span * deltaRatio
+      const center = (dragState.start + dragState.end) / 2 - shift
+      setTrendViewport(center, span, dragState.bounds)
+      requestTrendRender()
+      return
+    }
+
+    const ratio = clamp((event.clientX - dragState.svgRect.left) / Math.max(dragState.svgRect.width, 1), 0, 1)
+    const totalSpan = dragState.bounds.allEnd - dragState.bounds.allStart
+    const currentSpan = dragState.end - dragState.start
+
+    if (dragState.type === 'move-window') {
+      const maxStartRatio = Math.max(0, 1 - dragState.windowSpanRatio)
+      const nextStartRatio = clamp(ratio - dragState.pointerOffsetRatio, 0, maxStartRatio)
+      const center = dragState.bounds.allStart + totalSpan * (nextStartRatio + dragState.windowSpanRatio / 2)
+      setTrendViewport(center, currentSpan, dragState.bounds)
+      requestTrendRender()
+      return
+    }
+
+    if (dragState.type === 'resize-left') {
+      const nextStart = dragState.bounds.allStart + totalSpan * ratio
+      const safeStart = Math.min(nextStart, dragState.end - 2 * 60 * 60 * 1000)
+      realtimeState.trendPreset = 'custom'
+      realtimeState.trendZoomStart = clamp(safeStart, dragState.bounds.allStart, dragState.bounds.allEnd)
+      realtimeState.trendZoomEnd = dragState.end
+      requestTrendRender()
+      return
+    }
+
+    if (dragState.type === 'resize-right') {
+      const nextEnd = dragState.bounds.allStart + totalSpan * ratio
+      const safeEnd = Math.max(nextEnd, dragState.start + 2 * 60 * 60 * 1000)
+      realtimeState.trendPreset = 'custom'
+      realtimeState.trendZoomStart = dragState.start
+      realtimeState.trendZoomEnd = clamp(safeEnd, dragState.bounds.allStart, dragState.bounds.allEnd)
+      requestTrendRender()
+    }
+  }
+
+  window.addEventListener('pointermove', onPointerMove, { signal })
+  window.addEventListener('pointerup', stopDrag, { signal })
+  window.addEventListener('pointercancel', stopDrag, { signal })
+}
+
 function getTrendVisibleSeries() {
   return [
     { key: 'manualValue', sourceType: 'manual', name: '人工值' },
@@ -616,6 +785,7 @@ function getTrendVisibleSeries() {
 function resetTrendViewport() {
   realtimeState.trendZoomStart = null
   realtimeState.trendZoomEnd = null
+  realtimeState.trendDragState = null
 }
 
 function setTrendPreset(preset) {
@@ -641,6 +811,84 @@ function zoomTrendView(direction, slots) {
   realtimeState.trendPreset = 'custom'
   realtimeState.trendZoomStart = clamp(center - nextSpan / 2, range.allStart, range.allEnd)
   realtimeState.trendZoomEnd = clamp(center + nextSpan / 2, range.allStart, range.allEnd)
+}
+
+function setTrendViewport(center, span, bounds) {
+  const clampedSpan = clamp(span, 2 * 60 * 60 * 1000, Math.max(bounds.allEnd - bounds.allStart, 2 * 60 * 60 * 1000))
+  let nextStart = center - clampedSpan / 2
+  let nextEnd = center + clampedSpan / 2
+
+  if (nextStart < bounds.allStart) {
+    nextEnd += bounds.allStart - nextStart
+    nextStart = bounds.allStart
+  }
+  if (nextEnd > bounds.allEnd) {
+    nextStart -= nextEnd - bounds.allEnd
+    nextEnd = bounds.allEnd
+  }
+
+  realtimeState.trendPreset = 'custom'
+  realtimeState.trendZoomStart = clamp(nextStart, bounds.allStart, bounds.allEnd)
+  realtimeState.trendZoomEnd = clamp(nextEnd, bounds.allStart, bounds.allEnd)
+}
+
+function buildTrendOverviewSvg(slots) {
+  const sortedSlots = sortRealtimeSlots(slots)
+  const timestamps = sortedSlots
+    .map((slot) => new Date(String(slot.slotTime).replace(' ', 'T')).getTime())
+    .filter((item) => !Number.isNaN(item))
+
+  if (timestamps.length === 0) return ''
+
+  const allStart = Math.min(...timestamps)
+  const allEnd = Math.max(...timestamps)
+  const chosenPoints = sortedSlots
+    .filter((slot) => typeof slot.chosenValue === 'number')
+    .map((slot) => ({
+      time: new Date(String(slot.slotTime).replace(' ', 'T')).getTime(),
+      value: Number(slot.chosenValue)
+    }))
+    .filter((item) => !Number.isNaN(item.time) && !Number.isNaN(item.value))
+
+  if (chosenPoints.length === 0) return ''
+
+  const width = 960
+  const height = 28
+  const paddingX = 16
+  const paddingY = 8
+  const innerWidth = width - paddingX * 2
+  const getX = (value) => paddingX + ((value - allStart) / Math.max(allEnd - allStart, 1)) * innerWidth
+  const visibleRange = getVisibleTrendRange(sortedSlots)
+  const visibleStart = visibleRange.start ?? allStart
+  const visibleEnd = visibleRange.end ?? allEnd
+  const viewportX = getX(visibleStart)
+  const viewportWidth = Math.max(18, getX(visibleEnd) - viewportX)
+  const handleWidth = 8
+  const handleHitWidth = 24
+  const handleY = paddingY + 4
+  const handleHeight = 12
+  const trackHeight = 4
+  const trackY = handleY + handleHeight / 2 - trackHeight / 2
+  const baselineY = handleY + handleHeight / 2
+  const leftHandleX = viewportX
+  const rightHandleX = viewportX + viewportWidth - handleWidth
+  const leftHitX = Math.max(paddingX, leftHandleX - (handleHitWidth - handleWidth) / 2)
+  const rightHitX = Math.min(
+    width - paddingX - handleHitWidth,
+    rightHandleX - (handleHitWidth - handleWidth) / 2
+  )
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" class="trend-overview-svg" role="img" aria-label="时间导航条">
+      <rect x="${paddingX}" y="${trackY}" width="${innerWidth}" height="${trackHeight}" rx="2" fill="rgba(148, 163, 184, 0.10)" />
+      <line x1="${paddingX}" y1="${baselineY}" x2="${width - paddingX}" y2="${baselineY}" stroke="rgba(59, 130, 246, 0.65)" stroke-width="1.5" stroke-linecap="round" />
+      <rect x="${leftHitX.toFixed(2)}" y="${Math.max(0, handleY - 2)}" width="${handleHitWidth}" height="${handleHeight + 4}" rx="8" class="trend-overview-hitbox" data-trend-overview-handle="left" />
+      <rect x="${viewportX.toFixed(2)}" y="${handleY}" width="${viewportWidth.toFixed(2)}" height="${handleHeight}" rx="6" class="trend-overview-window" data-trend-overview-window="true" />
+      <rect x="${rightHitX.toFixed(2)}" y="${Math.max(0, handleY - 2)}" width="${handleHitWidth}" height="${handleHeight + 4}" rx="8" class="trend-overview-hitbox" data-trend-overview-handle="right" />
+      <rect x="${leftHandleX.toFixed(2)}" y="${handleY}" width="${handleWidth}" height="${handleHeight}" rx="4" class="trend-overview-handle left" data-trend-overview-handle="left" />
+      <rect x="${rightHandleX.toFixed(2)}" y="${handleY}" width="${handleWidth}" height="${handleHeight}" rx="4" class="trend-overview-handle right" data-trend-overview-handle="right" />
+    </svg>
+  `
 }
 
 function buildTrendChartSvg(slots) {
@@ -886,6 +1134,9 @@ function renderTrendPanel(slots) {
       <div class="trend-chart-shell" id="trendChartShell">
         ${sortedSlots.length > 0 ? buildTrendChartSvg(sortedSlots) : '<div class="empty-state compact">当前筛选条件下暂无实时数据。</div>'}
         <div class="trend-hover-card" data-trend-hover-card hidden></div>
+      </div>
+      <div class="trend-overview-shell" id="trendOverview">
+        ${sortedSlots.length > 0 ? buildTrendOverviewSvg(sortedSlots) : ''}
       </div>
       <div class="trend-legend">
         ${[
@@ -1150,6 +1401,7 @@ function renderRealtimeView(station) {
   })
 
   bindTrendChartHover()
+  bindTrendViewportInteractions(slots)
 
   document.getElementById('closeRealtimeDetailBtn')?.addEventListener('click', () => {
     realtimeState.selectedSlotId = null

@@ -605,12 +605,16 @@ p {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.9)),
     rgba(148, 163, 184, 0.03);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .trend-chart-svg {
   display: block;
   width: 100%;
   height: 340px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .trend-grid-line.minor {
@@ -744,6 +748,46 @@ p {
 .trend-hover-row strong {
   color: var(--text-color);
   font-size: 12px;
+}
+
+.trend-overview-shell {
+  margin-top: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.82);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.trend-overview-svg {
+  display: block;
+  width: 100%;
+  height: 28px;
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.trend-overview-window {
+  fill: rgba(37, 99, 235, 0.12);
+  stroke: rgba(37, 99, 235, 0.42);
+  stroke-width: 1.2;
+}
+
+.trend-overview-hitbox {
+  fill: transparent;
+  cursor: ew-resize;
+}
+
+.trend-overview-handle {
+  fill: rgba(37, 99, 235, 0.78);
+  cursor: ew-resize;
+}
+
+.trend-overview-handle.left,
+.trend-overview-handle.right {
+  opacity: 0.9;
 }
 
 .trend-legend-item i {

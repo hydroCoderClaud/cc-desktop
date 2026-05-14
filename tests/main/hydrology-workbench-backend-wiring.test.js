@@ -5,10 +5,12 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const hydrologyMainPath = path.resolve(__dirname, '../../src/renderer/pages/hydrology-workbench/main.js')
+const hydrologyStylesPath = path.resolve(__dirname, '../../src/renderer/pages/hydrology-workbench/styles.css')
 
 describe('hydrology workbench backend wiring', () => {
   it('loads and saves station data through the backend API bridge', () => {
     const source = fs.readFileSync(hydrologyMainPath, 'utf-8')
+    const styles = fs.readFileSync(hydrologyStylesPath, 'utf-8')
 
     expect(source).toContain('window.electronAPI?.listHydrologyStations')
     expect(source).toContain('await window.electronAPI.listHydrologyStations()')
@@ -44,10 +46,19 @@ describe('hydrology workbench backend wiring', () => {
     expect(source).toContain("function getTrendAxisLabelStrategy(range, innerWidth)")
     expect(source).toContain("function buildTrendAxisModel(range, innerWidth)")
     expect(source).toContain("function bindTrendChartHover()")
+    expect(source).toContain("function bindTrendViewportInteractions(slots)")
+    expect(source).toContain("function buildTrendOverviewSvg(slots)")
+    expect(source).toContain("function setTrendViewport(center, span, bounds)")
+    expect(source).toContain("trendViewportBindingsController?.abort()")
+    expect(source).toContain("requestTrendRender()")
+    expect(source).toContain("blockSelection")
     expect(source).toContain("function zoomTrendView(direction, slots)")
     expect(source).toContain("const axisModel = buildTrendAxisModel(range, innerWidth)")
     expect(source).toContain("data-trend-hover-crosshair")
     expect(source).toContain("data-trend-hover-card")
+    expect(source).toContain("data-trend-overview-window")
+    expect(styles).toContain("user-select: none")
+    expect(source).toContain("const height = 28")
     expect(source).not.toContain('window.confirm(')
     expect(source).toContain('function openDeleteConfirm(station)')
     expect(source).toContain('function showCreateStationForm()')
