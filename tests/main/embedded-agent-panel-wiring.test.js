@@ -31,6 +31,8 @@ describe('embedded agent panel wiring', () => {
     expect(source).toContain('window.electronAPI.listAPIProfiles')
     expect(source).toContain('switchAgentApiProfile')
     expect(source).toContain('persistAppPreferences')
+    expect(source).toContain(':api-profile-id="currentApiProfileId"')
+    expect(source).toContain(':model-id="currentModelId"')
     expect(source).toContain('embedded-profile-switcher')
     expect(source).toContain(':agent-api="agentApi"')
     expect(source).toContain('@model-selected="handleModelSelected"')

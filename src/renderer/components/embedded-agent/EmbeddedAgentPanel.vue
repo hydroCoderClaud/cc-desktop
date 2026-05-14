@@ -59,8 +59,8 @@
             class="embedded-agent-chat"
             :session-id="sessionId"
             :session-cwd="resolvedCwd"
-            :api-profile-id="apiProfileId"
-            :model-id="modelId"
+            :api-profile-id="currentApiProfileId"
+            :model-id="currentModelId"
             :agent-api="agentApi"
             @ready="handleReady"
             @model-selected="handleModelSelected"
@@ -74,7 +74,6 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useNaiveLocale } from '@composables/useNaiveLocale'
 import AgentChatTab from '@/pages/main/components/AgentChatTab.vue'
@@ -113,7 +112,6 @@ const props = defineProps({
 
 const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
 const { naiveLocale, naiveDateLocale, initLocale } = useNaiveLocale()
-const message = useMessage()
 const chatRef = ref(null)
 const sessionId = ref('')
 const resolvedCwd = ref(props.cwd || '')
@@ -374,10 +372,8 @@ const handleSwitchProfile = async (profile) => {
       apiProfileId: currentApiProfileId.value,
       modelId: currentModelId.value
     })
-    message.success(`已切换到 ${profile.name}`)
   } catch (err) {
     error.value = err.message || String(err)
-    message.error(`切换 API 配置失败：${error.value}`)
   } finally {
     switchingProfile.value = false
   }
