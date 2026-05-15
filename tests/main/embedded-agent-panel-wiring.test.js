@@ -86,6 +86,7 @@ describe('embedded agent panel wiring', () => {
     expect(hydrologyAgentPanelSource).toContain("appId: 'hydrology-workbench'")
     expect(hydrologyAgentPanelSource).toContain("appLabel: ''")
     expect(hydrologyAgentPanelSource).toContain("title: ''")
-    expect(mainSource).toContain('agentPanel?.notifyContextChanged()')
+    expect(mainSource).toContain('function notifyAgentContextChanged(force = false)')
+    expect(mainSource).toContain('notifyAgentContextChanged(true)')
   })
 })

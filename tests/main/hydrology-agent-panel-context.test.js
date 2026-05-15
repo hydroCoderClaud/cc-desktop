@@ -17,4 +17,14 @@ describe('hydrology agent panel context refresh', () => {
     expect(source).toContain('return false')
     expect(source).toContain('return true')
   })
+
+  it('does not bind agent context refresh to every workbench render', () => {
+    const mainSource = fs.readFileSync(path.resolve(__dirname, '../../src/renderer/pages/hydrology-workbench/main.js'), 'utf-8')
+
+    expect(mainSource).toContain('function notifyAgentContextChanged(force = false)')
+    expect(mainSource).toContain('notifyAgentContextChanged(true)')
+    expect(mainSource).toContain('notifyAgentContextChanged()')
+    expect(mainSource).not.toContain('agentPanel?.notifyContextChanged()')
+    expect(mainSource).not.toContain('function renderWorkbench() {\n  const station = getSelectedStation()\n  renderStationTree()\n  renderFunctionTabs()\n  renderHeader(station)\n  renderTabContent(station)\n  agentPanel?.notifyContextChanged()')
+  })
 })

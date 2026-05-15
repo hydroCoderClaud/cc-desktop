@@ -157,6 +157,10 @@ let pendingDeleteStationId = null
 let trendViewportBindingsController = null
 let trendViewportRenderFrame = null
 
+function notifyAgentContextChanged(force = false) {
+  agentPanel?.notifyContextChanged(force)
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -261,6 +265,7 @@ function renderReviewTaskView(station) {
       reviewState.selectedTaskId = null
       await loadReviewTasks()
       renderWorkbench()
+      notifyAgentContextChanged()
     })
   })
 
@@ -271,12 +276,14 @@ function renderReviewTaskView(station) {
     reviewState.selectedTaskId = null
     await loadReviewTasks()
     renderWorkbench()
+    notifyAgentContextChanged()
   })
 
   tabContentEl.querySelectorAll('[data-review-task-id]').forEach((row) => {
     row.addEventListener('click', () => {
       reviewState.selectedTaskId = row.dataset.reviewTaskId
       renderWorkbench()
+      notifyAgentContextChanged()
     })
   })
 
@@ -292,6 +299,7 @@ function renderReviewTaskView(station) {
     })
     await loadReviewTasks()
     renderWorkbench()
+    notifyAgentContextChanged()
   })
 }
 
@@ -641,7 +649,6 @@ function renderWorkbench() {
   renderFunctionTabs()
   renderHeader(station)
   renderTabContent(station)
-  agentPanel?.notifyContextChanged()
 }
 
 async function selectStation(stationId) {
@@ -649,6 +656,7 @@ async function selectStation(stationId) {
 
   if (!stationId) {
     renderWorkbench()
+    notifyAgentContextChanged()
     return
   }
 
@@ -677,6 +685,7 @@ async function selectStation(stationId) {
   }
 
   renderWorkbench()
+  notifyAgentContextChanged()
 }
 
 async function loadStations() {
@@ -794,6 +803,7 @@ async function seedRealtimeData() {
     await window.electronAPI.seedHydrologyRealtimeData(station.id)
     await loadRealtimeSlots()
     renderWorkbench()
+    notifyAgentContextChanged()
   } catch (err) {
     realtimeState.error = err?.message || String(err)
     renderWorkbench()
@@ -820,6 +830,7 @@ async function submitRealtimeCorrection(form) {
     })
     await loadRealtimeSlots()
     renderWorkbench()
+    notifyAgentContextChanged()
   } catch (err) {
     realtimeState.correctionError = err?.message || String(err)
     renderWorkbench()
@@ -831,6 +842,7 @@ function showCreateStationForm() {
   activeFunctionKey = 'basic'
   renderWorkbench()
   renderStationForm(createEmptyStation())
+  notifyAgentContextChanged()
 }
 
 function collectStationFromForm() {
@@ -910,6 +922,7 @@ stationForm.addEventListener('submit', async (event) => {
     selectedStationId = saved?.id || nextStation.id || stations[0]?.id || null
     activeFunctionKey = 'basic'
     renderWorkbench()
+    notifyAgentContextChanged()
   } catch (err) {
     stationFormError.textContent = err?.message || String(err)
   }
@@ -963,6 +976,7 @@ deleteConfirmOkBtn.addEventListener('click', async () => {
     await loadStations()
     activeFunctionKey = 'basic'
     renderWorkbench()
+    notifyAgentContextChanged()
 
     if (stations.length === 0) {
       showCreateStationForm()
@@ -989,6 +1003,7 @@ async function bootstrapWorkbench() {
     await loadReviewTasks()
   }
   renderWorkbench()
+  notifyAgentContextChanged(true)
   if (stations.length === 0) {
     showCreateStationForm()
   }
