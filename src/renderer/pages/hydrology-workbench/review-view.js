@@ -66,7 +66,7 @@ export function renderReviewView(station, reviewState, deps = {}) {
           <span><strong>检查结论</strong> ${lastSlotCheck.hasIssues ? `命中 ${lastSlotCheck.hitCount} 条规则` : '规则检查通过'}</span>
           <div class="realtime-filter-actions">
             <button type="button" class="secondary-action" id="reviewClearSlotFocusBtn">查看全部任务</button>
-            <button type="button" class="primary-action" id="reviewRunCheckBtn">执行质量检查</button>
+            <button type="button" class="primary-action" id="reviewRunCheckBtn">检查当前范围</button>
           </div>
         </section>
       ` : `
@@ -79,7 +79,7 @@ export function renderReviewView(station, reviewState, deps = {}) {
             </select>
           </label>
           <div class="realtime-filter-actions">
-            <button type="button" class="primary-action" id="reviewRunCheckBtn">执行质量检查</button>
+            <button type="button" class="primary-action" id="reviewRunCheckBtn">检查当前范围</button>
             <button type="submit" class="secondary-action">刷新任务</button>
           </div>
         </form>
