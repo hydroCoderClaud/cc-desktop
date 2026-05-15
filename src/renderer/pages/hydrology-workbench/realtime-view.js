@@ -157,6 +157,9 @@ export function renderSlotCheckResultModalView(result, deps = {}) {
                   <th>类别</th>
                   <th>级别</th>
                   <th>判定结果</th>
+                  <th>证据摘要</th>
+                  <th>建议动作</th>
+                  <th>计算指标</th>
                 </tr>
               </thead>
               <tbody>
@@ -167,10 +170,13 @@ export function renderSlotCheckResultModalView(result, deps = {}) {
                     <td>${escapeHtml(describeRuleCategory(item.ruleCategory))}</td>
                     <td>${escapeHtml(getEvaluationSeverityLabel(item))}</td>
                     <td>${escapeHtml(item.decisionMessage || '--')}</td>
+                    <td>${escapeHtml(item.evidenceSummary || '--')}</td>
+                    <td>${escapeHtml(item.suggestedAction || (item.status === 'passed' ? '无需处理' : '--'))}</td>
+                    <td>${escapeHtml(JSON.stringify(item.metrics || {}))}</td>
                   </tr>
                 `).join('') : `
                   <tr>
-                    <td colspan="5">当前时槽未返回规则执行结果。</td>
+                    <td colspan="8">当前时槽未返回规则执行结果。</td>
                   </tr>
                 `}
               </tbody>
@@ -178,18 +184,6 @@ export function renderSlotCheckResultModalView(result, deps = {}) {
           </div>
         </section>
         ${hasIssues ? '' : '<div class="empty-state compact">本时槽未发现需要进入审核任务池的问题。</div>'}
-        <section class="slot-check-detail-surface data-surface compact-surface">
-          ${evaluations.length > 0 ? evaluations.map((item) => `
-            <div class="data-row">
-              <strong>${escapeHtml(item.ruleCode || '--')} · ${escapeHtml(describeEvaluationStatus(item.status))}</strong>
-              <span>${escapeHtml(item.evidenceSummary || '--')}</span>
-              <span>${escapeHtml(item.suggestedAction || (item.status === 'passed' ? '无需处理' : '--'))}</span>
-              <em>${escapeHtml(JSON.stringify(item.metrics || {}))}</em>
-            </div>
-          `).join('') : `
-            <div class="empty-state compact">当前时槽未返回算法/规则执行明细。</div>
-          `}
-        </section>
         <div class="form-actions">
           ${hasIssues ? '<button type="button" class="secondary-action" id="openReviewTaskBoardBtn">查看审核任务</button>' : ''}
           <button type="button" class="primary-action" id="closeSlotCheckResultPrimaryBtn">完成</button>
