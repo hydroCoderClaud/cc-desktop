@@ -803,6 +803,35 @@ p {
   background: var(--panel-bg-subtle, var(--panel-bg));
 }
 
+.review-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.review-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-task-panel,
+.review-detail-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--panel-bg-subtle, var(--panel-bg));
+}
+
+.review-detail-surface .data-row {
+  grid-template-columns: 148px minmax(0, 1fr);
+}
+
+.review-resolved-card {
+  margin-top: 4px;
+}
+
 .realtime-table-panel {
   padding: 14px;
 }
@@ -1062,6 +1091,11 @@ p {
   .data-row,
   .form-grid,
   .realtime-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .review-summary-grid,
+  .review-detail-surface .data-row {
     grid-template-columns: 1fr;
   }
 

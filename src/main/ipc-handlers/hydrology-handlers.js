@@ -1,7 +1,7 @@
 const { createIPCHandler } = require('../utils/ipc-utils')
 
 function setupHydrologyHandlers(ipcMain, services = {}) {
-  const { stationService, realtimeService } = services
+  const { stationService, realtimeService, realtimeDemoSeeder, reviewTaskService } = services
   if (!stationService) {
     console.warn('[IPC] StationService not available, skipping hydrology handlers')
     return
@@ -24,14 +24,14 @@ function setupHydrologyHandlers(ipcMain, services = {}) {
   })
 
   createIPCHandler(ipcMain, 'hydrology:realtime:seed', async (stationId) => {
-    if (!realtimeService) {
-      throw new Error('RealtimeService not available')
+    if (!realtimeDemoSeeder) {
+      throw new Error('RealtimeDemoSeeder not available')
     }
     const station = stationService.getStation(stationId)
     if (!station) {
       throw new Error('站点不存在')
     }
-    return realtimeService.seedStationObservations(station)
+    return realtimeDemoSeeder.seedStationObservations(station)
   })
 
   createIPCHandler(ipcMain, 'hydrology:realtime:listSlots', async (filters = {}) => {
@@ -60,6 +60,20 @@ function setupHydrologyHandlers(ipcMain, services = {}) {
       throw new Error('RealtimeService not available')
     }
     return realtimeService.applyCorrection(payload || {})
+  })
+
+  createIPCHandler(ipcMain, 'hydrology:review:listTasks', async (filters = {}) => {
+    if (!reviewTaskService) {
+      throw new Error('ReviewTaskService not available')
+    }
+    return reviewTaskService.listReviewTasks(filters || {})
+  })
+
+  createIPCHandler(ipcMain, 'hydrology:review:resolveTask', async ({ taskId, payload } = {}) => {
+    if (!reviewTaskService) {
+      throw new Error('ReviewTaskService not available')
+    }
+    return reviewTaskService.resolveReviewTask(taskId, payload || {})
   })
 }
 

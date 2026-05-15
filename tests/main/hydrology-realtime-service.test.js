@@ -18,6 +18,7 @@ describe('Hydrology realtime backend', () => {
     const { HydrologyDatabase } = await import('../../src/main/hydrology/hydrology-database.js')
     const { StationService } = await import('../../src/main/hydrology/station-service.js')
     const { RealtimeService } = await import('../../src/main/hydrology/realtime-service.js')
+    const { RealtimeDemoSeeder } = await import('../../src/main/hydrology/realtime-demo-seeder.js')
 
     const db = new HydrologyDatabase({
       userDataPath: 'C:/tmp/cc-desktop-test',
@@ -27,6 +28,7 @@ describe('Hydrology realtime backend', () => {
 
     const stationService = new StationService(db)
     const realtimeService = new RealtimeService(db)
+    const realtimeDemoSeeder = new RealtimeDemoSeeder(realtimeService)
     const station = stationService.saveStation({
       code: 'HD100',
       name: '青溪站',
@@ -38,7 +40,7 @@ describe('Hydrology realtime backend', () => {
       }
     })
 
-    realtimeService.seedStationObservations(station)
+    realtimeDemoSeeder.seedStationObservations(station)
 
     const slots = realtimeService.listRealtimeSlots({
       stationId: station.id,
@@ -61,6 +63,7 @@ describe('Hydrology realtime backend', () => {
     const { HydrologyDatabase } = await import('../../src/main/hydrology/hydrology-database.js')
     const { StationService } = await import('../../src/main/hydrology/station-service.js')
     const { RealtimeService } = await import('../../src/main/hydrology/realtime-service.js')
+    const { RealtimeDemoSeeder } = await import('../../src/main/hydrology/realtime-demo-seeder.js')
 
     const db = new HydrologyDatabase({
       userDataPath: 'C:/tmp/cc-desktop-test',
@@ -70,6 +73,7 @@ describe('Hydrology realtime backend', () => {
 
     const stationService = new StationService(db)
     const realtimeService = new RealtimeService(db)
+    const realtimeDemoSeeder = new RealtimeDemoSeeder(realtimeService)
     const station = stationService.saveStation({
       code: 'HD101',
       name: '东港站',
@@ -81,7 +85,7 @@ describe('Hydrology realtime backend', () => {
       }
     })
 
-    realtimeService.seedStationObservations(station)
+    realtimeDemoSeeder.seedStationObservations(station)
     const slot = realtimeService.listRealtimeSlots({
       stationId: station.id,
       observationType: 'waterLevel'
@@ -114,6 +118,7 @@ describe('Hydrology realtime backend', () => {
     const { HydrologyDatabase } = await import('../../src/main/hydrology/hydrology-database.js')
     const { StationService } = await import('../../src/main/hydrology/station-service.js')
     const { RealtimeService } = await import('../../src/main/hydrology/realtime-service.js')
+    const { RealtimeDemoSeeder } = await import('../../src/main/hydrology/realtime-demo-seeder.js')
 
     const db = new HydrologyDatabase({
       userDataPath: 'C:/tmp/cc-desktop-test',
@@ -123,6 +128,7 @@ describe('Hydrology realtime backend', () => {
 
     const stationService = new StationService(db)
     const realtimeService = new RealtimeService(db)
+    const realtimeDemoSeeder = new RealtimeDemoSeeder(realtimeService)
     const station = stationService.saveStation({
       code: 'HD102',
       name: '白石站',
@@ -134,7 +140,7 @@ describe('Hydrology realtime backend', () => {
       }
     })
 
-    realtimeService.seedStationObservations(station)
+    realtimeDemoSeeder.seedStationObservations(station)
     const slots = realtimeService.listRealtimeSlots({
       stationId: station.id,
       observationType: 'waterLevel'
@@ -179,6 +185,7 @@ describe('Hydrology realtime backend', () => {
     const { HydrologyDatabase } = await import('../../src/main/hydrology/hydrology-database.js')
     const { StationService } = await import('../../src/main/hydrology/station-service.js')
     const { RealtimeService, SOURCE_TYPES } = await import('../../src/main/hydrology/realtime-service.js')
+    const { RealtimeDemoSeeder } = await import('../../src/main/hydrology/realtime-demo-seeder.js')
 
     const db = new HydrologyDatabase({
       userDataPath: 'C:/tmp/cc-desktop-test',
@@ -188,6 +195,7 @@ describe('Hydrology realtime backend', () => {
 
     const stationService = new StationService(db)
     const realtimeService = new RealtimeService(db)
+    const realtimeDemoSeeder = new RealtimeDemoSeeder(realtimeService)
     const station = stationService.saveStation({
       code: 'HD103',
       name: '临江站',
@@ -218,7 +226,7 @@ describe('Hydrology realtime backend', () => {
       observationType: 'waterLevel'
     })).toHaveLength(4)
 
-    realtimeService.seedStationObservations(station)
+    realtimeDemoSeeder.seedStationObservations(station)
 
     const slots = realtimeService.listRealtimeSlots({
       stationId: station.id,

@@ -19,6 +19,8 @@ const GOVERNANCE_STATUS = {
   corrected: 'corrected'
 }
 
+const { ReviewTaskService } = require('./review-task-service')
+
 function pad(value) {
   return String(value).padStart(2, '0')
 }
@@ -255,18 +257,6 @@ function buildDerivedAnomalies(slot) {
     return createDerivedAnomaly(slot.id, slot.slotTime, flag, 'warning', '当前时槽缺少视频识别值')
   })
 
-  if (slot.compareStatus === COMPARE_STATUS.significantDiff) {
-    derived.push(
-      createDerivedAnomaly(slot.id, slot.slotTime, 'source_inconsistency', 'warning', '多来源数值存在明显偏差，请人工复核')
-    )
-  }
-
-  if (slot.compareStatus === COMPARE_STATUS.conflict) {
-    derived.push(
-      createDerivedAnomaly(slot.id, slot.slotTime, 'source_inconsistency', 'critical', '多来源数值冲突，已命中重点复核条件')
-    )
-  }
-
   return derived
 }
 
@@ -278,103 +268,18 @@ function getSeriesName(sourceType) {
   return sourceType
 }
 
-function findObservationBySource(observations, sourceType, observedAt = null) {
-  return observations.find((item) => {
-    if (item.sourceType !== sourceType) return false
-    if (!observedAt) return true
-    return item.observedAt === observedAt
-  }) || null
-}
-
 class RealtimeService {
-  constructor(hydrologyDatabase) {
+  constructor(hydrologyDatabase, options = {}) {
     this.db = hydrologyDatabase
-  }
-
-  seedStationObservations(station) {
-    if (!station?.id) return []
-    const preferredType = Array.isArray(station.observationTypes) && station.observationTypes.length > 0
-      ? station.observationTypes[0]
-      : 'waterLevel'
-
-    const now = new Date()
-    now.setMinutes(0, 0, 0)
-    const observationTypes = Array.isArray(station.observationTypes) ? station.observationTypes : ['waterLevel']
-    const seedHours = 72
-
-    for (let hoursAgo = seedHours - 1; hoursAgo >= 0; hoursAgo -= 1) {
-      const hourDate = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000)
-      for (const observationType of observationTypes) {
-        const slotTime = formatSlotTime(hourDate)
-        const existingObservations = filterObservationsForSlot(
-          this.db.listObservationsBySlot(station.id, observationType, slotTime).map(parseRow),
-          slotTime
-        )
-
-        const baseValue = observationType === 'waterLevel'
-          ? 5.12 + hoursAgo * 0.03
-          : 22.5 - hoursAgo * 0.4
-        const manualEnabled = !!station.dataSources?.manual
-        const telemetryEnabled = !!station.dataSources?.telemetry
-        const videoEnabled = observationType === 'waterLevel' && !!station.dataSources?.videoOcr
-
-        if (manualEnabled && !findObservationBySource(existingObservations, SOURCE_TYPES.manual)) {
-          this.saveObservation({
-            stationId: station.id,
-            observationType,
-            sourceType: SOURCE_TYPES.manual,
-            observedAt: hourDate.toISOString(),
-            value: Number(baseValue.toFixed(2)),
-            unit: observationType === 'waterLevel' ? 'm' : '℃'
-          })
-        }
-
-        if (telemetryEnabled) {
-          for (let minutesBefore = 55; minutesBefore >= 0; minutesBefore -= 5) {
-            const telemetryDate = new Date(hourDate.getTime() - minutesBefore * 60 * 1000)
-            const telemetryObservedAt = telemetryDate.toISOString()
-            if (findObservationBySource(existingObservations, SOURCE_TYPES.telemetry, telemetryObservedAt)) {
-              continue
-            }
-            this.saveObservation({
-              stationId: station.id,
-              observationType,
-              sourceType: SOURCE_TYPES.telemetry,
-              observedAt: telemetryObservedAt,
-              slotTime,
-              value: Number((baseValue + ((55 - minutesBefore) / 5) * 0.002).toFixed(2)),
-              unit: observationType === 'waterLevel' ? 'm' : '℃'
-            })
-          }
-        }
-
-        if (videoEnabled) {
-          const ocrDate = new Date(hourDate)
-          ocrDate.setMinutes(2, 0, 0)
-          const ocrObservedAt = ocrDate.toISOString()
-          if (findObservationBySource(existingObservations, SOURCE_TYPES.videoOcr, ocrObservedAt)) {
-            continue
-          }
-          this.saveObservation({
-            stationId: station.id,
-            observationType,
-            sourceType: SOURCE_TYPES.videoOcr,
-            observedAt: ocrObservedAt,
-            value: Number((baseValue + 0.01).toFixed(2)),
-            unit: 'm',
-            metadata: { confidence: 0.93 }
-          })
-        }
-      }
-    }
-
-    return this.listRealtimeSlots({ stationId: station.id, observationType: preferredType })
+    this.reviewTaskService = options.reviewTaskService || new ReviewTaskService(hydrologyDatabase)
   }
 
   saveObservation(input) {
     const observation = normalizeObservationInput(input)
     const saved = this.db.createObservation(observation)
-    this.db.upsertObservationSlot(this.buildSlotAggregate(observation.stationId, observation.observationType, observation.slotTime))
+    const slotAggregate = this.buildSlotAggregate(observation.stationId, observation.observationType, observation.slotTime)
+    this.db.upsertObservationSlot(slotAggregate)
+    this.syncReviewTasksForSlot(observation.stationId, observation.observationType, observation.slotTime, slotAggregate)
     return parseRow(saved)
   }
 
@@ -553,7 +458,9 @@ class RealtimeService {
       }
     })
 
-    this.db.upsertObservationSlot(this.buildSlotAggregate(correction.stationId, correction.observationType, correction.slotTime))
+    const slotAggregate = this.buildSlotAggregate(correction.stationId, correction.observationType, correction.slotTime)
+    this.db.upsertObservationSlot(slotAggregate)
+    this.syncReviewTasksForSlot(correction.stationId, correction.observationType, correction.slotTime, slotAggregate)
     return {
       id: savedCorrection.id,
       stationId: correction.stationId,
@@ -607,6 +514,30 @@ class RealtimeService {
       hasAnomaly: derivedAnomalies.length > 0,
       anomalyCount: derivedAnomalies.length
     }
+  }
+
+  syncReviewTasksForSlot(stationId, observationType, slotTime, slotAggregate = null) {
+    if (!this.reviewTaskService) return []
+
+    const slot = slotAggregate || this.buildSlotAggregate(stationId, observationType, slotTime)
+    const observations = filterObservationsForSlot(
+      this.db.listObservationsBySlot(stationId, observationType, slotTime).map(parseRow),
+      slotTime
+    )
+    const station = parseStationRow(this.db.getStationById?.(stationId))
+    const expectedSources = getExpectedSources(station, observationType)
+
+    return this.reviewTaskService.syncSlotReviewTasks({
+      station,
+      slot: {
+        ...slot,
+        stationId,
+        observationType,
+        slotTime
+      },
+      observations,
+      expectedSources
+    })
   }
 }
 

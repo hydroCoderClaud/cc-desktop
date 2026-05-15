@@ -117,6 +117,29 @@ class HydrologyDatabase {
         description TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'open',
         evidence_ref TEXT,
+        resolution_note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS hydrology_review_tasks (
+        id TEXT PRIMARY KEY,
+        station_id TEXT NOT NULL,
+        observation_type TEXT NOT NULL,
+        slot_time TEXT NOT NULL,
+        rule_code TEXT NOT NULL,
+        rule_name TEXT NOT NULL,
+        rule_category TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'needs_review',
+        title TEXT NOT NULL,
+        decision_message TEXT NOT NULL,
+        suggested_action TEXT,
+        evidence_summary TEXT,
+        anomaly_type TEXT,
+        metrics TEXT NOT NULL DEFAULT '{}',
+        resolved_by TEXT,
+        resolution_note TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -289,6 +312,217 @@ class HydrologyDatabase {
       WHERE station_id = ? AND observation_type = ? AND slot_time = ?
       ORDER BY created_at DESC
     `).all(stationId, observationType, slotTime)
+  }
+
+  upsertObservationAnomaly(anomaly) {
+    const existing = this.db.prepare(`
+      SELECT * FROM hydrology_observation_anomalies
+      WHERE station_id = ? AND observation_type = ? AND slot_time = ? AND anomaly_type = ?
+    `).get(anomaly.stationId, anomaly.observationType, anomaly.slotTime, anomaly.anomalyType)
+    const now = Date.now()
+
+    if (existing) {
+      this.db.prepare(`
+        UPDATE hydrology_observation_anomalies
+        SET severity = ?, description = ?, status = ?, evidence_ref = ?, resolution_note = ?, updated_at = ?
+        WHERE id = ?
+      `).run(
+        anomaly.severity,
+        anomaly.description,
+        anomaly.status || 'open',
+        anomaly.evidenceRef || null,
+        anomaly.resolutionNote || null,
+        now,
+        existing.id
+      )
+      return this.db.prepare(`
+        SELECT * FROM hydrology_observation_anomalies
+        WHERE id = ?
+      `).get(existing.id)
+    }
+
+    const id = anomaly.id || `anomaly-${now}-${Math.random().toString(36).slice(2, 8)}`
+    this.db.prepare(`
+      INSERT INTO hydrology_observation_anomalies (
+        id, station_id, observation_type, slot_time,
+        anomaly_type, severity, description, status, evidence_ref, resolution_note,
+        created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      anomaly.stationId,
+      anomaly.observationType,
+      anomaly.slotTime,
+      anomaly.anomalyType,
+      anomaly.severity,
+      anomaly.description,
+      anomaly.status || 'open',
+      anomaly.evidenceRef || null,
+      anomaly.resolutionNote || null,
+      now,
+      now
+    )
+    return this.db.prepare(`
+      SELECT * FROM hydrology_observation_anomalies
+      WHERE id = ?
+    `).get(id)
+  }
+
+  updateAnomalyStatus({ stationId, observationType, slotTime, anomalyType, status, resolutionNote = null }) {
+    const now = Date.now()
+    return this.db.prepare(`
+      UPDATE hydrology_observation_anomalies
+      SET status = ?, resolution_note = COALESCE(?, resolution_note), updated_at = ?
+      WHERE station_id = ? AND observation_type = ? AND slot_time = ? AND anomaly_type = ?
+    `).run(
+      status,
+      resolutionNote,
+      now,
+      stationId,
+      observationType,
+      slotTime,
+      anomalyType
+    )
+  }
+
+  resolveStaleReviewTasks({ stationId, observationType, slotTime, activeRuleCodes = [], status = 'resolved', resolvedBy = 'system', resolutionNote = '规则复算后已自动收敛' }) {
+    const activeCodes = new Set(
+      Array.isArray(activeRuleCodes)
+        ? activeRuleCodes.filter((item) => typeof item === 'string' && item.trim())
+        : []
+    )
+    const tasks = this.db.prepare(`
+      SELECT * FROM hydrology_review_tasks
+      WHERE station_id = ? AND observation_type = ? AND slot_time = ?
+      ORDER BY created_at DESC
+    `).all(stationId, observationType, slotTime)
+
+    let changes = 0
+    const resolvedTasks = []
+    for (const task of tasks) {
+      if (task.status === status) continue
+      if (activeCodes.has(task.rule_code)) continue
+      const next = this.resolveReviewTask(task.id, {
+        status,
+        resolvedBy,
+        resolutionNote
+      })
+      resolvedTasks.push(next)
+      changes += 1
+    }
+
+    return { changes, tasks: resolvedTasks }
+  }
+
+  upsertReviewTask(task) {
+    const existing = this.db.prepare(`
+      SELECT * FROM hydrology_review_tasks
+      WHERE station_id = ? AND observation_type = ? AND slot_time = ? AND rule_code = ?
+    `).get(task.stationId, task.observationType, task.slotTime, task.ruleCode)
+    const now = Date.now()
+
+    if (existing) {
+      this.db.prepare(`
+        UPDATE hydrology_review_tasks
+        SET rule_name = ?, rule_category = ?, severity = ?, status = ?, title = ?,
+            decision_message = ?, suggested_action = ?, evidence_summary = ?, anomaly_type = ?,
+            metrics = ?, updated_at = ?
+        WHERE id = ?
+      `).run(
+        task.ruleName,
+        task.ruleCategory,
+        task.severity,
+        task.status,
+        task.title,
+        task.decisionMessage,
+        task.suggestedAction || null,
+        task.evidenceSummary || null,
+        task.anomalyType || null,
+        JSON.stringify(task.metrics || {}),
+        now,
+        existing.id
+      )
+      return this.getReviewTaskById(existing.id)
+    }
+
+    const id = task.id || `review-${now}-${Math.random().toString(36).slice(2, 8)}`
+    this.db.prepare(`
+      INSERT INTO hydrology_review_tasks (
+        id, station_id, observation_type, slot_time,
+        rule_code, rule_name, rule_category, severity, status,
+        title, decision_message, suggested_action, evidence_summary, anomaly_type, metrics,
+        resolved_by, resolution_note, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      task.stationId,
+      task.observationType,
+      task.slotTime,
+      task.ruleCode,
+      task.ruleName,
+      task.ruleCategory,
+      task.severity,
+      task.status,
+      task.title,
+      task.decisionMessage,
+      task.suggestedAction || null,
+      task.evidenceSummary || null,
+      task.anomalyType || null,
+      JSON.stringify(task.metrics || {}),
+      task.resolvedBy || null,
+      task.resolutionNote || null,
+      now,
+      now
+    )
+    return this.getReviewTaskById(id)
+  }
+
+  getReviewTaskById(id) {
+    return this.db.prepare(`
+      SELECT * FROM hydrology_review_tasks
+      WHERE id = ?
+    `).get(id)
+  }
+
+  listReviewTasks(stationId, observationType = null, status = null) {
+    const hasObservationType = Boolean(observationType)
+    const hasStatus = Boolean(status) && status !== 'all'
+    let sql = `
+      SELECT * FROM hydrology_review_tasks
+      WHERE station_id = ?
+    `
+    const params = [stationId]
+
+    if (hasObservationType) {
+      sql += ' AND observation_type = ?'
+      params.push(observationType)
+    }
+
+    if (hasStatus) {
+      sql += ' AND status = ?'
+      params.push(status)
+    }
+
+    sql += ' ORDER BY slot_time DESC, created_at DESC'
+    return this.db.prepare(sql).all(...params)
+  }
+
+  resolveReviewTask(taskId, payload = {}) {
+    const now = Date.now()
+    this.db.prepare(`
+      UPDATE hydrology_review_tasks
+      SET status = ?, resolved_by = ?, resolution_note = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+      payload.status || 'resolved',
+      payload.resolvedBy || null,
+      payload.resolutionNote || null,
+      now,
+      taskId
+    )
+    return this.getReviewTaskById(taskId)
   }
 
   listStations() {

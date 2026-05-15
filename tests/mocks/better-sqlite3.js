@@ -157,13 +157,16 @@ class Statement {
 
     if (this.type === 'UPDATE') {
       if (!table) return { changes: 0 }
-
-      // 简单的 WHERE id = ? 处理
-      const idParam = params[params.length - 1]
+      const whereColumns = this._getWhereColumns()
+      const setParamCount = this._getSetParamCount()
+      const whereParams = params.slice(setParamCount, setParamCount + whereColumns.length)
       let changes = 0
 
       for (const row of table.rows) {
-        if (row.id === idParam) {
+        const matches = whereColumns.length === 0
+          ? row.id === params[params.length - 1]
+          : whereColumns.every((column, index) => row[column] === whereParams[index])
+        if (matches) {
           this._updateRowFromParams(row, params)
           changes++
         }
@@ -222,8 +225,18 @@ class Statement {
       }
     }
 
-    // 更新 updated_at
-    row.updated_at = new Date().toISOString()
+  }
+
+  _getSetParamCount() {
+    const setMatch = this.sql.match(/SET\s+([\s\S]+?)\s+WHERE/i)
+    if (!setMatch) return 0
+    return (setMatch[1].match(/\?/g) || []).length
+  }
+
+  _getWhereColumns() {
+    const whereMatch = this.sql.match(/WHERE\s+([\s\S]+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i)
+    if (!whereMatch) return []
+    return [...whereMatch[1].matchAll(/(\w+)\s*=\s*\?/gi)].map((match) => match[1])
   }
 
   _executeSelect(params) {
@@ -251,10 +264,7 @@ class Statement {
   }
 
   _applyWhere(rows, params) {
-    const whereMatch = this.sql.match(/WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i)
-    if (!whereMatch) return rows
-
-    const conditions = [...whereMatch[1].matchAll(/(\w+)\s*=\s*\?/gi)]
+    const conditions = this._getWhereColumns().map((column) => [null, column])
     if (conditions.length === 0) return rows
 
     return rows.filter((row) => conditions.every((match, index) => row[match[1]] === params[index]))

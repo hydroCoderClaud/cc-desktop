@@ -21,6 +21,8 @@ describe('hydrology backend wiring', () => {
     expect(source).toContain("getHydrologyRealtimeSlotDetail: (slotId) => ipcRenderer.invoke('hydrology:realtime:getSlotDetail', slotId)")
     expect(source).toContain("listHydrologyRealtimeTrend: (filters) => ipcRenderer.invoke('hydrology:realtime:trend', filters)")
     expect(source).toContain("applyHydrologyRealtimeCorrection: (payload) => ipcRenderer.invoke('hydrology:realtime:applyCorrection', payload)")
+    expect(source).toContain("listHydrologyReviewTasks: (filters) => ipcRenderer.invoke('hydrology:review:listTasks', filters)")
+    expect(source).toContain("resolveHydrologyReviewTask: ({ taskId, payload }) => ipcRenderer.invoke('hydrology:review:resolveTask', { taskId, payload })")
   })
 
   it('registers hydrology station ipc routes in dedicated handlers', () => {
@@ -35,6 +37,8 @@ describe('hydrology backend wiring', () => {
     expect(source).toContain("createIPCHandler(ipcMain, 'hydrology:realtime:getSlotDetail'")
     expect(source).toContain("createIPCHandler(ipcMain, 'hydrology:realtime:trend'")
     expect(source).toContain("createIPCHandler(ipcMain, 'hydrology:realtime:applyCorrection'")
+    expect(source).toContain("createIPCHandler(ipcMain, 'hydrology:review:listTasks'")
+    expect(source).toContain("createIPCHandler(ipcMain, 'hydrology:review:resolveTask'")
   })
 
   it('boots hydrology database and service from main ipc setup', () => {
@@ -43,10 +47,17 @@ describe('hydrology backend wiring', () => {
     expect(source).toContain("safeRequire('./hydrology/hydrology-database', 'hydrology-database')")
     expect(source).toContain("safeRequire('./hydrology/station-service', 'station-service')")
     expect(source).toContain("safeRequire('./hydrology/realtime-service', 'realtime-service')")
+    expect(source).toContain("safeRequire('./hydrology/realtime-demo-seeder', 'realtime-demo-seeder')")
+    expect(source).toContain("safeRequire('./hydrology/review-task-service', 'review-task-service')")
     expect(source).toContain('const hydrologyDatabase = HydrologyDatabase ? new HydrologyDatabase() : null')
+    expect(source).toContain('const reviewTaskService = hydrologyDatabase && ReviewTaskService')
     expect(source).toContain('const realtimeService = hydrologyDatabase && RealtimeService')
+    expect(source).toContain("new RealtimeService(hydrologyDatabase, { reviewTaskService })")
+    expect(source).toContain('const realtimeDemoSeeder = realtimeService && RealtimeDemoSeeder')
     expect(source).toContain('setupHydrologyHandlers(ipcMain, {')
     expect(source).toContain('stationService,')
     expect(source).toContain('realtimeService')
+    expect(source).toContain('realtimeDemoSeeder')
+    expect(source).toContain('reviewTaskService')
   })
 })

@@ -4,6 +4,7 @@ import EmbeddedAgentPanel from '@/components/embedded-agent/EmbeddedAgentPanel.v
 
 export function mountHydrologyAgentPanel({ target, getContext, cwd = '' }) {
   if (!target) return null
+  let lastContextSignature = null
 
   const naive = create({
     components: [
@@ -25,8 +26,15 @@ export function mountHydrologyAgentPanel({ target, getContext, cwd = '' }) {
   app.mount(target)
 
   return {
-    notifyContextChanged() {
+    notifyContextChanged(force = false) {
+      const nextContext = typeof getContext === 'function' ? getContext() : null
+      const nextSignature = JSON.stringify(nextContext || null)
+      if (!force && nextSignature === lastContextSignature) {
+        return false
+      }
+      lastContextSignature = nextSignature
       window.dispatchEvent(new CustomEvent('embedded-agent:context-changed'))
+      return true
     },
     unmount() {
       app.unmount()

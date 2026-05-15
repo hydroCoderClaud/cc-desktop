@@ -44,6 +44,8 @@ const embeddedAppRegistryMod = safeRequire('./embedded-app-registry', 'embedded-
 const hydrologyDatabaseMod = safeRequire('./hydrology/hydrology-database', 'hydrology-database');
 const stationServiceMod = safeRequire('./hydrology/station-service', 'station-service');
 const realtimeServiceMod = safeRequire('./hydrology/realtime-service', 'realtime-service');
+const realtimeDemoSeederMod = safeRequire('./hydrology/realtime-demo-seeder', 'realtime-demo-seeder');
+const reviewTaskServiceMod = safeRequire('./hydrology/review-task-service', 'review-task-service');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
@@ -70,6 +72,8 @@ const getEmbeddedAppByMenuKey = embeddedAppRegistryMod?.getEmbeddedAppByMenuKey;
 const HydrologyDatabase = hydrologyDatabaseMod?.HydrologyDatabase;
 const StationService = stationServiceMod?.StationService;
 const RealtimeService = realtimeServiceMod?.RealtimeService;
+const RealtimeDemoSeeder = realtimeDemoSeederMod?.RealtimeDemoSeeder;
+const ReviewTaskService = reviewTaskServiceMod?.ReviewTaskService;
 
 // Bind ipcMain to createIPCHandler for local use
 const registerHandler = (channelName, handler) => {
@@ -129,8 +133,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const stationService = hydrologyDatabase && StationService
     ? new StationService(hydrologyDatabase)
     : null
+  const reviewTaskService = hydrologyDatabase && ReviewTaskService
+    ? new ReviewTaskService(hydrologyDatabase)
+    : null
   const realtimeService = hydrologyDatabase && RealtimeService
-    ? new RealtimeService(hydrologyDatabase)
+    ? new RealtimeService(hydrologyDatabase, { reviewTaskService })
+    : null
+  const realtimeDemoSeeder = realtimeService && RealtimeDemoSeeder
+    ? new RealtimeDemoSeeder(realtimeService)
     : null
 
   // 初始化文件读取服务（实时读取 ~/.claude 目录）
@@ -1079,7 +1089,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   if (setupHydrologyHandlers && stationService) {
     setupHydrologyHandlers(ipcMain, {
       stationService,
-      realtimeService
+      realtimeService,
+      realtimeDemoSeeder,
+      reviewTaskService
     })
   }
 
