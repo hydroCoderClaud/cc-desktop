@@ -56,6 +56,7 @@ function toObservationAnomalyPayload(hit, overrides = {}) {
 module.exports = {
   parseReviewTaskRow,
   buildAutoResolutionNote,
+  resolveAnomalyType,
   isPersistableObservationAnomalyHit,
   toObservationAnomalyPayload
 }

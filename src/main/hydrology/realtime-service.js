@@ -488,7 +488,6 @@ class RealtimeService {
       missingFlags: JSON.parse(slot.missing_flags || '[]')
     }
     const persistedAnomalies = this.db.listAnomaliesBySlot(slot.station_id, slot.observation_type, slot.slot_time)
-      .filter((row) => row.status !== 'closed')
       .map((row) => ({
         id: row.id,
         slotTime: row.slot_time,
@@ -497,10 +496,20 @@ class RealtimeService {
         description: row.description,
         status: row.status
       }))
+    const persistedAnomalyKeys = new Set(
+      persistedAnomalies
+        .map((item) => item.anomalyType || item.id)
+        .filter(Boolean)
+    )
     const anomalyMap = new Map()
-    persistedAnomalies.forEach((item) => anomalyMap.set(item.anomalyType || item.id, item))
+    persistedAnomalies
+      .filter((item) => item.status !== 'closed')
+      .forEach((item) => anomalyMap.set(item.anomalyType || item.id, item))
     buildDerivedAnomalies(slotPayload).forEach((item) => {
       const dedupeKey = item.anomalyType || item.id
+      if (persistedAnomalyKeys.has(dedupeKey)) {
+        return
+      }
       if (!anomalyMap.has(dedupeKey)) {
         anomalyMap.set(dedupeKey, item)
       }

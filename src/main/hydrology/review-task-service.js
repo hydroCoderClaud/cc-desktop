@@ -3,7 +3,8 @@ const {
   parseReviewTaskRow,
   buildAutoResolutionNote,
   isPersistableObservationAnomalyHit,
-  toObservationAnomalyPayload
+  toObservationAnomalyPayload,
+  resolveAnomalyType
 } = require('./review-task-helpers')
 
 class ReviewTaskService {
@@ -68,6 +69,27 @@ class ReviewTaskService {
         resolutionNote: task.resolution_note || buildAutoResolutionNote(slot)
       })
       this.db.updateAnomalyStatus(anomalyPayload)
+    }
+
+    const activeAnomalyTypes = new Set(
+      hits
+        .filter((hit) => isPersistableObservationAnomalyHit(hit))
+        .map((hit) => resolveAnomalyType(hit))
+        .filter(Boolean)
+    )
+    const persistedAnomalies = this.db.listAnomaliesBySlot(station.id, slot.observationType, slot.slotTime)
+    for (const anomaly of persistedAnomalies) {
+      if (anomaly.status === 'closed') continue
+      if (!anomaly.anomaly_type) continue
+      if (activeAnomalyTypes.has(anomaly.anomaly_type)) continue
+      this.db.updateAnomalyStatus({
+        stationId: station.id,
+        observationType: slot.observationType,
+        slotTime: slot.slotTime,
+        anomalyType: anomaly.anomaly_type,
+        status: 'closed',
+        resolutionNote: buildAutoResolutionNote(slot)
+      })
     }
 
     return {

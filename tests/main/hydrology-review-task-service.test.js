@@ -90,7 +90,7 @@ describe('Hydrology review task backend', () => {
         observationType: 'waterLevel'
       })[0].id
     )
-    expect(detailAfterResolve.anomalies.find((item) => item.anomalyType === 'missing_manual')?.status).toBe('closed')
+    expect(detailAfterResolve.anomalies.some((item) => item.anomalyType === 'missing_manual')).toBe(false)
   })
 
   it('creates consistency review tasks without polluting realtime detail anomalies', async () => {
@@ -240,7 +240,75 @@ describe('Hydrology review task backend', () => {
         observationType: 'waterLevel'
       })[0].id
     )
-    expect(detailAfterBackfill.anomalies.find((item) => item.anomalyType === 'missing_manual')?.status).toBe('closed')
+    expect(detailAfterBackfill.anomalies.some((item) => item.anomalyType === 'missing_manual')).toBe(false)
+  })
+
+  it('closes persisted missing_manual anomaly after backfill even if review task record was removed', async () => {
+    const { HydrologyDatabase } = await import('../../src/main/hydrology/hydrology-database.js')
+    const { StationService } = await import('../../src/main/hydrology/station-service.js')
+    const { RealtimeService, SOURCE_TYPES } = await import('../../src/main/hydrology/realtime-service.js')
+    const { ReviewTaskService } = await import('../../src/main/hydrology/review-task-service.js')
+
+    const db = new HydrologyDatabase({
+      userDataPath: 'C:/tmp/cc-desktop-test',
+      Database
+    })
+    db.init()
+
+    const stationService = new StationService(db)
+    const reviewTaskService = new ReviewTaskService(db)
+    const realtimeService = new RealtimeService(db, { reviewTaskService })
+    const station = stationService.saveStation({
+      code: 'HD203A',
+      name: '孤儿异常收敛站',
+      observationTypes: ['waterLevel'],
+      dataSources: {
+        manual: true,
+        telemetry: true,
+        videoOcr: false
+      }
+    })
+
+    realtimeService.saveObservation({
+      stationId: station.id,
+      observationType: 'waterLevel',
+      sourceType: SOURCE_TYPES.telemetry,
+      observedAt: '2026-05-14T00:00:00.000Z',
+      slotTime: '2026-05-14 08:00',
+      value: 5.18,
+      unit: 'm'
+    })
+
+    const createdTask = reviewTaskService.listReviewTasks({
+      stationId: station.id,
+      observationType: 'waterLevel',
+      status: 'all'
+    }).find((item) => item.ruleCode === 'WL-C-002')
+    expect(createdTask).toBeTruthy()
+
+    db.deleteReviewTask(createdTask.id)
+
+    realtimeService.saveObservation({
+      stationId: station.id,
+      observationType: 'waterLevel',
+      sourceType: SOURCE_TYPES.manual,
+      observedAt: '2026-05-14T00:00:00.000Z',
+      slotTime: '2026-05-14 08:00',
+      value: 5.17,
+      unit: 'm'
+    })
+
+    const detailAfterBackfill = realtimeService.getRealtimeSlotDetail(
+      realtimeService.listRealtimeSlots({
+        stationId: station.id,
+        observationType: 'waterLevel'
+      })[0].id
+    )
+
+    expect(detailAfterBackfill.anomalies.some((item) => item.anomalyType === 'missing_manual')).toBe(false)
+    const persisted = db.listAnomaliesBySlot(station.id, 'waterLevel', '2026-05-14 08:00')
+      .find((item) => item.anomaly_type === 'missing_manual')
+    expect(persisted?.status).toBe('closed')
   })
 
   it('treats missing video reference as info prompt but not anomaly persistence exclusion breaker', async () => {
