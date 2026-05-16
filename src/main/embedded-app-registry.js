@@ -17,7 +17,7 @@ const EMBEDDED_APPS = [
     menuKey: 'hydrology-workbench',
     titleKey: 'app.windows.hydrologyWorkbench',
     labelKey: 'embeddedApps.hydrologyWorkbenchTitle',
-    icon: 'water',
+    icon: 'activity',
     page: 'hydrology-workbench',
     window: {
       width: 1440,

@@ -210,7 +210,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       width: app.window?.width || 1200,
       height: app.window?.height || 800,
       title: translate(app.titleKey || app.labelKey || app.id),
-      page: app.page
+      page: app.page,
+      startMaximized: true
     });
     return { success: true };
   };
@@ -249,6 +250,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
     // 窗口准备好后再显示
     window.once('ready-to-show', () => {
+      if (options.startMaximized) {
+        window.maximize();
+      }
       window.show();
       window.focus();  // macOS 需要显式 focus
       if (isMac) {
