@@ -143,6 +143,22 @@ class HydrologyDatabase {
         resolution_note TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS hydrology_quality_check_runs (
+        id TEXT PRIMARY KEY,
+        station_id TEXT NOT NULL,
+        observation_type TEXT NOT NULL,
+        scope_type TEXT NOT NULL DEFAULT 'station',
+        from_time TEXT,
+        to_time TEXT,
+        checked_slot_count INTEGER NOT NULL DEFAULT 0,
+        hit_count INTEGER NOT NULL DEFAULT 0,
+        hit_rule_codes TEXT NOT NULL DEFAULT '[]',
+        hits_by_rule_code TEXT NOT NULL DEFAULT '{}',
+        hits_by_severity TEXT NOT NULL DEFAULT '{}',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       )
     `)
 
@@ -156,6 +172,14 @@ class HydrologyDatabase {
 
     try {
       this.db.exec('ALTER TABLE hydrology_observation_anomalies ADD COLUMN resolution_note TEXT')
+    } catch (err) {
+      if (!String(err?.message || err).includes('duplicate column name')) {
+        throw err
+      }
+    }
+
+    try {
+      this.db.exec("ALTER TABLE hydrology_quality_check_runs ADD COLUMN scope_type TEXT NOT NULL DEFAULT 'station'")
     } catch (err) {
       if (!String(err?.message || err).includes('duplicate column name')) {
         throw err
@@ -607,6 +631,96 @@ class HydrologyDatabase {
     }
   }
 
+  saveQualityCheckRun(summary = {}) {
+    const stationId = String(summary.stationId || '').trim()
+    const observationType = String(summary.observationType || '').trim()
+    if (!stationId || !observationType) {
+      throw new Error('stationId 和 observationType 不能为空')
+    }
+
+    const now = Date.now()
+    const id = summary.id || `quality-run-${now}-${Math.random().toString(36).slice(2, 8)}`
+    const scopeType = String(summary.scopeType || 'station').trim() || 'station'
+    this.db.prepare(`
+      INSERT INTO hydrology_quality_check_runs (
+        id, station_id, observation_type, scope_type, from_time, to_time,
+        checked_slot_count, hit_count, hit_rule_codes, hits_by_rule_code, hits_by_severity,
+        created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      stationId,
+      observationType,
+      scopeType,
+      summary.fromTime || null,
+      summary.toTime || null,
+      Number(summary.checkedSlotCount || 0),
+      Number(summary.hitCount || 0),
+      JSON.stringify(Array.isArray(summary.hitRuleCodes) ? summary.hitRuleCodes : []),
+      JSON.stringify(summary.hitsByRuleCode || {}),
+      JSON.stringify(summary.hitsBySeverity || {}),
+      now,
+      now
+    )
+
+    return this.getQualityCheckRunById(id)
+  }
+
+  getQualityCheckRunById(id) {
+    const row = this.db.prepare(`
+      SELECT * FROM hydrology_quality_check_runs
+      WHERE id = ?
+    `).get(id)
+    return row ? this.normalizeQualityCheckRun(row) : null
+  }
+
+  getLatestQualityCheckRun(stationId, observationType, scopeType = 'station') {
+    const stationKey = String(stationId || '').trim()
+    const observationKey = String(observationType || '').trim()
+    const scopeKey = String(scopeType || 'station').trim() || 'station'
+    if (!stationKey || !observationKey) {
+      return null
+    }
+
+    const row = this.db.prepare(`
+      SELECT * FROM hydrology_quality_check_runs
+      WHERE station_id = ? AND observation_type = ? AND scope_type = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(stationKey, observationKey, scopeKey)
+
+    return row ? this.normalizeQualityCheckRun(row) : null
+  }
+
+  normalizeQualityCheckRun(row) {
+    if (!row) return null
+    return {
+      ...row,
+      stationId: row.station_id,
+      observationType: row.observation_type,
+      scopeType: row.scope_type || 'station',
+      fromTime: row.from_time || null,
+      toTime: row.to_time || null,
+      checkedSlotCount: Number(row.checked_slot_count || 0),
+      hitCount: Number(row.hit_count || 0),
+      hitRuleCodes: this.parseJsonField(row.hit_rule_codes, []),
+      hitsByRuleCode: this.parseJsonField(row.hits_by_rule_code, {}),
+      hitsBySeverity: this.parseJsonField(row.hits_by_severity, {})
+    }
+  }
+
+  parseJsonField(value, fallback) {
+    if (value === null || value === undefined || value === '') {
+      return fallback
+    }
+    try {
+      return JSON.parse(value)
+    } catch (err) {
+      return fallback
+    }
+  }
+
   listStations() {
     return this.db.prepare(`
       SELECT * FROM hydrology_stations
@@ -688,6 +802,30 @@ class HydrologyDatabase {
   }
 
   deleteStation(id) {
+    this.db.prepare(`
+      DELETE FROM hydrology_quality_check_runs
+      WHERE station_id = ?
+    `).run(id)
+    this.db.prepare(`
+      DELETE FROM hydrology_review_tasks
+      WHERE station_id = ?
+    `).run(id)
+    this.db.prepare(`
+      DELETE FROM hydrology_observation_anomalies
+      WHERE station_id = ?
+    `).run(id)
+    this.db.prepare(`
+      DELETE FROM hydrology_manual_corrections
+      WHERE station_id = ?
+    `).run(id)
+    this.db.prepare(`
+      DELETE FROM hydrology_observation_slots
+      WHERE station_id = ?
+    `).run(id)
+    this.db.prepare(`
+      DELETE FROM hydrology_observations
+      WHERE station_id = ?
+    `).run(id)
     const result = this.db.prepare(`
       DELETE FROM hydrology_stations
       WHERE id = ?

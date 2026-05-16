@@ -2,6 +2,7 @@ class QualityCheckService {
   constructor(options = {}) {
     this.stationService = options.stationService || null
     this.realtimeService = options.realtimeService || null
+    this.hydrologyDatabase = options.hydrologyDatabase || null
   }
 
   runStationQualityCheck(input = {}) {
@@ -17,6 +18,7 @@ class QualityCheckService {
       throw new Error('站点不存在')
     }
 
+    const scopeType = this.getRunScopeType(input)
     const slots = this.realtimeService.listRealtimeSlots({
       stationId,
       observationType,
@@ -64,11 +66,14 @@ class QualityCheckService {
     }, {})
     const hitRuleCodes = Object.keys(hitsByRuleCode)
 
-    return {
+    const result = {
       stationId,
       stationCode: station.code,
       stationName: station.name,
       observationType,
+      scopeType,
+      fromTime: input.fromTime || null,
+      toTime: input.toTime || null,
       checkedSlotCount: slotResults.length,
       hitCount: allHits.length,
       hitRuleCodes,
@@ -76,6 +81,33 @@ class QualityCheckService {
       hitsBySeverity,
       slotResults
     }
+
+    if (this.hydrologyDatabase?.saveQualityCheckRun) {
+      this.hydrologyDatabase.saveQualityCheckRun(result)
+    }
+
+    return result
+  }
+
+  getLatestRunSummary(input = {}) {
+    const stationId = String(input.stationId || '').trim()
+    const observationType = String(input.observationType || '').trim() || 'waterLevel'
+    const scopeType = String(input.scopeType || 'station').trim() || 'station'
+    if (!stationId) throw new Error('站点 ID 不能为空')
+    if (!this.hydrologyDatabase?.getLatestQualityCheckRun) {
+      throw new Error('QualityCheckService database dependency not available')
+    }
+
+    return this.hydrologyDatabase.getLatestQualityCheckRun(stationId, observationType, scopeType)
+  }
+
+  getRunScopeType(input = {}) {
+    const fromTime = String(input.fromTime || '').trim()
+    const toTime = String(input.toTime || '').trim()
+    if (fromTime && toTime && fromTime === toTime) {
+      return 'slot'
+    }
+    return 'station'
   }
 }
 

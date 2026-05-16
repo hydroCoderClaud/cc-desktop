@@ -177,10 +177,18 @@ class Statement {
 
     if (this.type === 'DELETE') {
       if (!table) return { changes: 0 }
-
-      const idParam = params[0]
       const initialLength = table.rows.length
-      table.rows = table.rows.filter(row => row.id !== idParam)
+      const whereColumns = this._getWhereColumns()
+
+      if (whereColumns.length === 0) {
+        const idParam = params[0]
+        table.rows = table.rows.filter((row) => row.id !== idParam)
+      } else {
+        table.rows = table.rows.filter((row) => {
+          const matches = whereColumns.every((column, index) => row[column] === params[index])
+          return !matches
+        })
+      }
 
       return { changes: initialLength - table.rows.length }
     }

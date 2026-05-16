@@ -124,6 +124,13 @@ function setupHydrologyHandlers(ipcMain, services = {}) {
     }
     return qualityCheckService.runStationQualityCheck(payload || {})
   })
+
+  createIPCHandler(ipcMain, 'hydrology:review:getLatestRunSummary', async (filters = {}) => {
+    if (!qualityCheckService) {
+      throw new Error('QualityCheckService not available')
+    }
+    return qualityCheckService.getLatestRunSummary(filters || {})
+  })
 }
 
 module.exports = { setupHydrologyHandlers }

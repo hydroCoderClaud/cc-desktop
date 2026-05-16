@@ -180,6 +180,14 @@ let pendingConfirmAction = null
 let trendViewportBindingsController = null
 let trendViewportRenderFrame = null
 
+function normalizeReviewObservationTypeForStation(station) {
+  if (!station) return
+  if (station.observationTypes?.includes(reviewState.selectedObservationType)) {
+    return
+  }
+  reviewState.selectedObservationType = station.observationTypes?.[0] || OBSERVATION_TYPES.waterLevel
+}
+
 function syncReviewStateWithSlotTasks(slotTasks = []) {
   const incoming = Array.isArray(slotTasks) ? slotTasks.filter((item) => item?.id) : []
   if (incoming.length === 0 || !Array.isArray(reviewState.tasks) || reviewState.tasks.length === 0) {
@@ -206,6 +214,25 @@ function syncReviewStateWithSlotTasks(slotTasks = []) {
 
 function notifyAgentContextChanged(force = false) {
   agentPanel?.notifyContextChanged(force)
+}
+
+async function loadLatestReviewRunSummary() {
+  const station = getSelectedStation()
+  if (!station || !window.electronAPI?.getHydrologyLatestReviewRunSummary) {
+    reviewState.runSummary = null
+    return
+  }
+
+  try {
+    reviewState.runSummary = await window.electronAPI.getHydrologyLatestReviewRunSummary({
+      stationId: station.id,
+      observationType: reviewState.selectedObservationType,
+      scopeType: 'station'
+    })
+  } catch (err) {
+    reviewState.runSummary = null
+    reviewState.error = err?.message || String(err)
+  }
 }
 
 function escapeHtml(value) {
@@ -352,6 +379,7 @@ function renderReviewTaskView(station) {
       reviewState.page = 1
       reviewState.lastSlotCheck = null
       await loadReviewTasks()
+      await loadLatestReviewRunSummary()
       renderWorkbench()
       notifyAgentContextChanged()
     })
@@ -948,8 +976,10 @@ function renderWorkbench() {
 async function selectStation(stationId) {
   selectedStationId = stationId
   realtimeState.slotCheckResult = null
+  reviewState.lastSlotCheck = null
 
   if (!stationId) {
+    reviewState.runSummary = null
     renderWorkbench()
     notifyAgentContextChanged()
     return
@@ -961,6 +991,7 @@ async function selectStation(stationId) {
       if (detail) {
         const normalized = normalizeStation(detail)
         stations = stations.map((station) => station.id === normalized.id ? normalized : station)
+        normalizeReviewObservationTypeForStation(normalized)
       }
     }
     if (activeFunctionKey === 'realtime') {
@@ -972,6 +1003,7 @@ async function selectStation(stationId) {
     } else if (activeFunctionKey === 'review') {
       reviewState.selectedTaskId = null
       await loadReviewTasks()
+      await loadLatestReviewRunSummary()
     } else {
       activeFunctionKey = 'basic'
     }
@@ -1038,6 +1070,7 @@ async function openReviewTaskBoard() {
   reviewState.lastSlotCheck = null
   activeFunctionKey = 'review'
   await loadReviewTasks()
+  await loadLatestReviewRunSummary()
   renderWorkbench()
   notifyAgentContextChanged()
 }

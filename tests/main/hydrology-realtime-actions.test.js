@@ -87,6 +87,43 @@ describe('hydrology realtime actions', () => {
     expect(loadRealtimeSlotDetail).toHaveBeenCalledWith('slot-1')
   })
 
+  it('normalizes unsupported observation type to first available station type', async () => {
+    const realtimeState = {
+      selectedObservationType: 'airTemperature',
+      fromTime: '',
+      toTime: '',
+      compareStatus: 'all',
+      hasAnomalyOnly: false,
+      pageSize: 10,
+      page: 1,
+      selectedSlotId: null,
+      slotDetail: null,
+      slots: [],
+      trend: null,
+      error: '',
+      trendError: ''
+    }
+    const listHydrologyRealtimeSlots = vi.fn(async () => [])
+    const loadRealtimeTrend = vi.fn(async () => {})
+    const loadRealtimeSlotDetail = vi.fn(async () => {})
+
+    await loadRealtimeSlotsAction({
+      getSelectedStation: () => ({ id: 'station-1', observationTypes: ['waterLevel'] }),
+      realtimeState,
+      observationTypes: {
+        waterLevel: 'waterLevel'
+      },
+      electronAPI: { listHydrologyRealtimeSlots },
+      loadRealtimeTrend,
+      loadRealtimeSlotDetail
+    })
+
+    expect(realtimeState.selectedObservationType).toBe('waterLevel')
+    expect(listHydrologyRealtimeSlots).toHaveBeenCalledWith(expect.objectContaining({
+      observationType: 'waterLevel'
+    }))
+  })
+
   it('preserves slot detail source when opening a review-linked slot before selected slot is set', async () => {
     const realtimeState = {
       selectedObservationType: 'waterLevel',

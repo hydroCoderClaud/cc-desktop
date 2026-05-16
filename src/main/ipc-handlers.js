@@ -142,7 +142,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     ? new RealtimeService(hydrologyDatabase, { reviewTaskService })
     : null
   const qualityCheckService = stationService && realtimeService && QualityCheckService
-    ? new QualityCheckService({ stationService, realtimeService })
+    ? new QualityCheckService({ stationService, realtimeService, hydrologyDatabase })
     : null
   const realtimeDemoSeeder = realtimeService && RealtimeDemoSeeder
     ? new RealtimeDemoSeeder(realtimeService)

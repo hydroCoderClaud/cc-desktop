@@ -433,6 +433,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteHydrologyReviewTask: (taskId) => ipcRenderer.invoke('hydrology:review:deleteTask', taskId),
   deleteHydrologyReviewTasks: (taskIds) => ipcRenderer.invoke('hydrology:review:deleteTasks', taskIds),
   runHydrologyQualityCheck: (payload) => ipcRenderer.invoke('hydrology:review:runQualityCheck', payload),
+  getHydrologyLatestReviewRunSummary: (filters) => ipcRenderer.invoke('hydrology:review:getLatestRunSummary', filters),
   resolveHydrologyReviewTask: ({ taskId, payload }) => ipcRenderer.invoke('hydrology:review:resolveTask', { taskId, payload }),
   openEmbeddedAppDemo: () => ipcRenderer.invoke('window:openEmbeddedAppDemo'),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
