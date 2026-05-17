@@ -263,6 +263,33 @@ const hydroAgent = {
     relativePath,
     content
   }),
+  createFile: (sessionId, parentPath, name, isDirectory) => ipcRenderer.invoke('hydro-agent:createFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    parentPath,
+    name,
+    isDirectory
+  }),
+  renameFile: (sessionId, oldPath, newName) => ipcRenderer.invoke('hydro-agent:renameFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    oldPath,
+    newName
+  }),
+  deleteFile: (sessionId, relativePath) => ipcRenderer.invoke('hydro-agent:deleteFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    path: relativePath
+  }),
+  openFile: (sessionId, relativePath) => ipcRenderer.invoke('hydro-agent:openFile', {
+    client: buildHydroAgentClientPayload(),
+    sessionId,
+    relativePath
+  }),
+  openOutputDir: (sessionId) => ipcRenderer.invoke('hydro-agent:openOutputDir', {
+    client: buildHydroAgentClientPayload(),
+    sessionId
+  }),
   searchFiles: (sessionId, keyword, showHidden = false) => ipcRenderer.invoke('hydro-agent:searchFiles', {
     client: buildHydroAgentClientPayload(),
     sessionId,

@@ -73,6 +73,24 @@ export function createHydroAgentApiAdapter(hydroAgent) {
     getAgentSupportedCommands: (sessionId) => hydroAgent.getSupportedCommands(sessionId),
     getAgentInitResult: (sessionId) => hydroAgent.getInitResult(sessionId),
     getAgentMcpServerStatus: (sessionId) => hydroAgent.getMcpServerStatus(sessionId),
+    listAgentDir: (sessionId, relativePath = '', showHidden = false) =>
+      hydroAgent.listDir(sessionId, relativePath, showHidden),
+    readAgentFile: (sessionId, relativePath) =>
+      hydroAgent.readFile(sessionId, relativePath),
+    saveAgentFile: ({ sessionId, relativePath, content }) =>
+      hydroAgent.saveFile(sessionId, relativePath, content),
+    createAgentFile: ({ sessionId, parentPath, name, isDirectory }) =>
+      hydroAgent.createFile(sessionId, parentPath, name, isDirectory),
+    renameAgentFile: ({ sessionId, oldPath, newName }) =>
+      hydroAgent.renameFile(sessionId, oldPath, newName),
+    deleteAgentFile: ({ sessionId, path }) =>
+      hydroAgent.deleteFile(sessionId, path),
+    searchAgentFiles: ({ sessionId, keyword, showHidden }) =>
+      hydroAgent.searchFiles(sessionId, keyword, showHidden),
+    openAgentFile: ({ sessionId, relativePath }) =>
+      hydroAgent.openFile(sessionId, relativePath),
+    openAgentOutputDir: (sessionId) =>
+      hydroAgent.openOutputDir(sessionId),
     respondAgentInteraction: ({ sessionId, interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) =>
       hydroAgent.respondInteraction(sessionId, interactionId, {
         answers,

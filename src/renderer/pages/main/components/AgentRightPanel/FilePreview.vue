@@ -233,7 +233,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
-import { formatFileSize } from '@composables/useAgentFiles'
+import { formatFileSize } from '@composables/useWorkspaceFiles'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
@@ -241,7 +241,8 @@ const { t } = useLocale()
 const props = defineProps({
   preview: { type: Object, default: null },
   loading: { type: Boolean, default: false },
-  maximized: { type: Boolean, default: false }
+  maximized: { type: Boolean, default: false },
+  saveTextHandler: { type: Function, default: null }
 })
 
 const emit = defineEmits(['close', 'toggle-maximize', 'insert-path'])
@@ -305,7 +306,16 @@ const saveText = async () => {
 
   try {
     let result
-    if (!snapshot.isExternalFile && snapshot.sessionId && snapshot.relativePath) {
+    if (typeof props.saveTextHandler === 'function') {
+      result = await props.saveTextHandler({
+        preview: props.preview,
+        filePath: snapshot.filePath,
+        sessionId: snapshot.sessionId,
+        relativePath: snapshot.relativePath,
+        isExternalFile: snapshot.isExternalFile,
+        content: snapshot.content
+      })
+    } else if (!snapshot.isExternalFile && snapshot.sessionId && snapshot.relativePath) {
       // cwd 内文件：通过 sessionId + relativePath 保存
       result = await window.electronAPI.saveAgentFile({
         sessionId: snapshot.sessionId,

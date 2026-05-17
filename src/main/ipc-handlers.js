@@ -1079,6 +1079,33 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     ipcMain.handle('hydro-agent:searchFiles', async (event, { client, sessionId, keyword, showHidden } = {}) => {
       return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.searchFiles(sessionId, keyword, !!showHidden, normalizedClient))
     })
+    ipcMain.handle('hydro-agent:createFile', async (event, { client, sessionId, parentPath, name, isDirectory } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.createFile(sessionId, parentPath || '', name, !!isDirectory, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:renameFile', async (event, { client, sessionId, oldPath, newName } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.renameFile(sessionId, oldPath, newName, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:deleteFile', async (event, { client, sessionId, path: relativePath } = {}) => {
+      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.deleteFile(sessionId, relativePath, normalizedClient))
+    })
+    ipcMain.handle('hydro-agent:openFile', async (event, { client, sessionId, relativePath } = {}) => {
+      return withEmbeddedClient(event, client, async (normalizedClient) => {
+        agentSessionBroker.get(sessionId, normalizedClient)
+        const fullPath = agentSessionManager.resolveFilePath(sessionId, relativePath)
+        if (!fullPath) return { success: false, error: 'Cannot resolve path' }
+        if (!fs.existsSync(fullPath)) return { success: false, error: 'File not found' }
+        const result = await shell.openPath(fullPath)
+        return result ? { success: false, error: result } : { success: true }
+      })
+    })
+    ipcMain.handle('hydro-agent:openOutputDir', async (event, { client, sessionId } = {}) => {
+      return withEmbeddedClient(event, client, async (normalizedClient) => {
+        const dir = agentSessionBroker.getOutputDir(sessionId, normalizedClient)
+        if (!dir) return { success: false, error: 'No output directory' }
+        const result = await shell.openPath(dir)
+        return result ? { success: false, error: result } : { success: true }
+      })
+    })
   }
 
   // ========================================

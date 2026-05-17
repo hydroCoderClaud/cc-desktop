@@ -53,21 +53,57 @@
 
           <div v-if="error" class="embedded-agent-error">{{ error }}</div>
           <div v-else-if="!sessionId" class="embedded-agent-loading">正在创建 Agent 会话...</div>
-          <AgentChatTab
-            v-else
-            :key="sessionId"
-            ref="chatRef"
-            class="embedded-agent-chat"
-            :session-id="sessionId"
-            :session-cwd="resolvedCwd"
-            :api-profile-id="currentApiProfileId"
-            :model-id="currentModelId"
-            :agent-api="agentApi"
-            @ready="handleReady"
-            @api-profile-selected="handleApiProfileSelected"
-            @model-selected="handleModelSelected"
-            @request-clear-session="handleClearSession"
-          />
+          <template v-else>
+            <div class="embedded-agent-tabs" role="tablist" aria-label="Embedded agent tabs">
+              <button
+                type="button"
+                class="embedded-agent-tab"
+                :class="{ active: activeTab === 'chat' }"
+                @click="activeTab = 'chat'"
+              >
+                助手
+              </button>
+              <button
+                type="button"
+                class="embedded-agent-tab"
+                :class="{ active: activeTab === 'files' }"
+                @click="activeTab = 'files'"
+              >
+                工作目录
+              </button>
+            </div>
+
+            <div class="embedded-agent-content">
+              <AgentChatTab
+                v-show="activeTab === 'chat'"
+                :key="sessionId"
+                ref="chatRef"
+                class="embedded-agent-chat"
+                :session-id="sessionId"
+                :session-cwd="resolvedCwd"
+                :api-profile-id="currentApiProfileId"
+                :model-id="currentModelId"
+                :agent-api="agentApi"
+                @ready="handleReady"
+                @api-profile-selected="handleApiProfileSelected"
+                @model-selected="handleModelSelected"
+                @request-clear-session="handleClearSession"
+              />
+              <WorkspaceFilePanel
+                v-show="activeTab === 'files'"
+                class="embedded-agent-files"
+                :files="embeddedFiles"
+                :source-ready="Boolean(sessionId)"
+                :empty-title="'工作目录'"
+                :empty-message="'当前会话尚未创建工作目录。'"
+                :show-collapse="false"
+                :framed="true"
+                :save-text-handler="handleEmbeddedFileSave"
+                :allow-mutations="true"
+                @insert-path="handleInsertPath"
+              />
+            </div>
+          </template>
         </div>
       </n-dialog-provider>
     </n-message-provider>
@@ -75,10 +111,12 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useTheme } from '@composables/useTheme'
 import { useNaiveLocale } from '@composables/useNaiveLocale'
 import AgentChatTab from '@/pages/main/components/AgentChatTab.vue'
+import WorkspaceFilePanel from '@components/workspace-files/WorkspaceFilePanel.vue'
+import { useEmbeddedAgentFiles } from '@composables/useEmbeddedAgentFiles'
 import { createHydroAgentApiAdapter } from './hydro-agent-api-adapter'
 
 const props = defineProps({
@@ -126,6 +164,7 @@ const currentApiProfileId = ref(props.apiProfileId || null)
 const currentModelId = ref(props.modelId || null)
 const switchingProfile = ref(false)
 const showCapabilityPanel = ref(false)
+const activeTab = ref('chat')
 const capabilityError = ref('')
 const capabilitySnapshot = ref({
   toolNames: [],
@@ -136,6 +175,7 @@ const capabilitySnapshot = ref({
   sessionStatusLabel: '',
   hint: ''
 })
+const embeddedFiles = useEmbeddedAgentFiles(agentApi)
 
 const contextText = computed(() => {
   const context = contextSnapshot.value
@@ -383,6 +423,23 @@ const toggleCapabilityPanel = async () => {
   }
 }
 
+const handleInsertPath = (path) => {
+  if (!path) return
+  chatRef.value?.insertText?.(`${path}\n`)
+  activeTab.value = 'chat'
+}
+
+const handleEmbeddedFileSave = async ({ sessionId: targetSessionId, relativePath, content }) => {
+  if (!targetSessionId || !relativePath || !agentApi.value?.saveAgentFile) {
+    return { error: 'Embedded agent file API unavailable' }
+  }
+  return agentApi.value.saveAgentFile({
+    sessionId: targetSessionId,
+    relativePath,
+    content
+  })
+}
+
 const handleApiProfileSelected = async (payload) => {
   const nextProfileId = typeof payload === 'string'
     ? payload.trim()
@@ -504,6 +561,10 @@ const handleClearSession = async () => {
   }
 }
 
+watch(sessionId, (nextSessionId) => {
+  embeddedFiles.setSessionId(nextSessionId)
+}, { immediate: true })
+
 onMounted(async () => {
   initLocale()
   initTheme()
@@ -593,6 +654,40 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.embedded-agent-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.embedded-agent-tab {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  height: 32px;
+  padding: 0 14px;
+  background: var(--panel-bg, var(--bg-color-secondary));
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.embedded-agent-tab:hover {
+  border-color: var(--selected-border, var(--border-color));
+  color: var(--text-color);
+}
+
+.embedded-agent-tab.active {
+  border-color: var(--primary-color);
+  background: var(--primary-ghost);
+  color: var(--primary-color);
+}
+
+.embedded-agent-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .embedded-capability-panel {
   margin-bottom: 12px;
   padding: 10px 12px;
@@ -654,6 +749,11 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 18px;
+}
+
+.embedded-agent-files {
+  flex: 1;
+  min-height: 0;
 }
 
 .embedded-agent-chat :deep(.chat-input-area) {
