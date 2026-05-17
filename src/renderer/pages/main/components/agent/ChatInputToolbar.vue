@@ -5,11 +5,10 @@
         v-if="showApiProfileSwitcher"
         class="api-profile-selector"
         :class="{ disabled: apiProfileDisabled }"
+        :title="'API: ' + apiProfileDisplayName"
         @click="toggleApiDropdown"
       >
         <Icon name="api" :size="14" class="api-profile-icon" />
-        <span class="api-profile-label">{{ apiProfileDisplayName }}</span>
-        <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showApiDropdown }" />
       </div>
 
       <Transition name="dropdown">
@@ -28,10 +27,8 @@
         </div>
       </Transition>
 
-      <div class="model-selector" @click="toggleModelDropdown">
+      <div class="model-selector" :title="'Model: ' + modelDisplayName" @click="toggleModelDropdown">
         <Icon name="robot" :size="14" class="model-icon" />
-        <span class="model-label">{{ modelDisplayName }}</span>
-        <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showDropdown }" />
       </div>
 
       <Transition name="dropdown">
@@ -516,26 +513,15 @@ onUnmounted(() => {
 }
 
 .model-selector {
-  width: auto;
-  padding: 0 10px;
-  gap: 6px;
   border: 1px solid var(--border-color);
   background: var(--input-bg);
   color: var(--text-color);
-  font-size: 12px;
-  line-height: 1;
 }
 
 .api-profile-selector {
-  width: auto;
-  max-width: 168px;
-  padding: 0 10px;
-  gap: 6px;
   border: 1px solid var(--border-color);
   background: var(--input-bg);
   color: var(--text-color);
-  font-size: 12px;
-  line-height: 1;
 }
 
 .api-profile-selector.disabled {
