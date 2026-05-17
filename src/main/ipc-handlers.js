@@ -188,6 +188,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   }
   if (agentSessionManager) {
     agentSessionManager.embeddedAppRuntimeManager = embeddedAppRuntimeManager
+    agentSessionManager.stationService = stationService
+    agentSessionManager.realtimeService = realtimeService
+    agentSessionManager.reviewTaskService = reviewTaskService
+    agentSessionManager.qualityCheckService = qualityCheckService
   }
   if (sessionFileWatcher) {
     sessionFileWatcher.setDependencies({

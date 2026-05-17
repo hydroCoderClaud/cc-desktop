@@ -8,6 +8,9 @@ const { AgentSession } = await import('../../src/main/agent-session.js')
 const {
   DESKTOP_CAPABILITY_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
+const {
+  HYDROLOGY_ALLOWED_TOOLS
+} = await import('../../src/main/managers/hydrology-capability-query-options.js')
 
 describe('AgentSessionManager interactions', () => {
   const FIXED_CLAUDE_EXE = '/usr/local/bin/claude'
@@ -32,6 +35,21 @@ describe('AgentSessionManager interactions', () => {
       updateAgentMessageToolOutput: vi.fn(),
       updateAgentConversationModel: vi.fn(),
       getAgentConversation: vi.fn(() => null)
+    }
+    manager.stationService = {
+      listStations: vi.fn(() => [{ id: 'st-1', name: '测试站' }]),
+      getStation: vi.fn((stationId) => ({ id: stationId, name: '测试站' }))
+    }
+    manager.realtimeService = {
+      listRealtimeSlots: vi.fn(() => [{ id: 'slot-1', slotTime: '2026-05-17 00:00' }]),
+      getRealtimeSlotDetail: vi.fn((slotId) => ({ slot: { id: slotId } }))
+    }
+    manager.reviewTaskService = {
+      listReviewTasks: vi.fn(() => [{ id: 'task-1', status: 'needs_review' }])
+    }
+    manager.qualityCheckService = {
+      getLatestRunSummary: vi.fn(() => ({ stationId: 'st-1', checkedSlotCount: 1 })),
+      runStationQualityCheck: vi.fn(() => ({ stationId: 'st-1', checkedSlotCount: 1, hitCount: 0 }))
     }
     return { manager, sent }
   }
@@ -567,6 +585,17 @@ describe('AgentSessionManager interactions', () => {
       })),
       executeCommand: vi.fn()
     }
+    manager.scheduledTaskService = {
+      listTasks: vi.fn(() => []),
+      getTaskRuns: vi.fn(() => []),
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            locale: 'zh-CN'
+          }
+        })
+      }
+    }
 
     const oldQueue = {
       isDone: false,
@@ -627,8 +656,10 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.runner.createQuery).toHaveBeenCalledOnce()
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
     expect(createQueryOptions.resume).toBe('sdk-embedded-old')
-    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['embeddedapp'])
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop', 'embeddedapp', 'hydrology'])
     expect(createQueryOptions.allowedTools).toEqual(expect.arrayContaining([
+      ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+      ...HYDROLOGY_ALLOWED_TOOLS,
       'mcp__embeddedapp__context_get',
       'mcp__embeddedapp__command_execute',
       'mcp__embeddedapp__hydrology_context_get',
@@ -647,9 +678,11 @@ describe('AgentSessionManager interactions', () => {
     expect(session.lastQueryOptionsSnapshot).toMatchObject({
       clientType: 'embedded',
       appId: 'hydrology-workbench',
-      mcpServerNames: ['embeddedapp']
+      mcpServerNames: ['hydrodesktop', 'embeddedapp', 'hydrology']
     })
     expect(session.lastQueryOptionsSnapshot.allowedTools).toEqual(expect.arrayContaining([
+      ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+      ...HYDROLOGY_ALLOWED_TOOLS,
       'mcp__embeddedapp__context_get',
       'mcp__embeddedapp__command_execute',
       'mcp__embeddedapp__hydrology_context_get',
@@ -1098,6 +1131,68 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.disallowedTools).toEqual(
       expect.arrayContaining(['CronList', 'CronCreate', 'CronUpdate', 'CronDelete', 'cronList', 'cronCreate', 'cronUpdate', 'cronDelete'])
     )
+  })
+
+  it('includes hydrology domain MCP tools alongside embeddedapp and hydrodesktop for hydrology embedded sessions', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({
+      id: 'embedded-hydro-domain',
+      cwd: '/tmp',
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'sonnet-4',
+      ownerClientId: 'embed:hydrology-workbench',
+      clientType: 'embedded',
+      clientMeta: {
+        appId: 'hydrology-workbench'
+      }
+    })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+    manager.scheduledTaskService = {
+      listTasks: vi.fn(() => []),
+      getTaskRuns: vi.fn(() => []),
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            locale: 'zh-CN'
+          }
+        })
+      }
+    }
+    manager.embeddedAppRuntimeManager = {
+      getContext: vi.fn(() => ({
+        title: '测试站 / 实时数据列表',
+        summary: '当前站点：测试站，当前功能：实时数据列表',
+        payload: {
+          station: { id: 'st-1', name: '测试站' },
+          function: { key: 'realtime', label: '实时数据列表' }
+        }
+      })),
+      executeCommand: vi.fn()
+    }
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '检查当前站点的实时数据和审核任务')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop', 'embeddedapp', 'hydrology'])
+    expect(createQueryOptions.allowedTools).toEqual(expect.arrayContaining(HYDROLOGY_ALLOWED_TOOLS))
+    expect(createQueryOptions.appendSystemPrompt).toContain('hydrology MCP server')
+    expect(createQueryOptions.appendSystemPrompt).toContain('Use embeddedapp tools for current UI state')
+    expect(createQueryOptions.appendSystemPrompt).toContain('Use hydrology tools for real business entities')
   })
 
   it('skips scheduled-task MCP tools for scheduled source sessions', async () => {

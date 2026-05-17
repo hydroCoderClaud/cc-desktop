@@ -26,6 +26,7 @@ const AgentFileManager = require('./managers/agent-file-manager')
 const AgentQueryManager = require('./managers/agent-query-manager')
 const { buildDesktopCapabilityQueryOptions } = require('./managers/desktop-capability-query-options')
 const { buildEmbeddedAppCapabilityQueryOptions } = require('./managers/embedded-app-capability-query-options')
+const { buildHydrologyCapabilityQueryOptions } = require('./managers/hydrology-capability-query-options')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
 const {
@@ -1294,35 +1295,30 @@ class AgentSessionManager extends EventEmitter {
       let appendSystemPrompt = session.source === 'scheduled'
         ? undefined
         : HYDRO_IDENTITY_SYSTEM_PROMPT
-      const embeddedAppId = session?.clientMeta?.appId || session?.clientMeta?.embeddedAppId || null
-      const shouldSkipDesktopCapabilities = session?.clientType === 'embedded' &&
-        embeddedAppId === 'hydrology-workbench'
 
-      if (!shouldSkipDesktopCapabilities) {
-        try {
-          const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
-            scheduledTaskService: this.scheduledTaskService,
-            weixinNotifyService: this.weixinNotifyService,
-            session
-          })
-          if (desktopCapabilityOptions?.mcpServers) {
-            queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
-          }
-          if (desktopCapabilityOptions?.appendSystemPrompt) {
-            appendSystemPrompt = mergeSystemPrompts(
-              appendSystemPrompt,
-              desktopCapabilityOptions.appendSystemPrompt
-            )
-          }
-          if (desktopCapabilityOptions?.allowedTools?.length) {
-            queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
-          }
-          if (desktopCapabilityOptions?.disallowedTools?.length) {
-            queryOptions.disallowedTools = desktopCapabilityOptions.disallowedTools
-          }
-        } catch (err) {
-          console.warn('[AgentSession] Failed to build desktop capability query options:', err)
+      try {
+        const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
+          scheduledTaskService: this.scheduledTaskService,
+          weixinNotifyService: this.weixinNotifyService,
+          session
+        })
+        if (desktopCapabilityOptions?.mcpServers) {
+          queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
         }
+        if (desktopCapabilityOptions?.appendSystemPrompt) {
+          appendSystemPrompt = mergeSystemPrompts(
+            appendSystemPrompt,
+            desktopCapabilityOptions.appendSystemPrompt
+          )
+        }
+        if (desktopCapabilityOptions?.allowedTools?.length) {
+          queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
+        }
+        if (desktopCapabilityOptions?.disallowedTools?.length) {
+          queryOptions.disallowedTools = desktopCapabilityOptions.disallowedTools
+        }
+      } catch (err) {
+        console.warn('[AgentSession] Failed to build desktop capability query options:', err)
       }
 
       try {
@@ -1357,6 +1353,42 @@ class AgentSessionManager extends EventEmitter {
         }
       } catch (err) {
         console.warn('[AgentSession] Failed to build embedded app capability query options:', err)
+      }
+
+      try {
+        const hydrologyCapabilityOptions = await buildHydrologyCapabilityQueryOptions({
+          stationService: this.stationService,
+          realtimeService: this.realtimeService,
+          reviewTaskService: this.reviewTaskService,
+          qualityCheckService: this.qualityCheckService,
+          session
+        })
+        if (hydrologyCapabilityOptions?.mcpServers) {
+          queryOptions.mcpServers = {
+            ...(queryOptions.mcpServers || {}),
+            ...hydrologyCapabilityOptions.mcpServers
+          }
+        }
+        if (hydrologyCapabilityOptions?.appendSystemPrompt) {
+          appendSystemPrompt = mergeSystemPrompts(
+            appendSystemPrompt,
+            hydrologyCapabilityOptions.appendSystemPrompt
+          )
+        }
+        if (hydrologyCapabilityOptions?.allowedTools?.length) {
+          queryOptions.allowedTools = [
+            ...(queryOptions.allowedTools || []),
+            ...hydrologyCapabilityOptions.allowedTools
+          ]
+        }
+        if (hydrologyCapabilityOptions?.disallowedTools?.length) {
+          queryOptions.disallowedTools = [
+            ...(queryOptions.disallowedTools || []),
+            ...hydrologyCapabilityOptions.disallowedTools
+          ]
+        }
+      } catch (err) {
+        console.warn('[AgentSession] Failed to build hydrology capability query options:', err)
       }
 
       if (appendSystemPrompt) {

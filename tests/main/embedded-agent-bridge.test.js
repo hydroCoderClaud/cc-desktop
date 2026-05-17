@@ -70,4 +70,19 @@ describe('embedded hydro agent bridge wiring', () => {
     expect(source).toContain('HYDROLOGY_WORKBENCH_DISALLOWED_TOOLS')
     expect(source).toContain('do not inspect the workspace with Bash, Glob, Grep, LS, or Read')
   })
+
+  it('defines an independent hydrology domain MCP capability layer', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../../src/main/managers/hydrology-capability-query-options.js'), 'utf-8')
+
+    expect(source).toContain("const HYDROLOGY_SERVER_NAME = 'hydrology'")
+    expect(source).toContain('station_list')
+    expect(source).toContain('station_get')
+    expect(source).toContain('realtime_slots_list')
+    expect(source).toContain('realtime_slot_get')
+    expect(source).toContain('review_tasks_list')
+    expect(source).toContain('review_latest_run_summary_get')
+    expect(source).toContain('quality_check_run')
+    expect(source).toContain('Use embeddedapp tools for current UI state')
+    expect(source).toContain('Use hydrology tools for real business entities')
+  })
 })
