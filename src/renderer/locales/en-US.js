@@ -1338,6 +1338,8 @@ export default {
     sourceDingtalk: 'DingTalk',
     sourceWeixin: 'Weixin',
     apiProfile: 'API Profile',
+    apiProfileTooltip: 'API: ',
+    modelTooltip: 'Model: ',
     send: 'Send',
     stopGeneration: 'Stop Generation',
     outputInterrupted: 'Output Interrupted',

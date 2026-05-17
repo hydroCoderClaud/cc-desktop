@@ -5,7 +5,7 @@
         v-if="showApiProfileSwitcher"
         class="api-profile-selector"
         :class="{ disabled: apiProfileDisabled }"
-        :title="'API: ' + apiProfileDisplayName"
+        :title="t('agent.apiProfileTooltip') + apiProfileDisplayName"
         @click="toggleApiDropdown"
       >
         <Icon name="api" :size="14" class="api-profile-icon" />
@@ -27,7 +27,7 @@
         </div>
       </Transition>
 
-      <div class="model-selector" :title="'Model: ' + modelDisplayName" @click="toggleModelDropdown">
+      <div class="model-selector" :title="t('agent.modelTooltip') + modelDisplayName" @click="toggleModelDropdown">
         <Icon name="robot" :size="14" class="model-icon" />
       </div>
 

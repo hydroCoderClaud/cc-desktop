@@ -1343,6 +1343,8 @@ export default {
     sourceDingtalk: '钉钉',
     sourceWeixin: '微信',
     apiProfile: 'API 配置',
+    apiProfileTooltip: 'API 配置: ',
+    modelTooltip: '模型: ',
     send: '发送',
     stopGeneration: '停止生成',
     outputInterrupted: '输出已中断',
