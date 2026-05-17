@@ -4,6 +4,10 @@
       <ChatInputToolbar
         :model-value="modelValue"
         :model-options="modelOptions"
+        :api-profile-id="apiProfileId"
+        :api-profiles="apiProfiles"
+        :api-profile-disabled="apiProfileDisabled"
+        :show-api-profile-switcher="showApiProfileSwitcher"
         :context-tokens="contextTokens"
         :queue-enabled="queueEnabled"
         :is-expanded="isExpanded"
@@ -11,6 +15,7 @@
         :session-type="sessionType"
         :draft-text="inputText"
         @update:model-value="$emit('update:modelValue', $event)"
+        @api-profile-selected="$emit('api-profile-selected', $event)"
         @toggle-queue="$emit('update:queueEnabled', !queueEnabled)"
         @toggle-expanded="toggleExpanded"
         @schedule="handleSchedule"
@@ -155,6 +160,22 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  apiProfileId: {
+    type: String,
+    default: null
+  },
+  apiProfiles: {
+    type: Array,
+    default: () => []
+  },
+  apiProfileDisabled: {
+    type: Boolean,
+    default: false
+  },
+  showApiProfileSwitcher: {
+    type: Boolean,
+    default: false
+  },
   queueEnabled: {
     type: Boolean,
     default: true
@@ -185,7 +206,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'schedule', 'update:modelValue', 'update:queueEnabled', 'enqueue', 'input-change'])
+const emit = defineEmits(['send', 'cancel', 'schedule', 'update:modelValue', 'api-profile-selected', 'update:queueEnabled', 'enqueue', 'input-change'])
 
 const useCapability = (cap) => {
   if (props.isStreaming && !props.queueEnabled) return

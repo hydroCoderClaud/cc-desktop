@@ -1,6 +1,33 @@
 <template>
   <div class="input-toolbar">
     <div class="toolbar-left" ref="toolbarRootRef">
+      <div
+        v-if="showApiProfileSwitcher"
+        class="api-profile-selector"
+        :class="{ disabled: apiProfileDisabled }"
+        @click="toggleApiDropdown"
+      >
+        <Icon name="api" :size="14" class="api-profile-icon" />
+        <span class="api-profile-label">{{ apiProfileDisplayName }}</span>
+        <Icon name="chevronDown" :size="12" class="chevron" :class="{ open: showApiDropdown }" />
+      </div>
+
+      <Transition name="dropdown">
+        <div v-if="showApiDropdown" class="api-profile-dropdown">
+          <div
+            v-for="profile in normalizedApiProfiles"
+            :key="profile.value"
+            class="api-profile-option"
+            :class="{ active: resolvedApiProfileValue === profile.value }"
+            @click="selectApiProfile(profile.value)"
+          >
+            <span class="option-name">{{ profile.label }}</span>
+            <Icon v-if="resolvedApiProfileValue === profile.value" name="check" :size="14" class="check-icon" />
+          </div>
+          <div v-if="normalizedApiProfiles.length === 0" class="api-profile-empty">{{ t('notebook.chat.noProfiles') }}</div>
+        </div>
+      </Transition>
+
       <div class="model-selector" @click="toggleModelDropdown">
         <Icon name="robot" :size="14" class="model-icon" />
         <span class="model-label">{{ modelDisplayName }}</span>
@@ -152,6 +179,10 @@ import Icon from '@components/icons/Icon.vue'
 const props = defineProps({
   modelValue: { type: String, default: 'claude-sonnet-4-6' },
   modelOptions: { type: Array, default: () => [] },
+  apiProfileId: { type: String, default: null },
+  apiProfiles: { type: Array, default: () => [] },
+  apiProfileDisabled: { type: Boolean, default: false },
+  showApiProfileSwitcher: { type: Boolean, default: false },
   contextTokens: { type: Number, default: 0 },
   queueEnabled: { type: Boolean, default: true },
   isExpanded: { type: Boolean, default: false },
@@ -162,6 +193,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update:modelValue',
+  'api-profile-selected',
   'toggle-queue',
   'toggle-expanded',
   'schedule',
@@ -173,6 +205,7 @@ const emit = defineEmits([
 const { t } = useLocale()
 const toolbarRootRef = ref(null)
 const showDropdown = ref(false)
+const showApiDropdown = ref(false)
 const showCapDropdown = ref(false)
 const capList = ref([])
 const capLoading = ref(false)
@@ -226,6 +259,7 @@ const loadWeixinTargets = async () => {
 const toggleWeixinDropdown = () => {
   showWeixinDropdown.value = !showWeixinDropdown.value
   showDropdown.value = false
+  showApiDropdown.value = false
   showCapDropdown.value = false
   if (showWeixinDropdown.value) {
     weixinText.value = props.draftText || ''
@@ -281,6 +315,28 @@ watch(() => props.sessionId, () => {
   selectedWeixinTargetId.value = null
 })
 
+const normalizedApiProfiles = computed(() => {
+  if (!Array.isArray(props.apiProfiles)) return []
+  return props.apiProfiles
+    .map(profile => {
+      const value = typeof profile?.id === 'string' ? profile.id.trim() : ''
+      const label = typeof profile?.name === 'string' ? profile.name.trim() : value
+      if (!value) return null
+      return { value, label }
+    })
+    .filter(Boolean)
+})
+
+const resolvedApiProfileValue = computed(() => {
+  const normalized = typeof props.apiProfileId === 'string' ? props.apiProfileId.trim() : ''
+  return normalized || null
+})
+
+const apiProfileDisplayName = computed(() => {
+  const active = normalizedApiProfiles.value.find(profile => profile.value === resolvedApiProfileValue.value)
+  return active?.label || '默认 API'
+})
+
 const formatTokens = (value) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
@@ -308,8 +364,23 @@ const selectModel = (value) => {
   showDropdown.value = false
 }
 
+const selectApiProfile = (value) => {
+  if (props.apiProfileDisabled) return
+  emit('api-profile-selected', value || null)
+  showApiDropdown.value = false
+}
+
+const toggleApiDropdown = () => {
+  if (!props.showApiProfileSwitcher || props.apiProfileDisabled) return
+  showApiDropdown.value = !showApiDropdown.value
+  showDropdown.value = false
+  showCapDropdown.value = false
+  showWeixinDropdown.value = false
+}
+
 const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
+  showApiDropdown.value = false
   showCapDropdown.value = false
   showWeixinDropdown.value = false
 }
@@ -379,6 +450,7 @@ const loadCapabilities = async () => {
 const toggleCapDropdown = () => {
   showCapDropdown.value = !showCapDropdown.value
   showDropdown.value = false
+  showApiDropdown.value = false
   showWeixinDropdown.value = false
   if (showCapDropdown.value) {
     loadCapabilities()
@@ -388,6 +460,7 @@ const toggleCapDropdown = () => {
 const handleDocumentClick = (event) => {
   if (!toolbarRootRef.value?.contains(event.target)) {
     showDropdown.value = false
+    showApiDropdown.value = false
     showCapDropdown.value = false
     showWeixinDropdown.value = false
   }
@@ -423,6 +496,7 @@ onUnmounted(() => {
 }
 
 .model-selector,
+.api-profile-selector,
 .cap-trigger,
 .schedule-task-btn,
 .queue-toggle,
@@ -452,7 +526,25 @@ onUnmounted(() => {
   line-height: 1;
 }
 
+.api-profile-selector {
+  width: auto;
+  max-width: 168px;
+  padding: 0 10px;
+  gap: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-color);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.api-profile-selector.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .model-selector:hover,
+.api-profile-selector:hover,
 .cap-trigger:hover,
 .schedule-task-btn:hover,
 .queue-toggle:hover,
@@ -472,6 +564,7 @@ onUnmounted(() => {
 }
 
 .model-label,
+.api-profile-label,
 .active-model,
 .token-count,
 .option-name,
@@ -481,6 +574,7 @@ onUnmounted(() => {
 }
 
 .model-dropdown,
+.api-profile-dropdown,
 .cap-dropdown {
   position: absolute;
   top: auto;
@@ -501,6 +595,11 @@ onUnmounted(() => {
   overflow: auto;
 }
 
+.api-profile-dropdown {
+  max-height: min(320px, 45vh);
+  overflow: auto;
+}
+
 .cap-dropdown {
   min-width: 260px;
   max-height: 280px;
@@ -508,6 +607,7 @@ onUnmounted(() => {
 }
 
 .model-option,
+.api-profile-option,
 .cap-item {
   display: flex;
   align-items: center;
@@ -523,8 +623,16 @@ onUnmounted(() => {
 
 .model-option:hover,
 .model-option.active,
+.api-profile-option:hover,
+.api-profile-option.active,
 .cap-item:hover {
   background: var(--hover-bg);
+}
+
+.api-profile-empty {
+  padding: 10px;
+  color: var(--text-color-3);
+  font-size: 12px;
 }
 
 .cap-item {

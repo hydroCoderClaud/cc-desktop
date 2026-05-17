@@ -93,10 +93,15 @@
       :slash-commands-supported="!isExternalObserveSession"
       :enable-slash-commands="!isExternalObserveSession && hasActiveSession"
       :model-options="modelOptions"
+      :api-profile-id="resolvedApiProfileId"
+      :api-profiles="apiProfiles"
+      :api-profile-disabled="isStreaming || !hasActiveSession"
+      :show-api-profile-switcher="sessionType === 'chat'"
       :session-id="props.sessionId"
       :session-type="props.sessionType"
       v-model:model-value="selectedModel"
       @update:model-value="applyUserSelectedModel"
+      @api-profile-selected="handleApiProfileSelected"
       @send="handleSend"
       @schedule="handleScheduleDraftCreate"
       @cancel="handleCancel"
@@ -156,7 +161,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session', 'model-selected'])
+const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session', 'model-selected', 'api-profile-selected'])
 const resolvedApiProfileId = ref(props.apiProfileId)
 const resolvedModelId = ref(props.modelId)
 const resolvedAgentApi = computed(() => props.agentApi || window.electronAPI)
@@ -238,6 +243,8 @@ const welcomeHints = computed(() => [
   t('agent.hintAnalyze')
 ])
 
+const apiProfiles = ref([])
+
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
@@ -271,6 +278,50 @@ const handleCancel = async () => {
 const handleScheduleDraftCreate = (prompt = '') => {
   triggerScheduledTaskDraft(typeof prompt === 'string' ? prompt : '')
   scrollToBottom(false, true)
+}
+
+const loadApiProfiles = async () => {
+  try {
+    const profiles = await window.electronAPI?.listAPIProfiles?.()
+    apiProfiles.value = Array.isArray(profiles) ? profiles : []
+  } catch (err) {
+    console.warn('[AgentChatTab] Failed to load API profiles:', err)
+    apiProfiles.value = []
+  }
+}
+
+const handleApiProfileSelected = async (profileId) => {
+  if (props.sessionType !== 'chat') return
+  const nextProfileId = typeof profileId === 'string' ? profileId.trim() : ''
+  const normalizedCurrent = resolvedApiProfileId.value || ''
+  if (!nextProfileId || nextProfileId === normalizedCurrent) return
+
+  try {
+    const result = await resolvedAgentApi.value?.switchAgentApiProfile?.({
+      sessionId: props.sessionId,
+      profileId: nextProfileId
+    })
+    if (result?.error) {
+      throw new Error(result.error)
+    }
+    resolvedApiProfileId.value = nextProfileId
+    const nextModelId = result?.modelId !== undefined
+      ? (normalizeModelValue(result.modelId) || null)
+      : null
+    resolvedModelId.value = nextModelId
+    await initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)
+    emit('api-profile-selected', {
+      sessionId: props.sessionId,
+      apiProfileId: resolvedApiProfileId.value,
+      modelId: resolvedModelId.value
+    })
+    message.success(t('notebook.chat.apiSwitched', {
+      name: apiProfiles.value.find(profile => profile.id === nextProfileId)?.name || nextProfileId
+    }))
+  } catch (err) {
+    console.error('[AgentChatTab] switchApiProfile failed:', err)
+    message.error(`${t('notebook.chat.apiSwitchFailed')}：${err.message}`)
+  }
 }
 
 const setInteractionSubmitting = (interactionId, submitting) => {
@@ -518,6 +569,7 @@ onMounted(async () => {
   // 先注册流式监听器，再加载历史消息，确保钉钉第一条消息的 streaming 事件不被错过
   setupStreamListeners()
   await loadQueueSetting()
+  await loadApiProfiles()
   if (resolvedAgentApi.value?.getAgentSession) {
     try {
       const latestSession = await resolvedAgentApi.value.getAgentSession(props.sessionId)

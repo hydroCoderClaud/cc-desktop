@@ -65,15 +65,13 @@
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
             <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
-              <button
+              <span
                 v-if="profileName"
                 class="profile-badge"
                 :title="profileName"
-                @click.stop="toggleProfileDropdown(conv, $event)"
               >
                 <Icon name="api" :size="10" />
-                <Icon name="chevronDown" :size="9" />
-              </button>
+              </span>
             </template>
           </div>
           <div class="conv-actions">
@@ -109,33 +107,12 @@
         />
       </div>
     </n-modal>
-
-    <Teleport to="body">
-      <div
-        v-if="showProfileDropdown"
-        class="profile-dropdown"
-        :style="profileDropdownStyle"
-      >
-        <div v-if="apiProfiles.length === 0" class="profile-dropdown-empty">{{ t('notebook.chat.noProfiles') }}</div>
-        <button
-          v-for="profile in apiProfiles"
-          :key="profile.id"
-          class="profile-dropdown-item"
-          :class="{ active: profile.id === profileTargetProfileId }"
-          @click.stop="handleSwitchProfile(profile)"
-        >
-          <Icon v-if="profile.id === profileTargetProfileId" name="check" :size="12" class="profile-dropdown-check" />
-          <span v-else class="profile-dropdown-check profile-dropdown-check-placeholder"></span>
-          <span class="profile-dropdown-name">{{ profile.name }}</span>
-        </button>
-      </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, h, nextTick, onMounted, onUnmounted } from 'vue'
-import { useDialog, useMessage } from 'naive-ui'
+import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
@@ -143,8 +120,6 @@ import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
 
 const { t } = useLocale()
 const dialog = useDialog()
-const message = useMessage()
-const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
 const props = defineProps({
   activeSessionId: {
     type: String,
@@ -156,7 +131,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request', 'profile-updated'])
+const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request'])
 
 const {
   conversations,
@@ -218,11 +193,6 @@ const editTitle = ref('')
 const renameInputRef = ref(null)
 const showScheduledTaskManager = ref(false)
 const scheduledTaskId = ref(null)
-const showProfileDropdown = ref(false)
-const profileDropdownPos = ref({ top: 0, left: 0 })
-const profileTargetSessionId = ref(null)
-const profileTargetProfileId = ref(null)
-const isSwitchingProfile = ref(false)
 
 // API profiles（用于显示 profile 标记）
 const apiProfiles = ref([])
@@ -240,18 +210,6 @@ const getProfileName = (profileId) => {
   const profile = apiProfiles.value.find(p => p.id === profileId)
   return profile?.name || null
 }
-
-const getProfileDefaultModel = (profileId) => {
-  const profile = apiProfiles.value.find(p => p.id === profileId)
-  return normalizeModelValue(profile?.selectedModelId) || null
-}
-
-const profileDropdownStyle = computed(() => ({
-  position: 'fixed',
-  top: `${profileDropdownPos.value.top}px`,
-  left: `${profileDropdownPos.value.left}px`,
-  zIndex: 9999
-}))
 
 const getConversationSource = (conv) => {
   if (conv.type === 'dingtalk') return 'dingtalk'
@@ -320,81 +278,6 @@ const handleDelete = (conv) => {
   })
 }
 
-const toggleProfileDropdown = (conv, event) => {
-  if (!conv?.id || !event?.currentTarget) return
-
-  if (showProfileDropdown.value && profileTargetSessionId.value === conv.id) {
-    showProfileDropdown.value = false
-    profileTargetSessionId.value = null
-    profileTargetProfileId.value = null
-    return
-  }
-
-  const rect = event.currentTarget.getBoundingClientRect()
-  profileDropdownPos.value = {
-    top: rect.bottom + 6,
-    left: Math.max(12, rect.left)
-  }
-  profileTargetSessionId.value = conv.id
-  profileTargetProfileId.value = conv.apiProfileId || null
-  showProfileDropdown.value = true
-}
-
-const closeProfileDropdown = () => {
-  showProfileDropdown.value = false
-  profileTargetSessionId.value = null
-  profileTargetProfileId.value = null
-}
-
-const handleSwitchProfile = async (profile) => {
-  if (!profile?.id || !profileTargetSessionId.value || isSwitchingProfile.value) return
-
-  const sessionId = profileTargetSessionId.value
-  if (profile.id === profileTargetProfileId.value) {
-    closeProfileDropdown()
-    return
-  }
-
-  isSwitchingProfile.value = true
-  try {
-    const result = await window.electronAPI?.switchAgentApiProfile({
-      sessionId,
-      profileId: profile.id
-    })
-    if (result?.error) {
-      throw new Error(result.error)
-    }
-
-    const conv = conversations.value.find(item => item.id === sessionId)
-    const nextModelId = getProfileDefaultModel(profile.id)
-    if (conv) {
-      conv.apiProfileId = profile.id
-      conv.modelId = nextModelId
-    }
-    emit('profile-updated', {
-      sessionId,
-      apiProfileId: profile.id,
-      modelId: nextModelId
-    })
-    message.success(t('notebook.chat.apiSwitched', { name: profile.name }))
-    closeProfileDropdown()
-  } catch (err) {
-    console.error('[AgentLeftContent] switchApiProfile failed:', err)
-    message.error(`${t('notebook.chat.apiSwitchFailed')}：${err.message}`)
-  } finally {
-    isSwitchingProfile.value = false
-  }
-}
-
-const handleClickOutsideProfileDropdown = (event) => {
-  const target = event?.target
-  if (!(target instanceof HTMLElement)) return
-  if (target.closest('.profile-badge') || target.closest('.profile-dropdown')) {
-    return
-  }
-  closeProfileDropdown()
-}
-
 // 监听重命名事件（从后端推送）
 let cleanupRenamed = null
 let cleanupAgentResult = null
@@ -413,7 +296,6 @@ onMounted(() => {
   loadApiProfiles()
 
   window.addEventListener('focus', onWindowFocus)
-  document.addEventListener('click', handleClickOutsideProfileDropdown, true)
 
   if (window.electronAPI?.onAgentRenamed) {
     cleanupRenamed = window.electronAPI.onAgentRenamed((data) => {
@@ -470,7 +352,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('focus', onWindowFocus)
-  document.removeEventListener('click', handleClickOutsideProfileDropdown, true)
   if (cleanupRenamed) cleanupRenamed()
   if (cleanupAgentResult) cleanupAgentResult()
   if (cleanupAgentStatus) cleanupAgentStatus()
@@ -659,58 +540,6 @@ defineExpose({
   color: var(--primary-color);
   background: transparent;
   opacity: 1;
-}
-
-.profile-dropdown {
-  min-width: 180px;
-  padding: 6px;
-  border-radius: var(--panel-radius);
-  border: 1px solid var(--panel-border);
-  background: var(--panel-bg);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
-}
-
-.profile-dropdown-empty {
-  padding: 10px 12px;
-  color: var(--text-color-muted);
-  font-size: 12px;
-}
-
-.profile-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-color);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.profile-dropdown-item:hover,
-.profile-dropdown-item.active {
-  background: var(--hover-bg);
-}
-
-.profile-dropdown-check {
-  color: var(--primary-color);
-  flex-shrink: 0;
-}
-
-.profile-dropdown-check-placeholder {
-  width: 12px;
-  height: 12px;
-}
-
-.profile-dropdown-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .source-badge {

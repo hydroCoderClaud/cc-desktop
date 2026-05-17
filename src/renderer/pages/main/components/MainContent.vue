@@ -20,7 +20,6 @@
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
-      @agent-profile-updated="handleAgentProfileUpdated"
     />
 
     <!-- Main Content Area -->
@@ -108,6 +107,7 @@
               :model-id="tab.modelId"
               :visible="activeTabId === tab.id"
               @ready="handleAgentTabReady"
+              @api-profile-selected="handleAgentProfileUpdated"
               @request-clear-session="handleAgentClearSession(tab.sessionId)"
               @preview-image="handlePreviewImage"
               @preview-link="handlePreviewLink"

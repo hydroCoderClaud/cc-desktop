@@ -9,39 +9,6 @@
               <h3 v-if="title">{{ title }}</h3>
             </div>
             <div class="embedded-agent-actions">
-              <div class="embedded-profile-switcher" ref="profileSwitcherRef">
-                <button
-                  type="button"
-                  class="embedded-profile-btn"
-                  :disabled="!sessionId || switchingProfile || loadingProfiles"
-                  :title="currentProfileName"
-                  @click="toggleProfileDropdown"
-                >
-                  <span class="embedded-profile-label">{{ currentProfileName }}</span>
-                  <span class="embedded-profile-caret">▾</span>
-                </button>
-                <Teleport to="body">
-                  <div
-                    v-if="showProfileDropdown"
-                    class="embedded-profile-dropdown"
-                    :style="profileDropdownStyle"
-                  >
-                    <div v-if="apiProfiles.length === 0" class="embedded-profile-empty">暂无 API 配置</div>
-                    <button
-                      v-for="profile in apiProfiles"
-                      :key="profile.id"
-                      type="button"
-                      class="embedded-profile-option"
-                      :class="{ active: profile.id === currentApiProfileId }"
-                      :disabled="switchingProfile"
-                      @click="handleSwitchProfile(profile)"
-                    >
-                      <span class="embedded-profile-check">{{ profile.id === currentApiProfileId ? '✓' : '' }}</span>
-                      <span class="embedded-profile-option-name">{{ profile.name }}</span>
-                    </button>
-                  </div>
-                </Teleport>
-              </div>
               <button type="button" class="context-send-btn" :disabled="!sessionId" @click="toggleCapabilityPanel">
                 当前会话能力
               </button>
@@ -97,6 +64,7 @@
             :model-id="currentModelId"
             :agent-api="agentApi"
             @ready="handleReady"
+            @api-profile-selected="handleApiProfileSelected"
             @model-selected="handleModelSelected"
             @request-clear-session="handleClearSession"
           />
@@ -157,10 +125,7 @@ const loadingProfiles = ref(false)
 const currentApiProfileId = ref(props.apiProfileId || null)
 const currentModelId = ref(props.modelId || null)
 const switchingProfile = ref(false)
-const showProfileDropdown = ref(false)
 const showCapabilityPanel = ref(false)
-const profileSwitcherRef = ref(null)
-const profileDropdownPos = ref({ top: 0, right: 0 })
 const capabilityError = ref('')
 const capabilitySnapshot = ref({
   toolNames: [],
@@ -176,18 +141,6 @@ const contextText = computed(() => {
   const context = contextSnapshot.value
   if (!context) return '当前应用尚未提供业务上下文。'
   return context.summary || context.title || '已接入当前应用业务上下文。'
-})
-
-const profileDropdownStyle = computed(() => ({
-  position: 'fixed',
-  top: `${profileDropdownPos.value.top}px`,
-  right: `${profileDropdownPos.value.right}px`,
-  zIndex: 9999
-}))
-
-const currentProfileName = computed(() => {
-  const active = apiProfiles.value.find(profile => profile.id === currentApiProfileId.value)
-  return active?.name || '默认 API'
 })
 
 const persistAppPreferences = async (updates = {}) => {
@@ -430,43 +383,10 @@ const toggleCapabilityPanel = async () => {
   }
 }
 
-const updateProfileDropdownPos = () => {
-  if (!profileSwitcherRef.value) return
-  const rect = profileSwitcherRef.value.getBoundingClientRect()
-  profileDropdownPos.value = {
-    top: rect.bottom + 6,
-    right: window.innerWidth - rect.right
-  }
-}
-
-const toggleProfileDropdown = () => {
-  if (!sessionId.value || switchingProfile.value || loadingProfiles.value) return
-  if (!showProfileDropdown.value) {
-    updateProfileDropdownPos()
-  }
-  showProfileDropdown.value = !showProfileDropdown.value
-}
-
-const closeProfileDropdown = () => {
-  showProfileDropdown.value = false
-}
-
-const handleDocumentClick = (event) => {
-  if (!showProfileDropdown.value) return
-  if (profileSwitcherRef.value?.contains(event.target)) return
-  closeProfileDropdown()
-}
-
-const handleWindowResize = () => {
-  if (showProfileDropdown.value) {
-    updateProfileDropdownPos()
-  }
-}
-
-const handleSwitchProfile = async (profile) => {
-  closeProfileDropdown()
-  if (!profile?.id || !sessionId.value || switchingProfile.value) return
-  if (profile.id === currentApiProfileId.value) return
+const handleApiProfileSelected = async ({ apiProfileId } = {}) => {
+  const nextProfileId = typeof apiProfileId === 'string' ? apiProfileId.trim() : ''
+  if (!nextProfileId || !sessionId.value || switchingProfile.value) return
+  if (nextProfileId === currentApiProfileId.value) return
   if (!agentApi.value?.switchAgentApiProfile) return
 
   switchingProfile.value = true
@@ -474,12 +394,12 @@ const handleSwitchProfile = async (profile) => {
   try {
     const result = await agentApi.value.switchAgentApiProfile({
       sessionId: sessionId.value,
-      profileId: profile.id
+      profileId: nextProfileId
     })
     if (result?.error) {
       throw new Error(result.error)
     }
-    currentApiProfileId.value = profile.id
+    currentApiProfileId.value = nextProfileId
     currentModelId.value = result?.modelId !== undefined ? (result.modelId || null) : null
     await syncSessionProfileSnapshot()
     await persistAppPreferences({
@@ -598,15 +518,11 @@ onMounted(async () => {
   await loadAppPreferences()
   await loadApiProfiles()
   window.addEventListener('embedded-agent:context-changed', handleContextChanged)
-  document.addEventListener('click', handleDocumentClick, true)
-  window.addEventListener('resize', handleWindowResize)
   await initializeSession()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('embedded-agent:context-changed', handleContextChanged)
-  document.removeEventListener('click', handleDocumentClick, true)
-  window.removeEventListener('resize', handleWindowResize)
   agentApi.value?.dispose?.()
 })
 </script>
@@ -653,98 +569,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.embedded-profile-switcher {
-  position: relative;
-}
-
-.embedded-profile-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  height: 34px;
-  padding: 0 11px;
-  background: var(--panel-bg, var(--bg-color-secondary));
-  color: var(--text-color-secondary, var(--text-color));
-  cursor: pointer;
-  min-width: 110px;
-  max-width: 168px;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.embedded-profile-btn:hover:not(:disabled) {
-  border-color: var(--selected-border, var(--border-color));
-  background: var(--hover-bg);
-  color: var(--text-color);
-  box-shadow: var(--primary-shadow, none);
-}
-
-.embedded-profile-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.embedded-profile-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.embedded-profile-caret {
-  color: var(--text-color-muted);
-  font-size: 11px;
-}
-
-.embedded-profile-dropdown {
-  min-width: 180px;
-  background: var(--panel-bg, var(--bg-color-secondary));
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--panel-shadow-soft, 0 12px 32px rgba(15, 23, 42, 0.16));
-  padding: 6px;
-}
-
-.embedded-profile-empty {
-  padding: 10px 12px;
-  font-size: 12px;
-  color: var(--text-color-muted);
-}
-
-.embedded-profile-option {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-color);
-  padding: 9px 10px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.embedded-profile-option:hover {
-  background: var(--hover-bg);
-}
-
-.embedded-profile-option.active {
-  color: var(--primary-color);
-  background: var(--primary-ghost);
-}
-
-.embedded-profile-check {
-  width: 14px;
-  flex-shrink: 0;
-}
-
-.embedded-profile-option-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .context-send-btn {

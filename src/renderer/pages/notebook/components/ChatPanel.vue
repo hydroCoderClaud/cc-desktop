@@ -2,42 +2,6 @@
   <div class="notebook-chat-panel">
     <div class="panel-header">
       <span class="panel-title">{{ t('notebook.chat.title') }}</span>
-      <div class="header-right">
-        <!-- API 切换器 -->
-        <div class="api-switcher" ref="apiSwitcherRef">
-          <button
-            class="api-switcher-btn"
-            :class="{ disabled: isStreaming }"
-            :disabled="isStreaming"
-            :title="currentProfileName"
-            @click="toggleApiDropdown"
-          >
-            <Icon name="api" :size="14" :class="hasActiveSession ? 'cli-active' : 'cli-inactive'" />
-            <span class="api-name">{{ currentProfileName }}</span>
-            <Icon name="chevronDown" :size="12" />
-          </button>
-          <Teleport to="body">
-            <div
-              v-if="showApiDropdown"
-              class="api-dropdown"
-              :style="apiDropdownStyle"
-            >
-              <div v-if="apiProfiles.length === 0" class="api-dropdown-empty">{{ t('notebook.chat.noProfiles') }}</div>
-              <div
-                v-for="p in apiProfiles"
-                :key="p.id"
-                class="api-dropdown-item"
-                :class="{ active: p.id === currentApiProfileId }"
-                @click="handleSwitchApi(p)"
-              >
-                <Icon v-if="p.id === currentApiProfileId" name="check" :size="14" class="api-check" />
-                <span v-else class="api-check-placeholder"></span>
-                <span class="api-item-name">{{ p.name }}</span>
-              </div>
-            </div>
-          </Teleport>
-        </div>
-      </div>
     </div>
 
     <div class="messages-list" ref="messagesListRef">
@@ -110,9 +74,14 @@
       :slash-commands-supported="true"
       :enable-slash-commands="hasActiveSession"
       :model-options="modelOptions"
+      :api-profile-id="currentApiProfileId"
+      :api-profiles="apiProfiles"
+      :api-profile-disabled="isStreaming || !hasActiveSession"
+      :show-api-profile-switcher="true"
       :session-id="props.sessionId"
       :session-type="'chat'"
       v-model:model-value="selectedModel"
+      @api-profile-selected="handleApiProfileSelected"
       @send="handleInputSend"
       @input-change="handleInputChange"
       @cancel="handleCancel"
@@ -250,7 +219,6 @@ let isUnmounting = false
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
-const apiSwitcherRef = ref(null)
 const interactionSubmitting = ref({})
 const {
   scrollToBottom,
@@ -347,40 +315,11 @@ const handleInteractionCancel = async ({ interactionId }) => {
 // ─── API 切换器 ────────────────────────────────────────────────────────────────
 const apiProfiles = ref([])
 const currentApiProfileId = ref(props.apiProfileId)
-const showApiDropdown = ref(false)
-const apiDropdownPos = ref({ top: 0, right: 0 })
-
-const apiDropdownStyle = computed(() => ({
-  position: 'fixed',
-  top: apiDropdownPos.value.top + 'px',
-  right: apiDropdownPos.value.right + 'px',
-  zIndex: 9999
-}))
-
-const currentProfileName = computed(() => {
-  const p = apiProfiles.value.find(p => p.id === currentApiProfileId.value)
-  return p?.name || 'API'
-})
 
 const loadApiProfiles = async () => {
   try {
     apiProfiles.value = await window.electronAPI.listAPIProfiles()
   } catch {}
-}
-
-const toggleApiDropdown = () => {
-  if (!showApiDropdown.value && apiSwitcherRef.value) {
-    const rect = apiSwitcherRef.value.getBoundingClientRect()
-    apiDropdownPos.value = { top: rect.bottom + 6, right: window.innerWidth - rect.right }
-  }
-  showApiDropdown.value = !showApiDropdown.value
-}
-
-const onWindowResize = () => {
-  if (showApiDropdown.value && apiSwitcherRef.value) {
-    const rect = apiSwitcherRef.value.getBoundingClientRect()
-    apiDropdownPos.value = { top: rect.bottom + 6, right: window.innerWidth - rect.right }
-  }
 }
 
 let isSwitchingApi = false
@@ -393,30 +332,26 @@ const syncApiProfileState = async (profileId, preferredModelId = props.selectedM
   return applied && syncToken === profileSyncToken
 }
 
-const handleSwitchApi = async (profile) => {
-  showApiDropdown.value = false
-  if (profile.id === currentApiProfileId.value || isSwitchingApi) return
+const handleApiProfileSelected = async (profileId) => {
+  const nextProfileId = typeof profileId === 'string' ? profileId.trim() : ''
+  if (!nextProfileId || nextProfileId === currentApiProfileId.value || isSwitchingApi) return
   isSwitchingApi = true
   try {
-    const result = await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: profile.id })
+    const result = await window.electronAPI.switchAgentApiProfile({ sessionId: props.sessionId, profileId: nextProfileId })
     if (result?.error) {
       throw new Error(result.error)
     }
-    const applied = await syncApiProfileState(profile.id, null)
+    const applied = await syncApiProfileState(nextProfileId, null)
     if (!applied) return
-    emit('api-profile-switched', { profileId: profile.id })
-    message.success(t('notebook.chat.apiSwitched', { name: profile.name }))
+    emit('api-profile-switched', { profileId: nextProfileId })
+    message.success(t('notebook.chat.apiSwitched', {
+      name: apiProfiles.value.find(profile => profile.id === nextProfileId)?.name || nextProfileId
+    }))
   } catch (err) {
     console.error('[ChatPanel] switchApiProfile failed:', err)
     message.error(t('notebook.chat.apiSwitchFailed') + '：' + err.message)
   } finally {
     isSwitchingApi = false
-  }
-}
-
-const onApiSwitcherClickOutside = (e) => {
-  if (showApiDropdown.value && apiSwitcherRef.value && !apiSwitcherRef.value.contains(e.target)) {
-    showApiDropdown.value = false
   }
 }
 const tryAutoConsumeQueue = () => {
@@ -490,8 +425,6 @@ watch(() => props.selectedModelId, (modelId) => {
 
 onBeforeUnmount(() => {
   isUnmounting = true
-  document.removeEventListener('click', onApiSwitcherClickOutside, true)
-  window.removeEventListener('resize', onWindowResize)
   stopAutoScrollObservers()
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll, { passive: true })
@@ -505,8 +438,6 @@ onMounted(async () => {
   await loadMessages()
   setupWeixinListeners()
   await syncActiveSessionState()
-  document.addEventListener('click', onApiSwitcherClickOutside, true)
-  window.addEventListener('resize', onWindowResize)
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }
@@ -568,87 +499,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.api-switcher {
-  position: relative;
-}
-
-.cli-active { color: #22c55e; }
-.cli-inactive { color: var(--text-color-muted); }
-
-.api-switcher-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 8px;
-  background: var(--hover-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-color-muted);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-  max-width: 130px;
-}
-
-.api-switcher-btn:hover:not(.disabled) {
-  background: var(--border-color);
-  color: var(--text-color);
-}
-
-.api-switcher-btn.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.api-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.api-dropdown {
-  min-width: 180px;
-  background: var(--bg-color-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  padding: 4px;
-}
-
-.api-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-color);
-  transition: background 0.1s;
-}
-
-.api-dropdown-item:hover { background: var(--hover-bg); }
-.api-dropdown-item.active { color: var(--primary-color); }
-
-.api-dropdown-empty {
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--text-color-muted);
-  text-align: center;
-}
-
-.api-check { color: var(--primary-color); flex-shrink: 0; }
-.api-check-placeholder { width: 14px; flex-shrink: 0; }
-
-.api-item-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .panel-title {
