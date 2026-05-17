@@ -119,7 +119,9 @@ export function useNotebookTools({
         } else {
           remoteTools.value = []
           const errorMsg = remoteRes.error || '返回数据格式错误'
-          if (remoteRes.error) message.info(`远程工具同步跳过: ${errorMsg}`)
+          if (remoteRes.error) {
+            console.info('[NotebookTools] Remote tool sync skipped:', errorMsg)
+          }
         }
       } catch (err) {
         console.error('[NotebookTools] Failed to sync remote tools:', err)
