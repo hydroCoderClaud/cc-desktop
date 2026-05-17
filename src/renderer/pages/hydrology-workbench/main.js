@@ -1535,6 +1535,22 @@ async function handleAgentAppCommand({ command, payload = {} } = {}) {
     return { success: false, error: 'Missing embedded app command' }
   }
 
+  if (normalizedCommand === 'refresh') {
+    if (selectedStationId) {
+      await loadStations()
+      await selectStation(selectedStationId)
+    } else {
+      await loadStations()
+      renderWorkbench()
+      notifyAgentContextChanged(true)
+    }
+    return {
+      success: true,
+      refreshed: true,
+      selectedStationId
+    }
+  }
+
   if (normalizedCommand === 'selectStation') {
     const stationId = typeof payload.stationId === 'string' ? payload.stationId.trim() : ''
     if (!stationId) {

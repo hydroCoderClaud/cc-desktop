@@ -278,6 +278,18 @@ const handleDelete = (conv) => {
   })
 }
 
+const updateConversationRuntime = ({ sessionId, apiProfileId, modelId } = {}) => {
+  if (!sessionId) return
+  const index = conversations.value.findIndex(item => item.id === sessionId)
+  if (index === -1) return
+  const current = conversations.value[index]
+  conversations.value.splice(index, 1, {
+    ...current,
+    apiProfileId: apiProfileId || null,
+    modelId: modelId || null
+  })
+}
+
 // 监听重命名事件（从后端推送）
 let cleanupRenamed = null
 let cleanupAgentResult = null
@@ -365,7 +377,8 @@ defineExpose({
   loadConversations,
   createConversation,
   closeConversation,
-  deleteConversation
+  deleteConversation,
+  updateConversationRuntime
 })
 </script>
 

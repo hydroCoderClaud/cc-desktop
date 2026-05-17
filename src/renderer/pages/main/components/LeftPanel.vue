@@ -216,6 +216,10 @@ const handleAgentClosed = async (conv) => {
   emit('agent-closed', conv)
 }
 
+const updateAgentConversationRuntime = (payload) => {
+  agentLeftContentRef.value?.updateConversationRuntime?.(payload)
+}
+
 // Props
 const props = defineProps({
   projects: {
@@ -903,6 +907,7 @@ defineExpose({
   loadActiveSessions,
   loadHistorySessions: () => loadHistorySessions(props.currentProject),
   reloadAgentConversations: () => agentLeftContentRef.value?.loadConversations?.(),
+  updateAgentConversationRuntime,
   focusedSessionId,
   activeAgentSessionId,
   handleNewSession

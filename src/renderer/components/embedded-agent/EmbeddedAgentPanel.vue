@@ -383,33 +383,26 @@ const toggleCapabilityPanel = async () => {
   }
 }
 
-const handleApiProfileSelected = async ({ apiProfileId } = {}) => {
-  const nextProfileId = typeof apiProfileId === 'string' ? apiProfileId.trim() : ''
-  if (!nextProfileId || !sessionId.value || switchingProfile.value) return
-  if (nextProfileId === currentApiProfileId.value) return
-  if (!agentApi.value?.switchAgentApiProfile) return
+const handleApiProfileSelected = async (payload) => {
+  const nextProfileId = typeof payload === 'string'
+    ? payload.trim()
+    : (typeof payload?.apiProfileId === 'string' ? payload.apiProfileId.trim() : '')
+  const nextModelId = typeof payload?.modelId === 'string'
+    ? (payload.modelId.trim() || null)
+    : null
+  if (!nextProfileId || !sessionId.value) return
 
-  switchingProfile.value = true
+  currentApiProfileId.value = nextProfileId
+  currentModelId.value = nextModelId
   error.value = ''
-  try {
-    const result = await agentApi.value.switchAgentApiProfile({
-      sessionId: sessionId.value,
-      profileId: nextProfileId
-    })
-    if (result?.error) {
-      throw new Error(result.error)
-    }
-    currentApiProfileId.value = nextProfileId
-    currentModelId.value = result?.modelId !== undefined ? (result.modelId || null) : null
-    await syncSessionProfileSnapshot()
-    await persistAppPreferences({
-      apiProfileId: currentApiProfileId.value,
-      modelId: currentModelId.value
-    })
-  } catch (err) {
-    error.value = err.message || String(err)
-  } finally {
-    switchingProfile.value = false
+
+  await persistAppPreferences({
+    apiProfileId: currentApiProfileId.value,
+    modelId: currentModelId.value
+  })
+
+  if (showCapabilityPanel.value) {
+    await refreshCapabilitySnapshot()
   }
 }
 
@@ -686,9 +679,11 @@ onBeforeUnmount(() => {
 }
 
 .embedded-agent-chat :deep(.model-selector) {
-  flex: 1 1 180px;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 100%;
+  max-width: 220px;
+  padding: 0 6px;
+  gap: 4px;
 }
 
 .embedded-agent-chat :deep(.model-label),

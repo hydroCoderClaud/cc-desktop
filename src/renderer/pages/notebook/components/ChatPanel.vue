@@ -76,7 +76,7 @@
       :model-options="modelOptions"
       :api-profile-id="currentApiProfileId"
       :api-profiles="apiProfiles"
-      :api-profile-disabled="isStreaming || !hasActiveSession"
+      :api-profile-disabled="isStreaming || !props.sessionId"
       :show-api-profile-switcher="true"
       :session-id="props.sessionId"
       :session-type="'chat'"

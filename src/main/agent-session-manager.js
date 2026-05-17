@@ -1359,6 +1359,7 @@ class AgentSessionManager extends EventEmitter {
         const hydrologyCapabilityOptions = await buildHydrologyCapabilityQueryOptions({
           stationService: this.stationService,
           realtimeService: this.realtimeService,
+          realtimeDemoSeeder: this.realtimeDemoSeeder,
           reviewTaskService: this.reviewTaskService,
           qualityCheckService: this.qualityCheckService,
           session

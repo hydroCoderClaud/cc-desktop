@@ -95,8 +95,8 @@
       :model-options="modelOptions"
       :api-profile-id="resolvedApiProfileId"
       :api-profiles="apiProfiles"
-      :api-profile-disabled="isStreaming || !hasActiveSession"
-      :show-api-profile-switcher="sessionType === 'chat'"
+      :api-profile-disabled="isStreaming || !props.sessionId"
+      :show-api-profile-switcher="Boolean(props.sessionId)"
       :session-id="props.sessionId"
       :session-type="props.sessionType"
       v-model:model-value="selectedModel"
@@ -291,7 +291,6 @@ const loadApiProfiles = async () => {
 }
 
 const handleApiProfileSelected = async (profileId) => {
-  if (props.sessionType !== 'chat') return
   const nextProfileId = typeof profileId === 'string' ? profileId.trim() : ''
   const normalizedCurrent = resolvedApiProfileId.value || ''
   if (!nextProfileId || nextProfileId === normalizedCurrent) return
@@ -633,8 +632,12 @@ onMounted(async () => {
   emit('ready', { sessionId: props.sessionId })
 })
 
-watch(() => [props.apiProfileId, props.modelId], ([apiProfileId, modelId]) => {
+watch(() => props.apiProfileId, (apiProfileId) => {
   resolvedApiProfileId.value = apiProfileId || null
+  void initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)
+})
+
+watch(() => props.modelId, (modelId) => {
   const normalizedModelId = normalizeModelValue(modelId)
   resolvedModelId.value = normalizedModelId || null
   void initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)

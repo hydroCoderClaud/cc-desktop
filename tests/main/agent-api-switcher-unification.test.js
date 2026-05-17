@@ -33,8 +33,13 @@ describe('agent api switcher unification', () => {
     expect(chatInputSource).toContain(':show-api-profile-switcher="showApiProfileSwitcher"')
     expect(chatInputSource).toContain("@api-profile-selected=\"$emit('api-profile-selected', $event)\"")
 
-    expect(agentChatTabSource).toContain(':show-api-profile-switcher="sessionType === \'chat\'"')
+    expect(agentChatTabSource).toContain(':show-api-profile-switcher="Boolean(props.sessionId)"')
+    expect(agentChatTabSource).toContain(':api-profile-disabled="isStreaming || !props.sessionId"')
     expect(agentChatTabSource).toContain('@api-profile-selected="handleApiProfileSelected"')
+    expect(agentChatTabSource).not.toContain("if (props.sessionType !== 'chat') return")
+    expect(agentChatTabSource).toContain('watch(() => props.apiProfileId, (apiProfileId) => {')
+    expect(agentChatTabSource).toContain('watch(() => props.modelId, (modelId) => {')
+    expect(agentChatTabSource).not.toContain('watch(() => [props.apiProfileId, props.modelId],')
     expect(agentChatTabSource).toContain('switchAgentApiProfile')
   })
 
@@ -46,6 +51,7 @@ describe('agent api switcher unification', () => {
 
     expect(notebookSource).not.toContain('class="api-switcher"')
     expect(notebookSource).toContain(':show-api-profile-switcher="true"')
+    expect(notebookSource).toContain(':api-profile-disabled="isStreaming || !props.sessionId"')
     expect(notebookSource).toContain('@api-profile-selected="handleApiProfileSelected"')
 
     expect(embeddedSource).not.toContain('embedded-profile-switcher')
@@ -55,8 +61,11 @@ describe('agent api switcher unification', () => {
     expect(leftSource).not.toContain('handleSwitchProfile')
     expect(leftSource).not.toContain('profile-dropdown')
     expect(leftSource).toContain('class="profile-badge"')
+    expect(leftSource).toContain('const updateConversationRuntime = ({ sessionId, apiProfileId, modelId } = {}) => {')
+    expect(leftSource).toContain('conversations.value.splice(index, 1, {')
 
     expect(mainContentSource).not.toContain('@agent-profile-updated=')
     expect(mainContentSource).toContain('@api-profile-selected="handleAgentProfileUpdated"')
+    expect(mainContentSource).toContain('leftPanelRef.value?.updateAgentConversationRuntime?.({')
   })
 })

@@ -53,6 +53,7 @@ const EMBEDDED_APP_SYSTEM_PROMPT = [
   'In embedded app sessions, interpret business nouns such as station, task, tab, record, and current object as the app business domain first, not as generic web or publishing concepts.',
   'For hydrology-workbench specifically, words like 站点, 实时数据, 审核任务, 审核任务状态, 工作成果, 时槽, and 当前任务 normally refer to the hydrology workbench UI state and review workflow, not Hydro Desktop scheduled tasks.',
   'When the user asks to switch pages, open 审核任务状态, open 实时数据列表, choose a station, or inspect the current hydrology workflow, prefer context_get and command_execute instead of hydrodesktop scheduled-task tools.',
+  'When the app UI may be stale after in-app writes, you may call command_execute with refresh to request a safe page data reload.',
   'For hydrology-workbench, prefer hydrology_current_station_get or hydrology_context_get for questions about 当前站点 or 当前功能.',
   'For hydrology-workbench, prefer hydrology_review_board_open or hydrology_tab_open for requests such as 切换到审核任务状态 or 打开实时数据列表.',
   'For hydrology-workbench, do not inspect the workspace with Bash, Glob, Grep, LS, or Read when the user is asking about current station, current function page, review tasks, or in-app navigation.',
@@ -179,7 +180,7 @@ async function buildEmbeddedAppCapabilityQueryOptions({ embeddedAppRuntimeManage
             EMBEDDED_APP_TOOL_NAMES[1],
             '请求 embedded app 执行一个受控动作，例如切换标签、打开记录、聚焦当前业务对象。',
             {
-              command: z.string().min(1).describe('受控动作名称，例如 selectStation、openTab、openReviewTask。'),
+              command: z.string().min(1).describe('受控动作名称，例如 refresh、selectStation、openTab、openReviewTask。'),
               payload: z.record(z.string(), z.any()).optional().describe('动作参数对象。')
             },
             async (args) => {

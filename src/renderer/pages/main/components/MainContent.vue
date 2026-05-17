@@ -925,6 +925,11 @@ const handleAgentProfileUpdated = ({ sessionId, apiProfileId, modelId }) => {
   if (!tab) return
   tab.apiProfileId = apiProfileId || null
   tab.modelId = modelId || null
+  leftPanelRef.value?.updateAgentConversationRuntime?.({
+    sessionId,
+    apiProfileId,
+    modelId
+  })
 }
 
 const handleAgentTabReady = ({ sessionId }) => {

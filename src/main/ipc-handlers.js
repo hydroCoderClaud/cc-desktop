@@ -190,6 +190,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     agentSessionManager.embeddedAppRuntimeManager = embeddedAppRuntimeManager
     agentSessionManager.stationService = stationService
     agentSessionManager.realtimeService = realtimeService
+    agentSessionManager.realtimeDemoSeeder = realtimeDemoSeeder
     agentSessionManager.reviewTaskService = reviewTaskService
     agentSessionManager.qualityCheckService = qualityCheckService
   }
