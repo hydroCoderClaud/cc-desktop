@@ -105,7 +105,12 @@
 参数说明：
 
 - `command`
-  - 动作名称
+  - 动作名称，当前支持：
+    - `refresh` — 请求 app 安全刷新页面数据
+    - `selectStation` — 切换站点
+    - `openTab` — 切换功能 tab
+    - `openReviewTask` — 打开审核任务详情
+    - `openReviewBoard` — 直接切到审核任务状态页
 - `payload`
   - 动作参数对象
 
@@ -182,7 +187,42 @@
 
 当前水文工作台已实现的 `command_execute` 命令如下。
 
-### 6.1 `selectStation`
+### 6.1 `refresh`
+
+用途：
+
+- 请求 app 安全刷新页面数据，用于 in-app 写入（如通过 MCP 工具新增/修改/删除数据）后同步 UI 状态
+
+输入：
+
+```json
+{
+  "command": "refresh",
+  "payload": {}
+}
+```
+
+返回示例（有选中站点）：
+
+```json
+{
+  "success": true,
+  "refreshed": true,
+  "selectedStationId": "station-001"
+}
+```
+
+返回示例（无选中站点）：
+
+```json
+{
+  "success": true,
+  "refreshed": true,
+  "selectedStationId": null
+}
+```
+
+### 6.2 `selectStation`
 
 用途：
 
@@ -208,7 +248,7 @@
 }
 ```
 
-### 6.2 `openTab`
+### 6.3 `openTab`
 
 用途：
 
@@ -242,7 +282,7 @@
 }
 ```
 
-### 6.3 `openReviewTask`
+### 6.4 `openReviewTask`
 
 用途：
 
@@ -270,7 +310,7 @@
 }
 ```
 
-### 6.4 `openReviewBoard`
+### 6.5 `openReviewBoard`
 
 用途：
 
@@ -317,6 +357,15 @@
   - `schedule`
   - `cron`
   才应优先路由到全局 `hydrodesktop` 定时任务工具
+- 当 MCP 工具（如 `hydrology` 的 CRUD 操作）在 app 内写入数据后，UI 可能已过时，此时可调用 `command_execute` 的 `refresh` 命令请求页面安全重载
+
+三层能力路由优先级：
+
+| 问题类型 | 优先 MCP server |
+|---------|----------------|
+| 当前页面状态、当前站点/tab/任务 | `embeddedapp` |
+| 水文业务数据查询与写入（站点、时槽、审核、质量检查） | `hydrology` |
+| 桌面平台全局能力（定时任务、微信通知） | `hydrodesktop` |
 
 ## 8. 运行时桥接机制
 
@@ -378,3 +427,25 @@ agent
 而不是：
 
 - 通用桌面自动化工具
+
+## 11. 与 `hydrology` MCP server 的关系
+
+自闭环重构后，水文工作台 Agent 会话同时注入三个 MCP server：
+
+- `hydrodesktop` — 桌面平台通用能力（定时任务、微信通知）
+- `embeddedapp` — 当前内嵌 app 的 UI 上下文与动作代理（本文档范围）
+- `hydrology` — 水文专业业务数据能力（站点 CRUD、实时观测 CRUD、过程线、demo 数据灌入、审核任务处理、质量检查）
+
+`embeddedapp` 与 `hydrology` 的职责边界：
+
+| | `embeddedapp` | `hydrology` |
+|---|---|---|
+| 读取当前页面上下文 | ✅ | — |
+| 驱动前端页面切换 | ✅ | — |
+| 查询/写入水文业务数据 | — | ✅ |
+| 执行质量检查 | — | ✅ |
+| demo 数据灌入 | — | ✅ |
+
+`hydrology` server 的工具清单与实现详见：
+- `src/main/managers/hydrology-capability-query-options.js`
+- `docs/design/hydrology-embedded-agent-closure-refactor-plan.md`

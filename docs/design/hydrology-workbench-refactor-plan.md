@@ -173,6 +173,8 @@ src/main/hydrology/
   realtime-demo-seeder.js      # 新增，承载演示数据生成
 ```
 
+> **实现状态**：`realtime-demo-seeder.js` 已创建，且其 `seedStationObservations()` 已通过 `hydrology` MCP server 的 `realtime_demo_seed` 工具暴露给 Agent 会话。同时 `realtime-actions.js` 中的 slots/detail/trend/correction 等功能也已通过 `hydrology` MCP server 的对应工具（`realtime_slots_list`、`realtime_slot_get`、`realtime_trend_list`、`realtime_correction_apply` 等）暴露。
+
 ### 本阶段必须完成的事情
 
 1. `main.js` 不再直接包含趋势图细节实现

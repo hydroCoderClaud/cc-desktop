@@ -1,6 +1,6 @@
 # 水文工作台 Agent 闭环小重构方案
 
-> 状态：实施中
+> 状态：已完成（工具清单已扩展至 19 个，覆盖全 CRUD 闭环）
 > 目标：在不破坏现有 Agent / Notebook / Hydro Desktop / 水文工作台页面功能的前提下，完成水文工作台与 agent 的真正闭环。
 
 ## 1. 当前问题
@@ -12,13 +12,13 @@
 - `embeddedapp`
   - 已承担当前页面上下文读取与前端动作调用
   - 适合做 UI bridge
-- `hydrology_*`
-  - 目前只是挂在 `embeddedapp` 下的快捷工具
-  - 本质仍是 UI 语义别名，不是专业业务能力层
-- agent 在回答“当前站点”“当前任务”等问题时已经可用
-  - 但在查询真实站点数据、实时时槽、审核任务、执行质量检查时，缺少独立业务工具层
+- `hydrology_*`（早期过渡方案）
+  - 最初挂在 `embeddedapp` 下的快捷工具，本质是 UI 语义别名
+  - **已解决**：独立 `hydrology` MCP server 已建立，不再依赖 UI 别名
+- agent 在回答”当前站点””当前任务”等问题时已经可用
+  - 在查询真实站点数据、实时时槽、审核任务、执行质量检查时，已有独立 `hydrology` 业务工具层
 - 之前为提升命中率，曾临时对 `hydrology-workbench` embedded session 跳过 `hydrodesktop`
-  - 这属于过渡方案，不应作为平台长期结构
+  - **已解决**：改为通过提示词明确路由优先级，不再粗暴屏蔽
 
 ## 2. 目标结构
 
@@ -95,27 +95,41 @@ Agent Session
 4. 移除“水文工作台 embedded session 直接跳过 `hydrodesktop`”这一过渡逻辑
 5. 用提示词明确路由优先级，而不是用粗暴屏蔽来解决命中问题
 
-## 5. 本轮最小业务工具清单
+## 5. 业务工具清单（已实现，共 19 个）
 
-### 5.1 查询类
+### 5.1 查询类（8 个）
 
-- `station_list`
-  - 查询站点列表
-- `station_get`
-  - 查询站点详情
-- `realtime_slots_list`
-  - 查询站点时槽列表
-- `realtime_slot_get`
-  - 查询单个时槽详情
-- `review_tasks_list`
-  - 查询审核任务列表
-- `review_latest_run_summary_get`
-  - 查询最近一次审核运行摘要
+| 工具名 | 用途 |
+|--------|------|
+| `station_list` | 查询站点列表 |
+| `station_get` | 查询站点详情 |
+| `realtime_slots_list` | 查询站点时槽列表 |
+| `realtime_slot_get` | 查询单个时槽详情 |
+| `realtime_trend_list` | 查询站点实时过程线趋势数据 |
+| `review_tasks_list` | 查询审核任务列表 |
+| `review_latest_run_summary_get` | 查询最近一次审核运行摘要 |
+| `realtime_demo_seed` | 为指定站点灌入演示实时数据 |
 
-### 5.2 执行类
+### 5.2 写入类（7 个）
 
-- `quality_check_run`
-  - 对站点或时段执行质量检查
+| 工具名 | 用途 |
+|--------|------|
+| `station_save` | 新建或保存水文站点与规则配置 |
+| `station_delete` | 删除水文站点 |
+| `realtime_observation_create` | 新增一条实时观测记录 |
+| `realtime_observation_update` | 修改一条实时观测记录 |
+| `realtime_observation_delete` | 删除一条实时观测记录 |
+| `realtime_slot_delete` | 删除某个时槽的可删观测数据 |
+| `realtime_correction_apply` | 对某个时槽应用人工修正 |
+
+### 5.3 执行类（4 个）
+
+| 工具名 | 用途 |
+|--------|------|
+| `quality_check_run` | 对站点或时段执行质量检查 |
+| `review_task_resolve` | 将审核任务标记为已处理 |
+| `review_task_delete` | 删除单条审核任务 |
+| `review_tasks_delete` | 批量删除审核任务 |
 
 ## 6. Agent 路由原则
 
@@ -202,12 +216,12 @@ Agent Session
 - 不影响普通 Agent session
 - 不影响 scheduled source session
 
-## 9. 非目标
+## 9. 非目标（历史记录）
 
-本轮暂不做：
+以下为原计划暂缓项目，其中部分在实际迭代中已提前实现：
 
-- 把所有水文后端 API 都改造成 MCP
-- 把规则配置、算法参数、成果展示全部做成 MCP
-- 把 `embeddedapp` 改造成跨进程统一业务服务总线
+- ~~把所有水文后端 API 都改造成 MCP~~ → 已扩展至 19 个工具，覆盖站点/实时/审核全 CRUD
+- 把规则配置、算法参数、成果展示全部做成 MCP → 仍暂缓
+- 把 `embeddedapp` 改造成跨进程统一业务服务总线 → 仍暂缓
 
-本轮只做“可稳定工作的最小闭环增强”。
+当前实现已远超原计划”最小闭环增强”，实际形成了全 CRUD 闭环。
