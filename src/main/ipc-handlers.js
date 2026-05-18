@@ -257,7 +257,8 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       webPreferences: {
         preload: preloadPath,
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        webviewTag: true
       }
     });
 

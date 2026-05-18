@@ -32,6 +32,7 @@ describe('embedded app demo wiring', () => {
     expect(source).toContain("ipcMain.handle('embedded-app:open'")
     expect(source).toContain("ipcMain.handle('window:openEmbeddedAppDemo'")
     expect(source).toContain("openEmbeddedAppWindow('embedded-app-demo')")
+    expect(source).toContain('webviewTag: true')
   })
 
   it('defines main-process labels for registered embedded apps', () => {
