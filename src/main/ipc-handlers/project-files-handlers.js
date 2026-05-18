@@ -27,6 +27,15 @@ function _safePath(rootPath, relativePath) {
   return target
 }
 
+function _safeChildPath(rootPath, parentPath, childName) {
+  const parentDir = _safePath(rootPath, parentPath || '')
+  const targetPath = _safePath(parentDir, childName || '')
+  if (path.dirname(targetPath) !== parentDir) {
+    throw new Error('Path traversal detected')
+  }
+  return targetPath
+}
+
 function setupProjectFilesHandlers(ipcMain) {
   // listDir
   ipcMain.handle('project:listDir', async (event, { rootPath, relativePath = '', showHidden = false }) => {
@@ -175,8 +184,7 @@ function setupProjectFilesHandlers(ipcMain) {
     if (!rootPath) return { error: 'No working directory' }
 
     try {
-      const parentDir = _safePath(rootPath, parentPath)
-      const targetPath = path.join(parentDir, name)
+      const targetPath = _safeChildPath(rootPath, parentPath, name)
 
       if (isDirectory) {
         await fsp.mkdir(targetPath, { recursive: false })
@@ -200,7 +208,7 @@ function setupProjectFilesHandlers(ipcMain) {
     try {
       const oldFullPath = _safePath(rootPath, oldPath)
       const dir = path.dirname(oldFullPath)
-      const newFullPath = path.join(dir, newName)
+      const newFullPath = _safeChildPath(dir, '', newName)
 
       try { await fsp.access(oldFullPath) } catch { return { error: 'File or folder not found' } }
       try {

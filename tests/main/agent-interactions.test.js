@@ -696,7 +696,103 @@ describe('AgentSessionManager interactions', () => {
       modelId: 'sonnet-4',
       executablePath: FIXED_CLAUDE_EXE,
       embeddedAppEnabled: true,
-      embeddedAppId: 'hydrology-workbench'
+      embeddedAppId: 'hydrology-workbench',
+      weixinNotifyEnabled: false
+    })
+  })
+
+  it('rebuilds embedded session runtime when weixin notify tools become available', async () => {
+    const { manager } = createManager()
+    manager.configManager.getDefaultProfile = vi.fn(() => ({
+      id: 'p1',
+      name: 'Default',
+      baseUrl: 'https://example.com',
+      selectedModelId: 'sonnet-4'
+    }))
+    manager.embeddedAppRuntimeManager = {
+      getContext: vi.fn(() => ({
+        title: '三家店水文站 / 实时数据列表',
+        summary: '当前站点：三家店水文站（SJD001）'
+      })),
+      executeCommand: vi.fn()
+    }
+    manager.weixinNotifyService = {
+      listAccounts: vi.fn(() => []),
+      listTargets: vi.fn(() => []),
+      sendText: vi.fn()
+    }
+
+    const oldQueue = {
+      isDone: false,
+      push: vi.fn(),
+      end: vi.fn()
+    }
+    const oldGenerator = {
+      close: vi.fn(),
+      setModel: vi.fn()
+    }
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://example.com',
+        ANTHROPIC_MODEL: 'sonnet-4'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        async function * emptyGenerator() {}
+        const generator = emptyGenerator()
+        generator.setModel = vi.fn()
+        generator.close = vi.fn()
+        generator.options = options
+        return generator
+      })
+    }
+
+    const session = new AgentSession({
+      id: 's-embedded-weixin-refresh',
+      cwd: '/tmp',
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'sonnet-4',
+      ownerClientId: 'embed:hydrology-workbench',
+      clientType: 'embedded',
+      clientMeta: {
+        appId: 'hydrology-workbench'
+      }
+    })
+    session.dbConversationId = 1
+    session.sdkSessionId = 'sdk-embedded-old'
+    session.queryGenerator = oldGenerator
+    session.messageQueue = oldQueue
+    session.outputLoopPromise = Promise.resolve()
+    session.lastBootstrappedRuntime = {
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'sonnet-4',
+      executablePath: FIXED_CLAUDE_EXE,
+      embeddedAppEnabled: true,
+      embeddedAppId: 'hydrology-workbench',
+      weixinNotifyEnabled: false
+    }
+    session.pendingRuntimeChange = 'none'
+    manager.sessions.set(session.id, session)
+
+    await manager.sendMessage(session.id, '发送微信通知')
+
+    expect(oldQueue.end).toHaveBeenCalledOnce()
+    expect(oldGenerator.close).toHaveBeenCalledOnce()
+    expect(manager.runner.createQuery).toHaveBeenCalledOnce()
+    const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
+    expect(createQueryOptions.resume).toBe('sdk-embedded-old')
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop', 'embeddedapp', 'hydrology'])
+    expect(createQueryOptions.allowedTools).toEqual(expect.arrayContaining([
+      'mcp__hydrodesktop__weixin_notify_list_targets',
+      'mcp__hydrodesktop__weixin_notify_send'
+    ]))
+    expect(createQueryOptions.appendSystemPrompt).toContain('Weixin notification')
+    expect(session.lastBootstrappedRuntime).toMatchObject({
+      embeddedAppEnabled: true,
+      embeddedAppId: 'hydrology-workbench',
+      weixinNotifyEnabled: true
     })
   })
 

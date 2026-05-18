@@ -7,6 +7,7 @@
     :empty-message="t('main.pleaseSelectProject')"
     :show-collapse="false"
     :framed="false"
+    :save-text-handler="handleProjectFileSave"
     @insert-path="$emit('insert-path', $event)"
   />
 </template>
@@ -29,6 +30,18 @@ const projectFiles = useProjectFiles()
 const workspacePanelRef = ref(null)
 
 const rootPath = computed(() => props.activeTabCwd || props.currentProject?.path || null)
+
+const handleProjectFileSave = async ({ rootPath: previewRootPath, relativePath, content }) => {
+  const targetRootPath = previewRootPath || rootPath.value
+  if (!targetRootPath || !relativePath || !window.electronAPI?.saveProjectFile) {
+    return { error: 'Project file API unavailable' }
+  }
+  return window.electronAPI.saveProjectFile({
+    rootPath: targetRootPath,
+    relativePath,
+    content
+  })
+}
 
 watch(() => rootPath.value, (nextRootPath) => {
   projectFiles.setRootPath(nextRootPath)

@@ -62,6 +62,15 @@ class AgentFileManager {
     return target
   }
 
+  _safeChildPath(cwd, parentPath, childName) {
+    const parentDir = this._safePath(cwd, parentPath || '')
+    const targetPath = this._safePath(parentDir, childName || '')
+    if (path.dirname(targetPath) !== parentDir) {
+      throw new Error('Path traversal detected')
+    }
+    return targetPath
+  }
+
   /**
    * 解析文件完整路径（供外部打开使用）
    * @param {string} sessionId
@@ -268,8 +277,7 @@ class AgentFileManager {
     if (!cwd) return { error: 'No working directory' }
 
     try {
-      const parentDir = this._safePath(cwd, parentPath)
-      const targetPath = path.join(parentDir, name)
+      const targetPath = this._safeChildPath(cwd, parentPath, name)
 
       // 使用原子操作创建文件/目录（避免 TOCTOU 竞态条件）
       if (isDirectory) {
@@ -305,7 +313,7 @@ class AgentFileManager {
     try {
       const oldFullPath = this._safePath(cwd, oldPath)
       const dir = path.dirname(oldFullPath)
-      const newFullPath = path.join(dir, newName)
+      const newFullPath = this._safeChildPath(dir, '', newName)
 
       // 检查旧文件是否存在
       try {

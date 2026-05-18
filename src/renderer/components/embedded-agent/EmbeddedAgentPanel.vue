@@ -40,7 +40,7 @@
                   >
                     <Icon name="info" :size="17" :stroke-width="1.8" />
                   </button>
-                  <div v-if="showContextTip" class="embedded-context-tip" role="tooltip">
+                  <div v-if="showContextTip" class="embedded-context-tip" :style="contextTipStyle" role="tooltip">
                     {{ contextText }}
                   </div>
                 </div>
@@ -195,6 +195,7 @@ const currentModelId = ref(props.modelId || null)
 const switchingProfile = ref(false)
 const showCapabilityPanel = ref(false)
 const showContextTip = ref(false)
+const contextTipPosition = ref({ top: 0, right: 24 })
 const activeTab = ref('chat')
 const capabilityError = ref('')
 const capabilitySnapshot = ref({
@@ -455,8 +456,31 @@ const toggleCapabilityPanel = async () => {
   }
 }
 
-const toggleContextTip = () => {
+const positionContextTip = (triggerEl) => {
+  if (!triggerEl?.getBoundingClientRect || typeof window === 'undefined') return
+
+  const rect = triggerEl.getBoundingClientRect()
+  const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0
+  const tipWidth = Math.min(280, Math.max(0, viewportWidth - 48))
+  const top = Math.min(rect.bottom + 8, Math.max(16, viewportHeight - 296))
+  const right = Math.max(16, viewportWidth - rect.right)
+  const maxRight = Math.max(16, viewportWidth - tipWidth - 16)
+
+  contextTipPosition.value = {
+    top,
+    right: Math.min(right, maxRight)
+  }
+}
+
+const contextTipStyle = computed(() => ({
+  top: `${contextTipPosition.value.top}px`,
+  right: `${contextTipPosition.value.right}px`
+}))
+
+const toggleContextTip = (event) => {
   readContext()
+  positionContextTip(event?.currentTarget)
   showContextTip.value = !showContextTip.value
 }
 
@@ -719,8 +743,6 @@ onBeforeUnmount(() => {
 
 .embedded-context-tip {
   position: fixed;
-  top: 126px;
-  right: 24px;
   z-index: 1000;
   width: min(280px, calc(100vw - 48px));
   max-height: min(280px, calc(100vh - 160px));

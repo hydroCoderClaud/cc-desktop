@@ -12,6 +12,7 @@ const hydrologyMainPath = path.resolve(__dirname, '../../src/renderer/pages/hydr
 const hydrologyHtmlPath = path.resolve(__dirname, '../../src/renderer/pages/hydrology-workbench/index.html')
 const agentChatTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/AgentChatTab.vue')
 const useAgentChatPath = path.resolve(__dirname, '../../src/renderer/composables/useAgentChat.js')
+const filesTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/RightPanel/tabs/FilesTab.vue')
 const preloadPath = path.resolve(__dirname, '../../src/preload/preload.js')
 
 describe('embedded agent panel wiring', () => {
@@ -43,8 +44,12 @@ describe('embedded agent panel wiring', () => {
     expect(source).toContain('height: 34px;')
     expect(source).toContain("Icon from '@components/icons/Icon.vue'")
     expect(source).toContain('showContextTip')
+    expect(source).toContain('contextTipStyle')
+    expect(source).toContain('getBoundingClientRect')
     expect(source).toContain('title="当前上下文"')
     expect(source).toContain('<Icon name="info"')
+    expect(source).not.toContain('top: 126px;')
+    expect(source).not.toContain('right: 24px;')
     expect(source).toContain('title="当前会话能力"')
     expect(source).toContain('<Icon name="sliders"')
     expect(source).toContain('title="新建会话"')
@@ -88,6 +93,7 @@ describe('embedded agent panel wiring', () => {
   it('reuses the shared workspace file panel through the embedded adapter', () => {
     const embeddedFilesSource = fs.readFileSync(embeddedFilesPath, 'utf-8')
     const workspacePanelSource = fs.readFileSync(workspacePanelPath, 'utf-8')
+    const filesTabSource = fs.readFileSync(filesTabPath, 'utf-8')
 
     expect(embeddedFilesSource).toContain("import { useWorkspaceFiles } from './useWorkspaceFiles'")
     expect(embeddedFilesSource).toContain('listAgentDir')
@@ -102,6 +108,9 @@ describe('embedded agent panel wiring', () => {
     expect(workspacePanelSource).toContain('allowMutations')
     expect(workspacePanelSource).toContain('FileTreeHeader')
     expect(workspacePanelSource).toContain('FilePreview')
+    expect(filesTabSource).toContain(':save-text-handler="handleProjectFileSave"')
+    expect(filesTabSource).toContain('window.electronAPI.saveProjectFile')
+    expect(filesTabSource).not.toContain('saveAbsoluteFile')
   })
 
   it('lets embedded hosts send current business context through AgentChatTab', () => {

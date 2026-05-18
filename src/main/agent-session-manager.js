@@ -90,11 +90,12 @@ function runtimeSignaturesEqual(left, right) {
     (left.executablePath || null) === (right.executablePath || null)
 }
 
-function isEmbeddedRuntimeSignatureSatisfied(signature, session) {
+function isEmbeddedRuntimeSignatureSatisfied(signature, session, targetSignature = null) {
   if (!signature || session?.clientType !== 'embedded') return true
   const expectedAppId = session?.clientMeta?.appId || session?.clientMeta?.embeddedAppId || null
   return Boolean(signature.embeddedAppEnabled) &&
-    (signature.embeddedAppId || null) === (expectedAppId || null)
+    (signature.embeddedAppId || null) === (expectedAppId || null) &&
+    (!targetSignature || Boolean(signature.weixinNotifyEnabled) === Boolean(targetSignature.weixinNotifyEnabled))
 }
 
 function runtimeChangeKind(current, target) {
@@ -295,6 +296,7 @@ class AgentSessionManager extends EventEmitter {
     if (session?.clientType === 'embedded') {
       signature.embeddedAppEnabled = true
       signature.embeddedAppId = session?.clientMeta?.appId || session?.clientMeta?.embeddedAppId || null
+      signature.weixinNotifyEnabled = Boolean(this.weixinNotifyService)
     }
 
     return signature
@@ -1153,7 +1155,11 @@ class AgentSessionManager extends EventEmitter {
     const targetRuntimeSignature = this._buildSessionRuntimeSignature(session, {
       executablePath: this._getDeveloperClaudeExecutablePath()
     })
-    const embeddedRuntimeSatisfied = isEmbeddedRuntimeSignatureSatisfied(session.lastBootstrappedRuntime, session)
+    const embeddedRuntimeSatisfied = isEmbeddedRuntimeSignatureSatisfied(
+      session.lastBootstrappedRuntime,
+      session,
+      targetRuntimeSignature
+    )
     const shouldRefreshEmbeddedRuntime = session.clientType === 'embedded' &&
       (!embeddedRuntimeSatisfied || !runtimeSignaturesEqual(session.lastBootstrappedRuntime, targetRuntimeSignature))
 
