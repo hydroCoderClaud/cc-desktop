@@ -832,6 +832,7 @@ export default {
 
   // Settings Menu
   settingsMenu: {
+    modelSettings: 'Model Settings',
     apiConfig: 'API Configuration',
     providerManager: 'Provider Manager',
     globalSettings: 'Global Settings',
@@ -861,6 +862,22 @@ export default {
     sourceRecent: 'Other',
     projectTipNone: 'No project selected. Only global scopes are shown and editable; select a project to manage project scopes.',
     projectTipSelected: 'Current project: {name}. Global and project scopes are both available.'
+  },
+
+  modelSettings: {
+    title: 'Model Settings',
+    subtitle: 'Manage API profiles and provider definitions in one place. Future routing policies and default strategies can also live here.',
+    sidebarTitle: 'Sections',
+    sections: {
+      profiles: {
+        label: 'API Profiles',
+        description: 'Manage connection profiles, defaults, and model tests'
+      },
+      providers: {
+        label: 'Providers',
+        description: 'Manage provider definitions, base URLs, and model mappings'
+      }
+    }
   },
 
   channelSettings: {
@@ -1911,6 +1928,7 @@ export default {
     },
     windowTitles: {
       main: 'Hydro Desktop',
+      modelSettings: 'Model Settings - Hydro Desktop',
       profileManager: 'API Profile Manager - Hydro Desktop',
       globalSettings: 'Global Settings - Hydro Desktop',
       appearanceSettings: 'Appearance Settings - Hydro Desktop',

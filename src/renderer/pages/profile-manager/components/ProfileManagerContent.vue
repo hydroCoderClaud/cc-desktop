@@ -5,7 +5,7 @@
       <h1>{{ t('profileManager.title') }}</h1>
       <n-space>
         <n-button type="primary" @click="handleAdd">{{ t('profileManager.addProfile') }}</n-button>
-        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
+        <n-button v-if="!embedded" @click="handleClose">{{ t('common.close') }}</n-button>
       </n-space>
     </div>
 
@@ -66,6 +66,13 @@ import ProfileCard from '@components/ProfileCard.vue'
 import ProfileFormModal from './ProfileFormModal.vue'
 import Icon from '@components/icons/Icon.vue'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const message = useMessage()
 const dialog = useDialog()
 const { t, initLocale } = useLocale()
@@ -84,6 +91,7 @@ onMounted(async () => {
 })
 
 const handleClose = () => {
+  if (props.embedded) return
   window.close()
 }
 

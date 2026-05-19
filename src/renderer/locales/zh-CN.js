@@ -835,6 +835,7 @@ export default {
 
   // 设置菜单
   settingsMenu: {
+    modelSettings: '模型配置',
     apiConfig: 'API 配置管理',
     providerManager: '服务商管理',
     globalSettings: '全局设置',
@@ -864,6 +865,22 @@ export default {
     sourceRecent: '其他',
     projectTipNone: '当前未选择目录，仅显示和编辑全局能力；选择目录后可管理项目级能力。',
     projectTipSelected: '当前目录：{name}，可同时管理全局与项目级能力。'
+  },
+
+  modelSettings: {
+    title: '模型配置',
+    subtitle: '统一管理 API 配置与服务商定义。后续若增加模型路由、默认策略等能力，也可继续收拢到这里。',
+    sidebarTitle: '配置分组',
+    sections: {
+      profiles: {
+        label: 'API 配置',
+        description: '管理连接配置、默认配置与模型测试'
+      },
+      providers: {
+        label: '服务商管理',
+        description: '管理服务商定义、默认地址与模型映射'
+      }
+    }
   },
 
   channelSettings: {
@@ -1917,6 +1934,7 @@ export default {
     },
     windowTitles: {
       main: 'Hydro Desktop',
+      modelSettings: '模型配置 - Hydro Desktop',
       profileManager: 'API 配置管理 - Hydro Desktop',
       globalSettings: '全局设置 - Hydro Desktop',
       appearanceSettings: '外观设置 - Hydro Desktop',

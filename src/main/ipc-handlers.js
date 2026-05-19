@@ -306,6 +306,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  ipcMain.handle('window:openModelSettings', async () => {
+    createSubWindow({
+      width: 1180,
+      height: 820,
+      title: translate('app.windows.modelSettings'),
+      page: 'model-settings'
+    });
+    return { success: true };
+  });
+
   // 打开全局设置窗口
   ipcMain.handle('window:openGlobalSettings', async () => {
     createSubWindow({

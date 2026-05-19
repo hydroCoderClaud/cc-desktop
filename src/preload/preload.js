@@ -495,6 +495,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window 相关
   // ========================================
   openProfileManager: () => ipcRenderer.invoke('window:openProfileManager'),
+  openModelSettings: () => ipcRenderer.invoke('window:openModelSettings'),
   openGlobalSettings: () => ipcRenderer.invoke('window:openGlobalSettings'),
   openAppearanceSettings: () => ipcRenderer.invoke('window:openAppearanceSettings'),
   openChannelSettings: () => ipcRenderer.invoke('window:openChannelSettings'),

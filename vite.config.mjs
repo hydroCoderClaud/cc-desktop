@@ -26,6 +26,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'src/renderer/pages/main/index.html'),
+        modelSettings: path.resolve(__dirname, 'src/renderer/pages/model-settings/index.html'),
         profileManager: path.resolve(__dirname, 'src/renderer/pages/profile-manager/index.html'),
         providerManager: path.resolve(__dirname, 'src/renderer/pages/provider-manager/index.html'),
         globalSettings: path.resolve(__dirname, 'src/renderer/pages/global-settings/index.html'),

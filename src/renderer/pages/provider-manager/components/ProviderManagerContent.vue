@@ -7,7 +7,7 @@
         <n-button type="primary" @click="handleAdd">
           {{ t('providerManager.addProvider') }}
         </n-button>
-        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
+        <n-button v-if="!embedded" @click="handleClose">{{ t('common.close') }}</n-button>
       </n-space>
     </div>
 
@@ -108,6 +108,13 @@ import { useProviders } from '@composables/useProviders'
 import { useLocale } from '@composables/useLocale'
 import ProviderCard from '@components/ProviderCard.vue'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const message = useMessage()
 const dialog = useDialog()
 const { t, initLocale } = useLocale()
@@ -148,6 +155,7 @@ onMounted(async () => {
 })
 
 const handleClose = () => {
+  if (props.embedded) return
   window.close()
 }
 

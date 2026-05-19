@@ -3,6 +3,7 @@ const BOOTSTRAP_I18N = {
     app: {
       windowTitles: {
         main: 'Hydro Desktop',
+        modelSettings: '模型配置 - Hydro Desktop',
         profileManager: 'API 配置管理 - Hydro Desktop',
         globalSettings: '全局设置 - Hydro Desktop',
         appearanceSettings: '外观设置 - Hydro Desktop',
@@ -25,6 +26,7 @@ const BOOTSTRAP_I18N = {
     app: {
       windowTitles: {
         main: 'Hydro Desktop',
+        modelSettings: 'Model Settings - Hydro Desktop',
         profileManager: 'API Profile Manager - Hydro Desktop',
         globalSettings: 'Global Settings - Hydro Desktop',
         appearanceSettings: 'Appearance Settings - Hydro Desktop',

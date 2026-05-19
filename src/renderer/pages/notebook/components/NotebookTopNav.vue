@@ -282,8 +282,7 @@ const openNotebookDir = (nb) => {
 const renderMenuIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
 const settingsOptions = computed(() => [
-  { label: t('settingsMenu.apiConfig'), key: 'api-config', icon: renderMenuIcon('key') },
-  { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
+  { label: t('settingsMenu.modelSettings'), key: 'model-settings', icon: renderMenuIcon('key') },
   { label: t('settingsMenu.channelSettings'), key: 'channel-settings', icon: renderMenuIcon('chat') },
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
   {
@@ -322,11 +321,8 @@ const handleSettingsSelect = (key) => {
   }
 
   switch (key) {
-    case 'api-config':
-      window.electronAPI.openProfileManager()
-      break
-    case 'provider-manager':
-      window.electronAPI.openProviderManager()
+    case 'model-settings':
+      window.electronAPI.openModelSettings()
       break
     case 'global-settings':
       window.electronAPI.openGlobalSettings()

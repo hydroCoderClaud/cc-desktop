@@ -347,8 +347,7 @@ const projectMenuOptions = computed(() => [
 
 // Settings dropdown options
 const settingsOptions = computed(() => [
-  { label: t('settingsMenu.apiConfig'), key: 'api-config', icon: renderMenuIcon('key') },
-  { label: t('settingsMenu.providerManager'), key: 'provider-manager', icon: renderMenuIcon('building') },
+  { label: t('settingsMenu.modelSettings'), key: 'model-settings', icon: renderMenuIcon('key') },
   { label: t('settingsMenu.channelSettings'), key: 'channel-settings', icon: renderMenuIcon('chat') },
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
   {
@@ -469,11 +468,8 @@ const handleSettingsSelect = async (key) => {
   }
 
   switch (key) {
-    case 'api-config':
-      window.electronAPI.openProfileManager()
-      break
-    case 'provider-manager':
-      window.electronAPI.openProviderManager()
+    case 'model-settings':
+      window.electronAPI.openModelSettings()
       break
     case 'global-settings':
       window.electronAPI.openGlobalSettings()
