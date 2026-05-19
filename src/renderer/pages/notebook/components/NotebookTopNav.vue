@@ -285,6 +285,8 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.modelSettings'), key: 'model-settings', icon: renderMenuIcon('key') },
   { label: t('settingsMenu.channelSettings'), key: 'channel-settings', icon: renderMenuIcon('chat') },
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
+  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
+  { type: 'divider', key: 'd1' },
   {
     label: t('settingsMenu.embeddedApps'),
     key: 'embedded-apps',
@@ -296,9 +298,6 @@ const settingsOptions = computed(() => [
     }))
   },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
-  { type: 'divider', key: 'd1' },
-  { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
-  { label: t('settingsMenu.sessionHistory'), key: 'session-history', icon: renderMenuIcon('history') },
   { label: t('settingsMenu.appUpdate'), key: 'app-update', icon: renderMenuIcon('download') }
 ])
 
@@ -339,9 +338,7 @@ const handleSettingsSelect = (key) => {
     case 'appearance-settings':
       window.electronAPI.openAppearanceSettings()
       break
-    case 'session-history':
-      window.electronAPI.openSessionManager()
-      break
+    // `session-history` 菜单入口暂时不用，保留窗口能力供其他路径复用。
     case 'channel-settings':
       window.electronAPI.openChannelSettings()
       break

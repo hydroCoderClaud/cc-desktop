@@ -73,6 +73,9 @@ describe('embedded app demo wiring', () => {
     expect(source).toContain("children:")
     expect(source).toContain("app.menuKey")
     expect(source).toContain("openEmbeddedApp(key)")
+    expect(source.indexOf("key: 'appearance-settings'")).toBeGreaterThan(-1)
+    expect(source.indexOf("key: 'embedded-apps'")).toBeGreaterThan(source.indexOf("key: 'appearance-settings'"))
+    expect(source).not.toContain("{ label: t('settingsMenu.sessionHistory'), key: 'session-history'")
   })
 
   it('adds embedded apps as a first-level settings entry in notebook mode', () => {
@@ -85,6 +88,9 @@ describe('embedded app demo wiring', () => {
     expect(source).toContain("children:")
     expect(source).toContain("app.menuKey")
     expect(source).toContain("openEmbeddedApp(key)")
+    expect(source.indexOf("key: 'appearance-settings'")).toBeGreaterThan(-1)
+    expect(source.indexOf("key: 'embedded-apps'")).toBeGreaterThan(source.indexOf("key: 'appearance-settings'"))
+    expect(source).not.toContain("{ label: t('settingsMenu.sessionHistory'), key: 'session-history'")
   })
 
   it('exposes a reusable embedded apps composable', () => {
