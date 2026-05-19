@@ -322,6 +322,45 @@ describe('desktop capability query options', () => {
     ]))
   })
 
+  it('binds the current scheduled session when reinjection is enabled and sessionBindingMode defaults to current', async () => {
+    const scheduledTaskService = {
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            locale: 'zh-CN',
+            agent: {
+              allowScheduledSessionScheduleTools: true
+            }
+          }
+        })
+      },
+      listTasks: vi.fn(() => []),
+      createTask: vi.fn(async input => buildTask({ id: 9, ...input, sessionId: input.boundSessionId || null }))
+    }
+
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService,
+      session: { id: 'scheduled-session-current-1', source: 'scheduled' }
+    })
+
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+
+    await tools.schedule_create.handler({
+      name: '同会话追加任务',
+      prompt: '继续当前定时任务会话',
+      scheduleType: 'interval',
+      intervalMinutes: 45,
+      firstRunAt: '2026-05-01T10:00:00+08:00'
+    })
+
+    expect(scheduledTaskService.createTask).toHaveBeenCalledWith(expect.objectContaining({
+      sessionBindingMode: 'current',
+      boundSessionId: 'scheduled-session-current-1'
+    }))
+  })
+
   it('does not inject scheduled-task tools into scheduled sessions when the global switch is disabled', async () => {
     const scheduledTaskService = {
       configManager: {

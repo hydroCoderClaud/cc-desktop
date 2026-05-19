@@ -541,11 +541,7 @@ describe('ScheduledTaskService', () => {
     const agentSessionManager = {
       on: vi.fn(),
       create: vi.fn(() => ({ id: 'agent-session-new' })),
-      get: vi.fn((sessionId) => (
-        sessionId === 'chat-session-1'
-          ? agentSessionManager.sessions.get('chat-session-1')
-          : { status: 'idle' }
-      )),
+      get: vi.fn(() => ({ status: 'idle' })),
       reopen: vi.fn(),
       sendMessage: vi.fn().mockResolvedValue(),
       sessions: new Map([['chat-session-1', {
@@ -684,9 +680,10 @@ describe('ScheduledTaskService', () => {
       const agentSessionManager = {
         on: vi.fn(),
         create: vi.fn(() => ({ id: 'agent-session-should-not-create' })),
-        get: vi.fn(() => liveSession),
+        get: vi.fn(() => ({ ...liveSession })),
         reopen: vi.fn(() => ({ status: 'idle' })),
-        sendMessage: vi.fn().mockResolvedValue()
+        sendMessage: vi.fn().mockResolvedValue(),
+        sessions: new Map([['chat-session-2', liveSession]])
       }
 
       const service = new ScheduledTaskService({}, agentSessionManager)
@@ -715,6 +712,44 @@ describe('ScheduledTaskService', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('keeps a session scheduled when detaching one task but another task is still bound to the same session', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const liveSession = {
+      id: 'shared-session-1',
+      source: 'scheduled',
+      taskId: 81,
+      meta: { scheduledTaskId: 81 }
+    }
+    const currentTask = {
+      id: 81,
+      sessionId: 'shared-session-1'
+    }
+
+    const sessionDatabase = {
+      updateAgentConversation: vi.fn(),
+      listScheduledTasks: vi.fn(() => [
+        { id: 81, sessionId: 'shared-session-1' },
+        { id: 82, sessionId: 'shared-session-1' }
+      ])
+    }
+
+    const service = new ScheduledTaskService({}, {
+      on: vi.fn(),
+      sessions: new Map([['shared-session-1', liveSession]])
+    })
+    service.setSessionDatabase(sessionDatabase)
+
+    service._detachTaskSession(currentTask)
+
+    expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('shared-session-1', {
+      source: 'scheduled',
+      taskId: 82
+    })
+    expect(liveSession.source).toBe('scheduled')
+    expect(liveSession.taskId).toBe(82)
+    expect(liveSession.meta.scheduledTaskId).toBe(82)
   })
 
   it('re-enabling interval tasks recomputes the next slot without auto-running', async () => {

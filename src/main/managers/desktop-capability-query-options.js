@@ -593,7 +593,7 @@ async function buildDesktopCapabilityQueryOptions({ scheduledTaskService, weixin
       },
       async (args) => {
         const createArgs = { ...args }
-        if (session?.id && session?.source !== 'scheduled') {
+        if (session?.id && includeScheduleTools) {
           const normalizedMode = args.sessionBindingMode === 'new' ? 'new' : 'current'
           createArgs.sessionBindingMode = normalizedMode
           if (normalizedMode === 'current') {

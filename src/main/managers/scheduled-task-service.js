@@ -629,21 +629,28 @@ class ScheduledTaskService {
   _detachTaskSession(task) {
     if (!task?.sessionId || !this.sessionDatabase?.updateAgentConversation) return
 
+    const reboundTaskId = this._resolveRemainingBoundTaskId(task.sessionId, task.id)
+
     try {
       this.sessionDatabase.updateAgentConversation(task.sessionId, {
-        source: 'manual',
-        taskId: null
+        source: reboundTaskId ? 'scheduled' : 'manual',
+        taskId: reboundTaskId
       })
     } catch (err) {
       console.error(`[ScheduledTask] Failed to detach session for task ${task.id}:`, err)
       return
     }
 
-    const liveSession = this.agentSessionManager?.sessions?.get?.(task.sessionId)
+    const liveSession = this._getLiveSession(task.sessionId)
     if (liveSession) {
-      liveSession.source = 'manual'
-      liveSession.taskId = null
-      if (liveSession.meta?.scheduledTaskId === task.id) {
+      liveSession.source = reboundTaskId ? 'scheduled' : 'manual'
+      liveSession.taskId = reboundTaskId
+      if (reboundTaskId) {
+        liveSession.meta = {
+          ...(liveSession.meta || {}),
+          scheduledTaskId: reboundTaskId
+        }
+      } else if (liveSession.meta?.scheduledTaskId === task.id) {
         delete liveSession.meta.scheduledTaskId
       }
     }
@@ -652,8 +659,7 @@ class ScheduledTaskService {
   _attachExistingSessionToTask(sessionId, taskId) {
     if (!sessionId || !taskId) return
 
-    const liveSession = this.agentSessionManager?.get?.(sessionId)
-      || this.agentSessionManager?.sessions?.get?.(sessionId)
+    const liveSession = this._getLiveSession(sessionId)
     if (liveSession) {
       liveSession.source = 'scheduled'
       liveSession.taskId = taskId
@@ -673,6 +679,20 @@ class ScheduledTaskService {
     } catch (err) {
       console.error(`[ScheduledTask] Failed to attach existing session ${sessionId} to task ${taskId}:`, err)
     }
+  }
+
+  _getLiveSession(sessionId) {
+    if (!sessionId) return null
+    return this.agentSessionManager?.sessions?.get?.(sessionId) || null
+  }
+
+  _resolveRemainingBoundTaskId(sessionId, excludingTaskId) {
+    if (!sessionId || !this.sessionDatabase?.listScheduledTasks) return null
+
+    const remainingTask = this.sessionDatabase.listScheduledTasks()
+      .find(task => task?.sessionId === sessionId && task?.id !== excludingTaskId)
+
+    return remainingTask?.id || null
   }
 
   _handleAgentResult(sessionId) {
