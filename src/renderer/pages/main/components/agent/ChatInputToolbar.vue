@@ -614,6 +614,10 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+.api-profile-option {
+  font-size: 11px;
+}
+
 .model-option:hover,
 .model-option.active,
 .api-profile-option:hover,
