@@ -1119,6 +1119,27 @@ describe('AgentSessionManager interactions', () => {
     expect(sent.some(item => item.channel === 'agent:message' && item.data.message.type === 'tool_result')).toBe(true)
   })
 
+  it('filters sentinel no-response assistant text from scheduled tool-only runs', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-no-response', cwd: '/tmp', source: 'scheduled' })
+    session.dbConversationId = 1
+    manager.sessions.set('s-no-response', session)
+    manager.runner = { normalizeMessage: raw => raw }
+
+    await manager._processMessage(session, {
+      type: 'assistant_message',
+      content: [{
+        type: 'text',
+        text: 'No response requested.'
+      }],
+      sdkSessionId: 'sdk-no-response'
+    })
+
+    expect(session.messages).toHaveLength(0)
+    expect(sent.some(item => item.channel === 'agent:message')).toBe(false)
+    expect(manager.sessionDatabase.insertAgentMessage).not.toHaveBeenCalled()
+  })
+
   it('probeConnection does not persist session state and cleans temp dir', async () => {
     const { manager, sent } = createManager()
     const tempDirs = []

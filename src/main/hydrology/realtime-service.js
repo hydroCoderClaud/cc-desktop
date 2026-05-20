@@ -346,7 +346,8 @@ class RealtimeService {
     this.reviewTaskService = options.reviewTaskService || new ReviewTaskService(hydrologyDatabase)
   }
 
-  refreshSlotState(stationId, observationType, slotTime) {
+  refreshSlotState(stationId, observationType, slotTime, options = {}) {
+    const syncReviewTasks = options.syncReviewTasks !== false
     const observations = filterObservationsForSlot(
       this.db.listObservationsBySlot(stationId, observationType, slotTime).map(parseRow),
       slotTime
@@ -356,38 +357,44 @@ class RealtimeService {
       if (existingSlot?.id) {
         this.db.deleteObservationSlotById(existingSlot.id)
       }
-      this.reviewTaskService?.syncSlotReviewTasks({
-        station: parseStationRow(this.db.getStationById?.(stationId)),
-        slot: {
-          stationId,
-          observationType,
-          slotTime,
-          chosenValue: null,
-          manualValue: null,
-          correctedValue: null,
-          telemetryValue: null,
-          videoOcrValue: null,
-          compareStatus: COMPARE_STATUS.notCompared,
-          missingFlags: []
-        },
-        previousSlot: null,
-        observations: [],
-        expectedSources: {},
-        stationRules: {}
-      })
+      if (syncReviewTasks) {
+        this.reviewTaskService?.syncSlotReviewTasks({
+          station: parseStationRow(this.db.getStationById?.(stationId)),
+          slot: {
+            stationId,
+            observationType,
+            slotTime,
+            chosenValue: null,
+            manualValue: null,
+            correctedValue: null,
+            telemetryValue: null,
+            videoOcrValue: null,
+            compareStatus: COMPARE_STATUS.notCompared,
+            missingFlags: []
+          },
+          previousSlot: null,
+          observations: [],
+          expectedSources: {},
+          stationRules: {}
+        })
+      }
       return null
     }
 
     const slotAggregate = this.buildSlotAggregate(stationId, observationType, slotTime)
     this.db.upsertObservationSlot(slotAggregate)
-    this.syncReviewTasksForSlot(stationId, observationType, slotTime, slotAggregate)
+    if (syncReviewTasks) {
+      this.syncReviewTasksForSlot(stationId, observationType, slotTime, slotAggregate)
+    }
     return slotAggregate
   }
 
-  saveObservation(input) {
+  saveObservation(input, options = {}) {
     const observation = normalizeObservationInput(input)
     const saved = this.db.createObservation(observation)
-    this.refreshSlotState(observation.stationId, observation.observationType, observation.slotTime)
+    if (!options.skipRefresh) {
+      this.refreshSlotState(observation.stationId, observation.observationType, observation.slotTime)
+    }
     return parseRow(saved)
   }
 

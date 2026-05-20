@@ -14,12 +14,18 @@ const agentChatTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/
 const useAgentChatPath = path.resolve(__dirname, '../../src/renderer/composables/useAgentChat.js')
 const filesTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/RightPanel/tabs/FilesTab.vue')
 const preloadPath = path.resolve(__dirname, '../../src/preload/preload.js')
+const ipcHandlersPath = path.resolve(__dirname, '../../src/main/ipc-handlers.js')
 
 describe('embedded agent panel wiring', () => {
   it('reuses the existing AgentChatTab instead of custom chat rendering', () => {
     const source = fs.readFileSync(panelPath, 'utf-8')
 
     expect(source).toContain("AgentChatTab from '@/pages/main/components/AgentChatTab.vue'")
+    expect(source).toContain("import { NModal } from 'naive-ui'")
+    expect(source).toContain('<n-modal')
+    expect(source).toContain('ScheduledTaskDetailPanel')
+    expect(source).toContain('scheduled-task-manager-modal embedded-scheduled-task-shell')
+    expect(source).not.toContain('compact')
     expect(source).toContain('window.hydroAgent.connect')
     expect(source).toContain('window.hydroAgent.listSessions()')
     expect(source).toContain('findLatestSession')
@@ -150,6 +156,15 @@ describe('embedded agent panel wiring', () => {
     expect(source).toContain("ipcRenderer.invoke('hydro-agent:deleteFile'")
     expect(source).toContain("ipcRenderer.invoke('hydro-agent:openFile'")
     expect(source).toContain("ipcRenderer.invoke('hydro-agent:openOutputDir'")
+  })
+
+  it('handles missing embedded init results without logging expected startup errors', () => {
+    const source = fs.readFileSync(ipcHandlersPath, 'utf-8')
+
+    expect(source).toContain("ipcMain.handle('hydro-agent:getInitResult'")
+    expect(source).toContain("const isExpectedMissingInit = message.includes('No active streaming session') || message.includes('not found')")
+    expect(source).toContain("console.error('[IPC] hydro-agent:getInitResult error:', err)")
+    expect(source).toContain('return { error: err.message }')
   })
 
   it('passes injected weixin notification API into the shared chat toolbar', () => {

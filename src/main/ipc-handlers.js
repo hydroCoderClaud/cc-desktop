@@ -1110,7 +1110,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       })
     })
     ipcMain.handle('hydro-agent:getInitResult', async (event, { client, sessionId } = {}) => {
-      return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.getInitResult(sessionId, normalizedClient))
+      try {
+        return await withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.getInitResult(sessionId, normalizedClient))
+      } catch (err) {
+        const message = String(err?.message || err || '')
+        const isExpectedMissingInit = message.includes('No active streaming session') || message.includes('not found')
+        if (!isExpectedMissingInit) {
+          console.error('[IPC] hydro-agent:getInitResult error:', err)
+        }
+        return { error: err.message }
+      }
     })
     ipcMain.handle('hydro-agent:getMcpServerStatus', async (event, { client, sessionId } = {}) => {
       return withEmbeddedClient(event, client, (normalizedClient) => agentSessionBroker.getMcpServerStatus(sessionId, normalizedClient))

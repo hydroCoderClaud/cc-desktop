@@ -19,6 +19,18 @@ describe('agent sdk return rendering', () => {
     expect(source).toContain('addSystemMessage')
     expect(source).toContain("t('agent.commandCompleted'")
     expect(source).toContain('summarizeResultText(result?.result)')
+    expect(source).toContain('!isNoResponseRequestedText(fallbackText)')
+  })
+
+  it('does not let idle status changes clear current turn bookkeeping before result fallback resolves', () => {
+    const source = fs.readFileSync(useAgentChatPath, 'utf-8')
+    const statusChangeSection = source.slice(
+      source.indexOf('const handleStatusChange = (data) => {'),
+      source.indexOf('/**', source.indexOf('const handleStatusChange = (data) => {'))
+    )
+
+    expect(statusChangeSection).toContain("if (data.status === 'idle' || data.status === 'error')")
+    expect(statusChangeSection).not.toContain('resetCurrentTurn()')
   })
 
   it('listens to system status and passthrough sdk events', () => {

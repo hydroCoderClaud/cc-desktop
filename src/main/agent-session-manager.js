@@ -61,6 +61,10 @@ function normalizeModelIdOrNull(value) {
   return normalized || null
 }
 
+function isNoResponseRequestedText(value) {
+  return typeof value === 'string' && value.trim() === 'No response requested.'
+}
+
 function parseClientMeta(value) {
   if (!value) return null
   if (typeof value === 'object' && !Array.isArray(value)) return value
@@ -1738,9 +1742,20 @@ class AgentSessionManager extends EventEmitter {
         break
 
       case 'assistant_message': {
+        const normalizedContent = Array.isArray(msg.content)
+          ? msg.content.filter((block) => {
+            if (block?.type !== 'text') return true
+            return !isNoResponseRequestedText(block.text)
+          })
+          : []
+
+        if (normalizedContent.length === 0) {
+          break
+        }
+
         const assistantData = {
           type: 'assistant',
-          content: msg.content,
+          content: normalizedContent,
           uuid: msg.uuid,
           sessionId: msg.sdkSessionId
         }
@@ -1756,7 +1771,7 @@ class AgentSessionManager extends EventEmitter {
             usage: msg.usage
           })
         }
-        for (const block of msg.content) {
+        for (const block of normalizedContent) {
           if (block.type === 'text') {
             this._storeMessage(session, {
               id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
