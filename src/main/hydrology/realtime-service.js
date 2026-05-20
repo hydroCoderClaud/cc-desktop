@@ -21,21 +21,43 @@ const GOVERNANCE_STATUS = {
 
 const { ReviewTaskService } = require('./review-task-service')
 const { parseReviewTaskRow } = require('./review-task-helpers')
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
+const SLOT_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
 
 function pad(value) {
   return String(value).padStart(2, '0')
 }
 
 function formatSlotTime(date) {
-  const d = new Date(date)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
+  const timestamp = toTimestamp(date)
+  if (timestamp == null) {
+    throw new Error(`无效时间: ${date}`)
+  }
+  const shifted = new Date(timestamp + SHANGHAI_OFFSET_MS)
+  return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())} ${pad(shifted.getUTCHours())}:00`
+}
+
+function parseShanghaiSlotTime(value) {
+  const match = SLOT_TIME_PATTERN.exec(String(value || '').trim())
+  if (!match) return null
+
+  const [, year, month, day, hour, minute, second = '0'] = match
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  ) - SHANGHAI_OFFSET_MS
 }
 
 function normalizeObservedAt(value) {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
+  const timestamp = toTimestamp(value)
+  if (timestamp == null) {
     throw new Error(`无效时间: ${value}`)
   }
+  const date = new Date(timestamp)
   return {
     date,
     observedAt: date.toISOString(),
@@ -45,11 +67,11 @@ function normalizeObservedAt(value) {
 
 function normalizeSlotTimeValue(value) {
   if (!value) return null
-  const date = value instanceof Date ? value : new Date(typeof value === 'string' ? value.replace(' ', 'T') : value)
-  if (Number.isNaN(date.getTime())) {
+  const timestamp = toTimestamp(value)
+  if (timestamp == null) {
     throw new Error(`无效时槽时间: ${value}`)
   }
-  return formatSlotTime(date)
+  return formatSlotTime(new Date(timestamp))
 }
 
 function toNumber(value) {
@@ -60,8 +82,17 @@ function toNumber(value) {
 
 function toTimestamp(value) {
   if (!value) return null
-  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value
-  const date = normalized instanceof Date ? normalized : new Date(normalized)
+  if (value instanceof Date) {
+    const timestamp = value.getTime()
+    return Number.isNaN(timestamp) ? null : timestamp
+  }
+  if (typeof value === 'string') {
+    const parsedSlotTimestamp = parseShanghaiSlotTime(value)
+    if (parsedSlotTimestamp != null) {
+      return parsedSlotTimestamp
+    }
+  }
+  const date = new Date(value)
   const timestamp = date.getTime()
   return Number.isNaN(timestamp) ? null : timestamp
 }
@@ -160,8 +191,8 @@ function normalizeRealtimeFilters(filters = {}) {
   let fromTime = toTimestamp(filters.fromTime)
   let toTime = toTimestamp(filters.toTime)
   if (date && fromTime == null && toTime == null) {
-    fromTime = toTimestamp(`${date}T00:00:00`)
-    toTime = toTimestamp(`${date}T23:59:59`)
+    fromTime = toTimestamp(`${date} 00:00:00`)
+    toTime = toTimestamp(`${date} 23:59:59`)
   }
 
   return {
@@ -200,13 +231,13 @@ function getStationRuleProfile(station, observationType) {
 }
 
 function getTelemetrySlotWindow(slotTime) {
-  const slotDate = new Date(String(slotTime).replace(' ', 'T'))
-  if (Number.isNaN(slotDate.getTime())) {
+  const slotTimestamp = toTimestamp(slotTime)
+  if (slotTimestamp == null) {
     return { start: null, end: null }
   }
   return {
-    start: slotDate.getTime() - (55 * 60 * 1000),
-    end: slotDate.getTime()
+    start: slotTimestamp - (55 * 60 * 1000),
+    end: slotTimestamp
   }
 }
 

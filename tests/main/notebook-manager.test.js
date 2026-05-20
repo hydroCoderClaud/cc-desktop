@@ -399,7 +399,7 @@ describe('NotebookManager', () => {
       sourceIds: ['src-a']
     })
 
-    expect(achievement.type).toBe('fromchat')
+    expect(achievement.type).toBe('image')
     expect(achievement.status).toBe('done')
     expect(achievement.path).toBe('achievements/fromchat/chat-image.png')
     expect(achievement.sourceIds).toEqual(['src-a'])

@@ -1,4 +1,6 @@
 const { SOURCE_TYPES } = require('./realtime-service')
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
+const SLOT_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
 
 function findObservationBySource(observations, sourceType, observedAt = null) {
   return observations.find((item) => {
@@ -10,24 +12,59 @@ function findObservationBySource(observations, sourceType, observedAt = null) {
 
 function filterObservationsForSlot(observations, slotTime) {
   if (!Array.isArray(observations) || observations.length === 0) return []
-  const slotDate = new Date(String(slotTime).replace(' ', 'T'))
-  if (Number.isNaN(slotDate.getTime())) return []
+  const slotTimestamp = toTimestamp(slotTime)
+  if (slotTimestamp == null) return []
 
-  const windowStart = slotDate.getTime() - (55 * 60 * 1000)
-  const windowEnd = slotDate.getTime()
+  const windowStart = slotTimestamp - (55 * 60 * 1000)
+  const windowEnd = slotTimestamp
 
   return observations.filter((item) => {
     if (item.sourceType !== SOURCE_TYPES.telemetry) return true
-    const timestamp = new Date(item.observedAt).getTime()
-    if (Number.isNaN(timestamp)) return false
+    const timestamp = toTimestamp(item.observedAt)
+    if (timestamp == null) return false
     return timestamp >= windowStart && timestamp <= windowEnd
   })
 }
 
 function formatSlotTime(date) {
-  const d = new Date(date)
+  const timestamp = toTimestamp(date)
+  if (timestamp == null) {
+    throw new Error(`无效时间: ${date}`)
+  }
+  const d = new Date(timestamp + SHANGHAI_OFFSET_MS)
   const pad = (value) => String(value).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:00`
+}
+
+function parseShanghaiSlotTime(value) {
+  const match = SLOT_TIME_PATTERN.exec(String(value || '').trim())
+  if (!match) return null
+  const [, year, month, day, hour, minute, second = '0'] = match
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  ) - SHANGHAI_OFFSET_MS
+}
+
+function toTimestamp(value) {
+  if (!value) return null
+  if (value instanceof Date) {
+    const timestamp = value.getTime()
+    return Number.isNaN(timestamp) ? null : timestamp
+  }
+  if (typeof value === 'string') {
+    const slotTimestamp = parseShanghaiSlotTime(value)
+    if (slotTimestamp != null) {
+      return slotTimestamp
+    }
+  }
+  const date = new Date(value)
+  const timestamp = date.getTime()
+  return Number.isNaN(timestamp) ? null : timestamp
 }
 
 class RealtimeDemoSeeder {
