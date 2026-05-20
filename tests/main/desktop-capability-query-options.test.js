@@ -183,6 +183,8 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('reuse the currently bound session runtime')
     expect(options.appendSystemPrompt).toContain('default to binding the task to the current session')
     expect(options.appendSystemPrompt).toContain('Only set sessionBindingMode to new when the user explicitly asks for a separate')
+    expect(options.appendSystemPrompt).toContain('follows that app\'s current session instead of reopening an old embedded session')
+    expect(options.appendSystemPrompt).toContain('will be skipped instead of falling back to a fresh default scheduled session')
   })
 
   it('serializes task diagnostics in list/get responses', async () => {
@@ -333,6 +335,51 @@ describe('desktop capability query options', () => {
     expect(scheduledTaskService.createTask).toHaveBeenCalledWith(expect.objectContaining({
       sessionBindingMode: 'current',
       boundSessionId: 'embedded-session-mcp-1'
+    }))
+  })
+
+  it('passes current session binding updates through MCP in embedded sessions', async () => {
+    const scheduledTaskService = {
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            locale: 'zh-CN'
+          }
+        })
+      },
+      listTasks: vi.fn(() => [
+        buildTask({
+          id: 18,
+          name: '工作台任务',
+          sessionBindingMode: 'new',
+          sessionId: 'scheduled-session-18'
+        })
+      ]),
+      updateTask: vi.fn(async (taskId, updates) => buildTask({ id: Number(taskId), ...updates }))
+    }
+
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService,
+      session: {
+        id: 'embedded-session-mcp-2',
+        source: 'manual',
+        ownerClientId: 'embed:hydrology-workbench',
+        clientType: 'embedded',
+        clientMeta: { appId: 'hydrology-workbench' }
+      }
+    })
+
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+
+    await tools.schedule_update.handler({
+      taskId: 18,
+      sessionBindingMode: 'current'
+    })
+
+    expect(scheduledTaskService.updateTask).toHaveBeenCalledWith(18, expect.objectContaining({
+      sessionBindingMode: 'current'
     }))
   })
 

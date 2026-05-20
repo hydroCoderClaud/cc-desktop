@@ -14,7 +14,9 @@ const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'Do not claim there are no tasks, no history, or a task is disabled without calling the relevant tool first.',
   'After any mutation or inspection, summarize the actual task state returned by the tool, especially enabled, nextRunAt, lastError, and failureCount.',
   'Scheduled tasks no longer own an independent model or API profile configuration; they reuse the currently bound session runtime.',
-  'If a bound session is missing, the next run will create a fresh default session and rebind automatically.',
+  'For normal chat-bound tasks or tasks using sessionBindingMode=new, a missing bound session will be recreated as a fresh default session on the next run.',
+  'For embedded-app tasks bound to the current session, the task follows that app\'s current session instead of reopening an old embedded session.',
+  'If an embedded-app current-session task has no current app session to follow, the run will be skipped instead of falling back to a fresh default scheduled session.',
   'When creating a scheduled task from the current chat session, default to binding the task to the current session.',
   'Only set sessionBindingMode to new when the user explicitly asks for a separate, independent, or background session.',
   'If the user does not explicitly request a separate session, omit sessionBindingMode or use current instead of new.'
