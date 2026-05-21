@@ -318,8 +318,8 @@ const onServiceProviderChange = (value) => {
     const currentSelectedModelId = typeof formData.value.selectedModelId === 'string'
       ? formData.value.selectedModelId.trim()
       : ''
-    if (currentSelectedModelId && !providerDefaultModels.includes(currentSelectedModelId)) {
-      formData.value.selectedModelId = ''
+    if (!currentSelectedModelId || !providerDefaultModels.includes(currentSelectedModelId)) {
+      formData.value.selectedModelId = providerDefaultModels.length > 0 ? providerDefaultModels[0] : ''
     }
   }
 }
