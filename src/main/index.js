@@ -235,6 +235,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 600,
     show: false,  // 先隐藏，准备好后再显示
+    icon: path.join(app.getAppPath(), 'assets', 'icon-win.ico'),
     title: getMainWindowTitle(),
     backgroundColor: getThemeBackgroundColor(),
     autoHideMenuBar: true,  // 隐藏菜单栏

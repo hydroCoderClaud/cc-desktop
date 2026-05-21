@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-const { app, Menu, Tray, nativeImage } = require('electron')
+const { app, Menu, Tray, nativeImage, screen } = require('electron')
 const { tMain } = require('./utils/app-i18n')
 
 function createSvgDataUrl(svg) {
@@ -28,16 +28,20 @@ function resolveTrayImage(platform, {
   appInstance = app,
   nativeImageModule = nativeImage,
   fsModule = fs,
-  pathModule = path
+  pathModule = path,
+  screenModule = screen
 } = {}) {
   const iconCandidates = platform === 'win32' || platform === 'darwin'
     ? [
-          pathModule.join(appInstance.getAppPath(), 'assets', 'tray.png'),
-          pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'tray.png'),
-          pathModule.join(process.resourcesPath || '', 'assets', 'tray.png'),
-          pathModule.join(appInstance.getAppPath(), 'src', 'main', 'assets', 'tray.png'),
-          pathModule.join(process.resourcesPath || '', 'app.asar', 'src', 'main', 'assets', 'tray.png'),
-          pathModule.join(process.resourcesPath || '', 'app.asar.unpacked', 'src', 'main', 'assets', 'tray.png'),
+          pathModule.join(appInstance.getAppPath(), 'assets', 'icon.png'),
+          pathModule.join(appInstance.getAppPath(), 'assets', 'icon-win.ico'),
+          pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'icon.png'),
+          pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'icon-win.ico'),
+          pathModule.join(process.resourcesPath || '', 'assets', 'icon.png'),
+          pathModule.join(process.resourcesPath || '', 'assets', 'icon-win.ico'),
+          pathModule.join(appInstance.getAppPath(), 'src', 'main', 'assets', 'icon.png'),
+          pathModule.join(process.resourcesPath || '', 'app.asar', 'src', 'main', 'assets', 'icon.png'),
+          pathModule.join(process.resourcesPath || '', 'app.asar.unpacked', 'src', 'main', 'assets', 'icon.png'),
           pathModule.join(appInstance.getAppPath(), 'assets', 'icon.ico'),
           pathModule.join(appInstance.getAppPath(), 'assets', 'icon.png'),
           pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'icon.ico'),
@@ -48,9 +52,7 @@ function resolveTrayImage(platform, {
           pathModule.join(process.resourcesPath || '', 'assets', 'tray.ico')
         ]
     : [
-        pathModule.join(appInstance.getAppPath(), 'assets', 'tray.png'),
         pathModule.join(appInstance.getAppPath(), 'assets', 'icon.png'),
-        pathModule.join(process.resourcesPath || '', 'assets', 'tray.png'),
         pathModule.join(process.resourcesPath || '', 'assets', 'icon.png')
       ]
 
@@ -58,7 +60,15 @@ function resolveTrayImage(platform, {
     if (!candidate || !fsModule.existsSync(candidate)) continue
     const image = nativeImageModule.createFromPath(candidate)
     if (!image.isEmpty()) {
+      if (platform === 'win32' && typeof image.resize === 'function') {
+        const scaleFactor = screenModule.getPrimaryDisplay().scaleFactor || 1
+        const targetSize = Math.round(16 * scaleFactor)
+        return image.resize({ width: targetSize, height: targetSize })
+      }
       if (platform === 'darwin' && typeof image.resize === 'function') {
+        return image.resize({ width: 16, height: 16 })
+      }
+      if (typeof image.resize === 'function') {
         return image.resize({ width: 16, height: 16 })
       }
       return image

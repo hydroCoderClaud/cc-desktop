@@ -1,4 +1,5 @@
 !macro customHeader
+  ManifestDPIAware true
   !ifndef BUILD_UNINSTALLER
     !searchreplace InstallerDisplayNameEscaped "Hydro Desktop" "&" "&&"
     BrandingText "Hydro Desktop ${VERSION}"

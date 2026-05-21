@@ -203,12 +203,12 @@ describe('tray-controller', () => {
       appInstance: { getAppPath: () => 'C:/app' },
       nativeImageModule,
       fsModule: {
-        existsSync: vi.fn(filePath => filePath.endsWith('assets/tray.png'))
+        existsSync: vi.fn(filePath => filePath.endsWith('assets/icon.png'))
       },
       pathModule: { join: (...parts) => parts.join('/') }
     })
 
-    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/tray.png')
+    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/icon.png')
     expect(nativeImage.resize).toHaveBeenCalledWith({ width: 16, height: 16 })
     expect(nativeImage.setTemplateImage).not.toHaveBeenCalled()
     expect(resizedNativeImage.setTemplateImage).not.toHaveBeenCalled()
@@ -259,12 +259,12 @@ describe('tray-controller', () => {
       appInstance: { getAppPath: () => 'C:/app' },
       nativeImageModule,
       fsModule: {
-        existsSync: vi.fn(filePath => filePath.endsWith('assets/tray.png'))
+        existsSync: vi.fn(filePath => filePath.endsWith('assets/icon.png'))
       },
       pathModule: { join: (...parts) => parts.join('/') }
     })
 
-    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/tray.png')
+    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/icon.png')
     expect(nativeImageModule.createFromBuffer).not.toHaveBeenCalled()
     expect(nativeImageModule.createFromDataURL).not.toHaveBeenCalled()
     expect(result).toBe(nativeImage)
