@@ -531,6 +531,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
+  openFeishuSettings: () => ipcRenderer.invoke('window:openFeishuSettings'),
   openNotebookWorkspace: () => ipcRenderer.invoke('window:openNotebookWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
   setMainWindowTitleByMode: (mode) => ipcRenderer.invoke('window:setMainTitleByMode', mode),
@@ -1065,6 +1066,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartDingTalk: () => ipcRenderer.invoke('dingtalk:restart'),
   updateDingTalkConfig: (config) => ipcRenderer.invoke('dingtalk:updateConfig', config),
 
+  // 飞书桥接
+  getFeishuStatus: () => ipcRenderer.invoke('feishu:getStatus'),
+  startFeishu: () => ipcRenderer.invoke('feishu:start'),
+  stopFeishu: () => ipcRenderer.invoke('feishu:stop'),
+  restartFeishu: () => ipcRenderer.invoke('feishu:restart'),
+  updateFeishuConfig: (config) => ipcRenderer.invoke('feishu:updateConfig', config),
+
   // 钉钉事件监听
   onDingTalkStatusChange: (callback) => {
     const listener = (event, data) => callback(data);
@@ -1091,6 +1099,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('dingtalk:sessionClosed', listener);
     return () => ipcRenderer.removeListener('dingtalk:sessionClosed', listener);
   },
+
+  // 飞书事件监听
+  onFeishuStatusChange: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('feishu:statusChange', listener);
+    return () => ipcRenderer.removeListener('feishu:statusChange', listener);
+  },
+  onFeishuError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('feishu:error', listener);
+    return () => ipcRenderer.removeListener('feishu:error', listener);
+  },
+  onFeishuMessageReceived: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('feishu:messageReceived', listener);
+    return () => ipcRenderer.removeListener('feishu:messageReceived', listener);
+  },
+  onFeishuSessionCreated: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('feishu:sessionCreated', listener);
+    return () => ipcRenderer.removeListener('feishu:sessionCreated', listener);
+  },
+  onFeishuSessionClosed: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('feishu:sessionClosed', listener);
+    return () => ipcRenderer.removeListener('feishu:sessionClosed', listener);
+  },
+
   onWeixinMessageReceived: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('weixin:messageReceived', listener);

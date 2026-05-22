@@ -185,6 +185,7 @@ import AgentChatTab from './AgentChatTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
 import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
+import { EXTERNAL_IM_TYPES } from '@shared/external-im-meta'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -568,16 +569,46 @@ const setupSessionListeners = () => {
     )
   }
 
-  // 钉钉会话关闭时，关闭对应 Tab
-  if (window.electronAPI?.onDingTalkSessionClosed) {
-    cleanupFns.push(
-      window.electronAPI.onDingTalkSessionClosed((data) => {
-        if (data?.sessionId) {
-          handleSessionClosed({ id: data.sessionId })
-          ensureActiveTabInCurrentMode()
-        }
-      })
-    )
+  // 外部 IM 会话关闭时，关闭对应 Tab（元数据驱动）
+  for (const imType of Object.keys(EXTERNAL_IM_TYPES)) {
+    const meta = EXTERNAL_IM_TYPES[imType]
+    const api = window.electronAPI
+    const closeHandlerName = `on${meta.listenerPrefix}SessionClosed`
+    const createHandlerName = `on${meta.listenerPrefix}SessionCreated`
+
+    if (api?.[closeHandlerName]) {
+      cleanupFns.push(
+        api[closeHandlerName]((data) => {
+          if (data?.sessionId) {
+            handleSessionClosed({ id: data.sessionId })
+            ensureActiveTabInCurrentMode()
+          }
+        })
+      )
+    }
+
+    if (api?.[createHandlerName]) {
+      cleanupFns.push(
+        api[createHandlerName](async (data) => {
+          if (data?.sessionId) {
+            if (isDeveloperMode.value) {
+              await switchMode(AppMode.AGENT)
+            }
+            const defaultTitle = data.nickname
+              ? `${meta.label['zh-CN']} · ${data.nickname}`
+              : meta.label['zh-CN']
+            const tab = ensureAgentTab({
+              id: data.sessionId,
+              type: imType,
+              title: data.title || defaultTitle,
+            })
+            if (tab) {
+              activeTabId.value = tab.id
+            }
+          }
+        })
+      )
+    }
   }
 
   // Agent CLI 进程退出时，关闭对应 Tab
@@ -590,48 +621,6 @@ const setupSessionListeners = () => {
           if (tab) {
             closeAgentTabFully(tab)
             ensureActiveTabInCurrentMode()
-          }
-        }
-      })
-    )
-  }
-
-  // 钉钉会话创建时，自动切换到 Agent 模式并打开 Tab
-  if (window.electronAPI.onDingTalkSessionCreated) {
-    cleanupFns.push(
-      window.electronAPI.onDingTalkSessionCreated(async (data) => {
-        if (data?.sessionId) {
-          // 如果当前在 Developer 模式，自动切换到 Agent 模式
-          if (isDeveloperMode.value) {
-            await switchMode(AppMode.AGENT)
-          }
-          const tab = ensureAgentTab({
-            id: data.sessionId,
-            type: 'dingtalk',
-            title: data.title || (data.nickname ? `钉钉 · ${data.nickname}` : 'DingTalk'),
-          })
-          if (tab) {
-            activeTabId.value = tab.id
-          }
-        }
-      })
-    )
-  }
-
-  if (window.electronAPI.onWeixinSessionCreated) {
-    cleanupFns.push(
-      window.electronAPI.onWeixinSessionCreated(async (data) => {
-        if (data?.sessionId) {
-          if (isDeveloperMode.value) {
-            await switchMode(AppMode.AGENT)
-          }
-          const tab = ensureAgentTab({
-            id: data.sessionId,
-            type: 'weixin',
-            title: data.title || (data.senderNick ? `微信 · ${data.senderNick}` : '微信'),
-          })
-          if (tab) {
-            activeTabId.value = tab.id
           }
         }
       })

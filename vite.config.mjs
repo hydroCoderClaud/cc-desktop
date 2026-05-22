@@ -17,7 +17,8 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, 'src/renderer/utils'),
       '@styles': path.resolve(__dirname, 'src/renderer/styles'),
       '@theme': path.resolve(__dirname, 'src/renderer/theme'),
-      '@locales': path.resolve(__dirname, 'src/renderer/locales')
+      '@locales': path.resolve(__dirname, 'src/renderer/locales'),
+      '@shared': path.resolve(__dirname, 'src/shared')
     }
   },
   build: {
@@ -36,7 +37,8 @@ export default defineConfig({
         hydrologyWorkbench: path.resolve(__dirname, 'src/renderer/pages/hydrology-workbench/index.html'),
         sessionManager: path.resolve(__dirname, 'src/renderer/pages/session-manager/index.html'),
         updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html'),
-        dingtalkSettings: path.resolve(__dirname, 'src/renderer/pages/dingtalk-settings/index.html')
+        dingtalkSettings: path.resolve(__dirname, 'src/renderer/pages/dingtalk-settings/index.html'),
+        feishuSettings: path.resolve(__dirname, 'src/renderer/pages/feishu-settings/index.html')
       }
     }
   },

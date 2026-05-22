@@ -901,6 +901,10 @@ export default {
       weixin: {
         label: '微信',
         description: '扫码授权、目标捕获与通知发送'
+      },
+      feishu: {
+        label: '飞书',
+        description: '企业自建应用桥接，支持桌面主动推送'
       }
     }
   },
@@ -1375,6 +1379,7 @@ export default {
     sourceScheduled: '定时任务',
     sourceDingtalk: '钉钉',
     sourceWeixin: '微信',
+    sourceFeishu: '飞书',
     apiProfile: 'API 配置',
     apiProfileTooltip: 'API 配置: ',
     modelTooltip: '模型: ',
@@ -1482,6 +1487,7 @@ export default {
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
     weixinObserving: '微信观察模式 — 来自微信的消息将实时显示',
+    feishuObserving: '飞书观察模式 — 来自飞书的消息将实时显示',
     weixinQuickSendTitle: '发送微信通知',
     weixinQuickSendHint: '选择已捕获的微信目标，消息会从当前会话发出，回复也会回到当前会话。',
     weixinQuickSendPlaceholder: '输入要发送到微信的内容',
@@ -1510,6 +1516,7 @@ export default {
     copyContent: '复制消息内容',
     dingtalkSuffix: '（来自钉钉）',
     weixinSuffix: '（来自微信）',
+    feishuSuffix: '（来自飞书）',
     dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 
     // 文件浏览面板

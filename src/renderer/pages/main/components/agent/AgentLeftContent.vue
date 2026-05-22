@@ -117,6 +117,7 @@ import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
 import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
+import { getConversationSource, getConversationIcon } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const dialog = useDialog()
@@ -211,19 +212,6 @@ const getProfileName = (profileId) => {
   return profile?.name || null
 }
 
-const getConversationSource = (conv) => {
-  if (conv.type === 'dingtalk') return 'dingtalk'
-  if (conv.type === 'weixin') return 'weixin'
-  return conv.source || 'manual'
-}
-
-const getConversationIcon = (conv) => {
-  const source = getConversationSource(conv)
-  if (source === 'scheduled') return 'clock'
-  if (conv.type === 'dingtalk') return 'dingtalk'
-  if (conv.type === 'weixin') return 'weixin'
-  return 'chat'
-}
 
 const openScheduledTaskManager = ({ taskId = null } = {}) => {
   if (!taskId) return

@@ -68,13 +68,9 @@
     </div>
 
     <!-- 提示条：根据会话状态显示不同提示 -->
-    <div v-if="sessionType === 'dingtalk'" class="dingtalk-observe-bar">
-      <Icon name="dingtalk" :size="14" />
-      <span>{{ t('agent.dingtalkObserving') }}</span>
-    </div>
-    <div v-else-if="sessionType === 'weixin'" class="dingtalk-observe-bar">
-      <Icon name="weixin" :size="14" />
-      <span>{{ t('agent.weixinObserving') }}</span>
+    <div v-if="isExternalImType(sessionType)" class="dingtalk-observe-bar">
+      <Icon :name="getExternalImMeta(sessionType)?.icon" :size="14" />
+      <span>{{ t(getExternalImMeta(sessionType)?.observeKey) }}</span>
     </div>
     <div v-else-if="!hasActiveSession" class="status-hint-bar">
       <Icon name="info" :size="14" />
@@ -126,6 +122,7 @@ import ScheduledTaskDraftCard from './agent/ScheduledTaskDraftCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
 import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
+import { isExternalImType, getExternalImMeta } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -199,11 +196,12 @@ const {
   setupStreamListeners,
   setupDingTalkListeners,
   setupWeixinListeners,
+  setupExternalImMessageListeners,
   setupListeners,
   initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId, {
-  enableSlashCommands: !['dingtalk', 'weixin'].includes(props.sessionType),
+  enableSlashCommands: !isExternalImType(props.sessionType),
   sessionCwd: props.sessionCwd,
   apiProfileId: props.apiProfileId,
   agentApi: props.agentApi,
@@ -212,7 +210,7 @@ const {
   }
 })
 
-const isExternalObserveSession = computed(() => ['dingtalk', 'weixin'].includes(props.sessionType))
+const isExternalObserveSession = computed(() => isExternalImType(props.sessionType))
 
 // 消息队列开关（从配置读取）
 const queueEnabled = ref(true)
@@ -593,8 +591,7 @@ onMounted(async () => {
   await loadMessages()  // 加载历史消息
   await syncActiveSessionState()
 
-  setupDingTalkListeners()  // 钉钉监听器在历史加载后注册，避免与 loadMessages 竞争
-  setupWeixinListeners()
+  setupExternalImMessageListeners()  // 外部 IM 消息监听器（钉钉/微信/飞书统一适配）
   // 绑定滚动事件检测用户手动滚动
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })

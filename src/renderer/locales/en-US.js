@@ -898,6 +898,10 @@ export default {
       weixin: {
         label: 'WeChat',
         description: 'QR login, target capture, and notification delivery'
+      },
+      feishu: {
+        label: 'Feishu',
+        description: 'Enterprise app bridge with proactive desktop push'
       }
     }
   },
@@ -1370,6 +1374,7 @@ export default {
     sourceScheduled: 'Scheduled',
     sourceDingtalk: 'DingTalk',
     sourceWeixin: 'Weixin',
+    sourceFeishu: 'Feishu',
     apiProfile: 'API Profile',
     apiProfileTooltip: 'API: ',
     modelTooltip: 'Model: ',
@@ -1477,6 +1482,7 @@ export default {
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
     weixinObserving: 'Weixin Observe Mode — Messages from Weixin will be displayed in real time',
+    feishuObserving: 'Feishu Observe Mode — Messages from Feishu will be displayed in real time',
     weixinQuickSendTitle: 'Send Weixin Notification',
     weixinQuickSendHint: 'Choose a captured Weixin target. The message is sent from this session, and replies return here.',
     weixinQuickSendPlaceholder: 'Enter the message to send to Weixin',
@@ -1505,6 +1511,7 @@ export default {
     copyContent: 'Copy Message Content',
     dingtalkSuffix: ' (from DingTalk)',
     weixinSuffix: ' (from Weixin)',
+    feishuSuffix: ' (from Feishu)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 
     // File browser panel

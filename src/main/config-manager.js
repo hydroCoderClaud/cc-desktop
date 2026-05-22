@@ -97,6 +97,15 @@ class ConfigManager {
         maxHistorySessions: 5,
       },
 
+      // 飞书桥接配置
+      feishu: {
+        enabled: false,
+        appId: '',
+        appSecret: '',
+        defaultCwd: '',
+        maxHistorySessions: 5,
+      },
+
       settings: {
         theme: 'light',
 

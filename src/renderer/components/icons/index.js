@@ -60,6 +60,7 @@ export const iconPaths = {
   robot: '<rect x="4" y="6" width="12" height="10" rx="3"/><path d="M7 5.1v.9M13 5.1v.9"/><circle cx="7" cy="3" r="1.5" stroke-width="1.15"/><circle cx="13" cy="3" r="1.5" stroke-width="1.15"/><path d="M7 10h.01M13 10h.01"/><path d="M8 13.5q2 1.5 4 0"/>',
   dingtalk: '<path d="M10 3v2"/><rect x="4" y="5" width="12" height="12" rx="2"/><path d="M7 9l3 3 3-3"/>',
   weixin: '<path d="M4 10a5.5 4.8 0 0 1 6-4.8 5.5 4.8 0 0 1 6 4.8 5.5 4.8 0 0 1-6 4.8c-.7 0-1.3-.1-1.9-.3L5 16l1-2.2A4.3 4.3 0 0 1 4 10z"/><path d="M8 9h.01M12 9h.01"/>',
+  feishu: '<circle cx="10" cy="10" r="7"/><path d="M6 8l4 4 4-4"/><path d="M7 11l3 4 3-4"/>',
 
   // 状态类
   check: '<path d="M4 10l4 4 8-8" stroke-width="2.5"/>',

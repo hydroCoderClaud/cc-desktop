@@ -59,6 +59,7 @@
 import Icon from '@components/icons/Icon.vue'
 import { SessionStatus, SessionType } from '@composables/useSessionUtils'
 import { useLocale } from '@composables/useLocale'
+import { isExternalImType } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 
@@ -125,9 +126,9 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '')
 
   // Agent 对话图标
   if (type === SessionType.AGENT_CHAT) {
-    // 钉钉会话使用特殊图标
-    if (sessionType === 'dingtalk') {
-      return status === SessionStatus.ERROR ? 'xCircle' : 'dingtalk'
+    // 外部 IM 会话使用各渠道图标
+    if (sessionType && isExternalImType(sessionType)) {
+      return status === SessionStatus.ERROR ? 'xCircle' : sessionType
     }
     switch (status) {
       case SessionStatus.RUNNING:

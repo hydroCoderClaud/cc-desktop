@@ -79,6 +79,7 @@ import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
 import { useLocale } from '@composables/useLocale'
 import { renderMessageHtml, trimTrailingPathPunctuation } from '@utils/message-render-utils'
+import { isExternalImType, getSuffixKey } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const messageApi = useMessage()
@@ -124,8 +125,10 @@ const avatarIconName = computed(() => {
 })
 const externalSenderLabel = computed(() => {
   if (!props.message.senderNick) return ''
-  if (props.message.source === 'dingtalk') return `${props.message.senderNick}${t('agent.dingtalkSuffix')}`
-  if (props.message.source === 'weixin') return `${props.message.senderNick}${t('agent.weixinSuffix')}`
+  if (isExternalImType(props.message.source)) {
+    const suffixKey = getSuffixKey(props.message.source)
+    return suffixKey ? `${props.message.senderNick}${t(suffixKey)}` : ''
+  }
   return ''
 })
 const normalizePathForAction = async (rawPath) => {

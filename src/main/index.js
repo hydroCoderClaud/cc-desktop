@@ -12,6 +12,7 @@ const { AgentSessionManager } = require('./agent-session-manager');
 const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
 const { DingTalkBridge } = require('./managers/dingtalk-bridge');
+const { FeishuBridge } = require('./managers/feishu-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { WeixinNotifyService } = require('./managers/weixin-notify-service');
@@ -36,6 +37,7 @@ let agentSessionManager = null;
 let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
+let feishuBridge = null;
 let notebookManager = null;
 let embeddedAppPreferencesManager = null;
 let scheduledTaskService = null;
@@ -68,6 +70,7 @@ function cleanupAllSessions() {
       console.log('[Main] PowerSaveBlocker stopped')
     }
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
+    if (feishuBridge) feishuBridge.stop().catch(() => {});
     if (weixinBridge) weixinBridge.stop();
     if (weixinNotifyService) weixinNotifyService.stop();
     if (localAgentApiServer) {
@@ -461,6 +464,9 @@ if (hasSingleInstanceLock) {
     // 初始化钉钉桥接（构造函数内部自动绑定 agentSessionManager 事件）
     dingtalkBridge = new DingTalkBridge(configManager, agentSessionManager, mainWindow)
 
+    // 初始化飞书桥接
+    feishuBridge = new FeishuBridge(configManager, agentSessionManager, mainWindow)
+
     // 初始化 Notebook 管理器（需要 configManager 和 agentSessionManager）
     notebookManager = new NotebookManager(configManager, agentSessionManager)
     embeddedAppPreferencesManager = new EmbeddedAppPreferencesManager(configManager)
@@ -494,6 +500,7 @@ if (hasSingleInstanceLock) {
       scheduledTaskService,
       weixinNotifyService,
       weixinBridge,
+      feishuBridge,
       localAgentApiServer
     ) || {}
 
@@ -534,6 +541,9 @@ if (hasSingleInstanceLock) {
     setTimeout(() => {
       dingtalkBridge.start().catch(err => {
         console.error('[Main] DingTalk bridge auto-start failed:', err.message)
+      })
+      feishuBridge.start().catch(err => {
+        console.error('[Main] Feishu bridge auto-start failed:', err.message)
       })
     }, 3000)
 

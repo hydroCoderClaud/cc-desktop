@@ -14,6 +14,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useLocale } from './useLocale'
 import { useAgentLocalCommands } from './useAgentLocalCommands'
+import { setupExternalImListeners } from './external-im-message-adapter'
 import {
   buildBuiltinSlashCommands,
   mergeSlashCommands,
@@ -1178,56 +1179,31 @@ export function useAgentChat(sessionId, options = {}) {
   }
 
   /**
-   * 注册钉钉消息监听器（在 loadMessages 之后调用，避免与历史加载竞争）
+   * 注册外部 IM 消息监听器（钉钉/微信/飞书统一适配）
    */
-  const setupDingTalkListeners = () => {
-    if (!window.electronAPI?.onDingTalkMessageReceived) return
-
-    // 钉钉用户消息注入：将钉钉用户发送的消息实时显示在对话中
-    cleanupFns.push(window.electronAPI.onDingTalkMessageReceived((data) => {
-      console.log(`[useAgentChat] dingtalk:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
-      if (data.sessionId !== sessionId) return
-      const msg = {
-        id: `msg-dt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        role: MessageRole.USER,
-        content: data.text,
-        timestamp: Date.now(),
-        source: 'dingtalk',
-        senderNick: data.senderNick
-      }
-      if (data.images && data.images.length > 0) {
-        msg.images = data.images
-      }
-      messages.value.push(msg)
-    }))
+  const setupExternalImMessageListeners = () => {
+    setupExternalImListeners(sessionId, messages, cleanupFns)
   }
 
-  const setupWeixinListeners = () => {
-    if (!window.electronAPI?.onWeixinMessageReceived) return
+  /**
+   * 注册钉钉消息监听器（在 loadMessages 之后调用，避免与历史加载竞争）
+   * @deprecated 请使用 setupExternalImMessageListeners
+   */
+  const setupDingTalkListeners = () => {
+    setupExternalImListeners(sessionId, messages, cleanupFns, ['dingtalk'])
+  }
 
-    cleanupFns.push(window.electronAPI.onWeixinMessageReceived((data) => {
-      console.log(`[useAgentChat] weixin:messageReceived sessionId=${data.sessionId}, local=${sessionId}, match=${data.sessionId === sessionId}, text=${data.text?.substring(0, 30)}`)
-      if (data.sessionId !== sessionId) return
-      const msg = {
-        id: data.messageId || `msg-wx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        role: MessageRole.USER,
-        content: data.text,
-        timestamp: data.timestamp || Date.now(),
-        source: 'weixin',
-        senderNick: data.senderNick
-      }
-      if (data.images && data.images.length > 0) {
-        msg.images = data.images
-      }
-      messages.value.push(msg)
-    }))
+  /**
+   * @deprecated 请使用 setupExternalImMessageListeners
+   */
+  const setupWeixinListeners = () => {
+    setupExternalImListeners(sessionId, messages, cleanupFns, ['weixin'])
   }
 
   // 向后兼容：保留 setupListeners 供外部调用（已拆分为两步）
   const setupListeners = () => {
     setupStreamListeners()
-    setupDingTalkListeners()
-    setupWeixinListeners()
+    setupExternalImMessageListeners()
   }
 
   /**
@@ -1308,6 +1284,7 @@ export function useAgentChat(sessionId, options = {}) {
     setupStreamListeners,
     setupDingTalkListeners,
     setupWeixinListeners,
+    setupExternalImMessageListeners,
     setupListeners,
     initDefaultModel,
     cleanup

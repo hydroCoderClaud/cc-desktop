@@ -3,6 +3,7 @@
  * 管理 Agent 对话列表、创建、删除等操作
  */
 import { ref, computed, watch } from 'vue'
+import { getConversationSource } from '@shared/external-im-meta'
 
 // 模块级别的已关闭会话集合（跨组件共享）
 // 用于在队列自动消费前检查会话是否已关闭
@@ -49,11 +50,6 @@ export function useAgentPanel() {
   const conversations = ref([])
   const loading = ref(false)
   const selectedSource = ref('all')
-  const getConversationSource = (conv) => {
-    if (conv.type === 'dingtalk') return 'dingtalk'
-    if (conv.type === 'weixin') return 'weixin'
-    return conv.source || 'manual'
-  }
 
   /**
    * 加载对话列表（后端已合并活跃+历史）

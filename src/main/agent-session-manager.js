@@ -45,9 +45,22 @@ const HYDRO_IDENTITY_SYSTEM_PROMPT = [
   'If the user asks about the underlying model or provider, distinguish the app identity from the actual configured model or service.'
 ].join(' ')
 
+// 从共享模块加载 IM 类型元数据（主进程使用 require 相对路径）
+let _externalImMeta = null
+function _loadExternalImMeta() {
+  if (!_externalImMeta) {
+    try {
+      _externalImMeta = require('../../src/shared/external-im-meta')
+    } catch {
+      _externalImMeta = { isExternalImType: () => false }
+    }
+  }
+  return _externalImMeta
+}
+
 function resolveConversationSource(type, source) {
-  if (type === 'dingtalk') return 'dingtalk'
-  if (type === 'weixin') return 'weixin'
+  const { isExternalImType } = _loadExternalImMeta()
+  if (isExternalImType(type)) return type
   if (source) return source
   return 'manual'
 }
