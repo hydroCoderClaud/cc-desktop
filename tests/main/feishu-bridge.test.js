@@ -707,6 +707,33 @@ describe('FeishuBridge', () => {
     )).toBe(true)
   })
 
+  it('learns robot mention ids after a name-based fallback match and reuses the stable id later', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+
+    expect(bridge._isRobotMention({
+      key: '@_user_1',
+      name: 'Hydro Desktop',
+      id: { open_id: 'ou_robot_open', union_id: 'on_robot_union', user_id: null },
+      idType: null
+    })).toBe(true)
+
+    expect(bridge._isRobotMention({
+      key: '@_user_1',
+      name: '别名变化了',
+      id: { open_id: 'ou_robot_open', union_id: 'on_robot_union', user_id: null },
+      idType: null
+    })).toBe(true)
+
+    expect(bridge._isRobotMention({
+      key: '@_user_9',
+      name: '张三',
+      id: { open_id: 'ou_user_9', union_id: 'on_user_9', user_id: null },
+      idType: null
+    })).toBe(false)
+  })
+
   it('hydrates missing group-chat mention metadata from message detail before forwarding text', async () => {
     const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

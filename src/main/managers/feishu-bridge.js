@@ -56,6 +56,7 @@ class FeishuBridge {
     /** @type {Map<string, { senderId: string, chatId: string, chatType: string }>} 每个 session 的飞书身份（用于桌面端介入路由和图片发送） */
     this._sessionIdentities = new Map()
     this._activeSendChunks = new Map()
+    this._knownRobotMentionIds = new Set()
 
     this._agentListeners = null
     this._eventListeners = null
@@ -111,6 +112,7 @@ class FeishuBridge {
     this._pendingMessages.clear()
     this._sessionIdentities.clear()
     this._activeSendChunks.clear()
+    this._knownRobotMentionIds.clear()
   }
 
   async restart() { await this.stop(); return this.start() }
@@ -720,18 +722,32 @@ class FeishuBridge {
 
   _isRobotMention(mention) {
     if (!mention || typeof mention !== 'object') return false
-    const id = typeof mention.id === 'string'
-      ? mention.id.trim()
-      : (mention.id && typeof mention.id === 'object'
-        ? String(mention.id.open_id || mention.id.user_id || mention.id.union_id || '').trim()
-        : '')
+    const ids = this._extractMentionIds(mention)
+    const id = ids[0] || ''
     const idType = typeof mention.idType === 'string' ? mention.idType.trim().toLowerCase() : ''
-    const key = typeof mention.key === 'string' ? mention.key.trim() : ''
     const name = typeof mention.name === 'string' ? mention.name.trim() : ''
-    if (!id) return false
     if (idType === 'app_id') return true
     if (!!this.config?.appId && id === this.config.appId) return true
-    return /hydro\s*desktop/i.test(name)
+    if (ids.some(candidate => this._knownRobotMentionIds.has(candidate))) return true
+    if (!/hydro\s*desktop/i.test(name)) return false
+    for (const candidate of ids) {
+      this._knownRobotMentionIds.add(candidate)
+    }
+    return true
+  }
+
+  _extractMentionIds(mention) {
+    if (!mention || typeof mention !== 'object') return []
+    const candidates = []
+    const directId = typeof mention.id === 'string' ? mention.id.trim() : ''
+    if (directId) candidates.push(directId)
+    if (mention.id && typeof mention.id === 'object') {
+      for (const value of [mention.id.open_id, mention.id.user_id, mention.id.union_id]) {
+        const normalized = typeof value === 'string' ? value.trim() : ''
+        if (normalized) candidates.push(normalized)
+      }
+    }
+    return Array.from(new Set(candidates))
   }
 
   // ─── 会话管理 ───
