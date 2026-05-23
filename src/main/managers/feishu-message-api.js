@@ -98,6 +98,34 @@ class FeishuMessageAPI {
   }
 
   /**
+   * 获取指定消息的内容
+   * @param {string} messageId
+   * @returns {Promise<object|null>}
+   */
+  async getMessage(messageId) {
+    const token = await this.getAccessToken()
+    const resp = await globalThis.fetch(
+      `${this._apiBase}/im/v1/messages/${encodeURIComponent(messageId)}`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
+    const data = await resp.json()
+    if (data.code !== 0) {
+      throw new Error(`Feishu get message failed: ${data.msg} (code=${data.code})`)
+    }
+    const item = data?.data?.items?.[0] || data?.data?.item || null
+    if (!item) return null
+    return {
+      ...item,
+      content: item?.content ?? item?.body?.content ?? null,
+      mentions: Array.isArray(item?.mentions) ? item.mentions : [],
+      msg_type: item?.msg_type || item?.message_type || null,
+    }
+  }
+
+  /**
    * 发送交互式卡片消息
    * @param {'open_id'|'chat_id'} receiveIdType
    * @param {string} receiveId

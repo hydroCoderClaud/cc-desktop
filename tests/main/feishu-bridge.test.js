@@ -222,6 +222,59 @@ describe('FeishuBridge', () => {
     ])
   })
 
+  it('replies with an explicit notice for unsupported Feishu message types', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_file_1',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      msgType: 'file',
+      text: '',
+      images: [],
+      unsupported: true
+    })
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'open_id',
+      'ou_xxx',
+      expect.stringContaining('暂不支持该类型的飞书消息')
+    )
+    expect(enqueueMessage).not.toHaveBeenCalled()
+  })
+
+  it('propagates Feishu startup failures so the caller can treat start as failed', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._eventClient, 'connect').mockRejectedValue(new Error('ws failed'))
+
+    await expect(bridge.start()).rejects.toThrow('ws failed')
+  })
+
+  it('clears pending Feishu replay state on stop', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+      message: { text: '待发送', images: undefined },
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+    bridge._processedMsgIds.set('om_1', Date.now())
+    bridge._msgIdCleanupTimer = setInterval(() => {}, 1000)
+
+    await bridge.stop()
+
+    expect(bridge._pendingMessages.size).toBe(0)
+    expect(bridge._processedMsgIds.size).toBe(0)
+    expect(bridge._msgIdCleanupTimer).toBe(null)
+  })
+
   it('treats non-numeric text as history-choice input while a pending choice exists', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -486,6 +539,246 @@ describe('FeishuBridge', () => {
     expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话已重命名为：新标题')
   })
 
+  it('treats group-chat mention commands as commands instead of forwarding them into the conversation', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const handleCommand = vi.spyOn(bridge, '_handleCommand').mockResolvedValue()
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_rename_1',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '@_user_1 /rename 群聊测试',
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }],
+      images: []
+    })
+
+    expect(handleCommand).toHaveBeenCalledWith('/rename 群聊测试', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+    expect(enqueueMessage).not.toHaveBeenCalled()
+  })
+
+  it('hydrates missing group-chat mention metadata from message detail before command parsing', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const handleCommand = vi.spyOn(bridge, '_handleCommand').mockResolvedValue()
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge._api, 'getMessage').mockResolvedValue({
+      msg_type: 'text',
+      body: {
+        content: JSON.stringify({
+          text: '@_user_1 /rename 群聊测试'
+        })
+      },
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', id_type: 'app_id' }]
+    })
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_rename_missing_mentions',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      msgType: 'text',
+      text: '@_user_1 /rename 群聊测试',
+      mentions: [],
+      images: []
+    })
+
+    expect(bridge._api.getMessage).toHaveBeenCalledWith('om_group_rename_missing_mentions')
+    expect(handleCommand).toHaveBeenCalledWith('/rename 群聊测试', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+    expect(enqueueMessage).not.toHaveBeenCalled()
+  })
+
+  it('forwards cleaned group-chat text to the desktop frontend without the mention prefix', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_text_1',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '你好啊@_user_1',
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '你好啊', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '你好啊'
+    )).toBe(true)
+  })
+
+  it('strips Feishu @_user_N placeholder tokens after confirming the robot mention', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_text_user_placeholder',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '@_user_7你好',
+      mentions: [{ key: '@机器人', name: '机器人', id: 'app-id', idType: 'app_id' }],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '你好', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '你好'
+    )).toBe(true)
+  })
+
+  it('treats runtime Feishu group mentions with object ids as robot mentions', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_runtime_group_text_1',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'group',
+      msgType: 'text',
+      text: '没事 @_user_1',
+      mentions: [{
+        key: '@_user_1',
+        name: 'Hydro Desktop',
+        id: { open_id: 'ou_robot_open', union_id: 'on_robot_union', user_id: null },
+        idType: null
+      }],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '没事', images: undefined },
+      'ou_group',
+      'oc_group',
+      'group'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '没事'
+    )).toBe(true)
+  })
+
+  it('hydrates missing group-chat mention metadata from message detail before forwarding text', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge._api, 'getMessage').mockResolvedValue({
+      msg_type: 'text',
+      body: {
+        content: JSON.stringify({
+          text: '你好啊@_user_1'
+        })
+      },
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', id_type: 'app_id' }]
+    })
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_text_missing_mentions',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      msgType: 'text',
+      text: '你好啊@_user_1',
+      mentions: [],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(bridge._api.getMessage).toHaveBeenCalledWith('om_group_text_missing_mentions')
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '你好啊', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '你好啊'
+    )).toBe(true)
+  })
+
+  it('does not strip non-robot mentions from group-chat text', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_text_2',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '@张三 请继续分析',
+      mentions: [{ key: '@张三', name: '张三', id: 'ou_user', idType: 'open_id' }],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '@张三 请继续分析', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '@张三 请继续分析'
+    )).toBe(true)
+  })
+
   it('sends a help card for /help', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -601,7 +894,7 @@ describe('FeishuBridge', () => {
     const session = Array.from(manager.sessions.values())[0]
     expect(session).toBeTruthy()
     expect(session.type).toBe('feishu')
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
       { text: 'hello', images: undefined },
@@ -610,6 +903,61 @@ describe('FeishuBridge', () => {
       'p2p'
     )
     expect(sent.find(item => item.channel === 'feishu:sessionCreated')?.data.sessionId).toBe(session.id)
+  })
+
+  it('creates a new Feishu session under a requested relative directory with /new [目录]', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleCommand('/new 项目A', {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session.cwd).toBe(path.join(tempDir, 'feishu', '项目A'))
+    expect(fs.existsSync(session.cwd)).toBe(true)
+  })
+
+  it('ignores trailing mention tokens in /new command arguments', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleCommand('/new 项目A @机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session.cwd).toBe(path.join(tempDir, 'feishu', '项目A'))
+    expect(fs.existsSync(session.cwd)).toBe(true)
+  })
+
+  it('strips trailing mention suffixes from /new directory arguments in group chats', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleCommand('/new 项目A@机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session.cwd).toBe(path.join(tempDir, 'feishu', '项目A'))
+    expect(fs.existsSync(session.cwd)).toBe(true)
   })
 
   it('restores a historical Feishu session with /resume and auto-activates when needed', async () => {
@@ -638,7 +986,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(reopen).toHaveBeenCalledWith('hist-1')
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话恢复中')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话恢复中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       'hist-1',
       { text: 'hello', images: undefined },
@@ -647,6 +995,82 @@ describe('FeishuBridge', () => {
       'p2p'
     )
     expect(sent.find(item => item.channel === 'feishu:sessionCreated')?.data.sessionId).toBe('hist-1')
+  })
+
+  it('ignores mention tokens embedded in /resume command arguments', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
+      { session_id: 'hist-1', title: '历史会话 1' }
+    ])
+    const reopen = vi.spyOn(manager, 'reopen').mockImplementation((sessionId) => {
+      manager.sessions.set(sessionId, {
+        id: sessionId,
+        type: 'feishu',
+        title: '历史会话 1',
+        cwd: tempDir,
+        source: 'feishu'
+      })
+      return { id: sessionId, type: 'feishu', title: '历史会话 1' }
+    })
+
+    await bridge._handleCommand('/resume @机器人 1', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    expect(reopen).toHaveBeenCalledWith('hist-1')
+    expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话恢复中，请等待信息返回后，即可开始聊天')
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      'hist-1',
+      { text: 'hello', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+  })
+
+  it('strips trailing mention suffixes from /resume selection arguments in group chats', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
+      { session_id: 'hist-1', title: '历史会话 1' }
+    ])
+    const reopen = vi.spyOn(manager, 'reopen').mockImplementation((sessionId) => {
+      manager.sessions.set(sessionId, {
+        id: sessionId,
+        type: 'feishu',
+        title: '历史会话 1',
+        cwd: tempDir,
+        source: 'feishu'
+      })
+      return { id: sessionId, type: 'feishu', title: '历史会话 1' }
+    })
+
+    await bridge._handleCommand('/resume 1@机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    expect(reopen).toHaveBeenCalledWith('hist-1')
+    expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话恢复中，请等待信息返回后，即可开始聊天')
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      'hist-1',
+      { text: 'hello', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
   })
 
   it('switches to an already-activated historical Feishu session without auto-hello', async () => {
@@ -674,7 +1098,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '已切换到目标对话：历史会话 1')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '✅ 已切换到会话：历史会话 1\n\n现在可以继续对话了')
     expect(enqueueMessage).not.toHaveBeenCalled()
   })
 
@@ -711,6 +1135,191 @@ describe('FeishuBridge', () => {
         })
       })
     )
+  })
+
+  it('strips trailing mention suffixes from /status in group chats', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    bridge._eventClient._connected = true
+    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+
+    await bridge._handleCommand('/status@机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    expect(sendCardMessage).toHaveBeenCalledWith(
+      'chat_id',
+      'oc_group',
+      expect.objectContaining({
+        header: expect.objectContaining({
+          title: expect.objectContaining({
+            content: '系统状态'
+          })
+        })
+      })
+    )
+  })
+
+  it('ignores embedded mention tokens when renaming a group-chat session', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const rename = vi.spyOn(manager, 'rename').mockImplementation(() => true)
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '旧标题', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionMapper.sessionMap.set('ou_group:oc_group', session.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    })
+
+    await bridge._handleCommand('/rename 群聊测试 @机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    expect(rename).toHaveBeenCalledWith(session.id, '群聊测试')
+    expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话已重命名为：群聊测试')
+  })
+
+  it('strips trailing mention suffixes from rename titles in group chats', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const rename = vi.spyOn(manager, 'rename').mockImplementation(() => true)
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '旧标题', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionMapper.sessionMap.set('ou_group:oc_group', session.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    })
+
+    await bridge._handleCommand('/rename 群聊测试@机器人', {
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat'
+    }, {
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    })
+
+    expect(rename).toHaveBeenCalledWith(session.id, '群聊测试')
+    expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话已重命名为：群聊测试')
+  })
+
+  it('sends an explicit Feishu error reply when agent processing fails', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '状态会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+    const { donePromise } = bridge._replyCollector.startCollect(session.id, { sendFn: vi.fn() })
+    const doneRejection = donePromise.catch(err => err)
+
+    await bridge._onAgentError(session.id, new Error('agent failed'))
+
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '处理消息时出错: agent failed')
+    await expect(doneRejection).resolves.toBeInstanceOf(Error)
+  })
+
+  it('streams Feishu agent text chunks through the active collector sendChunk', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const sendMessage = vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId) => {
+      bridge._onAgentMessage(sessionId, {
+        type: 'assistant',
+        content: [{ type: 'text', text: '第一段' }]
+      })
+      bridge._onAgentResult(sessionId)
+    })
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '流式会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._processOneMessage(session.id, { text: '继续', images: undefined }, 'ou_xxx', 'oc_xxx', 'p2p')
+
+    expect(sendMessage).toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '第一段')
+  })
+
+  it('sends Agent-generated image paths to Feishu after agent result', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const uploadImage = vi.spyOn(bridge._api, 'uploadImage').mockResolvedValue('img_generated')
+    const sendImageMessage = vi.spyOn(bridge._api, 'sendImageMessage').mockResolvedValue('om_img')
+
+    const generatedImagePath = path.join(tempDir, 'generated.png')
+    fs.writeFileSync(generatedImagePath, Buffer.from('pngdata'))
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '图片会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    bridge._replyCollector.startCollect(session.id, { sendFn: vi.fn() })
+    bridge._onAgentMessage(session.id, {
+      type: 'assistant',
+      content: [],
+      tool_use: {
+        output_image: generatedImagePath
+      }
+    })
+
+    await bridge._onAgentResult(session.id)
+
+    expect(uploadImage).toHaveBeenCalledWith(generatedImagePath)
+    expect(sendImageMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', 'img_generated')
+  })
+
+  it('removes temporary Feishu image files and directories after forwarding desktop images', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'uploadImage').mockResolvedValue('img_uploaded')
+    vi.spyOn(bridge._api, 'sendImageMessage').mockResolvedValue('om_img')
+
+    const tempImage = await bridge._writeTempBase64Image({
+      base64: Buffer.from('pngdata').toString('base64'),
+      mediaType: 'image/png'
+    })
+
+    const writeSpy = vi.spyOn(bridge, '_writeTempBase64Image').mockResolvedValue(tempImage)
+
+    await bridge._sendBase64Images('open_id', 'ou_xxx', [
+      {
+        base64: Buffer.from('pngdata').toString('base64'),
+        mediaType: 'image/png'
+      }
+    ])
+
+    expect(writeSpy).toHaveBeenCalled()
+    expect(fs.existsSync(tempImage.filePath)).toBe(false)
+    expect(fs.existsSync(tempImage.dirPath)).toBe(false)
   })
 
   it('loads Feishu history for /resume even when sessionDatabase is injected after bridge construction', async () => {
@@ -1064,7 +1673,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话恢复中')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话恢复中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       'hist-1',
       {
@@ -1118,7 +1727,7 @@ describe('FeishuBridge', () => {
 
     const session = Array.from(manager.sessions.values())[0]
     expect(session).toBeTruthy()
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
       { text: '这是新的问题', images: undefined },
@@ -1377,6 +1986,62 @@ describe('FeishuBridge', () => {
     expect(menu).toContain('默认配置')
     expect(menu).toContain('回复 0 开始全新会话')
   })
+
+  it('builds Feishu history and sessions cards with up to ten session actions', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sessions = Array.from({ length: 10 }, (_, index) => ({
+      session_id: `hist-${index + 1}`,
+      id: `hist-${index + 1}`,
+      title: `历史会话 ${index + 1}`,
+      cwd: tempDir,
+      updated_at: Date.now() - index * 60 * 1000
+    }))
+    const historyCard = bridge._buildHistoryChoiceCard(sessions, 'hist-1')
+    const historyActionRows = historyCard.elements.filter(element => element.tag === 'action')
+
+    expect(historyActionRows[0].actions).toHaveLength(5)
+    expect(historyActionRows[1].actions).toHaveLength(5)
+
+    const activeSessions = sessions.map((session, index) => ({
+      id: session.id,
+      title: session.title,
+      cwd: tempDir,
+      type: 'feishu',
+      queryGenerator: {},
+      apiProfileId: null
+    }))
+    const sessionsCard = bridge._buildSessionsCard(activeSessions, 'hist-1')
+    const closeRows = sessionsCard.elements.filter(element =>
+      element.tag === 'action' && element.actions.some(action => action.text?.content?.startsWith('关闭 '))
+    )
+
+    expect(closeRows).toHaveLength(2)
+    expect(closeRows[0].actions).toHaveLength(5)
+    expect(closeRows[1].actions).toHaveLength(5)
+  })
+
+  it('normalizes Feishu command text by removing standalone mention tokens from arguments', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const chatContext = { chatType: 'chat' }
+    const robotMentions = [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
+    expect(bridge._normalizeCommandText('/new 项目A @机器人', chatContext, { mentions: robotMentions })).toBe('/new 项目A')
+    expect(bridge._normalizeCommandText('/new 项目A@机器人', chatContext, { mentions: robotMentions })).toBe('/new 项目A')
+    expect(bridge._normalizeCommandText('/resume @机器人 1', chatContext, { mentions: robotMentions })).toBe('/resume 1')
+    expect(bridge._normalizeCommandText('/resume 1@机器人', chatContext, { mentions: robotMentions })).toBe('/resume 1')
+    expect(bridge._normalizeCommandText('/rename 群聊测试 @机器人', chatContext, { mentions: robotMentions })).toBe('/rename 群聊测试')
+    expect(bridge._normalizeCommandText('/rename 群聊测试@机器人', chatContext, { mentions: robotMentions })).toBe('/rename 群聊测试')
+    expect(bridge._normalizeCommandText('/status @机器人', chatContext, { mentions: robotMentions })).toBe('/status')
+    expect(bridge._normalizeCommandText('/status@机器人', chatContext, { mentions: robotMentions })).toBe('/status')
+    expect(bridge._normalizeCommandText('/sessions @机器人', chatContext, { mentions: robotMentions })).toBe('/sessions')
+    expect(bridge._normalizeCommandText('/close @机器人 2', chatContext, { mentions: robotMentions })).toBe('/close 2')
+    expect(bridge._normalizeCommandText('/help @机器人', chatContext, { mentions: robotMentions })).toBe('/help')
+    expect(bridge._normalizeCommandText('/rename 群聊测试@张三', chatContext, {
+      mentions: [{ key: '@张三', name: '张三', id: 'ou_user', idType: 'open_id' }]
+    })).toBe('/rename 群聊测试@张三')
+  })
 })
 
 describe('ImSessionMapper', () => {
@@ -1446,6 +2111,26 @@ describe('ImSessionMapper', () => {
     expect(result).toEqual([
       expect.objectContaining({ session_id: 'f-legacy-1' })
     ])
+  })
+
+  it('drops stale Feishu map bindings when the database lookup throws', async () => {
+    const mapper = new ImSessionMapper({
+      agentSessionManager: { sessions: new Map() },
+      sessionDatabase: {
+        getAgentConversation: vi.fn(() => {
+          throw new Error('db failed')
+        })
+      },
+      imType: 'feishu',
+      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildSessionTitle: () => '飞书会话'
+    })
+
+    mapper.sessionMap.set('ou_xxx:oc_xxx', 'f-1')
+    const sessionId = await mapper.resolveActiveSessionId('ou_xxx:oc_xxx')
+
+    expect(sessionId).toBe(null)
+    expect(mapper.sessionMap.has('ou_xxx:oc_xxx')).toBe(false)
   })
 })
 
@@ -1526,5 +2211,161 @@ describe('FeishuEventClient', () => {
       chatId: 'oc_fallback',
       chatType: 'p2p'
     }))
+  })
+
+  it('marks unsupported Feishu message types explicitly', () => {
+    const client = new FeishuEventClient()
+    const messageHandler = vi.fn()
+    client.on('message', messageHandler)
+
+    client._handleImMessage({
+      event_type: 'im.message.receive_v1',
+      message: {
+        message_id: 'om_file_unsupported',
+        message_type: 'file',
+        chat_id: 'oc_xxx',
+        chat_type: 'p2p',
+        content: '{}'
+      },
+      sender: {
+        sender_id: {
+          open_id: 'ou_xxx'
+        }
+      }
+    })
+
+    expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
+      msgId: 'om_file_unsupported',
+      msgType: 'file',
+      unsupported: true
+    }))
+  })
+
+  it('preserves robot mention metadata and leaves text untouched before bridge-level normalization', () => {
+    const client = new FeishuEventClient()
+    const messageHandler = vi.fn()
+    client.on('message', messageHandler)
+
+    client._handleImMessage({
+      event_type: 'im.message.receive_v1',
+      message: {
+        message_id: 'om_group_cmd',
+        message_type: 'text',
+        chat_id: 'oc_group',
+        chat_type: 'chat',
+        content: JSON.stringify({
+          text: '@_user_1 /rename 群聊测试',
+          mentions: [
+            { key: '@_user_1', name: '机器人', id: 'app-id', id_type: 'app_id' }
+          ]
+        })
+      },
+      sender: {
+        sender_id: {
+          open_id: 'ou_group'
+        }
+      }
+    })
+
+    expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
+      msgId: 'om_group_cmd',
+      text: '@_user_1 /rename 群聊测试',
+      mentions: [
+        expect.objectContaining({ key: '@_user_1', id: 'app-id', idType: 'app_id' })
+      ],
+      chatType: 'chat'
+    }))
+  })
+
+  it('extracts top-level mention metadata from text messages', () => {
+    const client = new FeishuEventClient()
+    const messageHandler = vi.fn()
+    client.on('message', messageHandler)
+
+    client._handleImMessage({
+      event_type: 'im.message.receive_v1',
+      message: {
+        message_id: 'om_group_cmd_top_level',
+        message_type: 'text',
+        chat_id: 'oc_group',
+        chat_type: 'chat',
+        content: JSON.stringify({
+          text: '@_user_1 你好'
+        }),
+        mentions: [
+          { key: '@_user_1', name: '机器人', id: 'app-id', id_type: 'app_id' }
+        ]
+      },
+      sender: {
+        sender_id: {
+          open_id: 'ou_group'
+        }
+      }
+    })
+
+    expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
+      msgId: 'om_group_cmd_top_level',
+      text: '@_user_1 你好',
+      mentions: [
+        expect.objectContaining({ key: '@_user_1', id: 'app-id', idType: 'app_id' })
+      ],
+      chatType: 'chat'
+    }))
+  })
+
+  it('extracts post mentions from group messages', () => {
+    const client = new FeishuEventClient()
+    const messageHandler = vi.fn()
+    client.on('message', messageHandler)
+
+    client._handleImMessage({
+      event_type: 'im.message.receive_v1',
+      message: {
+        message_id: 'om_group_text',
+        message_type: 'post',
+        chat_id: 'oc_group',
+        chat_type: 'chat',
+        content: JSON.stringify({
+          content: {
+            zh_cn: {
+              content: [[
+                { tag: 'at', user_id: 'app-id', user_name: '机器人' },
+                { tag: 'text', text: '请继续分析' }
+              ]]
+            }
+          }
+        })
+      },
+      sender: {
+        sender_id: {
+          open_id: 'ou_group'
+        }
+      }
+    })
+
+    expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
+      msgId: 'om_group_text',
+      text: '请继续分析',
+      mentions: [
+        expect.objectContaining({ id: 'app-id', name: '机器人' })
+      ],
+      chatType: 'chat'
+    }))
+  })
+
+  it('schedules Feishu watchdog restart when reconnecting stalls', async () => {
+    vi.useFakeTimers()
+    try {
+      const client = new FeishuEventClient()
+      client._connected = false
+      const restartSpy = vi.spyOn(client, '_restartFromWatchdog').mockResolvedValue()
+
+      client._scheduleReconnectWatchdog(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(restartSpy).toHaveBeenCalledWith(30 * 1000)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

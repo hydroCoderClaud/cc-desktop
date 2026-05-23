@@ -148,22 +148,26 @@ class ImReplyCollector {
           await collector.sendFn(toSend)
         }
       }
-      collector.resolve({ imagePaths: collector.imagePaths })
+      const imagePaths = [...collector.imagePaths]
+      collector.resolve({ imagePaths })
       this._collectors.delete(sessionId)
-      return
+      return { imagePaths }
     }
 
     // 桌面端介入 → 组装 Q&A 块回推
     const desktop = this._desktopPending.get(sessionId)
     if (desktop && onFlushDesktop) {
       const fullText = desktop.chunks.join('')
-      await onFlushDesktop(sessionId, {
+      const result = {
         userContent: desktop.userContent,
         userImages: desktop.userImages,
         fullText,
-      })
+      }
+      await onFlushDesktop(sessionId, result)
       this._desktopPending.delete(sessionId)
+      return result
     }
+    return null
   }
 
   /**

@@ -184,15 +184,17 @@ class ImSessionMapper {
    * @param {object} identity - IM 身份对象
    * @returns {Promise<string|null>} sessionId
    */
-  async createSession(identity) {
+  async createSession(identity, opts = {}) {
     const title = this._buildSessionTitle(identity)
+    const cwd = opts.cwd || this._defaultCwd || undefined
+    const cwdSubDir = cwd ? undefined : this._imType
     try {
       const session = await this._agentSessionManager.create({
         type: this._imType,
         source: this._imType,
         title,
-        cwd: this._defaultCwd || undefined,
-        cwdSubDir: this._defaultCwd ? undefined : this._imType,
+        cwd,
+        cwdSubDir,
         meta: {
           imType: this._imType,
           identityKey: this.buildKey(identity),
@@ -370,7 +372,8 @@ class ImSessionMapper {
       }
       return sessionId
     } catch {
-      return sessionId // 保守返回
+      this.sessionMap.delete(mapKey)
+      return null
     }
   }
 

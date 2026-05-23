@@ -17,6 +17,10 @@ const { FeishuMessageAPI } = require('./feishu-message-api')
 // 图片相关常量（与钉钉保持一致）
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp)$/i
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
+const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
+const FEISHU_MSG_ID_CLEANUP_INTERVAL = 60 * 1000
+const FEISHU_CARD_SESSION_LIMIT = 10
+const FEISHU_UNSUPPORTED_MESSAGE_TEXT = '暂不支持该类型的飞书消息，请发送文本、图片或图文消息'
 
 class FeishuBridge {
   constructor(configManager, agentSessionManager, mainWindow) {
@@ -51,9 +55,11 @@ class FeishuBridge {
     this._pendingMessages = new Map()
     /** @type {Map<string, { senderId: string, chatId: string, chatType: string }>} 每个 session 的飞书身份（用于桌面端介入路由和图片发送） */
     this._sessionIdentities = new Map()
+    this._activeSendChunks = new Map()
 
     this._agentListeners = null
     this._eventListeners = null
+    this._msgIdCleanupTimer = null
 
     this._bindAgentEvents()
   }
@@ -77,39 +83,37 @@ class FeishuBridge {
     const cfg = this.config
     if (!cfg.enabled || !cfg.appId || !cfg.appSecret) {
       console.log('[FeishuBridge] Not enabled or missing credentials')
-      return
+      return false
     }
 
-    this._sessionMapper = new ImSessionMapper({
-      agentSessionManager: this._agentSessionManager,
-      sessionDatabase: this._sessionDatabase,
-      imType: 'feishu',
-      maxHistorySessions: cfg.maxHistorySessions || 5,
-      defaultCwd: cfg.defaultCwd || null,
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
-      buildSessionTitle: (identity) => {
-        const chatName = identity.chatName || identity.chatId?.substring(0, 8) || ''
-        const nickname = identity.nickname || identity.userId?.substring(0, 8) || ''
-        return `飞书 · ${chatName} · ${nickname}`
-      },
-    })
-
+    this._sessionMapper = this._createSessionMapper(cfg)
     this._api.setCredentials(cfg.appId, cfg.appSecret)
     this._bindEventClientEvents()
-    await this._eventClient.connect(cfg.appId, cfg.appSecret)
+    this._startMsgIdCleanupTimer()
+    try {
+      await this._eventClient.connect(cfg.appId, cfg.appSecret)
+      return true
+    } catch (err) {
+      this._stopMsgIdCleanupTimer()
+      this._unbindEventClientEvents()
+      throw err
+    }
   }
 
   async stop() {
     this._eventClient.stop()
     this._unbindEventClientEvents()
+    this._stopMsgIdCleanupTimer()
     this._replyCollector.clearAll()
     this._sessionMapper.clearAll()
     this._processQueues.clear()
     this._processedMsgIds.clear()
+    this._pendingMessages.clear()
     this._sessionIdentities.clear()
+    this._activeSendChunks.clear()
   }
 
-  async restart() { await this.stop(); await this.start() }
+  async restart() { await this.stop(); return this.start() }
 
   destroy() {
     this.stop()
@@ -178,17 +182,61 @@ class FeishuBridge {
     }
   }
 
+  _createSessionMapper(cfg = this.config) {
+    return new ImSessionMapper({
+      agentSessionManager: this._agentSessionManager,
+      sessionDatabase: this._sessionDatabase,
+      imType: 'feishu',
+      maxHistorySessions: cfg.maxHistorySessions || 5,
+      defaultCwd: cfg.defaultCwd || null,
+      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildSessionTitle: (identity) => {
+        const chatName = identity.chatName || identity.chatId?.substring(0, 8) || ''
+        const nickname = identity.nickname || identity.userId?.substring(0, 8) || ''
+        return `飞书 · ${chatName} · ${nickname}`
+      },
+    })
+  }
+
+  _startMsgIdCleanupTimer() {
+    this._stopMsgIdCleanupTimer()
+    this._msgIdCleanupTimer = setInterval(() => {
+      this._cleanupOldMsgIds()
+    }, FEISHU_MSG_ID_CLEANUP_INTERVAL)
+  }
+
+  _stopMsgIdCleanupTimer() {
+    if (this._msgIdCleanupTimer) {
+      clearInterval(this._msgIdCleanupTimer)
+      this._msgIdCleanupTimer = null
+    }
+  }
+
   // ─── 消息处理 ───
 
   async _handleFeishuMessage(event) {
-    const { msgId, senderId, chatId, chatType, text, images } = event
+    const hydratedEvent = await this._hydrateInboundEvent(event)
+    const { msgId, senderId, chatId, chatType, text, images, unsupported, msgType, mentions } = hydratedEvent
 
     if (this._processedMsgIds.has(msgId)) return
     this._processedMsgIds.set(msgId, Date.now())
-    this._cleanupOldMsgIds()
 
-    if (text && text.startsWith('/')) {
-      this._handleCommand(text, { senderId, chatId, chatType }).catch(() => {})
+    if (unsupported) {
+      await this._sendUnsupportedMessageNotice(senderId, chatId, chatType, msgType)
+      return
+    }
+
+    const normalizedText = this._normalizeInboundText(text, { chatType, mentions })
+    console.log('[FeishuBridge] inbound text normalization:', JSON.stringify({
+      msgId,
+      chatType,
+      msgType,
+      text,
+      mentions,
+      normalizedText,
+    }))
+    if (normalizedText && normalizedText.startsWith('/')) {
+      this._handleCommand(normalizedText, { senderId, chatId, chatType }, { mentions }).catch(() => {})
       return
     }
 
@@ -200,8 +248,8 @@ class FeishuBridge {
       if (activeSessionId) {
         this._sessionMapper.clearPendingChoice(mapKey)
         this._pendingMessages.delete(mapKey)
-      } else if (typeof text === 'string' && text.trim()) {
-        this._handleChoiceReply(mapKey, text, { userId: senderId, chatId, chatType }, senderId, chatId, chatType)
+      } else if (typeof normalizedText === 'string' && normalizedText.trim()) {
+        this._handleChoiceReply(mapKey, normalizedText, { userId: senderId, chatId, chatType }, senderId, chatId, chatType)
         return
       }
     }
@@ -225,7 +273,7 @@ class FeishuBridge {
       downloadedImages = downloadedImages.length > 0 ? downloadedImages : undefined
     }
 
-    const message = { text, images: downloadedImages }
+    const message = { text: normalizedText, images: downloadedImages }
 
     const sessionId = await this._ensureSession({
       userId: senderId, chatId, chatType,
@@ -236,13 +284,66 @@ class FeishuBridge {
     // 存储飞书身份（用于桌面端介入和图片发送）
     this._sessionIdentities.set(sessionId, { senderId, chatId, chatType })
 
+    console.log('[FeishuBridge] notify frontend messageReceived:', JSON.stringify({
+      sessionId,
+      senderId,
+      text: normalizedText,
+      imagesCount: Array.isArray(downloadedImages) ? downloadedImages.length : 0,
+    }))
     this._notifier.notifyMessageReceived({
-      sessionId, text,
+      sessionId, text: normalizedText,
       senderNick: senderId,
       images: downloadedImages,
     })
 
     this._enqueueMessage(sessionId, message, senderId, chatId, chatType)
+  }
+
+  async _hydrateInboundEvent(event) {
+    const mentions = Array.isArray(event?.mentions) ? event.mentions : []
+    const text = typeof event?.text === 'string' ? event.text : ''
+    const msgType = event?.msgType || ''
+    const chatType = event?.chatType || ''
+    const msgId = event?.msgId || ''
+
+    if (!['chat', 'group'].includes(chatType) || mentions.length > 0 || !msgId || !text.includes('@')) {
+      return event
+    }
+    if (!['text', 'post'].includes(msgType)) {
+      return event
+    }
+
+    try {
+      const message = await this._api.getMessage(msgId)
+      if (!message) return event
+
+      const normalizedMessage = {
+        content: message.content,
+        mentions: message.mentions,
+        message_type: message.msg_type || msgType,
+        msg_type: message.msg_type || msgType,
+      }
+      const hydratedMentions = this._eventClient._extractMentions(normalizedMessage)
+      if (!Array.isArray(hydratedMentions) || hydratedMentions.length === 0) {
+        return event
+      }
+
+      const hydratedText = this._eventClient._extractText(normalizedMessage) || text
+      console.log('[FeishuBridge] hydrated inbound event:', JSON.stringify({
+        msgId,
+        originalText: text,
+        hydratedText,
+        hydratedMentions,
+      }))
+      return {
+        ...event,
+        text: hydratedText,
+        mentions: hydratedMentions,
+      }
+    } catch (err) {
+      console.warn('[FeishuBridge] Inbound message hydration failed:', err.message)
+      return event
+    }
   }
 
   async _handleChoiceReply(mapKey, inputText, identity, senderId, chatId, chatType) {
@@ -271,13 +372,13 @@ class FeishuBridge {
           await this._api.sendTextMessage(
             receiveIdType,
             receiveId,
-            `已切换到目标对话：${result.selectedSession?.title || result.sessionId}`
+            this._buildSessionSwitchedText(result.selectedSession?.title || result.sessionId)
           )
         } else {
-          await this._api.sendTextMessage(receiveIdType, receiveId, '会话恢复中')
+          await this._api.sendTextMessage(receiveIdType, receiveId, this._buildSessionActivatingText())
         }
       } else {
-        await this._api.sendTextMessage(receiveIdType, receiveId, '会话创建中')
+        await this._api.sendTextMessage(receiveIdType, receiveId, this._buildSessionCreatingText())
       }
       if (pending) {
         this._pendingMessages.delete(mapKey)
@@ -317,7 +418,9 @@ class FeishuBridge {
 
   async _handleCommand(text, context, options = {}) {
     this._syncSessionDatabase()
-    const parts = text.trim().split(/\s+/)
+    const normalizedText = this._normalizeCommandText(text, context, options)
+    const parts = normalizedText.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return
     const cmd = parts[0].toLowerCase()
     const args = parts.slice(1)
 
@@ -395,13 +498,20 @@ class FeishuBridge {
           await this._api.sendTextMessage(receiveIdType, receiveId, 'AI 正在响应中，请等待完成后再操作')
           break
         }
+        let cwd
+        try {
+          cwd = this._resolveNewSessionCwd(args)
+        } catch (err) {
+          await this._api.sendTextMessage(receiveIdType, receiveId, err.message)
+          break
+        }
         if (sessionId) {
           this._clearSessionIdentity(sessionId)
         }
         const newId = await this._sessionMapper.createSession({
           userId: context.senderId, chatId: context.chatId,
           chatType: context.chatType, nickname: context.senderId,
-        })
+        }, { cwd })
         if (newId) {
           this._sessionMapper.sessionMap.set(mapKey, newId)
           this._sessionIdentities.set(newId, { senderId: context.senderId, chatId: context.chatId, chatType: context.chatType })
@@ -414,7 +524,7 @@ class FeishuBridge {
         if (preservePendingSelection) {
           this._sessionMapper.clearPendingChoice(mapKey)
         }
-        await this._api.sendTextMessage(receiveIdType, receiveId, '会话创建中')
+        await this._api.sendTextMessage(receiveIdType, receiveId, this._buildSessionCreatingText())
         const pending = preservePendingSelection ? this._pendingMessages.get(mapKey) : null
         if (pending) {
           this._pendingMessages.delete(mapKey)
@@ -489,9 +599,9 @@ class FeishuBridge {
             })
             this._notifier.notifySessionCreated({ sessionId: resolvedSessionId, nickname: context.senderId })
             if (isActivated) {
-              await this._api.sendTextMessage(receiveIdType, receiveId, `已切换到目标对话：${selected?.title || resolvedSessionId}`)
+              await this._api.sendTextMessage(receiveIdType, receiveId, this._buildSessionSwitchedText(selected?.title || resolvedSessionId))
             } else {
-              await this._api.sendTextMessage(receiveIdType, receiveId, '会话恢复中')
+              await this._api.sendTextMessage(receiveIdType, receiveId, this._buildSessionActivatingText())
             }
             if (pending) {
               this._pendingMessages.delete(mapKey)
@@ -534,6 +644,64 @@ class FeishuBridge {
       default:
         await this._api.sendTextMessage(receiveIdType, receiveId, `未知命令: ${cmd}\n输入 /help 查看可用命令`)
     }
+  }
+
+  _normalizeCommandText(text, context = {}, options = {}) {
+    if (typeof text !== 'string') return ''
+    const normalizedSourceText = this._normalizeInboundText(text, {
+      chatType: context?.chatType,
+      mentions: options?.mentions
+    })
+    const parts = normalizedSourceText.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return ''
+    const [cmd, ...args] = parts
+    return [cmd, ...args].join(' ').trim()
+  }
+
+  _normalizeInboundText(text, { chatType, mentions } = {}) {
+    if (typeof text !== 'string') return ''
+    const trimmed = text.trim()
+    if (!trimmed) return trimmed
+    const robotMentions = this._buildRobotMentionTokens(mentions)
+    if (robotMentions.length === 0) return trimmed
+
+    let normalized = trimmed
+    for (const mention of robotMentions) {
+      if (!mention) continue
+      normalized = normalized.split(mention).join('')
+    }
+    normalized = normalized.replace(/@_user_\d+/g, '')
+
+    return normalized.replace(/\s+/g, ' ').trim()
+  }
+
+  _buildRobotMentionTokens(mentions) {
+    const result = new Set()
+    if (!Array.isArray(mentions)) return []
+    for (const mention of mentions) {
+      if (!this._isRobotMention(mention)) continue
+      const key = typeof mention?.key === 'string' ? mention.key.trim() : ''
+      const name = typeof mention?.name === 'string' ? mention.name.trim() : ''
+      if (key) result.add(key.startsWith('@') ? key : `@${key}`)
+      if (name) result.add(name.startsWith('@') ? name : `@${name}`)
+    }
+    return Array.from(result)
+  }
+
+  _isRobotMention(mention) {
+    if (!mention || typeof mention !== 'object') return false
+    const id = typeof mention.id === 'string'
+      ? mention.id.trim()
+      : (mention.id && typeof mention.id === 'object'
+        ? String(mention.id.open_id || mention.id.user_id || mention.id.union_id || '').trim()
+        : '')
+    const idType = typeof mention.idType === 'string' ? mention.idType.trim().toLowerCase() : ''
+    const key = typeof mention.key === 'string' ? mention.key.trim() : ''
+    const name = typeof mention.name === 'string' ? mention.name.trim() : ''
+    if (!id) return false
+    if (idType === 'app_id') return true
+    if (!!this.config?.appId && id === this.config.appId) return true
+    return key.startsWith('@_user_') || /hydro\s*desktop/i.test(name)
   }
 
   // ─── 会话管理 ───
@@ -608,6 +776,7 @@ class FeishuBridge {
         }
       },
     })
+    this._activeSendChunks.set(sessionId, sendChunk)
 
     try {
       await this._agentSessionManager.sendMessage(sessionId, message, {
@@ -615,10 +784,13 @@ class FeishuBridge {
       })
       await donePromise
     } catch (err) {
+      this._replyCollector.clear(sessionId)
       console.error('[FeishuBridge] Process message error:', err)
       try {
         await this._api.sendTextMessage(receiveIdType, receiveId, `处理消息时出错: ${err.message}`)
       } catch {}
+    } finally {
+      this._activeSendChunks.delete(sessionId)
     }
   }
 
@@ -742,7 +914,7 @@ class FeishuBridge {
 
   _onAgentMessage(sessionId, message) {
     // 流式文本 → replyCollector 实时推
-    this._replyCollector.onAgentMessage(sessionId, message, async (text) => {})
+    this._replyCollector.onAgentMessage(sessionId, message, this._activeSendChunks.get(sessionId))
 
     // 从 tool_use 块中提取图片路径（Agent 操作了图片文件）
     if (message && typeof message === 'object') {
@@ -755,7 +927,7 @@ class FeishuBridge {
 
   async _onAgentResult(sessionId) {
     // 1. 处理回复收集（是否有桌面端介入待发送）
-    await this._replyCollector.onAgentResult(sessionId, async (sid, data) => {
+    const collectorResult = await this._replyCollector.onAgentResult(sessionId, async (sid, data) => {
       const identity = this._sessionIdentities.get(sid)
       if (!identity) return
       const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
@@ -768,7 +940,7 @@ class FeishuBridge {
     })
 
     // 2. 发送 Agent 收集到的图片
-    const imagePaths = this._replyCollector.getImagePaths(sessionId)
+    const imagePaths = Array.isArray(collectorResult?.imagePaths) ? collectorResult.imagePaths : []
     if (imagePaths.length > 0) {
       const identity = this._sessionIdentities.get(sessionId)
       if (identity) {
@@ -791,7 +963,13 @@ class FeishuBridge {
   }
 
   async _onAgentError(sessionId, error) {
-    await this._replyCollector.onAgentError(sessionId, error)
+    const identity = this._sessionIdentities.get(sessionId)
+    await this._replyCollector.onAgentError(sessionId, error, async (_sid, errMsg) => {
+      if (!identity) return
+      const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
+      const receiveIdType = identity.chatType === 'p2p' ? 'open_id' : 'chat_id'
+      await this._api.sendTextMessage(receiveIdType, receiveId, `处理消息时出错: ${errMsg}`)
+    })
   }
 
   // ─── 图片路径提取 ───
@@ -833,7 +1011,7 @@ class FeishuBridge {
       '/status  - 查看连接状态',
       '/sessions - 查看当前聊天下的活跃会话',
       '/close [编号] - 关闭当前会话或指定会话',
-      '/new     - 创建新会话',
+      '/new [目录] - 创建新会话（可选：目录名或绝对路径）',
       '/resume [编号] - 恢复历史会话',
       '/rename <名称> - 重命名当前会话',
     ].join('\n')
@@ -852,6 +1030,18 @@ class FeishuBridge {
 
   _buildAlreadyConnectedText(title) {
     return `✅ 当前已连接该会话：${title || '当前会话'}`
+  }
+
+  _buildSessionSwitchedText(title) {
+    return `✅ 已切换到会话：${title || '当前会话'}\n\n现在可以继续对话了`
+  }
+
+  _buildSessionActivatingText() {
+    return '会话恢复中，请等待信息返回后，即可开始聊天'
+  }
+
+  _buildSessionCreatingText() {
+    return '会话创建中，请等待信息返回后，即可开始聊天'
   }
 
   _buildActiveSessionsText({ sessionId, chatId }) {
@@ -1024,7 +1214,7 @@ class FeishuBridge {
   }
 
   _buildHistoryChoiceCard(sessions, currentSessionId = null) {
-    const displaySessions = sessions.slice(0, 5)
+    const displaySessions = sessions.slice(0, FEISHU_CARD_SESSION_LIMIT)
     const elements = [
       {
         tag: 'markdown',
@@ -1040,23 +1230,6 @@ class FeishuBridge {
             : (liveSession?.queryGenerator ? '🔵' : '⭕')
           return `${index + 1}. ${marker} [${timeStr}] ${row.title || '(无标题)'} (${dir}) ${profileName}`
         }).join('\n')
-      },
-      {
-        tag: 'action',
-        actions: displaySessions.map((row, index) => ({
-          tag: 'button',
-          type: currentSessionId && row.session_id === currentSessionId ? 'primary' : 'default',
-          text: {
-            tag: 'plain_text',
-            content: `恢复 ${index + 1}`
-          },
-          value: {
-            intent: 'resume',
-            index: index + 1,
-            title: row.title || '',
-            source: 'history-choice'
-          }
-        }))
       },
       {
         tag: 'action',
@@ -1088,6 +1261,22 @@ class FeishuBridge {
       }
     ]
 
+    const resumeActions = displaySessions.map((row, index) => ({
+      tag: 'button',
+      type: currentSessionId && row.session_id === currentSessionId ? 'primary' : 'default',
+      text: {
+        tag: 'plain_text',
+        content: `恢复 ${index + 1}`
+      },
+      value: {
+        intent: 'resume',
+        index: index + 1,
+        title: row.title || '',
+        source: 'history-choice'
+      }
+    }))
+    elements.splice(1, 0, ...this._chunkCardActions(resumeActions))
+
     if (sessions.length > displaySessions.length) {
       elements.splice(1, 0, {
         tag: 'note',
@@ -1113,7 +1302,7 @@ class FeishuBridge {
   }
 
   _buildSessionsCard(activeSessions, currentSessionId = null, options = {}) {
-    const displaySessions = activeSessions.slice(0, 5)
+    const displaySessions = activeSessions.slice(0, FEISHU_CARD_SESSION_LIMIT)
     const elements = []
 
     if (options.summary) {
@@ -1137,18 +1326,6 @@ class FeishuBridge {
       },
       {
         tag: 'action',
-        actions: displaySessions.map((session, index) => this._buildCommandButton(
-          `关闭 ${index + 1}`,
-          {
-            intent: 'close',
-            index: index + 1,
-            title: session.title || ''
-          },
-          session.id === currentSessionId ? 'primary' : 'default'
-        ))
-      },
-      {
-        tag: 'action',
         actions: [
           this._buildCommandButton('新建会话', { intent: 'new' }, 'primary'),
           this._buildCommandButton('查看状态', { intent: 'status' }),
@@ -1157,8 +1334,19 @@ class FeishuBridge {
       }
     )
 
+    const closeActions = displaySessions.map((session, index) => this._buildCommandButton(
+      `关闭 ${index + 1}`,
+      {
+        intent: 'close',
+        index: index + 1,
+        title: session.title || ''
+      },
+      session.id === currentSessionId ? 'primary' : 'default'
+    ))
+    elements.splice(options.summary ? 2 : 1, 0, ...this._chunkCardActions(closeActions))
+
     if (activeSessions.length > displaySessions.length) {
-      elements.splice(1, 0, {
+      elements.splice(options.summary ? 2 : 1, 0, {
         tag: 'note',
         elements: [
           {
@@ -1240,6 +1428,17 @@ class FeishuBridge {
     }
   }
 
+  _chunkCardActions(actions, chunkSize = 5) {
+    const chunks = []
+    for (let index = 0; index < actions.length; index += chunkSize) {
+      chunks.push({
+        tag: 'action',
+        actions: actions.slice(index, index + chunkSize)
+      })
+    }
+    return chunks
+  }
+
   _formatRelativeTime(timestamp) {
     const value = Number(timestamp)
     if (!Number.isFinite(value) || value <= 0) return '未知时间'
@@ -1276,13 +1475,16 @@ class FeishuBridge {
     for (const image of images) {
       try {
         if (!image?.base64) continue
-        const filePath = await this._writeTempBase64Image(image)
+        const { filePath, dirPath } = await this._writeTempBase64Image(image)
         if (!filePath) continue
         try {
           const imageKey = await this._api.uploadImage(filePath)
           await this._api.sendImageMessage(receiveIdType, receiveId, imageKey)
         } finally {
           await fs.promises.unlink(filePath).catch(() => {})
+          if (dirPath) {
+            await fs.promises.rmdir(dirPath).catch(() => {})
+          }
         }
       } catch (err) {
         console.error('[FeishuBridge] Base64 image send failed:', err.message)
@@ -1295,7 +1497,7 @@ class FeishuBridge {
     const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'feishu-'))
     const filePath = path.join(dir, `input-${Date.now()}.${ext}`)
     await fs.promises.writeFile(filePath, Buffer.from(image.base64, 'base64'))
-    return filePath
+    return { filePath, dirPath: dir }
   }
 
   _mediaTypeToExt(mediaType) {
@@ -1348,8 +1550,33 @@ class FeishuBridge {
   _cleanupOldMsgIds() {
     const now = Date.now()
     for (const [msgId, ts] of this._processedMsgIds) {
-      if (now - ts > 10 * 60 * 1000) this._processedMsgIds.delete(msgId)
+      if (now - ts > FEISHU_MSG_ID_TTL) this._processedMsgIds.delete(msgId)
     }
+  }
+
+  async _sendUnsupportedMessageNotice(senderId, chatId, chatType, msgType) {
+    const receiveId = chatType === 'p2p' ? senderId : chatId
+    const receiveIdType = chatType === 'p2p' ? 'open_id' : 'chat_id'
+    const suffix = msgType ? `\n\n当前消息类型：${msgType}` : ''
+    await this._api.sendTextMessage(receiveIdType, receiveId, `${FEISHU_UNSUPPORTED_MESSAGE_TEXT}${suffix}`)
+  }
+
+  _resolveNewSessionCwd(args) {
+    const dirArg = args.join(' ').trim()
+    if (!dirArg) return undefined
+
+    let cwd
+    if (path.isAbsolute(dirArg) || /^[A-Za-z]:[/\\]/.test(dirArg)) {
+      cwd = dirArg
+    } else {
+      cwd = path.join(this._agentSessionManager._getOutputBaseDir(), 'feishu', dirArg)
+    }
+    try {
+      fs.mkdirSync(cwd, { recursive: true })
+    } catch (err) {
+      throw new Error(`无法创建目录: ${err.message}`)
+    }
+    return cwd
   }
 }
 
