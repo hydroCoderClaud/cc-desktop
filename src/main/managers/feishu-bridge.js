@@ -251,7 +251,14 @@ class FeishuBridge {
         this._sessionMapper.clearPendingChoice(mapKey)
         this._pendingMessages.delete(mapKey)
       } else if (typeof normalizedText === 'string' && normalizedText.trim()) {
-        this._handleChoiceReply(mapKey, normalizedText, { userId: senderId, chatId, chatType }, senderId, chatId, chatType)
+        await this._handleChoiceReply(
+          mapKey,
+          normalizedText,
+          { userId: senderId, chatId, chatType },
+          senderId,
+          chatId,
+          chatType
+        )
         return
       }
     }

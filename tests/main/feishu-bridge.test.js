@@ -1295,6 +1295,43 @@ describe('FeishuBridge', () => {
     expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '第一段')
   })
 
+  it('does not duplicate a streamed Feishu reply when agentResult arrives immediately after the chunk', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    let releaseSend = () => {}
+    let sendStartedResolve
+    const sendStarted = new Promise(resolve => { sendStartedResolve = resolve })
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockImplementation(async () => {
+      sendStartedResolve()
+      await new Promise(resolve => { releaseSend = resolve })
+      return 'om_text'
+    })
+    const sendMessage = vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId) => {
+      bridge._onAgentMessage(sessionId, {
+        type: 'assistant',
+        content: [{ type: 'text', text: '今天是 2026年5月23日。' }]
+      })
+      await sendStarted
+      const onResultPromise = bridge._onAgentResult(sessionId)
+      releaseSend()
+      await onResultPromise
+    })
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '恢复会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._processOneMessage(session.id, { text: '继续', images: undefined }, 'ou_xxx', 'oc_xxx', 'p2p')
+
+    expect(sendMessage).toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledTimes(1)
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '今天是 2026年5月23日。')
+  })
+
   it('sends Agent-generated image paths to Feishu after agent result', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -1814,6 +1851,63 @@ describe('FeishuBridge', () => {
 
     await bridge._handleFeishuMessage({
       msgId: 'om_followup_1',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      text: '继续说'
+    })
+
+    expect(sendCardMessage).not.toHaveBeenCalled()
+    expect(enqueueMessage).toHaveBeenLastCalledWith(
+      session.id,
+      { text: '继续说', images: undefined },
+      'ou_xxx',
+      'oc_xxx',
+      'p2p'
+    )
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx:oc_xxx')?.timer)
+  })
+
+  it('keeps the newly created Feishu session mapped after replying 0 to the text history-choice menu', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+      sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
+      resolve: vi.fn(),
+      timer: setTimeout(() => {}, 1000),
+      options: {
+        menuBuilder: (sessions) => bridge._buildHistoryChoiceMenuText(sessions, null)
+      }
+    })
+    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+      message: { text: '这是新的问题', images: undefined },
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_choice_text_0',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      text: '0'
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(bridge._sessionMapper.sessionMap.get('ou_xxx:oc_xxx')).toBe(session.id)
+
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
+      { session_id: 'hist-1', title: '历史会话 1', type: 'feishu' }
+    ])
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_followup_after_text_0',
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
       chatType: 'p2p',

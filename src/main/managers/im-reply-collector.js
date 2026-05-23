@@ -19,7 +19,7 @@ const DEFAULT_MAX_TEXT_LENGTH = 6000
 class ImReplyCollector {
   constructor(opts = {}) {
     this._maxTextLength = opts.maxTextLength || DEFAULT_MAX_TEXT_LENGTH
-    /** @type {Map<string, { chunks: string[], imagePaths: string[], webhook: string, sendFn: Function, resolve: Function, reject: Function, sentText: string }>} */
+    /** @type {Map<string, { chunks: string[], imagePaths: string[], webhook: string, sendFn: Function, resolve: Function, reject: Function, sentText: string, pendingSend: Promise<void> }>} */
     this._collectors = new Map()
     /** @type {Map<string, { userContent: string, userImages: Array, chunks: string[], sendFn: Function }>} */
     this._desktopPending = new Map()
@@ -44,7 +44,7 @@ class ImReplyCollector {
       reject(new Error('IM reply timeout'))
     }, timeout)
 
-    this._collectors.set(sessionId, {
+      this._collectors.set(sessionId, {
       chunks: [],
       imagePaths: [],
       webhook,
@@ -52,15 +52,21 @@ class ImReplyCollector {
       resolve: (result) => { clearTimeout(timer); resolve(result) },
       reject: (err) => { clearTimeout(timer); reject(err) },
       sentText: '',
+      pendingSend: Promise.resolve(),
     })
 
     const sendChunk = async (text) => {
       const collector = this._collectors.get(sessionId)
       if (!collector) return
-      if (sendFn) {
-        await sendFn(text)
-      }
-      collector.sentText = (collector.sentText || '') + text
+      collector.pendingSend = collector.pendingSend
+        .catch(() => {})
+        .then(async () => {
+          if (sendFn) {
+            await sendFn(text)
+          }
+          collector.sentText = (collector.sentText || '') + text
+        })
+      await collector.pendingSend
     }
 
     return { donePromise, sendChunk }
@@ -137,6 +143,7 @@ class ImReplyCollector {
   async onAgentResult(sessionId, onFlushDesktop) {
     const collector = this._collectors.get(sessionId)
     if (collector) {
+      await collector.pendingSend.catch(() => {})
       // IM 发起的消息：兜底发送未推送的文本
       if (collector.sendFn) {
         const unsentText = collector.chunks.join('')
