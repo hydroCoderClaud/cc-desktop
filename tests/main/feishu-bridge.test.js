@@ -670,6 +670,29 @@ describe('FeishuBridge', () => {
     expect(sendImageMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', 'img_uploaded')
   })
 
+  it('treats a bound chat session like a Feishu desktop intervention target', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const desktopIntervention = vi.spyOn(bridge, '_onDesktopIntervention').mockImplementation(() => {})
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+
+    bridge._agentListeners.userMessage({
+      sessionId: session.id,
+      sessionType: 'chat',
+      content: '桌面继续',
+      images: undefined,
+      source: 'manual'
+    })
+
+    expect(desktopIntervention).toHaveBeenCalledWith(session.id, '桌面继续', undefined)
+  })
+
   it('lists active sessions for the current Feishu chat', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

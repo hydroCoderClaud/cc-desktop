@@ -176,7 +176,8 @@ class FeishuBridge {
     const mgr = this._agentSessionManager
     this._agentListeners = {
       userMessage: ({ sessionId, sessionType, content, images, source }) => {
-        if (source !== 'feishu' && sessionType === 'feishu') {
+        const hasBinding = this._sessionTargets.has(sessionId)
+        if (source !== 'feishu' && (sessionType === 'feishu' || hasBinding)) {
           this._onDesktopIntervention(sessionId, content, images)
         }
       },
