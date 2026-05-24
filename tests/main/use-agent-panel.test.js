@@ -13,6 +13,7 @@ describe('useAgentPanel filters', () => {
           { id: 'scheduled-1', source: 'scheduled', cwd: 'C:/scheduled-a', updatedAt: '2026-04-22T03:00:00.000Z' },
           { id: 'scheduled-2', source: 'scheduled', cwd: 'C:/shared', updatedAt: '2026-04-21T03:00:00.000Z' },
           { id: 'ding-1', type: 'dingtalk', source: 'dingtalk', cwd: 'C:/dingtalk-a', updatedAt: '2026-04-20T03:00:00.000Z' },
+          { id: 'feishu-1', type: 'feishu', source: 'feishu', cwd: 'C:/feishu-a', updatedAt: '2026-04-20T03:30:00.000Z' },
           { id: 'wx-1', type: 'weixin', source: 'weixin', cwd: 'C:/weixin-a', updatedAt: '2026-04-20T04:00:00.000Z' },
           { id: 'embed-owner', ownerClientId: 'embed:hydrology-workbench', source: 'manual', cwd: 'C:/embed-owner', updatedAt: '2026-04-22T04:00:00.000Z' },
           { id: 'embed-type', clientType: 'embedded', source: 'manual', cwd: 'C:/embed-type', updatedAt: '2026-04-22T05:00:00.000Z' },
@@ -28,6 +29,7 @@ describe('useAgentPanel filters', () => {
 
     expect(panel.availableCwds.value).toEqual([
       'C:/dingtalk-a',
+      'C:/feishu-a',
       'C:/manual-a',
       'C:/scheduled-a',
       'C:/shared',
@@ -50,6 +52,13 @@ describe('useAgentPanel filters', () => {
 
     expect(panel.availableCwds.value).toEqual([
       'C:/weixin-a'
+    ])
+
+    panel.selectedSource.value = 'feishu'
+    await nextTick()
+
+    expect(panel.availableCwds.value).toEqual([
+      'C:/feishu-a'
     ])
   })
 

@@ -117,7 +117,12 @@ import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
 import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
-import { getConversationSource, getConversationIcon } from '@shared/external-im-meta'
+import {
+  getAllExternalImTypeIds,
+  getConversationSource,
+  getConversationIcon,
+  getExternalImMeta
+} from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const dialog = useDialog()
@@ -158,13 +163,29 @@ const cwdOptions = computed(() => {
   return [{ label: t('agent.allDirectories'), value: null }, ...dirs]
 })
 
+const externalSourceLabelKeys = {
+  dingtalk: 'agent.sourceDingtalk',
+  weixin: 'agent.sourceWeixin',
+  feishu: 'agent.sourceFeishu'
+}
+
+const resolveExternalSourceLabel = (type) => {
+  const labelKey = externalSourceLabelKeys[type]
+  if (labelKey) {
+    const translated = t(labelKey)
+    if (translated && translated !== labelKey) return translated
+  }
+  return getExternalImMeta(type)?.label?.['zh-CN'] || type
+}
+
 const sourceOptions = computed(() => ([
   { label: t('agent.allSources'), value: 'all' },
   { label: t('agent.sourceManual'), value: 'manual' },
   { label: t('agent.sourceScheduled'), value: 'scheduled' },
-  { label: t('agent.sourceDingtalk'), value: 'dingtalk' },
-  { label: t('agent.sourceWeixin'), value: 'weixin' },
-  { label: t('agent.sourceFeishu'), value: 'feishu' }
+  ...getAllExternalImTypeIds().map(type => ({
+    label: resolveExternalSourceLabel(type),
+    value: type
+  }))
 ]))
 
 // 渲染选项 label，非"全部"选项加 title 显示完整路径
