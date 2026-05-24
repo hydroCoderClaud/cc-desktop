@@ -96,6 +96,7 @@
       :session-id="props.sessionId"
       :session-type="props.sessionType"
       :weixin-notify-api="weixinNotifyApi"
+      :feishu-notify-api="feishuNotifyApi"
       v-model:model-value="selectedModel"
       @update:model-value="applyUserSelectedModel"
       @api-profile-selected="handleApiProfileSelected"
@@ -158,6 +159,10 @@ const props = defineProps({
     default: null
   },
   weixinNotifyApi: {
+    type: Object,
+    default: null
+  },
+  feishuNotifyApi: {
     type: Object,
     default: null
   }

@@ -50,6 +50,30 @@ function setupFeishuHandlers(ipcMain, feishuBridge, configManager) {
       return false
     }
   })
+
+  ipcMain.handle('feishu:listTargets', async (_event, payload = {}) => {
+    return feishuBridge.listSendableTargets(payload)
+  })
+
+  ipcMain.handle('feishu:bindSessionToTarget', async (_event, payload = {}) => {
+    return feishuBridge.bindSessionToTarget(payload.sessionId, {
+      openId: payload.openId || payload.targetId,
+      targetId: payload.targetId,
+      displayName: payload.displayName
+    })
+  })
+
+  ipcMain.handle('feishu:unbindSessionTarget', async (_event, payload = {}) => {
+    return feishuBridge.unbindSessionTarget(payload.sessionId)
+  })
+
+  ipcMain.handle('feishu:getSessionBinding', async (_event, sessionId) => {
+    return feishuBridge.getSessionBinding(sessionId)
+  })
+
+  ipcMain.handle('feishu:sendText', async (_event, payload = {}) => {
+    return feishuBridge.sendTextToTarget(payload)
+  })
 }
 
 module.exports = { setupFeishuHandlers }

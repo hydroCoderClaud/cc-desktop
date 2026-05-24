@@ -219,7 +219,13 @@ class ImReplyCollector {
   addImagePath(sessionId, imagePath) {
     const collector = this._collectors.get(sessionId)
     if (collector && imagePath) {
-      collector.imagePaths.push(imagePath)
+      const normalizedPath = this._normalizeImagePath(imagePath)
+      if (!normalizedPath) return
+      const dedupeKey = normalizedPath.toLowerCase()
+      const exists = collector.imagePaths.some(path => String(path).toLowerCase() === dedupeKey)
+      if (!exists) {
+        collector.imagePaths.push(normalizedPath)
+      }
     }
   }
 
@@ -246,6 +252,11 @@ class ImReplyCollector {
     }
     this._collectors.clear()
     this._desktopPending.clear()
+  }
+
+  _normalizeImagePath(imagePath) {
+    if (typeof imagePath !== 'string') return ''
+    return imagePath.trim()
   }
 }
 

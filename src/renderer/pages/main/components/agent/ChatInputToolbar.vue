@@ -152,6 +152,59 @@
       </Transition>
 
       <div
+        v-if="showFeishuBtn"
+        class="feishu-btn"
+        :class="{ sending: feishuSending }"
+        :title="feishuBtnTitle"
+        @click="toggleFeishuDropdown"
+      >
+        <Icon name="feishu" :size="16" />
+      </div>
+      <Transition name="dropdown">
+        <div v-if="showFeishuDropdown && showFeishuBtn" class="feishu-dropdown">
+          <div v-if="feishuLoading" class="feishu-loading">{{ t('common.loading') }}...</div>
+          <template v-else>
+            <div class="feishu-panel-title">{{ t('agent.feishuQuickSendTitle') }}</div>
+            <div class="feishu-panel-hint">{{ t('agent.feishuQuickSendHint') }}</div>
+            <div v-if="feishuTargets.length > 0" class="feishu-target-list">
+              <div
+                v-for="target in feishuTargets"
+                :key="target.id"
+                class="feishu-target-item"
+                :class="{ active: selectedFeishuTargetId === target.id }"
+                @click="selectedFeishuTargetId = target.id"
+              >
+                <span class="feishu-target-name">{{ target.displayName || target.name || '未命名' }}</span>
+              </div>
+            </div>
+            <div v-if="feishuTargets.length === 0" class="feishu-empty">{{ t('agent.feishuNoTargets') }}</div>
+            <template v-else>
+              <textarea
+                v-model="feishuText"
+                class="feishu-message-input"
+                :placeholder="t('agent.feishuQuickSendPlaceholder')"
+                rows="3"
+              />
+              <div v-if="feishuError" class="feishu-error">{{ feishuError }}</div>
+              <div class="feishu-actions">
+                <button class="feishu-action secondary" type="button" @click="closeFeishuDropdown">
+                  {{ t('common.cancel') }}
+                </button>
+                <button
+                  class="feishu-action primary"
+                  type="button"
+                  :disabled="!canSendFeishu || feishuSending"
+                  @click="sendFeishuQuickMessage"
+                >
+                  {{ feishuSending ? t('agent.feishuQuickSending') : t('agent.feishuQuickSend') }}
+                </button>
+              </div>
+            </template>
+          </template>
+        </div>
+      </Transition>
+
+      <div
         class="expand-input-btn"
         :title="isExpanded ? t('common.collapse') : t('common.expand')"
         @click="emit('toggle-expanded')"
@@ -170,6 +223,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -189,6 +243,10 @@ const props = defineProps({
   weixinNotifyApi: {
     type: Object,
     default: null
+  },
+  feishuNotifyApi: {
+    type: Object,
+    default: null
   }
 })
 
@@ -204,6 +262,7 @@ const emit = defineEmits([
 ])
 
 const { t } = useLocale()
+const dialog = useDialog()
 const toolbarRootRef = ref(null)
 const showDropdown = ref(false)
 const showApiDropdown = ref(false)
@@ -218,12 +277,71 @@ const weixinText = ref('')
 const weixinError = ref('')
 const weixinLoading = ref(false)
 const weixinSending = ref(false)
+const showFeishuDropdown = ref(false)
+const feishuTargets = ref([])
+const selectedFeishuTargetId = ref(null)
+const feishuText = ref('')
+const feishuError = ref('')
+const feishuLoading = ref(false)
+const feishuSending = ref(false)
 
-const showWeixinBtn = computed(() => ['chat', 'weixin'].includes(props.sessionType) && props.sessionId)
+const showWeixinBtn = computed(() => Boolean(props.sessionId && (props.weixinNotifyApi || window.electronAPI)?.listWeixinNotifyTargets))
 const weixinBtnTitle = computed(() => t('agent.weixinQuickSendTitle'))
 const selectedWeixinTarget = computed(() => weixinTargets.value.find(target => target.id === selectedWeixinTargetId.value) || null)
 const canSendWeixin = computed(() => Boolean(selectedWeixinTarget.value && weixinText.value.trim()))
 const resolvedWeixinNotifyApi = computed(() => props.weixinNotifyApi || window.electronAPI || null)
+const showFeishuBtn = computed(() => Boolean(props.sessionId && (props.feishuNotifyApi || window.electronAPI)?.listFeishuTargets))
+const feishuBtnTitle = computed(() => t('agent.feishuQuickSendTitle'))
+const selectedFeishuTarget = computed(() => feishuTargets.value.find(target => target.id === selectedFeishuTargetId.value) || null)
+const canSendFeishu = computed(() => Boolean(selectedFeishuTarget.value && feishuText.value.trim()))
+const resolvedFeishuNotifyApi = computed(() => props.feishuNotifyApi || window.electronAPI || null)
+
+const confirmPromise = (options) => new Promise(resolve => {
+  dialog.warning({
+    ...options,
+    positiveText: options.positiveText || t('common.confirm'),
+    negativeText: options.negativeText || t('common.cancel'),
+    onPositiveClick: () => resolve(true),
+    onNegativeClick: () => resolve(false),
+    onClose: () => resolve(false)
+  })
+})
+
+const shouldConfirmCrossImBinding = async (channel) => {
+  if (!props.sessionId) return true
+  const weixinApi = resolvedWeixinNotifyApi.value
+  const feishuApi = resolvedFeishuNotifyApi.value
+  const [weixinBinding, feishuBinding] = await Promise.all([
+    weixinApi?.getSessionWeixinBinding ? weixinApi.getSessionWeixinBinding(props.sessionId).catch(() => null) : null,
+    feishuApi?.getSessionFeishuBinding ? feishuApi.getSessionFeishuBinding(props.sessionId).catch(() => null) : null
+  ])
+
+  if (channel === 'weixin') {
+    if (weixinBinding) return true
+    if (!feishuBinding) return true
+    return confirmPromise({
+      title: t('agent.crossImBindingConfirmTitle'),
+      content: t('agent.crossImBindingConfirmContent', {
+        current: t('agent.feishuQuickSendTitle'),
+        next: t('agent.weixinQuickSendTitle')
+      })
+    })
+  }
+
+  if (channel === 'feishu') {
+    if (feishuBinding) return true
+    if (!weixinBinding) return true
+    return confirmPromise({
+      title: t('agent.crossImBindingConfirmTitle'),
+      content: t('agent.crossImBindingConfirmContent', {
+        current: t('agent.weixinQuickSendTitle'),
+        next: t('agent.feishuQuickSendTitle')
+      })
+    })
+  }
+
+  return true
+}
 
 const loadWeixinTargets = async () => {
   const weixinApi = resolvedWeixinNotifyApi.value
@@ -259,15 +377,61 @@ const loadWeixinTargets = async () => {
   }
 }
 
+const loadFeishuTargets = async () => {
+  const feishuApi = resolvedFeishuNotifyApi.value
+  if (!feishuApi?.listFeishuTargets) return
+  feishuLoading.value = true
+  try {
+    const [targets, binding] = await Promise.all([
+      feishuApi.listFeishuTargets(),
+      props.sessionId && feishuApi?.getSessionFeishuBinding
+        ? feishuApi.getSessionFeishuBinding(props.sessionId).catch(() => null)
+        : null
+    ])
+    if (targets?.error) {
+      throw new Error(targets.error)
+    }
+    feishuTargets.value = Array.isArray(targets) ? targets : []
+    feishuError.value = ''
+    const bindingTargetId = binding?.targetId || binding?.openId || null
+    if (bindingTargetId && feishuTargets.value.some(target => target.id === bindingTargetId)) {
+      selectedFeishuTargetId.value = bindingTargetId
+    } else if (!feishuTargets.value.some(target => target.id === selectedFeishuTargetId.value)) {
+      selectedFeishuTargetId.value = feishuTargets.value[0]?.id || null
+    }
+  } catch (err) {
+    console.error('[ChatInputToolbar] loadFeishuTargets error:', err)
+    feishuTargets.value = []
+    selectedFeishuTargetId.value = null
+    feishuError.value = err?.message || t('agent.feishuQuickSendFailed')
+  } finally {
+    feishuLoading.value = false
+  }
+}
+
 const toggleWeixinDropdown = () => {
   showWeixinDropdown.value = !showWeixinDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
   showCapDropdown.value = false
+  showFeishuDropdown.value = false
   if (showWeixinDropdown.value) {
     weixinText.value = props.draftText || ''
     weixinError.value = ''
     loadWeixinTargets()
+  }
+}
+
+const toggleFeishuDropdown = () => {
+  showFeishuDropdown.value = !showFeishuDropdown.value
+  showDropdown.value = false
+  showApiDropdown.value = false
+  showCapDropdown.value = false
+  showWeixinDropdown.value = false
+  if (showFeishuDropdown.value) {
+    feishuText.value = props.draftText || ''
+    feishuError.value = ''
+    loadFeishuTargets()
   }
 }
 
@@ -276,12 +440,19 @@ const closeWeixinDropdown = () => {
   weixinError.value = ''
 }
 
+const closeFeishuDropdown = () => {
+  showFeishuDropdown.value = false
+  feishuError.value = ''
+}
+
 const sendWeixinQuickMessage = async () => {
   const weixinApi = resolvedWeixinNotifyApi.value
   if (!canSendWeixin.value || !props.sessionId || !weixinApi?.sendWeixinNotifyText) return
   weixinSending.value = true
   weixinError.value = ''
   try {
+    const confirmed = await shouldConfirmCrossImBinding('weixin')
+    if (!confirmed) return
     const target = selectedWeixinTarget.value
     if (weixinApi?.bindSessionToWeixinTarget) {
       const bindResult = await weixinApi.bindSessionToWeixinTarget({
@@ -314,9 +485,50 @@ const sendWeixinQuickMessage = async () => {
   }
 }
 
+const sendFeishuQuickMessage = async () => {
+  const feishuApi = resolvedFeishuNotifyApi.value
+  if (!canSendFeishu.value || !props.sessionId || !feishuApi?.sendFeishuNotifyText) return
+  feishuSending.value = true
+  feishuError.value = ''
+  try {
+    const confirmed = await shouldConfirmCrossImBinding('feishu')
+    if (!confirmed) return
+    const target = selectedFeishuTarget.value
+    if (feishuApi?.bindSessionToFeishuTarget) {
+      const bindResult = await feishuApi.bindSessionToFeishuTarget({
+        sessionId: props.sessionId,
+        openId: target.openId || target.id,
+        displayName: target.displayName || target.name || target.userId || target.id
+      })
+      if (bindResult?.error) {
+        throw new Error(bindResult.error)
+      }
+    }
+    const result = await feishuApi.sendFeishuNotifyText({
+      sessionId: props.sessionId,
+      openId: target.openId || target.id,
+      displayName: target.displayName || target.name || target.userId || target.id,
+      text: feishuText.value.trim()
+    })
+    if (result?.error) {
+      console.error('[ChatInputToolbar] send feishu failed:', result.error)
+      feishuError.value = result.error || t('agent.feishuQuickSendFailed')
+    } else {
+      showFeishuDropdown.value = false
+    }
+  } catch (err) {
+    console.error('[ChatInputToolbar] send feishu error:', err)
+    feishuError.value = err?.message || t('agent.feishuQuickSendFailed')
+  } finally {
+    feishuSending.value = false
+  }
+}
+
 watch(() => props.sessionId, () => {
   showWeixinDropdown.value = false
+  showFeishuDropdown.value = false
   selectedWeixinTargetId.value = null
+  selectedFeishuTargetId.value = null
 })
 
 const normalizedApiProfiles = computed(() => {
@@ -380,6 +592,7 @@ const toggleApiDropdown = () => {
   showDropdown.value = false
   showCapDropdown.value = false
   showWeixinDropdown.value = false
+  showFeishuDropdown.value = false
 }
 
 const toggleModelDropdown = () => {
@@ -387,6 +600,7 @@ const toggleModelDropdown = () => {
   showApiDropdown.value = false
   showCapDropdown.value = false
   showWeixinDropdown.value = false
+  showFeishuDropdown.value = false
 }
 
 const loadCapabilities = async () => {
@@ -456,6 +670,7 @@ const toggleCapDropdown = () => {
   showDropdown.value = false
   showApiDropdown.value = false
   showWeixinDropdown.value = false
+  showFeishuDropdown.value = false
   if (showCapDropdown.value) {
     loadCapabilities()
   }
@@ -467,6 +682,7 @@ const handleDocumentClick = (event) => {
     showApiDropdown.value = false
     showCapDropdown.value = false
     showWeixinDropdown.value = false
+    showFeishuDropdown.value = false
   }
 }
 
@@ -507,7 +723,8 @@ onUnmounted(() => {
 .image-upload-btn,
 .clear-input-btn,
 .expand-input-btn,
-.weixin-btn {
+.weixin-btn,
+.feishu-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -547,13 +764,19 @@ onUnmounted(() => {
 .weixin-btn:hover,
 .cap-trigger.active,
 .queue-toggle.enabled,
-.weixin-btn.sending {
+.weixin-btn.sending,
+.feishu-btn:hover,
+.feishu-btn.sending {
   background: var(--hover-bg);
   color: var(--primary-color);
 }
 
 .weixin-btn.sending {
   color: #07c160;
+}
+
+.feishu-btn.sending {
+  color: #3370ff;
 }
 
 .model-label,
@@ -699,7 +922,8 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
-.weixin-dropdown {
+.weixin-dropdown,
+.feishu-dropdown {
   position: absolute;
   top: auto;
   bottom: calc(100% + 8px);
@@ -716,21 +940,28 @@ onUnmounted(() => {
   overflow: auto;
 }
 
-.weixin-panel-title {
+.feishu-dropdown {
+  min-width: 320px;
+}
+
+.weixin-panel-title,
+.feishu-panel-title {
   color: var(--text-color);
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 4px;
 }
 
-.weixin-panel-hint {
+.weixin-panel-hint,
+.feishu-panel-hint {
   color: var(--text-color-3);
   font-size: 12px;
   line-height: 1.5;
   margin-bottom: 8px;
 }
 
-.weixin-target-list {
+.weixin-target-list,
+.feishu-target-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -739,7 +970,8 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
-.weixin-target-item {
+.weixin-target-item,
+.feishu-target-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -751,11 +983,14 @@ onUnmounted(() => {
 }
 
 .weixin-target-item:hover,
-.weixin-target-item.active {
+.weixin-target-item.active,
+.feishu-target-item:hover,
+.feishu-target-item.active {
   background: var(--hover-bg);
 }
 
-.weixin-target-name {
+.weixin-target-name,
+.feishu-target-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -770,7 +1005,8 @@ onUnmounted(() => {
   color: var(--text-color-3);
 }
 
-.weixin-message-input {
+.weixin-message-input,
+.feishu-message-input {
   width: 100%;
   min-height: 74px;
   resize: vertical;
@@ -785,25 +1021,29 @@ onUnmounted(() => {
   outline: none;
 }
 
-.weixin-message-input:focus {
+.weixin-message-input:focus,
+.feishu-message-input:focus {
   border-color: var(--primary-color);
 }
 
-.weixin-error {
+.weixin-error,
+.feishu-error {
   margin-top: 6px;
   color: #ff4d4f;
   font-size: 12px;
   line-height: 1.4;
 }
 
-.weixin-actions {
+.weixin-actions,
+.feishu-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
 }
 
-.weixin-action {
+.weixin-action,
+.feishu-action {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 6px 12px;
@@ -811,24 +1051,29 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.weixin-action.secondary {
+.weixin-action.secondary,
+.feishu-action.secondary {
   background: var(--bg-color-secondary);
   color: var(--text-color);
 }
 
-.weixin-action.primary {
+.weixin-action.primary,
+.feishu-action.primary {
   border-color: var(--primary-color);
   background: var(--primary-color);
   color: #fff;
 }
 
-.weixin-action:disabled {
+.weixin-action:disabled,
+.feishu-action:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
 .weixin-empty,
-.weixin-loading {
+.weixin-loading,
+.feishu-empty,
+.feishu-loading {
   padding: 10px;
   color: var(--text-color-3);
   font-size: 12px;

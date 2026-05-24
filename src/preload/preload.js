@@ -1072,6 +1072,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopFeishu: () => ipcRenderer.invoke('feishu:stop'),
   restartFeishu: () => ipcRenderer.invoke('feishu:restart'),
   updateFeishuConfig: (config) => ipcRenderer.invoke('feishu:updateConfig', config),
+  listFeishuTargets: (payload) => ipcRenderer.invoke('feishu:listTargets', payload),
+  bindSessionToFeishuTarget: (payload) => ipcRenderer.invoke('feishu:bindSessionToTarget', payload),
+  unbindSessionFeishuTarget: (payload) => ipcRenderer.invoke('feishu:unbindSessionTarget', payload),
+  getSessionFeishuBinding: (sessionId) => ipcRenderer.invoke('feishu:getSessionBinding', sessionId),
+  sendFeishuNotifyText: (payload) => ipcRenderer.invoke('feishu:sendText', payload),
 
   // 钉钉事件监听
   onDingTalkStatusChange: (callback) => {

@@ -123,6 +123,7 @@
                 :model-id="currentModelId"
                 :agent-api="agentApi"
                 :weixin-notify-api="weixinNotifyApi"
+                :feishu-notify-api="feishuNotifyApi"
                 @ready="handleReady"
                 @api-profile-selected="handleApiProfileSelected"
                 @model-selected="handleModelSelected"
@@ -224,6 +225,16 @@ const weixinNotifyApi = computed(() => {
     getSessionWeixinBinding: api.getSessionWeixinBinding?.bind(api),
     bindSessionToWeixinTarget: api.bindSessionToWeixinTarget?.bind(api),
     sendWeixinNotifyText: api.sendWeixinNotifyText?.bind(api)
+  }
+})
+const feishuNotifyApi = computed(() => {
+  const api = window.electronAPI || null
+  if (!api) return null
+  return {
+    listFeishuTargets: api.listFeishuTargets?.bind(api),
+    getSessionFeishuBinding: api.getSessionFeishuBinding?.bind(api),
+    bindSessionToFeishuTarget: api.bindSessionToFeishuTarget?.bind(api),
+    sendFeishuNotifyText: api.sendFeishuNotifyText?.bind(api)
   }
 })
 const apiProfiles = ref([])

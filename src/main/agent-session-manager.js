@@ -34,6 +34,8 @@ const {
   resolveClaudeCodeExecutablePath
 } = require('./utils/claude-executable-path')
 
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|tiff|svg)$/i
+
 const HYDRO_IDENTITY_SYSTEM_PROMPT = [
   'Present yourself to end users as Hydro Desktop AI, an AI personal desktop assistant developed by Zhishui Workshop.',
   'When the user greets you, asks who you are, asks what assistant this is, or asks for a self-introduction, identify yourself as Hydro Desktop AI.',
@@ -1682,6 +1684,80 @@ class AgentSessionManager extends EventEmitter {
       .find(msg => msg.role === 'tool' && !msg.output)
   }
 
+  _buildBridgeToolResultMessage(message) {
+    const imagePaths = this._collectImageArtifactPaths(message)
+    if (imagePaths.length === 0) return message
+
+    const content = Array.isArray(message?.content) ? [...message.content] : []
+    content.push({
+      type: 'tool_use',
+      name: '__image_artifact__',
+      input: { imagePaths }
+    })
+
+    return {
+      ...message,
+      content
+    }
+  }
+
+  _collectImageArtifactPaths(value, depth = 0, seen = new Set()) {
+    if (depth > 12 || value == null) return []
+
+    const paths = []
+    const pushPath = (rawPath) => {
+      if (typeof rawPath !== 'string' || !rawPath.trim()) return
+      let normalized = rawPath.trim()
+      if (normalized.startsWith('file://')) {
+        const decoded = this._decodeFileUriToPath(normalized)
+        if (decoded) normalized = decoded
+      }
+      if (!IMAGE_EXTENSIONS.test(normalized)) return
+      if (!normalized.startsWith('/') && !/^[A-Z]:[/\\]/i.test(normalized)) return
+      const dedupeKey = normalized.toLowerCase()
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+      paths.push(normalized)
+    }
+
+    if (typeof value === 'string') {
+      pushPath(value)
+      return paths
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        paths.push(...this._collectImageArtifactPaths(item, depth + 1, seen))
+      }
+      return paths
+    }
+
+    if (typeof value !== 'object') return paths
+
+    if (typeof value.uri === 'string') pushPath(value.uri)
+    if (typeof value.filePath === 'string') pushPath(value.filePath)
+    if (typeof value.path === 'string') pushPath(value.path)
+
+    for (const child of Object.values(value)) {
+      paths.push(...this._collectImageArtifactPaths(child, depth + 1, seen))
+    }
+    return paths
+  }
+
+  _decodeFileUriToPath(value) {
+    try {
+      const url = new URL(value)
+      const pathname = decodeURIComponent(url.pathname || '')
+      if (!pathname) return null
+      if (/^\/[A-Za-z]:/.test(pathname)) {
+        return pathname.slice(1).replace(/\//g, path.sep)
+      }
+      return pathname.replace(/\//g, path.sep)
+    } catch {
+      return null
+    }
+  }
+
   _normalizeToolResultPayload(msg) {
     const contentBlocks = Array.isArray(msg.content) ? msg.content : []
     const toolResultBlock = contentBlocks.find(block => block?.type === 'tool_result') || null
@@ -1837,6 +1913,12 @@ class AgentSessionManager extends EventEmitter {
             toolResult
           }
         })
+        this.emit('agentMessage', session.id, this._buildBridgeToolResultMessage({
+          type: 'tool_result',
+          parentToolUseId: toolResult.parentToolUseId,
+          toolUseId: targetMessage.toolUseId || null,
+          toolResult
+        }))
         break
       }
 

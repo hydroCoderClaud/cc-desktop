@@ -1119,6 +1119,81 @@ describe('AgentSessionManager interactions', () => {
     expect(sent.some(item => item.channel === 'agent:message' && item.data.message.type === 'tool_result')).toBe(true)
   })
 
+  it('emits bridge-friendly image paths for tool_result file resources', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 's-tool-bridge', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set('s-tool-bridge', session)
+    manager.runner = { normalizeMessage: raw => raw }
+
+    const bridgeMessageHandler = vi.fn()
+    manager.on('agentMessage', bridgeMessageHandler)
+
+    await manager._processMessage(session, {
+      type: 'assistant_message',
+      content: [{
+        type: 'tool_use',
+        id: 'tool-use-bridge-1',
+        name: 'generate_image',
+        input: { prompt: 'draw' }
+      }],
+      sdkSessionId: 'sdk-tool-bridge'
+    })
+
+    await manager._processMessage(session, {
+      type: 'user_message',
+      parentToolUseId: 'tool-use-bridge-1',
+      content: [{
+        type: 'tool_result',
+        tool_use_id: 'tool-use-bridge-1',
+        content: [{
+          type: 'resource_link',
+          uri: 'file:///C:/workspace/output/cover.png',
+          name: 'cover.png',
+          mimeType: 'image/png'
+        }],
+        structured_content: {
+          type: 'image_result',
+          files: [{
+            uri: 'file:///C:/workspace/output/cover.png',
+            name: 'cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }],
+      toolUseResult: {
+        content: [{
+          type: 'resource_link',
+          uri: 'file:///C:/workspace/output/cover.png',
+          name: 'cover.png',
+          mimeType: 'image/png'
+        }],
+        structuredContent: {
+          type: 'image_result',
+          files: [{
+            uri: 'file:///C:/workspace/output/cover.png',
+            name: 'cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }
+    })
+
+    expect(bridgeMessageHandler).toHaveBeenCalledWith(
+      's-tool-bridge',
+      expect.objectContaining({
+        type: 'tool_result',
+        content: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'tool_use',
+            name: '__image_artifact__',
+            input: { imagePaths: ['C:\\workspace\\output\\cover.png'] }
+          })
+        ])
+      })
+    )
+  })
+
   it('filters sentinel no-response assistant text from scheduled tool-only runs', async () => {
     const { manager, sent } = createManager()
     const session = new AgentSession({ id: 's-no-response', cwd: '/tmp', source: 'scheduled' })

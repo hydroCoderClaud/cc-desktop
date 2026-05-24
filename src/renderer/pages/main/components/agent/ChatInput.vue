@@ -15,6 +15,7 @@
         :session-type="sessionType"
         :draft-text="inputText"
         :weixin-notify-api="weixinNotifyApi"
+        :feishu-notify-api="feishuNotifyApi"
         @update:model-value="$emit('update:modelValue', $event)"
         @api-profile-selected="$emit('api-profile-selected', $event)"
         @toggle-queue="$emit('update:queueEnabled', !queueEnabled)"
@@ -206,6 +207,10 @@ const props = defineProps({
     default: 'chat'
   },
   weixinNotifyApi: {
+    type: Object,
+    default: null
+  },
+  feishuNotifyApi: {
     type: Object,
     default: null
   }
