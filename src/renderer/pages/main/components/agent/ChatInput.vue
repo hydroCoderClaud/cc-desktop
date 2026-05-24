@@ -14,6 +14,7 @@
         :session-id="sessionId"
         :session-type="sessionType"
         :draft-text="inputText"
+        :dingtalk-notify-api="dingtalkNotifyApi"
         :weixin-notify-api="weixinNotifyApi"
         :feishu-notify-api="feishuNotifyApi"
         @update:model-value="$emit('update:modelValue', $event)"
@@ -205,6 +206,10 @@ const props = defineProps({
   sessionType: {
     type: String,
     default: 'chat'
+  },
+  dingtalkNotifyApi: {
+    type: Object,
+    default: null
   },
   weixinNotifyApi: {
     type: Object,

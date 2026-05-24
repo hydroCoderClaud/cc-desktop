@@ -98,6 +98,59 @@
       </div>
 
       <div
+        v-if="showDingTalkBtn"
+        class="dingtalk-btn"
+        :class="{ sending: dingtalkSending }"
+        :title="dingtalkBtnTitle"
+        @click="toggleDingTalkDropdown"
+      >
+        <Icon name="dingtalk" :size="16" />
+      </div>
+      <Transition name="dropdown">
+        <div v-if="showDingTalkDropdown && showDingTalkBtn" class="dingtalk-dropdown">
+          <div v-if="dingtalkLoading" class="dingtalk-loading">{{ t('common.loading') }}...</div>
+          <template v-else>
+            <div class="dingtalk-panel-title">{{ t('agent.dingtalkQuickSendTitle') }}</div>
+            <div class="dingtalk-panel-hint">{{ t('agent.dingtalkQuickSendHint') }}</div>
+            <div v-if="dingtalkTargets.length > 0" class="dingtalk-target-list">
+              <div
+                v-for="target in dingtalkTargets"
+                :key="target.id"
+                class="dingtalk-target-item"
+                :class="{ active: selectedDingTalkTargetId === target.id }"
+                @click="selectedDingTalkTargetId = target.id"
+              >
+                <span class="dingtalk-target-name">{{ target.displayName || target.name || target.userId || target.id }}</span>
+              </div>
+            </div>
+            <div v-if="dingtalkTargets.length === 0" class="dingtalk-empty">{{ t('agent.dingtalkNoTargets') }}</div>
+            <template v-else>
+              <textarea
+                v-model="dingtalkText"
+                class="dingtalk-message-input"
+                :placeholder="t('agent.dingtalkQuickSendPlaceholder')"
+                rows="3"
+              />
+              <div v-if="dingtalkError" class="dingtalk-error">{{ dingtalkError }}</div>
+              <div class="dingtalk-actions">
+                <button class="dingtalk-action secondary" type="button" @click="closeDingTalkDropdown">
+                  {{ t('common.cancel') }}
+                </button>
+                <button
+                  class="dingtalk-action primary"
+                  type="button"
+                  :disabled="!canSendDingTalk || dingtalkSending"
+                  @click="sendDingTalkQuickMessage"
+                >
+                  {{ dingtalkSending ? t('agent.dingtalkQuickSending') : t('agent.dingtalkQuickSend') }}
+                </button>
+              </div>
+            </template>
+          </template>
+        </div>
+      </Transition>
+
+      <div
         v-if="showWeixinBtn"
         class="weixin-btn"
         :class="{ sending: weixinSending }"
@@ -240,6 +293,10 @@ const props = defineProps({
   sessionId: { type: String, default: null },
   sessionType: { type: String, default: 'chat' },
   draftText: { type: String, default: '' },
+  dingtalkNotifyApi: {
+    type: Object,
+    default: null
+  },
   weixinNotifyApi: {
     type: Object,
     default: null
@@ -270,6 +327,13 @@ const showCapDropdown = ref(false)
 const capList = ref([])
 const capLoading = ref(false)
 
+const showDingTalkDropdown = ref(false)
+const dingtalkTargets = ref([])
+const selectedDingTalkTargetId = ref(null)
+const dingtalkText = ref('')
+const dingtalkError = ref('')
+const dingtalkLoading = ref(false)
+const dingtalkSending = ref(false)
 const showWeixinDropdown = ref(false)
 const weixinTargets = ref([])
 const selectedWeixinTargetId = ref(null)
@@ -285,6 +349,11 @@ const feishuError = ref('')
 const feishuLoading = ref(false)
 const feishuSending = ref(false)
 
+const showDingTalkBtn = computed(() => Boolean(props.sessionId && (props.dingtalkNotifyApi || window.electronAPI)?.listDingTalkTargets))
+const dingtalkBtnTitle = computed(() => t('agent.dingtalkQuickSendTitle'))
+const selectedDingTalkTarget = computed(() => dingtalkTargets.value.find(target => target.id === selectedDingTalkTargetId.value) || null)
+const canSendDingTalk = computed(() => Boolean(selectedDingTalkTarget.value && dingtalkText.value.trim()))
+const resolvedDingTalkNotifyApi = computed(() => props.dingtalkNotifyApi || window.electronAPI || null)
 const showWeixinBtn = computed(() => Boolean(props.sessionId && (props.weixinNotifyApi || window.electronAPI)?.listWeixinNotifyTargets))
 const weixinBtnTitle = computed(() => t('agent.weixinQuickSendTitle'))
 const selectedWeixinTarget = computed(() => weixinTargets.value.find(target => target.id === selectedWeixinTargetId.value) || null)
@@ -309,15 +378,49 @@ const confirmPromise = (options) => new Promise(resolve => {
 
 const shouldConfirmCrossImBinding = async (channel) => {
   if (!props.sessionId) return true
+  const dingtalkApi = resolvedDingTalkNotifyApi.value
   const weixinApi = resolvedWeixinNotifyApi.value
   const feishuApi = resolvedFeishuNotifyApi.value
-  const [weixinBinding, feishuBinding] = await Promise.all([
+  const [dingtalkBinding, weixinBinding, feishuBinding] = await Promise.all([
+    dingtalkApi?.getSessionDingTalkBinding ? dingtalkApi.getSessionDingTalkBinding(props.sessionId).catch(() => null) : null,
     weixinApi?.getSessionWeixinBinding ? weixinApi.getSessionWeixinBinding(props.sessionId).catch(() => null) : null,
     feishuApi?.getSessionFeishuBinding ? feishuApi.getSessionFeishuBinding(props.sessionId).catch(() => null) : null
   ])
 
+  if (channel === 'dingtalk') {
+    if (dingtalkBinding) return true
+    if (weixinBinding) {
+      return confirmPromise({
+        title: t('agent.crossImBindingConfirmTitle'),
+        content: t('agent.crossImBindingConfirmContent', {
+          current: t('agent.weixinQuickSendTitle'),
+          next: t('agent.dingtalkQuickSendTitle')
+        })
+      })
+    }
+    if (feishuBinding) {
+      return confirmPromise({
+        title: t('agent.crossImBindingConfirmTitle'),
+        content: t('agent.crossImBindingConfirmContent', {
+          current: t('agent.feishuQuickSendTitle'),
+          next: t('agent.dingtalkQuickSendTitle')
+        })
+      })
+    }
+    return true
+  }
+
   if (channel === 'weixin') {
     if (weixinBinding) return true
+    if (dingtalkBinding) {
+      return confirmPromise({
+        title: t('agent.crossImBindingConfirmTitle'),
+        content: t('agent.crossImBindingConfirmContent', {
+          current: t('agent.dingtalkQuickSendTitle'),
+          next: t('agent.weixinQuickSendTitle')
+        })
+      })
+    }
     if (!feishuBinding) return true
     return confirmPromise({
       title: t('agent.crossImBindingConfirmTitle'),
@@ -330,6 +433,15 @@ const shouldConfirmCrossImBinding = async (channel) => {
 
   if (channel === 'feishu') {
     if (feishuBinding) return true
+    if (dingtalkBinding) {
+      return confirmPromise({
+        title: t('agent.crossImBindingConfirmTitle'),
+        content: t('agent.crossImBindingConfirmContent', {
+          current: t('agent.dingtalkQuickSendTitle'),
+          next: t('agent.feishuQuickSendTitle')
+        })
+      })
+    }
     if (!weixinBinding) return true
     return confirmPromise({
       title: t('agent.crossImBindingConfirmTitle'),
@@ -341,6 +453,38 @@ const shouldConfirmCrossImBinding = async (channel) => {
   }
 
   return true
+}
+
+const loadDingTalkTargets = async () => {
+  const dingtalkApi = resolvedDingTalkNotifyApi.value
+  if (!dingtalkApi?.listDingTalkTargets) return
+  dingtalkLoading.value = true
+  try {
+    const [targets, binding] = await Promise.all([
+      dingtalkApi.listDingTalkTargets(),
+      props.sessionId && dingtalkApi?.getSessionDingTalkBinding
+        ? dingtalkApi.getSessionDingTalkBinding(props.sessionId).catch(() => null)
+        : null
+    ])
+    if (targets?.error) {
+      throw new Error(targets.error)
+    }
+    dingtalkTargets.value = Array.isArray(targets) ? targets : []
+    dingtalkError.value = ''
+    const bindingTargetId = binding?.targetId || binding?.staffId || null
+    if (bindingTargetId && dingtalkTargets.value.some(target => target.id === bindingTargetId)) {
+      selectedDingTalkTargetId.value = bindingTargetId
+    } else if (!dingtalkTargets.value.some(target => target.id === selectedDingTalkTargetId.value)) {
+      selectedDingTalkTargetId.value = dingtalkTargets.value[0]?.id || null
+    }
+  } catch (err) {
+    console.error('[ChatInputToolbar] loadDingTalkTargets error:', err)
+    dingtalkTargets.value = []
+    selectedDingTalkTargetId.value = null
+    dingtalkError.value = err?.message || t('agent.dingtalkQuickSendFailed')
+  } finally {
+    dingtalkLoading.value = false
+  }
 }
 
 const loadWeixinTargets = async () => {
@@ -409,11 +553,26 @@ const loadFeishuTargets = async () => {
   }
 }
 
+const toggleDingTalkDropdown = () => {
+  showDingTalkDropdown.value = !showDingTalkDropdown.value
+  showDropdown.value = false
+  showApiDropdown.value = false
+  showCapDropdown.value = false
+  showWeixinDropdown.value = false
+  showFeishuDropdown.value = false
+  if (showDingTalkDropdown.value) {
+    dingtalkText.value = props.draftText || ''
+    dingtalkError.value = ''
+    loadDingTalkTargets()
+  }
+}
+
 const toggleWeixinDropdown = () => {
   showWeixinDropdown.value = !showWeixinDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
   showCapDropdown.value = false
+  showDingTalkDropdown.value = false
   showFeishuDropdown.value = false
   if (showWeixinDropdown.value) {
     weixinText.value = props.draftText || ''
@@ -427,12 +586,18 @@ const toggleFeishuDropdown = () => {
   showDropdown.value = false
   showApiDropdown.value = false
   showCapDropdown.value = false
+  showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   if (showFeishuDropdown.value) {
     feishuText.value = props.draftText || ''
     feishuError.value = ''
     loadFeishuTargets()
   }
+}
+
+const closeDingTalkDropdown = () => {
+  showDingTalkDropdown.value = false
+  dingtalkError.value = ''
 }
 
 const closeWeixinDropdown = () => {
@@ -443,6 +608,47 @@ const closeWeixinDropdown = () => {
 const closeFeishuDropdown = () => {
   showFeishuDropdown.value = false
   feishuError.value = ''
+}
+
+const sendDingTalkQuickMessage = async () => {
+  const dingtalkApi = resolvedDingTalkNotifyApi.value
+  if (!canSendDingTalk.value || !props.sessionId || !dingtalkApi?.sendDingTalkText) return
+  dingtalkSending.value = true
+  dingtalkError.value = ''
+  try {
+    const confirmed = await shouldConfirmCrossImBinding('dingtalk')
+    if (!confirmed) return
+    const target = selectedDingTalkTarget.value
+    if (dingtalkApi?.bindSessionToDingTalkTarget) {
+      const bindResult = await dingtalkApi.bindSessionToDingTalkTarget({
+        sessionId: props.sessionId,
+        staffId: target.staffId || target.userId || target.id,
+        targetId: target.id,
+        displayName: target.displayName || target.name || target.userId || target.id
+      })
+      if (bindResult?.error) {
+        throw new Error(bindResult.error)
+      }
+    }
+    const result = await dingtalkApi.sendDingTalkText({
+      sessionId: props.sessionId,
+      staffId: target.staffId || target.userId || target.id,
+      targetId: target.id,
+      displayName: target.displayName || target.name || target.userId || target.id,
+      text: dingtalkText.value.trim()
+    })
+    if (result?.error) {
+      console.error('[ChatInputToolbar] send dingtalk failed:', result.error)
+      dingtalkError.value = result.error || t('agent.dingtalkQuickSendFailed')
+    } else {
+      showDingTalkDropdown.value = false
+    }
+  } catch (err) {
+    console.error('[ChatInputToolbar] send dingtalk error:', err)
+    dingtalkError.value = err?.message || t('agent.dingtalkQuickSendFailed')
+  } finally {
+    dingtalkSending.value = false
+  }
 }
 
 const sendWeixinQuickMessage = async () => {
@@ -525,8 +731,10 @@ const sendFeishuQuickMessage = async () => {
 }
 
 watch(() => props.sessionId, () => {
+  showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
+  selectedDingTalkTargetId.value = null
   selectedWeixinTargetId.value = null
   selectedFeishuTargetId.value = null
 })
@@ -591,6 +799,7 @@ const toggleApiDropdown = () => {
   showApiDropdown.value = !showApiDropdown.value
   showDropdown.value = false
   showCapDropdown.value = false
+  showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
 }
@@ -599,6 +808,7 @@ const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
   showApiDropdown.value = false
   showCapDropdown.value = false
+  showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
 }
@@ -669,6 +879,7 @@ const toggleCapDropdown = () => {
   showCapDropdown.value = !showCapDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
+  showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
   if (showCapDropdown.value) {
@@ -681,6 +892,7 @@ const handleDocumentClick = (event) => {
     showDropdown.value = false
     showApiDropdown.value = false
     showCapDropdown.value = false
+    showDingTalkDropdown.value = false
     showWeixinDropdown.value = false
     showFeishuDropdown.value = false
   }
@@ -723,6 +935,7 @@ onUnmounted(() => {
 .image-upload-btn,
 .clear-input-btn,
 .expand-input-btn,
+.dingtalk-btn,
 .weixin-btn,
 .feishu-btn {
   display: inline-flex;
@@ -761,14 +974,20 @@ onUnmounted(() => {
 .image-upload-btn:hover,
 .clear-input-btn:hover,
 .expand-input-btn:hover,
+.dingtalk-btn:hover,
 .weixin-btn:hover,
 .cap-trigger.active,
 .queue-toggle.enabled,
+.dingtalk-btn.sending,
 .weixin-btn.sending,
 .feishu-btn:hover,
 .feishu-btn.sending {
   background: var(--hover-bg);
   color: var(--primary-color);
+}
+
+.dingtalk-btn.sending {
+  color: #1677ff;
 }
 
 .weixin-btn.sending {
@@ -922,6 +1141,7 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
+.dingtalk-dropdown,
 .weixin-dropdown,
 .feishu-dropdown {
   position: absolute;
@@ -944,6 +1164,7 @@ onUnmounted(() => {
   min-width: 320px;
 }
 
+.dingtalk-panel-title,
 .weixin-panel-title,
 .feishu-panel-title {
   color: var(--text-color);
@@ -952,6 +1173,7 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 
+.dingtalk-panel-hint,
 .weixin-panel-hint,
 .feishu-panel-hint {
   color: var(--text-color-3);
@@ -960,6 +1182,7 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
+.dingtalk-target-list,
 .weixin-target-list,
 .feishu-target-list {
   display: flex;
@@ -970,6 +1193,7 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
+.dingtalk-target-item,
 .weixin-target-item,
 .feishu-target-item {
   display: flex;
@@ -982,6 +1206,8 @@ onUnmounted(() => {
   color: var(--text-color);
 }
 
+.dingtalk-target-item:hover,
+.dingtalk-target-item.active,
 .weixin-target-item:hover,
 .weixin-target-item.active,
 .feishu-target-item:hover,
@@ -989,6 +1215,7 @@ onUnmounted(() => {
   background: var(--hover-bg);
 }
 
+.dingtalk-target-name,
 .weixin-target-name,
 .feishu-target-name {
   flex: 1;
@@ -1005,6 +1232,7 @@ onUnmounted(() => {
   color: var(--text-color-3);
 }
 
+.dingtalk-message-input,
 .weixin-message-input,
 .feishu-message-input {
   width: 100%;
@@ -1021,11 +1249,13 @@ onUnmounted(() => {
   outline: none;
 }
 
+.dingtalk-message-input:focus,
 .weixin-message-input:focus,
 .feishu-message-input:focus {
   border-color: var(--primary-color);
 }
 
+.dingtalk-error,
 .weixin-error,
 .feishu-error {
   margin-top: 6px;
@@ -1034,6 +1264,7 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
+.dingtalk-actions,
 .weixin-actions,
 .feishu-actions {
   display: flex;
@@ -1042,6 +1273,7 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
+.dingtalk-action,
 .weixin-action,
 .feishu-action {
   border: 1px solid var(--border-color);
@@ -1051,12 +1283,14 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.dingtalk-action.secondary,
 .weixin-action.secondary,
 .feishu-action.secondary {
   background: var(--bg-color-secondary);
   color: var(--text-color);
 }
 
+.dingtalk-action.primary,
 .weixin-action.primary,
 .feishu-action.primary {
   border-color: var(--primary-color);
@@ -1064,12 +1298,15 @@ onUnmounted(() => {
   color: #fff;
 }
 
+.dingtalk-action:disabled,
 .weixin-action:disabled,
 .feishu-action:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
+.dingtalk-empty,
+.dingtalk-loading,
 .weixin-empty,
 .weixin-loading,
 .feishu-empty,

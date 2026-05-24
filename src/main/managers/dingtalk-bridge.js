@@ -74,6 +74,11 @@ class DingTalkBridge {
     // key: sessionId, value: { webhook, robotCode, senderStaffId }
     this._sessionWebhooks = new Map()
 
+    // 主动发送绑定：sessionId -> dingtalk target
+    this._sessionTargets = new Map()
+    // 反向索引：staffId -> sessionId
+    this._targetSessionMap = new Map()
+
     // CC 桌面介入时待发送的 Q&A 块
     // key: sessionId, value: { userInput, inputImages[], textChunks[], imagePaths }
     this._desktopPendingBlocks = new Map()
@@ -96,7 +101,8 @@ class DingTalkBridge {
     this._listeners = {
       userMessage: ({ sessionId, sessionType, content, images, source }) => {
         // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
-        if (source !== 'dingtalk' && sessionType === 'dingtalk') {
+        const hasBinding = this._sessionTargets.has(sessionId)
+        if (source !== 'dingtalk' && (sessionType === 'dingtalk' || hasBinding)) {
           try { this.onUserMessage(sessionId, content, images) } catch (e) {
             console.error('[DingTalk] onUserMessage threw:', e)
           }
@@ -174,6 +180,8 @@ class DingTalkBridge {
     for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
     this._pendingChoices.clear()
     this._sessionWebhooks.clear()
+    this._sessionTargets.clear()
+    this._targetSessionMap.clear()
     this._desktopPendingBlocks.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', { connected: false })
@@ -557,6 +565,34 @@ class DingTalkBridge {
       // 三种情况均继续向下走：查询历史 → 触发选择菜单 或 新建
     }
 
+    // 桌面端主动绑定过该钉钉成员时，优先复用绑定会话
+    const boundSessionId = this._targetSessionMap.get(staffId)
+    if (boundSessionId) {
+      const db = this.agentSessionManager.sessionDatabase
+      const row = db && db.getAgentConversation(boundSessionId)
+
+      if (!row || row.status === 'closed') {
+        console.log(`[DingTalk] Bound session ${boundSessionId} is unavailable, clearing proactive binding for ${staffId}`)
+        this._targetSessionMap.delete(staffId)
+        const currentTarget = this._sessionTargets.get(boundSessionId)
+        if (currentTarget?.staffId === staffId) {
+          this._sessionTargets.delete(boundSessionId)
+        }
+      } else {
+        const session = this.agentSessionManager.reopen(boundSessionId)
+        if (session) {
+          if (!session.meta) session.meta = {}
+          session.meta.conversationId = conversationId
+          this.sessionMap.set(mapKey, boundSessionId)
+          if (db && conversationId) {
+            db.updateDingTalkMetadata(boundSessionId, staffId, conversationId)
+          }
+          console.log(`[DingTalk] Reused proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
+          return boundSessionId
+        }
+      }
+    }
+
     // 从 DB 查历史会话
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
@@ -604,6 +640,122 @@ class DingTalkBridge {
     })
 
     return sessionId
+  }
+
+  async listTargets() {
+    const token = await this._getAccessToken()
+    const departments = await this._listAllDepartments(token)
+    const deptIds = departments.length > 0 ? departments.map(item => item.deptId) : [1]
+    const seenUsers = new Map()
+
+    for (const deptId of deptIds) {
+      const users = await this._listDepartmentUsers(token, deptId)
+      for (const user of users) {
+        const userId = String(user.userid || user.userId || '').trim()
+        if (!userId || seenUsers.has(userId)) continue
+        seenUsers.set(userId, {
+          id: userId,
+          staffId: userId,
+          userId,
+          displayName: user.name || user.nick || userId,
+          name: user.name || user.nick || userId,
+          deptId,
+          hasContextToken: true
+        })
+      }
+    }
+
+    return Array.from(seenUsers.values()).sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-CN'))
+  }
+
+  bindSessionToTarget(sessionId, { staffId, targetId, displayName } = {}) {
+    const resolvedStaffId = typeof (staffId || targetId) === 'string'
+      ? String(staffId || targetId).trim()
+      : ''
+    if (!sessionId || !resolvedStaffId) {
+      throw new Error('sessionId 和 staffId 不能为空')
+    }
+    const session = this.agentSessionManager.sessions.get(sessionId)
+      || this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} 不存在或已关闭`)
+    }
+
+    const previousTarget = this._sessionTargets.get(sessionId)
+    if (previousTarget?.staffId && previousTarget.staffId !== resolvedStaffId) {
+      this._targetSessionMap.delete(previousTarget.staffId)
+    }
+
+    const previousSessionId = this._targetSessionMap.get(resolvedStaffId)
+    if (previousSessionId && previousSessionId !== sessionId) {
+      const previousSessionTarget = this._sessionTargets.get(previousSessionId)
+      if (previousSessionTarget?.staffId) {
+        this._targetSessionMap.delete(previousSessionTarget.staffId)
+      }
+      this._sessionTargets.delete(previousSessionId)
+    }
+
+    const target = {
+      staffId: resolvedStaffId,
+      displayName: displayName || previousTarget?.displayName || resolvedStaffId
+    }
+    this._sessionTargets.set(sessionId, target)
+    this._targetSessionMap.set(resolvedStaffId, sessionId)
+    return { success: true, target }
+  }
+
+  getSessionBinding(sessionId) {
+    const target = this._sessionTargets.get(sessionId) || null
+    if (!target) return null
+    return {
+      targetId: target.staffId,
+      staffId: target.staffId,
+      displayName: target.displayName
+    }
+  }
+
+  async sendTextToTarget({ sessionId, staffId, targetId, displayName, text } = {}) {
+    const content = typeof text === 'string' ? text.trim() : ''
+    if (!content) {
+      throw new Error('发送内容不能为空')
+    }
+    const resolvedStaffId = typeof (staffId || targetId || this._sessionTargets.get(sessionId)?.staffId) === 'string'
+      ? String(staffId || targetId || this._sessionTargets.get(sessionId)?.staffId).trim()
+      : ''
+    if (!resolvedStaffId) {
+      throw new Error('staffId 不能为空')
+    }
+    if (sessionId) {
+      this.bindSessionToTarget(sessionId, { staffId: resolvedStaffId, displayName })
+    }
+    const token = await this._getAccessToken()
+    const config = this.configManager.getConfig()
+    const robotCode = config?.dingtalk?.robotCode || ''
+    if (!robotCode) {
+      throw new Error('钉钉未配置 robotCode，无法主动发送')
+    }
+    const body = {
+      robotCode,
+      userIds: [resolvedStaffId],
+      msgKey: 'sampleText',
+      msgParam: JSON.stringify({ content })
+    }
+    const response = await globalThis.fetch(
+      'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-acs-dingtalk-access-token': token
+        },
+        body: JSON.stringify(body)
+      }
+    )
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(`钉钉主动发送失败: ${response.status} ${JSON.stringify(result)}`)
+    }
+    return { success: true, targetId: resolvedStaffId, result }
   }
 
   /**
@@ -1134,6 +1286,77 @@ class DingTalkBridge {
     // 提前 5 分钟过期，避免边界问题
     this._accessTokenExpiresAt = Date.now() + (result.expireIn - 300) * 1000
     return this._accessToken
+  }
+
+  async _listAllDepartments(token) {
+    const queue = [1]
+    const visited = new Set()
+    const departments = []
+
+    while (queue.length > 0) {
+      const parentId = queue.shift()
+      if (visited.has(parentId)) continue
+      visited.add(parentId)
+
+      const response = await globalThis.fetch('https://oapi.dingtalk.com/topapi/v2/department/listsub', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: token,
+          dept_id: parentId
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`获取钉钉部门列表失败: ${response.status}`)
+      }
+      const result = await response.json()
+      if (result.errcode) {
+        throw new Error(`获取钉钉部门列表失败: ${result.errcode} ${result.errmsg}`)
+      }
+      const items = Array.isArray(result.result) ? result.result : []
+      for (const item of items) {
+        const deptId = Number(item.dept_id || item.deptId)
+        if (!Number.isFinite(deptId)) continue
+        departments.push({ deptId, name: item.name || '' })
+        queue.push(deptId)
+      }
+    }
+
+    return departments
+  }
+
+  async _listDepartmentUsers(token, deptId) {
+    const users = []
+    let cursor = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const response = await globalThis.fetch('https://oapi.dingtalk.com/topapi/v2/user/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: token,
+          dept_id: deptId,
+          cursor,
+          size: 100,
+          contain_access_limit: false
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`获取钉钉部门成员失败: ${response.status}`)
+      }
+      const result = await response.json()
+      if (result.errcode) {
+        throw new Error(`获取钉钉部门成员失败: ${result.errcode} ${result.errmsg}`)
+      }
+      const page = result.result || {}
+      const list = Array.isArray(page.list) ? page.list : []
+      users.push(...list)
+      hasMore = Boolean(page.has_more)
+      cursor = Number(page.next_cursor || 0)
+    }
+
+    return users
   }
 
   /**

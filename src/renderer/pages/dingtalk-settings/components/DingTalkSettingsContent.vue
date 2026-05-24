@@ -56,6 +56,15 @@
         <template #feedback>{{ t('dingtalkSettings.appSecretHint') }}</template>
       </n-form-item>
 
+      <n-form-item :label="t('dingtalkSettings.robotCode')">
+        <n-input
+          v-model:value="formData.robotCode"
+          :placeholder="t('dingtalkSettings.robotCodePlaceholder')"
+          :disabled="!formData.enabled"
+        />
+        <template #feedback>{{ t('dingtalkSettings.robotCodeHint') }}</template>
+      </n-form-item>
+
     </n-card>
 
     <!-- Connection Control -->
@@ -127,6 +136,7 @@ const formData = ref({
   enabled: false,
   appKey: '',
   appSecret: '',
+  robotCode: '',
   maxHistorySessions: 5
 })
 
@@ -178,6 +188,7 @@ const loadConfig = async () => {
     formData.value.enabled = dt.enabled || false
     formData.value.appKey = dt.appKey || ''
     formData.value.appSecret = dt.appSecret || ''
+    formData.value.robotCode = dt.robotCode || ''
     formData.value.maxHistorySessions = dt.maxHistorySessions || 5
   } catch (err) {
     console.error('Failed to load DingTalk config:', err)
@@ -201,6 +212,7 @@ const handleSave = async () => {
     await invoke('updateDingTalkConfig', {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
+      robotCode: formData.value.robotCode,
       enabled: formData.value.enabled,
       maxHistorySessions: formData.value.maxHistorySessions,
     })
@@ -219,6 +231,7 @@ const handleConnect = async () => {
     await invoke('updateDingTalkConfig', {
       appKey: formData.value.appKey,
       appSecret: formData.value.appSecret,
+      robotCode: formData.value.robotCode,
       enabled: true,
       maxHistorySessions: formData.value.maxHistorySessions,
     })

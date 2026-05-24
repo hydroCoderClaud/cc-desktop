@@ -1065,6 +1065,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopDingTalk: () => ipcRenderer.invoke('dingtalk:stop'),
   restartDingTalk: () => ipcRenderer.invoke('dingtalk:restart'),
   updateDingTalkConfig: (config) => ipcRenderer.invoke('dingtalk:updateConfig', config),
+  listDingTalkTargets: () => ipcRenderer.invoke('dingtalk:listTargets'),
+  bindSessionToDingTalkTarget: (payload) => ipcRenderer.invoke('dingtalk:bindSessionToTarget', payload),
+  getSessionDingTalkBinding: (sessionId) => ipcRenderer.invoke('dingtalk:getSessionBinding', sessionId),
+  sendDingTalkText: (payload) => ipcRenderer.invoke('dingtalk:sendText', payload),
 
   // 飞书桥接
   getFeishuStatus: () => ipcRenderer.invoke('feishu:getStatus'),

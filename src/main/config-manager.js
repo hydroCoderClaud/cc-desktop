@@ -93,6 +93,7 @@ class ConfigManager {
         enabled: false,
         appKey: '',
         appSecret: '',
+        robotCode: '',
         defaultCwd: '',
         maxHistorySessions: 5,
       },

@@ -122,6 +122,7 @@
                 :api-profile-id="currentApiProfileId"
                 :model-id="currentModelId"
                 :agent-api="agentApi"
+                :dingtalk-notify-api="dingtalkNotifyApi"
                 :weixin-notify-api="weixinNotifyApi"
                 :feishu-notify-api="feishuNotifyApi"
                 @ready="handleReady"
@@ -217,6 +218,16 @@ const resolvedCwd = ref(props.cwd || '')
 const error = ref('')
 const contextSnapshot = ref(null)
 const agentApi = ref(null)
+const dingtalkNotifyApi = computed(() => {
+  const api = window.electronAPI || null
+  if (!api) return null
+  return {
+    listDingTalkTargets: api.listDingTalkTargets?.bind(api),
+    getSessionDingTalkBinding: api.getSessionDingTalkBinding?.bind(api),
+    bindSessionToDingTalkTarget: api.bindSessionToDingTalkTarget?.bind(api),
+    sendDingTalkText: api.sendDingTalkText?.bind(api)
+  }
+})
 const weixinNotifyApi = computed(() => {
   const api = window.electronAPI || null
   if (!api) return null

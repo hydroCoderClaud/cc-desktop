@@ -30,13 +30,34 @@ function setupDingTalkHandlers(ipcMain, dingtalkBridge, configManager) {
     return dingtalkBridge.restart()
   })
 
+  ipcMain.handle('dingtalk:listTargets', async () => {
+    return dingtalkBridge.listTargets()
+  })
+
+  ipcMain.handle('dingtalk:bindSessionToTarget', async (_event, payload = {}) => {
+    return dingtalkBridge.bindSessionToTarget(payload.sessionId, {
+      staffId: payload.staffId,
+      targetId: payload.targetId,
+      displayName: payload.displayName
+    })
+  })
+
+  ipcMain.handle('dingtalk:getSessionBinding', async (_event, sessionId) => {
+    return dingtalkBridge.getSessionBinding(sessionId)
+  })
+
+  ipcMain.handle('dingtalk:sendText', async (_event, payload = {}) => {
+    return dingtalkBridge.sendTextToTarget(payload)
+  })
+
   // 更新钉钉配置并重启
-  ipcMain.handle('dingtalk:updateConfig', async (event, { appKey, appSecret, enabled, defaultCwd, maxHistorySessions }) => {
+  ipcMain.handle('dingtalk:updateConfig', async (event, { appKey, appSecret, enabled, defaultCwd, maxHistorySessions, robotCode }) => {
     const config = configManager.getConfig()
     config.dingtalk = {
       ...config.dingtalk,
       appKey: appKey !== undefined ? appKey : config.dingtalk?.appKey || '',
       appSecret: appSecret !== undefined ? appSecret : config.dingtalk?.appSecret || '',
+      robotCode: robotCode !== undefined ? robotCode : config.dingtalk?.robotCode || '',
       enabled: enabled !== undefined ? enabled : config.dingtalk?.enabled || false,
       defaultCwd: defaultCwd !== undefined ? defaultCwd : config.dingtalk?.defaultCwd || '',
       maxHistorySessions: maxHistorySessions !== undefined ? maxHistorySessions : config.dingtalk?.maxHistorySessions || 5
