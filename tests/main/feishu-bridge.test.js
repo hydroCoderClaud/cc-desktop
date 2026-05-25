@@ -2916,6 +2916,30 @@ describe('FeishuBridge', () => {
     expect(closeRows[1].actions).toHaveLength(5)
   })
 
+  it('does not highlight any session in close-result card when no active binding remains', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendCardMessage = vi.fn().mockResolvedValue({})
+    bridge._api.sendCardMessage = sendCardMessage
+    vi.spyOn(bridge, '_getActiveSessionsByChat').mockReturnValue([
+      { id: 's-1', title: '会话 A', cwd: tempDir, type: 'feishu', queryGenerator: {}, apiProfileId: null },
+      { id: 's-2', title: '会话 B', cwd: tempDir, type: 'feishu', queryGenerator: {}, apiProfileId: null }
+    ])
+
+    await bridge._sendCloseResult('open_id', 'ou_xxx', {
+      sessionId: null,
+      highlightSessionId: null,
+      chatId: 'oc_xxx',
+      closeText: '会话已关闭'
+    })
+
+    const card = sendCardMessage.mock.calls[0][2]
+    const markdown = card.elements.find(element => element.tag === 'markdown' && element.content.includes('1.'))
+    expect(markdown.content).toContain('1. 🔵 会话 A')
+    expect(markdown.content).toContain('2. 🔵 会话 B')
+    expect(markdown.content).not.toContain('✅')
+  })
+
   it('normalizes Feishu command text by removing standalone mention tokens from arguments', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

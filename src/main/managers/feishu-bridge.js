@@ -634,6 +634,7 @@ class FeishuBridge {
           : '会话已关闭'
         await this._sendCloseResult(receiveIdType, receiveId, {
           sessionId,
+          highlightSessionId: sessionId || null,
           chatId: context.chatId,
           closeText,
         })
@@ -1551,7 +1552,7 @@ class FeishuBridge {
     }
   }
 
-  async _sendCloseResult(receiveIdType, receiveId, { sessionId, chatId, closeText, context = null }) {
+  async _sendCloseResult(receiveIdType, receiveId, { sessionId, highlightSessionId = null, chatId, closeText, context = null }) {
     const activeSessions = this._getActiveSessionsByChat(chatId)
     const fallbackText = `${closeText}\n\n${this._buildActiveSessionsText({ sessionId, chatId })}`
 
@@ -1560,7 +1561,7 @@ class FeishuBridge {
         await this._api.sendCardMessage(
           receiveIdType,
           receiveId,
-          this._buildSessionsCard(activeSessions, sessionId, {
+          this._buildSessionsCard(activeSessions, highlightSessionId, {
             title: '会话已关闭',
             summary: closeText,
             context
