@@ -820,12 +820,18 @@ class FeishuBridge {
     const trimmed = text.trim()
     if (!trimmed) return trimmed
     const robotMentions = this._buildRobotMentionTokens(mentions)
+    const userMentions = this._buildNonRobotMentionReplacements(mentions)
     if (robotMentions.length === 0) return trimmed
 
     let normalized = trimmed
     for (const mention of robotMentions) {
       if (!mention) continue
       normalized = normalized.split(mention).join('')
+    }
+
+    for (const { key, display } of userMentions) {
+      if (!key || !display) continue
+      normalized = normalized.split(key).join(display)
     }
 
     return normalized.replace(/\s+/g, ' ').trim()
@@ -840,6 +846,23 @@ class FeishuBridge {
       if (key) result.add(key.startsWith('@') ? key : `@${key}`)
     }
     return Array.from(result)
+  }
+
+  _buildNonRobotMentionReplacements(mentions) {
+    const result = []
+    if (!Array.isArray(mentions)) return result
+    for (const mention of mentions) {
+      if (!mention || typeof mention !== 'object') continue
+      if (this._isRobotMention(mention)) continue
+      const key = typeof mention?.key === 'string' ? mention.key.trim() : ''
+      const name = typeof mention?.name === 'string' ? mention.name.trim() : ''
+      if (!key || !name || !key.startsWith('@_user_')) continue
+      result.push({
+        key,
+        display: name.startsWith('@') ? name : `@${name}`
+      })
+    }
+    return result
   }
 
   _stripRobotMentionArtifactsForCommandText(text, mentions) {

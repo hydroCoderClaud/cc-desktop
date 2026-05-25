@@ -1143,7 +1143,7 @@ describe('FeishuBridge', () => {
     expect(session).toBeTruthy()
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
-      { text: '你好 @_user_9', images: undefined },
+      { text: '你好 @张三', images: undefined },
       'ou_group',
       'oc_group',
       'chat'
@@ -1151,7 +1151,42 @@ describe('FeishuBridge', () => {
     expect(sent.some(item =>
       item.channel === 'feishu:messageReceived' &&
       item.data.sessionId === session.id &&
-      item.data.text === '你好 @_user_9'
+      item.data.text === '你好 @张三'
+    )).toBe(true)
+  })
+
+  it('replaces non-robot placeholder mentions with display names in group-chat text', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_text_user_display_name',
+      senderId: 'ou_group',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '@_user_2 你好 @_user_7',
+      mentions: [
+        { key: '@_user_2', name: '张越胜', id: 'ou_user_2', idType: 'open_id' },
+        { key: '@_user_7', name: 'Hydro Desktop', id: { open_id: 'ou_robot_open' }, idType: null }
+      ],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '@张越胜 你好', images: undefined },
+      'ou_group',
+      'oc_group',
+      'chat'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '@张越胜 你好'
     )).toBe(true)
   })
 

@@ -589,6 +589,18 @@ class DingTalkBridge {
     const boundSessionId = this._findBoundSessionIdByStaffId(staffId)
     if (boundSessionId) {
       const db = this.agentSessionManager.sessionDatabase
+      const liveSession = this.agentSessionManager.sessions.get(boundSessionId)
+      if (liveSession) {
+        if (!liveSession.meta) liveSession.meta = {}
+        liveSession.meta.conversationId = conversationId
+        this.sessionMap.set(mapKey, boundSessionId)
+        if (db && conversationId) {
+          db.updateDingTalkMetadata(boundSessionId, staffId, conversationId)
+        }
+        console.log(`[DingTalk] Reused active proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
+        return boundSessionId
+      }
+
       const row = db && db.getAgentConversation(boundSessionId)
 
       if (!row || row.status === 'closed') {
@@ -722,6 +734,8 @@ class DingTalkBridge {
       this._sessionTargets.delete(previousSessionId)
     }
 
+    this._clearStaffConversationMapBindings(resolvedStaffId, sessionId)
+
     const target = {
       staffId: resolvedStaffId,
       displayName: displayName || previousTarget?.displayName || resolvedStaffId
@@ -746,6 +760,16 @@ class DingTalkBridge {
     if (!conversationId) return
     const mapKey = `${staffId}:${conversationId}`
     if (this.sessionMap.get(mapKey) === sessionId) {
+      this.sessionMap.delete(mapKey)
+    }
+  }
+
+  _clearStaffConversationMapBindings(staffId, keepSessionId = null) {
+    if (!staffId) return
+    const prefix = `${staffId}:`
+    for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
+      if (!mapKey.startsWith(prefix)) continue
+      if (keepSessionId && mappedSessionId === keepSessionId) continue
       this.sessionMap.delete(mapKey)
     }
   }

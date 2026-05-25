@@ -71,7 +71,8 @@ module.exports = {
 
   async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, robotCode }, webhook) {
     // 获取当前活跃会话（如果有）
-    const currentSessionId = this._resolveActiveSessionId(mapKey)
+    const mappedSessionId = this._resolveActiveSessionId(mapKey)
+    const currentSessionId = mappedSessionId || this._findBoundSessionIdByStaffId?.(senderStaffId) || null
     const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
 
     // 如果正在 streaming，不允许操作
@@ -83,9 +84,50 @@ module.exports = {
     const db = this.agentSessionManager.sessionDatabase
     if (!db || !conversationId) return '📭 没有历史会话记录'
     const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
-    const sessions = db.getImSessionsByType
+    let sessions = db.getImSessionsByType
       ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
       : db.getDingTalkSessions(senderStaffId, conversationId, limit)
+    if ((!Array.isArray(sessions) || sessions.length === 0) && typeof db.listAllAgentConversations === 'function') {
+      const allRows = db.listAllAgentConversations({
+        limit: Math.max(limit * 5, 50)
+      })
+      if (Array.isArray(allRows) && allRows.length > 0) {
+        sessions = allRows
+          .filter(row => row?.status !== 'closed')
+          .filter(row => row?.type === 'dingtalk' || row?.source === 'dingtalk')
+          .filter(row => row?.staff_id === senderStaffId)
+          .filter(row => row?.conversation_id === conversationId)
+          .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
+          .slice(0, limit)
+      }
+    }
+
+    if (currentSessionId) {
+      const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
+      const currentRow = db.getAgentConversation?.(currentSessionId)
+      const currentHistoryRow = currentRow || (liveCurrent
+        ? {
+            session_id: currentSessionId,
+            title: liveCurrent.title || currentSessionId,
+            cwd: liveCurrent.cwd || null,
+            api_profile_id: liveCurrent.apiProfileId || null,
+            updated_at: liveCurrent.updatedAt ? new Date(liveCurrent.updatedAt).getTime() : Date.now(),
+            type: liveCurrent.type,
+            source: liveCurrent.source,
+            staff_id: senderStaffId,
+            conversation_id: conversationId,
+            status: liveCurrent.status || 'idle'
+          }
+        : null)
+
+      if (currentHistoryRow) {
+        const deduped = Array.isArray(sessions)
+          ? sessions.filter(row => (row?.session_id || row?.sessionId || row?.id) !== currentSessionId)
+          : []
+        sessions = [currentHistoryRow, ...deduped]
+      }
+    }
+
     if (!sessions || sessions.length === 0) return '📭 没有历史会话记录\n\n发送任意消息可开始新会话'
 
     // 直接指定编号 → 立即恢复
