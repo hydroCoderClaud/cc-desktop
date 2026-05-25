@@ -1002,9 +1002,6 @@ class FeishuBridge {
   // ─── 桌面端介入 ───
 
   _onDesktopIntervention(sessionId, content, images) {
-    const mapKey = this._resolveMapKeyForSession(sessionId)
-    if (!mapKey) return
-
     const identity = this._sessionIdentities.get(sessionId)
     if (!identity) return
 
@@ -1068,6 +1065,7 @@ class FeishuBridge {
     if (!session) {
       throw new Error(`Session ${sessionId} 不存在或已关闭`)
     }
+    this._agentSessionManager.bindSessionExternalImSource(sessionId, 'feishu')
 
     const previousTarget = this._sessionTargets.get(sessionId)
     if (previousTarget?.openId && previousTarget.openId !== resolvedOpenId) {
@@ -1076,6 +1074,7 @@ class FeishuBridge {
 
     const previousSessionId = this._targetSessionMap.get(resolvedOpenId)
     if (previousSessionId && previousSessionId !== sessionId) {
+      this._clearSessionMapBindingsForSender(previousSessionId, resolvedOpenId)
       const previousSessionTarget = this._sessionTargets.get(previousSessionId)
       if (previousSessionTarget?.openId) {
         this._targetSessionMap.delete(previousSessionTarget.openId)
@@ -1099,7 +1098,23 @@ class FeishuBridge {
       chatType: 'p2p',
       chatName: target.displayName || resolvedOpenId,
     })
+    if (this._sessionDatabase?.updateDingTalkMetadata) {
+      try {
+        this._sessionDatabase.updateDingTalkMetadata(sessionId, resolvedOpenId, '')
+      } catch (err) {
+        console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
+      }
+    }
     return { success: true, target }
+  }
+
+  _clearSessionMapBindingsForSender(sessionId, senderId) {
+    if (!sessionId || !senderId) return
+    for (const [key, sid] of this._sessionMapper.sessionMap.entries()) {
+      if (sid !== sessionId) continue
+      if (!String(key).startsWith(`${senderId}:`)) continue
+      this._sessionMapper.sessionMap.delete(key)
+    }
   }
 
   unbindSessionTarget(sessionId) {
@@ -1381,7 +1396,8 @@ class FeishuBridge {
   _getActiveSessionsByChat(chatId) {
     const sessions = [...this._agentSessionManager.sessions.values()]
     return sessions.filter((session) => {
-      if (session.type !== 'feishu' || !session.queryGenerator) return false
+      const belongsToFeishu = session.type === 'feishu' || session.source === 'feishu'
+      if (!belongsToFeishu || !session.queryGenerator) return false
       const identity = this._sessionIdentities.get(session.id)
       if (identity?.chatId === chatId) return true
       const row = this._sessionDatabase?.getAgentConversation?.(session.id)

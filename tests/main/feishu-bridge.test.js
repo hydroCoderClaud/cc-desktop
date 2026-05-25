@@ -135,6 +135,88 @@ describe('FeishuBridge', () => {
     expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
   })
 
+  it('switches the active Feishu reply binding to the latest desktop session for the same user', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const first = manager.create({ type: 'chat', source: 'manual', title: '会话1', cwd: tempDir })
+    const second = manager.create({ type: 'chat', source: 'manual', title: '会话2', cwd: tempDir })
+
+    await bridge.sendTextToTarget({
+      sessionId: first.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '第一条'
+    })
+
+    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
+
+    await bridge.sendTextToTarget({
+      sessionId: second.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '第二条'
+    })
+
+    expect(bridge._targetSessionMap.get('ou_target')).toBe(second.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+
+    const reboundSessionId = await bridge._ensureSession(
+      {
+        userId: 'ou_target',
+        chatId: 'oc_reply',
+        chatType: 'p2p',
+        nickname: '张三',
+        chatName: '张三'
+      },
+      { text: '收到第二条', images: [] },
+      'ou_target',
+      'oc_reply',
+      'p2p'
+    )
+
+    expect(reboundSessionId).toBe(second.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(second.id)
+  })
+
+  it('persists the proactive Feishu target identity when binding a normal session', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+
+    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', '')
+  })
+
+  it('locks a normal session to Feishu after first proactive send', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    await bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '任务已完成'
+    })
+
+    expect(session.source).toBe('feishu')
+    expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
+      source: 'feishu'
+    })
+    expect(() => manager.bindSessionExternalImSource(session.id, 'weixin')).toThrow(/已绑定feishu渠道/)
+  })
+
   it('keeps Feishu target names empty instead of falling back to openId', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -691,6 +773,28 @@ describe('FeishuBridge', () => {
     })
 
     expect(desktopIntervention).toHaveBeenCalledWith(session.id, '桌面继续', undefined)
+  })
+
+  it('sends desktop intervention back to Feishu for a proactively bound chat session even without a sessionMap key', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+
+    bridge._onDesktopIntervention(session.id, '桌面继续', undefined)
+    await bridge._onAgentResult(session.id)
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'open_id',
+      'ou_target',
+      expect.stringContaining('桌面介入> 桌面继续')
+    )
   })
 
   it('lists active sessions for the current Feishu chat', async () => {
@@ -1970,6 +2074,35 @@ describe('FeishuBridge', () => {
     )
   })
 
+  it('includes chat sessions bound by Feishu source in /sessions', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+
+    const created = manager.create({ type: 'chat', source: 'feishu', title: '普通会话已绑定飞书', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    session.queryGenerator = {}
+    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._handleCommand('/sessions', {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'open_id',
+      'ou_xxx',
+      expect.stringContaining('普通会话已绑定飞书')
+    )
+  })
+
   it('falls back to text when sending the help card fails', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -2689,6 +2822,36 @@ describe('ImSessionMapper', () => {
     expect(result).toEqual([
       expect.objectContaining({ session_id: 'f-legacy-1' })
     ])
+  })
+
+  it('does not admit conversation-only legacy Feishu rows for p2p history when senderId does not match', async () => {
+    const getImSessionsByType = vi.fn(() => [])
+    const listAllAgentConversations = vi.fn(() => [
+      {
+        session_id: 'f-legacy-1',
+        type: 'feishu',
+        title: '飞书 · oc_xxx · ',
+        conversation_id: 'oc_xxx',
+        staff_id: '',
+        updated_at: Date.now()
+      }
+    ])
+    const mapper = new ImSessionMapper({
+      agentSessionManager: { sessions: new Map() },
+      sessionDatabase: { getImSessionsByType, listAllAgentConversations },
+      imType: 'feishu',
+      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildSessionTitle: () => '飞书会话'
+    })
+
+    const result = await mapper._queryHistorySessions({
+      userId: 'ou_real_user',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    expect(listAllAgentConversations).toHaveBeenCalled()
+    expect(result).toEqual([])
   })
 
   it('drops stale Feishu map bindings when the database lookup throws', async () => {
