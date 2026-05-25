@@ -388,8 +388,21 @@ class DingTalkBridge {
       }
     }
 
-    // 如果有待选择状态，优先处理（用户正在选择历史会话）
     const mapKey = `${senderStaffId}:${conversationId || 'default'}`
+    if (this._pendingChoices.has(mapKey)) {
+      const activeSessionId = this._resolveActiveSessionId(mapKey)
+      if (activeSessionId) {
+        this._clearPendingChoice(mapKey)
+      } else {
+        const proactivelyBoundSessionId = this._findBoundSessionIdByStaffId(senderStaffId)
+        if (proactivelyBoundSessionId) {
+          this.sessionMap.set(mapKey, proactivelyBoundSessionId)
+          this._clearPendingChoice(mapKey)
+        }
+      }
+    }
+
+    // 如果有待选择状态，优先处理（用户正在选择历史会话）
     if (this._pendingChoices.has(mapKey)) {
       const choiceText = text?.content?.trim()
       await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType })
@@ -538,8 +551,15 @@ class DingTalkBridge {
     const mapKey = `${staffId}:${conversationId || 'default'}`
     let sessionId = this.sessionMap.get(mapKey)
 
-    // 内存中有映射 → 先检查 DB 状态，再决定是否恢复
+    // 内存中有映射 → 先检查内存活跃会话，再检查 DB 状态
     if (sessionId) {
+      const liveSession = this.agentSessionManager.sessions.get(sessionId)
+      if (liveSession) {
+        if (!liveSession.meta) liveSession.meta = {}
+        liveSession.meta.conversationId = conversationId
+        return sessionId
+      }
+
       const db = this.agentSessionManager.sessionDatabase
       const row = db && db.getAgentConversation(sessionId)
 
@@ -597,7 +617,9 @@ class DingTalkBridge {
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
       const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
-      const sessions = db.getDingTalkSessions(staffId, conversationId, limit)
+      const sessions = db.getImSessionsByType
+        ? db.getImSessionsByType('dingtalk', staffId, conversationId, limit)
+        : db.getDingTalkSessions(staffId, conversationId, limit)
       if (sessions.length > 0) {
         // 有历史会话，交由用户选择（而非自动恢复）
         return { needsChoice: true, sessions }
@@ -680,6 +702,7 @@ class DingTalkBridge {
     if (!session) {
       throw new Error(`Session ${sessionId} 不存在或已关闭`)
     }
+    this.agentSessionManager.bindSessionExternalImSource(sessionId, 'dingtalk')
     if (session.meta && typeof session.meta === 'object') {
       session.meta.dingtalkTargetStaffId = resolvedStaffId
     }
@@ -691,6 +714,7 @@ class DingTalkBridge {
 
     const previousSessionId = this._targetSessionMap.get(resolvedStaffId)
     if (previousSessionId && previousSessionId !== sessionId) {
+      this._clearCurrentConversationMapBinding(previousSessionId, resolvedStaffId)
       const previousSessionTarget = this._sessionTargets.get(previousSessionId)
       if (previousSessionTarget?.staffId) {
         this._targetSessionMap.delete(previousSessionTarget.staffId)
@@ -704,7 +728,26 @@ class DingTalkBridge {
     }
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedStaffId, sessionId)
+    if (this.agentSessionManager.sessionDatabase?.updateDingTalkMetadata) {
+      try {
+        this.agentSessionManager.sessionDatabase.updateDingTalkMetadata(sessionId, resolvedStaffId, '')
+      } catch (err) {
+        console.warn('[DingTalk] Failed to persist proactive target identity:', err.message)
+      }
+    }
     return { success: true, target }
+  }
+
+  _clearCurrentConversationMapBinding(sessionId, staffId) {
+    if (!sessionId || !staffId) return
+    const liveSession = this.agentSessionManager.sessions.get(sessionId)
+    const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
+    const conversationId = liveSession?.meta?.conversationId || row?.conversation_id || ''
+    if (!conversationId) return
+    const mapKey = `${staffId}:${conversationId}`
+    if (this.sessionMap.get(mapKey) === sessionId) {
+      this.sessionMap.delete(mapKey)
+    }
   }
 
   _findBoundSessionIdByStaffId(staffId) {
@@ -751,6 +794,29 @@ class DingTalkBridge {
       return sessionId
     }
 
+    const rows = this.agentSessionManager.sessionDatabase?.listAllAgentConversations?.({
+      limit: Math.max(this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5, 20)
+    })
+    const matched = Array.isArray(rows)
+      ? rows
+        .filter(row => row?.status !== 'closed')
+        .filter(row => row?.type === 'dingtalk' || row?.source === 'dingtalk')
+        .filter(row => row?.staff_id === normalizedStaffId)
+        .filter(row => !row?.conversation_id)
+        .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
+      : null
+    if (matched) {
+      const fallbackSessionId = matched.session_id || matched.sessionId || matched.id || null
+      if (fallbackSessionId) {
+        this._targetSessionMap.set(normalizedStaffId, fallbackSessionId)
+        this._sessionTargets.set(fallbackSessionId, {
+          staffId: normalizedStaffId,
+          displayName: this._sessionTargets.get(fallbackSessionId)?.displayName || normalizedStaffId
+        })
+        return fallbackSessionId
+      }
+    }
+
     return null
   }
 
@@ -776,7 +842,7 @@ class DingTalkBridge {
       throw new Error('staffId 不能为空')
     }
     if (sessionId) {
-      this.bindSessionToTarget(sessionId, { staffId: resolvedStaffId, displayName })
+      this.agentSessionManager.assertSessionImBindingAllowed(sessionId, 'dingtalk')
     }
     const token = await this._getAccessToken()
     const config = this.configManager.getConfig()
@@ -804,6 +870,9 @@ class DingTalkBridge {
     const result = await response.json().catch(() => ({}))
     if (!response.ok) {
       throw new Error(`钉钉主动发送失败: ${response.status} ${JSON.stringify(result)}`)
+    }
+    if (sessionId) {
+      this.bindSessionToTarget(sessionId, { staffId: resolvedStaffId, displayName })
     }
     return { success: true, targetId: resolvedStaffId, result }
   }

@@ -13,6 +13,7 @@
         :is-expanded="isExpanded"
         :session-id="sessionId"
         :session-type="sessionType"
+        :session-source="sessionSource"
         :draft-text="inputText"
         :dingtalk-notify-api="dingtalkNotifyApi"
         :weixin-notify-api="weixinNotifyApi"
@@ -206,6 +207,10 @@ const props = defineProps({
   sessionType: {
     type: String,
     default: 'chat'
+  },
+  sessionSource: {
+    type: String,
+    default: 'manual'
   },
   dingtalkNotifyApi: {
     type: Object,

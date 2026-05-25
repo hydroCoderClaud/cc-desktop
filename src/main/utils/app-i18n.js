@@ -39,7 +39,8 @@ const MAIN_I18N = {
         allFiles: '所有文件',
         pngImage: 'PNG 图片'
       },
-      probeSessionTitle: 'API 测试探针'
+      probeSessionTitle: 'API 测试探针',
+      defaultAgentSessionTitle: '对话'
     },
     embeddedApps: {
       hydrologyWorkbenchTitle: '水文站工作台'
@@ -85,7 +86,8 @@ const MAIN_I18N = {
         allFiles: 'All Files',
         pngImage: 'PNG Image'
       },
-      probeSessionTitle: 'API Test Probe'
+      probeSessionTitle: 'API Test Probe',
+      defaultAgentSessionTitle: 'Chat'
     },
     embeddedApps: {
       hydrologyWorkbenchTitle: 'Hydrology Workbench'

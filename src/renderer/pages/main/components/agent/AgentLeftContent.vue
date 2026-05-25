@@ -310,6 +310,7 @@ let cleanupFeishuSession = null
 let cleanupFeishuSessionClosed = null
 let cleanupAgentStatus = null
 let cleanupScheduledTask = null
+let cleanupSessionUpdated = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
 const onWindowFocus = () => {
   loadApiProfiles()
@@ -344,6 +345,17 @@ onMounted(() => {
         conv.status = data.cliExited
           ? (data.cliExitWasError ? 'error' : 'closed')
           : data.status
+        return
+      }
+      loadConversations()
+    })
+  }
+
+  if (window.electronAPI?.onSessionUpdated) {
+    cleanupSessionUpdated = window.electronAPI.onSessionUpdated((data) => {
+      const conv = conversations.value.find(item => item.id === data?.sessionId)
+      if (conv && data?.session) {
+        Object.assign(conv, data.session)
         return
       }
       loadConversations()
@@ -395,6 +407,7 @@ onUnmounted(() => {
   if (cleanupFeishuSession) cleanupFeishuSession()
   if (cleanupFeishuSessionClosed) cleanupFeishuSessionClosed()
   if (cleanupScheduledTask) cleanupScheduledTask()
+  if (cleanupSessionUpdated) cleanupSessionUpdated()
 })
 
 defineExpose({

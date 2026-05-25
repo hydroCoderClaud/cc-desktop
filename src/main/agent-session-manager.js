@@ -36,6 +36,7 @@ const {
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|tiff|svg)$/i
 const IMAGE_PATH_HINT_HEADER = '图片已保存到以下路径，可使用 Read 或其他文件工具查看：'
+const EXTERNAL_IM_SOURCE_SET = new Set(['weixin', 'feishu', 'dingtalk'])
 
 const HYDRO_IDENTITY_SYSTEM_PROMPT = [
   'Present yourself to end users as Hydro Desktop AI, an AI personal desktop assistant developed by Zhishui Workshop.',
@@ -66,6 +67,10 @@ function resolveConversationSource(type, source) {
   if (isExternalImType(type)) return type
   if (source) return source
   return 'manual'
+}
+
+function isExternalImSource(source) {
+  return typeof source === 'string' && EXTERNAL_IM_SOURCE_SET.has(source)
 }
 
 function normalizeModelValue(value) {
@@ -145,6 +150,11 @@ function uniqueStrings(values = []) {
       .map(value => typeof value === 'string' ? value.trim() : '')
       .filter(Boolean)
   )]
+}
+
+function resolveInitialSessionTitle(configManager, title) {
+  if (typeof title === 'string' && title.trim()) return title.trim()
+  return tMain(configManager, 'app.defaultAgentSessionTitle')
 }
 
 function resolveRequestedModel(_profile, _configManager, requestedModel) {
@@ -700,9 +710,10 @@ class AgentSessionManager extends EventEmitter {
     }
 
     const initialModelId = normalizeModelIdOrNull(options.modelId || profile?.selectedModelId)
+    const initialTitle = resolveInitialSessionTitle(this.configManager, options.title)
     const session = new AgentSession({
       type: options.type,
-      title: options.title,
+      title: initialTitle,
       cwd: options.cwd,
       apiProfileId: profile?.id || null,
       apiBaseUrl: profile?.baseUrl || null,
@@ -1690,6 +1701,55 @@ class AgentSessionManager extends EventEmitter {
       .find(msg => msg.role === 'tool' && !msg.output)
   }
 
+  assertSessionImBindingAllowed(sessionId, targetSource) {
+    const session = this.sessions.get(sessionId)
+      || this.reopen(sessionId)
+      || this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+
+    const normalizedTargetSource = typeof targetSource === 'string' ? targetSource.trim() : ''
+    if (!isExternalImSource(normalizedTargetSource)) {
+      throw new Error(`Unsupported IM source: ${targetSource}`)
+    }
+
+    if (session.type === normalizedTargetSource || session.source === normalizedTargetSource) {
+      return session
+    }
+
+    if (isExternalImSource(session.type)) {
+      throw new Error(`当前会话属于${session.type}渠道，不能再绑定${normalizedTargetSource}`)
+    }
+
+    if (isExternalImSource(session.source) && session.source !== normalizedTargetSource) {
+      throw new Error(`当前会话已绑定${session.source}渠道，不能再绑定${normalizedTargetSource}`)
+    }
+
+    return session
+  }
+
+  bindSessionExternalImSource(sessionId, source) {
+    const session = this.assertSessionImBindingAllowed(sessionId, source)
+    if (session.source === source) return this._serializeSession(session)
+
+    session.source = source
+    session.updatedAt = new Date()
+
+    if (this.sessionDatabase?.updateAgentConversation) {
+      this.sessionDatabase.updateAgentConversation(session.id, {
+        source: session.source
+      })
+    }
+
+    const serializedSession = this._serializeSession(session)
+    this._safeSend('session:updated', {
+      sessionId: session.id,
+      session: serializedSession
+    })
+    return serializedSession
+  }
+
   _buildBridgeToolResultMessage(message) {
     const imagePaths = this._collectImageArtifactPaths(message)
     if (imagePaths.length === 0) return message
@@ -2099,7 +2159,9 @@ class AgentSessionManager extends EventEmitter {
 
     // 继承必要配置
     const newType = overrides.type || oldSession.type
-    const newTitle = overrides.title !== undefined ? overrides.title : '' // 新会话默认空标题，由首条消息触发自动命名
+    const newTitle = overrides.title !== undefined
+      ? resolveInitialSessionTitle(this.configManager, overrides.title)
+      : resolveInitialSessionTitle(this.configManager, '')
     const newCwd = overrides.cwd || oldSession.cwd
     const newApiProfileId = oldSession.apiProfileId
     const newModelId = this._resolveSessionModelId(oldSession)

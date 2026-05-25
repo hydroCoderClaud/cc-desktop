@@ -483,6 +483,7 @@ class WeixinBridge {
     if (!session) {
       throw new Error(`Session ${sessionId} 不存在或已关闭`)
     }
+    this.agentSessionManager.bindSessionExternalImSource(sessionId, 'weixin')
     for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
       if (mappedSessionId === sessionId && mapKey !== targetId) {
         this.sessionMap.delete(mapKey)

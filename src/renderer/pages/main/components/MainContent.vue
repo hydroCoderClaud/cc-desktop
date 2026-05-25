@@ -102,6 +102,7 @@
               :ref="el => { if (el) agentChatTabRefs[tab.id] = el }"
               :session-id="tab.sessionId"
               :session-type="tab.sessionType"
+              :session-source="tab.sessionSource || 'manual'"
               :session-cwd="tab.cwd"
               :api-profile-id="tab.apiProfileId"
               :model-id="tab.modelId"
@@ -549,6 +550,15 @@ const setupSessionListeners = () => {
       const { sessionId, session } = eventData
       if (session) {
         updateTabTitle(sessionId, session.title || '')
+        const tab = tabs.value.find(item => item.sessionId === sessionId)
+        if (tab) {
+          if (session.type) {
+            tab.sessionType = session.type
+          }
+          if (session.source) {
+            tab.sessionSource = session.source
+          }
+        }
         // 如果当前活动会话的 UUID 被更新，刷新 currentSessionUuid
         const activeTab = tabs.value.find(t => t.id === activeTabId.value)
         if (activeTab && activeTab.sessionId === sessionId && session.resumeSessionId) {

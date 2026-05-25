@@ -103,6 +103,9 @@ export function getConversationIcon(conv) {
     return EXTERNAL_IM_TYPES[conv.type].icon
   }
   const source = conv?.source || 'manual'
+  if (isExternalImType(source)) {
+    return EXTERNAL_IM_TYPES[source].icon
+  }
   if (source === 'scheduled') return 'clock'
   return 'chat'
 }

@@ -135,6 +135,72 @@ describe('FeishuBridge', () => {
     expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
   })
 
+  it('reuses the proactively bound session on first p2p reply even after in-memory Feishu target mapping is lost', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    await bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '任务已完成'
+    })
+
+    bridge._targetSessionMap.clear()
+    bridge._sessionTargets.clear()
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => ({
+      id: 1,
+      session_id: sessionId,
+      type: 'chat',
+      title: '桌面会话',
+      cwd: tempDir,
+      source: 'feishu',
+      status: 'idle',
+      staff_id: 'ou_target',
+      conversation_id: '',
+      cwd_auto: 0,
+      message_count: 0,
+      total_cost_usd: 0,
+      created_at: Date.now(),
+      api_profile_id: null,
+      api_base_url: null
+    }))
+    manager.sessionDatabase.listAllAgentConversations = vi.fn(() => [
+      {
+        session_id: session.id,
+        type: 'chat',
+        source: 'feishu',
+        title: '桌面会话',
+        staff_id: 'ou_target',
+        conversation_id: '',
+        status: 'idle',
+        updated_at: Date.now()
+      }
+    ])
+
+    const reboundSessionId = await bridge._ensureSession(
+      {
+        userId: 'ou_target',
+        chatId: 'oc_reply',
+        chatType: 'p2p',
+        nickname: '张三',
+        chatName: '张三'
+      },
+      { text: '收到', images: [] },
+      'ou_target',
+      'oc_reply',
+      'p2p'
+    )
+
+    expect(reboundSessionId).toBe(session.id)
+    expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(session.id)
+  })
+
   it('switches the active Feishu reply binding to the latest desktop session for the same user', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -151,6 +217,13 @@ describe('FeishuBridge', () => {
     })
 
     bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
+    bridge._sessionIdentities.set(first.id, {
+      senderId: 'ou_target',
+      senderName: '张三',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: '张三'
+    })
 
     await bridge.sendTextToTarget({
       sessionId: second.id,
@@ -178,6 +251,66 @@ describe('FeishuBridge', () => {
 
     expect(reboundSessionId).toBe(second.id)
     expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(second.id)
+  })
+
+  it('only clears the old p2p map key when rebinding the same Feishu user to a newer desktop session', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const first = manager.create({ type: 'chat', source: 'manual', title: '会话1', cwd: tempDir })
+    const second = manager.create({ type: 'chat', source: 'manual', title: '会话2', cwd: tempDir })
+
+    await bridge.sendTextToTarget({
+      sessionId: first.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '第一条'
+    })
+
+    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
+    bridge._sessionMapper.sessionMap.set('ou_target:oc_group', first.id)
+    bridge._sessionIdentities.set(first.id, {
+      senderId: 'ou_target',
+      senderName: '张三',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: '张三'
+    })
+
+    await bridge.sendTextToTarget({
+      sessionId: second.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '第二条'
+    })
+
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_group')).toBe(first.id)
+  })
+
+  it('does not lock a session to Feishu when the proactive send fails', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendTextMessage').mockRejectedValue(new Error('network down'))
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    await expect(bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '任务已完成'
+    })).rejects.toThrow('network down')
+
+    expect(session.source).toBe('manual')
+    expect(bridge.getSessionBinding(session.id)).toBe(null)
+    expect(bridge._targetSessionMap.get('ou_target')).toBeUndefined()
+    expect(manager.sessionDatabase.updateAgentConversation).not.toHaveBeenCalledWith(session.id, {
+      source: 'feishu'
+    })
+    expect(manager.sessionDatabase.updateDingTalkMetadata).not.toHaveBeenCalledWith(session.id, 'ou_target', '')
   })
 
   it('persists the proactive Feishu target identity when binding a normal session', async () => {
@@ -2578,6 +2711,57 @@ describe('FeishuBridge', () => {
     )
   })
 
+  it('ignores a stale pending choice when the Feishu user is proactively bound to a session', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const handleChoiceReply = vi.spyOn(bridge, '_handleChoiceReply').mockResolvedValue()
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    await bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_xxx',
+      displayName: '张三',
+      text: '任务已完成'
+    })
+
+    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+      sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
+      resolve: vi.fn(),
+      timer: setTimeout(() => {}, 1000),
+      options: {}
+    })
+    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+      message: { text: '旧的待处理消息', images: undefined },
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_stale_pending_bound_1',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      text: '这是新的回复'
+    })
+
+    expect(handleChoiceReply).not.toHaveBeenCalled()
+    expect(bridge._sessionMapper._pendingChoices.has('ou_xxx:oc_xxx')).toBe(false)
+    expect(bridge._pendingMessages.has('ou_xxx:oc_xxx')).toBe(false)
+    expect(bridge._sessionMapper.sessionMap.get('ou_xxx:oc_xxx')).toBe(session.id)
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '这是新的回复', images: undefined },
+      'ou_xxx',
+      'oc_xxx',
+      'p2p'
+    )
+  })
+
   it('reuses the original pending-choice mapKey when a history-choice card callback arrives with a different user id', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -2821,6 +3005,39 @@ describe('ImSessionMapper', () => {
     expect(listAllAgentConversations).toHaveBeenCalled()
     expect(result).toEqual([
       expect.objectContaining({ session_id: 'f-legacy-1' })
+    ])
+  })
+
+  it('includes proactively sent p2p Feishu sessions in history even before the first inbound reply fills chatId', async () => {
+    const getImSessionsByType = vi.fn(() => [])
+    const listAllAgentConversations = vi.fn(() => [
+      {
+        session_id: 'f-proactive-1',
+        type: 'chat',
+        source: 'feishu',
+        title: 'C (test2) deepseek计量',
+        conversation_id: '',
+        staff_id: 'ou_target',
+        updated_at: Date.now()
+      }
+    ])
+    const mapper = new ImSessionMapper({
+      agentSessionManager: { sessions: new Map() },
+      sessionDatabase: { getImSessionsByType, listAllAgentConversations },
+      imType: 'feishu',
+      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildSessionTitle: () => '飞书会话'
+    })
+
+    const result = await mapper._queryHistorySessions({
+      userId: 'ou_target',
+      chatId: 'oc_reply',
+      chatType: 'p2p'
+    })
+
+    expect(listAllAgentConversations).toHaveBeenCalled()
+    expect(result).toEqual([
+      expect.objectContaining({ session_id: 'f-proactive-1' })
     ])
   })
 

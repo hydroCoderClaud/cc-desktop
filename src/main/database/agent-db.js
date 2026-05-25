@@ -259,14 +259,15 @@ function withAgentOperations(BaseClass) {
 
     /**
      * 查询指定 IM 渠道特定用户+会话的历史对话列表
-     * 复用 staff_id / conversation_id 字段存储外部 IM 身份，但按 type 隔离渠道。
+     * 复用 staff_id / conversation_id 字段存储外部 IM 身份。
+     * 为兼容“普通 chat 会话后绑定 IM 渠道”的场景，按 type 或 source 任一命中即返回。
      */
     getImSessionsByType(type, staffId, conversationId, limit = 5) {
       return this.db.prepare(`
         SELECT * FROM agent_conversations
-        WHERE type = ? AND staff_id = ? AND conversation_id = ?
+        WHERE (type = ? OR source = ?) AND staff_id = ? AND conversation_id = ?
         ORDER BY updated_at DESC LIMIT ?
-      `).all(type, staffId, conversationId, limit)
+      `).all(type, type, staffId, conversationId, limit)
     }
 
     /**

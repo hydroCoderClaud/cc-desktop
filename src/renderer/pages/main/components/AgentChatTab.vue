@@ -95,6 +95,7 @@
       :show-api-profile-switcher="Boolean(props.sessionId)"
       :session-id="props.sessionId"
       :session-type="props.sessionType"
+      :session-source="props.sessionSource"
       :dingtalk-notify-api="props.dingtalkNotifyApi"
       :weixin-notify-api="weixinNotifyApi"
       :feishu-notify-api="feishuNotifyApi"
@@ -138,6 +139,10 @@ const props = defineProps({
   sessionType: {
     type: String,
     default: 'chat'  // 'chat' | 'dingtalk' | 'weixin'
+  },
+  sessionSource: {
+    type: String,
+    default: 'manual'
   },
   sessionCwd: {
     type: String,

@@ -24,6 +24,7 @@ describe('WeixinBridge', () => {
     const mainWindow = {
       isDestroyed: () => false,
       webContents: {
+        isDestroyed: () => false,
         send: (channel, data) => sent.push({ channel, data })
       }
     }
@@ -240,6 +241,47 @@ describe('WeixinBridge', () => {
       displayName: '雷斯林'
     })
     expect(bridge.sessionMap.get('acc-1:user-a')).toBe(secondSession.id)
+  })
+
+  it('locks a normal session to Weixin after first proactive bind', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+
+    expect(session.source).toBe('weixin')
+    expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
+      source: 'weixin'
+    })
+    expect(() => manager.bindSessionExternalImSource(session.id, 'feishu')).toThrow(/已绑定weixin渠道/)
+  })
+
+  it('emits session updated after first proactive Weixin bind', () => {
+    const { bridge, manager, sent } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    bridge.bindSessionToTarget(created.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+
+    expect(sent).toContainEqual({
+      channel: 'session:updated',
+      data: {
+        sessionId: created.id,
+        session: expect.objectContaining({
+          id: created.id,
+          type: 'chat',
+          source: 'weixin'
+        })
+      }
+    })
   })
 
   it('does not remove the newer route when unbinding an old session', () => {

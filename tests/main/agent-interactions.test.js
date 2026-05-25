@@ -6,6 +6,7 @@ vi.mock('uuid', () => ({ v4: () => 'interaction-uuid-fixed' }))
 
 const { AgentSessionManager } = await import('../../src/main/agent-session-manager.js')
 const { AgentSession } = await import('../../src/main/agent-session.js')
+const { getConversationIcon } = await import('../../src/shared/external-im-meta.js')
 const {
   DESKTOP_CAPABILITY_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
@@ -32,6 +33,7 @@ describe('AgentSessionManager interactions', () => {
     })
     vi.spyOn(manager, '_getDeveloperClaudeExecutablePath').mockReturnValue(FIXED_CLAUDE_EXE)
     manager.sessionDatabase = {
+      createAgentConversation: vi.fn(() => ({ id: 1 })),
       insertAgentMessage: vi.fn(),
       updateAgentMessageToolOutput: vi.fn(),
       updateAgentConversation: vi.fn(),
@@ -133,6 +135,79 @@ describe('AgentSessionManager interactions', () => {
     manager.sessions.clear()
     const reopened = manager.reopen('db-dt-1')
     expect(reopened.source).toBe('dingtalk')
+  })
+
+  it('assigns default title when creating a session with empty title', () => {
+    const { manager } = createManager()
+    const created = manager.create({ type: 'chat', title: '   ' })
+
+    expect(created.title).toBe('对话')
+    expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '对话'
+      })
+    )
+  })
+
+  it('matches IM history rows by source even when type remains chat', () => {
+    const rows = [
+      {
+        session_id: 'chat-fs-1',
+        type: 'chat',
+        source: 'feishu',
+        staff_id: 'ou_xxx',
+        conversation_id: 'oc_xxx',
+        updated_at: 100
+      },
+      {
+        session_id: 'chat-other-1',
+        type: 'chat',
+        source: 'weixin',
+        staff_id: 'ou_xxx',
+        conversation_id: 'oc_xxx',
+        updated_at: 200
+      }
+    ]
+
+    const filtered = rows.filter(row =>
+      (row.type === 'feishu' || row.source === 'feishu') &&
+      row.staff_id === 'ou_xxx' &&
+      row.conversation_id === 'oc_xxx'
+    )
+
+    expect(filtered).toEqual([
+      expect.objectContaining({
+        session_id: 'chat-fs-1',
+        type: 'chat',
+        source: 'feishu'
+      })
+    ])
+  })
+
+  it('uses IM icon for chat sessions bound by IM source', () => {
+    expect(getConversationIcon({ type: 'chat', source: 'feishu' })).toBe('feishu')
+    expect(getConversationIcon({ type: 'chat', source: 'weixin' })).toBe('weixin')
+    expect(getConversationIcon({ type: 'chat', source: 'dingtalk' })).toBe('dingtalk')
+  })
+
+  it('emits session updated when binding an IM source onto a normal chat session', () => {
+    const { manager, sent } = createManager()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    const updated = manager.bindSessionExternalImSource(created.id, 'feishu')
+
+    expect(updated.source).toBe('feishu')
+    expect(sent).toContainEqual({
+      channel: 'session:updated',
+      data: {
+        sessionId: created.id,
+        session: expect.objectContaining({
+          id: created.id,
+          type: 'chat',
+          source: 'feishu'
+        })
+      }
+    })
   })
 
   it('resolves permission request without mutating tool input', async () => {

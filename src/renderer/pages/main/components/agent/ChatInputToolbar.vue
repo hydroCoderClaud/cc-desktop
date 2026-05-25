@@ -292,6 +292,7 @@ const props = defineProps({
   isExpanded: { type: Boolean, default: false },
   sessionId: { type: String, default: null },
   sessionType: { type: String, default: 'chat' },
+  sessionSource: { type: String, default: 'manual' },
   draftText: { type: String, default: '' },
   dingtalkNotifyApi: {
     type: Object,
@@ -349,111 +350,38 @@ const feishuError = ref('')
 const feishuLoading = ref(false)
 const feishuSending = ref(false)
 
-const showDingTalkBtn = computed(() => Boolean(props.sessionId && (props.dingtalkNotifyApi || window.electronAPI)?.listDingTalkTargets))
+const resolvedImBindingSource = computed(() => {
+  const sessionType = typeof props.sessionType === 'string' ? props.sessionType.trim() : ''
+  if (sessionType === 'dingtalk' || sessionType === 'weixin' || sessionType === 'feishu') return sessionType
+  const sessionSource = typeof props.sessionSource === 'string' ? props.sessionSource.trim() : ''
+  if (sessionSource === 'dingtalk' || sessionSource === 'weixin' || sessionSource === 'feishu') return sessionSource
+  return null
+})
+
+const showDingTalkBtn = computed(() => {
+  if (!props.sessionId || !(props.dingtalkNotifyApi || window.electronAPI)?.listDingTalkTargets) return false
+  return !resolvedImBindingSource.value || resolvedImBindingSource.value === 'dingtalk'
+})
 const dingtalkBtnTitle = computed(() => t('agent.dingtalkQuickSendTitle'))
 const selectedDingTalkTarget = computed(() => dingtalkTargets.value.find(target => target.id === selectedDingTalkTargetId.value) || null)
 const canSendDingTalk = computed(() => Boolean(selectedDingTalkTarget.value && dingtalkText.value.trim()))
 const resolvedDingTalkNotifyApi = computed(() => props.dingtalkNotifyApi || window.electronAPI || null)
-const showWeixinBtn = computed(() => Boolean(props.sessionId && (props.weixinNotifyApi || window.electronAPI)?.listWeixinNotifyTargets))
+const showWeixinBtn = computed(() => {
+  if (!props.sessionId || !(props.weixinNotifyApi || window.electronAPI)?.listWeixinNotifyTargets) return false
+  return !resolvedImBindingSource.value || resolvedImBindingSource.value === 'weixin'
+})
 const weixinBtnTitle = computed(() => t('agent.weixinQuickSendTitle'))
 const selectedWeixinTarget = computed(() => weixinTargets.value.find(target => target.id === selectedWeixinTargetId.value) || null)
 const canSendWeixin = computed(() => Boolean(selectedWeixinTarget.value && weixinText.value.trim()))
 const resolvedWeixinNotifyApi = computed(() => props.weixinNotifyApi || window.electronAPI || null)
-const showFeishuBtn = computed(() => Boolean(props.sessionId && (props.feishuNotifyApi || window.electronAPI)?.listFeishuTargets))
+const showFeishuBtn = computed(() => {
+  if (!props.sessionId || !(props.feishuNotifyApi || window.electronAPI)?.listFeishuTargets) return false
+  return !resolvedImBindingSource.value || resolvedImBindingSource.value === 'feishu'
+})
 const feishuBtnTitle = computed(() => t('agent.feishuQuickSendTitle'))
 const selectedFeishuTarget = computed(() => feishuTargets.value.find(target => target.id === selectedFeishuTargetId.value) || null)
 const canSendFeishu = computed(() => Boolean(selectedFeishuTarget.value && feishuText.value.trim()))
 const resolvedFeishuNotifyApi = computed(() => props.feishuNotifyApi || window.electronAPI || null)
-
-const confirmPromise = (options) => new Promise(resolve => {
-  dialog.warning({
-    ...options,
-    positiveText: options.positiveText || t('common.confirm'),
-    negativeText: options.negativeText || t('common.cancel'),
-    onPositiveClick: () => resolve(true),
-    onNegativeClick: () => resolve(false),
-    onClose: () => resolve(false)
-  })
-})
-
-const shouldConfirmCrossImBinding = async (channel) => {
-  if (!props.sessionId) return true
-  const dingtalkApi = resolvedDingTalkNotifyApi.value
-  const weixinApi = resolvedWeixinNotifyApi.value
-  const feishuApi = resolvedFeishuNotifyApi.value
-  const [dingtalkBinding, weixinBinding, feishuBinding] = await Promise.all([
-    dingtalkApi?.getSessionDingTalkBinding ? dingtalkApi.getSessionDingTalkBinding(props.sessionId).catch(() => null) : null,
-    weixinApi?.getSessionWeixinBinding ? weixinApi.getSessionWeixinBinding(props.sessionId).catch(() => null) : null,
-    feishuApi?.getSessionFeishuBinding ? feishuApi.getSessionFeishuBinding(props.sessionId).catch(() => null) : null
-  ])
-
-  if (channel === 'dingtalk') {
-    if (dingtalkBinding) return true
-    if (weixinBinding) {
-      return confirmPromise({
-        title: t('agent.crossImBindingConfirmTitle'),
-        content: t('agent.crossImBindingConfirmContent', {
-          current: t('agent.weixinQuickSendTitle'),
-          next: t('agent.dingtalkQuickSendTitle')
-        })
-      })
-    }
-    if (feishuBinding) {
-      return confirmPromise({
-        title: t('agent.crossImBindingConfirmTitle'),
-        content: t('agent.crossImBindingConfirmContent', {
-          current: t('agent.feishuQuickSendTitle'),
-          next: t('agent.dingtalkQuickSendTitle')
-        })
-      })
-    }
-    return true
-  }
-
-  if (channel === 'weixin') {
-    if (weixinBinding) return true
-    if (dingtalkBinding) {
-      return confirmPromise({
-        title: t('agent.crossImBindingConfirmTitle'),
-        content: t('agent.crossImBindingConfirmContent', {
-          current: t('agent.dingtalkQuickSendTitle'),
-          next: t('agent.weixinQuickSendTitle')
-        })
-      })
-    }
-    if (!feishuBinding) return true
-    return confirmPromise({
-      title: t('agent.crossImBindingConfirmTitle'),
-      content: t('agent.crossImBindingConfirmContent', {
-        current: t('agent.feishuQuickSendTitle'),
-        next: t('agent.weixinQuickSendTitle')
-      })
-    })
-  }
-
-  if (channel === 'feishu') {
-    if (feishuBinding) return true
-    if (dingtalkBinding) {
-      return confirmPromise({
-        title: t('agent.crossImBindingConfirmTitle'),
-        content: t('agent.crossImBindingConfirmContent', {
-          current: t('agent.dingtalkQuickSendTitle'),
-          next: t('agent.feishuQuickSendTitle')
-        })
-      })
-    }
-    if (!weixinBinding) return true
-    return confirmPromise({
-      title: t('agent.crossImBindingConfirmTitle'),
-      content: t('agent.crossImBindingConfirmContent', {
-        current: t('agent.weixinQuickSendTitle'),
-        next: t('agent.feishuQuickSendTitle')
-      })
-    })
-  }
-
-  return true
-}
 
 const loadDingTalkTargets = async () => {
   const dingtalkApi = resolvedDingTalkNotifyApi.value
@@ -616,8 +544,6 @@ const sendDingTalkQuickMessage = async () => {
   dingtalkSending.value = true
   dingtalkError.value = ''
   try {
-    const confirmed = await shouldConfirmCrossImBinding('dingtalk')
-    if (!confirmed) return
     const target = selectedDingTalkTarget.value
     if (dingtalkApi?.bindSessionToDingTalkTarget) {
       const bindResult = await dingtalkApi.bindSessionToDingTalkTarget({
@@ -657,8 +583,6 @@ const sendWeixinQuickMessage = async () => {
   weixinSending.value = true
   weixinError.value = ''
   try {
-    const confirmed = await shouldConfirmCrossImBinding('weixin')
-    if (!confirmed) return
     const target = selectedWeixinTarget.value
     if (weixinApi?.bindSessionToWeixinTarget) {
       const bindResult = await weixinApi.bindSessionToWeixinTarget({
@@ -697,19 +621,7 @@ const sendFeishuQuickMessage = async () => {
   feishuSending.value = true
   feishuError.value = ''
   try {
-    const confirmed = await shouldConfirmCrossImBinding('feishu')
-    if (!confirmed) return
     const target = selectedFeishuTarget.value
-    if (feishuApi?.bindSessionToFeishuTarget) {
-      const bindResult = await feishuApi.bindSessionToFeishuTarget({
-        sessionId: props.sessionId,
-        openId: target.openId || target.id,
-        displayName: target.displayName || target.name || target.userId || target.id
-      })
-      if (bindResult?.error) {
-        throw new Error(bindResult.error)
-      }
-    }
     const result = await feishuApi.sendFeishuNotifyText({
       sessionId: props.sessionId,
       openId: target.openId || target.id,

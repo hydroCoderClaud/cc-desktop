@@ -78,6 +78,12 @@ npm run dev
    - 在 Agent / Notebook 聊天工具栏里直接发微信
    - 在定时任务中通过内置微信通知 MCP 主动推送结果
 
+### 使用飞书与钉钉
+
+1. 飞书：配置飞书应用后，可在飞书中直接发起对话，也可从桌面端主动发送给组织成员。
+2. 钉钉：配置钉钉应用、机器人能力、通讯录权限和 `robotCode` 后，可在钉钉中直接发起对话，也可从桌面端主动发送给组织成员。
+3. 三条 IM 通道的统一手工回归可参考 [IM-REGRESSION-CHECKLIST.zh.md](./user-guide/IM-REGRESSION-CHECKLIST.zh.md)。
+
 ---
 
 ## 快捷键
@@ -125,3 +131,4 @@ npm rebuild node-pty
 - 阅读 [API-CONFIG-GUIDE.zh.md](./user-guide/API-CONFIG-GUIDE.zh.md) 了解 API Profile 结构
 - 阅读 [WEIXIN-GUIDE.zh.md](./user-guide/WEIXIN-GUIDE.zh.md) 了解微信通知与双向聊天能力
 - 阅读 [DINGTALK-GUIDE.zh.md](./user-guide/DINGTALK-GUIDE.zh.md) 了解钉钉桥接能力
+- 阅读 [IM-REGRESSION-CHECKLIST.zh.md](./user-guide/IM-REGRESSION-CHECKLIST.zh.md) 执行三通统一回归测试

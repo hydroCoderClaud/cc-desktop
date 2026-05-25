@@ -270,6 +270,29 @@ class FeishuBridge {
       if (activeSessionId) {
         this._sessionMapper.clearPendingChoice(mapKey)
         this._pendingMessages.delete(mapKey)
+      } else if (chatType === 'p2p') {
+        const proactivelyBoundSessionId = await this._findBoundSessionIdBySenderId(senderId)
+        if (proactivelyBoundSessionId) {
+          this._sessionMapper.sessionMap.set(mapKey, proactivelyBoundSessionId)
+          this._sessionMapper.clearPendingChoice(mapKey)
+          this._pendingMessages.delete(mapKey)
+        } else if (typeof normalizedText === 'string' && normalizedText.trim()) {
+          await this._handleChoiceReply(
+            mapKey,
+            normalizedText,
+            {
+              userId: senderId,
+              chatId,
+              chatType,
+              nickname: resolvedNames.senderName || senderId,
+              chatName: resolvedNames.chatName || chatId,
+            },
+            senderId,
+            chatId,
+            chatType
+          )
+          return
+        }
       } else if (typeof normalizedText === 'string' && normalizedText.trim()) {
         await this._handleChoiceReply(
           mapKey,
@@ -1074,7 +1097,7 @@ class FeishuBridge {
 
     const previousSessionId = this._targetSessionMap.get(resolvedOpenId)
     if (previousSessionId && previousSessionId !== sessionId) {
-      this._clearSessionMapBindingsForSender(previousSessionId, resolvedOpenId)
+      this._clearP2PSessionMapBinding(previousSessionId, resolvedOpenId)
       const previousSessionTarget = this._sessionTargets.get(previousSessionId)
       if (previousSessionTarget?.openId) {
         this._targetSessionMap.delete(previousSessionTarget.openId)
@@ -1108,12 +1131,13 @@ class FeishuBridge {
     return { success: true, target }
   }
 
-  _clearSessionMapBindingsForSender(sessionId, senderId) {
+  _clearP2PSessionMapBinding(sessionId, senderId) {
     if (!sessionId || !senderId) return
-    for (const [key, sid] of this._sessionMapper.sessionMap.entries()) {
-      if (sid !== sessionId) continue
-      if (!String(key).startsWith(`${senderId}:`)) continue
-      this._sessionMapper.sessionMap.delete(key)
+    const identity = this._sessionIdentities.get(sessionId)
+    if (!identity || identity.chatType !== 'p2p' || !identity.chatId) return
+    const mapKey = this._sessionMapper.buildKey({ userId: senderId, chatId: identity.chatId })
+    if (this._sessionMapper.sessionMap.get(mapKey) === sessionId) {
+      this._sessionMapper.sessionMap.delete(mapKey)
     }
   }
 
@@ -1153,9 +1177,12 @@ class FeishuBridge {
       throw new Error('openId 不能为空')
     }
     if (sessionId) {
-      this.bindSessionToTarget(sessionId, { openId: resolvedOpenId, displayName })
+      this._agentSessionManager.assertSessionImBindingAllowed(sessionId, 'feishu')
     }
     const messageId = await this._api.sendTextMessage('open_id', resolvedOpenId, content)
+    if (sessionId) {
+      this.bindSessionToTarget(sessionId, { openId: resolvedOpenId, displayName })
+    }
     return { success: true, messageId, targetId: resolvedOpenId }
   }
 
@@ -1218,14 +1245,39 @@ class FeishuBridge {
   async _findBoundSessionIdBySenderId(senderId) {
     if (!senderId) return null
     const sessionId = this._targetSessionMap.get(senderId)
-    if (!sessionId) return null
-    const liveSession = this._agentSessionManager.sessions.get(sessionId)
-    if (liveSession) return sessionId
-    const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    if (row && row.status !== 'closed') return sessionId
-    this._targetSessionMap.delete(senderId)
-    this._sessionTargets.delete(sessionId)
-    return null
+    if (sessionId) {
+      const liveSession = this._agentSessionManager.sessions.get(sessionId)
+      if (liveSession) return sessionId
+      const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+      if (row && row.status !== 'closed') return sessionId
+      this._targetSessionMap.delete(senderId)
+      this._sessionTargets.delete(sessionId)
+    }
+
+    if (typeof this._sessionDatabase?.listAllAgentConversations !== 'function') {
+      return null
+    }
+
+    try {
+      const rows = this._sessionDatabase.listAllAgentConversations({
+        limit: Math.max(this.config?.maxHistorySessions || 5, 20)
+      })
+      const matched = Array.isArray(rows)
+        ? rows
+          .filter(row => row?.status !== 'closed')
+          .filter(row => row?.type === 'feishu' || row?.source === 'feishu')
+          .filter(row => row?.staff_id === senderId)
+          .filter(row => !row?.conversation_id)
+          .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
+        : null
+      if (!matched) return null
+      const fallbackSessionId = matched.session_id || matched.sessionId || matched.id || null
+      if (!fallbackSessionId) return null
+      this._targetSessionMap.set(senderId, fallbackSessionId)
+      return fallbackSessionId
+    } catch {
+      return null
+    }
   }
 
   _resolveHistoryChoiceContext({ userId, chatId, chatType, actionValue }) {

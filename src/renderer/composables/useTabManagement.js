@@ -289,6 +289,9 @@ export function useTabManagement() {
       if (agentSession.type) {
         existingTab.sessionType = agentSession.type
       }
+      if (agentSession.source) {
+        existingTab.sessionSource = agentSession.source
+      }
       existingTab.apiProfileId = agentSession.apiProfileId || null
       existingTab.modelId = agentSession.modelId || null
       existingTab.cwd = agentSession.cwd || existingTab.cwd || null
@@ -308,6 +311,7 @@ export function useTabManagement() {
       sessionId: agentSession.id,
       type: 'agent-chat',
       sessionType: agentSession.type || 'chat',  // 'chat' | 'dingtalk'
+      sessionSource: agentSession.source || 'manual',
       title: agentSession.title || t('agent.chat'),
       status: agentSession.status || 'idle',
       apiProfileId: agentSession.apiProfileId || null,

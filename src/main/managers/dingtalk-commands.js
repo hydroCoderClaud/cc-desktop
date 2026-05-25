@@ -83,7 +83,9 @@ module.exports = {
     const db = this.agentSessionManager.sessionDatabase
     if (!db || !conversationId) return '📭 没有历史会话记录'
     const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
-    const sessions = db.getDingTalkSessions(senderStaffId, conversationId, limit)
+    const sessions = db.getImSessionsByType
+      ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
+      : db.getDingTalkSessions(senderStaffId, conversationId, limit)
     if (!sessions || sessions.length === 0) return '📭 没有历史会话记录\n\n发送任意消息可开始新会话'
 
     // 直接指定编号 → 立即恢复
@@ -160,7 +162,8 @@ module.exports = {
     const db = this.agentSessionManager.sessionDatabase
 
     return allSessions.filter(s => {
-      if (s.type !== 'dingtalk' || !s.queryGenerator) return false
+      const belongsToDingTalk = s.type === 'dingtalk' || s.source === 'dingtalk'
+      if (!belongsToDingTalk || !s.queryGenerator) return false
       if (!conversationId) return true
 
       // 优先使用内存中的 meta.conversationId，如果没有则从数据库查询
