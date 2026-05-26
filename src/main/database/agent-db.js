@@ -274,7 +274,6 @@ function withAgentOperations(BaseClass) {
         WHERE (type = ? OR source = ?)
           AND (im_user_id = ? OR staff_id = ?)
           AND (im_channel_id = ? OR conversation_id = ?)
-          AND status != 'closed'
         ORDER BY updated_at DESC LIMIT ?
       `).all(imType, imType, userId, userId, channelId, channelId, limit)
     }
@@ -302,7 +301,6 @@ function withAgentOperations(BaseClass) {
         WHERE (type = ? OR source = ?)
           AND (im_user_id = ? OR staff_id = ?)
           AND (im_channel_id = ? OR conversation_id = ?)
-          AND status != 'closed'
         ORDER BY updated_at DESC LIMIT ?
       `).all(type, type, staffId, staffId, conversationId, conversationId, limit)
     }
