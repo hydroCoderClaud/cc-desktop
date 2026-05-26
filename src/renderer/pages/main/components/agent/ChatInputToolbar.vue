@@ -441,15 +441,25 @@ const loadWeixinTargets = async () => {
     if (targets?.error) {
       throw new Error(targets.error)
     }
-    weixinTargets.value = Array.isArray(targets)
+    const allTargets = Array.isArray(targets)
       ? targets.filter(target => target?.hasContextToken)
       : []
     weixinError.value = ''
     const bindingTargetId = binding?.targetId || null
-    if (bindingTargetId && weixinTargets.value.some(target => target.id === bindingTargetId)) {
-      selectedWeixinTargetId.value = bindingTargetId
-    } else if (!weixinTargets.value.some(target => target.id === selectedWeixinTargetId.value)) {
-      selectedWeixinTargetId.value = weixinTargets.value[0]?.id || null
+    if (bindingTargetId) {
+      const boundTarget = allTargets.find(target => target.id === bindingTargetId)
+        || {
+          id: bindingTargetId,
+          displayName: binding?.displayName || bindingTargetId,
+          name: binding?.displayName || bindingTargetId
+        }
+      weixinTargets.value = [boundTarget]
+      selectedWeixinTargetId.value = boundTarget.id
+    } else {
+      weixinTargets.value = allTargets
+      if (!weixinTargets.value.some(target => target.id === selectedWeixinTargetId.value)) {
+        selectedWeixinTargetId.value = weixinTargets.value[0]?.id || null
+      }
     }
   } catch (err) {
     console.error('[ChatInputToolbar] loadWeixinTargets error:', err)
