@@ -110,8 +110,8 @@ describe('WeixinBridge', () => {
     expect(manager.sessions.size).toBe(1)
 
     const session = Array.from(manager.sessions.values())[0]
-    expect(session.type).toBe('weixin')
-    expect(session.source).toBe('weixin')
+    expect(session.type).toBe('chat')
+    expect(session.imChannel).toBe('weixin')
     expect(session.title).toBe('微信 · 雷斯林')
     expect(session.messages).toHaveLength(1)
     expect(session.messages[0]).toMatchObject({
@@ -254,10 +254,9 @@ describe('WeixinBridge', () => {
       displayName: '雷斯林'
     })
 
-    expect(session.source).toBe('weixin')
+    expect(session.imChannel).toBe('weixin')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'weixin',
-      imChannel: 'weixin'
+            imChannel: 'weixin'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'feishu')).toThrow(/已绑定weixin渠道/)
   })
@@ -276,11 +275,10 @@ describe('WeixinBridge', () => {
       text: '任务已完成'
     })).rejects.toThrow(/send failed/)
 
-    expect(session.source).toBe('manual')
+    expect(session.imChannel).toBeNull()
     expect(bridge.getSessionBinding(session.id)).toBe(null)
     expect(manager.sessionDatabase.updateAgentConversation).not.toHaveBeenCalledWith(session.id, {
-      source: 'weixin',
-      imChannel: 'weixin'
+            imChannel: 'weixin'
     })
 
     await bridge.sendTextToTarget({
@@ -291,7 +289,7 @@ describe('WeixinBridge', () => {
       text: '任务已完成'
     })
 
-    expect(session.source).toBe('weixin')
+    expect(session.imChannel).toBe('weixin')
     expect(bridge.getSessionBinding(session.id)).toEqual({
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
@@ -316,7 +314,7 @@ describe('WeixinBridge', () => {
         session: expect.objectContaining({
           id: created.id,
           type: 'chat',
-          source: 'weixin'
+          imChannel: 'weixin'
         })
       }
     })
@@ -371,7 +369,7 @@ describe('WeixinBridge', () => {
 
   it('syncs desktop intervention in a Weixin session back to Weixin', async () => {
     const { bridge, manager, events } = createHarness()
-    const session = manager.create({ type: 'weixin', source: 'weixin', title: '微信 · 雷斯林' })
+    const session = manager.create({ type: 'weixin', source: 'im-inbound', title: '微信 · 雷斯林' })
 
     bridge.start()
     events.emit('sent', {
@@ -409,7 +407,7 @@ describe('WeixinBridge', () => {
 
   it('syncs desktop intervention images back to Weixin', async () => {
     const { bridge, manager, events } = createHarness()
-    const session = manager.create({ type: 'weixin', source: 'weixin', title: '微信 · 雷斯林' })
+    const session = manager.create({ type: 'weixin', source: 'im-inbound', title: '微信 · 雷斯林' })
     const images = [{ base64: Buffer.from('image').toString('base64'), mediaType: 'image/png' }]
 
     bridge.start()

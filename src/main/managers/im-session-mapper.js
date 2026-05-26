@@ -133,7 +133,7 @@ class ImSessionMapper {
             const shortConversationId = typeof conversationId === 'string' ? conversationId.substring(0, 8) : ''
             const shortStaffId = typeof staffId === 'string' ? staffId.substring(0, 8) : ''
             const extraRows = allRows
-              .filter(row => row?.type === this._imType || row?.source === this._imType)
+              .filter(row => row?.im_channel === this._imType)
               .filter((row) => {
                 if (row?.staff_id === staffId && row?.conversation_id === conversationId) return true
                 if (isDirectMessage && row?.staff_id === staffId && !row?.conversation_id) return true
@@ -209,8 +209,9 @@ class ImSessionMapper {
     const cwdSubDir = cwd ? undefined : this._imType
     try {
       const session = await this._agentSessionManager.create({
-        type: this._imType,
-        source: this._imType,
+        type: 'chat',
+        source: 'im-inbound',
+        imChannel: this._imType,
         title,
         cwd,
         cwdSubDir,

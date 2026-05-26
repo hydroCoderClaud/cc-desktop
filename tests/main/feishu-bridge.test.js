@@ -52,10 +52,11 @@ describe('FeishuBridge', () => {
       getAgentConversation: vi.fn((sessionId) => ({
         id: 1,
         session_id: sessionId,
-        type: 'feishu',
+        type: 'chat',
         title: '飞书历史会话',
         cwd: tempDir,
-        source: 'feishu',
+        source: 'im-inbound',
+        im_channel: 'feishu',
         status: 'idle',
         cwd_auto: 0,
         message_count: 0,
@@ -158,7 +159,8 @@ describe('FeishuBridge', () => {
       type: 'chat',
       title: '桌面会话',
       cwd: tempDir,
-      source: 'feishu',
+      source: 'im-inbound',
+      im_channel: 'feishu',
       status: 'idle',
       staff_id: 'ou_target',
       conversation_id: '',
@@ -173,7 +175,8 @@ describe('FeishuBridge', () => {
       {
         session_id: session.id,
         type: 'chat',
-        source: 'feishu',
+        source: 'im-inbound',
+        im_channel: 'feishu',
         title: '桌面会话',
         staff_id: 'ou_target',
         conversation_id: '',
@@ -343,9 +346,8 @@ describe('FeishuBridge', () => {
       text: '任务已完成'
     })
 
-    expect(session.source).toBe('feishu')
+    expect(session.imChannel).toBe('feishu')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'feishu',
       imChannel: 'feishu'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'weixin')).toThrow(/已绑定feishu渠道/)
@@ -424,7 +426,8 @@ describe('FeishuBridge', () => {
         ? {
             session_id: session.id,
             type: 'chat',
-            source: 'feishu',
+            source: 'im-inbound',
+            im_channel: 'feishu',
             title: '桌面会话',
             staff_id: 'ou_target',
             conversation_id: '',
@@ -465,7 +468,8 @@ describe('FeishuBridge', () => {
         ? {
             session_id: session.id,
             type: 'chat',
-            source: 'feishu',
+            source: 'im-inbound',
+            im_channel: 'feishu',
             title: '桌面会话',
             staff_id: 'ou_target',
             conversation_id: 'oc_reply',
@@ -503,7 +507,8 @@ describe('FeishuBridge', () => {
         ? {
             session_id: session.id,
             type: 'chat',
-            source: 'feishu',
+            source: 'im-inbound',
+            im_channel: 'feishu',
             title: '桌面会话',
             staff_id: 'ou_target',
             conversation_id: '',
@@ -1104,7 +1109,7 @@ describe('FeishuBridge', () => {
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
 
-    const created = manager.create({ type: 'feishu', source: 'feishu', title: '当前飞书会话', cwd: tempDir })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '当前飞书会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
     bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
@@ -1138,7 +1143,7 @@ describe('FeishuBridge', () => {
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
 
-    const created = manager.create({ type: 'feishu', source: 'feishu', title: '群聊会话', cwd: tempDir })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '群聊会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
     bridge._sessionMapper.sessionMap.set('ou_group:oc_group', session.id)
@@ -1639,7 +1644,7 @@ describe('FeishuBridge', () => {
 
     const session = Array.from(manager.sessions.values())[0]
     expect(session).toBeTruthy()
-    expect(session.type).toBe('feishu')
+    expect(session.type).toBe('chat')
     expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
@@ -2342,7 +2347,8 @@ describe('FeishuBridge', () => {
     const listAllAgentConversations = vi.fn(() => [
       {
         session_id: 'hist-legacy-1',
-        type: 'feishu',
+        type: 'chat',
+        im_channel: 'feishu',
         title: '飞书 · oc_xxx · ou_xxx',
         updated_at: Date.now() - 60 * 1000,
         staff_id: null,
@@ -2483,7 +2489,7 @@ describe('FeishuBridge', () => {
     vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
 
-    const created = manager.create({ type: 'feishu', source: 'feishu', title: '当前飞书会话', cwd: tempDir })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '当前飞书会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
     bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
@@ -2512,7 +2518,7 @@ describe('FeishuBridge', () => {
     vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
 
-    const created = manager.create({ type: 'chat', source: 'feishu', title: '普通会话已绑定飞书', cwd: tempDir })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '普通会话已绑定飞书', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
     bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
@@ -3305,7 +3311,8 @@ describe('ImSessionMapper', () => {
     const listAllAgentConversations = vi.fn(() => [
       {
         session_id: 'f-legacy-1',
-        type: 'feishu',
+        type: 'chat',
+        im_channel: 'feishu',
         title: '飞书 · oc_xxx · ',
         conversation_id: 'oc_xxx',
         staff_id: '',
@@ -3337,7 +3344,8 @@ describe('ImSessionMapper', () => {
       {
         session_id: 'f-proactive-1',
         type: 'chat',
-        source: 'feishu',
+        source: 'im-inbound',
+        im_channel: 'feishu',
         title: 'C (test2) deepseek计量',
         conversation_id: '',
         staff_id: 'ou_target',
@@ -3369,8 +3377,8 @@ describe('ImSessionMapper', () => {
     const getImSessionsByType = vi.fn(() => [
       {
         session_id: 'f-old-1',
-        type: 'feishu',
-        source: 'feishu',
+        type: 'chat',
+        im_channel: 'feishu',
         title: '旧会话',
         conversation_id: 'oc_reply',
         staff_id: 'ou_target',
@@ -3381,7 +3389,8 @@ describe('ImSessionMapper', () => {
       {
         session_id: 'f-proactive-1',
         type: 'chat',
-        source: 'feishu',
+        source: 'im-inbound',
+        im_channel: 'feishu',
         title: '桌面主动会话',
         conversation_id: '',
         staff_id: 'ou_target',
@@ -3389,8 +3398,8 @@ describe('ImSessionMapper', () => {
       },
       {
         session_id: 'f-old-1',
-        type: 'feishu',
-        source: 'feishu',
+        type: 'chat',
+        im_channel: 'feishu',
         title: '旧会话',
         conversation_id: 'oc_reply',
         staff_id: 'ou_target',
@@ -3419,7 +3428,8 @@ describe('ImSessionMapper', () => {
     const listAllAgentConversations = vi.fn(() => [
       {
         session_id: 'f-legacy-1',
-        type: 'feishu',
+        type: 'chat',
+        im_channel: 'feishu',
         title: '飞书 · oc_xxx · ',
         conversation_id: 'oc_xxx',
         staff_id: '',

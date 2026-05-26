@@ -44,7 +44,7 @@
         >
           <div class="conv-info">
             <button
-              v-if="getConversationSource(conv) === 'scheduled' && conv.taskId"
+              v-if="conv.taskId"
               class="conv-icon-btn"
               :title="t('rightPanel.tabs.scheduledTasks')"
               @click.stop="openScheduledTaskManager({ taskId: conv.taskId })"

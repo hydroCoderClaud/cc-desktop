@@ -133,7 +133,7 @@ function getDisplayLocale(scheduledTaskService) {
 
 function shouldAllowScheduleToolsForSession(scheduledTaskService, session) {
   if (!scheduledTaskService) return false
-  if (session?.source !== 'scheduled') return true
+  if (!session?.taskId) return true
 
   return scheduledTaskService?.configManager?.getConfig?.()?.settings?.agent?.allowScheduledSessionScheduleTools !== false
 }

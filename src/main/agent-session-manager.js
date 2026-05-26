@@ -36,7 +36,7 @@ const {
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|tiff|svg)$/i
 const IMAGE_PATH_HINT_HEADER = '图片已保存到以下路径，可使用 Read 或其他文件工具查看：'
-const EXTERNAL_IM_SOURCE_SET = new Set(['weixin', 'feishu', 'dingtalk'])
+const EXTERNAL_IM_CHANNEL_SET = new Set(['dingtalk', 'weixin', 'feishu', 'enterprise-weixin'])
 
 const HYDRO_IDENTITY_SYSTEM_PROMPT = [
   'Present yourself to end users as Hydro Desktop AI, an AI personal desktop assistant developed by Zhishui Workshop.',
@@ -62,15 +62,8 @@ function _loadExternalImMeta() {
   return _externalImMeta
 }
 
-function resolveConversationSource(type, source) {
-  const { isExternalImType } = _loadExternalImMeta()
-  if (isExternalImType(type)) return type
-  if (source) return source
-  return 'manual'
-}
-
-function isExternalImSource(source) {
-  return typeof source === 'string' && EXTERNAL_IM_SOURCE_SET.has(source)
+function isExternalImChannel(channel) {
+  return typeof channel === 'string' && EXTERNAL_IM_CHANNEL_SET.has(channel)
 }
 
 function normalizeModelValue(value) {
@@ -711,11 +704,6 @@ class AgentSessionManager extends EventEmitter {
 
     const initialModelId = normalizeModelIdOrNull(options.modelId || profile?.selectedModelId)
     const initialTitle = resolveInitialSessionTitle(this.configManager, options.title)
-    const imChannel = options.imChannel
-      || (EXTERNAL_IM_SOURCE_SET.has(options.type) ? options.type : null)
-      || (EXTERNAL_IM_SOURCE_SET.has(options.source) ? options.source : null)
-      || null
-
     const session = new AgentSession({
       type: options.type,
       title: initialTitle,
@@ -723,8 +711,8 @@ class AgentSessionManager extends EventEmitter {
       apiProfileId: profile?.id || null,
       apiBaseUrl: profile?.baseUrl || null,
       modelId: initialModelId,
-      source: resolveConversationSource(options.type, options.source),
-      imChannel,
+      source: options.source || 'manual',
+      imChannel: options.imChannel || null,
       taskId: options.taskId || null,
       meta: options.meta || {},
       ownerClientId: options.ownerClientId,
@@ -1048,7 +1036,7 @@ class AgentSessionManager extends EventEmitter {
         type: row.type,
         title: row.title || '',
         cwd: row.cwd,
-        source: resolveConversationSource(row.type, row.source),
+        source: row.source || 'manual',
         imChannel: row.im_channel || null,
         taskId: row.task_id || null,
         ownerClientId: row.owner_client_id || 'host-ui',
@@ -1216,6 +1204,7 @@ class AgentSessionManager extends EventEmitter {
     this.emit('userMessage', {
       sessionId: session.id,
       sessionType: session.type,
+      imChannel: session.imChannel,
       content: displayContent,
       images: imageData || null,
       source: meta?.source || null
@@ -1709,7 +1698,7 @@ class AgentSessionManager extends EventEmitter {
       .find(msg => msg.role === 'tool' && !msg.output)
   }
 
-  assertSessionImBindingAllowed(sessionId, targetSource) {
+  assertSessionImBindingAllowed(sessionId, targetChannel) {
     const session = this.sessions.get(sessionId)
       || this.reopen(sessionId)
       || this.sessions.get(sessionId)
@@ -1717,46 +1706,32 @@ class AgentSessionManager extends EventEmitter {
       throw new Error(`Session ${sessionId} not found`)
     }
 
-    const normalizedTargetSource = typeof targetSource === 'string' ? targetSource.trim() : ''
-    if (!isExternalImSource(normalizedTargetSource)) {
-      throw new Error(`Unsupported IM source: ${targetSource}`)
+    const channel = typeof targetChannel === 'string' ? targetChannel.trim() : ''
+    if (!isExternalImChannel(channel)) {
+      throw new Error(`Unsupported IM channel: ${targetChannel}`)
     }
 
-    if (session.imChannel === normalizedTargetSource) {
-      return session
-    }
-
-    if (session.type === normalizedTargetSource || session.source === normalizedTargetSource) {
+    if (session.imChannel === channel) {
       return session
     }
 
     if (session.imChannel) {
-      throw new Error(`当前会话已绑定${session.imChannel}渠道，不能再绑定${normalizedTargetSource}`)
-    }
-
-    if (isExternalImSource(session.type)) {
-      throw new Error(`当前会话属于${session.type}渠道，不能再绑定${normalizedTargetSource}`)
-    }
-
-    if (isExternalImSource(session.source) && session.source !== normalizedTargetSource) {
-      throw new Error(`当前会话已绑定${session.source}渠道，不能再绑定${normalizedTargetSource}`)
+      throw new Error(`当前会话已绑定${session.imChannel}渠道，不能再绑定${channel}`)
     }
 
     return session
   }
 
-  bindSessionExternalImSource(sessionId, source) {
-    const session = this.assertSessionImBindingAllowed(sessionId, source)
-    if (session.imChannel === source) return this._serializeSession(session)
+  bindSessionExternalImSource(sessionId, channel) {
+    const session = this.assertSessionImBindingAllowed(sessionId, channel)
+    if (session.imChannel === channel) return this._serializeSession(session)
 
-    session.source = source
-    session.imChannel = source
+    session.imChannel = channel
     session.updatedAt = new Date()
 
     if (this.sessionDatabase?.updateAgentConversation) {
       this.sessionDatabase.updateAgentConversation(session.id, {
-        source: session.source,
-        imChannel: source
+        imChannel: channel
       })
     }
 
@@ -2377,7 +2352,7 @@ class AgentSessionManager extends EventEmitter {
             apiProfileId: row.api_profile_id || null,
             apiBaseUrl: row.api_base_url || null,
             modelId: normalizeModelIdOrNull(row.model_id),
-            source: resolveConversationSource(row.type, row.source),
+            source: row.source || 'manual',
             imChannel: row.im_channel || null,
             taskId: row.task_id || null
           })

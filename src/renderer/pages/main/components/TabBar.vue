@@ -20,7 +20,7 @@
         @click="selectTab(tab)"
       >
         <span class="tab-icon" :class="[tab.status, tab.type]">
-          <Icon :name="getStatusIconName(tab.status, tab.type, tab.sessionType, tab.sessionSource)" :size="12" />
+          <Icon :name="getStatusIconName(tab.status, tab.type, tab.sessionType, tab.sessionSource, tab.imChannel)" :size="12" />
         </span>
         <span class="tab-name" :title="tab.title || tab.projectPath">
           {{ tab.title || tab.projectName || 'Session' }}
@@ -59,7 +59,7 @@
 import Icon from '@components/icons/Icon.vue'
 import { SessionStatus, SessionType } from '@composables/useSessionUtils'
 import { useLocale } from '@composables/useLocale'
-import { isExternalImType } from '@shared/external-im-meta'
+import { isExternalImChannel } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 
@@ -107,7 +107,7 @@ const closeTab = (tab) => {
 }
 
 // 根据状态获取图标名称
-const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '', sessionSource = '') => {
+const getStatusIconName = (status, type = SessionType.SESSION, _sessionType = '', _sessionSource = '', imChannel = '') => {
   // 纯终端使用终端图标
   if (type === SessionType.TERMINAL) {
     switch (status) {
@@ -127,11 +127,8 @@ const getStatusIconName = (status, type = SessionType.SESSION, sessionType = '',
   // Agent 对话图标
   if (type === SessionType.AGENT_CHAT) {
     // 外部 IM 会话使用各渠道图标
-    if (sessionType && isExternalImType(sessionType)) {
-      return status === SessionStatus.ERROR ? 'xCircle' : sessionType
-    }
-    if (sessionSource && isExternalImType(sessionSource)) {
-      return status === SessionStatus.ERROR ? 'xCircle' : sessionSource
+    if (imChannel && isExternalImChannel(imChannel)) {
+      return status === SessionStatus.ERROR ? 'xCircle' : imChannel
     }
     switch (status) {
       case SessionStatus.RUNNING:

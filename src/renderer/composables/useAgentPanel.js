@@ -3,7 +3,7 @@
  * 管理 Agent 对话列表、创建、删除等操作
  */
 import { ref, computed, watch } from 'vue'
-import { getConversationSource } from '@shared/external-im-meta'
+import { getSessionImChannel, getConversationSource } from '@shared/external-im-meta'
 
 // 模块级别的已关闭会话集合（跨组件共享）
 // 用于在队列自动消费前检查会话是否已关闭
@@ -178,7 +178,7 @@ export function useAgentPanel() {
 
   const sourceFilteredConversations = computed(() => {
     return conversations.value.filter(conv => {
-      return selectedSource.value === 'all' || getConversationSource(conv) === selectedSource.value
+      return selectedSource.value === 'all' || getSessionImChannel(conv) === selectedSource.value || getConversationSource(conv) === selectedSource.value
     })
   })
 

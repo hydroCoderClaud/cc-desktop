@@ -101,10 +101,10 @@ class DingTalkBridge {
 
     // 保存 listener 引用，destroy 时精确移除
     this._listeners = {
-      userMessage: ({ sessionId, sessionType, content, images, source }) => {
-        // 非钉钉来源 + 钉钉类型会话 → CC 桌面介入，同步给钉钉
+      userMessage: ({ sessionId, imChannel, content, images, source }) => {
+        // 非 IM 来源 + 钉钉会话 → CC 桌面介入，同步给钉钉
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'dingtalk' && (sessionType === 'dingtalk' || hasBinding)) {
+        if (source !== 'im-inbound' && (imChannel === 'dingtalk' || hasBinding)) {
           try { this.onUserMessage(sessionId, content, images) } catch (e) {
             console.error('[DingTalk] onUserMessage threw:', e)
           }
@@ -654,8 +654,9 @@ class DingTalkBridge {
       : `钉钉 · ${nickname || staffId}`
 
     const session = this.agentSessionManager.create({
-      type: 'dingtalk',
-      source: 'dingtalk',
+      type: 'chat',
+      source: 'im-inbound',
+      imChannel: 'dingtalk',
       title,
       cwd: cwd || undefined,
       cwdSubDir: cwd ? undefined : 'dingtalk',
@@ -848,7 +849,7 @@ class DingTalkBridge {
     const matched = Array.isArray(rows)
       ? rows
         .filter(row => row?.status !== 'closed')
-        .filter(row => row?.type === 'dingtalk' || row?.source === 'dingtalk')
+        .filter(row => row?.im_channel === 'dingtalk')
         .filter(row => row?.staff_id === normalizedStaffId)
         .filter(row => !row?.conversation_id)
         .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
@@ -873,7 +874,7 @@ class DingTalkBridge {
     if (!target) {
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
       const staffId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
-      if (!staffId || row?.status === 'closed' || !(row?.type === 'dingtalk' || row?.source === 'dingtalk')) return null
+      if (!staffId || row?.status === 'closed' || row?.im_channel !== 'dingtalk') return null
       const restoredTarget = {
         staffId,
         displayName: staffId

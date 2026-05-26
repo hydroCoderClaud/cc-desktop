@@ -136,7 +136,7 @@ describe('desktop capability query options', () => {
       ...serviceOverrides
     }
     const options = await buildDesktopCapabilityQueryOptions({
-      scheduledTaskService: session.source === 'scheduled' ? null : {
+      scheduledTaskService: session.taskId ? null : {
         configManager: { getConfig: () => ({ settings: { locale: 'zh-CN' } }) },
         listTasks: vi.fn(() => [])
       },
@@ -400,7 +400,7 @@ describe('desktop capability query options', () => {
 
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService,
-      session: { id: 'scheduled-session-1', source: 'scheduled' }
+      session: { id: 'scheduled-session-1', taskId: 1 }
     })
 
     const tools = Object.fromEntries(
@@ -435,7 +435,7 @@ describe('desktop capability query options', () => {
 
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService,
-      session: { id: 'scheduled-session-current-1', source: 'scheduled' }
+      session: { id: 'scheduled-session-current-1', taskId: 1 }
     })
 
     const tools = Object.fromEntries(
@@ -473,7 +473,7 @@ describe('desktop capability query options', () => {
 
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService,
-      session: { id: 'scheduled-session-2', source: 'scheduled' }
+      session: { id: 'scheduled-session-2', taskId: 1 }
     })
 
     expect(options).toEqual({})
@@ -659,7 +659,7 @@ describe('desktop capability query options', () => {
 
   it('keeps scheduled source sessions limited to weixin notification tools', async () => {
     const { options, tools } = await createOptionsWithWeixin({
-      session: { source: 'scheduled' }
+      session: { taskId: 1 }
     })
 
     expect(Object.keys(tools)).toEqual([

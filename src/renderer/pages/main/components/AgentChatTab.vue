@@ -68,9 +68,9 @@
     </div>
 
     <!-- 提示条：根据会话状态显示不同提示 -->
-    <div v-if="isExternalImType(sessionType)" class="dingtalk-observe-bar">
-      <Icon :name="getExternalImMeta(sessionType)?.icon" :size="14" />
-      <span>{{ t(getExternalImMeta(sessionType)?.observeKey) }}</span>
+    <div v-if="isExternalImChannel(sessionImChannel)" class="dingtalk-observe-bar">
+      <Icon :name="getExternalImMeta(sessionImChannel)?.icon" :size="14" />
+      <span>{{ t(getExternalImMeta(sessionImChannel)?.observeKey) }}</span>
     </div>
     <div v-else-if="!hasActiveSession" class="status-hint-bar">
       <Icon name="info" :size="14" />
@@ -96,6 +96,7 @@
       :session-id="props.sessionId"
       :session-type="props.sessionType"
       :session-source="props.sessionSource"
+      :session-im-channel="props.sessionImChannel || null"
       :dingtalk-notify-api="props.dingtalkNotifyApi"
       :weixin-notify-api="weixinNotifyApi"
       :feishu-notify-api="feishuNotifyApi"
@@ -125,7 +126,7 @@ import ScheduledTaskDraftCard from './agent/ScheduledTaskDraftCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
 import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
-import { isExternalImType, getExternalImMeta } from '@shared/external-im-meta'
+import { isExternalImChannel, getExternalImMeta } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const message = useMessage()
@@ -138,11 +139,15 @@ const props = defineProps({
   },
   sessionType: {
     type: String,
-    default: 'chat'  // 'chat' | 'dingtalk' | 'weixin'
+    default: 'chat'
   },
   sessionSource: {
     type: String,
     default: 'manual'
+  },
+  sessionImChannel: {
+    type: String,
+    default: null
   },
   sessionCwd: {
     type: String,
@@ -216,7 +221,7 @@ const {
   initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId, {
-  enableSlashCommands: !isExternalImType(props.sessionType),
+  enableSlashCommands: !isExternalImChannel(props.sessionImChannel),
   sessionCwd: props.sessionCwd,
   apiProfileId: props.apiProfileId,
   agentApi: props.agentApi,
@@ -225,7 +230,7 @@ const {
   }
 })
 
-const isExternalObserveSession = computed(() => isExternalImType(props.sessionType))
+const isExternalObserveSession = computed(() => isExternalImChannel(props.sessionImChannel))
 
 // 消息队列开关（从配置读取）
 const queueEnabled = ref(true)

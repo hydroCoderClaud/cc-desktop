@@ -352,7 +352,7 @@ class EnterpriseWeixinBridge {
     // 检查会话是否属于企业微信
     const session = this._agentSessionManager.sessions.get(sessionId)
     if (!session) return false
-    return session.type === this._imType || session.source === this._imType
+    return session.imChannel === this._imType
   }
 
   // ─── 消息队列 ───

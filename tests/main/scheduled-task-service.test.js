@@ -601,11 +601,9 @@ describe('ScheduledTaskService', () => {
       sessionId: 'chat-session-1'
     }))
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('chat-session-1', {
-      source: 'scheduled',
       taskId: 41
     })
     expect(agentSessionManager.sessions.get('chat-session-1')).toMatchObject({
-      source: 'scheduled',
       taskId: 41,
       meta: {
         scheduledTaskId: 41
@@ -686,7 +684,6 @@ describe('ScheduledTaskService', () => {
     expect(agentSessionManager.create).not.toHaveBeenCalled()
     expect(created.sessionId).toBe('embedded-session-1')
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('embedded-session-1', {
-      source: 'scheduled',
       taskId: 42,
       ownerClientId: 'embed:hydrology-workbench',
       clientType: 'embedded',
@@ -695,7 +692,7 @@ describe('ScheduledTaskService', () => {
         component: 'EmbeddedAgentPanel'
       }
     })
-    expect(liveSession.source).toBe('scheduled')
+    expect(liveSession.taskId).toBe(42)
     expect(liveSession.taskId).toBe(42)
     expect(liveSession.meta.scheduledTaskId).toBe(42)
     expect(taskState.runtimeState).toEqual({
@@ -816,10 +813,9 @@ describe('ScheduledTaskService', () => {
 
       expect(agentSessionManager.create).not.toHaveBeenCalled()
       expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('chat-session-2', {
-        source: 'scheduled',
         taskId: taskState.id
       })
-      expect(liveSession.source).toBe('scheduled')
+      expect(liveSession.taskId).toBe(taskState.id)
       expect(liveSession.taskId).toBe(taskState.id)
       expect(liveSession.meta.scheduledTaskId).toBe(taskState.id)
       expect(agentSessionManager.sendMessage).toHaveBeenCalledWith(
@@ -909,7 +905,6 @@ describe('ScheduledTaskService', () => {
 
       expect(agentSessionManager.create).not.toHaveBeenCalled()
       expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('embedded-session-77', {
-        source: 'scheduled',
         taskId: taskState.id,
         clientType: 'embedded',
         clientMeta: {
@@ -917,7 +912,7 @@ describe('ScheduledTaskService', () => {
           component: 'EmbeddedAgentPanel'
         }
       })
-      expect(liveSession.source).toBe('scheduled')
+      expect(liveSession.taskId).toBe(taskState.id)
       expect(liveSession.taskId).toBe(taskState.id)
       expect(liveSession.meta.scheduledTaskId).toBe(taskState.id)
       expect(agentSessionManager.sendMessage).toHaveBeenCalledWith(
@@ -984,7 +979,6 @@ describe('ScheduledTaskService', () => {
         type: 'chat',
         title: '丢失会话后重建',
         cwdSubDir: 'scheduled',
-        source: 'scheduled',
         taskId: 178
       }))
       expect(taskState.sessionId).toBe('recreated-session-1')
@@ -1278,10 +1272,8 @@ describe('ScheduledTaskService', () => {
     service._detachTaskSession(currentTask)
 
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('shared-session-1', {
-      source: 'scheduled',
       taskId: 82
     })
-    expect(liveSession.source).toBe('scheduled')
     expect(liveSession.taskId).toBe(82)
     expect(liveSession.meta.scheduledTaskId).toBe(82)
   })
@@ -1613,10 +1605,8 @@ describe('ScheduledTaskService', () => {
     service._handleAgentResult(currentTask.sessionId)
 
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(currentTask.sessionId, {
-      source: 'manual',
       taskId: null
     })
-    expect(liveSession.source).toBe('manual')
     expect(liveSession.taskId).toBeNull()
     expect(liveSession.meta.scheduledTaskId).toBeUndefined()
     expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, expect.objectContaining({
@@ -1731,13 +1721,11 @@ describe('ScheduledTaskService', () => {
     })
 
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(currentTask.sessionId, {
-      source: 'manual',
       taskId: null
     })
     expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, expect.objectContaining({
       sessionId: null
     }))
-    expect(liveSession.source).toBe('manual')
     expect(liveSession.taskId).toBeNull()
     expect(liveSession.meta.scheduledTaskId).toBeUndefined()
     expect(rename).not.toHaveBeenCalled()
@@ -1789,7 +1777,6 @@ describe('ScheduledTaskService', () => {
     expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(currentTask.id, expect.objectContaining({
       nextRunAt: 1234567890
     }))
-    expect(liveSession.source).toBe('scheduled')
     expect(liveSession.taskId).toBe(82)
     expect(liveSession.meta.scheduledTaskId).toBe(82)
     expect(rename).toHaveBeenCalledWith(currentTask.sessionId, '配置切换任务（新）')
@@ -1830,11 +1817,9 @@ describe('ScheduledTaskService', () => {
 
     expect(result).toEqual({ success: true })
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(currentTask.sessionId, {
-      source: 'manual',
       taskId: null
     })
     expect(sessionDatabase.deleteScheduledTask).toHaveBeenCalledWith(currentTask.id)
-    expect(liveSession.source).toBe('manual')
     expect(liveSession.taskId).toBeNull()
     expect(liveSession.meta.scheduledTaskId).toBeUndefined()
   })
@@ -1889,10 +1874,8 @@ describe('ScheduledTaskService', () => {
       sessionId: deletedTask.sessionId
     })
     expect(sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(deletedTask.sessionId, {
-      source: 'scheduled',
       taskId: 119
     })
-    expect(liveSession.source).toBe('scheduled')
     expect(liveSession.taskId).toBe(119)
     expect(liveSession.meta.scheduledTaskId).toBe(119)
   })

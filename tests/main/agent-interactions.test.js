@@ -115,11 +115,12 @@ describe('AgentSessionManager interactions', () => {
       getAgentConversation: vi.fn(() => ({
         id: 1,
         session_id: 'db-dt-1',
-        type: 'dingtalk',
+        type: 'chat',
         title: '钉钉会话',
         cwd: 'C:/tmp',
         source: null,
         task_id: null,
+        im_channel: 'dingtalk',
         cwd_auto: 0,
         message_count: 0,
         total_cost_usd: 0,
@@ -130,12 +131,12 @@ describe('AgentSessionManager interactions', () => {
       updateAgentConversation: vi.fn()
     }
 
-    const created = manager.create({ type: 'dingtalk', title: '新钉钉会话' })
-    expect(created.source).toBe('dingtalk')
+    const created = manager.create({ type: 'chat', imChannel: 'dingtalk', title: '新钉钉会话' })
+    expect(created.imChannel).toBe('dingtalk')
 
     manager.sessions.clear()
     const reopened = manager.reopen('db-dt-1')
-    expect(reopened.source).toBe('dingtalk')
+    expect(reopened.imChannel).toBe('dingtalk')
   })
 
   it('assigns default title when creating a session with empty title', () => {
@@ -150,12 +151,13 @@ describe('AgentSessionManager interactions', () => {
     )
   })
 
-  it('matches IM history rows by source even when type remains chat', () => {
+  it('matches IM history rows by imChannel even when type remains chat', () => {
     const rows = [
       {
         session_id: 'chat-fs-1',
         type: 'chat',
-        source: 'feishu',
+        source: 'im-inbound',
+        im_channel: 'feishu',
         staff_id: 'ou_xxx',
         conversation_id: 'oc_xxx',
         updated_at: 100
@@ -163,7 +165,8 @@ describe('AgentSessionManager interactions', () => {
       {
         session_id: 'chat-other-1',
         type: 'chat',
-        source: 'weixin',
+        source: 'im-inbound',
+        im_channel: 'weixin',
         staff_id: 'ou_xxx',
         conversation_id: 'oc_xxx',
         updated_at: 200
@@ -171,7 +174,7 @@ describe('AgentSessionManager interactions', () => {
     ]
 
     const filtered = rows.filter(row =>
-      (row.type === 'feishu' || row.source === 'feishu') &&
+      row.im_channel === 'feishu' &&
       row.staff_id === 'ou_xxx' &&
       row.conversation_id === 'oc_xxx'
     )
@@ -180,24 +183,24 @@ describe('AgentSessionManager interactions', () => {
       expect.objectContaining({
         session_id: 'chat-fs-1',
         type: 'chat',
-        source: 'feishu'
+        im_channel: 'feishu'
       })
     ])
   })
 
-  it('uses IM icon for chat sessions bound by IM source', () => {
-    expect(getConversationIcon({ type: 'chat', source: 'feishu' })).toBe('feishu')
-    expect(getConversationIcon({ type: 'chat', source: 'weixin' })).toBe('weixin')
-    expect(getConversationIcon({ type: 'chat', source: 'dingtalk' })).toBe('dingtalk')
+  it('uses IM icon for chat sessions bound by IM channel', () => {
+    expect(getConversationIcon({ imChannel: 'feishu' })).toBe('feishu')
+    expect(getConversationIcon({ imChannel: 'weixin' })).toBe('weixin')
+    expect(getConversationIcon({ imChannel: 'dingtalk' })).toBe('dingtalk')
   })
 
-  it('emits session updated when binding an IM source onto a normal chat session', () => {
+  it('emits session updated when binding an IM channel onto a normal chat session', () => {
     const { manager, sent } = createManager()
     const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
 
     const updated = manager.bindSessionExternalImSource(created.id, 'feishu')
 
-    expect(updated.source).toBe('feishu')
+    expect(updated.imChannel).toBe('feishu')
     expect(sent).toContainEqual({
       channel: 'session:updated',
       data: {
@@ -205,7 +208,8 @@ describe('AgentSessionManager interactions', () => {
         session: expect.objectContaining({
           id: created.id,
           type: 'chat',
-          source: 'feishu'
+          source: 'manual',
+          imChannel: 'feishu'
         })
       }
     })
@@ -1719,7 +1723,7 @@ describe('AgentSessionManager interactions', () => {
 
   it('injects scheduled-task MCP tools for scheduled source sessions by default', async () => {
     const { manager } = createManager()
-    const session = new AgentSession({ id: 'scheduled-session', cwd: '/tmp', source: 'scheduled' })
+    const session = new AgentSession({ id: 'scheduled-session', cwd: '/tmp', taskId: 1 })
     session.dbConversationId = 1
     manager.sessions.set(session.id, session)
     manager.scheduledTaskService = {

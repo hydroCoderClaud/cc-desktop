@@ -667,7 +667,6 @@ class ScheduledTaskService {
         title: task.name,
         cwd: task.cwd || undefined,
         cwdSubDir: task.cwd ? undefined : 'scheduled',
-        source: 'scheduled',
         taskId: task.id,
         meta: { scheduledTaskId: task.id }
       })
@@ -789,8 +788,7 @@ class ScheduledTaskService {
 
     try {
       this.sessionDatabase.updateAgentConversation(task.sessionId, {
-        source: reboundTaskId ? 'scheduled' : 'manual',
-        taskId: reboundTaskId
+        taskId: reboundTaskId || null
       })
     } catch (err) {
       console.error(`[ScheduledTask] Failed to detach session for task ${task.id}:`, err)
@@ -799,8 +797,7 @@ class ScheduledTaskService {
 
     const liveSession = this._getLiveSession(task.sessionId)
     if (liveSession) {
-      liveSession.source = reboundTaskId ? 'scheduled' : 'manual'
-      liveSession.taskId = reboundTaskId
+      liveSession.taskId = reboundTaskId || null
       if (reboundTaskId) {
         liveSession.meta = {
           ...(liveSession.meta || {}),
@@ -817,7 +814,6 @@ class ScheduledTaskService {
 
     const liveSession = this._getLiveSession(sessionId)
     if (liveSession) {
-      liveSession.source = 'scheduled'
       liveSession.taskId = taskId
       liveSession.meta = {
         ...(liveSession.meta || {}),
@@ -828,7 +824,6 @@ class ScheduledTaskService {
     if (!this.sessionDatabase?.updateAgentConversation) return
 
     const persistedUpdates = {
-      source: 'scheduled',
       taskId
     }
     if (liveSession?.ownerClientId) {

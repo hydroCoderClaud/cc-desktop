@@ -293,6 +293,7 @@ const props = defineProps({
   sessionId: { type: String, default: null },
   sessionType: { type: String, default: 'chat' },
   sessionSource: { type: String, default: 'manual' },
+  sessionImChannel: { type: String, default: null },
   draftText: { type: String, default: '' },
   dingtalkNotifyApi: {
     type: Object,
@@ -351,11 +352,7 @@ const feishuLoading = ref(false)
 const feishuSending = ref(false)
 
 const resolvedImBindingSource = computed(() => {
-  const sessionType = typeof props.sessionType === 'string' ? props.sessionType.trim() : ''
-  if (sessionType === 'dingtalk' || sessionType === 'weixin' || sessionType === 'feishu') return sessionType
-  const sessionSource = typeof props.sessionSource === 'string' ? props.sessionSource.trim() : ''
-  if (sessionSource === 'dingtalk' || sessionSource === 'weixin' || sessionSource === 'feishu') return sessionSource
-  return null
+  return props.sessionImChannel || null
 })
 
 const showDingTalkBtn = computed(() => {

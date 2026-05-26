@@ -60,9 +60,8 @@ describe('DingTalkBridge', () => {
       displayName: '张三'
     })
 
-    expect(session.source).toBe('dingtalk')
+    expect(session.imChannel).toBe('dingtalk')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'dingtalk',
       imChannel: 'dingtalk'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'feishu')).toThrow(/已绑定dingtalk渠道/)
@@ -73,7 +72,6 @@ describe('DingTalkBridge', () => {
         session: expect.objectContaining({
           id: session.id,
           type: 'chat',
-          source: 'dingtalk',
           imChannel: 'dingtalk'
         })
       }
@@ -184,7 +182,8 @@ describe('DingTalkBridge', () => {
         ? {
             session_id: session.id,
             type: 'chat',
-            source: 'dingtalk',
+            source: 'im-inbound',
+            im_channel: 'dingtalk',
             title: '桌面会话',
             staff_id: 'staff-1',
             conversation_id: '',
@@ -211,7 +210,8 @@ describe('DingTalkBridge', () => {
         ? {
             session_id: session.id,
             type: 'chat',
-            source: 'dingtalk',
+            source: 'im-inbound',
+            im_channel: 'dingtalk',
             title: '桌面会话',
             staff_id: 'staff-1',
             conversation_id: '',

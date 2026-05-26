@@ -148,9 +148,9 @@ class WeixinBridge {
     if (this._agentListeners || !this.agentSessionManager?.on) return
 
     this._agentListeners = {
-      userMessage: ({ sessionId, sessionType, content, images, source }) => {
+      userMessage: ({ sessionId, imChannel, content, images, source }) => {
         const hasBinding = this.sessionTargets.has(sessionId)
-        if (source !== 'weixin' && (sessionType === 'weixin' || hasBinding)) {
+        if (source !== 'im-inbound' && (imChannel === 'weixin' || hasBinding)) {
           try { this._recordDesktopIntervention(sessionId, content, images) } catch (err) {
             console.error('[WeixinBridge] Record desktop intervention failed:', err)
           }
@@ -387,8 +387,9 @@ class WeixinBridge {
 
     const senderNick = this._getTargetDisplayName(message)
     const session = this.agentSessionManager.create({
-      type: 'weixin',
-      source: 'weixin',
+      type: 'chat',
+      source: 'im-inbound',
+      imChannel: 'weixin',
       title: `微信 · ${senderNick}`,
       cwdSubDir: 'weixin',
       meta: {
@@ -577,7 +578,7 @@ class WeixinBridge {
       const row = db?.getAgentConversation?.(sessionId)
       const targetId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
       const accountId = typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
-      if (targetId && accountId && row?.source === 'weixin' && row?.status !== 'closed') {
+      if (targetId && accountId && row?.im_channel === 'weixin' && row?.status !== 'closed') {
         target = { accountId, targetId, displayName: targetId }
         this.knownTargets.set(sessionId, target)
         this.sessionTargets.set(sessionId, target)

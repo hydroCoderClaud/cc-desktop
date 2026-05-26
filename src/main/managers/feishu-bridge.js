@@ -174,9 +174,9 @@ class FeishuBridge {
   _bindAgentEvents() {
     const mgr = this._agentSessionManager
     this._agentListeners = {
-      userMessage: ({ sessionId, sessionType, content, images, source }) => {
+      userMessage: ({ sessionId, imChannel, content, images, source }) => {
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'feishu' && (sessionType === 'feishu' || hasBinding)) {
+        if (source !== 'im-inbound' && (imChannel === 'feishu' || hasBinding)) {
           this._onDesktopIntervention(sessionId, content, images)
         }
       },
@@ -823,8 +823,9 @@ class FeishuBridge {
       cwd: dbRow?.cwd || liveSession?.cwd || null,
       api_profile_id: dbRow?.api_profile_id || liveSession?.apiProfileId || null,
       updated_at: dbRow?.updated_at || (liveSession?.updatedAt ? new Date(liveSession.updatedAt).getTime() : Date.now()),
-      type: dbRow?.type || liveSession?.type || 'feishu',
-      source: dbRow?.source || liveSession?.source || 'feishu',
+      type: 'chat',
+      source: 'im-inbound',
+      im_channel: 'feishu',
       staff_id: dbRow?.staff_id || context.senderId || '',
       conversation_id: dbRow?.conversation_id || context.chatId || '',
       status: dbRow?.status || liveSession?.status || 'idle',
@@ -1237,7 +1238,7 @@ class FeishuBridge {
     if (!target) {
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
       const openId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
-      if (!openId || !(row?.type === 'feishu' || row?.source === 'feishu')) return null
+      if (!openId || row?.im_channel !== 'feishu') return null
       const restoredTarget = this._restoreP2PTargetBinding(sessionId, openId, {
         chatId: typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
       })
@@ -1381,7 +1382,7 @@ class FeishuBridge {
       const matched = Array.isArray(rows)
         ? rows
           .filter(row => row?.status !== 'closed')
-          .filter(row => row?.type === 'feishu' || row?.source === 'feishu')
+          .filter(row => row?.im_channel === 'feishu')
           .filter(row => row?.staff_id === senderId)
           .filter(row => !row?.conversation_id)
           .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
@@ -1572,7 +1573,7 @@ class FeishuBridge {
   _getActiveSessionsByChat(chatId) {
     const sessions = [...this._agentSessionManager.sessions.values()]
     return sessions.filter((session) => {
-      const belongsToFeishu = session.type === 'feishu' || session.source === 'feishu'
+      const belongsToFeishu = session.imChannel === 'feishu'
       if (!belongsToFeishu || !session.queryGenerator) return false
       const identity = this._sessionIdentities.get(session.id)
       if (identity?.chatId === chatId) return true

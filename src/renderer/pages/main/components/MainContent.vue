@@ -103,6 +103,7 @@
               :session-id="tab.sessionId"
               :session-type="tab.sessionType"
               :session-source="tab.sessionSource || 'manual'"
+              :session-im-channel="tab.imChannel || null"
               :session-cwd="tab.cwd"
               :api-profile-id="tab.apiProfileId"
               :model-id="tab.modelId"
@@ -557,6 +558,9 @@ const setupSessionListeners = () => {
           }
           if (session.source) {
             tab.sessionSource = session.source
+          }
+          if (session.imChannel) {
+            tab.imChannel = session.imChannel
           }
         }
         // 如果当前活动会话的 UUID 被更新，刷新 currentSessionUuid
