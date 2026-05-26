@@ -33,11 +33,13 @@ class EnterpriseWeixinBridge {
     this._notifier = new ImFrontendNotifier(mainWindow, this._imType)
     this._replyCollector = new ImReplyCollector({ maxTextLength: MAX_TEXT_LENGTH })
 
+    const maxHistorySessions = this._getConfig().maxHistorySessions || 5
+
     this._sessionMapper = new ImSessionMapper({
       agentSessionManager,
       sessionDatabase: agentSessionManager.sessionDatabase,
       imType: this._imType,
-      maxHistorySessions: 5,
+      maxHistorySessions,
       buildIdentityKey: (id) => `${id.userId}:${id.channelId}`,
       buildSessionTitle: (id) => `企业微信 · ${id.nickname || id.userId}`,
     })
