@@ -258,7 +258,7 @@ function withAgentOperations(BaseClass) {
         SET staff_id = ?, conversation_id = ?, im_user_id = ?, im_channel_id = ?, updated_at = ?
         WHERE session_id = ?
       `).run(userId, channelId, userId, channelId, Date.now(), sessionId)
-    },
+    }
 
     /**
      * 按 IM 身份查询历史会话
@@ -277,7 +277,7 @@ function withAgentOperations(BaseClass) {
           AND status != 'closed'
         ORDER BY updated_at DESC LIMIT ?
       `).all(imType, imType, userId, userId, channelId, channelId, limit)
-    },
+    }
 
     /**
      * 查询钉钉特定用户+会话的历史对话列表（供用户选择继续哪个会话）

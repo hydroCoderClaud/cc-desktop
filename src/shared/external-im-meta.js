@@ -57,7 +57,7 @@ export const EXTERNAL_IM_TYPES = {
     observeKey: 'agent.enterpriseWeixinObserving',
     suffixKey: 'agent.enterpriseWeixinSuffix',
     hasCommands: true,
-    routeName: null,
+    routeName: 'enterprise-weixin-settings',
     configKey: 'enterpriseWeixin',
     listenerPrefix: 'EnterpriseWeixin',
   },

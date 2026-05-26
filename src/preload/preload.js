@@ -1082,6 +1082,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSessionFeishuBinding: (sessionId) => ipcRenderer.invoke('feishu:getSessionBinding', sessionId),
   sendFeishuNotifyText: (payload) => ipcRenderer.invoke('feishu:sendText', payload),
 
+  // 企业微信桥接
+  getEnterpriseWeixinStatus: () => ipcRenderer.invoke('enterprise-weixin:getStatus'),
+  startEnterpriseWeixin: () => ipcRenderer.invoke('enterprise-weixin:start'),
+  stopEnterpriseWeixin: () => ipcRenderer.invoke('enterprise-weixin:stop'),
+  restartEnterpriseWeixin: () => ipcRenderer.invoke('enterprise-weixin:restart'),
+  updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
+  openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
+  sendEnterpriseWeixinText: (payload) => ipcRenderer.invoke('enterprise-weixin:sendText', payload),
+
   // 钉钉事件监听
   onDingTalkStatusChange: (callback) => {
     const listener = (event, data) => callback(data);

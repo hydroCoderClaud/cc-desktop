@@ -1276,6 +1276,16 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
+  ipcMain.handle('window:openEnterpriseWeixinSettings', async () => {
+    createSubWindow({
+      width: 600,
+      height: 600,
+      title: '企业微信桥接设置',
+      page: 'enterprise-weixin-settings'
+    });
+    return { success: true };
+  });
+
   // 打开 Notebook 工作台
   ipcMain.handle('window:openNotebookWorkspace', async () => {
     createSubWindow({
