@@ -6,6 +6,7 @@
 const { DWClient } = require('dingtalk-stream-sdk-nodejs')
 const fs = require('fs')
 const path = require('path')
+const { ImFrontendNotifier } = require('./im-frontend-notifier')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -38,6 +39,7 @@ class DingTalkBridge {
     this.configManager = configManager
     this.agentSessionManager = agentSessionManager
     this.mainWindow = mainWindow
+    this._notifier = new ImFrontendNotifier(mainWindow, 'dingtalk')
 
     this.client = null
     this.connected = false
@@ -1559,16 +1561,7 @@ class DingTalkBridge {
    * 安全发送消息到前端
    */
   _notifyFrontend(channel, data) {
-    try {
-      if (this.mainWindow &&
-          !this.mainWindow.isDestroyed() &&
-          this.mainWindow.webContents &&
-          !this.mainWindow.webContents.isDestroyed()) {
-        this.mainWindow.webContents.send(channel, data)
-      }
-    } catch (e) {
-      // ignore
-    }
+    this._notifier._send(channel, data)
   }
 }
 
