@@ -40,6 +40,7 @@ import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import EmbeddedDingTalkSettings from './EmbeddedDingTalkSettings.vue'
 import EmbeddedFeishuSettings from './EmbeddedFeishuSettings.vue'
+import EmbeddedEnterpriseWeixinSettings from './EmbeddedEnterpriseWeixinSettings.vue'
 import WeixinNotifyWorkbenchTab from '@/pages/settings-workbench/components/WeixinNotifyWorkbenchTab.vue'
 
 const { cssVars } = useTheme()
@@ -60,13 +61,19 @@ const channels = computed(() => ([
     id: 'feishu',
     label: t('channelSettings.channels.feishu.label'),
     description: t('channelSettings.channels.feishu.description')
+  },
+  {
+    id: 'enterprise-weixin',
+    label: t('channelSettings.channels.enterpriseWeixin.label'),
+    description: t('channelSettings.channels.enterpriseWeixin.description')
   }
 ]))
 
 const channelComponents = {
   dingtalk: markRaw(EmbeddedDingTalkSettings),
   weixin: markRaw(WeixinNotifyWorkbenchTab),
-  feishu: markRaw(EmbeddedFeishuSettings)
+  feishu: markRaw(EmbeddedFeishuSettings),
+  'enterprise-weixin': markRaw(EmbeddedEnterpriseWeixinSettings)
 }
 
 const activeChannel = ref('dingtalk')

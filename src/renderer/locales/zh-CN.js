@@ -905,6 +905,10 @@ export default {
       feishu: {
         label: '飞书',
         description: '企业自建应用桥接，支持桌面主动推送'
+      },
+      enterpriseWeixin: {
+        label: '企业微信',
+        description: '智能机器人长连接桥接，支持流式回复'
       }
     }
   },

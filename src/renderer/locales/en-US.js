@@ -902,6 +902,10 @@ export default {
       feishu: {
         label: 'Feishu',
         description: 'Enterprise app bridge with proactive desktop push'
+      },
+      enterpriseWeixin: {
+        label: 'WeCom',
+        description: 'AI bot long-connection bridge with streaming reply'
       }
     }
   },
