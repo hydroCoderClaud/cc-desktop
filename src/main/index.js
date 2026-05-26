@@ -13,6 +13,7 @@ const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
 const { DingTalkBridge } = require('./managers/dingtalk-bridge');
 const { FeishuBridge } = require('./managers/feishu-bridge');
+const { EnterpriseWeixinBridge } = require('./managers/enterprise-weixin-bridge');
 const { NotebookManager } = require('./managers/notebook-manager');
 const { ScheduledTaskService } = require('./managers/scheduled-task-service');
 const { WeixinNotifyService } = require('./managers/weixin-notify-service');
@@ -38,6 +39,7 @@ let capabilityManager = null;
 let updateManager = null;
 let dingtalkBridge = null;
 let feishuBridge = null;
+let enterpriseWeixinBridge = null;
 let notebookManager = null;
 let embeddedAppPreferencesManager = null;
 let scheduledTaskService = null;
@@ -71,6 +73,7 @@ function cleanupAllSessions() {
     }
     if (dingtalkBridge) dingtalkBridge.stop().catch(() => {});
     if (feishuBridge) feishuBridge.stop().catch(() => {});
+    if (enterpriseWeixinBridge) enterpriseWeixinBridge.stop().catch(() => {});
     if (weixinBridge) weixinBridge.stop();
     if (weixinNotifyService) weixinNotifyService.stop();
     if (localAgentApiServer) {
@@ -203,6 +206,9 @@ function rebindMainWindowReferences({ notifyAgentSessionsClosed = false, restart
   }
   if (feishuBridge) {
     feishuBridge.setMainWindow(mainWindow)
+  }
+  if (enterpriseWeixinBridge) {
+    enterpriseWeixinBridge._notifier?.setMainWindow(mainWindow)
   }
   if (weixinBridge) {
     weixinBridge.mainWindow = mainWindow;
@@ -470,6 +476,9 @@ if (hasSingleInstanceLock) {
     // 初始化飞书桥接
     feishuBridge = new FeishuBridge(configManager, agentSessionManager, mainWindow)
 
+    // 初始化企业微信桥接
+    enterpriseWeixinBridge = new EnterpriseWeixinBridge(configManager, agentSessionManager, mainWindow)
+
     // 初始化 Notebook 管理器（需要 configManager 和 agentSessionManager）
     notebookManager = new NotebookManager(configManager, agentSessionManager)
     embeddedAppPreferencesManager = new EmbeddedAppPreferencesManager(configManager)
@@ -504,6 +513,7 @@ if (hasSingleInstanceLock) {
       weixinNotifyService,
       weixinBridge,
       feishuBridge,
+      enterpriseWeixinBridge,
       localAgentApiServer
     ) || {}
 

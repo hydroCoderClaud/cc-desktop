@@ -36,6 +36,7 @@ const capabilityHandlersMod = safeRequire('./ipc-handlers/capability-handlers', 
 const updateHandlersMod = safeRequire('./ipc-handlers/update-handlers', 'update-handlers');
 const dingtalkHandlersMod = safeRequire('./ipc-handlers/dingtalk-handlers', 'dingtalk-handlers');
 const feishuHandlersMod = safeRequire('./ipc-handlers/feishu-handlers', 'feishu-handlers');
+const enterpriseWeixinHandlersMod = safeRequire('./ipc-handlers/enterprise-weixin-handlers', 'enterprise-weixin-handlers');
 const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
 const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-handlers', 'scheduled-task-handlers');
 const weixinNotifyHandlersMod = safeRequire('./ipc-handlers/weixin-notify-handlers', 'weixin-notify-handlers');
@@ -66,6 +67,7 @@ const setupCapabilityHandlers = capabilityHandlersMod?.setupCapabilityHandlers;
 const setupUpdateHandlers = updateHandlersMod?.setupUpdateHandlers;
 const setupDingTalkHandlers = dingtalkHandlersMod?.setupDingTalkHandlers;
 const setupFeishuHandlers = feishuHandlersMod?.setupFeishuHandlers;
+const setupEnterpriseWeixinHandlers = enterpriseWeixinHandlersMod?.setupEnterpriseWeixinHandlers;
 const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
 const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskHandlers;
 const setupWeixinNotifyHandlers = weixinNotifyHandlersMod?.setupWeixinNotifyHandlers;
@@ -113,7 +115,7 @@ function getEmbeddedAppWorkspaceDir(appId) {
   return workspaceDir
 }
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, localAgentApiServer = null) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, enterpriseWeixinBridge = null, localAgentApiServer = null) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -1219,6 +1221,13 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   if (feishuBridge && setupFeishuHandlers) {
     setupFeishuHandlers(ipcMain, feishuBridge, configManager);
+  }
+
+  // ========================================
+  // 企业微信
+  // ========================================
+  if (enterpriseWeixinBridge && setupEnterpriseWeixinHandlers) {
+    setupEnterpriseWeixinHandlers(ipcMain, enterpriseWeixinBridge, configManager);
   }
 
   // ========================================

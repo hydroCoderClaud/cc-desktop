@@ -48,6 +48,19 @@ export const EXTERNAL_IM_TYPES = {
     configKey: 'feishu',
     listenerPrefix: 'Feishu',
   },
+  'enterprise-weixin': {
+    id: 'enterprise-weixin',
+    label: { 'zh-CN': '企业微信', 'en-US': 'WeCom' },
+    icon: 'weixin',
+    sessionType: 'enterprise-weixin',
+    sourceFilter: 'enterprise-weixin',
+    observeKey: 'agent.enterpriseWeixinObserving',
+    suffixKey: 'agent.enterpriseWeixinSuffix',
+    hasCommands: true,
+    routeName: null,
+    configKey: 'enterpriseWeixin',
+    listenerPrefix: 'EnterpriseWeixin',
+  },
 }
 
 /** @returns {string[]} 所有已注册的外部 IM 类型 id */
