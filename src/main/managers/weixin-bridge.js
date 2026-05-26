@@ -515,6 +515,12 @@ class WeixinBridge {
     this.sessionTargets.set(sessionId, target)
     this.pendingReplies.delete(sessionId)
     this.desktopPendingBlocks.delete(sessionId)
+
+    const db = this.agentSessionManager.sessionDatabase
+    if (db?.updateDingTalkMetadata) {
+      db.updateDingTalkMetadata(sessionId, targetId, accountId)
+    }
+
     console.log(`[WeixinBridge] Bound session ${sessionId} to target ${targetId} (${displayName || targetId})`)
     return { success: true, target }
   }
@@ -574,7 +580,18 @@ class WeixinBridge {
    */
   getSessionBinding(sessionId) {
     if (!sessionId) return null
-    const target = this.knownTargets.get(sessionId) || this.sessionTargets.get(sessionId) || null
+    let target = this.knownTargets.get(sessionId) || this.sessionTargets.get(sessionId) || null
+    if (!target) {
+      const db = this.agentSessionManager.sessionDatabase
+      const row = db?.getAgentConversation?.(sessionId)
+      const targetId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+      const accountId = typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
+      if (targetId && accountId && row?.source === 'weixin' && row?.status !== 'closed') {
+        target = { accountId, targetId, displayName: targetId }
+        this.knownTargets.set(sessionId, target)
+        this.sessionTargets.set(sessionId, target)
+      }
+    }
     if (!target) return null
     return {
       accountId: target.accountId,
