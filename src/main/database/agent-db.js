@@ -247,7 +247,41 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
+     * 通用 IM 身份持久化写入
+     * @param {string} sessionId
+     * @param {string} userId — IM 用户标识（staffId / openId / targetId 等）
+     * @param {string} channelId — IM 通道/群标识（conversationId / chatId / accountId 等）
+     */
+    updateImIdentity(sessionId, userId, channelId) {
+      this.db.prepare(`
+        UPDATE agent_conversations
+        SET staff_id = ?, conversation_id = ?, im_user_id = ?, im_channel_id = ?, updated_at = ?
+        WHERE session_id = ?
+      `).run(userId, channelId, userId, channelId, Date.now(), sessionId)
+    },
+
+    /**
+     * 按 IM 身份查询历史会话
+     * @param {string} imType — IM 类型（dingtalk / weixin / feishu / enterprise-weixin）
+     * @param {string} userId — IM 用户标识
+     * @param {string} channelId — IM 通道标识
+     * @param {number} [limit=5]
+     * @returns {Array<object>}
+     */
+    getImSessionsByIdentity(imType, userId, channelId, limit = 5) {
+      return this.db.prepare(`
+        SELECT * FROM agent_conversations
+        WHERE (type = ? OR source = ?)
+          AND (im_user_id = ? OR staff_id = ?)
+          AND (im_channel_id = ? OR conversation_id = ?)
+          AND status != 'closed'
+        ORDER BY updated_at DESC LIMIT ?
+      `).all(imType, imType, userId, userId, channelId, channelId, limit)
+    },
+
+    /**
      * 查询钉钉特定用户+会话的历史对话列表（供用户选择继续哪个会话）
+     * @deprecated 请使用 getImSessionsByIdentity
      */
     getDingTalkSessions(staffId, conversationId, limit = 5) {
       return this.db.prepare(`
@@ -265,9 +299,12 @@ function withAgentOperations(BaseClass) {
     getImSessionsByType(type, staffId, conversationId, limit = 5) {
       return this.db.prepare(`
         SELECT * FROM agent_conversations
-        WHERE (type = ? OR source = ?) AND staff_id = ? AND conversation_id = ?
+        WHERE (type = ? OR source = ?)
+          AND (im_user_id = ? OR staff_id = ?)
+          AND (im_channel_id = ? OR conversation_id = ?)
+          AND status != 'closed'
         ORDER BY updated_at DESC LIMIT ?
-      `).all(type, type, staffId, conversationId, limit)
+      `).all(type, type, staffId, staffId, conversationId, conversationId, limit)
     }
 
     /**
