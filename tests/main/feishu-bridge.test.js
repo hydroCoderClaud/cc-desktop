@@ -409,6 +409,115 @@ describe('FeishuBridge', () => {
     })).toThrow(/当前会话已绑定飞书联系人「ou_target_1」/)
   })
 
+  it('restores a persisted Feishu target binding for toolbar filtering after memory is lost', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const created = manager.create({ type: 'chat', source: 'feishu', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge._sessionTargets.clear()
+    bridge._targetSessionMap.clear()
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'feishu',
+            title: '桌面会话',
+            staff_id: 'ou_target',
+            conversation_id: '',
+            status: 'idle'
+          }
+        : null
+    ))
+
+    expect(bridge.getSessionBinding(session.id)).toEqual({
+      targetId: 'ou_target',
+      openId: 'ou_target',
+      displayName: 'ou_target'
+    })
+    expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
+    expect(bridge._sessionIdentities.get(session.id)).toEqual({
+      senderId: 'ou_target',
+      senderName: 'ou_target',
+      chatId: null,
+      chatType: 'p2p',
+      chatName: 'ou_target'
+    })
+  })
+
+  it('keeps the persisted Feishu target available after /close clears in-memory binding', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const created = manager.create({ type: 'chat', source: 'feishu', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+    bridge._clearSessionIdentity(session.id)
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'feishu',
+            title: '桌面会话',
+            staff_id: 'ou_target',
+            conversation_id: 'oc_reply',
+            status: 'closed'
+          }
+        : null
+    ))
+
+    expect(bridge.getSessionBinding(session.id)).toEqual({
+      targetId: 'ou_target',
+      openId: 'ou_target',
+      displayName: 'ou_target'
+    })
+    expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
+    expect(bridge._sessionIdentities.get(session.id)).toEqual({
+      senderId: 'ou_target',
+      senderName: 'ou_target',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: 'ou_target'
+    })
+  })
+
+  it('restores Feishu target binding after the session database is injected later', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const db = manager.sessionDatabase
+    manager.sessionDatabase = null
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    manager.sessionDatabase = db
+
+    const created = manager.create({ type: 'chat', source: 'feishu', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'feishu',
+            title: '桌面会话',
+            staff_id: 'ou_target',
+            conversation_id: '',
+            status: 'idle'
+          }
+        : null
+    ))
+
+    expect(bridge.getSessionBinding(session.id)).toEqual({
+      targetId: 'ou_target',
+      openId: 'ou_target',
+      displayName: 'ou_target'
+    })
+  })
+
   it('keeps Feishu target names empty instead of falling back to openId', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -1448,6 +1557,32 @@ describe('FeishuBridge', () => {
       })
     )
     expect(sent.find(item => item.channel === 'feishu:sessionClosed')?.data).toEqual({ sessionId: session.id })
+  })
+
+  it('closes a proactively bound Feishu desktop session even before the first normal reply maps the chat', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const close = vi.spyOn(manager, 'close').mockResolvedValue()
+    vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面主动会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    session.queryGenerator = {}
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+    bridge._sessionMapper.sessionMap.delete('ou_target:oc_reply')
+    bridge._sessionIdentities.delete(session.id)
+
+    await bridge._handleCommand('/close', {
+      senderId: 'ou_target',
+      chatId: 'oc_reply',
+      chatType: 'p2p'
+    })
+
+    expect(close).toHaveBeenCalledWith(session.id)
+    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
   })
 
   it('closes the active group-chat Feishu session from card actions', async () => {
@@ -3226,6 +3361,56 @@ describe('ImSessionMapper', () => {
     expect(result).toEqual([
       expect.objectContaining({ session_id: 'f-proactive-1' })
     ])
+  })
+
+  it('merges proactive p2p Feishu sessions into history even when exact chat history already exists', async () => {
+    const now = Date.now()
+    const getImSessionsByType = vi.fn(() => [
+      {
+        session_id: 'f-old-1',
+        type: 'feishu',
+        source: 'feishu',
+        title: '旧会话',
+        conversation_id: 'oc_reply',
+        staff_id: 'ou_target',
+        updated_at: now - 60 * 60 * 1000
+      }
+    ])
+    const listAllAgentConversations = vi.fn(() => [
+      {
+        session_id: 'f-proactive-1',
+        type: 'chat',
+        source: 'feishu',
+        title: '桌面主动会话',
+        conversation_id: '',
+        staff_id: 'ou_target',
+        updated_at: now
+      },
+      {
+        session_id: 'f-old-1',
+        type: 'feishu',
+        source: 'feishu',
+        title: '旧会话',
+        conversation_id: 'oc_reply',
+        staff_id: 'ou_target',
+        updated_at: now - 60 * 60 * 1000
+      }
+    ])
+    const mapper = new ImSessionMapper({
+      agentSessionManager: { sessions: new Map() },
+      sessionDatabase: { getImSessionsByType, listAllAgentConversations },
+      imType: 'feishu',
+      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildSessionTitle: () => '飞书会话'
+    })
+
+    const result = await mapper._queryHistorySessions({
+      userId: 'ou_target',
+      chatId: 'oc_reply',
+      chatType: 'p2p'
+    })
+
+    expect(result.map(row => row.session_id)).toEqual(['f-proactive-1', 'f-old-1'])
   })
 
   it('does not admit conversation-only legacy Feishu rows for p2p history when senderId does not match', async () => {

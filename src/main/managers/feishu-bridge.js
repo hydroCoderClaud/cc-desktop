@@ -1233,8 +1233,21 @@ class FeishuBridge {
   }
 
   getSessionBinding(sessionId) {
+    this._syncSessionDatabase()
     const target = this._sessionTargets.get(sessionId) || null
-    if (!target) return null
+    if (!target) {
+      const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+      const openId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+      if (!openId || !(row?.type === 'feishu' || row?.source === 'feishu')) return null
+      const restoredTarget = this._restoreP2PTargetBinding(sessionId, openId, {
+        chatId: typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
+      })
+      return {
+        targetId: restoredTarget.openId,
+        openId: restoredTarget.openId,
+        displayName: restoredTarget.displayName,
+      }
+    }
     return {
       targetId: target.openId,
       openId: target.openId,
@@ -1275,6 +1288,28 @@ class FeishuBridge {
     let sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
     if (sessionId) {
       return sessionId
+    }
+
+    if ((context?.chatType || '').toLowerCase() === 'p2p') {
+      const proactiveSessionId = await this._findBoundSessionIdBySenderId(context.senderId)
+      if (proactiveSessionId) {
+        this._sessionMapper.sessionMap.set(mapKey, proactiveSessionId)
+        this._sessionIdentities.set(proactiveSessionId, {
+          senderId: context.senderId,
+          senderName: context.senderName || context.senderId,
+          chatId: context.chatId,
+          chatType: context.chatType || 'p2p',
+          chatName: context.chatName || null,
+        })
+        if (this._sessionDatabase?.updateDingTalkMetadata) {
+          try {
+            this._sessionDatabase.updateDingTalkMetadata(proactiveSessionId, context.senderId || '', context.chatId || '')
+          } catch (err) {
+            console.warn('[FeishuBridge] Failed to persist proactive Feishu command binding:', err.message)
+          }
+        }
+        return proactiveSessionId
+      }
     }
 
     const reboundSessionId = await this._findBoundSessionIdByChat(context.chatId, mapKey)
@@ -1325,9 +1360,13 @@ class FeishuBridge {
     const sessionId = this._targetSessionMap.get(senderId)
     if (sessionId) {
       const liveSession = this._agentSessionManager.sessions.get(sessionId)
-      if (liveSession) return sessionId
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      if (row && row.status !== 'closed') return sessionId
+      if (liveSession || (row && row.status !== 'closed')) {
+        this._restoreP2PTargetBinding(sessionId, senderId, {
+          chatId: typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
+        })
+        return sessionId
+      }
       this._targetSessionMap.delete(senderId)
       this._sessionTargets.delete(sessionId)
     }
@@ -1351,11 +1390,35 @@ class FeishuBridge {
       if (!matched) return null
       const fallbackSessionId = matched.session_id || matched.sessionId || matched.id || null
       if (!fallbackSessionId) return null
-      this._targetSessionMap.set(senderId, fallbackSessionId)
+      this._restoreP2PTargetBinding(fallbackSessionId, senderId, {
+        chatId: typeof matched?.conversation_id === 'string' ? matched.conversation_id.trim() : ''
+      })
       return fallbackSessionId
     } catch {
       return null
     }
+  }
+
+  _restoreP2PTargetBinding(sessionId, openId, { chatId = '', displayName = '' } = {}) {
+    const resolvedOpenId = typeof openId === 'string' ? openId.trim() : ''
+    if (!sessionId || !resolvedOpenId) return null
+    const currentTarget = this._sessionTargets.get(sessionId)
+    const currentIdentity = this._sessionIdentities.get(sessionId)
+    const resolvedDisplayName = displayName || currentTarget?.displayName || currentIdentity?.senderName || resolvedOpenId
+    const target = {
+      openId: resolvedOpenId,
+      displayName: resolvedDisplayName
+    }
+    this._sessionTargets.set(sessionId, target)
+    this._targetSessionMap.set(resolvedOpenId, sessionId)
+    this._sessionIdentities.set(sessionId, {
+      senderId: resolvedOpenId,
+      senderName: resolvedDisplayName,
+      chatId: chatId || null,
+      chatType: 'p2p',
+      chatName: resolvedDisplayName,
+    })
+    return target
   }
 
   _resolveHistoryChoiceContext({ userId, chatId, chatType, actionValue }) {

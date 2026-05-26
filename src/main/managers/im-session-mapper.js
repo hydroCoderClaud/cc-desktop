@@ -125,9 +125,6 @@ class ImSessionMapper {
           conversationId,
           this._maxHistorySessions
         )
-        if (Array.isArray(exact) && exact.length > 0) {
-          return exact
-        }
         if (typeof this._sessionDatabase.listAllAgentConversations === 'function') {
           const allRows = await this._sessionDatabase.listAllAgentConversations({
             limit: Math.max(this._maxHistorySessions * 5, 50)
@@ -135,7 +132,7 @@ class ImSessionMapper {
           if (Array.isArray(allRows) && allRows.length > 0) {
             const shortConversationId = typeof conversationId === 'string' ? conversationId.substring(0, 8) : ''
             const shortStaffId = typeof staffId === 'string' ? staffId.substring(0, 8) : ''
-            return allRows
+            const extraRows = allRows
               .filter(row => row?.type === this._imType || row?.source === this._imType)
               .filter((row) => {
                 if (row?.staff_id === staffId && row?.conversation_id === conversationId) return true
@@ -153,9 +150,22 @@ class ImSessionMapper {
                 if (isDirectMessage) return false
                 return !row?.staff_id
               })
+            const merged = [...(Array.isArray(exact) ? exact : []), ...extraRows]
+            const seen = new Set()
+            return merged
+              .filter((row) => {
+                const rowSessionId = row?.session_id || row?.sessionId || row?.id || null
+                if (!rowSessionId) return false
+                if (seen.has(rowSessionId)) return false
+                seen.add(rowSessionId)
+                return true
+              })
               .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
               .slice(0, this._maxHistorySessions)
           }
+        }
+        if (Array.isArray(exact) && exact.length > 0) {
+          return exact
         }
         return []
       } catch {
