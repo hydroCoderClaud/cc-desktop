@@ -256,7 +256,8 @@ describe('WeixinBridge', () => {
 
     expect(session.source).toBe('weixin')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'weixin'
+      source: 'weixin',
+      imChannel: 'weixin'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'feishu')).toThrow(/已绑定weixin渠道/)
   })
@@ -278,7 +279,8 @@ describe('WeixinBridge', () => {
     expect(session.source).toBe('manual')
     expect(bridge.getSessionBinding(session.id)).toBe(null)
     expect(manager.sessionDatabase.updateAgentConversation).not.toHaveBeenCalledWith(session.id, {
-      source: 'weixin'
+      source: 'weixin',
+      imChannel: 'weixin'
     })
 
     await bridge.sendTextToTarget({

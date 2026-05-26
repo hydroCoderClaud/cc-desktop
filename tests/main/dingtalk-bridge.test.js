@@ -62,7 +62,8 @@ describe('DingTalkBridge', () => {
 
     expect(session.source).toBe('dingtalk')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'dingtalk'
+      source: 'dingtalk',
+      imChannel: 'dingtalk'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'feishu')).toThrow(/已绑定dingtalk渠道/)
     expect(sent).toContainEqual({
@@ -72,7 +73,8 @@ describe('DingTalkBridge', () => {
         session: expect.objectContaining({
           id: session.id,
           type: 'chat',
-          source: 'dingtalk'
+          source: 'dingtalk',
+          imChannel: 'dingtalk'
         })
       }
     })

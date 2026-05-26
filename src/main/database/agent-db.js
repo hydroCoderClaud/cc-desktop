@@ -43,6 +43,7 @@ function withAgentOperations(BaseClass) {
       apiBaseUrl,
       modelId,
       source,
+      imChannel,
       taskId,
       ownerClientId,
       clientType,
@@ -51,10 +52,10 @@ function withAgentOperations(BaseClass) {
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO agent_conversations (
-          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, task_id,
+          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, im_channel, task_id,
           owner_client_id, client_type, client_meta, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         type || 'chat',
@@ -65,6 +66,7 @@ function withAgentOperations(BaseClass) {
         apiBaseUrl || null,
         normalizeModelId(modelId),
         source || 'manual',
+        imChannel || null,
         taskId || null,
         ownerClientId || 'host-ui',
         clientType || 'host',

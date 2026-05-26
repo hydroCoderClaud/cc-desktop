@@ -345,7 +345,8 @@ describe('FeishuBridge', () => {
 
     expect(session.source).toBe('feishu')
     expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(session.id, {
-      source: 'feishu'
+      source: 'feishu',
+      imChannel: 'feishu'
     })
     expect(() => manager.bindSessionExternalImSource(session.id, 'weixin')).toThrow(/已绑定feishu渠道/)
   })

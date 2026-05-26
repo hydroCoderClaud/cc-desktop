@@ -711,6 +711,11 @@ class AgentSessionManager extends EventEmitter {
 
     const initialModelId = normalizeModelIdOrNull(options.modelId || profile?.selectedModelId)
     const initialTitle = resolveInitialSessionTitle(this.configManager, options.title)
+    const imChannel = options.imChannel
+      || (EXTERNAL_IM_SOURCE_SET.has(options.type) ? options.type : null)
+      || (EXTERNAL_IM_SOURCE_SET.has(options.source) ? options.source : null)
+      || null
+
     const session = new AgentSession({
       type: options.type,
       title: initialTitle,
@@ -719,6 +724,7 @@ class AgentSessionManager extends EventEmitter {
       apiBaseUrl: profile?.baseUrl || null,
       modelId: initialModelId,
       source: resolveConversationSource(options.type, options.source),
+      imChannel,
       taskId: options.taskId || null,
       meta: options.meta || {},
       ownerClientId: options.ownerClientId,
@@ -746,6 +752,7 @@ class AgentSessionManager extends EventEmitter {
           apiBaseUrl: profile?.baseUrl || null,
           modelId: session.modelId,
           source: session.source,
+          imChannel: session.imChannel,
           taskId: session.taskId,
           ownerClientId: session.ownerClientId,
           clientType: session.clientType,
@@ -1042,6 +1049,7 @@ class AgentSessionManager extends EventEmitter {
         title: row.title || '',
         cwd: row.cwd,
         source: resolveConversationSource(row.type, row.source),
+        imChannel: row.im_channel || null,
         taskId: row.task_id || null,
         ownerClientId: row.owner_client_id || 'host-ui',
         clientType: row.client_type || 'host',
@@ -1714,8 +1722,16 @@ class AgentSessionManager extends EventEmitter {
       throw new Error(`Unsupported IM source: ${targetSource}`)
     }
 
+    if (session.imChannel === normalizedTargetSource) {
+      return session
+    }
+
     if (session.type === normalizedTargetSource || session.source === normalizedTargetSource) {
       return session
+    }
+
+    if (session.imChannel) {
+      throw new Error(`当前会话已绑定${session.imChannel}渠道，不能再绑定${normalizedTargetSource}`)
     }
 
     if (isExternalImSource(session.type)) {
@@ -1731,14 +1747,16 @@ class AgentSessionManager extends EventEmitter {
 
   bindSessionExternalImSource(sessionId, source) {
     const session = this.assertSessionImBindingAllowed(sessionId, source)
-    if (session.source === source) return this._serializeSession(session)
+    if (session.imChannel === source) return this._serializeSession(session)
 
     session.source = source
+    session.imChannel = source
     session.updatedAt = new Date()
 
     if (this.sessionDatabase?.updateAgentConversation) {
       this.sessionDatabase.updateAgentConversation(session.id, {
-        source: session.source
+        source: session.source,
+        imChannel: source
       })
     }
 
@@ -2360,6 +2378,7 @@ class AgentSessionManager extends EventEmitter {
             apiBaseUrl: row.api_base_url || null,
             modelId: normalizeModelIdOrNull(row.model_id),
             source: resolveConversationSource(row.type, row.source),
+            imChannel: row.im_channel || null,
             taskId: row.task_id || null
           })
         }
