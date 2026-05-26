@@ -475,14 +475,26 @@ const loadFeishuTargets = async () => {
     if (targets?.error) {
       throw new Error(targets.error)
     }
-    feishuTargets.value = Array.isArray(targets) ? targets : []
-    feishuError.value = ''
     const bindingTargetId = binding?.targetId || binding?.openId || null
-    if (bindingTargetId && feishuTargets.value.some(target => target.id === bindingTargetId)) {
-      selectedFeishuTargetId.value = bindingTargetId
-    } else if (!feishuTargets.value.some(target => target.id === selectedFeishuTargetId.value)) {
-      selectedFeishuTargetId.value = feishuTargets.value[0]?.id || null
+    const allTargets = Array.isArray(targets) ? targets : []
+    if (bindingTargetId) {
+      const boundTarget = allTargets.find(target => [target.id, target.openId, target.userId].includes(bindingTargetId))
+        || {
+          id: bindingTargetId,
+          openId: binding?.openId || bindingTargetId,
+          userId: binding?.openId || bindingTargetId,
+          displayName: binding?.displayName || bindingTargetId,
+          name: binding?.displayName || bindingTargetId
+        }
+      feishuTargets.value = [boundTarget]
+      selectedFeishuTargetId.value = boundTarget.id
+    } else {
+      feishuTargets.value = allTargets
+      if (!feishuTargets.value.some(target => target.id === selectedFeishuTargetId.value)) {
+        selectedFeishuTargetId.value = feishuTargets.value[0]?.id || null
+      }
     }
+    feishuError.value = ''
   } catch (err) {
     console.error('[ChatInputToolbar] loadFeishuTargets error:', err)
     feishuTargets.value = []

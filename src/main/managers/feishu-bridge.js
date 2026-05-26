@@ -1144,6 +1144,8 @@ class FeishuBridge {
     if (!session) {
       throw new Error(`Session ${sessionId} 不存在或已关闭`)
     }
+    this._agentSessionManager.assertSessionImBindingAllowed(sessionId, 'feishu')
+    this._assertSessionTargetAllowed(sessionId, resolvedOpenId, displayName)
     this._agentSessionManager.bindSessionExternalImSource(sessionId, 'feishu')
 
     const previousTarget = this._sessionTargets.get(sessionId)
@@ -1185,6 +1187,25 @@ class FeishuBridge {
       }
     }
     return { success: true, target }
+  }
+
+  _assertSessionTargetAllowed(sessionId, resolvedOpenId, displayName) {
+    if (!sessionId || !resolvedOpenId) return
+
+    const existingTarget = this._sessionTargets.get(sessionId)
+    const identity = this._sessionIdentities.get(sessionId)
+    const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+    const identityOpenId = identity?.chatType === 'p2p' && typeof identity?.senderId === 'string'
+      ? identity.senderId.trim()
+      : ''
+    const rowOpenId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+    const existingOpenId = existingTarget?.openId || identityOpenId || rowOpenId
+
+    if (existingOpenId && existingOpenId !== resolvedOpenId) {
+      const currentLabel = existingTarget?.displayName || identity?.senderName || existingOpenId
+      const nextLabel = displayName || resolvedOpenId
+      throw new Error(`当前会话已绑定飞书联系人「${currentLabel}」，不能再发送给「${nextLabel}」。请新建会话后再联系其他成员。`)
+    }
   }
 
   _clearP2PSessionMapBinding(sessionId, senderId) {
@@ -1234,6 +1255,7 @@ class FeishuBridge {
     }
     if (sessionId) {
       this._agentSessionManager.assertSessionImBindingAllowed(sessionId, 'feishu')
+      this._assertSessionTargetAllowed(sessionId, resolvedOpenId, displayName)
     }
     const messageId = await this._api.sendTextMessage('open_id', resolvedOpenId, content)
     if (sessionId) {

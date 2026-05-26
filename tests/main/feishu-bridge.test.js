@@ -350,6 +350,65 @@ describe('FeishuBridge', () => {
     expect(() => manager.bindSessionExternalImSource(session.id, 'weixin')).toThrow(/已绑定feishu渠道/)
   })
 
+  it('rejects sending a Feishu-bound session to another target before network send', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendSpy = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target_1',
+      displayName: '张三'
+    })
+
+    await expect(bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_target_2',
+      displayName: '李四',
+      text: '任务已完成'
+    })).rejects.toThrow(/当前会话已绑定飞书联系人「张三」/)
+
+    expect(sendSpy).not.toHaveBeenCalled()
+    expect(bridge.getSessionBinding(session.id)).toEqual({
+      targetId: 'ou_target_1',
+      openId: 'ou_target_1',
+      displayName: '张三'
+    })
+    expect(bridge._targetSessionMap.get('ou_target_2')).toBeUndefined()
+  })
+
+  it('rejects rebinding a persisted Feishu target after in-memory binding is lost', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const created = manager.create({ type: 'chat', source: 'feishu', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge._sessionTargets.clear()
+    bridge._targetSessionMap.clear()
+    bridge._sessionIdentities.clear()
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'feishu',
+            title: '桌面会话',
+            staff_id: 'ou_target_1',
+            conversation_id: '',
+            status: 'idle'
+          }
+        : null
+    ))
+
+    expect(() => bridge.bindSessionToTarget(session.id, {
+      openId: 'ou_target_2',
+      displayName: '李四'
+    })).toThrow(/当前会话已绑定飞书联系人「ou_target_1」/)
+  })
+
   it('keeps Feishu target names empty instead of falling back to openId', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
