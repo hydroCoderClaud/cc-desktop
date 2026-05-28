@@ -38,6 +38,7 @@ describe('WeixinBridge', () => {
       insertAgentMessage: vi.fn(),
       createAgentConversation: vi.fn(() => ({ id: 1 })),
       updateAgentConversation: vi.fn(),
+      updateAgentMessageToolOutput: vi.fn(),
       getAgentConversation: vi.fn(() => null)
     }
     const service = {
@@ -498,16 +499,10 @@ describe('WeixinBridge', () => {
     await bridge.replySendQueues.get(session.id)
     await Promise.resolve()
 
-    expect(bridge.weixinNotifyService.sendText).toHaveBeenCalledWith({
-      accountId: 'acc-1',
-      targetId: 'acc-1:user-a',
-      text: '图片生成好了。',
-      sessionId: session.id
-    })
     expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
-      text: '',
+      text: '图片生成好了。',
       imagePaths: [imagePath],
       sessionId: session.id
     })
@@ -532,16 +527,112 @@ describe('WeixinBridge', () => {
     await bridge.replySendQueues.get(session.id)
     await Promise.resolve()
 
-    expect(bridge.weixinNotifyService.sendText).toHaveBeenCalledWith({
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
       text: '图片生成好了。',
+      imagePaths: [imagePath],
       sessionId: session.id
     })
+  })
+
+  it('forwards assistant images from standard tool_result file resources after agent result', async () => {
+    const { bridge, manager } = createHarness()
+    stubSendMessage(manager)
+    manager.runner = { normalizeMessage: raw => raw }
+
+    bridge.start()
+    await bridge._handleMessage(inboundMessage({ text: '帮我画图' }))
+    const session = Array.from(manager.sessions.values())[0]
+    const imagePath = path.join(session.cwd, 'tool-result-cover.png')
+    fs.writeFileSync(imagePath, Buffer.from('pngdata'))
+
+    await manager._processMessage(session, {
+      type: 'assistant_message',
+      content: [{
+        type: 'tool_use',
+        id: 'tool-use-1',
+        name: 'generate_image',
+        input: { prompt: 'draw' }
+      }],
+      sdkSessionId: 'sdk-tool'
+    })
+    await manager._processMessage(session, {
+      type: 'user_message',
+      parentToolUseId: 'tool-use-1',
+      content: [{
+        type: 'tool_result',
+        tool_use_id: 'tool-use-1',
+        content: [{
+          type: 'resource_link',
+          uri: imagePath.startsWith('/') ? `file://${imagePath.replace(/\\/g, '/')}` : `file:///${imagePath.replace(/\\/g, '/')}`,
+          name: 'tool-result-cover.png',
+          mimeType: 'image/png'
+        }],
+        structured_content: {
+          type: 'image_result',
+          files: [{
+            uri: imagePath.startsWith('/') ? `file://${imagePath.replace(/\\/g, '/')}` : `file:///${imagePath.replace(/\\/g, '/')}`,
+            name: 'tool-result-cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }],
+      toolUseResult: {
+        content: [{
+          type: 'resource_link',
+          uri: imagePath.startsWith('/') ? `file://${imagePath.replace(/\\/g, '/')}` : `file:///${imagePath.replace(/\\/g, '/')}`,
+          name: 'tool-result-cover.png',
+          mimeType: 'image/png'
+        }],
+        structuredContent: {
+          type: 'image_result',
+          files: [{
+            uri: imagePath.startsWith('/') ? `file://${imagePath.replace(/\\/g, '/')}` : `file:///${imagePath.replace(/\\/g, '/')}`,
+            name: 'tool-result-cover.png',
+            mimeType: 'image/png'
+          }]
+        }
+      }
+    })
+
+    manager.emit('agentResult', session.id)
+    await bridge.replySendQueues.get(session.id)
+    await Promise.resolve()
+
     expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
       accountId: 'acc-1',
       targetId: 'acc-1:user-a',
       text: '',
+      imagePaths: [imagePath],
+      sessionId: session.id
+    })
+  })
+
+  it('forwards assistant image paths that only appear in text blocks', async () => {
+    const { bridge, manager } = createHarness()
+    stubSendMessage(manager)
+
+    bridge.start()
+    await bridge._handleMessage(inboundMessage({ text: '读取它' }))
+    const session = Array.from(manager.sessions.values())[0]
+    const imagePath = path.join(session.cwd, 'read-result.png')
+
+    manager.emit('agentMessage', session.id, {
+      type: 'assistant',
+      content: [{
+        type: 'text',
+        text: `已读取： ${imagePath}`
+      }]
+    })
+    manager.emit('agentResult', session.id)
+    await bridge.replySendQueues.get(session.id)
+    await Promise.resolve()
+
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: `已读取： ${imagePath}`,
       imagePaths: [imagePath],
       sessionId: session.id
     })

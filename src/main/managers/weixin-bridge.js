@@ -4,7 +4,7 @@
  */
 
 const path = require('path')
-const { normalizePath, IMAGE_EXTENSIONS, IMAGE_PATH_MAX_DEPTH } = require('./im-utils')
+const { extractImagePaths, normalizePath, IMAGE_EXTENSIONS, IMAGE_PATH_MAX_DEPTH } = require('./im-utils')
 
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
@@ -200,13 +200,18 @@ class WeixinBridge {
     if (!target) return
 
     const text = this._extractTextFromMessage(message)
-    if (text) {
+    const hasImages = this._messageHasImagePaths(message)
+    if (text && !hasImages) {
       this._queueAgentTextReply(sessionId, target, text)
     }
 
-    const pending = this.pendingReplies.get(sessionId) || { imagePaths: new Set() }
+    const pending = this.pendingReplies.get(sessionId) || { imagePaths: new Set(), textChunks: [] }
     this._collectImagePaths(pending, message)
-    if (pending.imagePaths?.size > 0) {
+    if (text && pending.imagePaths?.size > 0) {
+      pending.textChunks = pending.textChunks || []
+      pending.textChunks.push(text)
+    }
+    if ((pending.imagePaths?.size > 0) || (pending.textChunks?.length > 0)) {
       this.pendingReplies.set(sessionId, pending)
     }
   }
@@ -254,12 +259,15 @@ class WeixinBridge {
   }
 
   _collectImagePaths(pending, message) {
-    const blocks = Array.isArray(message?.content) ? message.content : []
     if (!pending.imagePaths) pending.imagePaths = new Set()
+    for (const filePath of extractImagePaths(message)) {
+      pending.imagePaths.add(filePath)
+    }
+
+    const blocks = Array.isArray(message?.content) ? message.content : []
     for (const block of blocks) {
-      if (block?.type === 'tool_use' && block.input) {
-        this._extractImagePaths(block.input).forEach(filePath => pending.imagePaths.add(filePath))
-      }
+      if (block?.type !== 'text' || !block.text) continue
+      this._extractImagePathsFromText(block.text).forEach(filePath => pending.imagePaths.add(filePath))
     }
   }
 
@@ -273,7 +281,8 @@ class WeixinBridge {
     this.pendingReplies.delete(sessionId)
 
     const imagePaths = [...(pending?.imagePaths || [])]
-    if (!target || imagePaths.length === 0) return null
+    const text = Array.isArray(pending?.textChunks) ? pending.textChunks.join('\n\n').trim() : ''
+    if (!target || (imagePaths.length === 0 && !text)) return null
 
     const pendingTextSend = this.replySendQueues.get(sessionId)
     if (pendingTextSend) {
@@ -284,8 +293,17 @@ class WeixinBridge {
       return this.weixinNotifyService.sendImages({
         accountId: target.accountId,
         targetId: target.targetId,
-        text: '',
+        text,
         imagePaths,
+        sessionId
+      })
+    }
+
+    if (text) {
+      return this.weixinNotifyService.sendText({
+        accountId: target.accountId,
+        targetId: target.targetId,
+        text,
         sessionId
       })
     }
@@ -360,6 +378,24 @@ class WeixinBridge {
 
   _normalizePath(filePath) {
     return normalizePath(filePath)
+  }
+
+  _messageHasImagePaths(message) {
+    if (extractImagePaths(message).length > 0) return true
+    const blocks = Array.isArray(message?.content) ? message.content : []
+    return blocks.some(block => block?.type === 'text' && this._extractImagePathsFromText(block.text).length > 0)
+  }
+
+  _extractImagePathsFromText(text) {
+    if (typeof text !== 'string' || !text.trim()) return []
+
+    const matches = text.match(/[A-Za-z]:[\\/][^\s"'<>|]+?\.(?:png|jpg|jpeg|gif|webp|bmp)/gi) || []
+    const unique = new Set()
+    for (const rawPath of matches) {
+      const normalized = this._normalizePath(rawPath.trim())
+      unique.add(normalized)
+    }
+    return [...unique]
   }
 
   _ensureSession(message) {
