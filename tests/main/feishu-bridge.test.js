@@ -1638,6 +1638,80 @@ describe('FeishuBridge', () => {
     expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
   })
 
+  it('prompts for history after closing the current Feishu session instead of auto-using another proactive binding', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    const findBoundSession = vi.spyOn(bridge, '_findBoundSessionIdBySenderId')
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
+      { session_id: 'old-bound-session', title: '旧主动绑定会话', updated_at: Date.now() - 60 * 1000 }
+    ])
+    vi.spyOn(bridge._sessionMapper, 'initPendingChoice').mockImplementation(async (_mapKey, history, onSendChoiceMenu, options) => {
+      await onSendChoiceMenu(options.menuBuilder(history))
+      return { sessionId: null }
+    })
+
+    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '当前会话', cwd: tempDir })
+    const oldBound = manager.create({ type: 'chat', source: 'manual', imChannel: 'feishu', title: '旧主动绑定会话', cwd: tempDir })
+    manager.sessions.get(current.id).queryGenerator = {}
+    manager.sessions.get(oldBound.id).queryGenerator = {}
+    vi.spyOn(manager, 'close').mockImplementation(async (sessionId) => {
+      manager.sessions.delete(sessionId)
+    })
+
+    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', current.id)
+    bridge._sessionIdentities.set(current.id, {
+      senderId: 'ou_target',
+      senderName: '张三',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: '张三'
+    })
+    bridge._targetSessionMap.set('ou_target', oldBound.id)
+    bridge._sessionTargets.set(oldBound.id, {
+      openId: 'ou_target',
+      displayName: '张三'
+    })
+
+    await bridge._handleCommand('/close', {
+      senderId: 'ou_target',
+      senderName: '张三',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: '张三'
+    })
+    findBoundSession.mockClear()
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_after_close_1',
+      senderId: 'ou_target',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      text: '关闭后继续'
+    })
+
+    expect(findBoundSession).not.toHaveBeenCalledWith('ou_target')
+    expect(bridge._sessionMapper.initPendingChoice).toHaveBeenCalledWith(
+      'ou_target:oc_reply',
+      [expect.objectContaining({ session_id: 'old-bound-session' })],
+      expect.any(Function),
+      expect.any(Object)
+    )
+    expect(bridge._pendingMessages.get('ou_target:oc_reply')?.message).toEqual({
+      text: '关闭后继续',
+      images: undefined
+    })
+    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+    expect(enqueueMessage).not.toHaveBeenCalledWith(
+      oldBound.id,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
   it('closes the active group-chat Feishu session from card actions', async () => {
     const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

@@ -57,6 +57,8 @@ class FeishuBridge {
     this._sessionTargets = new Map()
     /** @type {Map<string, string>} open_id → sessionId */
     this._targetSessionMap = new Map()
+    /** @type {Set<string>} mapKey values that should choose history before proactive p2p rebinding */
+    this._proactiveRebindSuppressedKeys = new Set()
     this._activeSendChunks = new Map()
     this._knownRobotMentionIds = new Set()
 
@@ -115,6 +117,7 @@ class FeishuBridge {
     this._sessionIdentities.clear()
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
+    this._proactiveRebindSuppressedKeys.clear()
     this._activeSendChunks.clear()
     this._knownRobotMentionIds.clear()
   }
@@ -269,12 +272,16 @@ class FeishuBridge {
       if (activeSessionId) {
         this._sessionMapper.clearPendingChoice(mapKey)
         this._pendingMessages.delete(mapKey)
+        this._proactiveRebindSuppressedKeys.delete(mapKey)
       } else if (chatType === 'p2p') {
-        const proactivelyBoundSessionId = await this._findBoundSessionIdBySenderId(senderId)
+        const proactivelyBoundSessionId = this._proactiveRebindSuppressedKeys.has(mapKey)
+          ? null
+          : await this._findBoundSessionIdBySenderId(senderId)
         if (proactivelyBoundSessionId) {
           this._sessionMapper.sessionMap.set(mapKey, proactivelyBoundSessionId)
           this._sessionMapper.clearPendingChoice(mapKey)
           this._pendingMessages.delete(mapKey)
+          this._proactiveRebindSuppressedKeys.delete(mapKey)
         } else if (typeof normalizedText === 'string' && normalizedText.trim()) {
           await this._handleChoiceReply(
             mapKey,
@@ -488,6 +495,7 @@ class FeishuBridge {
     }
 
     if (result.sessionId) {
+      this._proactiveRebindSuppressedKeys.delete(mapKey)
       this._sessionIdentities.set(result.sessionId, {
         senderId,
         senderName: displayName,
@@ -626,6 +634,9 @@ class FeishuBridge {
         }
         await this._agentSessionManager.close(targetSessionId)
         this._clearSessionIdentity(targetSessionId)
+        if ((context.chatType || '').toLowerCase() === 'p2p') {
+          this._proactiveRebindSuppressedKeys.add(mapKey)
+        }
         this._notifier.notifySessionClosed({ sessionId: targetSessionId })
         sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
         const closeText = args.length > 0
@@ -660,6 +671,7 @@ class FeishuBridge {
           chatType: context.chatType, nickname: context.senderName || context.senderId, chatName: context.chatName,
         }, { cwd })
         if (newId) {
+          this._proactiveRebindSuppressedKeys.delete(mapKey)
           this._sessionMapper.sessionMap.set(mapKey, newId)
           this._sessionIdentities.set(newId, {
             senderId: context.senderId,
@@ -743,6 +755,7 @@ class FeishuBridge {
             }
           }
           if (resolvedSessionId) {
+            this._proactiveRebindSuppressedKeys.delete(mapKey)
             if (preservePendingSelection) {
               this._sessionMapper.clearPendingChoice(mapKey)
             }
@@ -980,7 +993,7 @@ class FeishuBridge {
       }
     }
 
-    if (!sessionId && chatType === 'p2p') {
+    if (!sessionId && chatType === 'p2p' && !this._proactiveRebindSuppressedKeys.has(mapKey)) {
       const proactiveSessionId = await this._findBoundSessionIdBySenderId(senderId)
       if (proactiveSessionId) {
         this._sessionMapper.sessionMap.set(mapKey, proactiveSessionId)
@@ -1025,6 +1038,8 @@ class FeishuBridge {
       })
       return null
     }
+
+    this._proactiveRebindSuppressedKeys.delete(mapKey)
 
     sessionId = await this._sessionMapper.createSession(identity)
     if (sessionId) {
@@ -1285,6 +1300,7 @@ class FeishuBridge {
     const messageId = await this._api.sendTextMessage('open_id', resolvedOpenId, content)
     if (sessionId) {
       this.bindSessionToTarget(sessionId, { openId: resolvedOpenId, displayName })
+      this._clearProactiveRebindSuppressionForSender(resolvedOpenId)
     }
     return { success: true, messageId, targetId: resolvedOpenId }
   }
@@ -1296,13 +1312,22 @@ class FeishuBridge {
     return null
   }
 
+  _clearProactiveRebindSuppressionForSender(senderId) {
+    if (!senderId) return
+    for (const key of this._proactiveRebindSuppressedKeys) {
+      if (key.startsWith(`${senderId}:`)) {
+        this._proactiveRebindSuppressedKeys.delete(key)
+      }
+    }
+  }
+
   async _resolveCommandSessionId(mapKey, context) {
     let sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
     if (sessionId) {
       return sessionId
     }
 
-    if ((context?.chatType || '').toLowerCase() === 'p2p') {
+    if ((context?.chatType || '').toLowerCase() === 'p2p' && !this._proactiveRebindSuppressedKeys.has(mapKey)) {
       const proactiveSessionId = await this._findBoundSessionIdBySenderId(context.senderId)
       if (proactiveSessionId) {
         this._sessionMapper.sessionMap.set(mapKey, proactiveSessionId)
