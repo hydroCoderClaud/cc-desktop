@@ -192,7 +192,7 @@ class WeixinBridge {
     const desktopPending = this.desktopPendingBlocks.get(sessionId)
     if (desktopPending) {
       this._collectTextChunks(desktopPending, message)
-      this._collectImagePaths(desktopPending, message, sessionId)
+      this._collectImagePaths(desktopPending, message)
       return
     }
 
@@ -205,7 +205,7 @@ class WeixinBridge {
     }
 
     const pending = this.pendingReplies.get(sessionId) || { imagePaths: new Set() }
-    this._collectImagePaths(pending, message, sessionId)
+    this._collectImagePaths(pending, message)
     if (pending.imagePaths?.size > 0) {
       this.pendingReplies.set(sessionId, pending)
     }
@@ -253,12 +253,12 @@ class WeixinBridge {
     pending.textChunks.push(textParts.join('\n\n'))
   }
 
-  _collectImagePaths(pending, message, sessionId) {
+  _collectImagePaths(pending, message) {
     const blocks = Array.isArray(message?.content) ? message.content : []
     if (!pending.imagePaths) pending.imagePaths = new Set()
     for (const block of blocks) {
       if (block?.type === 'tool_use' && block.input) {
-        this._extractImagePaths(block.input, sessionId).forEach(filePath => pending.imagePaths.add(filePath))
+        this._extractImagePaths(block.input).forEach(filePath => pending.imagePaths.add(filePath))
       }
     }
   }
@@ -343,33 +343,19 @@ class WeixinBridge {
     })
   }
 
-  _extractImagePaths(obj, sessionId, depth = 0) {
+  _extractImagePaths(obj, depth = 0) {
     if (depth > IMAGE_PATH_MAX_DEPTH) return []
     const paths = []
     if (typeof obj === 'string') {
       if (IMAGE_EXTENSIONS.test(obj) && (obj.startsWith('/') || /^[A-Z]:[/\\]/.test(obj))) {
-        const normalizedPath = this._normalizePath(obj)
-        if (this._isAllowedSessionImagePath(normalizedPath, sessionId)) {
-          paths.push(normalizedPath)
-        }
+        paths.push(this._normalizePath(obj))
       }
     } else if (obj && typeof obj === 'object') {
       for (const value of Object.values(obj)) {
-        paths.push(...this._extractImagePaths(value, sessionId, depth + 1))
+        paths.push(...this._extractImagePaths(value, depth + 1))
       }
     }
     return paths
-  }
-
-  _isAllowedSessionImagePath(filePath, sessionId) {
-    const session = sessionId ? this._resolveSession(sessionId) : null
-    if (!session?.cwd) return false
-
-    const cwd = path.resolve(session.cwd)
-    const resolvedPath = path.resolve(filePath)
-    const normalizedCwd = cwd.toLowerCase()
-    const normalizedPath = resolvedPath.toLowerCase()
-    return normalizedPath === normalizedCwd || normalizedPath.startsWith(`${normalizedCwd}${path.sep}`)
   }
 
   _normalizePath(filePath) {

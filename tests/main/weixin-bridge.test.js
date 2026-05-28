@@ -505,18 +505,19 @@ describe('WeixinBridge', () => {
     })
   })
 
-  it('does not forward assistant image paths outside the session directory', async () => {
+  it('forwards assistant image paths outside the session directory', async () => {
     const { bridge, manager } = createHarness()
     stubSendMessage(manager)
 
     bridge.start()
     await bridge._handleMessage(inboundMessage({ text: '帮我画图' }))
     const session = Array.from(manager.sessions.values())[0]
+    const imagePath = 'C:/workspace/out/result.png'
     manager.emit('agentMessage', session.id, {
       type: 'assistant',
       content: [
         { type: 'text', text: '图片生成好了。' },
-        { type: 'tool_use', input: { path: 'C:/workspace/out/result.png' } }
+        { type: 'tool_use', input: { path: imagePath } }
       ]
     })
     manager.emit('agentResult', session.id)
@@ -529,7 +530,13 @@ describe('WeixinBridge', () => {
       text: '图片生成好了。',
       sessionId: session.id
     })
-    expect(bridge.weixinNotifyService.sendImages).not.toHaveBeenCalled()
+    expect(bridge.weixinNotifyService.sendImages).toHaveBeenCalledWith({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      text: '',
+      imagePaths: [imagePath],
+      sessionId: session.id
+    })
   })
 
   it('ignores context-only updates', async () => {
