@@ -48,8 +48,6 @@ class EnterpriseWeixinBridge {
     this._connected = false
     this._sessionDatabase = agentSessionManager.sessionDatabase
     this._startPromise = null
-    this._contactAccessToken = null
-    this._contactAccessTokenExpiresAt = 0
 
     this._notifier = new ImFrontendNotifier(mainWindow, this._imType)
     this._replyCollector = new ImReplyCollector({ maxTextLength: MAX_TEXT_LENGTH })
@@ -179,8 +177,6 @@ class EnterpriseWeixinBridge {
     this._pendingInboundMessages.clear()
     this._activeSendChunks.clear()
     this._desktopPendingImagePaths.clear()
-    this._contactAccessToken = null
-    this._contactAccessTokenExpiresAt = 0
 
     if (this._wsClient) {
       try { this._wsClient.disconnect() } catch {}
@@ -533,42 +529,7 @@ class EnterpriseWeixinBridge {
     if (directName) return directName.trim()
 
     const userId = typeof body?.from?.userid === 'string' ? body.from.userid.trim() : ''
-    if (!userId) return ''
-
-    try {
-      const organizationName = await this._lookupContactDisplayName(userId)
-      if (organizationName) return organizationName
-    } catch (err) {
-      console.warn('[EnterpriseWeixin] Failed to resolve sender name from contacts:', err.message)
-    }
-
     return userId
-  }
-
-  async _lookupContactDisplayName(userId) {
-    const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
-    if (!normalizedUserId) return ''
-
-    const token = await this._getContactAccessToken()
-    const response = await globalThis.fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token=${encodeURIComponent(token)}&userid=${encodeURIComponent(normalizedUserId)}`
-    )
-    if (!response.ok) {
-      throw new Error(`获取企业微信成员详情失败: HTTP ${response.status}`)
-    }
-
-    const result = await response.json()
-    if (result.errcode) {
-      throw new Error(`获取企业微信成员详情失败: ${result.errcode} ${result.errmsg || 'unknown error'}`)
-    }
-
-    return String(
-      result.name
-      || result.alias
-      || result.nick
-      || result.nickname
-      || normalizedUserId
-    ).trim()
   }
 
   async _handlePendingChoice(frame, message, identity, mapKey) {
@@ -601,6 +562,10 @@ class EnterpriseWeixinBridge {
       chatId: identity.chatId,
       chatType: identity.chatType,
       chatName: identity.channelName || identity.nickname || identity.userId,
+    })
+    this._notifier.notifySessionCreated({
+      sessionId,
+      nickname: identity.nickname || identity.userId,
     })
 
     if (result.action === 'resume') {
@@ -1494,131 +1459,6 @@ class EnterpriseWeixinBridge {
     }
     this._sessionTargets.delete(sessionId)
     return { success: true }
-  }
-
-  listSendableTargets() {
-    return this._listContactTargets()
-  }
-
-  async _listContactTargets() {
-    const token = await this._getContactAccessToken()
-    const departments = await this._listAllContactDepartments(token)
-    const deptIds = departments.length > 0 ? departments.map(item => item.id) : [1]
-    const seenUsers = new Map()
-
-    for (const deptId of deptIds) {
-      const users = await this._listDepartmentContactUsers(token, deptId)
-      for (const user of users) {
-        const userId = String(user.userid || user.userId || '').trim()
-        if (!userId || seenUsers.has(userId)) continue
-        const displayName = String(user.name || user.alias || user.nick || user.nickname || userId).trim() || userId
-        seenUsers.set(userId, {
-          id: userId,
-          userId,
-          targetId: userId,
-          displayName,
-          name: displayName,
-          deptId,
-          hasContextToken: true,
-        })
-      }
-    }
-
-    return Array.from(seenUsers.values()).sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-CN'))
-  }
-
-  async _getContactAccessToken() {
-    if (this._contactAccessToken && Date.now() < this._contactAccessTokenExpiresAt) {
-      return this._contactAccessToken
-    }
-
-    const config = this._getConfig()
-    const corpId = typeof config.corpId === 'string' ? config.corpId.trim() : ''
-    const botSecret = typeof config.secret === 'string' ? config.secret.trim() : ''
-    const contactSecret = typeof config.contactSecret === 'string' ? config.contactSecret.trim() : ''
-    if (!corpId) {
-      throw new Error('企业微信未配置 CorpID，无法读取组织成员列表')
-    }
-
-    const secretsToTry = []
-    if (botSecret) {
-      secretsToTry.push({
-        secret: botSecret,
-        label: '机器人 Secret',
-      })
-    }
-    if (contactSecret && contactSecret !== botSecret) {
-      secretsToTry.push({
-        secret: contactSecret,
-        label: '通讯录 Secret',
-      })
-    }
-    if (secretsToTry.length === 0) {
-      throw new Error('企业微信未配置可用 Secret，无法读取组织成员列表')
-    }
-
-    const errors = []
-    for (const candidate of secretsToTry) {
-      const response = await globalThis.fetch(
-        `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(candidate.secret)}`
-      )
-      if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        errors.push(`${candidate.label}: HTTP ${response.status} ${body.substring(0, 200)}`)
-        continue
-      }
-
-      const result = await response.json()
-      if (result.errcode) {
-        errors.push(`${candidate.label}: ${result.errcode} ${result.errmsg || 'unknown error'}`)
-        continue
-      }
-      if (!result.access_token) {
-        errors.push(`${candidate.label}: 响应缺少 access_token`)
-        continue
-      }
-
-      const expiresIn = Number(result.expires_in || 7200)
-      this._contactAccessToken = result.access_token
-      this._contactAccessTokenExpiresAt = Date.now() + Math.max(expiresIn - 300, 60) * 1000
-      return this._contactAccessToken
-    }
-
-    throw new Error(`企业微信成员列表 access_token 获取失败；已尝试 ${secretsToTry.map(item => item.label).join('、')}。${errors.join('；')}`)
-  }
-
-  async _listAllContactDepartments(token) {
-    const response = await globalThis.fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/department/list?access_token=${encodeURIComponent(token)}`
-    )
-    if (!response.ok) {
-      throw new Error(`获取企业微信部门列表失败: HTTP ${response.status}`)
-    }
-    const result = await response.json()
-    if (result.errcode) {
-      throw new Error(`获取企业微信部门列表失败: ${result.errcode} ${result.errmsg || 'unknown error'}`)
-    }
-    const list = Array.isArray(result.department) ? result.department : []
-    return list
-      .map(item => ({
-        id: Number(item.id),
-        name: item.name || '',
-      }))
-      .filter(item => Number.isFinite(item.id))
-  }
-
-  async _listDepartmentContactUsers(token, departmentId) {
-    const response = await globalThis.fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/user/simplelist?access_token=${encodeURIComponent(token)}&department_id=${encodeURIComponent(departmentId)}&fetch_child=0`
-    )
-    if (!response.ok) {
-      throw new Error(`获取企业微信部门成员失败: HTTP ${response.status}`)
-    }
-    const result = await response.json()
-    if (result.errcode) {
-      throw new Error(`获取企业微信部门成员失败: ${result.errcode} ${result.errmsg || 'unknown error'}`)
-    }
-    return Array.isArray(result.userlist) ? result.userlist : []
   }
 
   _restoreSessionBindings() {

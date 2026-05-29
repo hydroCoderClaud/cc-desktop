@@ -1089,7 +1089,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartEnterpriseWeixin: () => ipcRenderer.invoke('enterprise-weixin:restart'),
   updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
   openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
-  listEnterpriseWeixinTargets: (payload) => ipcRenderer.invoke('enterprise-weixin:listTargets', payload),
   bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindSessionToTarget', payload),
   unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindSessionTarget', payload),
   getSessionEnterpriseWeixinBinding: (sessionId) => ipcRenderer.invoke('enterprise-weixin:getSessionBinding', sessionId),

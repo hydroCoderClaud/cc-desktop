@@ -253,7 +253,6 @@ const enterpriseWeixinNotifyApi = computed(() => {
   const api = window.electronAPI || null
   if (!api) return null
   return {
-    listEnterpriseWeixinTargets: api.listEnterpriseWeixinTargets?.bind(api),
     getSessionEnterpriseWeixinBinding: api.getSessionEnterpriseWeixinBinding?.bind(api),
     bindSessionToEnterpriseWeixinTarget: api.bindSessionToEnterpriseWeixinTarget?.bind(api),
     sendEnterpriseWeixinText: api.sendEnterpriseWeixinText?.bind(api)

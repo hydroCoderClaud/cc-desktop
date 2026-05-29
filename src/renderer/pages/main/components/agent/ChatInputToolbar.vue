@@ -272,19 +272,12 @@
           <template v-else>
             <div class="enterprise-weixin-panel-title">{{ t('agent.enterpriseWeixinQuickSendTitle') }}</div>
             <div class="enterprise-weixin-panel-hint">{{ t('agent.enterpriseWeixinQuickSendHint') }}</div>
-            <div v-if="enterpriseWeixinTargets.length > 0" class="enterprise-weixin-target-list">
-              <div
-                v-for="target in enterpriseWeixinTargets"
-                :key="target.id"
-                class="enterprise-weixin-target-item"
-                :class="{ active: selectedEnterpriseWeixinTargetId === target.id }"
-                @click="selectedEnterpriseWeixinTargetId = target.id"
-              >
-                <span class="enterprise-weixin-target-name">{{ target.displayName || target.name || target.userId || target.id || '未命名' }}</span>
+            <template v-if="selectedEnterpriseWeixinTarget">
+              <div class="enterprise-weixin-target-list">
+                <div class="enterprise-weixin-target-item active">
+                  <span class="enterprise-weixin-target-name">{{ selectedEnterpriseWeixinTarget.displayName || selectedEnterpriseWeixinTarget.name || selectedEnterpriseWeixinTarget.userId || selectedEnterpriseWeixinTarget.id || '未命名' }}</span>
+                </div>
               </div>
-            </div>
-            <div v-if="enterpriseWeixinTargets.length === 0" class="enterprise-weixin-empty">{{ t('agent.enterpriseWeixinNoTargets') }}</div>
-            <template v-else>
               <textarea
                 v-model="enterpriseWeixinText"
                 class="enterprise-weixin-message-input"
@@ -306,6 +299,7 @@
                 </button>
               </div>
             </template>
+            <div v-else class="enterprise-weixin-empty">{{ t('agent.enterpriseWeixinNoTargets') }}</div>
           </template>
         </div>
       </Transition>
@@ -408,8 +402,7 @@ const feishuError = ref('')
 const feishuLoading = ref(false)
 const feishuSending = ref(false)
 const showEnterpriseWeixinDropdown = ref(false)
-const enterpriseWeixinTargets = ref([])
-const selectedEnterpriseWeixinTargetId = ref(null)
+const enterpriseWeixinBinding = ref(null)
 const enterpriseWeixinText = ref('')
 const enterpriseWeixinError = ref('')
 const enterpriseWeixinLoading = ref(false)
@@ -444,11 +437,11 @@ const selectedFeishuTarget = computed(() => feishuTargets.value.find(target => t
 const canSendFeishu = computed(() => Boolean(selectedFeishuTarget.value && feishuText.value.trim()))
 const resolvedFeishuNotifyApi = computed(() => props.feishuNotifyApi || window.electronAPI || null)
 const showEnterpriseWeixinBtn = computed(() => {
-  if (!props.sessionId || !(props.enterpriseWeixinNotifyApi || window.electronAPI)?.listEnterpriseWeixinTargets) return false
-  return !resolvedImBindingSource.value || resolvedImBindingSource.value === 'enterprise-weixin'
+  if (!props.sessionId || !(props.enterpriseWeixinNotifyApi || window.electronAPI)?.sendEnterpriseWeixinText) return false
+  return resolvedImBindingSource.value === 'enterprise-weixin'
 })
 const enterpriseWeixinBtnTitle = computed(() => t('agent.enterpriseWeixinQuickSendTitle'))
-const selectedEnterpriseWeixinTarget = computed(() => enterpriseWeixinTargets.value.find(target => target.id === selectedEnterpriseWeixinTargetId.value) || null)
+const selectedEnterpriseWeixinTarget = computed(() => enterpriseWeixinBinding.value)
 const canSendEnterpriseWeixin = computed(() => Boolean(selectedEnterpriseWeixinTarget.value && enterpriseWeixinText.value.trim()))
 const resolvedEnterpriseWeixinNotifyApi = computed(() => props.enterpriseWeixinNotifyApi || window.electronAPI || null)
 
@@ -584,43 +577,25 @@ const loadFeishuTargets = async () => {
   }
 }
 
-const loadEnterpriseWeixinTargets = async () => {
+const loadEnterpriseWeixinBinding = async () => {
   const enterpriseWeixinApi = resolvedEnterpriseWeixinNotifyApi.value
-  if (!enterpriseWeixinApi?.listEnterpriseWeixinTargets) return
+  if (!enterpriseWeixinApi?.getSessionEnterpriseWeixinBinding || !props.sessionId) return
   enterpriseWeixinLoading.value = true
   try {
-    const [targets, binding] = await Promise.all([
-      enterpriseWeixinApi.listEnterpriseWeixinTargets(),
-      props.sessionId && enterpriseWeixinApi?.getSessionEnterpriseWeixinBinding
-        ? enterpriseWeixinApi.getSessionEnterpriseWeixinBinding(props.sessionId).catch(() => null)
-        : null
-    ])
-    if (targets?.error) {
-      throw new Error(targets.error)
-    }
+    const binding = await enterpriseWeixinApi.getSessionEnterpriseWeixinBinding(props.sessionId)
     const bindingTargetId = binding?.targetId || binding?.userId || null
-    const allTargets = Array.isArray(targets) ? targets : []
-    if (bindingTargetId) {
-      const boundTarget = allTargets.find(target => [target.id, target.userId].includes(bindingTargetId))
-        || {
+    enterpriseWeixinBinding.value = bindingTargetId
+      ? {
           id: bindingTargetId,
           userId: binding?.userId || bindingTargetId,
           displayName: binding?.displayName || bindingTargetId,
           name: binding?.displayName || bindingTargetId
         }
-      enterpriseWeixinTargets.value = [boundTarget]
-      selectedEnterpriseWeixinTargetId.value = boundTarget.id
-    } else {
-      enterpriseWeixinTargets.value = allTargets
-      if (!enterpriseWeixinTargets.value.some(target => target.id === selectedEnterpriseWeixinTargetId.value)) {
-        selectedEnterpriseWeixinTargetId.value = enterpriseWeixinTargets.value[0]?.id || null
-      }
-    }
+      : null
     enterpriseWeixinError.value = ''
   } catch (err) {
-    console.error('[ChatInputToolbar] loadEnterpriseWeixinTargets error:', err)
-    enterpriseWeixinTargets.value = []
-    selectedEnterpriseWeixinTargetId.value = null
+    console.error('[ChatInputToolbar] loadEnterpriseWeixinBinding error:', err)
+    enterpriseWeixinBinding.value = null
     enterpriseWeixinError.value = err?.message || t('agent.enterpriseWeixinQuickSendFailed')
   } finally {
     enterpriseWeixinLoading.value = false
@@ -683,7 +658,7 @@ const toggleEnterpriseWeixinDropdown = () => {
   if (showEnterpriseWeixinDropdown.value) {
     enterpriseWeixinText.value = props.draftText || ''
     enterpriseWeixinError.value = ''
-    loadEnterpriseWeixinTargets()
+    loadEnterpriseWeixinBinding()
   }
 }
 
@@ -825,7 +800,7 @@ watch(() => props.sessionId, () => {
   selectedDingTalkTargetId.value = null
   selectedWeixinTargetId.value = null
   selectedFeishuTargetId.value = null
-  selectedEnterpriseWeixinTargetId.value = null
+  enterpriseWeixinBinding.value = null
 })
 
 const normalizedApiProfiles = computed(() => {

@@ -59,8 +59,6 @@ describe('EnterpriseWeixinBridge', () => {
           enabled: true,
           botId: 'bot-id',
           secret: 'bot-secret',
-          corpId: 'corp-id',
-          contactSecret: 'contact-secret',
           maxHistorySessions: 5,
         },
       }),
@@ -228,44 +226,20 @@ describe('EnterpriseWeixinBridge', () => {
     expect(sent.map(item => item.channel)).toContain('enterprise-weixin:messageReceived')
   })
 
-  it('resolves inbound sender name from enterprise weixin contacts when payload lacks sender name', async () => {
+  it('falls back to userid when enterprise weixin payload lacks sender name', async () => {
     const { bridge, manager } = createHarness()
     const sendMessage = stubSendMessage(manager)
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          access_token: 'contact-token',
-          expires_in: 7200,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          userid: 'ZhangYueSheng',
-          name: '雷斯林',
-        }),
-      })
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = fetchMock
-    try {
-      await bridge._handleMessage(inboundFrame({
-        from: { userid: 'ZhangYueSheng' },
-        text: { content: '你好' },
-      }))
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    await bridge._handleMessage(inboundFrame({
+      from: { userid: 'ZhangYueSheng' },
+      text: { content: '你好' },
+    }))
 
     expect(sendMessage).toHaveBeenCalledWith(
       expect.any(String),
       '你好',
       {
         meta: expect.objectContaining({
-          senderNick: '雷斯林',
+          senderNick: 'ZhangYueSheng',
         }),
       }
     )
@@ -353,148 +327,6 @@ describe('EnterpriseWeixinBridge', () => {
     expect(replies.at(-1).markdown.content).toContain('会话 B')
   })
 
-  it('loads sendable targets from enterprise weixin contacts', async () => {
-    const { bridge } = createHarness()
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          access_token: 'contact-token',
-          expires_in: 7200,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          department: [
-            { id: 1, name: '总部' },
-            { id: 2, name: '研发' },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          userlist: [
-            { userid: 'zhangsan', name: '张三' },
-            { userid: 'lisi', name: '李四' },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          userlist: [
-            { userid: 'lisi', name: '李四' },
-            { userid: 'wangwu', name: '王五' },
-          ],
-        }),
-      })
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = fetchMock
-    try {
-      const targets = await bridge.listSendableTargets()
-      expect(targets).toEqual([
-        expect.objectContaining({ id: 'lisi', displayName: '李四' }),
-        expect.objectContaining({ id: 'wangwu', displayName: '王五' }),
-        expect.objectContaining({ id: 'zhangsan', displayName: '张三' }),
-      ])
-      expect(fetchMock).toHaveBeenCalledTimes(4)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  it('prefers bot secret when fetching enterprise weixin contact token', async () => {
-    const { bridge } = createHarness()
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          access_token: 'bot-secret-token',
-          expires_in: 7200,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          department: [{ id: 1, name: '总部' }],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          userlist: [{ userid: 'zhangsan', name: '张三' }],
-        }),
-      })
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = fetchMock
-    try {
-      const targets = await bridge.listSendableTargets()
-      expect(targets).toEqual([
-        expect.objectContaining({ id: 'zhangsan', displayName: '张三' }),
-      ])
-      expect(fetchMock.mock.calls[0][0]).toContain('corpsecret=bot-secret')
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  it('falls back to contact secret when bot secret cannot fetch contact token', async () => {
-    const { bridge } = createHarness()
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 40001,
-          errmsg: 'invalid credential',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          access_token: 'contact-secret-token',
-          expires_in: 7200,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          department: [{ id: 1, name: '总部' }],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          errcode: 0,
-          userlist: [{ userid: 'lisi', name: '李四' }],
-        }),
-      })
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = fetchMock
-    try {
-      const targets = await bridge.listSendableTargets()
-      expect(targets).toEqual([
-        expect.objectContaining({ id: 'lisi', displayName: '李四' }),
-      ])
-      expect(fetchMock.mock.calls[0][0]).toContain('corpsecret=bot-secret')
-      expect(fetchMock.mock.calls[1][0]).toContain('corpsecret=contact-secret')
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
 
   it('closes the current session for /close', async () => {
     const { bridge, manager, replies, sent } = createHarness()
@@ -568,6 +400,30 @@ describe('EnterpriseWeixinBridge', () => {
 
     expect(replies.at(-1).markdown.content).toContain('已恢复历史会话，请继续发送消息')
     expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBe(reopened.id)
+  })
+
+  it('notifies frontend to open the resumed session after numeric history choice', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const reopened = manager.create({ type: 'chat', source: 'manual', title: '历史会话 1' })
+    reopened.imChannel = 'enterprise-weixin'
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
+      { session_id: reopened.id, title: '历史会话 1', updated_at: Date.now() - 1000 },
+    ])
+    stubSendMessage(manager)
+
+    await bridge._handleMessage(inboundFrame({ text: { content: '第一条消息' } }))
+    await bridge._handleMessage(inboundFrame({ text: { content: '1' } }))
+
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'enterprise-weixin:sessionCreated',
+          data: expect.objectContaining({
+            sessionId: reopened.id,
+          }),
+        }),
+      ])
+    )
   })
 
   it('resumes selected history session directly with /resume 1', async () => {

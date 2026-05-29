@@ -10,10 +10,6 @@ function setupEnterpriseWeixinHandlers(ipcMain, bridge, configManager) {
   // 注册标准 IM Bridge 处理器：getStatus / start / stop / restart / updateConfig / sendText
   setupImBridgeHandlers(ipcMain, bridge, configManager, 'enterprise-weixin')
 
-  ipcMain.handle('enterprise-weixin:listTargets', async (_event, payload = {}) => {
-    return bridge.listSendableTargets(payload)
-  })
-
   ipcMain.handle('enterprise-weixin:bindSessionToTarget', async (_event, payload = {}) => {
     return bridge.bindSessionToTarget(payload.sessionId, {
       userId: payload.userId || payload.targetId,
