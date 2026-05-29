@@ -1550,6 +1550,7 @@ export default {
     dingtalkSuffix: ' (from DingTalk)',
     weixinSuffix: ' (from Weixin)',
     feishuSuffix: ' (from Feishu)',
+    enterpriseWeixinSuffix: ' (from WeCom)',
     dingtalkInputPlaceholder: 'Local debug message (will not sync to DingTalk)',
 
     // File browser panel

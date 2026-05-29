@@ -228,6 +228,49 @@ describe('EnterpriseWeixinBridge', () => {
     expect(sent.map(item => item.channel)).toContain('enterprise-weixin:messageReceived')
   })
 
+  it('resolves inbound sender name from enterprise weixin contacts when payload lacks sender name', async () => {
+    const { bridge, manager } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          errcode: 0,
+          access_token: 'contact-token',
+          expires_in: 7200,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          errcode: 0,
+          userid: 'ZhangYueSheng',
+          name: '雷斯林',
+        }),
+      })
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = fetchMock
+    try {
+      await bridge._handleMessage(inboundFrame({
+        from: { userid: 'ZhangYueSheng' },
+        text: { content: '你好' },
+      }))
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      '你好',
+      {
+        meta: expect.objectContaining({
+          senderNick: '雷斯林',
+        }),
+      }
+    )
+  })
+
   it('does not reconnect when bridge is already connected', async () => {
     const { bridge } = createHarness()
     const connectSpy = vi.spyOn(bridge, '_connect').mockResolvedValue(true)

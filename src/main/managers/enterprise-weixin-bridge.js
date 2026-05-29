@@ -335,7 +335,7 @@ class EnterpriseWeixinBridge {
 
   async _handleMessage(frame) {
     this._syncSessionDatabase()
-    const normalizedMessage = this._normalizeInboundMessage(frame)
+    const normalizedMessage = await this._normalizeInboundMessage(frame)
     const message = await this._hydrateInboundImages(normalizedMessage)
     if (!message?.msgId) return
 
@@ -457,9 +457,10 @@ class EnterpriseWeixinBridge {
     }
   }
 
-  _normalizeInboundMessage(frame) {
+  async _normalizeInboundMessage(frame) {
     const body = frame?.body || {}
     const msgType = body?.msgtype || 'text'
+    const senderName = await this._resolveInboundSenderName(body)
     const base = {
       frame,
       raw: body,
@@ -468,7 +469,7 @@ class EnterpriseWeixinBridge {
       chatId: body?.chatid || body?.from?.userid || '',
       chatType: body?.chattype || 'single',
       userId: body?.from?.userid || '',
-      senderName: body?.from?.name || body?.from?.displayName || body?.from?.userid || '',
+      senderName,
       text: '',
       images: [],
       unsupported: false,
@@ -518,6 +519,56 @@ class EnterpriseWeixinBridge {
       nickname: message.senderName || message.userId,
       channelName: isGroup ? (message.chatId || '') : '',
     }
+  }
+
+  async _resolveInboundSenderName(body) {
+    const directName = [
+      body?.from?.name,
+      body?.from?.displayName,
+      body?.from?.nickname,
+      body?.from?.nick,
+      body?.from?.alias,
+    ]
+      .find(value => typeof value === 'string' && value.trim())
+    if (directName) return directName.trim()
+
+    const userId = typeof body?.from?.userid === 'string' ? body.from.userid.trim() : ''
+    if (!userId) return ''
+
+    try {
+      const organizationName = await this._lookupContactDisplayName(userId)
+      if (organizationName) return organizationName
+    } catch (err) {
+      console.warn('[EnterpriseWeixin] Failed to resolve sender name from contacts:', err.message)
+    }
+
+    return userId
+  }
+
+  async _lookupContactDisplayName(userId) {
+    const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
+    if (!normalizedUserId) return ''
+
+    const token = await this._getContactAccessToken()
+    const response = await globalThis.fetch(
+      `https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token=${encodeURIComponent(token)}&userid=${encodeURIComponent(normalizedUserId)}`
+    )
+    if (!response.ok) {
+      throw new Error(`获取企业微信成员详情失败: HTTP ${response.status}`)
+    }
+
+    const result = await response.json()
+    if (result.errcode) {
+      throw new Error(`获取企业微信成员详情失败: ${result.errcode} ${result.errmsg || 'unknown error'}`)
+    }
+
+    return String(
+      result.name
+      || result.alias
+      || result.nick
+      || result.nickname
+      || normalizedUserId
+    ).trim()
   }
 
   async _handlePendingChoice(frame, message, identity, mapKey) {

@@ -1555,6 +1555,7 @@ export default {
     dingtalkSuffix: '（来自钉钉）',
     weixinSuffix: '（来自微信）',
     feishuSuffix: '（来自飞书）',
+    enterpriseWeixinSuffix: '（来自企业微信）',
     dingtalkInputPlaceholder: '本地调试消息（不会同步到钉钉）',
 
     // 文件浏览面板
