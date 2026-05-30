@@ -1417,6 +1417,7 @@ class DingTalkBridge {
     if (text && text.length > maxLen) {
       text = text.substring(0, maxLen) + '\n\n...（消息过长，已截断）'
     }
+    const normalizedText = this._normalizeDingTalkMarkdownText(text)
 
     try {
       const response = await globalThis.fetch(sessionWebhook, {
@@ -1426,7 +1427,7 @@ class DingTalkBridge {
           msgtype: 'markdown',
           markdown: {
             title: this._t('replyTitle'),
-            text
+            text: normalizedText
           }
         })
       })
@@ -1439,6 +1440,16 @@ class DingTalkBridge {
     } catch (err) {
       console.error('[DingTalk] Reply error:', err.message)
     }
+  }
+
+  _normalizeDingTalkMarkdownText(text) {
+    const source = typeof text === 'string' ? text : String(text || '')
+    if (!source) return ''
+    return source
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .join('\n\n')
   }
 
   /**

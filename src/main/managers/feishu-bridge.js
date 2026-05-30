@@ -27,6 +27,12 @@ const {
   buildStatusText,
 } = require('./im-command-presenter')
 const {
+  buildSharedStatusText,
+  buildSharedSessionsText,
+  resolveCloseCommand,
+  resolveRenameCommand,
+} = require('./im-command-executor')
+const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
@@ -40,6 +46,10 @@ const {
   resolveCommandCwd,
   mergeCurrentSessionIntoHistory,
 } = require('./im-command-policy')
+const {
+  resolveStrictCurrentSessionId,
+  ensureHistoryChoiceOrCurrent,
+} = require('./im-session-decision')
 const {
   buildHistoryChoiceCard,
   buildSessionsCard,
@@ -305,7 +315,7 @@ class FeishuBridge {
     const mapKey = this._sessionMapper.buildKey({ userId: senderId, chatId })
     const pendingChoice = this._sessionMapper._pendingChoices?.get(mapKey)
     if (pendingChoice) {
-      const activeSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
+      const activeSessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
       if (activeSessionId) {
         this._sessionMapper.clearPendingChoice(mapKey)
         this._pendingMessages.delete(mapKey)
@@ -316,6 +326,13 @@ class FeishuBridge {
           : await this._findBoundSessionIdBySenderId(senderId)
         if (proactivelyBoundSessionId) {
           this._sessionMapper.sessionMap.set(mapKey, proactivelyBoundSessionId)
+          this._sessionIdentities.set(proactivelyBoundSessionId, {
+            senderId,
+            senderName: resolvedNames.senderName || senderId,
+            chatId,
+            chatType,
+            chatName: resolvedNames.chatName || chatId || null,
+          })
           this._sessionMapper.clearPendingChoice(mapKey)
           this._pendingMessages.delete(mapKey)
           this._proactiveRebindSuppressedKeys.delete(mapKey)
@@ -621,7 +638,7 @@ class FeishuBridge {
       this._pendingMessages.delete(mapKey)
     }
 
-    let sessionId = await this._resolveCommandSessionId(mapKey, context)
+    let sessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
     const rememberedIdentity = this._sessionIdentities.get(sessionId)
     const identity = rememberedIdentity
       ? {
@@ -657,33 +674,36 @@ class FeishuBridge {
         })
         break
       case '/close': {
-        const targetSessionId = await this._resolveCloseTargetSessionId(args, { chatId: context.chatId, mapKey })
-        if (!targetSessionId) {
-          await this._api.sendTextMessage(receiveIdType, receiveId, args.length > 0
-            ? `编号错误：请输入 1-${this._getActiveSessionsByChat(context.chatId).length} 之间的数字\n\n使用 /sessions 查看会话列表`
-            : '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
+        const closeDecision = resolveCloseCommand({
+          args,
+          activeSessions: this._getActiveSessionsByChat(context.chatId),
+          currentSessionId: sessionId,
+          getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
+        })
+        if (closeDecision.action === 'invalid_index') {
+          await this._api.sendTextMessage(receiveIdType, receiveId, `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`)
           break
         }
-        const targetSession = this._agentSessionManager.sessions.get(targetSessionId)
-        if (targetSession?.status === 'streaming') {
+        if (closeDecision.action === 'missing_current') {
+          await this._api.sendTextMessage(receiveIdType, receiveId, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
+          break
+        }
+        if (closeDecision.action === 'streaming') {
           await this._api.sendTextMessage(receiveIdType, receiveId, 'AI 正在响应中，请等待完成后再关闭')
           break
         }
-        await this._agentSessionManager.close(targetSessionId)
-        this._clearSessionIdentity(targetSessionId)
+        await this._agentSessionManager.close(closeDecision.targetSessionId)
+        this._clearSessionIdentity(closeDecision.targetSessionId)
         if ((context.chatType || '').toLowerCase() === 'p2p') {
           this._proactiveRebindSuppressedKeys.add(mapKey)
         }
-        this._notifier.notifySessionClosed({ sessionId: targetSessionId })
+        this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
         sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
-        const closeText = args.length > 0
-          ? `会话 ${args[0]} 已关闭：${targetSession?.title || targetSessionId.substring(0, 8)}`
-          : '会话已关闭'
         await this._sendCloseResult(receiveIdType, receiveId, {
           sessionId,
           highlightSessionId: sessionId || null,
           chatId: context.chatId,
-          closeText,
+          closeText: closeDecision.closeText,
         })
         break
       }
@@ -834,17 +854,20 @@ class FeishuBridge {
         break
       }
       case '/rename': {
-        if (!sessionId) {
+        const renameDecision = resolveRenameCommand({
+          args,
+          currentSessionId: sessionId,
+        })
+        if (renameDecision.action === 'missing_current') {
           await this._api.sendTextMessage(receiveIdType, receiveId, buildRenameMissingSessionText())
           break
         }
-        const newTitle = args.join(' ').trim()
-        if (!newTitle) {
+        if (renameDecision.action === 'missing_title') {
           await this._api.sendTextMessage(receiveIdType, receiveId, buildRenamePromptText())
           break
         }
-        this._agentSessionManager.rename(sessionId, newTitle)
-        await this._api.sendTextMessage(receiveIdType, receiveId, buildRenameSuccessText(newTitle))
+        this._agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
+        await this._api.sendTextMessage(receiveIdType, receiveId, buildRenameSuccessText(renameDecision.newTitle))
         break
       }
       default:
@@ -1018,26 +1041,26 @@ class FeishuBridge {
   async _ensureSession(identity, message, senderId, chatId, chatType) {
     this._syncSessionDatabase()
     const mapKey = this._sessionMapper.buildKey(identity)
-    let sessionId = this._sessionMapper.sessionMap.get(mapKey)
+    let sessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
     if (sessionId) {
-      const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      if (!row || row.status === 'closed') {
-        this._clearSessionIdentity(sessionId)
-        sessionId = null
-      } else {
-        const reopened = this._agentSessionManager.reopen(sessionId)
-        if (reopened) {
-          return sessionId
-        }
-        this._clearSessionIdentity(sessionId)
-        sessionId = null
+      const reopened = this._agentSessionManager.reopen(sessionId)
+      if (reopened) {
+        return sessionId
       }
+      this._clearSessionIdentity(sessionId)
+      sessionId = null
     }
 
-    if (!sessionId && chatType === 'p2p' && !this._proactiveRebindSuppressedKeys.has(mapKey)) {
-      const proactiveSessionId = await this._findBoundSessionIdBySenderId(senderId)
-      if (proactiveSessionId) {
-        this._sessionMapper.sessionMap.set(mapKey, proactiveSessionId)
+    const decision = await ensureHistoryChoiceOrCurrent({
+      sessionMapper: this._sessionMapper,
+      mapKey,
+      identity,
+      resolveBoundSessionId: async () => {
+        if (chatType !== 'p2p' || this._proactiveRebindSuppressedKeys.has(mapKey)) {
+          return null
+        }
+        const proactiveSessionId = await this._findBoundSessionIdBySenderId(senderId)
+        if (!proactiveSessionId) return null
         this._sessionIdentities.set(proactiveSessionId, {
           senderId,
           senderName: identity.nickname || senderId,
@@ -1053,18 +1076,17 @@ class FeishuBridge {
           }
         }
         return proactiveSessionId
-      }
-    }
+      },
+    })
 
-    const historySessions = await this._sessionMapper._queryHistorySessions(identity)
-    if (historySessions && historySessions.length > 0) {
+    if (decision.action === 'show_choice') {
       this._pendingMessages.set(mapKey, { message, senderId, chatId, chatType })
-      await this._sessionMapper.initPendingChoice(mapKey, historySessions, async (menuText) => {
+      await this._sessionMapper.initPendingChoice(mapKey, decision.sessions, async (menuText) => {
         await this._sendHistoryChoiceMenu(
           chatType === 'p2p' ? 'open_id' : 'chat_id',
           chatType === 'p2p' ? senderId : chatId,
-          historySessions,
-          sessionId,
+          decision.sessions,
+          null,
           menuText,
           {
             senderId,
@@ -1075,16 +1097,14 @@ class FeishuBridge {
           }
         )
       }, {
-        menuBuilder: (sessions) => this._buildHistoryChoiceMenuText(sessions, sessionId)
+        menuBuilder: (sessions) => this._buildHistoryChoiceMenuText(sessions, null)
       })
       return null
     }
 
-    this._proactiveRebindSuppressedKeys.delete(mapKey)
-
-    sessionId = await this._sessionMapper.createSession(identity)
-    if (sessionId) {
-      this._sessionMapper.sessionMap.set(mapKey, sessionId)
+    sessionId = decision.sessionId || null
+    if (decision.action === 'create_new' && sessionId) {
+      this._proactiveRebindSuppressedKeys.delete(mapKey)
       this._notifier.notifySessionCreated({
         sessionId,
         nickname: identity.nickname || identity.userId?.substring(0, 8),
@@ -1377,77 +1397,6 @@ class FeishuBridge {
     }
   }
 
-  async _resolveCommandSessionId(mapKey, context) {
-    let sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
-    if (sessionId) {
-      return sessionId
-    }
-
-    if ((context?.chatType || '').toLowerCase() === 'p2p' && !this._proactiveRebindSuppressedKeys.has(mapKey)) {
-      const proactiveSessionId = await this._findBoundSessionIdBySenderId(context.senderId)
-      if (proactiveSessionId) {
-        this._sessionMapper.sessionMap.set(mapKey, proactiveSessionId)
-        this._sessionIdentities.set(proactiveSessionId, {
-          senderId: context.senderId,
-          senderName: context.senderName || context.senderId,
-          chatId: context.chatId,
-          chatType: context.chatType || 'p2p',
-          chatName: context.chatName || null,
-        })
-        if (this._sessionDatabase?.updateDingTalkMetadata) {
-          try {
-            this._sessionDatabase.updateDingTalkMetadata(proactiveSessionId, context.senderId || '', context.chatId || '')
-          } catch (err) {
-            console.warn('[FeishuBridge] Failed to persist proactive Feishu command binding:', err.message)
-          }
-        }
-        return proactiveSessionId
-      }
-    }
-
-    const reboundSessionId = await this._findBoundSessionIdByChat(context.chatId, mapKey)
-    if (!reboundSessionId) {
-      return null
-    }
-
-    this._sessionMapper.sessionMap.set(mapKey, reboundSessionId)
-    this._sessionIdentities.set(reboundSessionId, {
-      senderId: context.senderId,
-      senderName: context.senderName || context.senderId,
-      chatId: context.chatId,
-      chatType: context.chatType || 'p2p',
-      chatName: context.chatName || null,
-    })
-    return reboundSessionId
-  }
-
-  async _findBoundSessionIdByChat(chatId, excludeMapKey = null) {
-    if (!chatId) return null
-
-    for (const [key, sid] of this._sessionMapper.sessionMap.entries()) {
-      if (key === excludeMapKey || sid == null) continue
-      if (!key.endsWith(`:${chatId}`)) continue
-      const activeSessionId = await this._sessionMapper.resolveActiveSessionId(key)
-      if (activeSessionId) {
-        return activeSessionId
-      }
-    }
-
-    for (const [sessionId, identity] of this._sessionIdentities.entries()) {
-      if (!identity || identity.chatId !== chatId) continue
-      const liveSession = this._agentSessionManager.sessions.get(sessionId)
-      if (liveSession) {
-        return sessionId
-      }
-      const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      if (row && row.status !== 'closed') {
-        return sessionId
-      }
-    }
-
-    return null
-  }
-
   async _findBoundSessionIdBySenderId(senderId) {
     if (!senderId) return null
     const sessionId = this._targetSessionMap.get(senderId)
@@ -1673,7 +1622,7 @@ class FeishuBridge {
   }
 
   _buildActiveSessionsText({ sessionId, chatId }) {
-    return buildActiveSessionsText({
+    return buildSharedSessionsText({
       activeSessions: this._getActiveSessionsByChat(chatId),
       currentSessionId: sessionId,
       getDirName: (rawPath) => this._basename(rawPath),
@@ -1692,7 +1641,7 @@ class FeishuBridge {
         currentSession = this._agentSessionManager.sessions.get(currentSessionId) || null
       }
     }
-    return buildStatusText({
+    return buildSharedStatusText({
       bridgeLabel: '飞书桥接',
       connected: !!this._eventClient.connected,
       activeSessions,
@@ -1903,14 +1852,6 @@ class FeishuBridge {
 
   _formatRelativeTime(timestamp) {
     return formatRelativeTime(timestamp)
-  }
-
-  async _resolveCloseTargetSessionId(args, { chatId, mapKey }) {
-    if (!args.length) return this._sessionMapper.resolveActiveSessionId(mapKey)
-    const index = Number.parseInt(args[0], 10)
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    if (Number.isNaN(index) || index < 1 || index > activeSessions.length) return null
-    return activeSessions[index - 1]?.id || null
   }
 
   _clearSessionIdentity(sessionId) {

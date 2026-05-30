@@ -34,6 +34,12 @@ const {
   buildStatusText,
 } = require('./im-command-presenter')
 const {
+  buildSharedStatusText,
+  buildSharedSessionsText,
+  resolveCloseCommand,
+  resolveRenameCommand,
+} = require('./im-command-executor')
+const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
@@ -47,6 +53,10 @@ const {
   resolveCommandCwd,
   mergeCurrentSessionIntoHistory,
 } = require('./im-command-policy')
+const {
+  resolveStrictCurrentSessionId,
+  ensureHistoryChoiceOrCurrent,
+} = require('./im-session-decision')
 const { extractImagePaths } = require('./im-utils')
 
 const MAX_TEXT_LENGTH = 6000
@@ -386,13 +396,7 @@ class EnterpriseWeixinBridge {
       return
     }
 
-    let currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
-    if (!currentSessionId && identity.chatType === 'single') {
-      currentSessionId = this._findBoundSessionIdByUserId(identity.userId)
-      if (currentSessionId) {
-        this._sessionMapper.sessionMap.set(mapKey, currentSessionId)
-      }
-    }
+    let currentSessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
     const currentSession = currentSessionId ? this._agentSessionManager.sessions.get(currentSessionId) : null
     if (currentSession?.status === 'streaming') {
       await this._sendTextReply(frame, 'AI 正在响应中，请等待完成后再发送下一条消息')
@@ -400,9 +404,27 @@ class EnterpriseWeixinBridge {
     }
 
     let ensured = currentSessionId
-      ? { sessionId: currentSessionId, mapKey }
-      : await this._sessionMapper.ensureSession(identity)
-    if (ensured?.needsChoice) {
+      ? { action: 'use_current', sessionId: currentSessionId, mapKey }
+      : await ensureHistoryChoiceOrCurrent({
+        sessionMapper: this._sessionMapper,
+        mapKey,
+        identity,
+        resolveBoundSessionId: async () => {
+          if (identity.chatType !== 'single') return null
+          const boundSessionId = this._findBoundSessionIdByUserId(identity.userId)
+          if (!boundSessionId) return null
+          this._sessionIdentities.set(boundSessionId, {
+            userId: identity.userId,
+            senderId: identity.userId,
+            senderName: identity.nickname || identity.userId,
+            chatId: message.chatId,
+            chatType: message.chatType,
+            chatName: identity.channelName || identity.nickname || identity.userId,
+          })
+          return boundSessionId
+        },
+      })
+    if (ensured?.action === 'show_choice') {
       this._pendingInboundMessages.set(mapKey, { frame, message, identity })
       this._sessionMapper.initPendingChoice(
         mapKey,
@@ -410,7 +432,7 @@ class EnterpriseWeixinBridge {
         (menuText) => this._sendTextReply(frame, menuText),
         {
           timeoutMs: HISTORY_CHOICE_TIMEOUT,
-          menuBuilder: (sessions) => this._buildHistoryChoiceMenu(sessions),
+          menuBuilder: (historySessions) => this._buildHistoryChoiceMenu(historySessions),
         }
       ).catch((err) => {
         console.error('[EnterpriseWeixin] initPendingChoice failed:', err?.message || err)
@@ -605,6 +627,19 @@ class EnterpriseWeixinBridge {
         imagesCount: Array.isArray(pending.message.images) ? pending.message.images.length : 0,
       })
       await this._enqueueInboundMessage(sessionId, pending.frame, pending.message, identity)
+    } else if (!result.wasActivated) {
+      this._notifier.notifyMessageReceived({
+        sessionId,
+        senderNick: identity.nickname || identity.userId,
+        text: 'hello',
+      })
+      await this._enqueueInboundMessage(sessionId, frame, {
+        msgId: `choice-resume-${Date.now()}`,
+        chatId: identity.chatId,
+        chatType: identity.chatType,
+        text: 'hello',
+        images: [],
+      }, identity)
     }
   }
 
@@ -645,39 +680,33 @@ class EnterpriseWeixinBridge {
         return
 
       case '/close': {
-        const activeSessions = this._getActiveSessionsByChat(chatId)
-        let targetSessionId = sessionId
-        if (args.length > 0) {
-          const selectedIndex = Number.parseInt(args[0], 10)
-          if (Number.isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > activeSessions.length) {
-            await this._sendTextReply(
-              context.frame,
-              `编号错误：请输入 1-${activeSessions.length} 之间的数字\n\n使用 /sessions 查看会话列表`
-            )
-            return
-          }
-          targetSessionId = activeSessions[selectedIndex - 1]?.id || null
+        const closeDecision = resolveCloseCommand({
+          args,
+          activeSessions: this._getActiveSessionsByChat(chatId),
+          currentSessionId: sessionId,
+          getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
+        })
+        if (closeDecision.action === 'invalid_index') {
+          await this._sendTextReply(
+            context.frame,
+            `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
+          )
+          return
         }
-
-        if (!targetSessionId) {
+        if (closeDecision.action === 'missing_current') {
           await this._sendTextReply(context.frame, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
           return
         }
-
-        const targetSession = this._agentSessionManager.sessions.get(targetSessionId)
-        if (targetSession?.status === 'streaming') {
+        if (closeDecision.action === 'streaming') {
           await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再关闭')
           return
         }
 
-        await this._agentSessionManager.close(targetSessionId)
-        this._clearSessionIdentity(targetSessionId)
-        this._notifier.notifySessionClosed({ sessionId: targetSessionId })
+        await this._agentSessionManager.close(closeDecision.targetSessionId)
+        this._clearSessionIdentity(closeDecision.targetSessionId)
+        this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
 
-        const closeText = args.length > 0
-          ? `会话 ${args[0]} 已关闭：${targetSession?.title || targetSessionId.substring(0, 8)}`
-          : '会话已关闭'
-        await this._sendTextReply(context.frame, closeText)
+        await this._sendTextReply(context.frame, closeDecision.closeText)
         return
       }
 
@@ -816,17 +845,20 @@ class EnterpriseWeixinBridge {
       }
 
       case '/rename': {
-        if (!sessionId) {
+        const renameDecision = resolveRenameCommand({
+          args,
+          currentSessionId: sessionId,
+        })
+        if (renameDecision.action === 'missing_current') {
           await this._sendTextReply(context.frame, buildRenameMissingSessionText())
           return
         }
-        const newTitle = args.join(' ').trim()
-        if (!newTitle) {
+        if (renameDecision.action === 'missing_title') {
           await this._sendTextReply(context.frame, buildRenamePromptText())
           return
         }
-        this._agentSessionManager.rename(sessionId, newTitle)
-        await this._sendTextReply(context.frame, buildRenameSuccessText(newTitle))
+        this._agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
+        await this._sendTextReply(context.frame, buildRenameSuccessText(renameDecision.newTitle))
         return
       }
 
@@ -836,12 +868,7 @@ class EnterpriseWeixinBridge {
   }
 
   async _resolveCommandSessionId(mapKey, identity) {
-    let sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
-    if (sessionId) return sessionId
-
-    const targetSessionId = this._findBoundSessionIdByUserId(identity.userId)
-    if (!targetSessionId) return null
-    return targetSessionId
+    return resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
   }
 
   _findBoundSessionIdByUserId(userId) {
@@ -967,7 +994,7 @@ class EnterpriseWeixinBridge {
   _buildStatusMenuText({ sessionId, chatId } = {}) {
     const currentSession = sessionId ? this._agentSessionManager.sessions.get(sessionId) : null
     const activeSessions = this._getActiveSessionsByChat(chatId)
-    return buildStatusText({
+    return buildSharedStatusText({
       bridgeLabel: '企业微信',
       connected: this._connected,
       activeSessions,
@@ -978,7 +1005,7 @@ class EnterpriseWeixinBridge {
 
   _buildSessionsMenuText(chatId, currentSessionId) {
     const activeSessions = this._getActiveSessionsByChat(chatId)
-    return buildActiveSessionsText({
+    return buildSharedSessionsText({
       activeSessions,
       currentSessionId,
       getDirName: (cwd) => this._getDirName(cwd),

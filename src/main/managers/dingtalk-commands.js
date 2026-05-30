@@ -8,9 +8,11 @@
 const fs = require('fs')
 const path = require('path')
 const {
-  buildActiveSessionsText,
-  buildStatusText,
-} = require('./im-command-presenter')
+  buildSharedStatusText,
+  buildSharedSessionsText,
+  resolveCloseCommand,
+  resolveRenameCommand,
+} = require('./im-command-executor')
 const {
   listChatSessions,
   createActivatedSessionMatcher,
@@ -210,14 +212,15 @@ module.exports = {
   },
 
   _cmdRename(args, { mapKey }) {
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (!sessionId) return buildRenameMissingSessionText()
+    const renameDecision = resolveRenameCommand({
+      args,
+      currentSessionId: this._resolveActiveSessionId(mapKey),
+    })
+    if (renameDecision.action === 'missing_current') return buildRenameMissingSessionText()
+    if (renameDecision.action === 'missing_title') return buildRenamePromptText()
 
-    const newTitle = args.join(' ').trim()
-    if (!newTitle) return buildRenamePromptText()
-
-    this.agentSessionManager.rename(sessionId, newTitle)
-    return `✅ ${buildRenameSuccessText(newTitle)}`
+    this.agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
+    return `✅ ${buildRenameSuccessText(renameDecision.newTitle)}`
   },
 
   /**
@@ -253,7 +256,7 @@ module.exports = {
         console.log(`[DingTalk] /status: session found, title=${currentSession?.title}, hasQueryGenerator=${!!currentSession?.queryGenerator}`)
       }
     }
-    return buildStatusText({
+    return buildSharedStatusText({
       bridgeLabel: '钉钉桥接',
       connected: true,
       activeSessions,
@@ -276,7 +279,7 @@ module.exports = {
 
     // 获取当前会话 ID
     const currentSessionId = context?.mapKey ? this._resolveActiveSessionId(context.mapKey) : null
-    return buildActiveSessionsText({
+    return buildSharedSessionsText({
       activeSessions,
       currentSessionId,
       getDirName: (cwd) => path.basename(cwd),
@@ -289,55 +292,37 @@ module.exports = {
   async _cmdClose(args, context) {
     const { mapKey, conversationId } = context
     const activeSessions = this._getActiveSessionsByConversation(conversationId)
+    const closeDecision = resolveCloseCommand({
+      args,
+      activeSessions,
+      currentSessionId: this._resolveActiveSessionId(mapKey),
+      getSessionById: (sessionId) => this.agentSessionManager.sessions.get(sessionId) || null,
+    })
 
-    // 如果指定了编号
-    if (args.length > 0) {
-      const index = parseInt(args[0], 10)
-      if (isNaN(index) || index < 1 || index > activeSessions.length) {
-        return `❌ 编号错误：请输入 1-${activeSessions.length} 之间的数字\n\n使用 /sessions 查看会话列表`
-      }
-
-      const targetSession = activeSessions[index - 1]
-      if (targetSession.status === 'streaming') {
-        return '⏳ 该会话 AI 正在响应中，请等待完成后再关闭'
-      }
-
-      // 关闭指定会话
-      await this.agentSessionManager.close(targetSession.id)
-
-      // 清理相关映射（需要找到对应的 mapKey）
-      for (const [key, sid] of this.sessionMap.entries()) {
-        if (sid === targetSession.id) {
-          this._clearSessionState(targetSession.id, key, { clearTargetBinding: true })
-          this._clearPendingChoice(key)
-          break
-        }
-      }
-      this._notifyFrontend('dingtalk:sessionClosed', { sessionId: targetSession.id })
-
-      // 关闭后自动显示剩余会话列表
-      const closeMsg = `✅ 会话 ${index} 已关闭：${targetSession.title || targetSession.id.substring(0, 8)}`
-      const sessionsList = await this._cmdSessions(buildDingTalkCommandContext(context, context?.sessionWebhook))
-      return sessionsList ? `${closeMsg}\n\n${sessionsList}` : closeMsg
+    if (closeDecision.action === 'invalid_index') {
+      return `❌ 编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
+    }
+    if (closeDecision.action === 'missing_current') {
+      return '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话'
+    }
+    if (closeDecision.action === 'streaming') {
+      return closeDecision.targetedByIndex
+        ? '⏳ 该会话 AI 正在响应中，请等待完成后再关闭'
+        : '⏳ AI 正在响应中，请等待完成后再关闭'
     }
 
-    // 不带编号：关闭当前连接的会话
-    const sessionId = this._resolveActiveSessionId(mapKey)
-    if (!sessionId) return '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话'
+    await this.agentSessionManager.close(closeDecision.targetSessionId)
 
-    const session = this.agentSessionManager.sessions.get(sessionId)
-    if (session?.status === 'streaming') {
-      return '⏳ AI 正在响应中，请等待完成后再关闭'
+    for (const [key, sid] of this.sessionMap.entries()) {
+      if (sid !== closeDecision.targetSessionId) continue
+      this._clearSessionState(closeDecision.targetSessionId, key, { clearTargetBinding: true })
+      this._clearPendingChoice(key)
+      if (!args.length && key === mapKey) break
     }
+    this._notifyFrontend('dingtalk:sessionClosed', { sessionId: closeDecision.targetSessionId })
 
-    await this.agentSessionManager.close(sessionId)
-    this._clearSessionState(sessionId, mapKey, { clearTargetBinding: true })
-    this._clearPendingChoice(mapKey)
-    this._notifyFrontend('dingtalk:sessionClosed', { sessionId })
-
-    // 关闭后自动显示剩余会话列表
-    const closeMsg = '✅ 会话已关闭'
     const sessionsList = await this._cmdSessions(buildDingTalkCommandContext(context, context?.sessionWebhook))
+    const closeMsg = `✅ ${closeDecision.closeText}`
     return sessionsList ? `${closeMsg}\n\n${sessionsList}` : closeMsg
   },
 

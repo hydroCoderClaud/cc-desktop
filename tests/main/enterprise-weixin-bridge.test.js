@@ -556,6 +556,45 @@ describe('EnterpriseWeixinBridge', () => {
     expect(enqueueSpy).toHaveBeenCalled()
   })
 
+  it('auto-activates a resumed enterprise weixin session with hello when no pending inbound message exists', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const reopened = manager.create({ type: 'chat', source: 'manual', title: '历史会话 1' })
+    reopened.imChannel = 'enterprise-weixin'
+    const enqueueSpy = vi.spyOn(bridge, '_enqueueInboundMessage').mockResolvedValue()
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
+      { session_id: reopened.id, title: '历史会话 1', updated_at: Date.now() - 1000 },
+    ])
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '/resume 1' },
+    }))
+
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'enterprise-weixin:messageReceived',
+          data: expect.objectContaining({
+            sessionId: reopened.id,
+            text: 'hello',
+          }),
+        }),
+      ])
+    )
+    expect(enqueueSpy).toHaveBeenCalledWith(
+      reopened.id,
+      expect.any(Object),
+      expect.objectContaining({
+        text: 'hello',
+        chatId: 'user-a',
+        chatType: 'single',
+      }),
+      expect.objectContaining({
+        userId: 'user-a',
+        chatId: 'user-a',
+      })
+    )
+  })
+
   it('marks the current live history session with a green check in resume menu', () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '企业1' })

@@ -112,6 +112,25 @@ describe('DingTalkBridge', () => {
     expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', 'conv-1', 5)
   })
 
+  it('formats DingTalk markdown replies with blank lines between lines', async () => {
+    const { bridge } = createHarness()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK'
+    })
+
+    await bridge._replyToDingTalk('https://example.com/webhook', '系统状态\n├─ 钉钉桥接: 已连接\n└─ 总会话数: 0 个')
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [, request] = fetchSpy.mock.calls[0]
+    expect(request.method).toBe('POST')
+    const body = JSON.parse(request.body)
+    expect(body.msgtype).toBe('markdown')
+    expect(body.markdown.title).toBeTruthy()
+    expect(body.markdown.text).toBe('系统状态\n\n├─ 钉钉桥接: 已连接\n\n└─ 总会话数: 0 个')
+  })
+
   it('does not lock a session to DingTalk when the proactive send fails', async () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })

@@ -1709,10 +1709,11 @@ describe('FeishuBridge', () => {
     expect(sent.find(item => item.channel === 'feishu:sessionClosed')?.data).toEqual({ sessionId: session.id })
   })
 
-  it('closes a proactively bound Feishu desktop session even before the first normal reply maps the chat', async () => {
+  it('does not close a proactively bound Feishu session when there is no current command connection', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const close = vi.spyOn(manager, 'close').mockResolvedValue()
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
 
     const created = manager.create({ type: 'chat', source: 'manual', title: '桌面主动会话', cwd: tempDir })
@@ -1731,8 +1732,8 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(close).toHaveBeenCalledWith(session.id)
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
+    expect(close).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_target', '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
   })
 
   it('prompts for history after closing the current Feishu session instead of auto-using another proactive binding', async () => {
@@ -3345,7 +3346,7 @@ describe('FeishuBridge', () => {
     }))
   })
 
-  it('rebinds the current Feishu command mapKey to the active session in the same chat before rename', async () => {
+  it('does not rebind another same-chat session before rename when there is no current connection', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -3366,9 +3367,9 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(rename).toHaveBeenCalledWith(session.id, '飞书4')
-    expect(bridge._sessionMapper.sessionMap.get('ou_new:oc_xxx')).toBe(session.id)
-    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_new', '会话已重命名为：飞书4')
+    expect(rename).not.toHaveBeenCalled()
+    expect(bridge._sessionMapper.sessionMap.get('ou_new:oc_xxx')).toBeUndefined()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_new', '当前没有活跃会话，无法重命名')
   })
 
   it('builds a DingTalk-style Feishu history choice menu with markers and metadata', () => {
