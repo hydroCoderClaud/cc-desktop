@@ -31,10 +31,8 @@ const {
 const {
   buildHistoryChoiceMenuText,
   buildActiveSessionsText,
-  buildStatusText,
 } = require('./im-command-presenter')
 const {
-  buildSharedStatusText,
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
@@ -676,10 +674,24 @@ class EnterpriseWeixinBridge {
           await this._sendTextReply(context.frame, this._buildHelpText())
         },
         status: async () => {
-          await this._sendTextReply(context.frame, this._buildStatusMenuText({
+          const identityState = this._sessionIdentities.get(sessionId) || identity
+          const history = this._mergeCurrentSessionIntoHistory(
+            await this._sessionMapper._queryHistorySessions({
+              userId: identityState.userId || identityState.senderId || '',
+              chatId,
+              chatType: identityState.chatType || 'single',
+            }),
             sessionId,
-            chatId,
-          }))
+            identityState
+          )
+          const statusText = Array.isArray(history) && history.length > 0
+            ? this._buildHistoryChoiceMenu(history, sessionId, {
+                title: '当前会话状态：',
+                includeActionHint: false,
+                includeNewSessionHint: false,
+              })
+            : buildNoHistoryText()
+          await this._sendTextReply(context.frame, statusText)
         },
         sessions: async () => {
           await this._sendTextReply(context.frame, this._buildSessionsMenuText(chatId, sessionId))
@@ -1004,18 +1016,6 @@ class EnterpriseWeixinBridge {
     })
   }
 
-  _buildStatusMenuText({ sessionId, chatId } = {}) {
-    const currentSession = sessionId ? this._agentSessionManager.sessions.get(sessionId) : null
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    return buildSharedStatusText({
-      bridgeLabel: '企业微信',
-      connected: this._connected,
-      activeSessions,
-      currentSession,
-      getProfileName: (profileId) => this._getProfileName(profileId),
-    })
-  }
-
   _buildSessionsMenuText(chatId, currentSessionId) {
     const activeSessions = this._getActiveSessionsByChat(chatId)
     return buildSharedSessionsText({
@@ -1026,7 +1026,7 @@ class EnterpriseWeixinBridge {
     })
   }
 
-  _buildHistoryChoiceMenu(sessions, currentSessionId = null) {
+  _buildHistoryChoiceMenu(sessions, currentSessionId = null, options = {}) {
     return buildHistoryChoiceMenuText({
       sessions,
       currentSessionId,
@@ -1034,6 +1034,9 @@ class EnterpriseWeixinBridge {
       getDirName: (cwd) => this._getDirName(cwd),
       getProfileName: (profileId) => this._getProfileName(profileId),
       isSessionActivated: (sessionId) => !!this._agentSessionManager.sessions.get(sessionId)?.queryGenerator,
+      title: options.title || '您有以下历史会话，请回复数字选择：',
+      includeActionHint: options.includeActionHint !== false,
+      includeNewSessionHint: options.includeNewSessionHint !== false,
     })
   }
 

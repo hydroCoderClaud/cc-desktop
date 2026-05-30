@@ -10,7 +10,7 @@ function buildImCommandHelpText({
   return buildCommandHelpText([
     title,
     '/help    - 显示帮助',
-    '/status  - 查看连接状态',
+    '/status  - 查看历史会话状态',
     '/sessions - 查看当前聊天下的活跃会话',
     '/close [编号] - 关闭当前会话或指定会话',
     includeDirectoryArg

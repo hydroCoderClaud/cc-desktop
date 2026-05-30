@@ -82,6 +82,8 @@ function buildHistoryChoiceCard({
   getProfileName,
   isSessionActivated,
   normalizeDisplayName = null,
+  title = '历史会话',
+  readOnly = false,
 }) {
   const displaySessions = sessions.slice(0, maxSessions)
   const actionContext = context ? {
@@ -104,7 +106,10 @@ function buildHistoryChoiceCard({
         return `${index + 1}. ${marker} [${timeStr}] ${row.title || '(无标题)'} (${dir}) ${profileName}`
       }).join('\n')
     },
-    {
+  ]
+
+  if (!readOnly) {
+    elements.push({
       tag: 'action',
       actions: [
         {
@@ -132,25 +137,34 @@ function buildHistoryChoiceCard({
           }
         }
       ]
-    }
-  ]
+    })
 
-  const resumeActions = displaySessions.map((row, index) => ({
-    tag: 'button',
-    type: currentSessionId && row.session_id === currentSessionId ? 'primary' : 'default',
-    text: {
-      tag: 'plain_text',
-      content: `恢复 ${index + 1}`
-    },
-    value: {
-      intent: 'resume',
-      index: index + 1,
-      title: row.title || '',
-      source: 'history-choice',
-      ...(actionContext || {})
-    }
-  }))
-  elements.splice(1, 0, ...chunkCardActions(resumeActions))
+    const resumeActions = displaySessions.map((row, index) => ({
+      tag: 'button',
+      type: currentSessionId && row.session_id === currentSessionId ? 'primary' : 'default',
+      text: {
+        tag: 'plain_text',
+        content: `恢复 ${index + 1}`
+      },
+      value: {
+        intent: 'resume',
+        index: index + 1,
+        title: row.title || '',
+        source: 'history-choice',
+        ...(actionContext || {})
+      }
+    }))
+    elements.splice(1, 0, ...chunkCardActions(resumeActions))
+  } else {
+    elements.push({
+      tag: 'action',
+      actions: [
+        buildCommandButton('活跃会话', { intent: 'sessions' }, 'primary'),
+        buildCommandButton('新建会话', { intent: 'new', ...(actionContext || {}) }),
+        buildCommandButton('查看帮助', { intent: 'help' })
+      ]
+    })
+  }
 
   if (sessions.length > displaySessions.length) {
     elements.splice(1, 0, {
@@ -169,7 +183,7 @@ function buildHistoryChoiceCard({
     header: {
       title: {
         tag: 'plain_text',
-        content: '历史会话'
+        content: title
       }
     },
     elements

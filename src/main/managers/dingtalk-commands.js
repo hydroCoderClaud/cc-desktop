@@ -8,13 +8,13 @@
 const fs = require('fs')
 const path = require('path')
 const {
-  buildSharedStatusText,
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
   dispatchImCommand,
 } = require('./im-command-executor')
 const { activateNewSession, resolveResumeSelection } = require('./im-session-command-flow')
+const { buildHistoryChoiceMenuText } = require('./im-command-presenter')
 const {
   listChatSessions,
   createActivatedSessionMatcher,
@@ -256,24 +256,64 @@ module.exports = {
   },
 
   _cmdStatus(context) {
-    const activeSessions = this._getActiveSessionsByConversation(context?.conversationId)
-    let currentSession = null
-    if (context?.mapKey) {
-      const sessionId = this.sessionMap.get(context.mapKey)
-      console.log(`[DingTalk] /status: mapKey=${context.mapKey}, sessionId=${sessionId}`)
-      if (sessionId) {
-        currentSession = this.agentSessionManager.sessions.get(sessionId) || null
-        console.log(`[DingTalk] /status: session found, title=${currentSession?.title}, hasQueryGenerator=${!!currentSession?.queryGenerator}`)
+    const { mapKey, senderStaffId, conversationId } = context || {}
+    const currentSessionId = mapKey ? this._resolveActiveSessionId(mapKey) : null
+    const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
+    const db = this.agentSessionManager.sessionDatabase
+    if (!db || !conversationId) return '📭 没有历史会话记录'
+    const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
+    let sessions = db.getImSessionsByType
+      ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
+      : db.getDingTalkSessions(senderStaffId, conversationId, limit)
+    if ((!Array.isArray(sessions) || sessions.length === 0) && typeof db.listAllAgentConversations === 'function') {
+      const allRows = db.listAllAgentConversations({ limit: Math.max(limit * 5, 50) })
+      if (Array.isArray(allRows) && allRows.length > 0) {
+        sessions = allRows
+          .filter(row => row?.status !== 'closed')
+          .filter(row => row?.im_channel === 'dingtalk')
+          .filter(row => row?.staff_id === senderStaffId)
+          .filter(row => row?.conversation_id === conversationId)
+          .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
+          .slice(0, limit)
       }
     }
-    return buildSharedStatusText({
-      bridgeLabel: '钉钉桥接',
-      connected: true,
-      activeSessions,
-      currentSession,
+    if (currentSessionId) {
+      const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
+      const currentRow = db.getAgentConversation?.(currentSessionId)
+      const currentHistoryRow = currentRow || (liveCurrent
+        ? {
+            session_id: currentSessionId,
+            title: liveCurrent.title || currentSessionId,
+            cwd: liveCurrent.cwd || null,
+            api_profile_id: liveCurrent.apiProfileId || null,
+            updated_at: liveCurrent.updatedAt ? new Date(liveCurrent.updatedAt).getTime() : Date.now(),
+            type: liveCurrent.type,
+            source: liveCurrent.source,
+            staff_id: senderStaffId,
+            conversation_id: conversationId,
+            status: liveCurrent.status || 'idle'
+          }
+        : null)
+      if (currentHistoryRow) {
+        const deduped = Array.isArray(sessions)
+          ? sessions.filter(row => (row?.session_id || row?.sessionId || row?.id) !== currentSessionId)
+          : []
+        sessions = [currentHistoryRow, ...deduped]
+      }
+    }
+    if (!sessions || sessions.length === 0) return `📭 ${buildNoHistoryText()}`
+    return buildHistoryChoiceMenuText({
+      sessions,
+      currentSessionId,
+      maxSessions: limit,
+      getDirName: (cwd) => path.basename(cwd),
       getProfileName: (profileId) => profileId
         ? (this.configManager?.getAPIProfile(profileId)?.name || '未知配置')
         : '默认配置',
+      isSessionActivated: (sessionId) => !!this.agentSessionManager.sessions.get(sessionId)?.queryGenerator,
+      title: '当前会话状态：',
+      includeActionHint: false,
+      includeNewSessionHint: false,
     })
   },
 

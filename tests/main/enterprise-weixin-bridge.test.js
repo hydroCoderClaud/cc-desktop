@@ -273,7 +273,7 @@ describe('EnterpriseWeixinBridge', () => {
     })
   })
 
-  it('reports enterprise weixin status with /status', async () => {
+  it('reports enterprise weixin historical session state with /status', async () => {
     const { bridge, manager, replies } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '企业微信测试会话' })
     session.imChannel = 'enterprise-weixin'
@@ -291,10 +291,14 @@ describe('EnterpriseWeixinBridge', () => {
       text: { content: '/status' },
     }))
 
-    expect(replies.at(-1).markdown.content).toContain('企业微信: 已连接')
+    const statusText = replies.at(-1).markdown.content
+    expect(statusText).toContain('当前会话状态：')
+    expect(statusText).toContain('企业微信测试会话')
+    expect(statusText).toContain('✅')
+    expect(statusText).not.toContain('回复 0 开始全新会话')
   })
 
-  it('limits enterprise weixin /status to active sessions in the current chat', async () => {
+  it('limits enterprise weixin /status history view to the current chat', async () => {
     const { bridge, manager, replies } = createHarness()
     const current = manager.create({ type: 'chat', source: 'manual', title: '当前聊天会话' })
     const other = manager.create({ type: 'chat', source: 'manual', title: '其他聊天会话' })
@@ -326,8 +330,10 @@ describe('EnterpriseWeixinBridge', () => {
     }))
 
     const statusText = replies.at(-1).markdown.content
-    expect(statusText).toContain('总会话数: 1 个')
-    expect(statusText).toContain('空闲: 1 个')
+    expect(statusText).toContain('当前会话状态：')
+    expect(statusText).toContain('当前聊天会话')
+    expect(statusText).not.toContain('其他聊天会话')
+    expect(statusText).not.toContain('回复 0 开始全新会话')
   })
 
   it('lists active chat sessions for /sessions', async () => {

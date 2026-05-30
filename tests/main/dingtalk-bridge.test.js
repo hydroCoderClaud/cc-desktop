@@ -668,7 +668,7 @@ describe('DingTalkBridge', () => {
     )
   })
 
-  it('counts active dingtalk sessions by imChannel in /status', () => {
+  it('shows historical dingtalk session state in /status without entering resume flow', () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({
       type: 'chat',
@@ -685,12 +685,15 @@ describe('DingTalkBridge', () => {
 
     const text = bridge._cmdStatus({
       mapKey: 'staff-1:conv-1',
+      senderStaffId: 'staff-1',
       conversationId: 'conv-1'
     })
 
-    expect(text).toContain('执行中: 0 个 / 空闲: 1 个')
-    expect(text).toContain('总会话数: 1 个')
-    expect(text).toContain('当前会话: 钉钉 · 张三')
+    expect(text).toContain('当前会话状态：')
+    expect(text).toContain('1. ✅')
+    expect(text).toContain('钉钉 · 张三')
+    expect(text).not.toContain('回复 0 开始全新会话')
+    expect(bridge._pendingChoices.size).toBe(0)
   })
 
   it('lists active dingtalk sessions by imChannel in /sessions', () => {

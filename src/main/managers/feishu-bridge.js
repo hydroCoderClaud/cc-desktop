@@ -24,10 +24,8 @@ const {
 const {
   buildHistoryChoiceMenuText,
   buildActiveSessionsText,
-  buildStatusText,
 } = require('./im-command-presenter')
 const {
-  buildSharedStatusText,
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
@@ -674,6 +672,7 @@ class FeishuBridge {
           await this._sendStatusMenu(receiveIdType, receiveId, {
             mapKey,
             chatId: context.chatId,
+            context,
           })
         },
         sessions: async () => {
@@ -1658,26 +1657,6 @@ class FeishuBridge {
     })
   }
 
-  _buildStatusText({ mapKey, chatId }) {
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    let currentSession = null
-    if (mapKey) {
-      const currentSessionId = this._sessionMapper.sessionMap.get(mapKey)
-      if (currentSessionId) {
-        currentSession = this._agentSessionManager.sessions.get(currentSessionId) || null
-      }
-    }
-    return buildSharedStatusText({
-      bridgeLabel: '飞书桥接',
-      connected: !!this._eventClient.connected,
-      activeSessions,
-      currentSession,
-      getProfileName: (profileId) => profileId
-        ? (this._config?.getAPIProfile?.(profileId)?.name || '未知配置')
-        : '默认配置',
-    })
-  }
-
   async _sendSessionsMenu(receiveIdType, receiveId, { sessionId, chatId, context = null }) {
     const activeSessions = this._getActiveSessionsByChat(chatId)
     const text = this._buildActiveSessionsText({ sessionId, chatId })
@@ -1706,8 +1685,39 @@ class FeishuBridge {
   }
 
   async _sendStatusMenu(receiveIdType, receiveId, { mapKey, chatId, context = null }) {
-    const statusText = this._buildStatusText({ mapKey, chatId })
+    const currentSessionId = mapKey ? this._sessionMapper.sessionMap.get(mapKey) : null
+    const history = context?.senderId && chatId
+      ? this._mergeCurrentSessionIntoHistory(
+          await this._sessionMapper._queryHistorySessions({
+            userId: context.senderId,
+            chatId,
+            chatType: context.chatType || 'p2p',
+          }),
+          currentSessionId,
+          {
+            senderId: context.senderId,
+            senderName: context.senderName || null,
+            chatId,
+            chatType: context.chatType || 'p2p',
+            chatName: context.chatName || null,
+          }
+        )
+      : []
+    const statusText = Array.isArray(history) && history.length > 0
+      ? this._buildHistoryChoiceMenuText(history, currentSessionId, {
+          title: '当前会话状态：',
+          includeActionHint: false,
+          includeNewSessionHint: false,
+        })
+      : buildNoHistoryText()
     try {
+      if (Array.isArray(history) && history.length > 0) {
+        await this._api.sendCardMessage(receiveIdType, receiveId, this._buildHistoryChoiceCard(history, currentSessionId, context, {
+          title: '当前会话状态',
+          readOnly: true,
+        }))
+        return
+      }
       await this._api.sendCardMessage(receiveIdType, receiveId, this._buildStatusCard(statusText, context))
     } catch (err) {
       console.error('[FeishuBridge] Send status card failed:', err.message)
@@ -1783,7 +1793,7 @@ class FeishuBridge {
     this._notifier.notifyMessageReceived(payload)
   }
 
-  _buildHistoryChoiceMenuText(sessions, currentSessionId = null) {
+  _buildHistoryChoiceMenuText(sessions, currentSessionId = null, options = {}) {
     return buildHistoryChoiceMenuText({
       sessions,
       currentSessionId,
@@ -1793,14 +1803,19 @@ class FeishuBridge {
         ? (this._config?.getAPIProfile?.(profileId)?.name || '未知配置')
         : '默认配置',
       isSessionActivated: (sessionId) => !!this._agentSessionManager.sessions.get(sessionId)?.queryGenerator,
+      title: options.title || '您有以下历史会话，请回复数字选择：',
+      includeActionHint: options.includeActionHint !== false,
+      includeNewSessionHint: options.includeNewSessionHint !== false,
     })
   }
 
-  _buildHistoryChoiceCard(sessions, currentSessionId = null, context = null) {
+  _buildHistoryChoiceCard(sessions, currentSessionId = null, context = null, options = {}) {
     return buildHistoryChoiceCard({
       sessions,
       currentSessionId,
       context,
+      title: options.title || '历史会话',
+      readOnly: options.readOnly === true,
       maxSessions: FEISHU_CARD_SESSION_LIMIT,
       getDirName: (rawPath) => this._basename(rawPath),
       getProfileName: (profileId) => profileId

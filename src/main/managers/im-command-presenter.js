@@ -7,9 +7,12 @@ function buildHistoryChoiceMenuText({
   getDirName,
   getProfileName,
   isSessionActivated,
+  title = '您有以下历史会话，请回复数字选择：',
+  includeActionHint = true,
+  includeNewSessionHint = true,
 }) {
   const displaySessions = Array.isArray(sessions) ? sessions.slice(0, maxSessions) : []
-  const lines = ['您有以下历史会话，请回复数字选择：', '']
+  const lines = [title, '']
 
   displaySessions.forEach((row, index) => {
     const timeStr = formatRelativeTime(row.updated_at)
@@ -25,7 +28,9 @@ function buildHistoryChoiceMenuText({
     lines.push('', `（仅显示最近 ${displaySessions.length} 条，共 ${sessions.length} 条）`)
   }
 
-  lines.push('', '回复 0 开始全新会话')
+  if (includeActionHint && includeNewSessionHint) {
+    lines.push('', '回复 0 开始全新会话')
+  }
   return lines.join('\n')
 }
 

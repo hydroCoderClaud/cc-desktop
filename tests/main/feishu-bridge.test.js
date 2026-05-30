@@ -643,9 +643,28 @@ describe('FeishuBridge', () => {
       expect.objectContaining({
         header: expect.objectContaining({
           title: expect.objectContaining({
-            content: '系统状态'
+            content: '当前会话状态'
           })
-        })
+        }),
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            tag: 'markdown',
+            content: expect.stringContaining('✅')
+          }),
+          expect.objectContaining({
+            tag: 'action',
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                value: expect.objectContaining({
+                  intent: 'new',
+                  chatId: 'oc_group',
+                  chatType: 'chat',
+                  senderId: 'ou_group',
+                })
+              })
+            ])
+          })
+        ])
       })
     )
   })
@@ -2101,7 +2120,7 @@ describe('FeishuBridge', () => {
     expect(enqueueMessage).not.toHaveBeenCalled()
   })
 
-  it('reports current Feishu bridge status with /status', async () => {
+  it('reports current Feishu historical session state with /status', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     bridge._eventClient._connected = true
@@ -2129,9 +2148,15 @@ describe('FeishuBridge', () => {
       expect.objectContaining({
         header: expect.objectContaining({
           title: expect.objectContaining({
-            content: '系统状态'
+            content: '当前会话状态'
           })
-        })
+        }),
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            tag: 'markdown',
+            content: expect.stringContaining('✅')
+          })
+        ])
       })
     )
   })
