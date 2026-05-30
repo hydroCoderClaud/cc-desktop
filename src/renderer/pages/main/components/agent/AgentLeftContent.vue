@@ -208,7 +208,7 @@ const sourceIconMap = {
   dingtalk: 'dingtalk',
   weixin: 'weixin',
   feishu: 'feishu',
-  'enterprise-weixin': 'building'
+  'enterprise-weixin': 'wecom'
 }
 
 const taskIconMap = {

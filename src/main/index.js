@@ -457,7 +457,7 @@ if (hasSingleInstanceLock) {
 
     // 初始化能力管理器（Agent 模式）
     const { PluginService } = require('./plugin-runtime')
-    const { SkillsManager, AgentsManager, McpManager } = require('./managers')
+    const { SkillsManager, AgentsManager, McpManager, WecomCliManager } = require('./managers')
     const pluginCli = new PluginService()
     const skillsManager = new SkillsManager()
     const agentsManager = new AgentsManager()
@@ -466,6 +466,7 @@ if (hasSingleInstanceLock) {
     const { SettingsManager } = require('./managers/settings-manager')
     capMcpManager.settingsManager = new SettingsManager()  // 注入 settingsManager，供 MCP 安装时自动写入工具权限
     capabilityManager = new CapabilityManager(configManager, pluginCli, skillsManager, agentsManager, capMcpManager)
+    const wecomCliManager = new WecomCliManager()
 
     // 初始化更新管理器
     updateManager = new UpdateManager(mainWindow, configManager)
@@ -514,7 +515,8 @@ if (hasSingleInstanceLock) {
       weixinBridge,
       feishuBridge,
       enterpriseWeixinBridge,
-      localAgentApiServer
+      localAgentApiServer,
+      wecomCliManager
     ) || {}
 
     localAgentApiServer.setDependencies({

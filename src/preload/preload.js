@@ -1089,10 +1089,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartEnterpriseWeixin: () => ipcRenderer.invoke('enterprise-weixin:restart'),
   updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
   openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
+  listEnterpriseWeixinTargets: () => ipcRenderer.invoke('enterprise-weixin:listTargets'),
   bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindSessionToTarget', payload),
   unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindSessionTarget', payload),
   getSessionEnterpriseWeixinBinding: (sessionId) => ipcRenderer.invoke('enterprise-weixin:getSessionBinding', sessionId),
   sendEnterpriseWeixinText: (payload) => ipcRenderer.invoke('enterprise-weixin:sendText', payload),
+  getEnterpriseWeixinCliStatus: () => ipcRenderer.invoke('enterprise-weixin-cli:getStatus'),
+  listEnterpriseWeixinContacts: () => ipcRenderer.invoke('enterprise-weixin-cli:listContacts'),
+  getEnterpriseWeixinCliInstallCommand: () => ipcRenderer.invoke('enterprise-weixin-cli:getInstallCommand'),
+  runEnterpriseWeixinCliInstallCommand: () => ipcRenderer.invoke('enterprise-weixin-cli:runInstallCommand'),
+  getEnterpriseWeixinCliInitCommand: () => ipcRenderer.invoke('enterprise-weixin-cli:getInitCommand'),
+  runEnterpriseWeixinCliInitCommand: () => ipcRenderer.invoke('enterprise-weixin-cli:runInitCommand'),
+  getEnterpriseWeixinCliReauthorizeCommand: () => ipcRenderer.invoke('enterprise-weixin-cli:getReauthorizeCommand'),
 
   // 钉钉事件监听
   onDingTalkStatusChange: (callback) => {

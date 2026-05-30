@@ -253,9 +253,17 @@ const enterpriseWeixinNotifyApi = computed(() => {
   const api = window.electronAPI || null
   if (!api) return null
   return {
+    listEnterpriseWeixinTargets: api.listEnterpriseWeixinTargets?.bind(api),
     getSessionEnterpriseWeixinBinding: api.getSessionEnterpriseWeixinBinding?.bind(api),
     bindSessionToEnterpriseWeixinTarget: api.bindSessionToEnterpriseWeixinTarget?.bind(api),
-    sendEnterpriseWeixinText: api.sendEnterpriseWeixinText?.bind(api)
+    sendEnterpriseWeixinText: api.sendEnterpriseWeixinText?.bind(api),
+    getEnterpriseWeixinCliStatus: api.getEnterpriseWeixinCliStatus?.bind(api),
+    listEnterpriseWeixinContacts: api.listEnterpriseWeixinContacts?.bind(api),
+    getEnterpriseWeixinCliInstallCommand: api.getEnterpriseWeixinCliInstallCommand?.bind(api),
+    runEnterpriseWeixinCliInstallCommand: api.runEnterpriseWeixinCliInstallCommand?.bind(api),
+    getEnterpriseWeixinCliInitCommand: api.getEnterpriseWeixinCliInitCommand?.bind(api),
+    runEnterpriseWeixinCliInitCommand: api.runEnterpriseWeixinCliInitCommand?.bind(api),
+    getEnterpriseWeixinCliReauthorizeCommand: api.getEnterpriseWeixinCliReauthorizeCommand?.bind(api)
   }
 })
 const apiProfiles = ref([])

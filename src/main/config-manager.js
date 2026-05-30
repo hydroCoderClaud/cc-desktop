@@ -107,6 +107,15 @@ class ConfigManager {
         maxHistorySessions: 5,
       },
 
+      // 企业微信桥接配置
+      enterpriseWeixin: {
+        enabled: false,
+        botId: '',
+        secret: '',
+        defaultCwd: '',
+        maxHistorySessions: 5,
+      },
+
       settings: {
         theme: 'light',
 
@@ -264,6 +273,15 @@ class ConfigManager {
         if (migratedConfig.settings?.aiAssistant !== undefined) {
           delete migratedConfig.settings.aiAssistant;
           console.log('[ConfigManager] Removed legacy aiAssistant settings');
+          needsSave = true;
+        }
+
+        if (migratedConfig.enterpriseWeixin?.corpId !== undefined || migratedConfig.enterpriseWeixin?.contactSecret !== undefined) {
+          if (migratedConfig.enterpriseWeixin) {
+            delete migratedConfig.enterpriseWeixin.corpId;
+            delete migratedConfig.enterpriseWeixin.contactSecret;
+          }
+          console.log('[ConfigManager] Removed legacy enterprise weixin contact credentials');
           needsSave = true;
         }
 

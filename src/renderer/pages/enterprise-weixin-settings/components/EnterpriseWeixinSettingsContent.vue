@@ -94,6 +94,57 @@
         </n-form-item>
       </n-card>
 
+      <n-card title="联系人获取配置（wecom-cli集成）" class="settings-section">
+        <n-alert type="info" :show-icon="true" style="margin-bottom: 16px;">
+          企业微信联系人通过 `wecom-cli` 按需读取，不做本地通讯录同步。
+          初始化或重新授权时，应用会打开可见终端并启动 `wecom-cli init`；你需要在终端内完成接入方式选择，并按提示输入 Bot ID / Secret 或执行扫码。
+          如果企业微信端没有弹出联系人授权确认，请改为前往企业微信管理后台手动为当前机器人开通通讯录权限。
+        </n-alert>
+
+        <n-alert type="warning" :show-icon="true" style="margin-bottom: 16px;">
+          使用建议：先点击“安装 CLI”，再点击“打开初始化终端”，在终端中完成企业微信接入；如果企业微信端未弹出联系人授权确认，请去管理后台手动授权，最后点击“测试读取联系人”确认机器人通讯录权限已经生效。
+        </n-alert>
+
+        <div class="cli-status-grid">
+          <div class="cli-status-item">
+            <div class="cli-status-label">CLI 安装</div>
+            <n-tag :type="cliInstalled ? 'success' : 'warning'" size="small" round>
+              {{ cliInstalled ? '已安装' : '未安装' }}
+            </n-tag>
+          </div>
+          <div class="cli-status-item">
+            <div class="cli-status-label">CLI 初始化</div>
+            <n-tag :type="cliInitialized ? 'success' : 'warning'" size="small" round>
+              {{ cliInitialized ? '已初始化' : '未初始化' }}
+            </n-tag>
+          </div>
+          <div class="cli-status-item">
+            <div class="cli-status-label">机器人通讯录授权</div>
+            <n-tag :type="cliContactAuthTagType" size="small" round>
+              {{ cliContactAuthText }}
+            </n-tag>
+          </div>
+        </div>
+
+        <div v-if="cliStatus?.lastErrorMessage" class="cli-error-block">
+          <div class="cli-error-title">最近一次联系人检测结果</div>
+          <div class="cli-error-message">{{ cliStatus.lastErrorMessage }}</div>
+          <div v-if="cliStatus?.helpMessage" class="cli-error-help">{{ cliStatus.helpMessage }}</div>
+        </div>
+
+        <n-space style="margin-top: 16px;">
+          <n-button :loading="cliLoading" @click="refreshCliStatus">检测 CLI</n-button>
+          <n-button :loading="cliActionType === 'install'" :disabled="!cliInstallCommand || Boolean(cliActionType)" @click="runCliInstall">安装 CLI</n-button>
+          <n-button :loading="cliActionType === 'init'" :disabled="!cliInitCommand || Boolean(cliActionType)" @click="runCliInit">打开初始化终端</n-button>
+          <n-button :loading="cliContactsTesting" @click="testContacts">测试读取联系人</n-button>
+        </n-space>
+
+        <div v-if="copiedCommandText" class="cli-command-preview">
+          <div class="cli-status-label">命令</div>
+          <code>{{ copiedCommandText }}</code>
+        </div>
+      </n-card>
+
       <div class="settings-footer">
         <n-space>
           <n-button v-if="!embedded" @click="handleClose">{{ t('common.close') }}</n-button>
@@ -130,6 +181,14 @@ const connected = ref(false)
 const activeSessions = ref(0)
 const connecting = ref(false)
 const configLoaded = ref(false)
+const cliLoading = ref(false)
+const cliContactsTesting = ref(false)
+const cliStatus = ref(null)
+const cliInstallCommand = ref('')
+const cliInitCommand = ref('')
+const cliReauthorizeCommand = ref('')
+const copiedCommandText = ref('')
+const cliActionType = ref('')
 
 let cleanupFns = []
 
@@ -138,6 +197,22 @@ const statusText = computed(() => connected.value ? '已连接' : '未连接')
 const canConnect = computed(() =>
   formData.value.enabled && formData.value.botId && formData.value.secret
 )
+const cliInstalled = computed(() => Boolean(cliStatus.value?.installed))
+const cliInitialized = computed(() => Boolean(cliStatus.value?.initialized))
+const cliContactAuth = computed(() => cliStatus.value?.contactAuth || 'unknown')
+const cliContactAuthTagType = computed(() => {
+  if (cliContactAuth.value === 'authorized') return 'success'
+  if (cliContactAuth.value === 'unauthorized' || cliContactAuth.value === 'expired') return 'warning'
+  return 'default'
+})
+const cliContactAuthText = computed(() => {
+  if (cliContactAuth.value === 'authorized') return '已授权'
+  if (cliContactAuth.value === 'unauthorized') return '未授权'
+  if (cliContactAuth.value === 'expired') return '授权失效'
+  if (cliContactAuth.value === 'not_initialized') return '未初始化'
+  if (cliContactAuth.value === 'not_installed') return '未安装 CLI'
+  return '未知'
+})
 
 const loadConfig = async () => {
   try {
@@ -159,6 +234,112 @@ const refreshStatus = async () => {
       activeSessions.value = status.activeSessions || 0
     }
   } catch {}
+}
+
+const refreshCliStatus = async ({ silent = false } = {}) => {
+  if (!silent) {
+    cliLoading.value = true
+  }
+  try {
+    const [status, installCommand, initCommand, reauthorizeCommand] = await Promise.all([
+      invoke('getEnterpriseWeixinCliStatus'),
+      invoke('getEnterpriseWeixinCliInstallCommand'),
+      invoke('getEnterpriseWeixinCliInitCommand'),
+      invoke('getEnterpriseWeixinCliReauthorizeCommand'),
+    ])
+    cliStatus.value = status || null
+    cliInstallCommand.value = installCommand?.command || ''
+    cliInitCommand.value = initCommand?.command || ''
+    cliReauthorizeCommand.value = reauthorizeCommand?.command || ''
+  } catch (err) {
+    console.error('[EnterpriseWeixinSettings] refreshCliStatus error:', err)
+    cliStatus.value = {
+      installed: false,
+      initialized: false,
+      contactAuth: 'unknown',
+      lastErrorMessage: err?.message || String(err)
+    }
+  } finally {
+    if (!silent) {
+      cliLoading.value = false
+    }
+  }
+}
+
+const copyCliCommand = async (command) => {
+  if (!command) return
+  copiedCommandText.value = command
+  try {
+    await navigator.clipboard.writeText(command)
+    message.success(t('common.copySuccess'))
+  } catch {
+    message.warning(`请手动复制命令：${command}`)
+  }
+}
+
+const runCliInstall = async () => {
+  cliActionType.value = 'install'
+  try {
+    const result = await invoke('runEnterpriseWeixinCliInstallCommand')
+    if (result?.success === false) {
+      message.error(result.error || '启动安装命令失败')
+      if (cliInstallCommand.value) {
+        copiedCommandText.value = cliInstallCommand.value
+      }
+      return
+    }
+    copiedCommandText.value = cliInstallCommand.value
+    message.success('已打开终端执行安装命令')
+  } catch (err) {
+    message.error('启动安装命令失败: ' + (err.message || err))
+    if (cliInstallCommand.value) {
+      copiedCommandText.value = cliInstallCommand.value
+    }
+  } finally {
+    cliActionType.value = ''
+  }
+}
+
+const runCliInit = async () => {
+  cliActionType.value = 'init'
+  try {
+    const result = await invoke('runEnterpriseWeixinCliInitCommand')
+    if (result?.success === false) {
+      message.error(result.error || '启动初始化命令失败')
+      if (cliInitCommand.value) {
+        copiedCommandText.value = cliInitCommand.value
+      }
+      return
+    }
+    copiedCommandText.value = cliInitCommand.value
+    message.success('已打开初始化终端，请在终端内完成企业微信接入；如果企业微信端未弹出联系人授权确认，请去管理后台手动授权，然后返回这里测试读取联系人')
+  } catch (err) {
+    message.error('启动初始化命令失败: ' + (err.message || err))
+    if (cliInitCommand.value) {
+      copiedCommandText.value = cliInitCommand.value
+    }
+  } finally {
+    cliActionType.value = ''
+  }
+}
+
+const testContacts = async () => {
+  cliContactsTesting.value = true
+  try {
+    const result = await invoke('listEnterpriseWeixinContacts')
+    if (Array.isArray(result)) {
+      message.success(`读取联系人成功，共 ${result.length} 个`)
+    } else if (result?.success === false) {
+      message.warning(result.helpMessage || result.error || '读取联系人失败')
+    } else {
+      message.warning('读取联系人返回未知结果')
+    }
+  } catch (err) {
+    message.error('读取联系人失败: ' + (err.message || err))
+  } finally {
+    cliContactsTesting.value = false
+    await refreshCliStatus({ silent: true })
+  }
 }
 
 const handleSave = async () => {
@@ -222,6 +403,7 @@ const handleClose = () => {
 onMounted(async () => {
   await loadConfig()
   await refreshStatus()
+  await refreshCliStatus({ silent: true })
   configLoaded.value = true
 
   if (window.electronAPI?.onEnterpriseWeixinStatusChange) {
@@ -272,6 +454,60 @@ onUnmounted(() => {
   margin-top: 12px;
   font-size: 13px;
   opacity: 0.7;
+}
+
+.cli-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.cli-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--hover-color);
+}
+
+.cli-status-label {
+  font-size: 12px;
+  color: var(--text-color-2);
+}
+
+.cli-error-block {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning-color) 10%, transparent);
+}
+
+.cli-error-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.cli-error-message,
+.cli-error-help,
+.cli-command-preview code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cli-command-preview {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cli-command-preview code {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--code-color);
 }
 
 .loading-state {

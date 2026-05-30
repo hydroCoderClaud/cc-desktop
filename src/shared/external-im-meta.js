@@ -45,7 +45,7 @@ export const EXTERNAL_IM_CHANNELS = {
   'enterprise-weixin': {
     id: 'enterprise-weixin',
     label: { 'zh-CN': '企业微信', 'en-US': 'WeCom' },
-    icon: 'weixin',
+    icon: 'wecom',
     observeKey: 'agent.enterpriseWeixinObserving',
     suffixKey: 'agent.enterpriseWeixinSuffix',
     hasCommands: true,

@@ -192,6 +192,7 @@ describe('AgentSessionManager interactions', () => {
     expect(getConversationIcon({ imChannel: 'feishu' })).toBe('feishu')
     expect(getConversationIcon({ imChannel: 'weixin' })).toBe('weixin')
     expect(getConversationIcon({ imChannel: 'dingtalk' })).toBe('dingtalk')
+    expect(getConversationIcon({ imChannel: 'enterprise-weixin' })).toBe('wecom')
   })
 
   it('emits session updated when binding an IM channel onto a normal chat session', () => {

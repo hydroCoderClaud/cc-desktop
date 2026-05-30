@@ -115,7 +115,7 @@ function getEmbeddedAppWorkspaceDir(appId) {
   return workspaceDir
 }
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, enterpriseWeixinBridge = null, localAgentApiServer = null) {
+function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, enterpriseWeixinBridge = null, localAgentApiServer = null, wecomCliManager = null) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -1227,7 +1227,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 企业微信
   // ========================================
   if (enterpriseWeixinBridge && setupEnterpriseWeixinHandlers) {
-    setupEnterpriseWeixinHandlers(ipcMain, enterpriseWeixinBridge, configManager);
+    setupEnterpriseWeixinHandlers(ipcMain, enterpriseWeixinBridge, configManager, wecomCliManager);
   }
 
   // ========================================

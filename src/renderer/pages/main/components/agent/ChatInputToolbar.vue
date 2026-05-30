@@ -264,7 +264,7 @@
         :title="enterpriseWeixinBtnTitle"
         @click="toggleEnterpriseWeixinDropdown"
       >
-        <Icon name="weixin" :size="16" />
+        <Icon name="wecom" :size="16" />
       </div>
       <Transition name="dropdown">
         <div v-if="showEnterpriseWeixinDropdown && showEnterpriseWeixinBtn" class="enterprise-weixin-dropdown">
@@ -272,10 +272,21 @@
           <template v-else>
             <div class="enterprise-weixin-panel-title">{{ t('agent.enterpriseWeixinQuickSendTitle') }}</div>
             <div class="enterprise-weixin-panel-hint">{{ t('agent.enterpriseWeixinQuickSendHint') }}</div>
+            <div v-if="enterpriseWeixinError" class="enterprise-weixin-error">{{ enterpriseWeixinError }}</div>
+            <div v-if="enterpriseWeixinActionCommand" class="enterprise-weixin-command">
+              <div class="enterprise-weixin-command-label">建议命令</div>
+              <code>{{ enterpriseWeixinActionCommand }}</code>
+            </div>
             <template v-if="selectedEnterpriseWeixinTarget">
               <div class="enterprise-weixin-target-list">
-                <div class="enterprise-weixin-target-item active">
-                  <span class="enterprise-weixin-target-name">{{ selectedEnterpriseWeixinTarget.displayName || selectedEnterpriseWeixinTarget.name || selectedEnterpriseWeixinTarget.userId || selectedEnterpriseWeixinTarget.id || '未命名' }}</span>
+                <div
+                  v-for="target in enterpriseWeixinTargets"
+                  :key="target.id"
+                  class="enterprise-weixin-target-item"
+                  :class="{ active: selectedEnterpriseWeixinTargetId === target.id }"
+                  @click="selectedEnterpriseWeixinTargetId = target.id"
+                >
+                  <span class="enterprise-weixin-target-name">{{ target.displayName || target.name || target.userId || target.id || '未命名' }}</span>
                 </div>
               </div>
               <textarea
@@ -284,7 +295,6 @@
                 :placeholder="t('agent.enterpriseWeixinQuickSendPlaceholder')"
                 rows="3"
               />
-              <div v-if="enterpriseWeixinError" class="enterprise-weixin-error">{{ enterpriseWeixinError }}</div>
               <div class="enterprise-weixin-actions">
                 <button class="enterprise-weixin-action secondary" type="button" @click="closeEnterpriseWeixinDropdown">
                   {{ t('common.cancel') }}
@@ -402,11 +412,13 @@ const feishuError = ref('')
 const feishuLoading = ref(false)
 const feishuSending = ref(false)
 const showEnterpriseWeixinDropdown = ref(false)
-const enterpriseWeixinBinding = ref(null)
+const enterpriseWeixinTargets = ref([])
+const selectedEnterpriseWeixinTargetId = ref(null)
 const enterpriseWeixinText = ref('')
 const enterpriseWeixinError = ref('')
 const enterpriseWeixinLoading = ref(false)
 const enterpriseWeixinSending = ref(false)
+const enterpriseWeixinActionCommand = ref('')
 
 const resolvedImBindingSource = computed(() => {
   return props.sessionImChannel || null
@@ -438,10 +450,10 @@ const canSendFeishu = computed(() => Boolean(selectedFeishuTarget.value && feish
 const resolvedFeishuNotifyApi = computed(() => props.feishuNotifyApi || window.electronAPI || null)
 const showEnterpriseWeixinBtn = computed(() => {
   if (!props.sessionId || !(props.enterpriseWeixinNotifyApi || window.electronAPI)?.sendEnterpriseWeixinText) return false
-  return resolvedImBindingSource.value === 'enterprise-weixin'
+  return !resolvedImBindingSource.value || resolvedImBindingSource.value === 'enterprise-weixin'
 })
 const enterpriseWeixinBtnTitle = computed(() => t('agent.enterpriseWeixinQuickSendTitle'))
-const selectedEnterpriseWeixinTarget = computed(() => enterpriseWeixinBinding.value)
+const selectedEnterpriseWeixinTarget = computed(() => enterpriseWeixinTargets.value.find(target => target.id === selectedEnterpriseWeixinTargetId.value) || null)
 const canSendEnterpriseWeixin = computed(() => Boolean(selectedEnterpriseWeixinTarget.value && enterpriseWeixinText.value.trim()))
 const resolvedEnterpriseWeixinNotifyApi = computed(() => props.enterpriseWeixinNotifyApi || window.electronAPI || null)
 
@@ -577,25 +589,69 @@ const loadFeishuTargets = async () => {
   }
 }
 
-const loadEnterpriseWeixinBinding = async () => {
+const resolveEnterpriseWeixinActionCommand = async (code) => {
   const enterpriseWeixinApi = resolvedEnterpriseWeixinNotifyApi.value
-  if (!enterpriseWeixinApi?.getSessionEnterpriseWeixinBinding || !props.sessionId) return
+  if (!enterpriseWeixinApi) return ''
+  if (code === 'CLI_NOT_INSTALLED') {
+    const command = await enterpriseWeixinApi.getEnterpriseWeixinCliInstallCommand?.()
+    return command?.command || ''
+  }
+  if (code === 'CLI_NOT_INITIALIZED') {
+    const command = await enterpriseWeixinApi.getEnterpriseWeixinCliInitCommand?.()
+    return command?.command || ''
+  }
+  if (code === 'CONTACT_NOT_AUTHORIZED' || code === 'CONTACT_AUTH_EXPIRED') {
+    const command = await enterpriseWeixinApi.getEnterpriseWeixinCliReauthorizeCommand?.()
+    return command?.command || ''
+  }
+  return ''
+}
+
+const loadEnterpriseWeixinTargets = async () => {
+  const enterpriseWeixinApi = resolvedEnterpriseWeixinNotifyApi.value
+  if (!props.sessionId) return
   enterpriseWeixinLoading.value = true
   try {
-    const binding = await enterpriseWeixinApi.getSessionEnterpriseWeixinBinding(props.sessionId)
+    const [targets, binding] = await Promise.all([
+      enterpriseWeixinApi?.listEnterpriseWeixinContacts
+        ? enterpriseWeixinApi.listEnterpriseWeixinContacts()
+        : enterpriseWeixinApi?.listEnterpriseWeixinTargets
+          ? enterpriseWeixinApi.listEnterpriseWeixinTargets()
+          : [],
+      enterpriseWeixinApi?.getSessionEnterpriseWeixinBinding
+        ? enterpriseWeixinApi.getSessionEnterpriseWeixinBinding(props.sessionId).catch(() => null)
+        : null
+    ])
+    if (targets?.success === false) {
+      enterpriseWeixinTargets.value = []
+      selectedEnterpriseWeixinTargetId.value = null
+      enterpriseWeixinActionCommand.value = await resolveEnterpriseWeixinActionCommand(targets.code)
+      throw new Error(targets.helpMessage || targets.error || t('agent.enterpriseWeixinQuickSendFailed'))
+    }
     const bindingTargetId = binding?.targetId || binding?.userId || null
-    enterpriseWeixinBinding.value = bindingTargetId
-      ? {
+    const allTargets = Array.isArray(targets) ? targets : []
+    if (bindingTargetId) {
+      const boundTarget = allTargets.find(target => [target.id, target.userId].includes(bindingTargetId))
+        || {
           id: bindingTargetId,
           userId: binding?.userId || bindingTargetId,
           displayName: binding?.displayName || bindingTargetId,
           name: binding?.displayName || bindingTargetId
         }
-      : null
+      enterpriseWeixinTargets.value = [boundTarget]
+      selectedEnterpriseWeixinTargetId.value = boundTarget.id
+    } else {
+      enterpriseWeixinTargets.value = allTargets
+      if (!enterpriseWeixinTargets.value.some(target => target.id === selectedEnterpriseWeixinTargetId.value)) {
+        selectedEnterpriseWeixinTargetId.value = enterpriseWeixinTargets.value[0]?.id || null
+      }
+    }
     enterpriseWeixinError.value = ''
+    enterpriseWeixinActionCommand.value = ''
   } catch (err) {
-    console.error('[ChatInputToolbar] loadEnterpriseWeixinBinding error:', err)
-    enterpriseWeixinBinding.value = null
+    console.error('[ChatInputToolbar] loadEnterpriseWeixinTargets error:', err)
+    enterpriseWeixinTargets.value = []
+    selectedEnterpriseWeixinTargetId.value = null
     enterpriseWeixinError.value = err?.message || t('agent.enterpriseWeixinQuickSendFailed')
   } finally {
     enterpriseWeixinLoading.value = false
@@ -658,7 +714,8 @@ const toggleEnterpriseWeixinDropdown = () => {
   if (showEnterpriseWeixinDropdown.value) {
     enterpriseWeixinText.value = props.draftText || ''
     enterpriseWeixinError.value = ''
-    loadEnterpriseWeixinBinding()
+    enterpriseWeixinActionCommand.value = ''
+    loadEnterpriseWeixinTargets()
   }
 }
 
@@ -680,6 +737,7 @@ const closeFeishuDropdown = () => {
 const closeEnterpriseWeixinDropdown = () => {
   showEnterpriseWeixinDropdown.value = false
   enterpriseWeixinError.value = ''
+  enterpriseWeixinActionCommand.value = ''
 }
 
 const sendDingTalkQuickMessage = async () => {
@@ -800,7 +858,8 @@ watch(() => props.sessionId, () => {
   selectedDingTalkTargetId.value = null
   selectedWeixinTargetId.value = null
   selectedFeishuTargetId.value = null
-  enterpriseWeixinBinding.value = null
+  enterpriseWeixinTargets.value = []
+  selectedEnterpriseWeixinTargetId.value = null
 })
 
 const normalizedApiProfiles = computed(() => {
@@ -1348,6 +1407,28 @@ onUnmounted(() => {
   color: #ff4d4f;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.enterprise-weixin-command {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-color-secondary);
+}
+
+.enterprise-weixin-command-label {
+  margin-bottom: 4px;
+  color: var(--text-color-3);
+  font-size: 11px;
+}
+
+.enterprise-weixin-command code {
+  display: block;
+  color: var(--text-color);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .dingtalk-actions,
