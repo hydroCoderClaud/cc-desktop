@@ -41,6 +41,48 @@ class WecomCliManager {
     }
   }
 
+  async getBootstrapStatus() {
+    const status = await this.getStatus()
+    if (!status.installed) {
+      return {
+        ...status,
+        authStatus: 'not_installed',
+        contactAuth: 'unknown',
+      }
+    }
+
+    if (!status.initialized) {
+      return {
+        ...status,
+        authStatus: 'not_initialized',
+        contactAuth: 'unknown',
+      }
+    }
+
+    try {
+      const authState = await this.getAuthStatus()
+      return {
+        ...status,
+        authStatus: authState,
+        contactAuth: 'unknown',
+        lastErrorCode: null,
+        lastErrorMessage: '',
+        helpMessage: '',
+        helpInstruction: '',
+      }
+    } catch (err) {
+      return {
+        ...status,
+        authStatus: 'unknown',
+        contactAuth: 'unknown',
+        lastErrorCode: err.code || ERROR_CODES.CLI_EXEC_FAILED,
+        lastErrorMessage: err.message || 'Unknown error',
+        helpMessage: err.helpMessage || '',
+        helpInstruction: err.helpInstruction || '',
+      }
+    }
+  }
+
   async isInstalled() {
     try {
       await this._exec([WECOM_COMMAND, 'auth', 'show', '--auth-status'], { timeout: 10000 })

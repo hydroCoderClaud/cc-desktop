@@ -266,6 +266,29 @@ const refreshCliStatus = async ({ silent = false } = {}) => {
   }
 }
 
+const refreshCliBootstrapStatus = async () => {
+  try {
+    const [status, installCommand, initCommand, reauthorizeCommand] = await Promise.all([
+      invoke('getEnterpriseWeixinCliBootstrapStatus'),
+      invoke('getEnterpriseWeixinCliInstallCommand'),
+      invoke('getEnterpriseWeixinCliInitCommand'),
+      invoke('getEnterpriseWeixinCliReauthorizeCommand'),
+    ])
+    cliStatus.value = status || null
+    cliInstallCommand.value = installCommand?.command || ''
+    cliInitCommand.value = initCommand?.command || ''
+    cliReauthorizeCommand.value = reauthorizeCommand?.command || ''
+  } catch (err) {
+    console.error('[EnterpriseWeixinSettings] refreshCliBootstrapStatus error:', err)
+    cliStatus.value = {
+      installed: false,
+      initialized: false,
+      contactAuth: 'unknown',
+      lastErrorMessage: err?.message || String(err)
+    }
+  }
+}
+
 const copyCliCommand = async (command) => {
   if (!command) return
   copiedCommandText.value = command
@@ -403,8 +426,8 @@ const handleClose = () => {
 onMounted(async () => {
   await loadConfig()
   await refreshStatus()
-  await refreshCliStatus({ silent: true })
   configLoaded.value = true
+  refreshCliBootstrapStatus()
 
   if (window.electronAPI?.onEnterpriseWeixinStatusChange) {
     cleanupFns.push(

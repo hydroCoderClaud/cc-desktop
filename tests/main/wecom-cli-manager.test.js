@@ -34,6 +34,22 @@ describe('WecomCliManager', () => {
     expect(status.contactAuth).toBe('authorized')
   })
 
+  it('bootstrap status avoids contact probing and keeps contactAuth unknown', async () => {
+    const manager = new WecomCliManager()
+    fs.writeFileSync(path.join(tempDir, 'bot.enc'), 'encrypted-bot')
+    vi.spyOn(manager, 'isInstalled').mockResolvedValue(true)
+    vi.spyOn(manager, 'getAuthStatus').mockResolvedValue('authorized')
+    const contactSpy = vi.spyOn(manager, 'getContactAuthStatus')
+
+    const status = await manager.getBootstrapStatus()
+
+    expect(status.installed).toBe(true)
+    expect(status.initialized).toBe(true)
+    expect(status.authStatus).toBe('authorized')
+    expect(status.contactAuth).toBe('unknown')
+    expect(contactSpy).not.toHaveBeenCalled()
+  })
+
   it('uses wecom-cli prefix when reading auth status', async () => {
     const manager = new WecomCliManager()
     const execSpy = vi.spyOn(manager, 'execJsonRpc').mockResolvedValue('authorized')

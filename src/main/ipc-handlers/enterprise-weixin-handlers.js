@@ -52,6 +52,11 @@ function setupEnterpriseWeixinHandlers(ipcMain, bridge, configManager, wecomCliM
     return wecomCliManager.getDetailedStatus()
   })
 
+  ipcMain.handle('enterprise-weixin-cli:getBootstrapStatus', async () => {
+    if (!wecomCliManager) return { installed: false, initialized: false, authStatus: 'unknown', contactAuth: 'unknown' }
+    return wecomCliManager.getBootstrapStatus()
+  })
+
   ipcMain.handle('enterprise-weixin-cli:listContacts', async () => {
     if (!wecomCliManager) return []
     try {
