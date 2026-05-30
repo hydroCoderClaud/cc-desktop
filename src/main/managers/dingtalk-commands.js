@@ -12,6 +12,7 @@ const {
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
+  dispatchImCommand,
 } = require('./im-command-executor')
 const { activateNewSession, resolveResumeSelection } = require('./im-session-command-flow')
 const {
@@ -59,31 +60,30 @@ module.exports = {
    */
   async _handleCommand(text, webhook, context) {
     console.log('[DingTalk] _handleCommand called, text:', text, 'context:', context)
-    const parts = text.substring(1).trim().split(/\s+/)
-    const cmd = parts[0].toLowerCase()
-    const args = parts.slice(1)
-
-    // 命令处理时清除待选择状态（命令是独立操作，不应被当作"选择"处理）
-    // 这会清除 pending choice 及其保存的 originalMessage
-    const { mapKey } = context
-    if (mapKey && this._pendingChoices.has(mapKey)) {
-      console.log('[DingTalk] _handleCommand: clearing pending choice for', mapKey)
-      this._clearPendingChoice(mapKey)
-    }
-
-    console.log('[DingTalk] _handleCommand: executing command:', cmd, 'args:', args)
     const commandContext = buildDingTalkCommandContext(context, webhook)
-    let reply
-    switch (cmd) {
-      case 'help':     reply = this._cmdHelp(commandContext); break
-      case 'status':   reply = this._cmdStatus(commandContext); break
-      case 'sessions': reply = this._cmdSessions(commandContext); break
-      case 'close':    reply = await this._cmdClose(args, context); break
-      case 'new':      reply = await this._cmdNew(args, context, webhook); break
-      case 'resume':   reply = await this._cmdResume(args, context, webhook); break
-      case 'rename':   reply = this._cmdRename(args, context); break
-      default:         reply = `❓ ${buildUnknownCommandText(cmd)}`
-    }
+    const dispatchResult = await dispatchImCommand({
+      text,
+      normalizeText: (rawText) => String(rawText || '').trim(),
+      beforeExecute: ({ command, args }) => {
+        const { mapKey } = context
+        if (mapKey && this._pendingChoices.has(mapKey)) {
+          console.log('[DingTalk] _handleCommand: clearing pending choice for', mapKey)
+          this._clearPendingChoice(mapKey)
+        }
+        console.log('[DingTalk] _handleCommand: executing command:', command, 'args:', args)
+      },
+      handlers: {
+        help: () => this._cmdHelp(commandContext),
+        status: () => this._cmdStatus(commandContext),
+        sessions: () => this._cmdSessions(commandContext),
+        close: ({ args }) => this._cmdClose(args, context),
+        new: ({ args }) => this._cmdNew(args, context, webhook),
+        resume: ({ args }) => this._cmdResume(args, context, webhook),
+        rename: ({ args }) => this._cmdRename(args, context),
+      },
+      onUnknown: ({ command }) => `❓ ${buildUnknownCommandText(command)}`,
+    })
+    const reply = dispatchResult?.result
 
     if (reply != null) {
       console.log('[DingTalk] _handleCommand: sending reply, length:', reply.length)

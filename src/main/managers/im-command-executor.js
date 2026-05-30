@@ -109,9 +109,55 @@ function resolveRenameCommand({
   }
 }
 
+async function dispatchImCommand({
+  text,
+  normalizeText,
+  beforeExecute,
+  handlers,
+  onUnknown,
+}) {
+  const normalizedText = typeof normalizeText === 'function'
+    ? await normalizeText(text)
+    : String(text || '').trim()
+  const parts = String(normalizedText || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) {
+    return {
+      handled: false,
+      normalizedText,
+    }
+  }
+
+  const rawCommand = parts[0]
+  const command = rawCommand.replace(/^\/+/, '').toLowerCase()
+  const args = parts.slice(1)
+  const commandState = {
+    command,
+    args,
+    rawCommand,
+    normalizedText,
+  }
+
+  await beforeExecute?.(commandState)
+
+  if (handlers && typeof handlers[command] === 'function') {
+    return {
+      ...commandState,
+      handled: true,
+      result: await handlers[command](commandState),
+    }
+  }
+
+  return {
+    ...commandState,
+    handled: true,
+    result: await onUnknown?.(commandState),
+  }
+}
+
 module.exports = {
   buildSharedStatusText,
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
+  dispatchImCommand,
 }

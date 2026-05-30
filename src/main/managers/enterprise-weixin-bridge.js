@@ -38,6 +38,7 @@ const {
   buildSharedSessionsText,
   resolveCloseCommand,
   resolveRenameCommand,
+  dispatchImCommand,
 } = require('./im-command-executor')
 const { runResumePostAction } = require('./im-resume-post-action')
 const { activateNewSession, resolveResumeSelection } = require('./im-session-command-flow')
@@ -655,169 +656,89 @@ class EnterpriseWeixinBridge {
   async _handleCommand(text, context, options = {}) {
     this._syncSessionDatabase()
     const normalizedText = String(text || '').trim()
-    const parts = normalizedText.split(/\s+/).filter(Boolean)
-    if (parts.length === 0) return
-
-    const cmd = parts[0].toLowerCase()
-    const args = parts.slice(1)
     const identity = context.identity
     const chatId = context.chatId || identity.chatId
     const mapKey = this._sessionMapper.buildKey(identity)
 
-    if (!options.preservePendingSelection) {
-      this._sessionMapper.clearPendingChoice(mapKey)
-      this._pendingInboundMessages.delete(mapKey)
-    }
-
     let sessionId = await this._resolveCommandSessionId(mapKey, identity)
     const currentSession = sessionId ? this._agentSessionManager.sessions.get(sessionId) : null
 
-    switch (cmd) {
-      case '/help':
-        await this._sendTextReply(context.frame, this._buildHelpText())
-        return
-
-      case '/status':
-        await this._sendTextReply(context.frame, this._buildStatusMenuText({
-          sessionId,
-          chatId,
-        }))
-        return
-
-      case '/sessions':
-        await this._sendTextReply(context.frame, this._buildSessionsMenuText(chatId, sessionId))
-        return
-
-      case '/close': {
-        const closeDecision = resolveCloseCommand({
-          args,
-          activeSessions: this._getActiveSessionsByChat(chatId),
-          currentSessionId: sessionId,
-          getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
-        })
-        if (closeDecision.action === 'invalid_index') {
-          await this._sendTextReply(
-            context.frame,
-            `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
-          )
-          return
-        }
-        if (closeDecision.action === 'missing_current') {
-          await this._sendTextReply(context.frame, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
-          return
-        }
-        if (closeDecision.action === 'streaming') {
-          await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再关闭')
-          return
-        }
-
-        await this._agentSessionManager.close(closeDecision.targetSessionId)
-        this._clearSessionIdentity(closeDecision.targetSessionId)
-        this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
-
-        await this._sendTextReply(context.frame, closeDecision.closeText)
-        return
-      }
-
-      case '/new': {
-        if (currentSession?.status === 'streaming') {
-          await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再操作')
-          return
-        }
-        let cwd
-        try {
-          cwd = resolveCommandCwd({
-            args,
-            outputBaseDir: this._agentSessionManager._getOutputBaseDir(),
-            imSubdir: this._imType,
-          })
-        } catch (err) {
-          await this._sendTextReply(context.frame, err.message)
-          return
-        }
-        if (sessionId) {
-          this._clearSessionIdentity(sessionId)
-        }
-        const newId = await this._sessionMapper.createSession(identity, { cwd })
-        if (!newId) {
-          await this._sendTextReply(context.frame, '创建新会话失败')
-          return
-        }
-        this._sessionMapper.sessionMap.set(mapKey, newId)
-        this._sessionIdentities.set(newId, {
-          userId: identity.userId,
-          senderId: identity.userId,
-          senderName: identity.nickname || identity.userId,
-          chatId: identity.chatId,
-          chatType: identity.chatType,
-          chatName: identity.channelName || identity.nickname || identity.userId,
-        })
-        this._notifier.notifySessionCreated({ sessionId: newId, nickname: identity.nickname || identity.userId })
-        await this._sendTextReply(context.frame, buildSessionCreatingText())
-        await activateNewSession({
-          sessionId: newId,
-          notifyMessageReceived: () => {
-            this._notifier.notifyMessageReceived({
-              sessionId: newId,
-              senderNick: identity.nickname || identity.userId,
-              text: 'hello',
-            })
-          },
-          enqueueHello: async () => {
-            await this._enqueueInboundMessage(newId, context.frame, {
-              msgId: `cmd-new-${Date.now()}`,
-              chatId,
-              chatType: identity.chatType,
-              text: 'hello',
-              images: [],
-            }, identity)
-          },
-        })
-        return
-      }
-
-      case '/resume': {
-        if (currentSession?.status === 'streaming') {
-          await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再操作')
-          return
-        }
-
-        const currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
-
-        let history = await this._sessionMapper._queryHistorySessions(identity)
-        history = this._mergeCurrentSessionIntoHistory(history, currentSessionId, identity)
-        if (!history || history.length === 0) {
-          await this._sendTextReply(context.frame, buildNoHistoryText())
-          return
-        }
-
-        if (args.length > 0) {
-          const selection = resolveResumeSelection({
-            history,
-            selectedIndex: args[0],
-            currentSessionId,
-            currentSession,
-          })
-          if (selection.action === 'invalid_index') {
-            await this._sendTextReply(context.frame, `编号错误：请输入 1-${selection.max} 之间的数字`)
-            return
-          }
-          if (selection.action === 'already_connected') {
-            await this._sendTextReply(context.frame, buildAlreadyConnectedText(selection.selected?.title || selection.sessionId))
-            return
-          }
-
+    await dispatchImCommand({
+      text: normalizedText,
+      beforeExecute: () => {
+        if (!options.preservePendingSelection) {
           this._sessionMapper.clearPendingChoice(mapKey)
-          const result = await this._sessionMapper.handleDirectChoice(mapKey, history, String(selection.index), identity, {
-            timeoutMs: HISTORY_CHOICE_TIMEOUT,
-            menuBuilder: (sessions) => this._buildHistoryChoiceMenu(sessions, currentSessionId),
+          this._pendingInboundMessages.delete(mapKey)
+        }
+      },
+      handlers: {
+        help: async () => {
+          await this._sendTextReply(context.frame, this._buildHelpText())
+        },
+        status: async () => {
+          await this._sendTextReply(context.frame, this._buildStatusMenuText({
+            sessionId,
+            chatId,
+          }))
+        },
+        sessions: async () => {
+          await this._sendTextReply(context.frame, this._buildSessionsMenuText(chatId, sessionId))
+        },
+        close: async ({ args }) => {
+          const closeDecision = resolveCloseCommand({
+            args,
+            activeSessions: this._getActiveSessionsByChat(chatId),
+            currentSessionId: sessionId,
+            getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
           })
-          if (!result?.sessionId) {
-            await this._sendTextReply(context.frame, '无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话')
+          if (closeDecision.action === 'invalid_index') {
+            await this._sendTextReply(
+              context.frame,
+              `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
+            )
+            return
+          }
+          if (closeDecision.action === 'missing_current') {
+            await this._sendTextReply(context.frame, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
+            return
+          }
+          if (closeDecision.action === 'streaming') {
+            await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再关闭')
             return
           }
 
-          this._sessionIdentities.set(result.sessionId, {
+          await this._agentSessionManager.close(closeDecision.targetSessionId)
+          this._clearSessionIdentity(closeDecision.targetSessionId)
+          this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
+
+          await this._sendTextReply(context.frame, closeDecision.closeText)
+        },
+        new: async ({ args }) => {
+          if (currentSession?.status === 'streaming') {
+            await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再操作')
+            return
+          }
+          let cwd
+          try {
+            cwd = resolveCommandCwd({
+              args,
+              outputBaseDir: this._agentSessionManager._getOutputBaseDir(),
+              imSubdir: this._imType,
+            })
+          } catch (err) {
+            await this._sendTextReply(context.frame, err.message)
+            return
+          }
+          if (sessionId) {
+            this._clearSessionIdentity(sessionId)
+          }
+          const newId = await this._sessionMapper.createSession(identity, { cwd })
+          if (!newId) {
+            await this._sendTextReply(context.frame, '创建新会话失败')
+            return
+          }
+          this._sessionMapper.sessionMap.set(mapKey, newId)
+          this._sessionIdentities.set(newId, {
             userId: identity.userId,
             senderId: identity.userId,
             senderName: identity.nickname || identity.userId,
@@ -825,26 +746,20 @@ class EnterpriseWeixinBridge {
             chatType: identity.chatType,
             chatName: identity.channelName || identity.nickname || identity.userId,
           })
-          this._notifier.notifySessionCreated({ sessionId: result.sessionId, nickname: identity.nickname || identity.userId })
-          await this._sendTextReply(
-            context.frame,
-            result.wasActivated
-              ? buildSessionSwitchedText(result.selectedSession?.title || result.sessionId)
-              : buildSessionActivatingText()
-          )
+          this._notifier.notifySessionCreated({ sessionId: newId, nickname: identity.nickname || identity.userId })
+          await this._sendTextReply(context.frame, buildSessionCreatingText())
           await activateNewSession({
-            sessionId: result.sessionId,
-            wasActivated: result.wasActivated,
+            sessionId: newId,
             notifyMessageReceived: () => {
               this._notifier.notifyMessageReceived({
-                sessionId: result.sessionId,
+                sessionId: newId,
                 senderNick: identity.nickname || identity.userId,
                 text: 'hello',
               })
             },
             enqueueHello: async () => {
-              await this._enqueueInboundMessage(result.sessionId, context.frame, {
-                msgId: `cmd-resume-${Date.now()}`,
+              await this._enqueueInboundMessage(newId, context.frame, {
+                msgId: `cmd-new-${Date.now()}`,
                 chatId,
                 chatType: identity.chatType,
                 text: 'hello',
@@ -852,42 +767,117 @@ class EnterpriseWeixinBridge {
               }, identity)
             },
           })
-          return
-        }
-
-        await this._sessionMapper.initPendingChoice(
-          mapKey,
-          history,
-          (menuText) => this._sendTextReply(context.frame, menuText),
-          {
-            timeoutMs: HISTORY_CHOICE_TIMEOUT,
-            menuBuilder: (sessions) => this._buildHistoryChoiceMenu(sessions, currentSessionId),
+        },
+        resume: async ({ args }) => {
+          if (currentSession?.status === 'streaming') {
+            await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再操作')
+            return
           }
-        )
-        return
-      }
 
-      case '/rename': {
-        const renameDecision = resolveRenameCommand({
-          args,
-          currentSessionId: sessionId,
-        })
-        if (renameDecision.action === 'missing_current') {
-          await this._sendTextReply(context.frame, buildRenameMissingSessionText())
-          return
-        }
-        if (renameDecision.action === 'missing_title') {
-          await this._sendTextReply(context.frame, buildRenamePromptText())
-          return
-        }
-        this._agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
-        await this._sendTextReply(context.frame, buildRenameSuccessText(renameDecision.newTitle))
-        return
-      }
+          const currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
 
-      default:
-        await this._sendTextReply(context.frame, buildUnknownCommandText(cmd))
-    }
+          let history = await this._sessionMapper._queryHistorySessions(identity)
+          history = this._mergeCurrentSessionIntoHistory(history, currentSessionId, identity)
+          if (!history || history.length === 0) {
+            await this._sendTextReply(context.frame, buildNoHistoryText())
+            return
+          }
+
+          if (args.length > 0) {
+            const selection = resolveResumeSelection({
+              history,
+              selectedIndex: args[0],
+              currentSessionId,
+              currentSession,
+            })
+            if (selection.action === 'invalid_index') {
+              await this._sendTextReply(context.frame, `编号错误：请输入 1-${selection.max} 之间的数字`)
+              return
+            }
+            if (selection.action === 'already_connected') {
+              await this._sendTextReply(context.frame, buildAlreadyConnectedText(selection.selected?.title || selection.sessionId))
+              return
+            }
+
+            this._sessionMapper.clearPendingChoice(mapKey)
+            const result = await this._sessionMapper.handleDirectChoice(mapKey, history, String(selection.index), identity, {
+              timeoutMs: HISTORY_CHOICE_TIMEOUT,
+              menuBuilder: (sessions) => this._buildHistoryChoiceMenu(sessions, currentSessionId),
+            })
+            if (!result?.sessionId) {
+              await this._sendTextReply(context.frame, '无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话')
+              return
+            }
+
+            this._sessionIdentities.set(result.sessionId, {
+              userId: identity.userId,
+              senderId: identity.userId,
+              senderName: identity.nickname || identity.userId,
+              chatId: identity.chatId,
+              chatType: identity.chatType,
+              chatName: identity.channelName || identity.nickname || identity.userId,
+            })
+            this._notifier.notifySessionCreated({ sessionId: result.sessionId, nickname: identity.nickname || identity.userId })
+            await this._sendTextReply(
+              context.frame,
+              result.wasActivated
+                ? buildSessionSwitchedText(result.selectedSession?.title || result.sessionId)
+                : buildSessionActivatingText()
+            )
+            await activateNewSession({
+              sessionId: result.sessionId,
+              wasActivated: result.wasActivated,
+              notifyMessageReceived: () => {
+                this._notifier.notifyMessageReceived({
+                  sessionId: result.sessionId,
+                  senderNick: identity.nickname || identity.userId,
+                  text: 'hello',
+                })
+              },
+              enqueueHello: async () => {
+                await this._enqueueInboundMessage(result.sessionId, context.frame, {
+                  msgId: `cmd-resume-${Date.now()}`,
+                  chatId,
+                  chatType: identity.chatType,
+                  text: 'hello',
+                  images: [],
+                }, identity)
+              },
+            })
+            return
+          }
+
+          await this._sessionMapper.initPendingChoice(
+            mapKey,
+            history,
+            (menuText) => this._sendTextReply(context.frame, menuText),
+            {
+              timeoutMs: HISTORY_CHOICE_TIMEOUT,
+              menuBuilder: (sessions) => this._buildHistoryChoiceMenu(sessions, currentSessionId),
+            }
+          )
+        },
+        rename: async ({ args }) => {
+          const renameDecision = resolveRenameCommand({
+            args,
+            currentSessionId: sessionId,
+          })
+          if (renameDecision.action === 'missing_current') {
+            await this._sendTextReply(context.frame, buildRenameMissingSessionText())
+            return
+          }
+          if (renameDecision.action === 'missing_title') {
+            await this._sendTextReply(context.frame, buildRenamePromptText())
+            return
+          }
+          this._agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
+          await this._sendTextReply(context.frame, buildRenameSuccessText(renameDecision.newTitle))
+        },
+      },
+      onUnknown: async ({ rawCommand }) => {
+        await this._sendTextReply(context.frame, buildUnknownCommandText(rawCommand))
+      },
+    })
   }
 
   async _resolveCommandSessionId(mapKey, identity) {
