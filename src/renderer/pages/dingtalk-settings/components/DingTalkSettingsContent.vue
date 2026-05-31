@@ -172,8 +172,7 @@ const canRunAction = computed(() =>
   formData.value.enabled &&
   formData.value.appKey &&
   formData.value.appSecret &&
-  runtimeState.value !== 'connecting' &&
-  runtimeState.value !== 'reconnecting'
+  runtimeState.value !== 'connecting'
 )
 const canDisconnect = computed(() =>
   !togglingEnabled.value &&
@@ -183,7 +182,7 @@ const canDisconnect = computed(() =>
 const primaryActionText = computed(() => {
   if (!formData.value.enabled || runtimeState.value === 'disabled') return t('dingtalkSettings.connect')
   if (runtimeState.value === 'connected') return t('dingtalkSettings.reconnect')
-  if (runtimeState.value === 'connecting' || runtimeState.value === 'reconnecting') return '连接中'
+  if (runtimeState.value === 'connecting') return '连接中'
   return t('dingtalkSettings.connect')
 })
 

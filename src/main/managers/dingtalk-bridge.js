@@ -300,6 +300,7 @@ class DingTalkBridge {
     this.connected = true
     this._runtimeState = 'connected'
     this._watchdogRetryIndex = 0
+    this._clearReconnectWatchdog()
     console.log('[DingTalk] Bridge connected')
     this._notifyFrontend('dingtalk:statusChange', this.getStatus())
 
@@ -348,12 +349,13 @@ class DingTalkBridge {
     this._clearReconnectWatchdog()
     this._reconnectWatchdog = setTimeout(() => {
       this._reconnectWatchdog = null
-      if (this._stopped) return
+      if (this._stopped || this.connected) return
 
       // SDK 可能已自动重连成功（创建了新 socket）
       if (this.client?.registered) {
         this.connected = true
         this._runtimeState = 'connected'
+        this._clearReconnectWatchdog()
         console.log('[DingTalk] SDK auto-reconnected successfully')
         this._notifyFrontend('dingtalk:statusChange', this.getStatus())
         this._hookSocketEvents() // hook 新 socket

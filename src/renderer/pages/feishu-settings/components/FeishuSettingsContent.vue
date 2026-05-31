@@ -158,11 +158,10 @@ const statusText = computed(() => {
 })
 const canRunAction = computed(() =>
   !togglingEnabled.value &&
+  !connecting.value &&
   formData.value.enabled &&
   formData.value.appId &&
-  formData.value.appSecret &&
-  runtimeState.value !== 'connecting' &&
-  runtimeState.value !== 'reconnecting'
+  formData.value.appSecret
 )
 const canDisconnect = computed(() =>
   !togglingEnabled.value &&
@@ -170,9 +169,9 @@ const canDisconnect = computed(() =>
   runtimeState.value === 'connected'
 )
 const primaryActionText = computed(() => {
+  if (connecting.value) return '连接中'
   if (!formData.value.enabled || runtimeState.value === 'disabled') return '连接'
   if (runtimeState.value === 'connected') return '重新连接'
-  if (runtimeState.value === 'connecting' || runtimeState.value === 'reconnecting') return '连接中'
   return '连接'
 })
 
@@ -278,7 +277,7 @@ const handleConnect = async () => {
   try {
     await invoke('updateFeishuConfig', buildConfigPayload())
     await invoke(runtimeState.value === 'connected' ? 'restartFeishu' : 'startFeishu')
-    const status = await waitForConnectedStatus()
+    const status = await waitForConnectedStatus({ timeoutMs: 1500, intervalMs: 300 })
     if (status?.connected) {
       message.success('飞书桥接已连接')
     } else {
