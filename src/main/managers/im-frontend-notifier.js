@@ -1,3 +1,5 @@
+const { BrowserWindow } = require('electron')
+
 /**
  * IM 前端通知 helper
  *
@@ -30,10 +32,29 @@ class ImFrontendNotifier {
 
   /** @private */
   _send(channel, data) {
-    try {
-      this._mainWindow?.webContents?.send(channel, data)
-    } catch {
-      // 窗口已销毁，静默忽略
+    const sentWebContents = new Set()
+    const windows = []
+
+    if (this._mainWindow && !this._mainWindow.isDestroyed()) {
+      windows.push(this._mainWindow)
+    }
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win || win.isDestroyed()) continue
+      if (windows.includes(win)) continue
+      windows.push(win)
+    }
+
+    for (const win of windows) {
+      try {
+        const wc = win?.webContents
+        if (!wc || wc.isDestroyed?.()) continue
+        if (sentWebContents.has(wc.id)) continue
+        wc.send(channel, data)
+        sentWebContents.add(wc.id)
+      } catch {
+        // 单个窗口发送失败不影响其他窗口
+      }
     }
   }
 
