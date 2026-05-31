@@ -18,6 +18,14 @@ const {
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
+const DINGTALK_RECONNECT_DELAYS_MS = [
+  1 * 1000,
+  2 * 1000,
+  4 * 1000,
+  8 * 1000,
+  15 * 1000,
+  30 * 1000,
+]
 
 // 钉钉桥接翻译字典
 const DINGTALK_I18N = {
@@ -96,6 +104,7 @@ class DingTalkBridge {
 
     // 连接健康监控：SDK 重连失败时由外层兜底
     this._reconnectWatchdog = null
+    this._watchdogRetryIndex = 0
 
     // 监听 AgentSessionManager 内部事件（替代 messageListener 注入模式）
     this._bindAgentEvents()
@@ -144,7 +153,8 @@ class DingTalkBridge {
   /**
    * 启动钉钉桥接（根据配置决定是否启动）
    */
-  async start() {
+  async start(options = {}) {
+    const { silent = false } = options || {}
     this._stopped = false
     const config = this.configManager.getConfig()
     const { enabled, appKey, appSecret } = config.dingtalk || {}
@@ -159,7 +169,9 @@ class DingTalkBridge {
       return true
     } catch (err) {
       console.error('[DingTalk] Failed to start:', err.message)
-      this._notifyFrontend('dingtalk:error', { error: err.message })
+      if (!silent) {
+        this._notifyFrontend('dingtalk:error', { error: err.message })
+      }
       return false
     }
   }
@@ -167,11 +179,15 @@ class DingTalkBridge {
   /**
    * 停止钉钉桥接
    */
-  async stop() {
+  async stop(options = {}) {
+    const { preserveWatchdogRetry = false } = options || {}
     this._stopped = true
     if (this._reconnectWatchdog) {
       clearTimeout(this._reconnectWatchdog)
       this._reconnectWatchdog = null
+    }
+    if (!preserveWatchdogRetry) {
+      this._watchdogRetryIndex = 0
     }
     if (this.client) {
       try {
@@ -203,9 +219,10 @@ class DingTalkBridge {
   /**
    * 重启（配置变更后调用）
    */
-  async restart() {
-    await this.stop()
-    return this.start()
+  async restart(options = {}) {
+    const { preserveWatchdogRetry = false } = options || {}
+    await this.stop({ preserveWatchdogRetry })
+    return this.start(options)
   }
 
   /**
@@ -272,6 +289,7 @@ class DingTalkBridge {
     // 连接
     await this.client.connect()
     this.connected = true
+    this._watchdogRetryIndex = 0
     console.log('[DingTalk] Bridge connected')
     this._notifyFrontend('dingtalk:statusChange', { connected: true })
 
@@ -331,31 +349,41 @@ class DingTalkBridge {
       }
 
       console.log('[DingTalk] SDK reconnect appears to have failed, performing full restart...')
-      this._watchdogRestart(30 * 1000)
+      this._watchdogRestart()
     }, 10 * 1000)
   }
 
   /**
-   * watchdog 重连：restart 失败后按递增间隔持续重试，最长 5 分钟
+   * watchdog 重连：restart 失败后按预设节奏持续重试
    */
-  _watchdogRestart(nextDelay) {
+  _watchdogRestart() {
     if (this._stopped) return
-    this.restart().then(ok => {
-      if (ok) return // restart 成功，_connect 内部会重新 hookSocketEvents
-      const cappedDelay = Math.min(nextDelay, 5 * 60 * 1000)
-      console.log(`[DingTalk] Watchdog restart failed, retrying in ${cappedDelay / 1000}s...`)
+    this.restart({ silent: true, preserveWatchdogRetry: true }).then(ok => {
+      if (ok) {
+        this._watchdogRetryIndex = 0
+        return // restart 成功，_connect 内部会重新 hookSocketEvents
+      }
+      const delayMs = DINGTALK_RECONNECT_DELAYS_MS[
+        Math.min(this._watchdogRetryIndex, DINGTALK_RECONNECT_DELAYS_MS.length - 1)
+      ]
+      this._watchdogRetryIndex += 1
+      console.log(`[DingTalk] Watchdog restart failed, retrying in ${delayMs / 1000}s...`)
       this._reconnectWatchdog = setTimeout(() => {
         this._reconnectWatchdog = null
         if (this._stopped || this.connected) return
-        this._watchdogRestart(cappedDelay * 2)
-      }, cappedDelay)
+        this._watchdogRestart()
+      }, delayMs)
     }).catch(err => {
       console.error('[DingTalk] Watchdog restart unexpected error:', err.message)
+      const delayMs = DINGTALK_RECONNECT_DELAYS_MS[
+        Math.min(this._watchdogRetryIndex, DINGTALK_RECONNECT_DELAYS_MS.length - 1)
+      ]
+      this._watchdogRetryIndex += 1
       this._reconnectWatchdog = setTimeout(() => {
         this._reconnectWatchdog = null
         if (this._stopped || this.connected) return
-        this._watchdogRestart(60 * 1000)
-      }, 60 * 1000)
+        this._watchdogRestart()
+      }, delayMs)
     })
   }
 
