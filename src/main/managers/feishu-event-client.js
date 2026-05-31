@@ -10,11 +10,6 @@
 
 const { EventEmitter } = require('events')
 const { WSClient, EventDispatcher, Domain } = require('@larksuiteoapi/node-sdk')
-const { MAX_RECONNECT_ATTEMPTS, getReconnectDelayMs } = require('./im-reconnect-policy')
-
-const FEISHU_SOCKET_LIVENESS_TIMEOUT_MS = 30000
-const FEISHU_SOCKET_LIVENESS_CHECK_MS = 5000
-const FEISHU_HANDSHAKE_TIMEOUT_MS = 5000
 
 class FeishuEventClient extends EventEmitter {
   constructor(opts = {}) {
@@ -26,10 +21,8 @@ class FeishuEventClient extends EventEmitter {
     this._wsClient = null
     this._eventDispatcher = null
     this._reconnectWatchdog = null
-    this._reconnectAttempt = 0
-    this._watchdogSocket = null
-    this._socketLivenessTimer = null
-    this._lastSocketActivityAt = 0
+    this._reconnectBackoffMs = 30 * 1000
+    this._restartInFlight = null
   }
 
   // ─── 公开 API ───
@@ -45,26 +38,22 @@ class FeishuEventClient extends EventEmitter {
     this._appId = appId
     this._appSecret = appSecret
     this._stopped = false
-    this._reconnectAttempt = 0
+    this._reconnectBackoffMs = 30 * 1000
 
     await this._startClient()
   }
 
   /** 停止连接 */
-  stop(reason = 'manual') {
+  stop() {
     this._stopped = true
     this._connected = false
-    if (reason !== 'watchdog') {
-      this._reconnectAttempt = 0
-    }
     this._clearReconnectWatchdog()
-    this._clearSocketLivenessMonitor()
+    this._restartInFlight = null
     this._closeClient()
     this._eventDispatcher = null
   }
 
   async _startClient() {
-    console.log(`[FeishuEventClient] _startClient begin, reconnectAttempt=${this._reconnectAttempt}, connected=${this._connected}, stopped=${this._stopped}`)
     this._eventDispatcher = new EventDispatcher({
       loggerLevel: 'info',
     })
@@ -78,8 +67,38 @@ class FeishuEventClient extends EventEmitter {
       },
     })
 
+    this._wsClient = new WSClient({
+      appId: this._appId,
+      appSecret: this._appSecret,
+      domain: Domain.Feishu,
+      autoReconnect: true,
+      onReady: () => {
+        this._connected = true
+        this._clearReconnectWatchdog()
+        this.emit('statusChange', { connected: true })
+        console.log('[FeishuEventClient] Connected and ready')
+      },
+      onError: (err) => {
+        console.error('[FeishuEventClient] Error:', err.message)
+        if (!this._connected) {
+          this._scheduleReconnectWatchdog()
+        }
+        this.emit('error', { message: err.message })
+      },
+      onReconnecting: () => {
+        console.log('[FeishuEventClient] Reconnecting...')
+        this._markDisconnected()
+        this._scheduleReconnectWatchdog()
+      },
+      onReconnected: () => {
+        this._connected = true
+        this._clearReconnectWatchdog()
+        this.emit('statusChange', { connected: true })
+      },
+    })
+
     try {
-      await this._startWsClientWithHandshake()
+      await this._wsClient.start({ eventDispatcher: this._eventDispatcher })
       console.log('[FeishuEventClient] WSClient started')
     } catch (err) {
       console.error('[FeishuEventClient] Start failed:', err.message)
@@ -90,70 +109,7 @@ class FeishuEventClient extends EventEmitter {
     }
   }
 
-  _startWsClientWithHandshake() {
-    return new Promise((resolve, reject) => {
-      let settled = false
-      const settle = (fn, value) => {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        fn(value)
-      }
-
-      console.log(`[FeishuEventClient] Handshake start, reconnectAttempt=${this._reconnectAttempt}`)
-      const timer = setTimeout(() => {
-        console.warn(`[FeishuEventClient] Handshake timeout after ${FEISHU_HANDSHAKE_TIMEOUT_MS}ms, reconnectAttempt=${this._reconnectAttempt}`)
-        try { this._wsClient?.close({ force: true }) } catch {}
-        settle(reject, new Error(`WebSocket handshake did not complete within ${FEISHU_HANDSHAKE_TIMEOUT_MS}ms`))
-      }, FEISHU_HANDSHAKE_TIMEOUT_MS)
-
-      this._wsClient = new WSClient({
-        appId: this._appId,
-        appSecret: this._appSecret,
-        domain: Domain.Feishu,
-        autoReconnect: true,
-        wsConfig: {
-          pingTimeout: 35,
-        },
-        onReady: () => {
-          this._connected = true
-          this._reconnectAttempt = 0
-          this._clearReconnectWatchdog()
-          this.emit('statusChange', { connected: true })
-          console.log(`[FeishuEventClient] Connected and ready, reconnectAttempt reset to 0`)
-          this._hookSocketEvents()
-          settle(resolve)
-        },
-        onError: (err) => {
-          console.error(`[FeishuEventClient] Error: ${err.message}, connected=${this._connected}, reconnectAttempt=${this._reconnectAttempt}`)
-          this.emit('error', { message: err.message })
-          if (!this._connected) {
-            console.warn(`[FeishuEventClient] Handshake rejected by onError, reconnectAttempt=${this._reconnectAttempt}`)
-            settle(reject, err)
-          }
-        },
-        onReconnecting: () => {
-          console.log(`[FeishuEventClient] Reconnecting..., reconnectAttempt=${this._reconnectAttempt}`)
-          this._markDisconnected()
-          this._startReconnectWatchdog()
-        },
-        onReconnected: () => {
-          this._connected = true
-          this._reconnectAttempt = 0
-          this._clearReconnectWatchdog()
-          this.emit('statusChange', { connected: true })
-          console.log('[FeishuEventClient] Reconnected, reconnectAttempt reset to 0')
-          this._hookSocketEvents()
-        },
-      })
-
-      this._wsClient.start({ eventDispatcher: this._eventDispatcher })
-    })
-  }
-
   _closeClient() {
-    this._watchdogSocket = null
-    this._lastSocketActivityAt = 0
     if (this._wsClient) {
       try {
         this._wsClient.close({ force: true })
@@ -171,113 +127,41 @@ class FeishuEventClient extends EventEmitter {
     }
   }
 
-  _hookSocketEvents() {
-    const socket = this._wsClient?.wsConfig?.getWSInstance?.()
-    if (!socket || socket === this._watchdogSocket) return
-    this._watchdogSocket = socket
-    this._lastSocketActivityAt = Date.now()
-    console.log('[FeishuEventClient] Hooked socket events for current ws instance')
-    this._startSocketLivenessMonitor()
-
-    const markAlive = () => {
-      this._lastSocketActivityAt = Date.now()
-    }
-
-    socket.on('message', markAlive)
-    socket.on('pong', markAlive)
-    socket.on('ping', markAlive)
-
-    socket.once('close', () => {
-      socket.off('message', markAlive)
-      socket.off('pong', markAlive)
-      socket.off('ping', markAlive)
-      if (this._stopped) {
-        this._watchdogSocket = null
-        this._clearSocketLivenessMonitor()
-        return
-      }
-      console.warn('[FeishuEventClient] Socket closed while active, starting reconnect watchdog')
-      this._watchdogSocket = null
-      this._clearSocketLivenessMonitor()
-      this._markDisconnected()
-      this._startReconnectWatchdog()
-    })
-  }
-
-  _startSocketLivenessMonitor() {
-    if (this._socketLivenessTimer) return
-    console.log(`[FeishuEventClient] Socket liveness monitor started, timeout=${FEISHU_SOCKET_LIVENESS_TIMEOUT_MS}ms`)
-    this._socketLivenessTimer = setInterval(() => {
-      if (this._stopped || !this._watchdogSocket) return
-      const idleMs = Date.now() - this._lastSocketActivityAt
-      if (idleMs < FEISHU_SOCKET_LIVENESS_TIMEOUT_MS) return
-      console.warn(`[FeishuEventClient] No inbound socket activity for ${idleMs}ms, terminating socket`)
-      try {
-        this._watchdogSocket.terminate()
-      } catch {}
-    }, FEISHU_SOCKET_LIVENESS_CHECK_MS)
-  }
-
-  _startReconnectWatchdog() {
+  _scheduleReconnectWatchdog(delayMs = 15 * 1000) {
     if (this._stopped || this._reconnectWatchdog) return
-    const delayMs = getReconnectDelayMs(Math.max(1, this._reconnectAttempt + 1))
-    console.log(`[FeishuEventClient] Reconnect watchdog scheduled in ${delayMs}ms, nextAttempt=${this._reconnectAttempt + 1}`)
     this._reconnectWatchdog = setTimeout(() => {
       this._reconnectWatchdog = null
       if (this._stopped || this._connected) return
-
-      const socket = this._wsClient?.wsConfig?.getWSInstance?.()
-      if (socket && socket.readyState === 1) {
-        this._connected = true
-        this._reconnectAttempt = 0
-        console.log('[FeishuEventClient] Reconnect watchdog observed live socket, restoring connected state')
-        this.emit('statusChange', { connected: true })
-        this._hookSocketEvents()
-        return
-      }
-
-      console.warn(`[FeishuEventClient] Reconnect watchdog escalating to full restart, reconnectAttempt=${this._reconnectAttempt}`)
-      this._watchdogRestart()
+      this._restartFromWatchdog(this._reconnectBackoffMs).catch(() => {})
     }, delayMs)
   }
 
-  async _watchdogRestart() {
+  async _restartFromWatchdog(nextDelayMs) {
     if (this._stopped || this._connected) return
-    this._reconnectAttempt += 1
-    console.warn(`[FeishuEventClient] Watchdog restart attempt ${this._reconnectAttempt}/${MAX_RECONNECT_ATTEMPTS}`)
-    if (this._reconnectAttempt > MAX_RECONNECT_ATTEMPTS) {
-      console.error('[FeishuEventClient] Watchdog reconnect exhausted, emitting terminal error')
-      this.emit('error', { message: `WebSocket reconnect exhausted after ${MAX_RECONNECT_ATTEMPTS} attempts` })
-      return
-    }
+    if (this._restartInFlight) return this._restartInFlight
 
-    try {
-      this._closeClient()
-      await this._startClient()
-      console.log(`[FeishuEventClient] Watchdog restart attempt ${this._reconnectAttempt} succeeded`)
-    } catch (err) {
-      console.error(`[FeishuEventClient] Watchdog restart attempt ${this._reconnectAttempt} failed: ${err.message}`)
-      if (this._stopped || this._connected) return
-      if (this._reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-        console.error('[FeishuEventClient] Watchdog reconnect exhausted after failed restart, emitting terminal error')
-        this.emit('error', { message: `WebSocket reconnect exhausted after ${MAX_RECONNECT_ATTEMPTS} attempts` })
-        return
+    this._restartInFlight = (async () => {
+      try {
+        this._closeClient()
+        await this._startClient()
+        this._reconnectBackoffMs = 30 * 1000
+      } catch (err) {
+        const retryMs = Math.min(nextDelayMs, 5 * 60 * 1000)
+        console.error('[FeishuEventClient] Watchdog restart failed:', err.message)
+        this._scheduleReconnectWatchdog(retryMs)
+        this._reconnectBackoffMs = Math.min(retryMs * 2, 5 * 60 * 1000)
+      } finally {
+        this._restartInFlight = null
       }
-      this._startReconnectWatchdog()
-    }
+    })()
+
+    return this._restartInFlight
   }
 
   _clearReconnectWatchdog() {
     if (this._reconnectWatchdog) {
       clearTimeout(this._reconnectWatchdog)
       this._reconnectWatchdog = null
-    }
-  }
-
-  _clearSocketLivenessMonitor() {
-    if (this._socketLivenessTimer) {
-      clearInterval(this._socketLivenessTimer)
-      this._socketLivenessTimer = null
     }
   }
 

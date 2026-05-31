@@ -13,7 +13,6 @@ const { ImReplyCollector } = require('./im-reply-collector')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
 const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
-const { buildBridgeStatus, runtimeStateFromStopReason } = require('./im-bridge-runtime-state')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
 const {
   listChatSessions,
@@ -110,8 +109,6 @@ class FeishuBridge {
     this._proactiveRebindSuppressedKeys = new Set()
     this._activeSendChunks = new Map()
     this._knownRobotMentionIds = new Set()
-    this._manualStopped = false
-    this._runtimeState = 'disabled'
 
     this._agentListeners = null
     this._eventListeners = null
@@ -136,11 +133,8 @@ class FeishuBridge {
 
   async start() {
     this._syncSessionDatabase()
-    this._manualStopped = false
-    this._runtimeState = 'connecting'
     const cfg = this.config
     if (!cfg.enabled || !cfg.appId || !cfg.appSecret) {
-      this._runtimeState = 'disabled'
       console.log('[FeishuBridge] Not enabled or missing credentials')
       return false
     }
@@ -151,20 +145,16 @@ class FeishuBridge {
     this._startMsgIdCleanupTimer()
     try {
       await this._eventClient.connect(cfg.appId, cfg.appSecret)
-      this._runtimeState = this._eventClient.connected ? 'connected' : 'connecting'
       return true
     } catch (err) {
-      this._runtimeState = 'error'
       this._stopMsgIdCleanupTimer()
       this._unbindEventClientEvents()
       throw err
     }
   }
 
-  async stop(reason = 'manual') {
-    this._manualStopped = reason === 'manual'
-    this._runtimeState = runtimeStateFromStopReason(reason)
-    this._eventClient.stop(reason)
+  async stop() {
+    this._eventClient.stop()
     this._unbindEventClientEvents()
     this._stopMsgIdCleanupTimer()
     this._replyCollector.clearAll()
@@ -178,7 +168,6 @@ class FeishuBridge {
     this._proactiveRebindSuppressedKeys.clear()
     this._activeSendChunks.clear()
     this._knownRobotMentionIds.clear()
-    this._notifier.notifyStatusChange(this.getStatus())
   }
 
   async restart() { await this.stop(); return this.start() }
@@ -195,13 +184,10 @@ class FeishuBridge {
   }
 
   getStatus() {
-    return buildBridgeStatus({
-      enabled: !!this.config?.enabled,
+    return {
       connected: this._eventClient.connected,
       activeSessions: this._sessionMapper.sessionMap.size,
-      runtimeState: this._runtimeState,
-      manualStopped: this._manualStopped,
-    })
+    }
   }
 
   setMainWindow(win) {
@@ -215,33 +201,8 @@ class FeishuBridge {
     this._unbindEventClientEvents()
     const onMessage = (event) => this._handleFeishuMessage(event)
     const onCardAction = (event) => this._handleCardAction(event)
-    const onStatus = (data) => {
-      this._runtimeState = data?.connected
-        ? 'connected'
-        : (this._manualStopped ? 'manually_disconnected' : 'reconnecting')
-      console.log(`[FeishuBridge] statusChange connected=${!!data?.connected}, runtimeState=${this._runtimeState}, manualStopped=${this._manualStopped}`)
-      this._notifier.notifyStatusChange(this.getStatus())
-    }
-    const onError = (data) => {
-      const message = data?.message || data?.error || ''
-      console.warn(`[FeishuBridge] error event received: ${message}, runtimeState=${this._runtimeState}, manualStopped=${this._manualStopped}`)
-      if (/reconnect exhausted/i.test(message)) {
-        if (this._manualStopped) return
-        this._runtimeState = 'error'
-        console.error('[FeishuBridge] runtimeState -> error due to reconnect exhausted')
-        this._notifier.notifyStatusChange(this.getStatus())
-        this._notifier.notifyError({ error: '飞书自动重连失败，请手动重新连接' })
-        return
-      }
-      if (
-        this._runtimeState === 'reconnecting' ||
-        /reconnect/i.test(message) ||
-        /WebSocket closed/i.test(message)
-      ) {
-        return
-      }
-      this._notifier.notifyError(data)
-    }
+    const onStatus = (data) => this._notifier.notifyStatusChange(data)
+    const onError = (data) => this._notifier.notifyError(data)
     this._eventClient.on('message', onMessage)
     this._eventClient.on('cardAction', onCardAction)
     this._eventClient.on('statusChange', onStatus)

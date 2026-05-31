@@ -59,7 +59,6 @@ const {
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
 const { extractImagePaths } = require('./im-utils')
-const { buildBridgeStatus, runtimeStateFromStopReason } = require('./im-bridge-runtime-state')
 
 const MAX_TEXT_LENGTH = 6000
 const MSG_ID_TTL = 10 * 60 * 1000
@@ -80,10 +79,6 @@ class EnterpriseWeixinBridge {
     this._connected = false
     this._sessionDatabase = agentSessionManager.sessionDatabase
     this._startPromise = null
-    this._stopped = false
-    this._manualStopped = false
-    this._runtimeState = 'disabled'
-    this._connectionStateMonitor = null
 
     this._notifier = new ImFrontendNotifier(mainWindow, this._imType)
     this._replyCollector = new ImReplyCollector({ maxTextLength: MAX_TEXT_LENGTH })
@@ -136,13 +131,10 @@ class EnterpriseWeixinBridge {
   }
 
   getStatus() {
-    return buildBridgeStatus({
-      enabled: !!this._getConfig()?.enabled,
+    return {
       connected: !!this._connected,
       activeSessions: this._sessionMapper?.sessionMap?.size || 0,
-      runtimeState: this._runtimeState,
-      manualStopped: this._manualStopped,
-    })
+    }
   }
 
   setMainWindow(win) {
@@ -150,28 +142,21 @@ class EnterpriseWeixinBridge {
     this._notifier.setMainWindow(win)
   }
 
-  async start(startReason = 'manual') {
+  async start() {
     this._syncSessionDatabase()
-    this._stopped = false
-    this._manualStopped = false
-    this._runtimeState = 'connecting'
     const config = this._getConfig()
     if (!config.enabled) {
-      this._runtimeState = 'disabled'
       console.log('[EnterpriseWeixin] Bridge is disabled, skipping start')
       return false
     }
 
     const { botId, secret } = config
     if (!botId || !secret) {
-      this._runtimeState = 'error'
       console.error('[EnterpriseWeixin] Bot ID or secret not configured')
       return false
     }
 
     if (this._connected && this._wsClient) {
-      this._runtimeState = 'connected'
-      this._startConnectionStateMonitor()
       return true
     }
 
@@ -190,8 +175,6 @@ class EnterpriseWeixinBridge {
       try {
         await this._connect(botId, secret)
         this._startMsgIdCleanup()
-        this._startConnectionStateMonitor()
-        this._runtimeState = this._connected ? 'connected' : 'connecting'
         console.log('[EnterpriseWeixin] Bridge started successfully')
         return true
       } catch (err) {
@@ -203,9 +186,7 @@ class EnterpriseWeixinBridge {
           }
           this._connected = false
           this._stopMsgIdCleanup()
-          this._stopConnectionStateMonitor()
-          this._runtimeState = this._manualStopped ? 'manually_disconnected' : 'error'
-          this._notifier.notifyStatusChange(this.getStatus())
+          this._notifier.notifyStatusChange({ connected: false })
         } catch {}
         console.error('[EnterpriseWeixin] Failed to start:', err.message)
         this._notifier.notifyError({ error: err.message })
@@ -218,12 +199,8 @@ class EnterpriseWeixinBridge {
     return this._startPromise
   }
 
-  async stop(reason = 'manual') {
-    this._stopped = true
-    this._manualStopped = reason === 'manual'
-    this._runtimeState = runtimeStateFromStopReason(reason)
+  async stop() {
     this._stopMsgIdCleanup()
-    this._stopConnectionStateMonitor()
     this._unbindWsEvents()
     this._replyCollector.clearAll()
     this._sessionMapper.clearAll()
@@ -240,13 +217,13 @@ class EnterpriseWeixinBridge {
     }
 
     this._connected = false
-    this._notifier.notifyStatusChange(this.getStatus())
+    this._notifier.notifyStatusChange({ connected: false })
     console.log('[EnterpriseWeixin] Bridge stopped')
   }
 
-  async restart(reason = 'manual') {
-    await this.stop(reason)
-    return this.start(reason)
+  async restart() {
+    await this.stop()
+    return this.start()
   }
 
   destroy() {
@@ -309,42 +286,16 @@ class EnterpriseWeixinBridge {
     }
     const onConnected = () => {
       this._connected = true
-      this._runtimeState = 'connected'
-      this._startConnectionStateMonitor()
-      this._notifier.notifyStatusChange(this.getStatus())
+      this._notifier.notifyStatusChange({ connected: true })
       console.log('[EnterpriseWeixin] WS connected')
     }
     const onDisconnected = (reason) => {
       this._connected = false
-      if (this._stopped) {
-        this._runtimeState = this._manualStopped ? 'manually_disconnected' : 'disconnected'
-      } else {
-        this._runtimeState = 'reconnecting'
-      }
-      this._startConnectionStateMonitor()
-      this._notifier.notifyStatusChange(this.getStatus())
+      this._notifier.notifyStatusChange({ connected: false })
       console.log('[EnterpriseWeixin] WS disconnected:', reason || '')
-    }
-    const onReconnecting = (attempt) => {
-      if (this._stopped) return
-      this._connected = false
-      this._runtimeState = 'reconnecting'
-      this._startConnectionStateMonitor()
-      this._notifier.notifyStatusChange(this.getStatus())
-      console.log('[EnterpriseWeixin] WS reconnecting, attempt:', attempt ?? 'unknown')
     }
     const onError = (err) => {
       console.error('[EnterpriseWeixin] WS error:', err?.message || err)
-      const errorName = typeof err?.name === 'string' ? err.name : ''
-      if (errorName === 'WSReconnectExhaustedError' || errorName === 'WSAuthFailureError') {
-        this._runtimeState = 'error'
-        this._notifier.notifyStatusChange(this.getStatus())
-        this._notifier.notifyError({ error: '企业微信自动重连失败，请手动重新连接' })
-        return
-      }
-      if (this._runtimeState === 'reconnecting') {
-        return
-      }
       this._notifier.notifyError({ error: err?.message || String(err) })
     }
 
@@ -353,10 +304,9 @@ class EnterpriseWeixinBridge {
     this._wsClient.on('connected', onConnected)
     this._wsClient.on('authenticated', onConnected)
     this._wsClient.on('disconnected', onDisconnected)
-    this._wsClient.on('reconnecting', onReconnecting)
     this._wsClient.on('error', onError)
 
-    this._wsListeners = { onMessage, onEvent, onConnected, onDisconnected, onReconnecting, onError }
+    this._wsListeners = { onMessage, onEvent, onConnected, onDisconnected, onError }
   }
 
   _unbindWsEvents() {
@@ -366,7 +316,6 @@ class EnterpriseWeixinBridge {
     this._wsClient.off('connected', this._wsListeners.onConnected)
     this._wsClient.off('authenticated', this._wsListeners.onConnected)
     this._wsClient.off('disconnected', this._wsListeners.onDisconnected)
-    this._wsClient.off('reconnecting', this._wsListeners.onReconnecting)
     this._wsClient.off('error', this._wsListeners.onError)
     this._wsListeners = null
   }
@@ -528,13 +477,7 @@ class EnterpriseWeixinBridge {
 
     if (eventType === 'disconnected_event') {
       this._connected = false
-      if (this._stopped) {
-        this._runtimeState = this._manualStopped ? 'manually_disconnected' : 'disconnected'
-      } else {
-        this._runtimeState = 'reconnecting'
-      }
-      this._startConnectionStateMonitor()
-      this._notifier.notifyStatusChange(this.getStatus())
+      this._notifier.notifyStatusChange({ connected: false })
       console.warn('[EnterpriseWeixin] Received disconnected_event from server')
       return
     }
@@ -553,39 +496,6 @@ class EnterpriseWeixinBridge {
       })
     } catch (err) {
       console.error('[EnterpriseWeixin] Failed to send welcome message:', err.message)
-    }
-  }
-
-  _startConnectionStateMonitor() {
-    if (this._connectionStateMonitor) return
-    this._connectionStateMonitor = setInterval(() => {
-      this._syncConnectionStateFromSocket()
-    }, 5000)
-  }
-
-  _stopConnectionStateMonitor() {
-    if (!this._connectionStateMonitor) return
-    clearInterval(this._connectionStateMonitor)
-    this._connectionStateMonitor = null
-  }
-
-  _syncConnectionStateFromSocket() {
-    if (this._stopped) return
-    const socketConnected = !!this._wsClient?.isConnected
-
-    if (socketConnected) {
-      if (!this._connected || this._runtimeState !== 'connected') {
-        this._connected = true
-        this._runtimeState = 'connected'
-        this._notifier.notifyStatusChange(this.getStatus())
-      }
-      return
-    }
-
-    if (this._connected || this._runtimeState === 'connected') {
-      this._connected = false
-      this._runtimeState = 'reconnecting'
-      this._notifier.notifyStatusChange(this.getStatus())
     }
   }
 

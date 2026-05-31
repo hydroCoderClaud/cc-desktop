@@ -1,5 +1,3 @@
-const { BrowserWindow } = require('electron')
-
 /**
  * IM 前端通知 helper
  *
@@ -32,29 +30,10 @@ class ImFrontendNotifier {
 
   /** @private */
   _send(channel, data) {
-    const sentWebContentsIds = new Set()
-    const targets = []
-
-    if (this._mainWindow && !this._mainWindow.isDestroyed?.()) {
-      targets.push(this._mainWindow)
-    }
-
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win || win.isDestroyed?.()) continue
-      if (targets.includes(win)) continue
-      targets.push(win)
-    }
-
-    for (const win of targets) {
-      const wc = win?.webContents
-      if (!wc || wc.isDestroyed?.()) continue
-      if (sentWebContentsIds.has(wc.id)) continue
-      sentWebContentsIds.add(wc.id)
-      try {
-        wc.send(channel, data)
-      } catch {
-        // 窗口已销毁，静默忽略
-      }
+    try {
+      this._mainWindow?.webContents?.send(channel, data)
+    } catch {
+      // 窗口已销毁，静默忽略
     }
   }
 
