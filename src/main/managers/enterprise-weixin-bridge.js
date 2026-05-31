@@ -77,6 +77,7 @@ class EnterpriseWeixinBridge {
 
     this._wsClient = null
     this._connected = false
+    this._runtimeState = 'disabled'
     this._sessionDatabase = agentSessionManager.sessionDatabase
     this._startPromise = null
 
@@ -134,6 +135,7 @@ class EnterpriseWeixinBridge {
     return {
       connected: !!this._connected,
       activeSessions: this._sessionMapper?.sessionMap?.size || 0,
+      runtimeState: this._runtimeState,
     }
   }
 
@@ -146,6 +148,7 @@ class EnterpriseWeixinBridge {
     this._syncSessionDatabase()
     const config = this._getConfig()
     if (!config.enabled) {
+      this._runtimeState = 'disabled'
       console.log('[EnterpriseWeixin] Bridge is disabled, skipping start')
       return false
     }
@@ -171,6 +174,8 @@ class EnterpriseWeixinBridge {
 
       this._sessionMapper = this._createSessionMapper(config)
       this._restoreSessionBindings()
+      this._runtimeState = 'connecting'
+      this._notifier.notifyStatusChange(this.getStatus())
 
       try {
         await this._connect(botId, secret)
@@ -185,8 +190,9 @@ class EnterpriseWeixinBridge {
             this._wsClient = null
           }
           this._connected = false
+          this._runtimeState = 'disconnected'
           this._stopMsgIdCleanup()
-          this._notifier.notifyStatusChange({ connected: false })
+          this._notifier.notifyStatusChange(this.getStatus())
         } catch {}
         console.error('[EnterpriseWeixin] Failed to start:', err.message)
         this._notifier.notifyError({ error: err.message })
@@ -217,7 +223,8 @@ class EnterpriseWeixinBridge {
     }
 
     this._connected = false
-    this._notifier.notifyStatusChange({ connected: false })
+    this._runtimeState = 'disabled'
+    this._notifier.notifyStatusChange(this.getStatus())
     console.log('[EnterpriseWeixin] Bridge stopped')
   }
 
@@ -286,13 +293,22 @@ class EnterpriseWeixinBridge {
     }
     const onConnected = () => {
       this._connected = true
-      this._notifier.notifyStatusChange({ connected: true })
+      this._runtimeState = 'connected'
+      this._notifier.notifyStatusChange(this.getStatus())
       console.log('[EnterpriseWeixin] WS connected')
     }
     const onDisconnected = (reason) => {
       this._connected = false
-      this._notifier.notifyStatusChange({ connected: false })
+      if (this._runtimeState !== 'disabled') {
+        this._runtimeState = 'disconnected'
+      }
+      this._notifier.notifyStatusChange(this.getStatus())
       console.log('[EnterpriseWeixin] WS disconnected:', reason || '')
+    }
+    const onReconnecting = () => {
+      this._connected = false
+      this._runtimeState = 'reconnecting'
+      this._notifier.notifyStatusChange(this.getStatus())
     }
     const onError = (err) => {
       console.error('[EnterpriseWeixin] WS error:', err?.message || err)
@@ -304,9 +320,10 @@ class EnterpriseWeixinBridge {
     this._wsClient.on('connected', onConnected)
     this._wsClient.on('authenticated', onConnected)
     this._wsClient.on('disconnected', onDisconnected)
+    this._wsClient.on('reconnecting', onReconnecting)
     this._wsClient.on('error', onError)
 
-    this._wsListeners = { onMessage, onEvent, onConnected, onDisconnected, onError }
+    this._wsListeners = { onMessage, onEvent, onConnected, onDisconnected, onReconnecting, onError }
   }
 
   _unbindWsEvents() {
@@ -316,6 +333,7 @@ class EnterpriseWeixinBridge {
     this._wsClient.off('connected', this._wsListeners.onConnected)
     this._wsClient.off('authenticated', this._wsListeners.onConnected)
     this._wsClient.off('disconnected', this._wsListeners.onDisconnected)
+    this._wsClient.off('reconnecting', this._wsListeners.onReconnecting)
     this._wsClient.off('error', this._wsListeners.onError)
     this._wsListeners = null
   }
