@@ -239,7 +239,7 @@ class EnterpriseWeixinBridge {
 
   async _connect(botId, secret) {
     const { WSClient } = require('@wecom/aibot-node-sdk')
-    this._wsClient = new WSClient({ botId, secret })
+    this._wsClient = new WSClient({ botId, secret, maxReconnectAttempts: -1 })
     this._bindWsEvents()
     await new Promise((resolve, reject) => {
       let settled = false

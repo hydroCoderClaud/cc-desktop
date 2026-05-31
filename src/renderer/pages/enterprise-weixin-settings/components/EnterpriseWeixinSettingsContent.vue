@@ -454,7 +454,7 @@ const handleConnect = async () => {
       message.warning('企业微信桥接启动失败')
     }
   } catch (err) {
-    message.error('连接失败: ' + (err.message || err))
+    console.error('[EnterpriseWeixinSettings] Connect error:', err)
   } finally {
     connecting.value = false
   }
