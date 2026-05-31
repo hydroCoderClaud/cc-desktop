@@ -139,6 +139,7 @@ const runtimeState = ref('disabled')
 const manualStopped = ref(false)
 
 let cleanupFns = []
+let statusWaitPromise = null
 
 const statusType = computed(() => {
   if (runtimeState.value === 'connected') return 'success'
@@ -192,7 +193,31 @@ const refreshStatus = async () => {
   try {
     const status = await invoke('getFeishuStatus')
     applyStatus(status)
+    return status
   } catch {}
+  return null
+}
+
+const waitForConnectedStatus = async ({ timeoutMs = 8000, intervalMs = 400 } = {}) => {
+  if (statusWaitPromise) return statusWaitPromise
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+  statusWaitPromise = (async () => {
+    const deadline = Date.now() + timeoutMs
+    let lastStatus = null
+
+    while (Date.now() < deadline) {
+      lastStatus = await refreshStatus()
+      if (lastStatus?.connected) return lastStatus
+      await delay(intervalMs)
+    }
+
+    return lastStatus
+  })().finally(() => {
+    statusWaitPromise = null
+  })
+
+  return statusWaitPromise
 }
 
 const buildConfigPayload = (enabled = formData.value.enabled) => ({
@@ -208,9 +233,12 @@ const handleEnabledChange = async (nextEnabled) => {
   togglingEnabled.value = true
   try {
     await invoke('updateFeishuConfig', buildConfigPayload(nextEnabled))
-    const status = await invoke('setFeishuEnabled', nextEnabled)
     formData.value.enabled = !!nextEnabled
+    const status = await invoke('setFeishuEnabled', nextEnabled)
     applyStatus(status)
+    if (nextEnabled && !status?.connected) {
+      await waitForConnectedStatus()
+    }
   } catch (err) {
     console.error('[FeishuSettings] Toggle enabled error:', err)
     message.error((nextEnabled ? '连接失败' : '断开失败') + ': ' + (err.message || err))
@@ -236,8 +264,12 @@ const handleConnect = async () => {
   try {
     await invoke('updateFeishuConfig', buildConfigPayload())
     await invoke(runtimeState.value === 'connected' ? 'restartFeishu' : 'startFeishu')
-    await refreshStatus()
-    message.success('飞书桥接已连接')
+    const status = await waitForConnectedStatus()
+    if (status?.connected) {
+      message.success('飞书桥接已连接')
+    } else {
+      message.warning('飞书桥接正在连接，请稍后刷新状态')
+    }
   } catch (err) {
     message.error('连接失败: ' + (err.message || err))
   } finally {
@@ -263,6 +295,9 @@ onMounted(async () => {
   await loadConfig()
   await refreshStatus()
   configLoaded.value = true
+  if (formData.value.enabled && !connected.value) {
+    void waitForConnectedStatus({ timeoutMs: 5000 })
+  }
 
   if (window.electronAPI?.onFeishuStatusChange) {
     cleanupFns.push(
@@ -283,6 +318,9 @@ onMounted(async () => {
 onActivated(async () => {
   await loadConfig()
   await refreshStatus()
+  if (formData.value.enabled && !connected.value) {
+    void waitForConnectedStatus({ timeoutMs: 5000 })
+  }
 })
 
 onUnmounted(() => {
