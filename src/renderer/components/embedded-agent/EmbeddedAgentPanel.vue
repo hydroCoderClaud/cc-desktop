@@ -464,9 +464,15 @@ const syncSessionProfileSnapshot = async () => {
     if (latestSession) {
       const taskId = Number(latestSession.taskId)
       boundScheduledTaskId.value = Number.isInteger(taskId) && taskId > 0 ? taskId : null
-      currentSessionTitle.value = typeof latestSession?.title === 'string' ? latestSession.title : currentSessionTitle.value
-      currentSessionSource.value = typeof latestSession?.source === 'string' ? latestSession.source : currentSessionSource.value
-      currentSessionImChannel.value = typeof latestSession?.imChannel === 'string' ? latestSession.imChannel : currentSessionImChannel.value
+      currentSessionTitle.value = typeof latestSession?.title === 'string'
+        ? latestSession.title
+        : currentSessionTitle.value
+      currentSessionSource.value = latestSession?.source !== undefined
+        ? (typeof latestSession.source === 'string' ? latestSession.source : 'manual')
+        : currentSessionSource.value
+      currentSessionImChannel.value = latestSession?.imChannel !== undefined
+        ? (typeof latestSession.imChannel === 'string' ? latestSession.imChannel : null)
+        : currentSessionImChannel.value
       currentApiProfileId.value = latestSession.apiProfileId !== undefined
         ? (latestSession.apiProfileId || null)
         : currentApiProfileId.value
@@ -725,6 +731,12 @@ const handleContextChanged = () => {
   readContext()
 }
 
+const handleImBindingChanged = async (event) => {
+  const changedSessionId = typeof event?.detail?.sessionId === 'string' ? event.detail.sessionId : ''
+  if (!changedSessionId || changedSessionId !== sessionId.value) return
+  await syncSessionProfileSnapshot()
+}
+
 const handleReady = () => {
   readContext()
   void syncSessionProfileSnapshot()
@@ -788,6 +800,7 @@ onMounted(async () => {
   await loadAppPreferences()
   await loadApiProfiles()
   window.addEventListener('embedded-agent:context-changed', handleContextChanged)
+  window.addEventListener('agent-session:im-binding-updated', handleImBindingChanged)
   if (window.electronAPI?.onScheduledTaskChanged) {
     cleanupScheduledTaskChanged = window.electronAPI.onScheduledTaskChanged(async () => {
       await refreshBoundScheduledTask()
@@ -804,6 +817,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('embedded-agent:context-changed', handleContextChanged)
+  window.removeEventListener('agent-session:im-binding-updated', handleImBindingChanged)
   cleanupScheduledTaskChanged?.()
   cleanupSessionUpdated?.()
   agentApi.value?.dispose?.()

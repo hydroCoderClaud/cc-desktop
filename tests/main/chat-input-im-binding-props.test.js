@@ -80,4 +80,24 @@ describe('chat input IM binding props', () => {
     expect(notebookSource).toContain('setupExternalImMessageListeners()')
     expect(notebookSource).not.toContain('setupWeixinListeners()')
   })
+
+  it('lets the shared toolbar react immediately when session IM channel changes', () => {
+    const toolbarSource = fs.readFileSync(chatInputToolbarPath, 'utf-8')
+
+    expect(toolbarSource).toContain("watch(() => props.sessionImChannel, (nextChannel) => {")
+    expect(toolbarSource).toContain("if (nextChannel !== 'dingtalk') {")
+    expect(toolbarSource).toContain("if (nextChannel === 'dingtalk') {")
+    expect(toolbarSource).toContain('void loadDingTalkTargets()')
+    expect(toolbarSource).toContain('void loadWeixinTargets()')
+    expect(toolbarSource).toContain('void loadFeishuTargets()')
+    expect(toolbarSource).toContain('void loadEnterpriseWeixinTargets()')
+  })
+
+  it('dispatches an IM binding refresh event after quick-send binding changes', () => {
+    const toolbarSource = fs.readFileSync(chatInputToolbarPath, 'utf-8')
+
+    expect(toolbarSource).toContain("const notifyImBindingUpdated = () => {")
+    expect(toolbarSource).toContain("window.dispatchEvent(new CustomEvent('agent-session:im-binding-updated'")
+    expect(toolbarSource).toContain('notifyImBindingUpdated()')
+  })
 })

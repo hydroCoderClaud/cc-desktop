@@ -907,6 +907,15 @@ const confirmUnbindImTarget = async () => {
   })
 }
 
+const notifyImBindingUpdated = () => {
+  if (!props.sessionId || typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return
+  window.dispatchEvent(new CustomEvent('agent-session:im-binding-updated', {
+    detail: {
+      sessionId: props.sessionId
+    }
+  }))
+}
+
 const unbindDingTalkTarget = async () => {
   const dingtalkApi = resolvedDingTalkNotifyApi.value
   if (!props.sessionId || !dingtalkApi?.unbindSessionDingTalkTarget) return
@@ -920,6 +929,7 @@ const unbindDingTalkTarget = async () => {
       throw new Error(result?.error || t('agent.imQuickUnbindFailed'))
     }
     closeDingTalkDropdown()
+    notifyImBindingUpdated()
   } catch (err) {
     dingtalkError.value = err?.message || t('agent.imQuickUnbindFailed')
   } finally {
@@ -940,6 +950,7 @@ const unbindWeixinTarget = async () => {
       throw new Error(result?.error || t('agent.imQuickUnbindFailed'))
     }
     closeWeixinDropdown()
+    notifyImBindingUpdated()
   } catch (err) {
     weixinError.value = err?.message || t('agent.imQuickUnbindFailed')
   } finally {
@@ -960,6 +971,7 @@ const unbindFeishuTarget = async () => {
       throw new Error(result?.error || t('agent.imQuickUnbindFailed'))
     }
     closeFeishuDropdown()
+    notifyImBindingUpdated()
   } catch (err) {
     feishuError.value = err?.message || t('agent.imQuickUnbindFailed')
   } finally {
@@ -980,6 +992,7 @@ const unbindEnterpriseWeixinTarget = async () => {
       throw new Error(result?.error || t('agent.imQuickUnbindFailed'))
     }
     closeEnterpriseWeixinDropdown()
+    notifyImBindingUpdated()
   } catch (err) {
     enterpriseWeixinError.value = err?.message || t('agent.imQuickUnbindFailed')
   } finally {
@@ -1006,6 +1019,7 @@ const sendDingTalkQuickMessage = async () => {
       dingtalkError.value = result.error || t('agent.dingtalkQuickSendFailed')
     } else {
       showDingTalkDropdown.value = false
+      notifyImBindingUpdated()
     }
   } catch (err) {
     console.error('[ChatInputToolbar] send dingtalk error:', err)
@@ -1033,6 +1047,7 @@ const sendWeixinQuickMessage = async () => {
       weixinError.value = result.error || t('agent.weixinQuickSendFailed')
     } else {
       showWeixinDropdown.value = false
+      notifyImBindingUpdated()
     }
   } catch (err) {
     console.error('[ChatInputToolbar] send weixin error:', err)
@@ -1060,6 +1075,7 @@ const sendFeishuQuickMessage = async () => {
       feishuError.value = result.error || t('agent.feishuQuickSendFailed')
     } else {
       showFeishuDropdown.value = false
+      notifyImBindingUpdated()
     }
   } catch (err) {
     console.error('[ChatInputToolbar] send feishu error:', err)
@@ -1088,6 +1104,7 @@ const sendEnterpriseWeixinQuickMessage = async () => {
       enterpriseWeixinError.value = result.error || t('agent.enterpriseWeixinQuickSendFailed')
     } else {
       showEnterpriseWeixinDropdown.value = false
+      notifyImBindingUpdated()
     }
   } catch (err) {
     console.error('[ChatInputToolbar] send enterprise weixin error:', err)
@@ -1107,6 +1124,31 @@ watch(() => props.sessionId, () => {
   selectedFeishuTargetId.value = null
   enterpriseWeixinTargets.value = []
   selectedEnterpriseWeixinTargetId.value = null
+})
+
+watch(() => props.sessionImChannel, (nextChannel) => {
+  if (nextChannel !== 'dingtalk') {
+    showDingTalkDropdown.value = false
+  }
+  if (nextChannel !== 'weixin') {
+    showWeixinDropdown.value = false
+  }
+  if (nextChannel !== 'feishu') {
+    showFeishuDropdown.value = false
+  }
+  if (nextChannel !== 'enterprise-weixin') {
+    showEnterpriseWeixinDropdown.value = false
+  }
+
+  if (nextChannel === 'dingtalk') {
+    void loadDingTalkTargets()
+  } else if (nextChannel === 'weixin') {
+    void loadWeixinTargets()
+  } else if (nextChannel === 'feishu') {
+    void loadFeishuTargets()
+  } else if (nextChannel === 'enterprise-weixin') {
+    void loadEnterpriseWeixinTargets()
+  }
 })
 
 const normalizedApiProfiles = computed(() => {
