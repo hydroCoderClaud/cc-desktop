@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微信通知配置指南 — Hydro Desktop</title>
+<style>
+  :root { --primary: #44b549; --success: #52c41a; --warning: #faad14; --danger: #ff4d4f; --bg: #f5f7fa; --card-bg: #ffffff; --text: #1f1f1f; --text-secondary: #666; --border: #e8e8e8; --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,.06); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .hero { background: linear-gradient(135deg, #44b549 0%, #2d8c32 50%, #39a03f 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  .hero h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+  .hero p { font-size: 16px; opacity: .85; }
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+  .top-nav { display: flex; gap: 10px; justify-content: center; padding: 0 0 32px; flex-wrap: wrap; }
+  .top-nav a { padding: 10px 20px; background: #fff; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); font-size: 14px; transition: all .2s; box-shadow: var(--shadow); }
+  .top-nav a:hover { border-color: var(--primary); color: var(--primary); }
+  .top-nav a.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+  .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .card-header .step { background: var(--primary); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .card-body { padding: 24px; }
+  .card-body p { margin-bottom: 12px; }
+  .card-body ol, .card-body ul { margin: 8px 0 16px 20px; }
+  .card-body li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { background: #fafafa; font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+  td { font-size: 14px; }
+  .alert { padding: 14px 18px; border-radius: 8px; margin: 12px 0 16px; font-size: 14px; line-height: 1.6; }
+  .alert-info { background: #e6f4ff; border-left: 4px solid #1677ff; }
+  .alert-warning { background: #fffbe6; border-left: 4px solid var(--warning); }
+  .alert strong { display: block; margin-bottom: 4px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
+  .feature-item { padding: 16px; background: #f9f9f9; border-radius: 8px; text-align: center; font-size: 14px; }
+  .feature-item strong { display: block; margin-bottom: 4px; }
+  @media (max-width: 640px) { .hero h1 { font-size: 24px; } .container { padding: 16px; } .top-nav a { font-size: 12px; padding: 8px 12px; } }
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>微信通知配置指南</h1>
+  <p>通过微信 iLink 通道实现桌面端与微信用户的双向消息互通</p>
+</div>
+<div class="container">
+<div class="top-nav">
+  <a href="dingtalk-guide.html">钉钉</a>
+  <a href="feishu-guide.html">飞书</a>
+  <a href="enterprise-weixin-guide.html">企业微信</a>
+  <a href="weixin-guide.html" class="active">微信</a>
+</div>
+<div class="card">
+  <div class="card-header">📋 核心边界</div>
+  <div class="card-body">
+    <div class="feature-grid">
+      <div class="feature-item"><strong>扫码授权</strong>目标用户扫码后成为可发送目标</div>
+      <div class="feature-item"><strong>不读通讯录</strong>不能给任意好友发消息</div>
+      <div class="feature-item"><strong>文本 + 图片</strong>语音、视频、文件暂未实现</div>
+      <div class="feature-item"><strong>长轮询模式</strong>时延比钉钉/飞书略高</div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">1</span> 扫码授权与捕获</div>
+  <div class="card-body">
+    <ol>
+      <li>打开 Hydro Desktop，进入「能力管理」→「微信通知」</li>
+      <li>点击「开始登录」，系统显示二维码</li>
+      <li>让需要接收消息的<strong>微信用户自己扫码</strong>并确认授权</li>
+      <li>扫码完成后，让该用户<strong>再发送一条微信消息</strong></li>
+      <li>系统自动捕获目标，该用户出现在可发送列表中，并收到一条绑定成功提示</li>
+    </ol>
+    <div class="alert alert-info">
+      <strong>📌 关键步骤</strong>
+      扫码后必须让微信用户发一条消息，系统才能拿到 contextToken 完成捕获。只扫码不发消息，目标不会出现。
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">2</span> 发送微信消息</div>
+  <div class="card-body">
+    <p>三种发送入口：</p>
+    <table>
+      <tr><th>入口</th><th>操作方式</th></tr>
+      <tr><td>能力管理页</td><td>在「微信通知」页面选择目标，填写内容后发送</td></tr>
+      <tr><td>Agent 会话工具栏</td><td>聊天输入框工具栏点击微信图标，选择目标后发送</td></tr>
+      <tr><td>Notebook 对话工具栏</td><td>Notebook 对话面板同样支持微信快捷发送</td></tr>
+    </table>
+    <p>从桌面会话主动发给微信后，该目标会绑定到当前会话，后续回信优先回该会话。</p>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">3</span> 微信回信路由</div>
+  <div class="card-body">
+    <ol>
+      <li>微信用户回复消息</li>
+      <li>系统检查该目标是否已绑定桌面会话：
+        <ul>
+          <li><strong>已绑定</strong> → 回信进入该桌面会话</li>
+          <li><strong>未绑定</strong> → 创建或恢复一个「微信」来源的会话</li>
+        </ul>
+      </li>
+      <li>桌面端收到消息（带「来自微信」标记）</li>
+      <li>Agent 自动回复，回复发回微信</li>
+    </ol>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">4</span> 定时任务配合</div>
+  <div class="card-body">
+    <p>定时任务执行会话会注入微信通知 MCP，任务完成后可主动推送结果给已绑定目标。</p>
+    <ul>
+      <li>每天定时生成摘要后发给微信用户</li>
+      <li>任务失败时发告警通知</li>
+      <li>长任务结束后发结果通知</li>
+    </ul>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">❓ 常见问题</div>
+  <div class="card-body">
+    <div class="alert alert-info"><strong>扫码后为什么还没有目标？</strong>该微信用户还没有发送第一条消息。先让对方发一条文字消息。</div>
+    <div class="alert alert-info"><strong>为什么能发给一个人，发给另一个人失败？</strong>另一个人不是有效的已捕获目标。让该用户重新扫码并再发一条消息即可恢复。</div>
+    <div class="alert alert-info"><strong>微信回信会不会总是新建会话？</strong>不会。只要目标之前从某个桌面会话主动发出过，回信会优先回到原会话。</div>
+    <div class="alert alert-info"><strong>能否发给没扫码的人？</strong>不能。只能发给已扫码授权且已捕获的目标，不读取微信通讯录。</div>
+  </div>
+</div>
+</div>
+</body>
+</html>

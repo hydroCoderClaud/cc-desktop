@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业微信桥接配置指南 — Hydro Desktop</title>
+<style>
+  :root { --primary: #07c160; --success: #52c41a; --warning: #faad14; --danger: #ff4d4f; --bg: #f5f7fa; --card-bg: #ffffff; --text: #1f1f1f; --text-secondary: #666; --border: #e8e8e8; --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,.06); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .hero { background: linear-gradient(135deg, #07c160 0%, #059048 50%, #06ae56 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  .hero h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+  .hero p { font-size: 16px; opacity: .85; }
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+  .top-nav { display: flex; gap: 10px; justify-content: center; padding: 0 0 32px; flex-wrap: wrap; }
+  .top-nav a { padding: 10px 20px; background: #fff; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); font-size: 14px; transition: all .2s; box-shadow: var(--shadow); }
+  .top-nav a:hover { border-color: var(--primary); color: var(--primary); }
+  .top-nav a.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+  .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .card-header .step { background: var(--primary); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .card-body { padding: 24px; }
+  .card-body p { margin-bottom: 12px; }
+  .card-body ol, .card-body ul { margin: 8px 0 16px 20px; }
+  .card-body li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { background: #fafafa; font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+  td { font-size: 14px; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  .alert { padding: 14px 18px; border-radius: 8px; margin: 12px 0 16px; font-size: 14px; line-height: 1.6; }
+  .alert-info { background: #e6f4ff; border-left: 4px solid #1677ff; }
+  .alert-warning { background: #fffbe6; border-left: 4px solid var(--warning); }
+  .alert-danger { background: #fff1f0; border-left: 4px solid var(--danger); }
+  .alert strong { display: block; margin-bottom: 4px; }
+  code { background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 4px; padding: 2px 6px; font-family: 'SF Mono','Consolas',monospace; font-size: 13px; }
+  .cmd-table td:first-child code { background: #e6ffe8; border-color: #87dca0; }
+  .tip { display: flex; gap: 10px; align-items: flex-start; padding: 14px 18px; background: #f6ffed; border-radius: 8px; margin: 12px 0; font-size: 14px; }
+  .tip::before { content: '💡'; flex-shrink: 0; font-size: 18px; }
+  .dual-table td:first-child { color: var(--primary); }
+  @media (max-width: 640px) { .hero h1 { font-size: 24px; } .container { padding: 16px; } .top-nav a { font-size: 12px; padding: 8px 12px; } }
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>企业微信桥接配置指南</h1>
+  <p>将企业微信智能机器人接入 Hydro Desktop，支持原生流式回复和桌面主动推送</p>
+</div>
+<div class="container">
+<div class="top-nav">
+  <a href="dingtalk-guide.html">钉钉</a>
+  <a href="feishu-guide.html">飞书</a>
+  <a href="enterprise-weixin-guide.html" class="active">企业微信</a>
+  <a href="weixin-guide.html">微信</a>
+</div>
+<div class="card">
+  <div class="card-header">📋 前提条件</div>
+  <div class="card-body">
+    <ul>
+      <li>Hydro Desktop 已安装并正常运行</li>
+      <li>拥有企业微信管理后台的<strong>管理员权限</strong></li>
+    </ul>
+    <div class="alert alert-warning">
+      <strong>⚠️ 重要限制</strong>
+      一个智能机器人只能绑定一个桌面端。多台桌面端同时连接同一个机器人会导致消息丢失或重复回复。
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">1</span> 创建企业微信智能机器人</div>
+  <div class="card-body">
+    <ol>
+      <li>登录 <a href="https://work.weixin.qq.com/" target="_blank">企业微信管理后台</a></li>
+      <li>进入「应用管理」→「智能机器人」→「创建智能机器人」</li>
+      <li>填写机器人名称和描述</li>
+      <li>创建完成后，在机器人详情页获取 <strong>Bot ID</strong> 和 <strong>Secret</strong></li>
+    </ol>
+    <div class="alert alert-danger">
+      <strong>⚠️ 注意</strong>
+      这里的 Bot ID 和 Secret 仅用于消息收发桥接，不要用于后文的 wecom-cli 联系人读取。
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">2</span> 配置机器人权限</div>
+  <div class="card-body">
+    <table>
+      <tr><th>权限</th><th>用途</th></tr>
+      <tr><td>消息收发</td><td>基础权限，创建机器人即默认开通</td></tr>
+      <tr><td>媒体文件上传</td><td>转发图片到企业微信</td></tr>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">3</span> 在 Hydro Desktop 中配置</div>
+  <div class="card-body">
+    <ol>
+      <li>打开 Hydro Desktop，点击左下角齿轮图标，选择「企业微信设置」</li>
+      <li>填写基本配置：</li>
+    </ol>
+    <table>
+      <tr><th>字段</th><th>说明</th></tr>
+      <tr><td>启用企业微信桥接</td><td>打开开关</td></tr>
+      <tr><td>Bot ID</td><td>填入第一步获取的 Bot ID</td></tr>
+      <tr><td>Secret</td><td>填入第一步获取的 Secret</td></tr>
+      <tr><td>默认工作目录</td><td>Agent 执行命令的工作目录（可选，强烈建议设置）</td></tr>
+      <tr><td>历史会话数量</td><td>选择历史会话时显示的最大数量（默认 5，范围 1-20）</td></tr>
+    </table>
+    <ol start="3">
+      <li>点击「保存」，再点击「连接」</li>
+      <li>确认状态变为 <span style="color:var(--success);font-weight:600;">已连接</span></li>
+    </ol>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">4</span> 配置联系人获取（wecom-cli）</div>
+  <div class="card-body">
+    <div class="alert alert-warning">
+      <strong>⚠️ 安全提醒</strong>
+      联系人读取请使用<strong>新建的独立机器人</strong>完成初始化，<strong>不要复用</strong>第三步中桥接机器人的 Bot ID/Secret。
+    </div>
+    <table>
+      <tr><th>步骤</th><th>操作</th></tr>
+      <tr><td>1. 检测 CLI</td><td>点击「检测 CLI」查看安装状态</td></tr>
+      <tr><td>2. 安装 CLI</td><td>如未安装，点击「安装 CLI」打开终端执行安装</td></tr>
+      <tr><td>3. 初始化</td><td>点击「打开初始化终端」，输入<strong>独立机器人</strong>的凭据完成接入</td></tr>
+      <tr><td>4. 授权</td><td>如未弹出授权确认，去管理后台手动开通通讯录权限</td></tr>
+      <tr><td>5. 测试</td><td>点击「测试读取联系人」确认权限生效</td></tr>
+    </table>
+    <div class="tip">如果不需要桌面端主动给企业微信成员发消息，可跳过这一步。</div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">5</span> 验证配置</div>
+  <div class="card-body">
+    <ol>
+      <li>在企业微信中找到你的机器人，发送一条文本消息</li>
+      <li>观察 Hydro Desktop 是否出现企业微信会话</li>
+      <li>注意回复是<strong>逐段流式返回</strong>的（不同于钉钉/飞书的整段返回）</li>
+    </ol>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">⚡ 双机器人说明</div>
+  <div class="card-body">
+    <table class="dual-table">
+      <tr><th></th><th>桥接机器人</th><th>联系人读取机器人</th></tr>
+      <tr><td>用途</td><td>收发消息</td><td>读取通讯录</td></tr>
+      <tr><td>凭据填入</td><td>基本配置 (Bot ID/Secret)</td><td>wecom-cli init (终端)</td></tr>
+      <tr><td>权限要求</td><td>消息收发、媒体上传</td><td>通讯录读取</td></tr>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">⌨️ 命令参考</div>
+  <div class="card-body">
+    <table class="cmd-table">
+      <tr><th>命令</th><th>说明</th></tr>
+      <tr><td><code>/help</code></td><td>显示所有可用命令</td></tr>
+      <tr><td><code>/status</code></td><td>查看当前会话状态与历史会话列表</td></tr>
+      <tr><td><code>/sessions</code></td><td>列出当前聊天下的活跃会话</td></tr>
+      <tr><td><code>/new [目录]</code></td><td>新建会话</td></tr>
+      <tr><td><code>/resume [编号]</code></td><td>恢复历史会话</td></tr>
+      <tr><td><code>/rename &lt;名称&gt;</code></td><td>重命名当前会话</td></tr>
+      <tr><td><code>/close [编号]</code></td><td>关闭当前或指定会话</td></tr>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">❓ 常见问题</div>
+  <div class="card-body">
+    <div class="alert alert-info"><strong>连接失败</strong>确认 Bot ID/Secret 正确、智能机器人已创建并启用。</div>
+    <div class="alert alert-info"><strong>桌面端主动发送列表为空</strong>确认已完成 wecom-cli 安装/初始化、独立机器人的通讯录权限已授权。</div>
+    <div class="alert alert-info"><strong>图片无法转发</strong>确认已开通「媒体文件上传」权限、图片大小不超过 20MB。</div>
+    <div class="alert alert-info"><strong>收到重复回复</strong>检查是否有多台桌面端配置了同一个智能机器人。</div>
+  </div>
+</div>
+</div>
+</body>
+</html>

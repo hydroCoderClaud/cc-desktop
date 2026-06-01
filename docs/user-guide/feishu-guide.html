@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞书桥接配置指南 — Hydro Desktop</title>
+<style>
+  :root { --primary: #3370ff; --success: #52c41a; --warning: #faad14; --danger: #ff4d4f; --bg: #f5f7fa; --card-bg: #ffffff; --text: #1f1f1f; --text-secondary: #666; --border: #e8e8e8; --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,.06); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .hero { background: linear-gradient(135deg, #3370ff 0%, #1e4bd2 50%, #2b5fd9 100%); color: #fff; padding: 48px 24px; text-align: center; }
+  .hero h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+  .hero p { font-size: 16px; opacity: .85; }
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+  .top-nav { display: flex; gap: 10px; justify-content: center; padding: 0 0 32px; flex-wrap: wrap; }
+  .top-nav a { padding: 10px 20px; background: #fff; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); font-size: 14px; transition: all .2s; box-shadow: var(--shadow); }
+  .top-nav a:hover { border-color: var(--primary); color: var(--primary); }
+  .top-nav a.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 24px; overflow: hidden; }
+  .card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .card-header .step { background: var(--primary); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .card-body { padding: 24px; }
+  .card-body p { margin-bottom: 12px; }
+  .card-body ol, .card-body ul { margin: 8px 0 16px 20px; }
+  .card-body li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { background: #fafafa; font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+  td { font-size: 14px; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  .alert { padding: 14px 18px; border-radius: 8px; margin: 12px 0 16px; font-size: 14px; line-height: 1.6; }
+  .alert-info { background: #e6f4ff; border-left: 4px solid var(--primary); }
+  .alert-warning { background: #fffbe6; border-left: 4px solid var(--warning); }
+  .alert strong { display: block; margin-bottom: 4px; }
+  code { background: #f5f5f5; border: 1px solid #e8e8e8; border-radius: 4px; padding: 2px 6px; font-family: 'SF Mono','Consolas',monospace; font-size: 13px; }
+  .cmd-table td:first-child code { background: #e6f4ff; border-color: #91caff; }
+  .tip { display: flex; gap: 10px; align-items: flex-start; padding: 14px 18px; background: #f6ffed; border-radius: 8px; margin: 12px 0; font-size: 14px; }
+  .tip::before { content: '💡'; flex-shrink: 0; font-size: 18px; }
+  @media (max-width: 640px) { .hero h1 { font-size: 24px; } .container { padding: 16px; } .top-nav a { font-size: 12px; padding: 8px 12px; } }
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>飞书桥接配置指南</h1>
+  <p>将飞书机器人接入 Hydro Desktop，实现手机飞书与桌面 Agent 双向对话，支持交互卡片命令</p>
+</div>
+<div class="container">
+<div class="top-nav">
+  <a href="dingtalk-guide.html">钉钉</a>
+  <a href="feishu-guide.html" class="active">飞书</a>
+  <a href="enterprise-weixin-guide.html">企业微信</a>
+  <a href="weixin-guide.html">微信</a>
+</div>
+<div class="card">
+  <div class="card-header">📋 前提条件</div>
+  <div class="card-body">
+    <ul>
+      <li>Hydro Desktop 已安装并正常运行</li>
+      <li>拥有飞书组织的<strong>管理员权限</strong>（用于创建企业自建应用）</li>
+    </ul>
+    <div class="alert alert-warning">
+      <strong>⚠️ 重要限制</strong>
+      一个飞书应用只能绑定一个桌面端。多台桌面端同时连接同一个应用会导致消息丢失或重复回复。
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">1</span> 创建飞书企业自建应用</div>
+  <div class="card-body">
+    <ol>
+      <li>登录 <a href="https://open.feishu.cn/" target="_blank">飞书开放平台</a></li>
+      <li>进入「开发者后台」→「创建企业自建应用」</li>
+      <li>填写应用名称和描述</li>
+      <li>创建完成后，在「凭证与基础信息」中获取 <strong>App ID</strong> 和 <strong>App Secret</strong></li>
+    </ol>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">2</span> 配置机器人能力与权限</div>
+  <div class="card-body">
+    <ol>
+      <li>进入「添加应用能力」→ 添加「机器人」</li>
+      <li>在「权限管理」中开通以下权限：
+        <table>
+          <tr><th>权限</th><th>用途</th></tr>
+          <tr><td>获取用户信息</td><td>解析消息发送者名称</td></tr>
+          <tr><td>获取通讯录信息</td><td>桌面主动发送时选择联系人</td></tr>
+          <tr><td>发送消息</td><td>回复消息与主动推送</td></tr>
+          <tr><td>上传图片</td><td>转发图片到飞书</td></tr>
+          <tr><td>读取图片资源</td><td>接收飞书端发送的图片</td></tr>
+        </table>
+      </li>
+      <li>发布应用并等待管理员审批通过</li>
+    </ol>
+    <div class="alert alert-info">
+      <strong>📌 连接方式说明</strong>
+      飞书桥接使用 WebSocket 长连接方式接收消息，<strong>无需配置 HTTP 请求 URL</strong>。
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">3</span> 在 Hydro Desktop 中配置</div>
+  <div class="card-body">
+    <ol>
+      <li>打开 Hydro Desktop，点击左下角齿轮图标，选择「飞书设置」</li>
+      <li>填写以下配置：</li>
+    </ol>
+    <table>
+      <tr><th>字段</th><th>说明</th></tr>
+      <tr><td>启用飞书桥接</td><td>打开开关</td></tr>
+      <tr><td>App ID</td><td>填入第一步获取的 App ID</td></tr>
+      <tr><td>App Secret</td><td>填入第一步获取的 App Secret</td></tr>
+      <tr><td>默认工作目录</td><td>Agent 执行命令的工作目录（可选，强烈建议设置）</td></tr>
+      <tr><td>历史会话数量</td><td>选择历史会话时显示的最大数量（默认 5，范围 1-20）</td></tr>
+    </table>
+    <ol start="3">
+      <li>点击「保存」，再点击「连接」</li>
+      <li>确认状态变为 <span style="color:var(--success);font-weight:600;">已连接</span></li>
+    </ol>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="step">4</span> 验证配置</div>
+  <div class="card-body">
+    <ol>
+      <li>在飞书中找到你的机器人，发送一条文本消息</li>
+      <li>观察 Hydro Desktop 是否出现飞书会话并收到消息</li>
+      <li>发送 <code>/help</code>，确认能收到交互卡片命令菜单</li>
+    </ol>
+    <div class="tip">建议第一次测试时在桌面端观察 Agent 回复过程，确认链路通畅后再让其他人使用。</div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">⌨️ 命令参考</div>
+  <div class="card-body">
+    <p>飞书使用<strong>交互卡片</strong>展示命令结果。发送以 <code>/</code> 开头的消息触发命令：</p>
+    <table class="cmd-table">
+      <tr><th>命令</th><th>说明</th></tr>
+      <tr><td><code>/help</code></td><td>显示可用命令（卡片形式）</td></tr>
+      <tr><td><code>/status</code></td><td>查看系统状态</td></tr>
+      <tr><td><code>/sessions</code></td><td>列出当前聊天下的活跃会话</td></tr>
+      <tr><td><code>/new [目录]</code></td><td>新建会话</td></tr>
+      <tr><td><code>/resume [编号]</code></td><td>恢复历史会话</td></tr>
+      <tr><td><code>/rename &lt;名称&gt;</code></td><td>重命名当前会话</td></tr>
+      <tr><td><code>/close [编号]</code></td><td>关闭当前或指定会话</td></tr>
+    </table>
+    <p style="margin-top:12px;font-size:14px;color:var(--text-secondary);">卡片发送失败时会自动回退到纯文本菜单。</p>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">❓ 常见问题</div>
+  <div class="card-body">
+    <div class="alert alert-info"><strong>连接失败</strong>确认 App ID/Secret 正确、应用已发布并通过审批、已添加机器人能力。</div>
+    <div class="alert alert-info"><strong>消息无回复</strong>确认 Hydro Desktop 状态显示「已连接」、API 配置正常。</div>
+    <div class="alert alert-info"><strong>图片无法转发</strong>确认已开通「上传图片」权限、图片大小不超过 20MB。</div>
+    <div class="alert alert-info"><strong>桌面端看不到可发送成员</strong>确认已开通「获取通讯录信息」权限、应用已发布。</div>
+  </div>
+</div>
+</div>
+</body>
+</html>
