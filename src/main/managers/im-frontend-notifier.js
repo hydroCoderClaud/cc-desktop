@@ -39,7 +39,11 @@ class ImFrontendNotifier {
       windows.push(this._mainWindow)
     }
 
-    for (const win of BrowserWindow.getAllWindows()) {
+    const allWindows = typeof BrowserWindow?.getAllWindows === 'function'
+      ? BrowserWindow.getAllWindows()
+      : []
+
+    for (const win of allWindows) {
       if (!win || win.isDestroyed()) continue
       if (windows.includes(win)) continue
       windows.push(win)

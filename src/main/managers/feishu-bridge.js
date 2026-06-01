@@ -310,7 +310,13 @@ class FeishuBridge {
       hasNormalizedText: !!normalizedText,
     }))
     if (normalizedText && normalizedText.startsWith('/')) {
-      this._handleCommand(normalizedText, { senderId, chatId, chatType }, { mentions }).catch(() => {})
+      this._handleCommand(normalizedText, {
+        senderId,
+        senderName: resolvedNames.senderName || senderId,
+        chatId,
+        chatType,
+        chatName: resolvedNames.chatName || chatId,
+      }, { mentions }).catch(() => {})
       return
     }
 
@@ -628,7 +634,14 @@ class FeishuBridge {
 
   async _handleCommand(text, context, options = {}) {
     this._syncSessionDatabase()
-    const resolvedNames = await this._resolveFeishuDisplayNames(context)
+    const needsResolvedSenderName = !context?.senderName && !!context?.senderId
+    const needsResolvedChatName = !context?.chatName && !!context?.chatId
+    const resolvedNames = (needsResolvedSenderName || needsResolvedChatName)
+      ? await this._resolveFeishuDisplayNames(context)
+      : {
+          senderName: context?.senderName || context?.senderId || '',
+          chatName: context?.chatName || context?.chatId || '',
+        }
     context = {
       ...context,
       senderName: context.senderName || resolvedNames.senderName,
@@ -1351,6 +1364,16 @@ class FeishuBridge {
   unbindSessionTarget(sessionId) {
     if (!sessionId) return { success: false, error: 'sessionId 不能为空' }
     const target = this._sessionTargets.get(sessionId) || null
+    const identity = this._sessionIdentities.get(sessionId) || null
+    const senderId = typeof (target?.openId || identity?.senderId) === 'string'
+      ? (target?.openId || identity?.senderId).trim()
+      : ''
+    if (senderId) {
+      this._proactiveRebindSuppressedKeys.add(`${senderId}:${senderId}`)
+      if (identity?.chatId) {
+        this._proactiveRebindSuppressedKeys.add(`${senderId}:${identity.chatId}`)
+      }
+    }
     if (target?.openId) {
       this._targetSessionMap.delete(target.openId)
     }
@@ -1430,18 +1453,22 @@ class FeishuBridge {
   }
 
   async _findBoundSessionIdBySenderId(senderId) {
-    if (!senderId) return null
-    const sessionId = this._targetSessionMap.get(senderId)
+    const normalizedSenderId = typeof senderId === 'string' ? senderId.trim() : ''
+    if (!normalizedSenderId) return null
+    if (this._proactiveRebindSuppressedKeys.has(`${normalizedSenderId}:${normalizedSenderId}`)) {
+      return null
+    }
+    const sessionId = this._targetSessionMap.get(normalizedSenderId)
     if (sessionId) {
       const liveSession = this._agentSessionManager.sessions.get(sessionId)
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
       if (liveSession || (row && row.status !== 'closed')) {
-        this._restoreP2PTargetBinding(sessionId, senderId, {
+        this._restoreP2PTargetBinding(sessionId, normalizedSenderId, {
           chatId: typeof row?.conversation_id === 'string' ? row.conversation_id.trim() : ''
         })
         return sessionId
       }
-      this._targetSessionMap.delete(senderId)
+      this._targetSessionMap.delete(normalizedSenderId)
       this._sessionTargets.delete(sessionId)
     }
 
@@ -1457,14 +1484,14 @@ class FeishuBridge {
         ? rows
           .filter(row => row?.status !== 'closed')
           .filter(row => row?.im_channel === 'feishu')
-          .filter(row => row?.staff_id === senderId)
+          .filter(row => row?.staff_id === normalizedSenderId)
           .filter(row => !row?.conversation_id)
           .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
         : null
       if (!matched) return null
       const fallbackSessionId = matched.session_id || matched.sessionId || matched.id || null
       if (!fallbackSessionId) return null
-      this._restoreP2PTargetBinding(fallbackSessionId, senderId, {
+      this._restoreP2PTargetBinding(fallbackSessionId, normalizedSenderId, {
         chatId: typeof matched?.conversation_id === 'string' ? matched.conversation_id.trim() : ''
       })
       return fallbackSessionId

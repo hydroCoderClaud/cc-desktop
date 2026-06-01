@@ -79,7 +79,10 @@
       :api-profile-disabled="isStreaming || !props.sessionId"
       :show-api-profile-switcher="true"
       :session-id="props.sessionId"
+      :session-title="currentSessionTitle"
       :session-type="'chat'"
+      :session-source="currentSessionSource"
+      :session-im-channel="currentSessionImChannel"
       v-model:model-value="selectedModel"
       @api-profile-selected="handleApiProfileSelected"
       @send="handleInputSend"
@@ -110,10 +113,14 @@ import AskUserQuestionCard from '@/pages/main/components/agent/AskUserQuestionCa
 import StreamingIndicator from '@/pages/main/components/agent/StreamingIndicator.vue'
 import ChatInput from '@/pages/main/components/agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
+import { isExternalImChannel } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 const message = useMessage()
 const normalizeModelValue = (value) => typeof value === 'string' ? value.trim() : ''
+const currentSessionTitle = ref('')
+const currentSessionSource = ref('manual')
+const currentSessionImChannel = ref(null)
 
 const queueEnabled = ref(true)
 const activeGenerationToken = ref(null)
@@ -205,7 +212,7 @@ const {
   cancelInteraction,
   syncActiveSessionState,
   setupStreamListeners,
-  setupWeixinListeners,
+  setupExternalImMessageListeners,
   initDefaultModel,
   isInterrupting
 } = useAgentChat(props.sessionId, {
@@ -215,6 +222,7 @@ const {
 })
 
 let isUnmounting = false
+let cleanupSessionUpdated = null
 
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
@@ -354,6 +362,18 @@ const handleApiProfileSelected = async (profileId) => {
     isSwitchingApi = false
   }
 }
+
+const syncNotebookSessionMeta = async () => {
+  if (!props.sessionId || !window.electronAPI?.getAgentSession) return
+  try {
+    const session = await window.electronAPI.getAgentSession(props.sessionId)
+    currentSessionTitle.value = typeof session?.title === 'string' ? session.title : ''
+    currentSessionSource.value = typeof session?.source === 'string' ? session.source : 'manual'
+    currentSessionImChannel.value = isExternalImChannel(session?.imChannel) ? session.imChannel : null
+  } catch (err) {
+    console.warn('[ChatPanel] Failed to sync notebook session meta:', err)
+  }
+}
 const tryAutoConsumeQueue = () => {
   if (isUnmounting) return
   nextTick(async () => {
@@ -423,8 +443,16 @@ watch(() => props.selectedModelId, (modelId) => {
   }
 })
 
+watch(() => props.sessionId, () => {
+  currentSessionTitle.value = ''
+  currentSessionSource.value = 'manual'
+  currentSessionImChannel.value = null
+  void syncNotebookSessionMeta()
+}, { immediate: true })
+
 onBeforeUnmount(() => {
   isUnmounting = true
+  cleanupSessionUpdated?.()
   stopAutoScrollObservers()
   if (messagesListRef.value) {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll, { passive: true })
@@ -435,9 +463,16 @@ onMounted(async () => {
   setupStreamListeners()
   await loadQueueSetting()
   await loadApiProfiles()
+  setupExternalImMessageListeners()
   await loadMessages()
-  setupWeixinListeners()
+  await syncNotebookSessionMeta()
   await syncActiveSessionState()
+  if (window.electronAPI?.onSessionUpdated) {
+    cleanupSessionUpdated = window.electronAPI.onSessionUpdated((eventData) => {
+      if (eventData?.sessionId !== props.sessionId) return
+      void syncNotebookSessionMeta()
+    })
+  }
   if (messagesListRef.value) {
     messagesListRef.value.addEventListener('scroll', onMessagesScroll, { passive: true })
   }

@@ -9,6 +9,7 @@ const agentChatTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/
 const chatInputToolbarPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/agent/ChatInputToolbar.vue')
 const tabManagementPath = path.resolve(__dirname, '../../src/renderer/composables/useTabManagement.js')
 const mainContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/MainContent.vue')
+const notebookChatPanelPath = path.resolve(__dirname, '../../src/renderer/pages/notebook/components/ChatPanel.vue')
 
 describe('chat input IM binding props', () => {
   it('passes session IM channel from the active tab into the toolbar', () => {
@@ -68,5 +69,15 @@ describe('chat input IM binding props', () => {
     expect(toolbarSource).toContain('unbindSessionWeixinTarget')
     expect(toolbarSource).toContain('unbindSessionFeishuTarget')
     expect(toolbarSource).toContain('unbindSessionEnterpriseWeixinTarget')
+  })
+
+  it('passes notebook session binding state into the shared toolbar and registers all IM listeners', () => {
+    const notebookSource = fs.readFileSync(notebookChatPanelPath, 'utf-8')
+
+    expect(notebookSource).toContain(':session-title="currentSessionTitle"')
+    expect(notebookSource).toContain(':session-source="currentSessionSource"')
+    expect(notebookSource).toContain(':session-im-channel="currentSessionImChannel"')
+    expect(notebookSource).toContain('setupExternalImMessageListeners()')
+    expect(notebookSource).not.toContain('setupWeixinListeners()')
   })
 })

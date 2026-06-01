@@ -946,6 +946,35 @@ describe('EnterpriseWeixinBridge', () => {
     expect(manager.sessionDatabase.clearImIdentity).toHaveBeenCalledWith(session.id)
   })
 
+  it('does not auto-rebind the same enterprise weixin user after manual unbind', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      userId: 'user-a',
+      displayName: '雷斯林',
+    })
+    bridge.unbindSessionTarget(session.id)
+
+    manager.sessionDatabase.listAllAgentConversations.mockReturnValue([
+      {
+        session_id: session.id,
+        type: 'chat',
+        source: 'manual',
+        im_channel: null,
+        title: '旧会话',
+        staff_id: null,
+        conversation_id: null,
+        status: 'idle',
+        updated_at: Date.now(),
+      }
+    ])
+
+    expect(bridge._findBoundSessionIdByUserId('user-a')).toBe(null)
+    expect(bridge._targetSessionMap.get('user-a')).toBeUndefined()
+  })
+
   it('does not forward desktop messages after the bound session is closed and reopened', async () => {
     const { bridge, manager, wsClient } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })

@@ -79,6 +79,36 @@ function isNoResponseRequestedText(value) {
   return typeof value === 'string' && value.trim() === 'No response requested.'
 }
 
+function stringifyAgentError(value) {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    return value
+      .map(item => stringifyAgentError(item))
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+  }
+  if (value && typeof value === 'object') {
+    for (const key of ['error', 'message', 'result', 'text', 'summary']) {
+      const text = stringifyAgentError(value[key])
+      if (text) return text
+    }
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return ''
+    }
+  }
+  return ''
+}
+
+function isMissingResumeSessionError(value) {
+  const text = stringifyAgentError(value)
+  if (!text) return false
+  return /No conversation found with session ID/i.test(text)
+}
+
 function parseClientMeta(value) {
   if (!value) return null
   if (typeof value === 'object' && !Array.isArray(value)) return value
@@ -1089,7 +1119,14 @@ class AgentSessionManager extends EventEmitter {
    * 第一条消息：创建 MessageQueue + 持久 query + 后台输出循环
    * 后续消息：直接 push 到现有 MessageQueue
    */
-  async sendMessage(sessionId, userMessage, { model, modelTier, maxTurns, meta } = {}) {
+  async sendMessage(sessionId, userMessage, options = {}) {
+    const {
+      model,
+      modelTier,
+      maxTurns,
+      meta,
+      skipStoreUserMessage = false
+    } = options || {}
     let session = this.sessions.get(sessionId)
     const requestedModel = model || modelTier
 
@@ -1180,40 +1217,54 @@ class AgentSessionManager extends EventEmitter {
       throw new Error('Invalid message format')
     }
 
-    // 存储用户消息到历史（包含图片数据）
-    const userMsgToStore = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      role: 'user',
-      content: displayContent,  // 存储简化的可读内容
-      timestamp: Date.now()
+    session.pendingDispatch = {
+      userMessage,
+      options: {
+        model,
+        modelTier,
+        maxTurns,
+        meta
+      }
     }
 
-    // 如果有图片，添加到消息对象
-    if (imageData && imageData.length > 0) {
-      userMsgToStore.images = imageData
+    if (!skipStoreUserMessage) {
+      // 存储用户消息到历史（包含图片数据）
+      const userMsgToStore = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        role: 'user',
+        content: displayContent,  // 存储简化的可读内容
+        timestamp: Date.now()
+      }
+
+      // 如果有图片，添加到消息对象
+      if (imageData && imageData.length > 0) {
+        userMsgToStore.images = imageData
+      }
+
+      // 附加元数据（如钉钉来源信息）
+      if (meta) {
+        if (meta.source) userMsgToStore.source = meta.source
+        if (meta.senderNick) userMsgToStore.senderNick = meta.senderNick
+      }
+
+      this._storeMessage(session, userMsgToStore)
+
+      // 发出用户消息事件（DingTalkBridge 等旁路监听者自行决定是否处理）
+      this.emit('userMessage', {
+        sessionId: session.id,
+        sessionType: session.type,
+        imChannel: session.imChannel,
+        content: displayContent,
+        images: imageData || null,
+        source: meta?.source || null
+      })
     }
-
-    // 附加元数据（如钉钉来源信息）
-    if (meta) {
-      if (meta.source) userMsgToStore.source = meta.source
-      if (meta.senderNick) userMsgToStore.senderNick = meta.senderNick
-    }
-
-    this._storeMessage(session, userMsgToStore)
-
-    // 发出用户消息事件（DingTalkBridge 等旁路监听者自行决定是否处理）
-    this.emit('userMessage', {
-      sessionId: session.id,
-      sessionType: session.type,
-      imChannel: session.imChannel,
-      content: displayContent,
-      images: imageData || null,
-      source: meta?.source || null
-    })
 
     // 设置状态
     session.status = AgentStatus.STREAMING
-    session.messageCount++
+    if (!skipStoreUserMessage) {
+      session.messageCount++
+    }
     session.updatedAt = new Date()
 
     // 通知前端状态变化
@@ -1552,6 +1603,7 @@ class AgentSessionManager extends EventEmitter {
       session.status = AgentStatus.ERROR
       session.queryGenerator = null
       session.messageQueue = null
+      session.pendingDispatch = null
 
       this._safeSend('agent:error', {
         sessionId: session.id,
@@ -1596,10 +1648,34 @@ class AgentSessionManager extends EventEmitter {
       }
     } finally {
       this._cleanupPendingInteractions(session, 'Session closed')
+      const preserveOnExit = !!session.preserveSessionOnQueryExit
+      const pendingResumeRecovery = session._pendingResumeRecovery || null
       // 清理引用
       session.queryGenerator = null
       session.messageQueue = null
       session.outputLoopPromise = null
+
+      if (preserveOnExit) {
+        session.preserveSessionOnQueryExit = false
+        session._pendingResumeRecovery = null
+        session.cliPid = null
+        session._lastCliExitCode = null
+        session._lastCliStderr = null
+        if (pendingResumeRecovery) {
+          session.status = AgentStatus.IDLE
+          await this.sendMessage(session.id, pendingResumeRecovery.userMessage, {
+            ...pendingResumeRecovery.options,
+            skipStoreUserMessage: true
+          })
+          return
+        }
+        this._safeSend('agent:statusChange', {
+          sessionId: session.id,
+          status: AgentStatus.IDLE,
+          activeSessionEnded: true
+        })
+        return
+      }
 
       // CLI 进程异常退出时通知前端；即使 stderr 为空，也要把退出码透出给 UI。
       if (session._lastCliExitCode != null && session._lastCliExitCode !== 0) {
@@ -1616,16 +1692,6 @@ class AgentSessionManager extends EventEmitter {
       session.cliPid = null
       session._lastCliExitCode = null
       session._lastCliStderr = null
-
-      if (session.preserveSessionOnQueryExit) {
-        session.preserveSessionOnQueryExit = false
-        this._safeSend('agent:statusChange', {
-          sessionId: session.id,
-          status: sessionStatus,
-          activeSessionEnded: true
-        })
-        return
-      }
 
       // 结束当前激活连接：从内存 Map 中移除会话。
       // 注意：异常退出不应被视为“用户主动关闭会话”，因此不在这里写 closed。
@@ -1748,6 +1814,16 @@ class AgentSessionManager extends EventEmitter {
     const session = this.sessions.get(sessionId) || null
     if (session) {
       session.imChannel = null
+      if (session.meta && typeof session.meta === 'object') {
+        delete session.meta.staffId
+        delete session.meta.conversationId
+        delete session.meta.dingtalkTargetStaffId
+        delete session.meta.accountId
+        delete session.meta.targetId
+        delete session.meta.from
+        delete session.meta.feishuChatId
+        delete session.meta.enterpriseWeixinChatId
+      }
       session.updatedAt = new Date()
     }
 
@@ -2017,8 +2093,12 @@ class AgentSessionManager extends EventEmitter {
         break
 
       case 'result':
+        if (msg.isError && msg.subtype?.startsWith('error') && this._scheduleMissingResumeRecovery(session, msg.result)) {
+          break
+        }
         session.totalCostUsd += msg.totalCostUsd || 0
         session.status = AgentStatus.IDLE
+        session.pendingDispatch = null
         this._safeSend('agent:result', {
           sessionId: session.id,
           result: {
@@ -2066,6 +2146,50 @@ class AgentSessionManager extends EventEmitter {
           message: rawMsg
         })
     }
+  }
+
+  _scheduleMissingResumeRecovery(session, resultPayload) {
+    if (!session?.sdkSessionId) return false
+    if (!session?.pendingDispatch) return false
+    if (session._pendingResumeRecovery) return false
+    if (!isMissingResumeSessionError(resultPayload)) return false
+
+    const staleSdkSessionId = session.sdkSessionId
+    session._pendingResumeRecovery = {
+      userMessage: session.pendingDispatch.userMessage,
+      options: session.pendingDispatch.options
+    }
+    session.pendingDispatch = null
+    session.sdkSessionId = null
+    session.initResult = null
+    session.status = AgentStatus.IDLE
+    session.preserveSessionOnQueryExit = true
+
+    if (this.sessionDatabase?.updateAgentConversation) {
+      try {
+        this.sessionDatabase.updateAgentConversation(session.id, {
+          sdkSessionId: null
+        })
+      } catch (err) {
+        console.error('[AgentSession] Failed to clear stale sdk_session_id:', err)
+      }
+    }
+
+    console.warn('[AgentSession] Stale resume session detected, retrying without resume:', {
+      sessionId: session.id,
+      staleSdkSessionId
+    })
+
+    if (session.messageQueue) {
+      session.messageQueue.end()
+      session.messageQueue = null
+    }
+
+    if (session.queryGenerator) {
+      try { session.queryGenerator.close() } catch {}
+    }
+
+    return true
   }
 
   /**
@@ -2215,6 +2339,8 @@ class AgentSessionManager extends EventEmitter {
     if (!session) return
 
     this._cleanupPendingInteractions(session, 'Session closed')
+    session.preserveSessionOnQueryExit = true
+    const hadOutputLoop = Boolean(session.outputLoopPromise)
 
     // 结束 MessageQueue（让 SDK 的 for-await 正常退出）
     if (session.messageQueue) {
@@ -2253,6 +2379,13 @@ class AgentSessionManager extends EventEmitter {
     // 从内存 Map 移除
     this.sessions.delete(sessionId)
     console.log(`[AgentSession] Closed session ${sessionId}`)
+    if (!hadOutputLoop) {
+      this._safeSend('agent:statusChange', {
+        sessionId,
+        status: AgentStatus.IDLE,
+        activeSessionEnded: true
+      })
+    }
     this.emit('agentClosed', sessionId)
   }
 

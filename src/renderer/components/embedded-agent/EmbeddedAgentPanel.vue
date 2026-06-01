@@ -118,6 +118,9 @@
                 ref="chatRef"
                 class="embedded-agent-chat"
                 :session-id="sessionId"
+                :session-title="currentSessionTitle"
+                :session-source="currentSessionSource"
+                :session-im-channel="currentSessionImChannel"
                 :session-cwd="resolvedCwd"
                 :api-profile-id="currentApiProfileId"
                 :model-id="currentModelId"
@@ -215,6 +218,9 @@ const { naiveTheme, themeOverrides, cssVars, initTheme } = useTheme()
 const { naiveLocale, naiveDateLocale, initLocale } = useNaiveLocale()
 const chatRef = ref(null)
 const sessionId = ref('')
+const currentSessionTitle = ref('')
+const currentSessionSource = ref('manual')
+const currentSessionImChannel = ref(null)
 const resolvedCwd = ref(props.cwd || '')
 const error = ref('')
 const contextSnapshot = ref(null)
@@ -226,6 +232,7 @@ const dingtalkNotifyApi = computed(() => {
     listDingTalkTargets: api.listDingTalkTargets?.bind(api),
     getSessionDingTalkBinding: api.getSessionDingTalkBinding?.bind(api),
     bindSessionToDingTalkTarget: api.bindSessionToDingTalkTarget?.bind(api),
+    unbindSessionDingTalkTarget: api.unbindSessionDingTalkTarget?.bind(api),
     sendDingTalkText: api.sendDingTalkText?.bind(api)
   }
 })
@@ -236,6 +243,7 @@ const weixinNotifyApi = computed(() => {
     listWeixinNotifyTargets: api.listWeixinNotifyTargets?.bind(api),
     getSessionWeixinBinding: api.getSessionWeixinBinding?.bind(api),
     bindSessionToWeixinTarget: api.bindSessionToWeixinTarget?.bind(api),
+    unbindSessionWeixinTarget: api.unbindSessionWeixinTarget?.bind(api),
     sendWeixinNotifyText: api.sendWeixinNotifyText?.bind(api)
   }
 })
@@ -246,6 +254,7 @@ const feishuNotifyApi = computed(() => {
     listFeishuTargets: api.listFeishuTargets?.bind(api),
     getSessionFeishuBinding: api.getSessionFeishuBinding?.bind(api),
     bindSessionToFeishuTarget: api.bindSessionToFeishuTarget?.bind(api),
+    unbindSessionFeishuTarget: api.unbindSessionFeishuTarget?.bind(api),
     sendFeishuNotifyText: api.sendFeishuNotifyText?.bind(api)
   }
 })
@@ -256,6 +265,7 @@ const enterpriseWeixinNotifyApi = computed(() => {
     listEnterpriseWeixinTargets: api.listEnterpriseWeixinTargets?.bind(api),
     getSessionEnterpriseWeixinBinding: api.getSessionEnterpriseWeixinBinding?.bind(api),
     bindSessionToEnterpriseWeixinTarget: api.bindSessionToEnterpriseWeixinTarget?.bind(api),
+    unbindSessionEnterpriseWeixinTarget: api.unbindSessionEnterpriseWeixinTarget?.bind(api),
     sendEnterpriseWeixinText: api.sendEnterpriseWeixinText?.bind(api),
     getEnterpriseWeixinCliStatus: api.getEnterpriseWeixinCliStatus?.bind(api),
     getEnterpriseWeixinCliBootstrapStatus: api.getEnterpriseWeixinCliBootstrapStatus?.bind(api),
@@ -280,6 +290,7 @@ const activeTab = ref('chat')
 const capabilityError = ref('')
 const boundScheduledTaskId = ref(null)
 let cleanupScheduledTaskChanged = null
+let cleanupSessionUpdated = null
 const capabilitySnapshot = ref({
   toolNames: [],
   mcpNames: [],
@@ -405,6 +416,9 @@ const reopenSessionIfNeeded = async (session) => {
 const applySession = (session) => {
   sessionId.value = session?.id || ''
   if (session?.cwd) resolvedCwd.value = session.cwd
+  currentSessionTitle.value = typeof session?.title === 'string' ? session.title : ''
+  currentSessionSource.value = typeof session?.source === 'string' ? session.source : 'manual'
+  currentSessionImChannel.value = typeof session?.imChannel === 'string' ? session.imChannel : null
   currentApiProfileId.value = session?.apiProfileId !== undefined ? (session.apiProfileId || null) : currentApiProfileId.value
   currentModelId.value = session?.modelId !== undefined ? (session.modelId || null) : currentModelId.value
   persistSessionId(sessionId.value)
@@ -450,6 +464,9 @@ const syncSessionProfileSnapshot = async () => {
     if (latestSession) {
       const taskId = Number(latestSession.taskId)
       boundScheduledTaskId.value = Number.isInteger(taskId) && taskId > 0 ? taskId : null
+      currentSessionTitle.value = typeof latestSession?.title === 'string' ? latestSession.title : currentSessionTitle.value
+      currentSessionSource.value = typeof latestSession?.source === 'string' ? latestSession.source : currentSessionSource.value
+      currentSessionImChannel.value = typeof latestSession?.imChannel === 'string' ? latestSession.imChannel : currentSessionImChannel.value
       currentApiProfileId.value = latestSession.apiProfileId !== undefined
         ? (latestSession.apiProfileId || null)
         : currentApiProfileId.value
@@ -756,6 +773,9 @@ watch(sessionId, (nextSessionId) => {
   if (!nextSessionId) {
     boundScheduledTaskId.value = null
     showScheduledTaskModal.value = false
+    currentSessionTitle.value = ''
+    currentSessionSource.value = 'manual'
+    currentSessionImChannel.value = null
     return
   }
   void syncSessionProfileSnapshot()
@@ -773,12 +793,19 @@ onMounted(async () => {
       await refreshBoundScheduledTask()
     })
   }
+  if (window.electronAPI?.onSessionUpdated) {
+    cleanupSessionUpdated = window.electronAPI.onSessionUpdated(async (eventData) => {
+      if (eventData?.sessionId !== sessionId.value) return
+      await syncSessionProfileSnapshot()
+    })
+  }
   await initializeSession()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('embedded-agent:context-changed', handleContextChanged)
   cleanupScheduledTaskChanged?.()
+  cleanupSessionUpdated?.()
   agentApi.value?.dispose?.()
 })
 </script>

@@ -927,6 +927,9 @@ class EnterpriseWeixinBridge {
   _findBoundSessionIdByUserId(userId) {
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
     if (!normalizedUserId) return null
+    if (this._proactiveRebindSuppressedKeys.has(`${normalizedUserId}:${normalizedUserId}`)) {
+      return null
+    }
 
     const isSessionAvailable = (sessionId) => {
       if (!sessionId) return false
@@ -1640,6 +1643,16 @@ class EnterpriseWeixinBridge {
   unbindSessionTarget(sessionId) {
     if (!sessionId) return { success: false, error: 'sessionId 不能为空' }
     const target = this._sessionTargets.get(sessionId) || null
+    const identity = this._sessionIdentities.get(sessionId) || null
+    const userId = typeof (target?.userId || identity?.senderId) === 'string'
+      ? (target?.userId || identity?.senderId).trim()
+      : ''
+    if (userId) {
+      this._proactiveRebindSuppressedKeys.add(`${userId}:${userId}`)
+      if (identity?.chatId) {
+        this._proactiveRebindSuppressedKeys.add(`${userId}:${identity.chatId}`)
+      }
+    }
     if (target?.userId) {
       this._targetSessionMap.delete(target.userId)
     }

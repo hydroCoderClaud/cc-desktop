@@ -39,7 +39,8 @@ describe('AgentSessionManager interactions', () => {
       updateAgentMessageToolOutput: vi.fn(),
       updateAgentConversation: vi.fn(),
       updateAgentConversationModel: vi.fn(),
-      getAgentConversation: vi.fn(() => null)
+      getAgentConversation: vi.fn(() => null),
+      closeAgentConversation: vi.fn()
     }
     manager.stationService = {
       listStations: vi.fn(() => [{ id: 'st-1', name: '测试站' }]),
@@ -1524,6 +1525,24 @@ describe('AgentSessionManager interactions', () => {
       && !item.data.cliExited)).toBe(true)
   })
 
+  it('emits activeSessionEnded instead of cliError when session is closed intentionally', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-close', cwd: '/tmp' })
+    async function * emptyGenerator() {}
+    session.queryGenerator = emptyGenerator()
+    session.outputLoopPromise = manager._runOutputLoop(session)
+    manager.sessions.set(session.id, session)
+
+    await manager.close(session.id)
+
+    expect(sent.some(item => item.channel === 'agent:cliError' && item.data.sessionId === 's-close')).toBe(false)
+    expect(sent.some(item => item.channel === 'agent:statusChange'
+      && item.data.sessionId === 's-close'
+      && item.data.activeSessionEnded === true
+      && item.data.status === 'idle')).toBe(true)
+    expect(manager.sessions.has(session.id)).toBe(false)
+  })
+
   it('emits cliError on abnormal exit even without stderr', async () => {
     const { manager, sent } = createManager()
     const session = new AgentSession({ id: 's-cli-error', cwd: '/tmp' })
@@ -1553,6 +1572,125 @@ describe('AgentSessionManager interactions', () => {
         cliExitWasError: true
       }
     })
+  })
+
+  it('retries once without resume when restored sdkSessionId is no longer valid', async () => {
+    const { manager, sent } = createManager()
+    const createQueryCalls = []
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({
+        ANTHROPIC_BASE_URL: 'https://example.com'
+      })),
+      createQuery: vi.fn(async (_queue, options) => {
+        createQueryCalls.push(options)
+        const callIndex = createQueryCalls.length
+        if (callIndex === 1) {
+          return {
+            async *[Symbol.asyncIterator]() {
+              yield {
+                type: 'result',
+                subtype: 'error',
+                is_error: true,
+                result: 'No conversation found with session ID: sdk-stale'
+              }
+            },
+            close: vi.fn()
+          }
+        }
+
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield {
+              type: 'system',
+              subtype: 'init',
+              session_id: 'sdk-fresh',
+              tools: [],
+              model: 'sonnet'
+            }
+            yield {
+              type: 'assistant',
+              message: {
+                content: [{ type: 'text', text: 'recovered' }]
+              },
+              session_id: 'sdk-fresh'
+            }
+            yield {
+              type: 'result',
+              subtype: 'success',
+              is_error: false,
+              result: 'ok'
+            }
+          },
+          close: vi.fn()
+        }
+      }),
+      normalizeMessage: raw => {
+        switch (raw.type) {
+          case 'system':
+            return {
+              type: 'init',
+              sdkSessionId: raw.session_id,
+              tools: raw.tools,
+              model: raw.model,
+              slashCommands: raw.slash_commands || []
+            }
+          case 'assistant':
+            return {
+              type: 'assistant_message',
+              content: raw.message?.content || [],
+              uuid: raw.uuid,
+              sdkSessionId: raw.session_id,
+              usage: raw.message?.usage || null
+            }
+          case 'result':
+            return {
+              type: 'result',
+              subtype: raw.subtype,
+              isError: raw.is_error,
+              result: raw.result,
+              totalCostUsd: raw.total_cost_usd,
+              numTurns: raw.num_turns,
+              durationMs: raw.duration_ms,
+              usage: raw.usage,
+              modelUsage: raw.modelUsage
+            }
+          default:
+            return raw
+        }
+      }
+    }
+
+    const session = new AgentSession({ id: 's-stale-resume', cwd: '/tmp' })
+    session.dbConversationId = 1
+    session.sdkSessionId = 'sdk-stale'
+    manager.sessions.set(session.id, session)
+
+    await manager.sendMessage(session.id, 'hello after stale resume')
+    await session.outputLoopPromise
+    await Promise.resolve()
+    if (session.outputLoopPromise) {
+      await session.outputLoopPromise
+    }
+
+    expect(manager.runner.createQuery).toHaveBeenCalledTimes(2)
+    expect(createQueryCalls[0].resume).toBe('sdk-stale')
+    expect(createQueryCalls[1].resume).toBeUndefined()
+    expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith('s-stale-resume', {
+      sdkSessionId: null
+    })
+    expect(manager.sessionDatabase.insertAgentMessage).toHaveBeenCalledTimes(2)
+    expect(manager.sessionDatabase.insertAgentMessage).toHaveBeenNthCalledWith(1, 1, expect.objectContaining({
+      role: 'user',
+      content: 'hello after stale resume'
+    }))
+    expect(manager.sessionDatabase.insertAgentMessage).toHaveBeenNthCalledWith(2, 1, expect.objectContaining({
+      role: 'assistant',
+      content: 'recovered'
+    }))
+    expect(session.sdkSessionId).toBe('sdk-fresh')
+    expect(session.messageCount).toBe(1)
+    expect(sent.some(item => item.channel === 'agent:error')).toBe(false)
   })
 
   it('lists persisted model snapshots from DB history rows', () => {
