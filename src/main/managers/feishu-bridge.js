@@ -155,6 +155,7 @@ class FeishuBridge {
 
   async stop() {
     this._eventClient.stop()
+    this._notifier.notifyStatusChange(this.getStatus())
     this._unbindEventClientEvents()
     this._stopMsgIdCleanupTimer()
     this._replyCollector.clearAll()

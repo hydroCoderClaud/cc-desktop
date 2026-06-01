@@ -95,6 +95,25 @@ describe('FeishuBridge', () => {
     })
   })
 
+  it('broadcasts disabled status when Feishu bridge is stopped', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    bridge._eventClient._connected = true
+    bridge._eventClient._runtimeState = 'connected'
+
+    await bridge.stop()
+
+    expect(sent).toContainEqual({
+      channel: 'feishu:statusChange',
+      data: {
+        connected: false,
+        activeSessions: 0,
+        runtimeState: 'disabled',
+      }
+    })
+  })
+
   it('binds a proactive Feishu target and reuses the same session on the first reply', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
