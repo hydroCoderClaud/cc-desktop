@@ -659,7 +659,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
     const basePath = app.isPackaged
       ? path.join(process.resourcesPath, 'guides')
-      : path.join(__dirname, '..', 'docs', 'user-guide');
+      : path.join(__dirname, '..', '..', 'docs', 'user-guide');
     const filePath = path.join(basePath, filename);
     if (!fs.existsSync(filePath)) {
       return { success: false, error: `Guide not found: ${filePath}` };
