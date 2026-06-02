@@ -325,7 +325,7 @@ const handleDisconnect = async () => {
 
 
 const openGuide = () => {
-  window.electronAPI?.openExternal('https://github.com/hydroCoderClaud/cc-desktop/blob/master/docs/user-guide/DINGTALK-GUIDE.zh.md')
+  window.electronAPI?.openImGuide('dingtalk')
 }
 
 const handleClose = () => {

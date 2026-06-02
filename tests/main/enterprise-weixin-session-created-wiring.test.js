@@ -16,11 +16,12 @@ describe('enterprise weixin session-created wiring', () => {
     expect(source).toContain('nickname: senderNick,')
   })
 
-  it('opens an agent tab when enterprise weixin session-created arrives', () => {
+  it('routes enterprise weixin session-created through host-aware restore handling', () => {
     const source = fs.readFileSync(mainContentPath, 'utf-8')
 
     expect(source).toContain('const createHandlerName = `on${meta.listenerPrefix}SessionCreated`')
-    expect(source).toContain('const tab = ensureAgentTab({')
-    expect(source).toContain('activeTabId.value = tab.id')
+    expect(source).toContain('const openImRestoredSession = async (imType, data, meta) => {')
+    expect(source).toContain('const hostKind = getSessionHostKind(resolvedSession)')
+    expect(source).toContain('await openImRestoredSession(imType, data, meta)')
   })
 })

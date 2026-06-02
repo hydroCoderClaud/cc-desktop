@@ -51,7 +51,8 @@ export function useNotebookSessionLifecycle({
     activeGenerationToken.value = 0
     clearStudioTagFilters()
 
-    if (currentNotebook.value?.sessionId) {
+    const nextSessionId = typeof notebook?.sessionId === 'string' ? notebook.sessionId : ''
+    if (currentNotebook.value?.sessionId && currentNotebook.value.sessionId !== nextSessionId) {
       try {
         await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
       } catch (err) {

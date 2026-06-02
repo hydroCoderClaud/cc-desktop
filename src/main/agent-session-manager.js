@@ -2452,6 +2452,33 @@ class AgentSessionManager extends EventEmitter {
     return session ? this._serializeSession(session) : null
   }
 
+  getSessionRouting(sessionId) {
+    if (!sessionId) return null
+
+    let session = this.sessions.get(sessionId)
+    if (!session) {
+      try {
+        this.reopen(sessionId)
+        session = this.sessions.get(sessionId)
+      } catch {
+        session = null
+      }
+    }
+    if (!session) return null
+
+    const serialized = this._serializeSession(session)
+    return {
+      id: serialized.id,
+      type: serialized.type || null,
+      title: serialized.title || '',
+      cwd: serialized.cwd || null,
+      clientType: serialized.clientType || null,
+      clientMeta: serialized.clientMeta || null,
+      appId: serialized.clientMeta?.appId || serialized.clientMeta?.embeddedAppId || null,
+      imChannel: serialized.imChannel || null
+    }
+  }
+
   /**
    * 通过 SDK 启用/禁用 MCP 服务器（等效于 /mcp enable|disable，立即生效）
    * @param {string} sessionId - Agent 会话 ID

@@ -617,6 +617,38 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     }
   });
 
+  // 打开内置 IM 配置指南 HTML
+  ipcMain.handle('im:openGuide', async (_event, channel) => {
+    const GUIDE_MAP = {
+      dingtalk: 'dingtalk-guide.html',
+      feishu: 'feishu-guide.html',
+      'enterprise-weixin': 'enterprise-weixin-guide.html',
+      weixin: 'weixin-guide.html',
+    };
+    const filename = GUIDE_MAP[channel];
+    if (!filename) {
+      return { success: false, error: `Unknown channel: ${channel}` };
+    }
+    const basePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'guides')
+      : path.join(__dirname, '..', 'docs', 'user-guide');
+    const filePath = path.join(basePath, filename);
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: `Guide not found: ${filePath}` };
+    }
+    // 用系统默认浏览器打开本地 HTML 文件
+    const { exec } = require('child_process');
+    const cmd = process.platform === 'win32'
+      ? `start "" "${filePath}"`
+      : process.platform === 'darwin'
+        ? `open "${filePath}"`
+        : `xdg-open "${filePath}"`;
+    exec(cmd, (err) => {
+      if (err) console.error('[im:openGuide] exec error:', err.message);
+    });
+    return { success: true };
+  });
+
   // 解析相对路径为绝对路径（基于指定的 base 目录）
   ipcMain.handle('path:resolve', async (event, basePath, relativePath) => {
     if (!basePath || !relativePath) {

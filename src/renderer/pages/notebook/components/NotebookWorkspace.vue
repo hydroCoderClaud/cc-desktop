@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, computed, h } from 'vue'
+import { ref, shallowRef, computed, h, defineExpose } from 'vue'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
@@ -485,6 +485,24 @@ const {
   refreshAchievements,
   message,
   t
+})
+
+const restoreSessionById = async (sessionId) => {
+  const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : ''
+  if (!normalizedSessionId || !window.electronAPI?.notebookList) return false
+
+  const notebooks = await window.electronAPI.notebookList()
+  const targetNotebook = Array.isArray(notebooks)
+    ? notebooks.find((item) => item?.sessionId === normalizedSessionId)
+    : null
+  if (!targetNotebook?.id) return false
+
+  await loadNotebook(targetNotebook)
+  return true
+}
+
+defineExpose({
+  restoreSessionById
 })
 
 // ─── Sources ─────────────────────────────────────────────────────────────────

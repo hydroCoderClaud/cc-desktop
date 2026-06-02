@@ -122,7 +122,7 @@
 
         <!-- Notebook Mode Content -->
         <div v-show="isNotebookMode" class="mode-content notebook-mode-content">
-          <NotebookWorkspace />
+          <NotebookWorkspace ref="notebookWorkspaceRef" />
         </div>
       </div>
     </div>
@@ -300,10 +300,18 @@ const ensureActiveTabInCurrentMode = () => {
   }
 }
 
+const getSessionHostKind = (session) => {
+  if (!session || typeof session !== 'object') return 'agent'
+  if (session.type === 'notebook') return 'notebook'
+  if (session.clientType === 'embedded') return 'embedded'
+  return 'agent'
+}
+
 // Refs
 const leftPanelRef = ref(null)
 const rightPanelRef = ref(null)
 const agentRightPanelRef = ref(null)
+const notebookWorkspaceRef = ref(null)
 const agentChatTabRefs = ref({})
 const terminalRefs = ref({})
 const terminalFontSize = ref(14)
@@ -459,6 +467,76 @@ const stopResize = async () => {
   await saveRightPanelWidth(rightPanelWidth.value)
 }
 
+const restoreNotebookSessionHost = async (session) => {
+  const sessionId = typeof session?.id === 'string' ? session.id.trim() : ''
+  if (!sessionId) return false
+
+  if (!isNotebookMode.value) {
+    await switchMode(AppMode.NOTEBOOK)
+  }
+
+  await nextTick()
+  return Boolean(await notebookWorkspaceRef.value?.restoreSessionById?.(sessionId))
+}
+
+const restoreEmbeddedSessionHost = async (session) => {
+  const sessionId = typeof session?.id === 'string' ? session.id.trim() : ''
+  const appId = typeof session?.clientMeta?.appId === 'string'
+    ? session.clientMeta.appId.trim()
+    : (typeof session?.clientMeta?.embeddedAppId === 'string' ? session.clientMeta.embeddedAppId.trim() : '')
+  if (!sessionId || !appId) return false
+
+  const embeddedApps = await window.electronAPI?.['embedded-app:list']?.()
+  const app = Array.isArray(embeddedApps)
+    ? embeddedApps.find((item) => item?.id === appId)
+    : null
+  const menuKey = typeof app?.menuKey === 'string' ? app.menuKey.trim() : ''
+  if (!menuKey) return false
+
+  try {
+    window.localStorage.setItem(`embedded-agent:restore-session:${appId}`, sessionId)
+  } catch {}
+
+  await window.electronAPI?.['embedded-app:open']?.(menuKey)
+  return true
+}
+
+const openImRestoredSession = async (imType, data, meta) => {
+  const sessionId = typeof data?.sessionId === 'string' ? data.sessionId.trim() : ''
+  if (!sessionId) return
+
+  const routingSession = await window.electronAPI?.getAgentSessionRouting?.(sessionId).catch(() => null)
+  const session = await window.electronAPI?.getAgentSession?.(sessionId).catch(() => null)
+  const resolvedSession = session || routingSession
+  const hostKind = getSessionHostKind(resolvedSession)
+
+  if (hostKind === 'notebook') {
+    const restored = await restoreNotebookSessionHost(resolvedSession)
+    if (restored) return
+  } else if (hostKind === 'embedded') {
+    const restored = await restoreEmbeddedSessionHost(resolvedSession)
+    if (restored) return
+  }
+
+  if (isDeveloperMode.value) {
+    await switchMode(AppMode.AGENT)
+  }
+
+  const defaultTitle = data.nickname
+    ? `${meta.label['zh-CN']} · ${data.nickname}`
+    : meta.label['zh-CN']
+  const tab = ensureAgentTab({
+    ...(resolvedSession || {}),
+    id: sessionId,
+    type: imType,
+    imChannel: imType,
+    title: data.title || resolvedSession?.title || defaultTitle,
+  })
+  if (tab) {
+    activeTabId.value = tab.id
+  }
+}
+
 // Set terminal ref
 const setTerminalRef = (tabId, el) => {
   if (el) {
@@ -604,21 +682,7 @@ const setupSessionListeners = () => {
       cleanupFns.push(
         api[createHandlerName](async (data) => {
           if (data?.sessionId) {
-            if (isDeveloperMode.value) {
-              await switchMode(AppMode.AGENT)
-            }
-            const defaultTitle = data.nickname
-              ? `${meta.label['zh-CN']} · ${data.nickname}`
-              : meta.label['zh-CN']
-            const tab = ensureAgentTab({
-              id: data.sessionId,
-              type: imType,
-              imChannel: imType,
-              title: data.title || defaultTitle,
-            })
-            if (tab) {
-              activeTabId.value = tab.id
-            }
+            await openImRestoredSession(imType, data, meta)
           }
         })
       )

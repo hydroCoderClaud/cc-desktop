@@ -144,6 +144,16 @@ function setupAgentHandlers(ipcMain, agentSessionManager, agentSessionBroker = n
     return invoke('get', sessionId)
   })
 
+  // 获取会话宿主路由信息
+  ipcMain.handle('agent:getSessionRouting', async (event, sessionId) => {
+    try {
+      return agentSessionManager.getSessionRouting(sessionId)
+    } catch (err) {
+      console.error('[IPC] agent:getSessionRouting error:', err)
+      return null
+    }
+  })
+
   // 获取所有会话列表
   ipcMain.handle('agent:list', async () => {
     return invoke('list')

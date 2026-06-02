@@ -224,6 +224,10 @@ describe('EnterpriseWeixinBridge', () => {
     expect(session.imChannel).toBe('enterprise-weixin')
     expect(session.title).toBe('企业微信 · 雷斯林')
     expect(sent.map(item => item.channel)).toContain('enterprise-weixin:messageReceived')
+    expect(sent.map(item => item.channel)).toContain('enterprise-weixin:sessionCreated')
+    expect(sent.findIndex(item => item.channel === 'enterprise-weixin:messageReceived')).toBeLessThan(
+      sent.findIndex(item => item.channel === 'enterprise-weixin:sessionCreated')
+    )
   })
 
   it('falls back to userid when enterprise weixin payload lacks sender name', async () => {
@@ -1052,6 +1056,45 @@ describe('EnterpriseWeixinBridge', () => {
     await bridge._onAgentResult(history.id)
 
     expect(wsClient.sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not clear an active reply collector on transient non-live userMessage events', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const session = manager.sessions.get(created.id)
+    session.imChannel = 'enterprise-weixin'
+
+    bridge._sessionTargets.set(session.id, {
+      userId: 'user-a',
+      displayName: '雷斯林',
+    })
+    bridge._sessionIdentities.set(session.id, {
+      userId: 'user-a',
+      senderId: 'user-a',
+      senderName: '雷斯林',
+      chatId: 'user-a',
+      chatType: 'single',
+      chatName: '雷斯林',
+    })
+
+    bridge._replyCollector.startCollect(session.id, {
+      webhook: inboundFrame(),
+      sendFn: async () => {},
+    })
+
+    manager.sessions.delete(session.id)
+    manager.emit('userMessage', {
+      sessionId: session.id,
+      imChannel: 'enterprise-weixin',
+      content: '桌面消息',
+      images: null,
+      source: 'manual',
+    })
+
+    expect(bridge._replyCollector.hasCollector(session.id)).toBe(true)
+    expect(bridge._sessionTargets.get(session.id)).toEqual(
+      expect.objectContaining({ userId: 'user-a' })
+    )
   })
 
   it('keeps persisted binding metadata when the session is closed', async () => {

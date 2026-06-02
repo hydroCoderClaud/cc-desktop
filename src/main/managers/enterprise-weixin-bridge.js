@@ -343,6 +343,9 @@ class EnterpriseWeixinBridge {
     this._agentListeners = {
       userMessage: ({ sessionId, imChannel, content, images, source }) => {
         if (!this._isLiveSession(sessionId)) {
+          if (this._replyCollector.hasCollector(sessionId)) {
+            return
+          }
           this._clearSessionIdentity(sessionId)
           return
         }
@@ -1278,16 +1281,6 @@ class EnterpriseWeixinBridge {
     if (!text.trim() && images.length === 0) return
 
     const senderNick = identity.nickname || identity.userId
-    const session = this._agentSessionManager.sessions.get(sessionId)
-    if (session) {
-      this._notifier.notifySessionCreated({
-        sessionId,
-        userId: identity.userId,
-        nickname: senderNick,
-        chatId: message.chatId,
-        title: session.title,
-      })
-    }
     const userMessage = images.length > 0 && !text.trim()
       ? { text: '', images }
       : (images.length > 0 ? { text, images } : text)
@@ -1311,6 +1304,17 @@ class EnterpriseWeixinBridge {
         enterpriseWeixinChatId: message.chatId,
       },
     })
+
+    const session = this._agentSessionManager.sessions.get(sessionId)
+    if (session) {
+      this._notifier.notifySessionCreated({
+        sessionId,
+        userId: identity.userId,
+        nickname: senderNick,
+        chatId: message.chatId,
+        title: session.title,
+      })
+    }
 
     try {
       await this._agentSessionManager.sendMessage(sessionId, userMessage, {

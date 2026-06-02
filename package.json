@@ -100,6 +100,13 @@
       "node_modules/@anthropic-ai/claude-agent-sdk-*/*",
       "node_modules/undici/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "docs/user-guide",
+        "to": "guides",
+        "filter": ["*.html"]
+      }
+    ],
     "win": {
       "target": [
         {

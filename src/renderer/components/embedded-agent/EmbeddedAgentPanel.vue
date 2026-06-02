@@ -737,6 +737,35 @@ const handleImBindingChanged = async (event) => {
   await syncSessionProfileSnapshot()
 }
 
+const consumeRequestedRestoreSessionId = () => {
+  const key = `embedded-agent:restore-session:${props.appId}`
+  try {
+    const requestedSessionId = window.localStorage.getItem(key) || ''
+    if (requestedSessionId) {
+      window.localStorage.removeItem(key)
+    }
+    return requestedSessionId
+  } catch {
+    return ''
+  }
+}
+
+const restoreRequestedSession = async () => {
+  const requestedSessionId = consumeRequestedRestoreSessionId()
+  if (!requestedSessionId || !agentApi.value?.getAgentSession) return false
+
+  const requestedSession = await agentApi.value.getAgentSession(requestedSessionId).catch(() => null)
+  if (!requestedSession?.id) return false
+
+  const activeSession = await reopenSessionIfNeeded(requestedSession)
+  if (!activeSession?.id) return false
+
+  applySession(activeSession)
+  await syncSessionProfileSnapshot()
+  await refreshCapabilitySnapshot()
+  return true
+}
+
 const handleReady = () => {
   readContext()
   void syncSessionProfileSnapshot()
@@ -813,6 +842,7 @@ onMounted(async () => {
     })
   }
   await initializeSession()
+  await restoreRequestedSession()
 })
 
 onBeforeUnmount(() => {

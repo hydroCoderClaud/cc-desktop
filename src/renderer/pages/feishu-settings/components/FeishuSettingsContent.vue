@@ -25,6 +25,11 @@
       </n-alert>
 
       <n-card title="基本配置" class="settings-section">
+        <template #header-extra>
+          <n-button text type="primary" size="small" @click="openGuide">
+            查看使用指南
+          </n-button>
+        </template>
         <n-form-item label="启用飞书桥接">
           <n-switch
             :value="formData.enabled"
@@ -301,6 +306,10 @@ const handleDisconnect = async () => {
   } catch (err) {
     message.error('断开失败: ' + (err.message || err))
   }
+}
+
+const openGuide = () => {
+  window.electronAPI?.openImGuide('feishu')
 }
 
 const handleClose = () => {

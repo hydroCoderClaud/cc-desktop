@@ -474,6 +474,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resolvePath: (basePath, relativePath) => ipcRenderer.invoke('path:resolve', basePath, relativePath),
   pathExists: (targetPath) => ipcRenderer.invoke('path:exists', targetPath),
 
+  // 打开内置 IM 配置指南 HTML
+  openImGuide: (channel) => ipcRenderer.invoke('im:openGuide', channel),
+
   // ========================================
   // 微信通知
   // ========================================
@@ -918,6 +921,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   switchAgentApiProfile: ({ sessionId, profileId }) => ipcRenderer.invoke('agent:switchApiProfile', { sessionId, profileId }),
   reopenAgentSession: (sessionId) => ipcRenderer.invoke('agent:reopen', sessionId),
   getAgentSession: (sessionId) => ipcRenderer.invoke('agent:get', sessionId),
+  getAgentSessionRouting: (sessionId) => ipcRenderer.invoke('agent:getSessionRouting', sessionId),
   listAgentSessions: () => ipcRenderer.invoke('agent:list'),
   renameAgentSession: ({ sessionId, title }) => ipcRenderer.invoke('agent:rename', { sessionId, title }),
 
