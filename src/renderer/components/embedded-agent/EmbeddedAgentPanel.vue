@@ -698,6 +698,11 @@ const initializeSession = async () => {
       return
     }
 
+    const restoredRequestedSession = await restoreRequestedSession()
+    if (restoredRequestedSession) {
+      return
+    }
+
     const sessions = await window.hydroAgent.listSessions()
     const storedSessionId = readStoredSessionId()
     const storedSession = storedSessionId
@@ -842,7 +847,6 @@ onMounted(async () => {
     })
   }
   await initializeSession()
-  await restoreRequestedSession()
 })
 
 onBeforeUnmount(() => {

@@ -652,6 +652,7 @@ describe('EnterpriseWeixinBridge', () => {
       userId: 'user-b',
       displayName: 'HydroCoder',
     })
+    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenLastCalledWith(created.id, 'user-b', '')
   })
 
   it('reuses the bound session after proactive send without asking history choice again', async () => {
@@ -684,6 +685,51 @@ describe('EnterpriseWeixinBridge', () => {
         }),
       })
     )
+    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenLastCalledWith(created.id, 'user-a', 'user-a')
+  })
+
+  it('clears stale history choice state after proactive bind so the next inbound reply is not treated as a numeric selection', async () => {
+    const { bridge, manager, replies } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
+      { session_id: 'hist-1', title: '历史会话 1', updated_at: Date.now() - 1000 },
+    ])
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '第一次入站，先触发历史菜单' },
+    }))
+
+    const mapKey = 'user-a:user-a'
+    expect(bridge._sessionMapper._pendingChoices.has(mapKey)).toBe(true)
+    expect(bridge._pendingInboundMessages.has(mapKey)).toBe(true)
+
+    await bridge.sendTextToTarget({
+      sessionId: created.id,
+      userId: 'user-a',
+      displayName: '雷斯林',
+      text: '桌面端主动绑定后发出',
+    })
+
+    expect(bridge._sessionMapper._pendingChoices.has(mapKey)).toBe(false)
+    expect(bridge._pendingInboundMessages.has(mapKey)).toBe(false)
+    expect(bridge._sessionMapper.sessionMap.get(mapKey)).toBe(created.id)
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '这条应该进当前绑定会话，而不是被当作编号' },
+    }))
+
+    expect(sendMessage).toHaveBeenLastCalledWith(
+      created.id,
+      '这条应该进当前绑定会话，而不是被当作编号',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          source: 'im-inbound',
+          enterpriseWeixinChatId: 'user-a',
+        }),
+      })
+    )
+    expect(replies.some(item => item?.markdown?.content?.includes('编号错误'))).toBe(false)
   })
 
   it('prompts for history after closing the current enterprise weixin session instead of auto-using another proactive binding', async () => {
@@ -724,6 +770,49 @@ describe('EnterpriseWeixinBridge', () => {
     await bridge._handleMessage(inboundFrame({
       text: { content: '/close' },
     }))
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '关闭后再来一条' },
+    }))
+
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(initPendingChoice).toHaveBeenCalled()
+    expect(replies.some(item => JSON.stringify(item).includes('旧主动绑定会话'))).toBe(true)
+  })
+
+  it('prompts for history after desktop closes the current enterprise weixin session instead of auto-using another proactive binding', async () => {
+    const { bridge, manager, replies } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const initPendingChoice = vi.spyOn(bridge._sessionMapper, 'initPendingChoice')
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
+      { session_id: 'old-bound-session', title: '旧主动绑定会话', updated_at: Date.now() - 60 * 1000 },
+    ])
+    initPendingChoice.mockImplementation(async (_mapKey, history, onSendChoiceMenu, options) => {
+      await onSendChoiceMenu(options.menuBuilder(history))
+      return { sessionId: null }
+    })
+
+    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '当前会话' })
+    const oldBound = manager.create({ type: 'chat', source: 'manual', imChannel: 'enterprise-weixin', title: '旧主动绑定会话' })
+    manager.sessions.get(current.id).queryGenerator = {}
+    manager.sessions.get(oldBound.id).queryGenerator = {}
+
+    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
+    bridge._sessionIdentities.set(current.id, {
+      userId: 'user-a',
+      senderId: 'user-a',
+      senderName: '雷斯林',
+      chatId: 'user-a',
+      chatType: 'single',
+      chatName: '雷斯林',
+    })
+    bridge._targetSessionMap.set('user-a', oldBound.id)
+    bridge._sessionTargets.set(oldBound.id, {
+      userId: 'user-a',
+      displayName: '雷斯林',
+    })
+
+    await manager.close(current.id)
 
     await bridge._handleMessage(inboundFrame({
       text: { content: '关闭后再来一条' },
@@ -827,7 +916,7 @@ describe('EnterpriseWeixinBridge', () => {
     })
 
     expect(bridge._targetSessionMap.get('user-a')).toBe(second.id)
-    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBe(second.id)
   })
 
   it('clears enterprise weixin inbound routing state after unbinding a bound session', () => {
@@ -889,6 +978,52 @@ describe('EnterpriseWeixinBridge', () => {
 
     expect(bridge._findBoundSessionIdByUserId('user-a')).toBe(null)
     expect(bridge._targetSessionMap.get('user-a')).toBeUndefined()
+  })
+
+  it('does not restore an enterprise weixin bound session from legacy-only fields', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    manager.sessionDatabase.getAgentConversation.mockReturnValue({
+      session_id: created.id,
+      type: 'chat',
+      source: 'manual',
+      im_channel: 'enterprise-weixin',
+      staff_id: 'user-a',
+      conversation_id: 'user-a',
+      im_user_id: null,
+      im_chat_id: null,
+      status: 'idle',
+    })
+
+    expect(bridge.getSessionBinding(created.id)).toBe(null)
+  })
+
+  it('restores a proactive enterprise weixin binding without fabricating single chat id', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    manager.sessionDatabase.getAgentConversation.mockReturnValue({
+      session_id: created.id,
+      type: 'chat',
+      source: 'manual',
+      im_channel: 'enterprise-weixin',
+      staff_id: 'user-a',
+      conversation_id: '',
+      im_user_id: 'user-a',
+      im_chat_id: '',
+      status: 'idle',
+    })
+
+    bridge._restoreSessionBindings()
+
+    expect(bridge._sessionIdentities.get(created.id)).toEqual(
+      expect.objectContaining({
+        userId: 'user-a',
+        chatId: '',
+        chatType: 'single',
+      })
+    )
   })
 
   it('does not forward desktop messages after the bound session is closed and reopened', async () => {

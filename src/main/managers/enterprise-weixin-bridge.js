@@ -370,6 +370,13 @@ class EnterpriseWeixinBridge {
         this._clearSessionIdentity(sessionId)
       },
       agentClosed: (sessionId) => {
+        const identity = this._sessionIdentities.get(sessionId)
+        if (identity?.chatType === 'single' && identity.userId) {
+          if (identity.chatId) {
+            this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.chatId}`)
+          }
+          this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
+        }
         this._clearSessionIdentity(sessionId)
       },
     }
@@ -470,6 +477,10 @@ class EnterpriseWeixinBridge {
       chatId: message.chatId,
       chatType: message.chatType,
       chatName: identity.channelName || identity.nickname || identity.userId,
+    })
+    this._persistSessionChatContext(sessionId, {
+      userId: identity.userId,
+      chatId: message.chatId,
     })
     this._notifier.notifyMessageReceived({
       sessionId,
@@ -733,6 +744,9 @@ class EnterpriseWeixinBridge {
           this._clearSessionIdentity(sessionId)
           if ((context.chatType || '').toLowerCase() === 'single') {
             this._proactiveRebindSuppressedKeys.add(mapKey)
+            if (identity.userId) {
+              this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
+            }
           }
           this._notifier.notifySessionClosed({ sessionId })
 
@@ -965,8 +979,8 @@ class EnterpriseWeixinBridge {
       ? rows
         .filter(row => row?.status !== 'closed')
         .filter(row => row?.im_channel === this._imType)
-        .filter(row => row?.staff_id === normalizedUserId)
-        .filter(row => !row?.conversation_id || row?.conversation_id === normalizedUserId)
+        .filter(row => row?.im_user_id === normalizedUserId)
+        .filter(row => !row?.im_chat_id)
         .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
       : null
     if (matched) {
@@ -988,19 +1002,21 @@ class EnterpriseWeixinBridge {
     if (!sessionId || this._sessionIdentities.has(sessionId)) return this._sessionIdentities.get(sessionId) || null
 
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    const userId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+    const userId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
+      ? row.im_user_id.trim()
+      : ''
     if (!userId || row?.im_channel !== this._imType) return null
 
-    const chatId = typeof row?.conversation_id === 'string' && row.conversation_id.trim()
-      ? row.conversation_id.trim()
-      : userId
+    const chatId = typeof row?.im_chat_id === 'string' && row.im_chat_id.trim()
+      ? row.im_chat_id.trim()
+      : ''
     const displayName = this._sessionTargets.get(sessionId)?.displayName || userId
     const identity = {
       userId,
       senderId: userId,
       senderName: displayName,
       chatId,
-      chatType: chatId !== userId ? 'group' : 'single',
+      chatType: chatId ? 'group' : 'single',
       chatName: displayName,
     }
     this._sessionIdentities.set(sessionId, identity)
@@ -1530,20 +1546,32 @@ class EnterpriseWeixinBridge {
       userId: resolvedUserId,
       displayName: displayName || previousTarget?.displayName || resolvedUserId,
     }
+    const proactiveIdentity = {
+      userId: resolvedUserId,
+      channelId: resolvedUserId,
+      chatId: resolvedUserId,
+      chatType: 'single',
+      nickname: target.displayName || resolvedUserId,
+      channelName: '',
+    }
+    const proactiveMapKey = this._sessionMapper.buildKey(proactiveIdentity)
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedUserId, sessionId)
+    this._sessionMapper.clearPendingChoice(proactiveMapKey)
+    this._pendingInboundMessages.delete(proactiveMapKey)
+    this._sessionMapper.sessionMap.set(proactiveMapKey, sessionId)
     this._sessionIdentities.set(sessionId, {
       userId: resolvedUserId,
       senderId: resolvedUserId,
       senderName: target.displayName || resolvedUserId,
-      chatId: resolvedUserId,
+      chatId: '',
       chatType: 'single',
       chatName: target.displayName || resolvedUserId,
     })
 
     if (this._sessionDatabase?.updateDingTalkMetadata) {
       try {
-        this._sessionDatabase.updateDingTalkMetadata(sessionId, resolvedUserId, resolvedUserId)
+        this._sessionDatabase.updateDingTalkMetadata(sessionId, resolvedUserId, '')
       } catch (err) {
         console.warn('[EnterpriseWeixin] Failed to persist bound target identity:', err.message)
       }
@@ -1560,7 +1588,9 @@ class EnterpriseWeixinBridge {
     const existingTarget = this._sessionTargets.get(sessionId)
     const identity = this._sessionIdentities.get(sessionId)
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    const rowUserId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+    const rowUserId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
+      ? row.im_user_id.trim()
+      : ''
     const existingUserId = existingTarget?.userId || identity?.senderId || rowUserId
 
     if (existingUserId && existingUserId !== resolvedUserId) {
@@ -1584,7 +1614,9 @@ class EnterpriseWeixinBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      const userId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+      const userId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
+        ? row.im_user_id.trim()
+        : ''
       if (!userId || row?.im_channel !== this._imType) return null
       return {
         targetId: userId,
@@ -1635,7 +1667,9 @@ class EnterpriseWeixinBridge {
 
     for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
       const row = this._sessionDatabase.getAgentConversation(sessionId)
-      const userId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+      const userId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
+        ? row.im_user_id.trim()
+        : ''
       if (!userId || row?.im_channel !== this._imType) continue
 
       this._sessionTargets.set(sessionId, {
@@ -1644,12 +1678,15 @@ class EnterpriseWeixinBridge {
       })
       this._targetSessionMap.set(userId, sessionId)
       if (!this._sessionIdentities.has(sessionId)) {
+        const restoredChatId = typeof row?.im_chat_id === 'string' && row.im_chat_id.trim()
+          ? row.im_chat_id.trim()
+          : ''
         this._sessionIdentities.set(sessionId, {
           userId,
           senderId: userId,
           senderName: userId,
-          chatId: typeof row?.conversation_id === 'string' && row.conversation_id.trim() ? row.conversation_id.trim() : userId,
-          chatType: row?.conversation_id && row.conversation_id !== userId ? 'group' : 'single',
+          chatId: restoredChatId,
+          chatType: restoredChatId ? 'group' : 'single',
           chatName: userId,
         })
       }
@@ -1687,6 +1724,31 @@ class EnterpriseWeixinBridge {
       if (key.startsWith(`${normalizedUserId}:`)) {
         this._proactiveRebindSuppressedKeys.delete(key)
       }
+    }
+  }
+
+  _persistSessionChatContext(sessionId, { userId, chatId } = {}) {
+    const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
+    const normalizedChatId = typeof chatId === 'string' ? chatId.trim() : ''
+    if (!sessionId || !normalizedUserId || !normalizedChatId || !this._sessionDatabase?.updateDingTalkMetadata) {
+      return
+    }
+
+    const row = this._sessionDatabase.getAgentConversation?.(sessionId)
+    const rowUserId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
+      ? row.im_user_id.trim()
+      : ''
+    const rowChatId = row?.im_channel === this._imType && typeof row?.im_chat_id === 'string'
+      ? row.im_chat_id.trim()
+      : ''
+    if (rowUserId !== normalizedUserId || rowChatId === normalizedChatId) {
+      return
+    }
+
+    try {
+      this._sessionDatabase.updateDingTalkMetadata(sessionId, normalizedUserId, normalizedChatId)
+    } catch (err) {
+      console.warn('[EnterpriseWeixin] Failed to persist chat context:', err.message)
     }
   }
 

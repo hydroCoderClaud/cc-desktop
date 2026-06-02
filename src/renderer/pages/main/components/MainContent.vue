@@ -501,6 +501,14 @@ const restoreEmbeddedSessionHost = async (session) => {
   return true
 }
 
+const restoreEmbeddedHostFromMessageEvent = async (sessionId) => {
+  const routingSession = await window.electronAPI?.getAgentSessionRouting?.(sessionId).catch(() => null)
+  const session = await window.electronAPI?.getAgentSession?.(sessionId).catch(() => null)
+  const resolvedSession = session || routingSession
+  if (getSessionHostKind(resolvedSession) !== 'embedded') return false
+  return restoreEmbeddedSessionHost(resolvedSession)
+}
+
 const openImRestoredSession = async (imType, data, meta) => {
   const sessionId = typeof data?.sessionId === 'string' ? data.sessionId.trim() : ''
   if (!sessionId) return
@@ -683,6 +691,17 @@ const setupSessionListeners = () => {
         api[createHandlerName](async (data) => {
           if (data?.sessionId) {
             await openImRestoredSession(imType, data, meta)
+          }
+        })
+      )
+    }
+
+    const messageHandlerName = `on${meta.listenerPrefix}MessageReceived`
+    if (api?.[messageHandlerName]) {
+      cleanupFns.push(
+        api[messageHandlerName](async (data) => {
+          if (data?.sessionId) {
+            await restoreEmbeddedHostFromMessageEvent(data.sessionId)
           }
         })
       )

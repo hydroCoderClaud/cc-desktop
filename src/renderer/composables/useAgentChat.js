@@ -536,6 +536,9 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     try {
+      const liveSession = agentApi?.getAgentSession
+        ? await agentApi.getAgentSession(sessionId).catch(() => null)
+        : null
       const initResult = await agentApi.getAgentInitResult(sessionId)
       if (!initResult || initResult.error) {
         console.log('[useAgentChat] syncActiveSessionState: no active init result', {
@@ -548,8 +551,13 @@ export function useAgentChat(sessionId, options = {}) {
 
       hasActiveSession.value = true
       isRestored.value = false
+      if (liveSession?.status === 'streaming') {
+        isStreaming.value = true
+        startTimer()
+      }
       console.log('[useAgentChat] syncActiveSessionState: active session restored', {
         sessionId,
+        sessionStatus: liveSession?.status || null,
         model: initResult.model || null,
         slashCommandCount: Array.isArray(initResult.slashCommands) ? initResult.slashCommands.length : 0
       })
