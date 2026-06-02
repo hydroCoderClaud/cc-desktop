@@ -1658,7 +1658,10 @@ class FeishuBridge {
   }
 
   async _sendStatusMenu(receiveIdType, receiveId, { mapKey, chatId, context = null }) {
-    const currentSessionId = mapKey ? this._sessionMapper.sessionMap.get(mapKey) : null
+    let currentSessionId = mapKey ? this._sessionMapper.sessionMap.get(mapKey) : null
+    if (!currentSessionId && context?.chatType === 'p2p' && context?.senderId) {
+      currentSessionId = await this._findBoundSessionIdBySenderId(context.senderId)
+    }
     const history = context?.senderId && chatId
       ? this._mergeCurrentSessionIntoHistory(
           await this._sessionMapper._queryHistorySessions({
@@ -1793,6 +1796,7 @@ class FeishuBridge {
 
   _buildStatusCard(statusText, context = null) {
     return buildStatusCard({
+      title: '当前会话状态',
       summary: statusText,
       context,
       normalizeDisplayName: (value, fallbackId) => this._normalizeFeishuDisplayName(value, fallbackId),

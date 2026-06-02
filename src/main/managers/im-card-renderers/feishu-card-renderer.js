@@ -133,7 +133,8 @@ function buildHistoryChoiceCard({
             content: '查看状态'
           },
           value: {
-            intent: 'status'
+            intent: 'status',
+            ...(actionContext || {})
           }
         }
       ]
@@ -160,8 +161,8 @@ function buildHistoryChoiceCard({
       tag: 'action',
       actions: [
         buildCommandButton('新建会话', { intent: 'new', ...(actionContext || {}) }, 'primary'),
-        buildCommandButton('查看状态', { intent: 'status' }),
-        buildCommandButton('查看帮助', { intent: 'help' })
+        buildCommandButton('查看状态', { intent: 'status', ...(actionContext || {}) }),
+        buildCommandButton('查看帮助', { intent: 'help', ...(actionContext || {}) })
       ]
     })
   }
@@ -198,22 +199,22 @@ function buildHelpCard({ summary, context = null, normalizeDisplayName = null })
     normalizeDisplayName,
     actions: [
       buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }, 'primary'),
-      buildCommandButton('查看状态', { intent: 'status' }),
-      buildCommandButton('恢复历史会话', { command: 'resume' })
+      buildCommandButton('查看状态', { intent: 'status', ...(context || {}) }),
+      buildCommandButton('恢复历史会话', { command: 'resume', ...(context || {}) })
     ]
   })
 }
 
-function buildStatusCard({ summary, context = null, normalizeDisplayName = null }) {
+function buildStatusCard({ summary, context = null, normalizeDisplayName = null, title = '当前会话状态' }) {
   return buildResultCard({
-    title: '系统状态',
+    title,
     summary,
     context,
     normalizeDisplayName,
     actions: [
       buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }, 'primary'),
-      buildCommandButton('恢复历史会话', { command: 'resume' }),
-      buildCommandButton('查看帮助', { intent: 'help' })
+      buildCommandButton('恢复历史会话', { command: 'resume', ...(context || {}) }),
+      buildCommandButton('查看帮助', { intent: 'help', ...(context || {}) })
     ]
   })
 }

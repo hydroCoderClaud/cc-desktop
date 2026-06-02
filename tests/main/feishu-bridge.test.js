@@ -806,6 +806,48 @@ describe('FeishuBridge', () => {
     })
   })
 
+  it('passes card context when clicking status from an existing status card', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const commandSpy = vi.spyOn(bridge, '_handleCommand').mockResolvedValue()
+
+    await bridge._handleCardAction({
+      actionType: 'button',
+      actionValue: {
+        intent: 'status',
+        senderId: 'ou_xxx',
+        senderName: '张三',
+        chatId: 'oc_xxx',
+        chatType: 'p2p',
+        chatName: '张三'
+      },
+      userId: 'ou_fallback',
+      chatId: 'oc_fallback',
+      chatType: 'p2p'
+    })
+
+    expect(commandSpy).toHaveBeenCalledWith(
+      '/status',
+      expect.objectContaining({
+        senderId: 'ou_xxx',
+        senderName: '张三',
+        chatId: 'oc_xxx',
+        chatType: 'p2p',
+        chatName: '张三'
+      }),
+      {
+        cardValue: {
+          intent: 'status',
+          senderId: 'ou_xxx',
+          senderName: '张三',
+          chatId: 'oc_xxx',
+          chatType: 'p2p',
+          chatName: '张三'
+        }
+      }
+    )
+  })
+
   it('passes card metadata into the command handler for history-choice actions', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -2280,6 +2322,52 @@ describe('FeishuBridge', () => {
     )
   })
 
+  it('includes the current proactively bound Feishu session in /status before inbound chat mapping exists', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    bridge._eventClient._connected = true
+    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
+    vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([])
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面主动会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    session.queryGenerator = {}
+
+    await bridge.sendTextToTarget({
+      sessionId: session.id,
+      openId: 'ou_target',
+      displayName: '张三',
+      text: '任务已完成'
+    })
+
+    await bridge._handleCommand('/status', {
+      senderId: 'ou_target',
+      senderName: '张三',
+      chatId: 'oc_reply',
+      chatType: 'p2p',
+      chatName: '张三'
+    })
+
+    expect(sendCardMessage).toHaveBeenCalledWith(
+      'open_id',
+      'ou_target',
+      expect.objectContaining({
+        header: expect.objectContaining({
+          title: expect.objectContaining({
+            content: '当前会话状态'
+          })
+        }),
+        elements: expect.arrayContaining([
+          expect.objectContaining({
+            tag: 'markdown',
+            content: expect.stringContaining('✅')
+          })
+        ])
+      })
+    )
+  })
+
   it('strips trailing mention suffixes from /status in group chats', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -2300,7 +2388,7 @@ describe('FeishuBridge', () => {
       expect.objectContaining({
         header: expect.objectContaining({
           title: expect.objectContaining({
-            content: '系统状态'
+            content: '当前会话状态'
           })
         })
       })
