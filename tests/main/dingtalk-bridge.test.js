@@ -564,6 +564,60 @@ describe('DingTalkBridge', () => {
     )
   })
 
+  it('includes proactively bound notebook sessions in DingTalk resume history before chat metadata is filled', async () => {
+    const { bridge, manager } = createHarness()
+    vi.spyOn(bridge, '_replyToDingTalk').mockResolvedValue()
+    const sendChoiceMenu = vi.spyOn(bridge, '_sendChoiceMenu').mockResolvedValue()
+
+    const created = manager.create({ type: 'chat', source: 'manual', title: 'Notebook 会话' })
+    const session = manager.sessions.get(created.id)
+
+    bridge.bindSessionToTarget(session.id, {
+      staffId: 'staff-1',
+      displayName: '张三'
+    })
+
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'manual',
+            im_channel: 'dingtalk',
+            title: 'Notebook 会话',
+            im_user_id: 'staff-1',
+            im_chat_id: '',
+            staff_id: 'staff-1',
+            conversation_id: '',
+            status: 'idle',
+            updated_at: Date.now()
+          }
+        : null
+    ))
+
+    const result = await bridge._cmdResume([], {
+      mapKey: 'staff-1:conv-1',
+      senderStaffId: 'staff-1',
+      senderNick: '张三',
+      conversationId: 'conv-1',
+      conversationTitle: '测试群',
+      conversationType: '2',
+      robotCode: 'robot-1'
+    }, 'https://example.com/webhook')
+
+    expect(result).toBeNull()
+    expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', 'conv-1', 5)
+    expect(bridge._pendingChoices.get('staff-1:conv-1')?.sessions).toEqual([
+      expect.objectContaining({ session_id: session.id, im_chat_id: '' })
+    ])
+    expect(sendChoiceMenu).toHaveBeenCalledWith(
+      'https://example.com/webhook',
+      [expect.objectContaining({ session_id: session.id, im_chat_id: '' })],
+      null
+    )
+  })
+
   it('clears proactive DingTalk target binding when closing the active mapped session', async () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话' })
@@ -748,6 +802,44 @@ describe('DingTalkBridge', () => {
     expect(text).toContain('钉钉 · 张三')
     expect(text).not.toContain('回复 0 开始全新会话')
     expect(bridge._pendingChoices.size).toBe(0)
+  })
+
+  it('shows proactively bound notebook sessions in DingTalk /status before chat metadata is filled', () => {
+    const { bridge, manager } = createHarness()
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const created = manager.create({ type: 'chat', source: 'manual', title: 'Notebook 会话' })
+    const session = manager.sessions.get(created.id)
+    bridge.bindSessionToTarget(session.id, {
+      staffId: 'staff-1',
+      displayName: '张三'
+    })
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'manual',
+            im_channel: 'dingtalk',
+            title: 'Notebook 会话',
+            im_user_id: 'staff-1',
+            im_chat_id: '',
+            staff_id: 'staff-1',
+            conversation_id: '',
+            status: 'idle',
+            updated_at: Date.now()
+          }
+        : null
+    ))
+
+    const text = bridge._cmdStatus({
+      mapKey: 'staff-1:conv-1',
+      senderStaffId: 'staff-1',
+      conversationId: 'conv-1'
+    })
+
+    expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', 'conv-1', 5)
+    expect(text).toContain('当前会话状态：')
+    expect(text).toContain('Notebook 会话')
   })
 
   it('lists active dingtalk sessions by imChannel in /sessions', () => {

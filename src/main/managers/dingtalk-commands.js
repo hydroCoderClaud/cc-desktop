@@ -46,6 +46,53 @@ function buildDingTalkCommandContext(context = {}, webhook = null) {
   }
 }
 
+function mergeDingTalkHistoryRows(...groups) {
+  const seen = new Set()
+  return groups
+    .flat()
+    .filter((row) => {
+      const sessionId = row?.session_id || row?.sessionId || row?.id || null
+      if (!sessionId || seen.has(sessionId)) return false
+      seen.add(sessionId)
+      return true
+    })
+    .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
+}
+
+function getCurrentBoundHistoryRow(bridge, db, staffId) {
+  const boundSessionId = typeof bridge?._findBoundSessionIdByStaffId === 'function'
+    ? bridge._findBoundSessionIdByStaffId(staffId)
+    : null
+  if (!boundSessionId) return null
+  const row = db?.getAgentConversation?.(boundSessionId)
+  if (
+    row
+    && row.status !== 'closed'
+    && row.im_channel === 'dingtalk'
+    && row.im_user_id === staffId
+    && !row.im_chat_id
+  ) {
+    return row
+  }
+  const liveSession = bridge?.agentSessionManager?.sessions?.get(boundSessionId)
+  if (!liveSession) return null
+  return {
+    session_id: boundSessionId,
+    title: liveSession.title || boundSessionId,
+    cwd: liveSession.cwd || null,
+    api_profile_id: liveSession.apiProfileId || null,
+    updated_at: liveSession.updatedAt ? new Date(liveSession.updatedAt).getTime() : Date.now(),
+    type: liveSession.type,
+    source: liveSession.source,
+    im_channel: 'dingtalk',
+    im_user_id: staffId,
+    im_chat_id: '',
+    staff_id: staffId,
+    conversation_id: '',
+    status: liveSession.status || 'idle'
+  }
+}
+
 module.exports = {
   // ============================================================
   // P0 命令层
@@ -113,9 +160,11 @@ module.exports = {
     const db = this.agentSessionManager.sessionDatabase
     if (!db || !conversationId) return '📭 没有历史会话记录'
     const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
-    let sessions = db.getImSessionsByType
+    const exactSessions = db.getImSessionsByType
       ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
       : db.getDingTalkSessions(senderStaffId, conversationId, limit)
+    const boundHistoryRow = getCurrentBoundHistoryRow(this, db, senderStaffId)
+    let sessions = mergeDingTalkHistoryRows(exactSessions, boundHistoryRow ? [boundHistoryRow] : []).slice(0, limit)
 
     if (currentSessionId) {
       const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
@@ -256,9 +305,11 @@ module.exports = {
     const db = this.agentSessionManager.sessionDatabase
     if (!db || !conversationId) return '📭 没有历史会话记录'
     const limit = this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5
-    let sessions = db.getImSessionsByType
+    const exactSessions = db.getImSessionsByType
       ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
       : db.getDingTalkSessions(senderStaffId, conversationId, limit)
+    const boundHistoryRow = getCurrentBoundHistoryRow(this, db, senderStaffId)
+    let sessions = mergeDingTalkHistoryRows(exactSessions, boundHistoryRow ? [boundHistoryRow] : []).slice(0, limit)
     if (currentSessionId) {
       const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
       const currentRow = db.getAgentConversation?.(currentSessionId)
