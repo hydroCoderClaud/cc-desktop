@@ -35,6 +35,17 @@ describe('embedded app registry wiring', () => {
     expect(source).toContain('webviewTag: true')
   })
 
+  it('reuses an existing embedded app window for the same menu key', () => {
+    const source = fs.readFileSync(ipcHandlersPath, 'utf-8')
+
+    expect(source).toContain('const embeddedAppWindows = new Map()')
+    expect(source).toContain('const existingWindow = embeddedAppWindows.get(menuKey)')
+    expect(source).toContain('return { success: true, reused: true };')
+    expect(source).toContain('embeddedAppWindows.set(menuKey, window)')
+    expect(source).toContain("window.once('closed', () => {")
+    expect(source).toContain('embeddedAppWindows.delete(menuKey)')
+  })
+
   it('defines main-process labels for the remaining embedded app', () => {
     delete require.cache[appI18nPath]
     const { tMain } = require(appI18nPath)

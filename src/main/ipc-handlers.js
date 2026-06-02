@@ -123,6 +123,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const getModeTitle = () => translate('app.windows.main')
 
   const trustedWeixinWebContents = new Set()
+  const embeddedAppWindows = new Map()
   const registerTrustedWeixinWindow = (window) => {
     const webContents = window?.webContents
     if (!webContents) return
@@ -214,6 +215,22 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 窗口管理
   // ========================================
 
+  const focusEmbeddedAppWindow = (window, startMaximized = false) => {
+    if (!window || window.isDestroyed()) {
+      return false
+    }
+
+    if (window.isMinimized()) {
+      window.restore()
+    }
+    if (startMaximized && !window.isMaximized()) {
+      window.maximize()
+    }
+    window.show()
+    window.focus()
+    return true
+  }
+
   const openEmbeddedAppWindow = (menuKey) => {
     const app = typeof getEmbeddedAppByMenuKey === 'function'
       ? getEmbeddedAppByMenuKey(menuKey)
@@ -223,13 +240,24 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       return { success: false, error: `Unknown embedded app: ${menuKey}` };
     }
 
-    createSubWindow({
+    const existingWindow = embeddedAppWindows.get(menuKey)
+    if (focusEmbeddedAppWindow(existingWindow, true)) {
+      return { success: true, reused: true };
+    }
+
+    const window = createSubWindow({
       width: app.window?.width || 1200,
       height: app.window?.height || 800,
       title: translate(app.titleKey || app.labelKey || app.id),
       page: app.page,
       startMaximized: true
     });
+    embeddedAppWindows.set(menuKey, window)
+    window.once('closed', () => {
+      if (embeddedAppWindows.get(menuKey) === window) {
+        embeddedAppWindows.delete(menuKey)
+      }
+    })
     return { success: true };
   };
 
