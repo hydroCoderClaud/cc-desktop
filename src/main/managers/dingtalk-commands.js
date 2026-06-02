@@ -64,7 +64,6 @@ function getCurrentBoundHistoryRow(bridge, db, staffId) {
     && row.status !== 'closed'
     && row.im_channel === 'dingtalk'
     && row.im_user_id === staffId
-    && !row.im_chat_id
   ) {
     return row
   }
