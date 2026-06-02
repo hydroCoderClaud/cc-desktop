@@ -8,17 +8,11 @@
 const fs = require('fs')
 const path = require('path')
 const {
-  buildSharedSessionsText,
-  resolveCloseCommand,
   resolveRenameCommand,
   dispatchImCommand,
 } = require('./im-command-executor')
 const { activateNewSession, resolveResumeSelection } = require('./im-session-command-flow')
 const { buildHistoryChoiceMenuText } = require('./im-command-presenter')
-const {
-  listChatSessions,
-  createActivatedSessionMatcher,
-} = require('./im-session-selectors')
 const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
@@ -122,7 +116,6 @@ module.exports = {
       handlers: {
         help: () => this._cmdHelp(commandContext),
         status: () => this._cmdStatus(commandContext),
-        sessions: () => this._cmdSessions(commandContext),
         close: ({ args }) => this._cmdClose(args, context),
         new: ({ args }) => this._cmdNew(args, context, webhook),
         resume: ({ args }) => this._cmdResume(args, context, webhook),
@@ -271,33 +264,6 @@ module.exports = {
     return `✅ ${buildRenameSuccessText(renameDecision.newTitle)}`
   },
 
-  /**
-   * 获取当前钉钉对话的激活会话列表
-   * @param {string} [conversationId] - 钉钉 conversationId，为空时返回所有钉钉激活会话
-   * @returns {Object[]} 匹配的激活会话数组
-   */
-  _getActiveSessionsByConversation(conversationId) {
-    const db = this.agentSessionManager.sessionDatabase
-    const includeSession = createActivatedSessionMatcher({
-      imType: 'dingtalk',
-      getImChannel: (session) => session?.imChannel,
-      getChatId: (session) => {
-        const row = db?.getAgentConversation?.(session?.id)
-        return session?.meta?.conversationId
-          || (row?.im_channel === 'dingtalk' ? row?.im_chat_id : '')
-          || ''
-      },
-      isActivated: (session) => !!session?.queryGenerator,
-    })
-    return listChatSessions({
-      sessions: this.agentSessionManager.sessions.values(),
-      chatId: conversationId,
-      includeSession,
-      // DingTalk historically kept insertion order; preserve that for menu numbering stability.
-      sortSessions: (sessions) => [...sessions],
-    })
-  },
-
   _cmdStatus(context) {
     const { mapKey, senderStaffId, conversationId } = context || {}
     const currentSessionId = mapKey ? this._resolveActiveSessionId(mapKey) : null
@@ -353,63 +319,28 @@ module.exports = {
     })
   },
 
-  _cmdSessions(context) {
-    console.log('[DingTalk] _cmdSessions called, context:', context)
-    const activeSessions = this._getActiveSessionsByConversation(context?.conversationId)
-
-    console.log('[DingTalk] _cmdSessions: activeSessions count:', activeSessions.length)
-    if (activeSessions.length === 0) {
-      console.log('[DingTalk] _cmdSessions: returning "暂无活跃会话"')
-      return '📭 暂无活跃会话'
-    }
-
-    // 获取当前会话 ID
-    const currentSessionId = context?.mapKey ? this._resolveActiveSessionId(context.mapKey) : null
-    return buildSharedSessionsText({
-      activeSessions,
-      currentSessionId,
-      getDirName: (cwd) => path.basename(cwd),
-      getProfileName: (profileId) => profileId
-        ? (this.configManager?.getAPIProfile(profileId)?.name || '未知配置')
-        : '默认配置',
-    })
-  },
-
   async _cmdClose(args, context) {
-    const { mapKey, conversationId } = context
-    const activeSessions = this._getActiveSessionsByConversation(conversationId)
-    const closeDecision = resolveCloseCommand({
-      args,
-      activeSessions,
-      currentSessionId: this._resolveActiveSessionId(mapKey),
-      getSessionById: (sessionId) => this.agentSessionManager.sessions.get(sessionId) || null,
-    })
-
-    if (closeDecision.action === 'invalid_index') {
-      return `❌ 编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
-    }
-    if (closeDecision.action === 'missing_current') {
+    const { mapKey } = context
+    const currentSessionId = this._resolveActiveSessionId(mapKey)
+    if (!currentSessionId) {
       return '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话'
     }
-    if (closeDecision.action === 'streaming') {
-      return closeDecision.targetedByIndex
-        ? '⏳ 该会话 AI 正在响应中，请等待完成后再关闭'
-        : '⏳ AI 正在响应中，请等待完成后再关闭'
+
+    const currentSession = this.agentSessionManager.sessions.get(currentSessionId) || null
+    if (currentSession?.status === 'streaming') {
+      return '⏳ AI 正在响应中，请等待完成后再关闭'
     }
 
-    await this.agentSessionManager.close(closeDecision.targetSessionId)
+    await this.agentSessionManager.close(currentSessionId)
 
     for (const [key, sid] of this.sessionMap.entries()) {
-      if (sid !== closeDecision.targetSessionId) continue
-      this._clearSessionState(closeDecision.targetSessionId, key, { clearTargetBinding: true })
+      if (sid !== currentSessionId) continue
+      this._clearSessionState(currentSessionId, key, { clearTargetBinding: true })
       this._clearPendingChoice(key)
-      if (!args.length && key === mapKey) break
+      if (key === mapKey) break
     }
-    this._notifyFrontend('dingtalk:sessionClosed', { sessionId: closeDecision.targetSessionId })
-
-    const sessionsList = await this._cmdSessions(buildDingTalkCommandContext(context, context?.sessionWebhook))
-    const closeMsg = `✅ ${closeDecision.closeText}`
-    return sessionsList ? `${closeMsg}\n\n${sessionsList}` : closeMsg
+    this._notifyFrontend('dingtalk:sessionClosed', { sessionId: currentSessionId })
+    return '✅ 会话已关闭'
   },
 
   async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, robotCode, conversationType }, webhook) {

@@ -130,10 +130,10 @@ function buildHistoryChoiceCard({
           type: 'default',
           text: {
             tag: 'plain_text',
-            content: '查看活跃会话'
+            content: '查看状态'
           },
           value: {
-            intent: 'sessions'
+            intent: 'status'
           }
         }
       ]
@@ -159,8 +159,8 @@ function buildHistoryChoiceCard({
     elements.push({
       tag: 'action',
       actions: [
-        buildCommandButton('活跃会话', { intent: 'sessions' }, 'primary'),
-        buildCommandButton('新建会话', { intent: 'new', ...(actionContext || {}) }),
+        buildCommandButton('新建会话', { intent: 'new', ...(actionContext || {}) }, 'primary'),
+        buildCommandButton('查看状态', { intent: 'status' }),
         buildCommandButton('查看帮助', { intent: 'help' })
       ]
     })
@@ -190,84 +190,6 @@ function buildHistoryChoiceCard({
   }
 }
 
-function buildSessionsCard({
-  activeSessions,
-  currentSessionId = null,
-  title = '活跃会话',
-  summary = null,
-  context = null,
-  maxSessions = 10,
-  getDirName,
-  getProfileName,
-  normalizeDisplayName = null,
-}) {
-  const displaySessions = activeSessions.slice(0, maxSessions)
-  const elements = []
-
-  if (summary) {
-    elements.push({
-      tag: 'markdown',
-      content: summary
-    })
-  }
-
-  elements.push(
-    {
-      tag: 'markdown',
-      content: displaySessions.map((session, index) => {
-        const dir = session.cwd ? getDirName(session.cwd) : '-'
-        const profileName = getProfileName(session.apiProfileId)
-        const marker = session.id === currentSessionId ? '✅' : '🔵'
-        return `${index + 1}. ${marker} ${session.title || session.id.substring(0, 8)} (${dir}) ${profileName}`
-      }).join('\n')
-        + '\n\n使用 /close 关闭当前会话'
-        + '\n使用 /close [编号] 关闭指定会话，编号以 /sessions 列表为准'
-    },
-    {
-      tag: 'action',
-      actions: [
-        buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }, 'primary'),
-        buildCommandButton('查看状态', { intent: 'status' }),
-        buildCommandButton('查看帮助', { intent: 'help' })
-      ]
-    }
-  )
-
-  const closeActions = displaySessions.map((session, index) => buildCommandButton(
-    `关闭 ${index + 1}`,
-    {
-      intent: 'close',
-      index: index + 1,
-      title: session.title || ''
-    },
-    session.id === currentSessionId ? 'primary' : 'default'
-  ))
-  elements.splice(summary ? 2 : 1, 0, ...chunkCardActions(closeActions))
-
-  if (activeSessions.length > displaySessions.length) {
-    elements.splice(summary ? 2 : 1, 0, {
-      tag: 'note',
-      elements: [
-        {
-          tag: 'plain_text',
-          content: `仅显示最近 ${displaySessions.length} 条，共 ${activeSessions.length} 条`
-        }
-      ]
-    })
-  }
-
-  return {
-    config: { wide_screen_mode: true },
-      header: {
-        title: {
-          tag: 'plain_text',
-          content: title
-        }
-      },
-      elements
-  }
-}
-
 function buildHelpCard({ summary, context = null, normalizeDisplayName = null }) {
   return buildResultCard({
     title: '飞书命令帮助',
@@ -276,7 +198,6 @@ function buildHelpCard({ summary, context = null, normalizeDisplayName = null })
     normalizeDisplayName,
     actions: [
       buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }, 'primary'),
-      buildCommandButton('活跃会话', { intent: 'sessions' }),
       buildCommandButton('查看状态', { intent: 'status' }),
       buildCommandButton('恢复历史会话', { command: 'resume' })
     ]
@@ -290,8 +211,8 @@ function buildStatusCard({ summary, context = null, normalizeDisplayName = null 
     context,
     normalizeDisplayName,
     actions: [
-      buildCommandButton('活跃会话', { intent: 'sessions' }, 'primary'),
-      buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }),
+      buildCommandButton('新建会话', { intent: 'new', ...(context || {}) }, 'primary'),
+      buildCommandButton('恢复历史会话', { command: 'resume' }),
       buildCommandButton('查看帮助', { intent: 'help' })
     ]
   })
@@ -299,7 +220,6 @@ function buildStatusCard({ summary, context = null, normalizeDisplayName = null 
 
 module.exports = {
   buildHistoryChoiceCard,
-  buildSessionsCard,
   buildHelpCard,
   buildStatusCard,
   buildResultCard,

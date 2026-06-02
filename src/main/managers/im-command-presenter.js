@@ -51,7 +51,7 @@ function buildActiveSessionsText({
     const profileName = getProfileName(session.apiProfileId)
     lines.push(`${index + 1}. ${marker}${session.title || session.id.substring(0, 8)} (${dir}) ${profileName}`)
   })
-  lines.push('', '使用 /close 关闭当前会话', '使用 /close [编号] 关闭指定会话，编号以 /sessions 列表为准')
+  lines.push('', '使用 /close 关闭当前会话')
   return lines.join('\n')
 }
 

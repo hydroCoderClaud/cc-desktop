@@ -4,7 +4,7 @@
  * 第一批目标：
  * - 文本消息接入
  * - 历史会话选择闭环
- * - /help /status /sessions /new
+ * - /help /status /new
  * - 基础流式回复
  * - 桌面端介入文本回传
  *
@@ -22,19 +22,14 @@ const { ImFrontendNotifier } = require('./im-frontend-notifier')
 const { ImReplyCollector } = require('./im-reply-collector')
 const { ImSessionMapper } = require('./im-session-mapper')
 const {
-  listChatSessions,
-  createActivatedSessionMatcher,
   isMappedCurrentSession,
   deleteSessionMappingsByPrefix,
   clearSessionMappingsForSession,
 } = require('./im-session-selectors')
 const {
   buildHistoryChoiceMenuText,
-  buildActiveSessionsText,
 } = require('./im-command-presenter')
 const {
-  buildSharedSessionsText,
-  resolveCloseCommand,
   resolveRenameCommand,
   dispatchImCommand,
 } = require('./im-command-executor')
@@ -719,40 +714,25 @@ class EnterpriseWeixinBridge {
             : buildNoHistoryText()
           await this._sendTextReply(context.frame, statusText)
         },
-        sessions: async () => {
-          await this._sendTextReply(context.frame, this._buildSessionsMenuText(chatId, sessionId))
-        },
-        close: async ({ args }) => {
-          const closeDecision = resolveCloseCommand({
-            args,
-            activeSessions: this._getActiveSessionsByChat(chatId),
-            currentSessionId: sessionId,
-            getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
-          })
-          if (closeDecision.action === 'invalid_index') {
-            await this._sendTextReply(
-              context.frame,
-              `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`
-            )
-            return
-          }
-          if (closeDecision.action === 'missing_current') {
+        close: async () => {
+          if (!sessionId) {
             await this._sendTextReply(context.frame, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
             return
           }
-          if (closeDecision.action === 'streaming') {
+          const sessionToClose = this._agentSessionManager.sessions.get(sessionId) || null
+          if (sessionToClose?.status === 'streaming') {
             await this._sendTextReply(context.frame, 'AI 正在响应中，请等待完成后再关闭')
             return
           }
 
-          await this._agentSessionManager.close(closeDecision.targetSessionId)
-          this._clearSessionIdentity(closeDecision.targetSessionId)
+          await this._agentSessionManager.close(sessionId)
+          this._clearSessionIdentity(sessionId)
           if ((context.chatType || '').toLowerCase() === 'single') {
             this._proactiveRebindSuppressedKeys.add(mapKey)
           }
-          this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
+          this._notifier.notifySessionClosed({ sessionId })
 
-          await this._sendTextReply(context.frame, closeDecision.closeText)
+          await this._sendTextReply(context.frame, '会话已关闭')
         },
         new: async ({ args }) => {
           if (currentSession?.status === 'streaming') {
@@ -1000,25 +980,6 @@ class EnterpriseWeixinBridge {
     return null
   }
 
-  _getActiveSessionsByChat(chatId) {
-    const chatKey = String(chatId || '').trim()
-    for (const session of this._agentSessionManager.sessions.values()) {
-      if (session?.imChannel !== this._imType) continue
-      this._restoreSessionIdentityFromDatabase(session.id)
-    }
-    const includeSession = createActivatedSessionMatcher({
-      imType: this._imType,
-      getImChannel: (session) => session?.imChannel,
-      getChatId: (session) => this._sessionIdentities.get(session?.id)?.chatId || '',
-      isActivated: (session) => !!session?.queryGenerator,
-    })
-    return listChatSessions({
-      sessions: this._agentSessionManager.sessions.values(),
-      chatId: chatKey,
-      includeSession,
-    })
-  }
-
   _restoreSessionIdentityFromDatabase(sessionId) {
     if (!sessionId || this._sessionIdentities.has(sessionId)) return this._sessionIdentities.get(sessionId) || null
 
@@ -1047,16 +1008,6 @@ class EnterpriseWeixinBridge {
       title: '企业微信可用命令：',
       includeDirectoryArg: true,
       includeHistoryHint: true,
-    })
-  }
-
-  _buildSessionsMenuText(chatId, currentSessionId) {
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    return buildSharedSessionsText({
-      activeSessions,
-      currentSessionId,
-      getDirName: (cwd) => this._getDirName(cwd),
-      getProfileName: (profileId) => this._getProfileName(profileId),
     })
   }
 

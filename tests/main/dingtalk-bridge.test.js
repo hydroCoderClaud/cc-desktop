@@ -842,29 +842,4 @@ describe('DingTalkBridge', () => {
     expect(text).toContain('Notebook 会话')
   })
 
-  it('lists active dingtalk sessions by imChannel in /sessions', () => {
-    const { bridge, manager } = createHarness()
-    const created = manager.create({
-      type: 'chat',
-      source: 'im-inbound',
-      imChannel: 'dingtalk',
-      title: '钉钉 · 李四',
-      cwdSubDir: 'dingtalk',
-      meta: { conversationId: 'conv-2' }
-    })
-    const session = manager.sessions.get(created.id)
-    session.queryGenerator = {}
-    session.status = 'idle'
-    bridge.sessionMap.set('staff-2:conv-2', session.id)
-
-    const text = bridge._cmdSessions({
-      mapKey: 'staff-2:conv-2',
-      conversationId: 'conv-2'
-    })
-
-    expect(text).not.toContain('暂无活跃会话')
-    expect(text).toContain('钉钉 · 李四')
-    expect(text).toContain('使用 /close 关闭当前会话')
-    expect(text).toContain('使用 /close [编号] 关闭指定会话，编号以 /sessions 列表为准')
-  })
 })

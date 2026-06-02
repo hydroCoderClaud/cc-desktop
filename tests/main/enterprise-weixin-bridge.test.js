@@ -275,7 +275,7 @@ describe('EnterpriseWeixinBridge', () => {
         content: expect.stringContaining('/help'),
       },
     })
-    expect(replies.at(-1).markdown.content).toContain('/close [编号] - 关闭当前会话或指定会话（编号以 /sessions 为准）')
+    expect(replies.at(-1).markdown.content).toContain('/close   - 关闭当前会话')
   })
 
   it('reports enterprise weixin historical session state with /status', async () => {
@@ -340,116 +340,6 @@ describe('EnterpriseWeixinBridge', () => {
     expect(statusText).not.toContain('其他聊天会话')
     expect(statusText).not.toContain('回复 0 开始全新会话')
   })
-
-  it('lists active chat sessions for /sessions', async () => {
-    const { bridge, manager, replies } = createHarness()
-    const first = manager.create({ type: 'chat', source: 'manual', title: '会话 A' })
-    const second = manager.create({ type: 'chat', source: 'manual', title: '会话 B' })
-    manager.sessions.get(first.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(second.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(first.id).queryGenerator = {}
-    manager.sessions.get(second.id).queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', first.id)
-    bridge._sessionIdentities.set(first.id, {
-      userId: 'user-a',
-      senderId: 'user-a',
-      senderName: '雷斯林',
-      chatId: 'user-a',
-      chatType: 'single',
-      chatName: '雷斯林',
-    })
-    bridge._sessionIdentities.set(second.id, {
-      userId: 'user-a',
-      senderId: 'user-a',
-      senderName: '雷斯林',
-      chatId: 'user-a',
-      chatType: 'single',
-      chatName: '雷斯林',
-    })
-
-    await bridge._handleMessage(inboundFrame({
-      text: { content: '/sessions' },
-    }))
-
-    expect(replies.at(-1).markdown.content).toContain('活跃会话')
-    expect(replies.at(-1).markdown.content).toContain('会话 A')
-    expect(replies.at(-1).markdown.content).toContain('会话 B')
-    expect(replies.at(-1).markdown.content).toContain('使用 /close [编号] 关闭指定会话，编号以 /sessions 列表为准')
-  })
-
-  it('includes a reopened bound session for the same chat in /sessions even when identity was not restored yet', async () => {
-    const { bridge, manager, replies } = createHarness()
-    const current = manager.create({ type: 'chat', source: 'manual', title: '当前绑定会话' })
-    const reopened = manager.create({ type: 'chat', source: 'manual', title: '历史激活会话' })
-    manager.sessions.get(current.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(reopened.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(current.id).queryGenerator = {}
-    manager.sessions.get(reopened.id).queryGenerator = {}
-
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
-    bridge._sessionIdentities.set(current.id, {
-      userId: 'user-a',
-      senderId: 'user-a',
-      senderName: '雷斯林',
-      chatId: 'user-a',
-      chatType: 'single',
-      chatName: '雷斯林',
-    })
-
-    bridge._sessionTargets.set(reopened.id, {
-      userId: 'user-a',
-      displayName: '雷斯林',
-    })
-    manager.sessionDatabase.updateAgentConversation(reopened.id, {
-      imChannel: 'enterprise-weixin',
-      staffId: 'user-a',
-      conversationId: 'user-a',
-    })
-
-    bridge._sessionIdentities.delete(reopened.id)
-
-    await bridge._handleMessage(inboundFrame({
-      text: { content: '/sessions' },
-    }))
-
-    expect(replies.at(-1).markdown.content).toContain('当前绑定会话')
-    expect(replies.at(-1).markdown.content).toContain('历史激活会话')
-  })
-
-  it('does not include non-activated enterprise weixin sessions in /sessions', async () => {
-    const { bridge, manager, replies } = createHarness()
-    const activated = manager.create({ type: 'chat', source: 'manual', title: '已激活会话' })
-    const liveOnly = manager.create({ type: 'chat', source: 'manual', title: '仅存活会话' })
-    manager.sessions.get(activated.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(liveOnly.id).imChannel = 'enterprise-weixin'
-    manager.sessions.get(activated.id).queryGenerator = {}
-
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', activated.id)
-    bridge._sessionIdentities.set(activated.id, {
-      userId: 'user-a',
-      senderId: 'user-a',
-      senderName: '雷斯林',
-      chatId: 'user-a',
-      chatType: 'single',
-      chatName: '雷斯林',
-    })
-    bridge._sessionIdentities.set(liveOnly.id, {
-      userId: 'user-a',
-      senderId: 'user-a',
-      senderName: '雷斯林',
-      chatId: 'user-a',
-      chatType: 'single',
-      chatName: '雷斯林',
-    })
-
-    await bridge._handleMessage(inboundFrame({
-      text: { content: '/sessions' },
-    }))
-
-    expect(replies.at(-1).markdown.content).toContain('已激活会话')
-    expect(replies.at(-1).markdown.content).not.toContain('仅存活会话')
-  })
-
 
   it('closes the current session for /close', async () => {
     const { bridge, manager, replies, sent } = createHarness()

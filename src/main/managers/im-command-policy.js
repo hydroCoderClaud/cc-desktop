@@ -11,8 +11,7 @@ function buildImCommandHelpText({
     title,
     '/help    - 显示帮助',
     '/status  - 查看历史会话状态',
-    '/sessions - 查看当前聊天下的活跃会话',
-    '/close [编号] - 关闭当前会话或指定会话（编号以 /sessions 为准）',
+    '/close   - 关闭当前会话',
     includeDirectoryArg
       ? '/new [目录] - 创建新会话（可选：目录名或绝对路径）'
       : '/new     - 新建会话',

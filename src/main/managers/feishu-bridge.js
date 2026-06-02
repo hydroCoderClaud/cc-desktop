@@ -15,19 +15,14 @@ const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
 const {
-  listChatSessions,
-  createActivatedSessionMatcher,
   isMappedCurrentSession,
   clearExactSessionMapping,
   clearSessionMappingsForSession,
 } = require('./im-session-selectors')
 const {
   buildHistoryChoiceMenuText,
-  buildActiveSessionsText,
 } = require('./im-command-presenter')
 const {
-  buildSharedSessionsText,
-  resolveCloseCommand,
   resolveRenameCommand,
   dispatchImCommand,
 } = require('./im-command-executor')
@@ -53,7 +48,6 @@ const {
 } = require('./im-session-decision')
 const {
   buildHistoryChoiceCard,
-  buildSessionsCard,
   buildHelpCard,
   buildStatusCard,
   buildResultCard,
@@ -690,43 +684,26 @@ class FeishuBridge {
             context,
           })
         },
-        sessions: async () => {
-          await this._sendSessionsMenu(receiveIdType, receiveId, {
-            sessionId,
-            chatId: context.chatId,
-          })
-        },
-        close: async ({ args }) => {
-          const closeDecision = resolveCloseCommand({
-            args,
-            activeSessions: this._getActiveSessionsByChat(context.chatId),
-            currentSessionId: sessionId,
-            getSessionById: (targetSessionId) => this._agentSessionManager.sessions.get(targetSessionId) || null,
-          })
-          if (closeDecision.action === 'invalid_index') {
-            await this._api.sendTextMessage(receiveIdType, receiveId, `编号错误：请输入 1-${closeDecision.max} 之间的数字\n\n使用 /sessions 查看会话列表`)
-            return
-          }
-          if (closeDecision.action === 'missing_current') {
+        close: async () => {
+          if (!sessionId) {
             await this._api.sendTextMessage(receiveIdType, receiveId, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
             return
           }
-          if (closeDecision.action === 'streaming') {
+          const currentSession = this._agentSessionManager.sessions.get(sessionId) || null
+          if (currentSession?.status === 'streaming') {
             await this._api.sendTextMessage(receiveIdType, receiveId, 'AI 正在响应中，请等待完成后再关闭')
             return
           }
-          await this._agentSessionManager.close(closeDecision.targetSessionId)
-          this._clearSessionIdentity(closeDecision.targetSessionId)
+          await this._agentSessionManager.close(sessionId)
+          this._clearSessionIdentity(sessionId)
           if ((context.chatType || '').toLowerCase() === 'p2p') {
             this._proactiveRebindSuppressedKeys.add(mapKey)
           }
-          this._notifier.notifySessionClosed({ sessionId: closeDecision.targetSessionId })
+          this._notifier.notifySessionClosed({ sessionId })
           sessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
           await this._sendCloseResult(receiveIdType, receiveId, {
-            sessionId,
-            highlightSessionId: sessionId || null,
-            chatId: context.chatId,
-            closeText: closeDecision.closeText,
+            closeText: '会话已关闭',
+            context,
           })
         },
         new: async ({ args, command }) => {
@@ -1666,48 +1643,6 @@ class FeishuBridge {
     })
   }
 
-  _getActiveSessionsByChat(chatId) {
-    const includeSession = createActivatedSessionMatcher({
-      imType: 'feishu',
-      getImChannel: (session) => session?.imChannel,
-      getChatId: (session) => this._sessionIdentities.get(session?.id)?.chatId || this._sessionDatabase?.getAgentConversation?.(session?.id)?.conversation_id || '',
-      isActivated: (session) => !!session?.queryGenerator,
-    })
-    return listChatSessions({
-      sessions: this._agentSessionManager.sessions.values(),
-      chatId,
-      includeSession,
-    })
-  }
-
-  _buildActiveSessionsText({ sessionId, chatId }) {
-    return buildSharedSessionsText({
-      activeSessions: this._getActiveSessionsByChat(chatId),
-      currentSessionId: sessionId,
-      getDirName: (rawPath) => this._basename(rawPath),
-      getProfileName: (profileId) => profileId
-        ? (this._config?.getAPIProfile?.(profileId)?.name || '未知配置')
-        : '默认配置',
-    })
-  }
-
-  async _sendSessionsMenu(receiveIdType, receiveId, { sessionId, chatId, context = null }) {
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    const text = this._buildActiveSessionsText({ sessionId, chatId })
-    if (activeSessions.length === 0) {
-      await this._api.sendTextMessage(receiveIdType, receiveId, text)
-      return
-    }
-
-    const card = this._buildSessionsCard(activeSessions, sessionId, { context })
-    try {
-      await this._api.sendCardMessage(receiveIdType, receiveId, card)
-    } catch (err) {
-      console.error('[FeishuBridge] Send sessions card failed:', err.message)
-      await this._api.sendTextMessage(receiveIdType, receiveId, text)
-    }
-  }
-
   async _sendHelpMenu(receiveIdType, receiveId, context = null) {
     const text = this._getHelpText()
     try {
@@ -1759,32 +1694,16 @@ class FeishuBridge {
     }
   }
 
-  async _sendCloseResult(receiveIdType, receiveId, { sessionId, highlightSessionId = null, chatId, closeText, context = null }) {
-    const activeSessions = this._getActiveSessionsByChat(chatId)
-    const fallbackText = `${closeText}\n\n${this._buildActiveSessionsText({ sessionId, chatId })}`
-
+  async _sendCloseResult(receiveIdType, receiveId, { closeText, context = null }) {
     try {
-      if (activeSessions.length > 0) {
-        await this._api.sendCardMessage(
-          receiveIdType,
-          receiveId,
-          this._buildSessionsCard(activeSessions, highlightSessionId, {
-            title: '会话已关闭',
-            summary: closeText,
-            context
-          })
-        )
-        return
-      }
-
       await this._api.sendCardMessage(
         receiveIdType,
         receiveId,
-          this._buildResultCard({
-            title: '会话已关闭',
-            summary: `${closeText}\n\n暂无活跃会话`,
-            context,
-            actions: [
+        this._buildResultCard({
+          title: '会话已关闭',
+          summary: closeText,
+          context,
+          actions: [
             this._buildCommandButton('新建会话', { intent: 'new' }, 'primary'),
             this._buildCommandButton('查看状态', { intent: 'status' }),
             this._buildCommandButton('查看帮助', { intent: 'help' })
@@ -1793,7 +1712,7 @@ class FeishuBridge {
       )
     } catch (err) {
       console.error('[FeishuBridge] Send close result card failed:', err.message)
-      await this._api.sendTextMessage(receiveIdType, receiveId, fallbackText)
+      await this._api.sendTextMessage(receiveIdType, receiveId, closeText)
     }
   }
 
@@ -1856,22 +1775,6 @@ class FeishuBridge {
         ? (this._config?.getAPIProfile?.(profileId)?.name || '未知配置')
         : '默认配置',
       isSessionActivated: (sessionId) => !!this._agentSessionManager.sessions.get(sessionId)?.queryGenerator,
-      normalizeDisplayName: (value, fallbackId) => this._normalizeFeishuDisplayName(value, fallbackId),
-    })
-  }
-
-  _buildSessionsCard(activeSessions, currentSessionId = null, options = {}) {
-    return buildSessionsCard({
-      activeSessions,
-      currentSessionId,
-      title: options.title || '活跃会话',
-      summary: options.summary || null,
-      context: options.context || null,
-      maxSessions: FEISHU_CARD_SESSION_LIMIT,
-      getDirName: (rawPath) => this._basename(rawPath),
-      getProfileName: (profileId) => profileId
-        ? (this._config?.getAPIProfile?.(profileId)?.name || '未知配置')
-        : '默认配置',
       normalizeDisplayName: (value, fallbackId) => this._normalizeFeishuDisplayName(value, fallbackId),
     })
   }
@@ -2005,10 +1908,9 @@ class FeishuBridge {
         const index = value.index ?? value.sessionIndex ?? value.choice
         const title = typeof value.title === 'string' ? value.title.trim() : ''
         if (intent === 'resume' && index != null) return `/resume ${index}`
-        if (intent === 'close' && index != null) return `/close ${index}`
+        if (intent === 'close') return '/close'
         if (intent === 'rename' && title) return `/rename ${title}`
         if (intent === 'new') return '/new'
-        if (intent === 'sessions') return '/sessions'
         if (intent === 'status') return '/status'
         if (intent === 'help') return '/help'
         break

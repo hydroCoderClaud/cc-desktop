@@ -796,13 +796,13 @@ describe('FeishuBridge', () => {
 
     await bridge._handleCardAction({
       actionType: 'button',
-      actionValue: { command: 'sessions' },
+      actionValue: { command: 'status' },
       userId: 'ou_xxx',
       chatId: 'oc_xxx'
     })
 
-    expect(commandSpy).toHaveBeenCalledWith('/sessions', expect.any(Object), {
-      cardValue: { command: 'sessions' }
+    expect(commandSpy).toHaveBeenCalledWith('/status', expect.any(Object), {
+      cardValue: { command: 'status' }
     })
   })
 
@@ -1385,80 +1385,6 @@ describe('FeishuBridge', () => {
       'ou_target',
       expect.stringContaining('桌面介入> 新会话应回发')
     )
-  })
-
-  it('lists active sessions for the current Feishu chat', async () => {
-    const { configManager, manager, mainWindow } = createManager()
-    const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
-
-    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '当前飞书会话', cwd: tempDir })
-    const session = manager.sessions.get(created.id)
-    session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
-    bridge._sessionIdentities.set(session.id, {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    await bridge._handleCommand('/sessions', {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    expect(sendCardMessage).toHaveBeenCalledWith(
-      'open_id',
-      'ou_xxx',
-      expect.objectContaining({
-        header: expect.objectContaining({
-          title: expect.objectContaining({
-            content: '活跃会话'
-          })
-        })
-      })
-    )
-    const sessionsPayload = sendCardMessage.mock.calls.at(-1)?.[2]
-    expect(JSON.stringify(sessionsPayload)).toContain('使用 /close [编号] 关闭指定会话，编号以 /sessions 列表为准')
-  })
-
-  it('lists active sessions for the current group chat from card actions', async () => {
-    const { configManager, manager, mainWindow } = createManager()
-    const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
-
-    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '群聊会话', cwd: tempDir })
-    const session = manager.sessions.get(created.id)
-    session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_group:oc_group', session.id)
-    bridge._sessionIdentities.set(session.id, {
-      senderId: 'ou_group',
-      chatId: 'oc_old',
-      chatType: 'p2p'
-    })
-
-    await bridge._handleCardAction({
-      actionType: 'button',
-      actionValue: { command: 'sessions' },
-      userId: 'ou_group',
-      chatId: 'oc_group',
-      chatType: 'chat'
-    })
-
-    expect(sendCardMessage).toHaveBeenCalledWith(
-      'chat_id',
-      'oc_group',
-      expect.objectContaining({
-        header: expect.objectContaining({
-          title: expect.objectContaining({
-            content: '活跃会话'
-          })
-        })
-      })
-    )
-    const helpPayload = sendCardMessage.mock.calls.at(-1)?.[2]
-    expect(JSON.stringify(helpPayload)).toContain('/close [编号] - 关闭当前会话或指定会话（编号以 /sessions 为准）')
   })
 
   it('renames the active Feishu session', async () => {
@@ -2884,64 +2810,6 @@ describe('FeishuBridge', () => {
     )
   })
 
-  it('falls back to text when sending the sessions card fails', async () => {
-    const { configManager, manager, mainWindow } = createManager()
-    const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
-    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
-
-    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '当前飞书会话', cwd: tempDir })
-    const session = manager.sessions.get(created.id)
-    session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
-    bridge._sessionIdentities.set(session.id, {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    await bridge._handleCommand('/sessions', {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    expect(sendTextMessage).toHaveBeenCalledWith(
-      'open_id',
-      'ou_xxx',
-      expect.stringContaining('当前飞书会话')
-    )
-  })
-
-  it('includes chat sessions bound by Feishu source in /sessions', async () => {
-    const { configManager, manager, mainWindow } = createManager()
-    const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
-    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
-
-    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '普通会话已绑定飞书', cwd: tempDir })
-    const session = manager.sessions.get(created.id)
-    session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
-    bridge._sessionIdentities.set(session.id, {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    await bridge._handleCommand('/sessions', {
-      senderId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'p2p'
-    })
-
-    expect(sendTextMessage).toHaveBeenCalledWith(
-      'open_id',
-      'ou_xxx',
-      expect.stringContaining('普通会话已绑定飞书')
-    )
-  })
-
   it('falls back to text when sending the help card fails', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
@@ -3588,7 +3456,7 @@ describe('FeishuBridge', () => {
     expect(menu).toContain('回复 0 开始全新会话')
   })
 
-  it('builds Feishu history and sessions cards with up to ten session actions', () => {
+  it('builds Feishu history cards with up to ten session actions', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sessions = Array.from({ length: 10 }, (_, index) => ({
@@ -3603,47 +3471,6 @@ describe('FeishuBridge', () => {
 
     expect(historyActionRows[0].actions).toHaveLength(5)
     expect(historyActionRows[1].actions).toHaveLength(5)
-
-    const activeSessions = sessions.map((session, index) => ({
-      id: session.id,
-      title: session.title,
-      cwd: tempDir,
-      type: 'feishu',
-      queryGenerator: {},
-      apiProfileId: null
-    }))
-    const sessionsCard = bridge._buildSessionsCard(activeSessions, 'hist-1')
-    const closeRows = sessionsCard.elements.filter(element =>
-      element.tag === 'action' && element.actions.some(action => action.text?.content?.startsWith('关闭 '))
-    )
-
-    expect(closeRows).toHaveLength(2)
-    expect(closeRows[0].actions).toHaveLength(5)
-    expect(closeRows[1].actions).toHaveLength(5)
-  })
-
-  it('does not highlight any session in close-result card when no active binding remains', async () => {
-    const { configManager, manager, mainWindow } = createManager()
-    const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.fn().mockResolvedValue({})
-    bridge._api.sendCardMessage = sendCardMessage
-    vi.spyOn(bridge, '_getActiveSessionsByChat').mockReturnValue([
-      { id: 's-1', title: '会话 A', cwd: tempDir, type: 'feishu', queryGenerator: {}, apiProfileId: null },
-      { id: 's-2', title: '会话 B', cwd: tempDir, type: 'feishu', queryGenerator: {}, apiProfileId: null }
-    ])
-
-    await bridge._sendCloseResult('open_id', 'ou_xxx', {
-      sessionId: null,
-      highlightSessionId: null,
-      chatId: 'oc_xxx',
-      closeText: '会话已关闭'
-    })
-
-    const card = sendCardMessage.mock.calls[0][2]
-    const markdown = card.elements.find(element => element.tag === 'markdown' && element.content.includes('1.'))
-    expect(markdown.content).toContain('1. 🔵 会话 A')
-    expect(markdown.content).toContain('2. 🔵 会话 B')
-    expect(markdown.content).not.toContain('✅')
   })
 
   it('normalizes Feishu command text by removing standalone mention tokens from arguments', () => {
@@ -3660,8 +3487,7 @@ describe('FeishuBridge', () => {
     expect(bridge._normalizeCommandText('/rename 群聊测试@机器人', chatContext, { mentions: robotMentions })).toBe('/rename 群聊测试')
     expect(bridge._normalizeCommandText('/status @机器人', chatContext, { mentions: robotMentions })).toBe('/status')
     expect(bridge._normalizeCommandText('/status@机器人', chatContext, { mentions: robotMentions })).toBe('/status')
-    expect(bridge._normalizeCommandText('/sessions @机器人', chatContext, { mentions: robotMentions })).toBe('/sessions')
-    expect(bridge._normalizeCommandText('/close @机器人 2', chatContext, { mentions: robotMentions })).toBe('/close 2')
+    expect(bridge._normalizeCommandText('/close @机器人', chatContext, { mentions: robotMentions })).toBe('/close')
     expect(bridge._normalizeCommandText('/help @机器人', chatContext, { mentions: robotMentions })).toBe('/help')
     expect(bridge._normalizeCommandText('/rename 群聊测试@张三', chatContext, {
       mentions: [{ key: '@张三', name: '张三', id: 'ou_user', idType: 'open_id' }]
