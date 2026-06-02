@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, computed, h, defineExpose } from 'vue'
+import { ref, shallowRef, computed, h } from 'vue'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'

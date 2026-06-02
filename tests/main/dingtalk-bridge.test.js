@@ -579,6 +579,50 @@ describe('DingTalkBridge', () => {
     expect(bridge._targetSessionMap.get('staff-1')).toBeUndefined()
   })
 
+  it('does not reuse a proactively bound DingTalk session after the desktop closes it', async () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话' })
+    const session = manager.sessions.get(created.id)
+
+    vi.spyOn(bridge, '_getAccessToken').mockResolvedValue('token')
+    bridge.configManager.getConfig = () => ({
+      settings: { agent: { outputBaseDir: tempDir } },
+      dingtalk: { maxHistorySessions: 5, robotCode: 'robot-1' }
+    })
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true })
+    })))
+
+    await bridge.sendTextToTarget({
+      sessionId: session.id,
+      staffId: 'staff-1',
+      displayName: '张三',
+      text: '任务已完成'
+    })
+
+    bridge.sessionMap.set('staff-1:conv-1', session.id)
+    session.meta = {
+      ...(session.meta || {}),
+      conversationId: 'conv-1'
+    }
+
+    await manager.close(session.id)
+
+    expect(bridge._targetSessionMap.get('staff-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.getSessionBinding(session.id)).toBe(null)
+
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+    const createNewSessionSpy = vi.spyOn(bridge, '_createNewSession').mockResolvedValue('new-session-id')
+
+    const result = await bridge._ensureSession('staff-1', '张三', 'conv-1', '测试群')
+
+    expect(result).toBe('new-session-id')
+    expect(createNewSessionSpy).toHaveBeenCalledWith('staff-1', '张三', 'conv-1', '测试群', 'staff-1:conv-1')
+  })
+
   it('does not mark a proactively bound DingTalk session as current in resume menu without an active chat map', async () => {
     const { bridge, manager } = createHarness()
     vi.spyOn(bridge, '_replyToDingTalk').mockResolvedValue()

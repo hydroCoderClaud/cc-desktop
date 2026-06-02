@@ -143,6 +143,17 @@ class DingTalkBridge {
         try { this.onAgentError(sessionId, error) } catch (e) {
           console.error('[DingTalk] onAgentError threw:', e)
         }
+      },
+      agentInterrupted: (sessionId, details) => {
+        if (details?.reason === 'host-cleanup') {
+          this._clearSessionIdentity(sessionId)
+        }
+      },
+      agentDeleted: (sessionId) => {
+        this._clearSessionIdentity(sessionId)
+      },
+      agentClosed: (sessionId) => {
+        this._clearSessionIdentity(sessionId)
       }
     }
 
@@ -1063,6 +1074,32 @@ class DingTalkBridge {
       }
       this._sessionTargets.delete(sessionId)
     }
+  }
+
+  _clearSessionIdentity(sessionId) {
+    if (!sessionId) return
+
+    for (const [mapKey, mappedSessionId] of this.sessionMap.entries()) {
+      if (mappedSessionId === sessionId) {
+        this.sessionMap.delete(mapKey)
+      }
+    }
+
+    const target = this._sessionTargets.get(sessionId)
+    if (target?.staffId && this._targetSessionMap.get(target.staffId) === sessionId) {
+      this._targetSessionMap.delete(target.staffId)
+    }
+
+    this._sessionTargets.delete(sessionId)
+    this._sessionWebhooks.delete(sessionId)
+    this._desktopPendingBlocks.delete(sessionId)
+
+    const collector = this.responseCollectors.get(sessionId)
+    if (collector?.timer) {
+      clearTimeout(collector.timer)
+    }
+    this.responseCollectors.delete(sessionId)
+    this._sessionProcessQueues.delete(sessionId)
   }
 
   /**
