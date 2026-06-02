@@ -2751,10 +2751,10 @@ describe('FeishuBridge', () => {
     )
   })
 
-  it('falls back to legacy title matching for old Feishu history records without stored identity columns', async () => {
+  it('does not fall back to legacy title matching for old Feishu history records without stored identity columns', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     const listAllAgentConversations = vi.fn(() => [
       {
         session_id: 'hist-legacy-1',
@@ -2779,18 +2779,8 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(listAllAgentConversations).toHaveBeenCalled()
-    expect(sendCardMessage).toHaveBeenCalledWith(
-      'open_id',
-      'ou_xxx',
-      expect.objectContaining({
-        header: expect.objectContaining({
-          title: expect.objectContaining({
-            content: '历史会话'
-          })
-        })
-      })
-    )
+    expect(listAllAgentConversations).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '没有历史会话记录\n\n发送任意消息可开始新会话')
   })
 
   it('shows a historical session choice menu with /resume and no index', async () => {
@@ -3717,7 +3707,7 @@ describe('ImSessionMapper', () => {
     expect(sessionId).toBe('f-1')
   })
 
-  it('falls back to conversation_id-only legacy Feishu history rows', async () => {
+  it('does not fall back to conversation_id-only legacy Feishu history rows', async () => {
     const getImSessionsByType = vi.fn(() => [])
     const listAllAgentConversations = vi.fn(() => [
       {
@@ -3743,13 +3733,11 @@ describe('ImSessionMapper', () => {
       chatId: 'oc_xxx'
     })
 
-    expect(listAllAgentConversations).toHaveBeenCalled()
-    expect(result).toEqual([
-      expect.objectContaining({ session_id: 'f-legacy-1' })
-    ])
+    expect(listAllAgentConversations).not.toHaveBeenCalled()
+    expect(result).toEqual([])
   })
 
-  it('includes proactively sent p2p Feishu sessions in history even before the first inbound reply fills chatId', async () => {
+  it('does not include proactively sent p2p Feishu sessions in history before new chatId metadata exists', async () => {
     const getImSessionsByType = vi.fn(() => [])
     const listAllAgentConversations = vi.fn(() => [
       {
@@ -3777,13 +3765,11 @@ describe('ImSessionMapper', () => {
       chatType: 'p2p'
     })
 
-    expect(listAllAgentConversations).toHaveBeenCalled()
-    expect(result).toEqual([
-      expect.objectContaining({ session_id: 'f-proactive-1' })
-    ])
+    expect(listAllAgentConversations).not.toHaveBeenCalled()
+    expect(result).toEqual([])
   })
 
-  it('merges proactive p2p Feishu sessions into history even when exact chat history already exists', async () => {
+  it('returns only exact new-field Feishu history even when proactive p2p rows also exist', async () => {
     const now = Date.now()
     const getImSessionsByType = vi.fn(() => [
       {
@@ -3831,10 +3817,11 @@ describe('ImSessionMapper', () => {
       chatType: 'p2p'
     })
 
-    expect(result.map(row => row.session_id)).toEqual(['f-proactive-1', 'f-old-1'])
+    expect(listAllAgentConversations).not.toHaveBeenCalled()
+    expect(result.map(row => row.session_id)).toEqual(['f-old-1'])
   })
 
-  it('does not admit conversation-only legacy Feishu rows for p2p history when senderId does not match', async () => {
+  it('ignores conversation-only legacy Feishu rows for p2p history when exact new-field rows are absent', async () => {
     const getImSessionsByType = vi.fn(() => [])
     const listAllAgentConversations = vi.fn(() => [
       {
@@ -3861,7 +3848,7 @@ describe('ImSessionMapper', () => {
       chatType: 'p2p'
     })
 
-    expect(listAllAgentConversations).toHaveBeenCalled()
+    expect(listAllAgentConversations).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 

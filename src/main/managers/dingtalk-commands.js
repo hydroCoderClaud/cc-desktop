@@ -116,20 +116,6 @@ module.exports = {
     let sessions = db.getImSessionsByType
       ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
       : db.getDingTalkSessions(senderStaffId, conversationId, limit)
-    if ((!Array.isArray(sessions) || sessions.length === 0) && typeof db.listAllAgentConversations === 'function') {
-      const allRows = db.listAllAgentConversations({
-        limit: Math.max(limit * 5, 50)
-      })
-      if (Array.isArray(allRows) && allRows.length > 0) {
-        sessions = allRows
-          .filter(row => row?.status !== 'closed')
-          .filter(row => row?.im_channel === 'dingtalk')
-          .filter(row => row?.staff_id === senderStaffId)
-          .filter(row => row?.conversation_id === conversationId)
-          .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
-          .slice(0, limit)
-      }
-    }
 
     if (currentSessionId) {
       const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
@@ -143,6 +129,9 @@ module.exports = {
             updated_at: liveCurrent.updatedAt ? new Date(liveCurrent.updatedAt).getTime() : Date.now(),
             type: liveCurrent.type,
             source: liveCurrent.source,
+            im_channel: 'dingtalk',
+            im_user_id: senderStaffId,
+            im_chat_id: conversationId,
             staff_id: senderStaffId,
             conversation_id: conversationId,
             status: liveCurrent.status || 'idle'
@@ -243,7 +232,12 @@ module.exports = {
     const includeSession = createActivatedSessionMatcher({
       imType: 'dingtalk',
       getImChannel: (session) => session?.imChannel,
-      getChatId: (session) => session?.meta?.conversationId || db?.getAgentConversation?.(session?.id)?.conversation_id || '',
+      getChatId: (session) => {
+        const row = db?.getAgentConversation?.(session?.id)
+        return session?.meta?.conversationId
+          || (row?.im_channel === 'dingtalk' ? row?.im_chat_id : '')
+          || ''
+      },
       isActivated: (session) => !!session?.queryGenerator,
     })
     return listChatSessions({
@@ -265,18 +259,6 @@ module.exports = {
     let sessions = db.getImSessionsByType
       ? db.getImSessionsByType('dingtalk', senderStaffId, conversationId, limit)
       : db.getDingTalkSessions(senderStaffId, conversationId, limit)
-    if ((!Array.isArray(sessions) || sessions.length === 0) && typeof db.listAllAgentConversations === 'function') {
-      const allRows = db.listAllAgentConversations({ limit: Math.max(limit * 5, 50) })
-      if (Array.isArray(allRows) && allRows.length > 0) {
-        sessions = allRows
-          .filter(row => row?.status !== 'closed')
-          .filter(row => row?.im_channel === 'dingtalk')
-          .filter(row => row?.staff_id === senderStaffId)
-          .filter(row => row?.conversation_id === conversationId)
-          .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
-          .slice(0, limit)
-      }
-    }
     if (currentSessionId) {
       const liveCurrent = this.agentSessionManager.sessions.get(currentSessionId)
       const currentRow = db.getAgentConversation?.(currentSessionId)
@@ -289,6 +271,9 @@ module.exports = {
             updated_at: liveCurrent.updatedAt ? new Date(liveCurrent.updatedAt).getTime() : Date.now(),
             type: liveCurrent.type,
             source: liveCurrent.source,
+            im_channel: 'dingtalk',
+            im_user_id: senderStaffId,
+            im_chat_id: conversationId,
             staff_id: senderStaffId,
             conversation_id: conversationId,
             status: liveCurrent.status || 'idle'

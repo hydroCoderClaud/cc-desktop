@@ -836,7 +836,9 @@ class DingTalkBridge {
     const metaStaffId = typeof liveSession?.meta?.dingtalkTargetStaffId === 'string'
       ? liveSession.meta.dingtalkTargetStaffId.trim()
       : ''
-    const rowStaffId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
+    const rowStaffId = row?.im_channel === 'dingtalk' && typeof row?.im_user_id === 'string'
+      ? row.im_user_id.trim()
+      : ''
     const existingStaffId = existingTarget?.staffId || metaStaffId || rowStaffId
 
     if (existingStaffId && existingStaffId !== resolvedStaffId) {
@@ -850,7 +852,9 @@ class DingTalkBridge {
     if (!sessionId || !staffId) return
     const liveSession = this.agentSessionManager.sessions.get(sessionId)
     const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
-    const conversationId = liveSession?.meta?.conversationId || row?.conversation_id || ''
+    const conversationId = liveSession?.meta?.conversationId
+      || (row?.im_channel === 'dingtalk' ? row?.im_chat_id : '')
+      || ''
     if (!conversationId) return
     clearExactSessionMapping({
       sessionMap: this.sessionMap,
@@ -876,7 +880,13 @@ class DingTalkBridge {
       const liveSession = this.agentSessionManager.sessions.get(sessionId)
       if (liveSession) return true
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
-      return Boolean(row && row.status !== 'closed')
+      return Boolean(
+        row
+        && row.status !== 'closed'
+        && row.im_channel === 'dingtalk'
+        && typeof row.im_user_id === 'string'
+        && row.im_user_id.trim() === normalizedStaffId
+      )
     }
 
     const directSessionId = this._targetSessionMap.get(normalizedStaffId)
@@ -918,8 +928,8 @@ class DingTalkBridge {
       ? rows
         .filter(row => row?.status !== 'closed')
         .filter(row => row?.im_channel === 'dingtalk')
-        .filter(row => row?.staff_id === normalizedStaffId)
-        .filter(row => !row?.conversation_id)
+        .filter(row => row?.im_user_id === normalizedStaffId)
+        .filter(row => !row?.im_chat_id)
         .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
       : null
     if (matched) {
@@ -941,8 +951,10 @@ class DingTalkBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
-      const staffId = typeof row?.staff_id === 'string' ? row.staff_id.trim() : ''
-      if (!staffId || row?.status === 'closed' || row?.im_channel !== 'dingtalk') return null
+      const staffId = row?.im_channel === 'dingtalk' && typeof row?.im_user_id === 'string'
+        ? row.im_user_id.trim()
+        : ''
+      if (!staffId || row?.status === 'closed') return null
       const restoredTarget = {
         staffId,
         displayName: staffId

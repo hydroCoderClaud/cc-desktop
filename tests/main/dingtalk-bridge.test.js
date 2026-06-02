@@ -204,6 +204,8 @@ describe('DingTalkBridge', () => {
             source: 'im-inbound',
             im_channel: 'dingtalk',
             title: '桌面会话',
+            im_user_id: 'staff-1',
+            im_chat_id: '',
             staff_id: 'staff-1',
             conversation_id: '',
             status: 'idle'
@@ -232,6 +234,8 @@ describe('DingTalkBridge', () => {
             source: 'im-inbound',
             im_channel: 'dingtalk',
             title: '桌面会话',
+            im_user_id: 'staff-1',
+            im_chat_id: '',
             staff_id: 'staff-1',
             conversation_id: '',
             status: 'idle'
@@ -281,6 +285,8 @@ describe('DingTalkBridge', () => {
       source: 'im-inbound',
       im_channel: 'dingtalk',
       status: 'idle',
+      im_user_id: 'staff-1',
+      im_chat_id: '',
       staff_id: 'staff-1',
       conversation_id: '',
       cwd_auto: 0,
@@ -297,6 +303,8 @@ describe('DingTalkBridge', () => {
         source: 'im-inbound',
         im_channel: 'dingtalk',
         title: '桌面会话',
+        im_user_id: 'staff-1',
+        im_chat_id: '',
         staff_id: 'staff-1',
         conversation_id: '',
         status: 'idle',
@@ -491,7 +499,7 @@ describe('DingTalkBridge', () => {
     expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(second.id)
   })
 
-  it('includes proactively bound chat sessions in DingTalk resume history after the first inbound reply', async () => {
+  it('shows proactively bound chat sessions in DingTalk resume history only after new-field chat metadata exists', async () => {
     const { bridge, manager } = createHarness()
     vi.spyOn(bridge, '_replyToDingTalk').mockResolvedValue()
     const sendChoiceMenu = vi.spyOn(bridge, '_sendChoiceMenu').mockResolvedValue()
@@ -518,14 +526,15 @@ describe('DingTalkBridge', () => {
     })
 
     bridge.sessionMap.delete('staff-1:conv-1')
-    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
-    manager.sessionDatabase.listAllAgentConversations = vi.fn(() => [
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
       {
         session_id: session.id,
         type: 'chat',
         source: 'im-inbound',
         im_channel: 'dingtalk',
         title: '桌面会话',
+        im_user_id: 'staff-1',
+        im_chat_id: 'conv-1',
         staff_id: 'staff-1',
         conversation_id: 'conv-1',
         status: 'idle',
@@ -545,7 +554,6 @@ describe('DingTalkBridge', () => {
 
     expect(result).toBeNull()
     expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', 'conv-1', 5)
-    expect(manager.sessionDatabase.listAllAgentConversations).toHaveBeenCalled()
     expect(bridge._pendingChoices.get('staff-1:conv-1')?.sessions).toEqual([
       expect.objectContaining({ session_id: session.id })
     ])
@@ -639,6 +647,8 @@ describe('DingTalkBridge', () => {
       {
         session_id: session.id,
         title: '桌面会话',
+        im_user_id: 'staff-1',
+        im_chat_id: 'conv-1',
         staff_id: 'staff-1',
         conversation_id: 'conv-1',
         type: 'chat',

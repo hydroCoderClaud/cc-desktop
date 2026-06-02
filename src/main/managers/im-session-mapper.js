@@ -118,52 +118,12 @@ class ImSessionMapper {
       try {
         const staffId = identity.staffId || identity.userId
         const conversationId = identity.conversationId || identity.chatId
-        const isDirectMessage = (identity?.chatType || '').toLowerCase() === 'p2p'
         const exact = await this._sessionDatabase.getImSessionsByType(
           this._imType,
           staffId,
           conversationId,
           this._maxHistorySessions
         )
-        if (typeof this._sessionDatabase.listAllAgentConversations === 'function') {
-          const allRows = await this._sessionDatabase.listAllAgentConversations({
-            limit: Math.max(this._maxHistorySessions * 5, 50)
-          })
-          if (Array.isArray(allRows) && allRows.length > 0) {
-            const shortConversationId = typeof conversationId === 'string' ? conversationId.substring(0, 8) : ''
-            const shortStaffId = typeof staffId === 'string' ? staffId.substring(0, 8) : ''
-            const extraRows = allRows
-              .filter(row => row?.im_channel === this._imType)
-              .filter((row) => {
-                if (row?.staff_id === staffId && row?.conversation_id === conversationId) return true
-                if (isDirectMessage && row?.staff_id === staffId && !row?.conversation_id) return true
-                if (conversationId && row?.conversation_id === conversationId) {
-                  if (!isDirectMessage) return true
-                  return !staffId || row?.staff_id === staffId
-                }
-                const title = typeof row?.title === 'string' ? row.title : ''
-                const hasConversation = shortConversationId ? title.includes(shortConversationId) : false
-                const hasStaff = shortStaffId ? title.includes(shortStaffId) : false
-                if (!hasConversation) return false
-                if (!shortStaffId) return true
-                if (hasStaff) return true
-                if (isDirectMessage) return false
-                return !row?.staff_id
-              })
-            const merged = [...(Array.isArray(exact) ? exact : []), ...extraRows]
-            const seen = new Set()
-            return merged
-              .filter((row) => {
-                const rowSessionId = row?.session_id || row?.sessionId || row?.id || null
-                if (!rowSessionId) return false
-                if (seen.has(rowSessionId)) return false
-                seen.add(rowSessionId)
-                return true
-              })
-              .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
-              .slice(0, this._maxHistorySessions)
-          }
-        }
         if (Array.isArray(exact) && exact.length > 0) {
           return exact
         }
