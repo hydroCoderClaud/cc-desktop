@@ -320,6 +320,10 @@ module.exports = {
   },
 
   async _cmdClose(args, context) {
+    if (Array.isArray(args) && args.length > 0) {
+      return '❌ /close 不支持带编号或参数，请直接使用 /close'
+    }
+
     const { mapKey } = context
     const currentSessionId = this._resolveActiveSessionId(mapKey)
     if (!currentSessionId) {

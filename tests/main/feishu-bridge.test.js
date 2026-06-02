@@ -1809,6 +1809,32 @@ describe('FeishuBridge', () => {
     expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_target', '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
   })
 
+  it('rejects /close with numbered arguments for Feishu', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const close = vi.spyOn(manager, 'close').mockResolvedValue()
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+
+    const created = manager.create({ type: 'feishu', source: 'feishu', title: '待关闭会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+    session.queryGenerator = {}
+    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    await bridge._handleCommand('/close 1', {
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p'
+    })
+
+    expect(close).not.toHaveBeenCalled()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '/close 不支持带编号或参数，请直接使用 /close')
+  })
+
   it('prompts for history after closing the current Feishu session instead of auto-using another proactive binding', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

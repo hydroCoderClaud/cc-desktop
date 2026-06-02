@@ -641,6 +641,21 @@ describe('DingTalkBridge', () => {
     expect(bridge._targetSessionMap.get('staff-1')).toBeUndefined()
   })
 
+  it('rejects /close with numbered arguments', async () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话' })
+    bridge.sessionMap.set('staff-1:conv-1', created.id)
+
+    const reply = await bridge._cmdClose(['1'], {
+      mapKey: 'staff-1:conv-1',
+      senderStaffId: 'staff-1',
+      conversationId: 'conv-1'
+    })
+
+    expect(reply).toContain('/close 不支持带编号或参数')
+    expect(manager.sessions.has(created.id)).toBe(true)
+  })
+
   it('does not reuse a proactively bound DingTalk session after the desktop closes it', async () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话' })

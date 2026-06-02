@@ -364,6 +364,28 @@ describe('EnterpriseWeixinBridge', () => {
     expect(sent.map(item => item.channel)).toContain('enterprise-weixin:sessionClosed')
   })
 
+  it('rejects /close with numbered arguments for enterprise weixin', async () => {
+    const { bridge, manager, replies } = createHarness()
+    const session = manager.create({ type: 'chat', source: 'manual', title: '待关闭会话' })
+    session.imChannel = 'enterprise-weixin'
+    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionIdentities.set(session.id, {
+      userId: 'user-a',
+      senderId: 'user-a',
+      senderName: '雷斯林',
+      chatId: 'user-a',
+      chatType: 'single',
+      chatName: '雷斯林',
+    })
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '/close 1' },
+    }))
+
+    expect(replies.at(-1).markdown.content).toContain('/close 不支持带编号或参数')
+    expect(manager.sessions.has(session.id)).toBe(true)
+  })
+
   it('renames the current session for /rename', async () => {
     const { bridge, manager, replies } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '原始标题' })

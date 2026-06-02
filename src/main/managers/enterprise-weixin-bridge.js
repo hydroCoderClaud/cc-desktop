@@ -714,7 +714,11 @@ class EnterpriseWeixinBridge {
             : buildNoHistoryText()
           await this._sendTextReply(context.frame, statusText)
         },
-        close: async () => {
+        close: async ({ args }) => {
+          if (Array.isArray(args) && args.length > 0) {
+            await this._sendTextReply(context.frame, '/close 不支持带编号或参数，请直接使用 /close')
+            return
+          }
           if (!sessionId) {
             await this._sendTextReply(context.frame, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
             return
