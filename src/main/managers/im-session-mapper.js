@@ -122,10 +122,10 @@ class ImSessionMapper {
   async _queryHistorySessions(identity) {
     if (this._sessionDatabase?.getImSessionsByType) {
       try {
-        const staffId = identity.staffId || identity.userId
-        // p2p/single 场景 im_chat_id 无独立语义，传空让 DB 不做 im_chat_id 过滤
-        // 群聊场景传真实 chatId 以区分同一用户在不同群的会话
+        // p2p/single: im_user_id = userId, im_chat_id 不参与
+        // 群聊: im_user_id = '' (群聊无对端用户), im_chat_id = chatId
         const isDirectChat = identity.chatType === 'p2p' || identity.chatType === 'single'
+        const staffId = isDirectChat ? (identity.staffId || identity.userId) : ''
         const conversationId = isDirectChat
           ? ''
           : (identity.conversationId || identity.chatId || '')

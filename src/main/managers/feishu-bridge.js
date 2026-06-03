@@ -1280,7 +1280,7 @@ class FeishuBridge {
     console.log('[FeishuBridge] bindTarget sessionMap set:', JSON.stringify({ bindMapKey, sessionId, targetType }))
 
     this._sessionIdentities.set(sessionId, {
-      senderId: resolvedOpenId,
+      senderId: isGroup ? '' : resolvedOpenId,
       senderName: target.displayName || resolvedOpenId,
       chatId: isGroup ? resolvedOpenId : null,
       chatType: isGroup ? 'group' : 'p2p',
@@ -1288,7 +1288,7 @@ class FeishuBridge {
     })
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: isGroup ? resolvedOpenId : '', chatType: isGroup ? 'group' : 'p2p' })
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroup ? '' : resolvedOpenId, chatId: isGroup ? resolvedOpenId : '', chatType: isGroup ? 'group' : 'p2p' })
       } catch (err) {
         console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
       }

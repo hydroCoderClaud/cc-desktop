@@ -305,7 +305,7 @@ function withAgentOperations(BaseClass) {
      */
     getImSessionsByType(type, staffId, conversationId, limit = 5) {
       // p2p 场景 im_chat_id 无独立语义，不参与过滤；
-      // 群聊场景传入群 chatId 以区分同一用户在不同群的会话
+      // 群聊场景传真实 chatId，im_user_id 为空
       if (conversationId) {
         return this.db.prepare(`
           SELECT * FROM agent_conversations
