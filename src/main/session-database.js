@@ -201,6 +201,7 @@ class SessionDatabaseBase {
       { name: 'im_user_id', type: 'TEXT' },        // IM 用户标识（staffId / openId）
       { name: 'im_chat_id', type: 'TEXT' },        // IM 聊天标识（群聊/单聊 ID）
       { name: 'im_channel', type: 'TEXT' },        // IM 平台类型（dingtalk / weixin / feishu / enterprise-weixin）
+      { name: 'im_chat_type', type: 'TEXT' },      // IM 会话类型（p2p / single / group）
       { name: 'source', type: "TEXT DEFAULT 'manual'" },
       { name: 'task_id', type: 'INTEGER' },
       { name: 'owner_client_id', type: "TEXT DEFAULT 'host-ui'" },
