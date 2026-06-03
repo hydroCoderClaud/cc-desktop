@@ -1154,6 +1154,7 @@ class FeishuBridge {
     const mapKey = this._sessionMapper.buildKey({
       userId: identity.senderId,
       chatId: identity.chatId,
+      chatType: identity.chatType,
     })
     if (!isMappedCurrentSession({
       sessionMap: this._sessionMapper.sessionMap,
