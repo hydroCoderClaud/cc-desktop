@@ -312,7 +312,7 @@ class FeishuBridge {
     }
 
     // 历史会话选择
-    const mapKey = this._sessionMapper.buildKey({ userId: senderId, chatId })
+    const mapKey = this._sessionMapper.buildKey({ userId: senderId, chatId, chatType })
     const pendingChoice = this._sessionMapper._pendingChoices?.get(mapKey)
     if (pendingChoice) {
       const activeSessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
@@ -619,7 +619,7 @@ class FeishuBridge {
     }
     const normalizedText = this._normalizeCommandText(text, context, cardMeta || {})
 
-    const mapKey = this._sessionMapper.buildKey({ userId: context.senderId, chatId: context.chatId })
+    const mapKey = this._sessionMapper.buildKey({ userId: context.senderId, chatId: context.chatId, chatType: context.chatType })
 
     let sessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
     const rememberedIdentity = this._sessionIdentities.get(sessionId)

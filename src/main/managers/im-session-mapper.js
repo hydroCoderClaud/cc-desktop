@@ -48,6 +48,12 @@ class ImSessionMapper {
   // ─── 身份 key ───
 
   buildKey(identity) {
+    // 群聊 key = chatId，同一群不同成员共享会话
+    // p2p key = userId:chatId
+    // Feishu 群聊 chatType='chat'，企业微信群聊 chatType='group'
+    if ((identity.chatType === 'group' || identity.chatType === 'chat') && identity.chatId) {
+      return identity.chatId
+    }
     return this._buildIdentityKey(identity)
   }
 
