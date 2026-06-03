@@ -1045,26 +1045,29 @@ class FeishuBridge {
       mapKey,
       identity,
       resolveBoundSessionId: async () => {
-        if (chatType !== 'p2p' || this._proactiveRebindSuppressedKeys.has(mapKey)) {
-          return null
-        }
-        const proactiveSessionId = await this._findBoundSessionIdBySenderId(senderId)
-        if (!proactiveSessionId) return null
-        this._sessionIdentities.set(proactiveSessionId, {
-          senderId,
-          senderName: identity.nickname || senderId,
-          chatId,
-          chatType,
-          chatName: identity.chatName || null,
-        })
-        if (this._sessionDatabase?.updateImIdentity) {
-          try {
-            this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: chatId || '', chatType: 'p2p' })
-          } catch (err) {
-            console.warn('[FeishuBridge] Failed to persist proactive Feishu binding:', err.message)
+        // p2p: 找发送者绑定的会话
+        if (chatType === 'p2p' && !this._proactiveRebindSuppressedKeys.has(mapKey)) {
+          const proactiveSessionId = await this._findBoundSessionIdBySenderId(senderId)
+          if (proactiveSessionId) {
+            this._sessionIdentities.set(proactiveSessionId, {
+              senderId,
+              senderName: identity.nickname || senderId,
+              chatId,
+              chatType,
+              chatName: identity.chatName || null,
+            })
+            if (this._sessionDatabase?.updateImIdentity) {
+              try {
+                this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: chatId || '', chatType: 'p2p' })
+              } catch (err) {
+                console.warn('[FeishuBridge] Failed to persist proactive Feishu binding:', err.message)
+              }
+            }
+            return proactiveSessionId
           }
         }
-        return proactiveSessionId
+        // 群聊: find by chatId
+        return null
       },
     })
 
