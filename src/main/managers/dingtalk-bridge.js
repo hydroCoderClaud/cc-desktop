@@ -1665,22 +1665,23 @@ class DingTalkBridge {
       if (visited.has(parentId)) continue
       visited.add(parentId)
 
-      const response = await globalThis.fetch(
-        `https://api.dingtalk.com/v1.0/contact/departments/${parentId}/sub`,
-        {
-          method: 'GET',
-          headers: { 'x-acs-dingtalk-access-token': token },
-        }
-      )
+      const response = await globalThis.fetch(`https://oapi.dingtalk.com/topapi/v2/department/listsub?access_token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dept_id: parentId })
+      })
       if (!response.ok) {
         throw new Error(`获取钉钉部门列表失败: ${response.status}`)
       }
       const result = await response.json()
-      const items = Array.isArray(result?.result) ? result.result : []
+      if (result.errcode) {
+        throw new Error(`获取钉钉部门列表失败: ${result.errcode} ${result.errmsg}`)
+      }
+      const items = Array.isArray(result.result) ? result.result : []
       for (const item of items) {
         const deptId = Number(item.dept_id || item.deptId)
         if (!Number.isFinite(deptId)) continue
-        departments.push({ deptId, name: item.name || item.dept_name || '' })
+        departments.push({ deptId, name: item.name || '' })
         queue.push(deptId)
       }
     }
@@ -1690,33 +1691,28 @@ class DingTalkBridge {
 
   async _listDepartmentUsers(token, deptId) {
     const users = []
-    let nextToken = undefined
+    let cursor = 0
+    let hasMore = true
 
-    do {
-      const response = await globalThis.fetch(
-        'https://api.dingtalk.com/v1.0/contact/users/query',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-acs-dingtalk-access-token': token,
-          },
-          body: JSON.stringify({
-            deptIdList: [deptId],
-            maxResults: 100,
-            nextToken: nextToken || undefined,
-            containAccessLimit: false,
-          }),
-        }
-      )
+    while (hasMore) {
+      const response = await globalThis.fetch(`https://oapi.dingtalk.com/topapi/v2/user/list?access_token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dept_id: deptId, cursor, size: 100, contain_access_limit: false })
+      })
       if (!response.ok) {
         throw new Error(`获取钉钉部门成员失败: ${response.status}`)
       }
       const result = await response.json()
-      const list = Array.isArray(result?.list) ? result.list : []
+      if (result.errcode) {
+        throw new Error(`获取钉钉部门成员失败: ${result.errcode} ${result.errmsg}`)
+      }
+      const page = result.result || {}
+      const list = Array.isArray(page.list) ? page.list : []
       users.push(...list)
-      nextToken = result?.nextToken || null
-    } while (nextToken)
+      hasMore = Boolean(page.has_more)
+      cursor = Number(page.next_cursor || 0)
+    }
 
     return users
   }
