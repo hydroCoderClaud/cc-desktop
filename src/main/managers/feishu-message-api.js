@@ -212,26 +212,6 @@ class FeishuMessageAPI {
   }
 
   /**
-   * 发送交互式卡片消息
-   * @param {'open_id'|'chat_id'} receiveIdType
-   * @param {string} receiveId
-   * @param {object|string} card - 卡片 JSON
-   */
-  async sendCardMessage(receiveIdType, receiveId, card) {
-    this._assertReady()
-    const cardJson = typeof card === 'string' ? card : JSON.stringify(card)
-    const r = await this._client.im.v1.message.create({
-      params: { receive_id_type: receiveIdType },
-      data: {
-        receive_id: receiveId,
-        msg_type: 'interactive',
-        content: cardJson,
-      },
-    })
-    return r?.data?.message_id || null
-  }
-
-  /**
    * 上传图片
    * @param {Buffer|string} source - 文件 buffer 或磁盘路径
    * @param {string} [imageType] - message|avatar（默认 message）

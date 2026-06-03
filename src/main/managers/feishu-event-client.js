@@ -61,9 +61,6 @@ class FeishuEventClient extends EventEmitter {
       'im.message.receive_v1': (data) => {
         this._handleImMessage(data)
       },
-      'card.action.trigger': (data) => {
-        this._handleCardAction(data)
-      },
     })
 
     this._wsClient = new WSClient({
@@ -162,35 +159,6 @@ class FeishuEventClient extends EventEmitter {
       this.emit('message', parsed)
     } catch (err) {
       console.error('[FeishuEventClient] Handle IM message error:', err)
-    }
-  }
-
-  /** @private */
-  _handleCardAction(data) {
-    try {
-      const event = data?.event || data
-      const action = event?.action || {}
-      const context = event?.context || {}
-      const operatorId = event?.operator?.operator_id || event?.operator_id || {}
-      const userId = operatorId?.open_id || operatorId?.user_id || event?.open_id || event?.user_id || null
-      const chatId = context?.open_chat_id || context?.chat_id || context?.chat?.chat_id || null
-      const chatType = context?.chat_type || (chatId ? 'chat' : 'p2p')
-      console.log('[FeishuEventClient] Card action parsed:', JSON.stringify({
-        actionTag: action.tag,
-        chatType,
-        hasContext: !!context,
-      }))
-      this.emit('cardAction', {
-        actionType: action.tag,
-        actionValue: action.value,
-        userId,
-        chatId,
-        chatType,
-        messageId: context?.open_message_id || null,
-        raw: event,
-      })
-    } catch (err) {
-      console.error('[FeishuEventClient] Handle card action error:', err)
     }
   }
 

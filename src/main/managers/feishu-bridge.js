@@ -46,16 +46,6 @@ const {
   resolveStrictCurrentSessionId,
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
-const {
-  buildHistoryChoiceCard,
-  buildHelpCard,
-  buildStatusCard,
-  buildResultCard,
-  buildCommandButton,
-  chunkCardActions,
-  attachCardContext,
-  buildCardContextValue,
-} = require('./im-card-renderers/feishu-card-renderer')
 
 // 图片相关常量（与钉钉保持一致）
 const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
@@ -637,7 +627,7 @@ class FeishuBridge {
     })
   }
 
-  async _handleCommand(text, context, options = {}) {
+  async _handleCommand(text, context) {
     this._syncSessionDatabase()
     const needsResolvedSenderName = !context?.senderName && !!context?.senderId
     const needsResolvedChatName = !context?.chatName && !!context?.chatId
