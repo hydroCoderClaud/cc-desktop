@@ -368,7 +368,7 @@ describe('FeishuBridge', () => {
     const session = manager.sessions.get(created.id)
 
     bridge._sessionTargets.set(session.id, {
-      targetId: 'ou_target',
+      openId: 'ou_target',
       displayName: '张三'
     })
     bridge._targetSessionMap.set('ou_target', session.id)
@@ -691,7 +691,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     vi.spyOn(bridge._api, 'listUsers').mockResolvedValue([
-      { targetId: 'ou_target', userId: 'user-1', displayName: '', name: '' }
+      { openId: 'ou_target', userId: 'user-1', displayName: '', name: '' }
     ])
 
     const targets = await bridge.listSendableTargets()
@@ -699,7 +699,7 @@ describe('FeishuBridge', () => {
     expect(targets).toEqual([
       expect.objectContaining({
         id: 'ou_target',
-        targetId: 'ou_target',
+        openId: 'ou_target',
         displayName: '',
         name: ''
       })
@@ -710,7 +710,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     vi.spyOn(bridge._api, 'listUsers').mockResolvedValue([
-      { targetId: 'ou_target', userId: 'user-1', displayName: 'ou_target', name: 'ou_target' }
+      { openId: 'ou_target', userId: 'user-1', displayName: 'ou_target', name: 'ou_target' }
     ])
     vi.spyOn(bridge._api, 'getUserInfo').mockResolvedValue({
       name: '张越胜'
@@ -722,7 +722,7 @@ describe('FeishuBridge', () => {
     expect(targets).toEqual([
       expect.objectContaining({
         id: 'ou_target',
-        targetId: 'ou_target',
+        openId: 'ou_target',
         displayName: '张越胜',
         name: '张越胜'
       })

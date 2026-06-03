@@ -1626,13 +1626,11 @@ class EnterpriseWeixinBridge {
       if (!userId || row?.im_channel !== this._imType) return null
       return {
         targetId: userId,
-        userId,
         displayName: userId,
       }
     }
     return {
       targetId: target.userId,
-      userId: target.userId,
       displayName: target.displayName,
     }
   }

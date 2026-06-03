@@ -668,7 +668,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     const result = await bridge.sendToTarget({
       sessionId: created.id,
-      userId: 'user-b',
+      targetId: 'user-b',
       displayName: 'HydroCoder',
       text: '任务已完成',
     })
@@ -680,7 +680,6 @@ describe('EnterpriseWeixinBridge', () => {
     })
     expect(bridge.getBinding(created.id)).toEqual({
       targetId: 'user-b',
-      userId: 'user-b',
       displayName: 'HydroCoder',
     })
     expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-b', chatId: '' }))
@@ -696,7 +695,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: created.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '桌面先发一条',
     })
@@ -737,7 +736,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: created.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '桌面端主动绑定后发出',
     })
@@ -861,7 +860,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: first.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '第一条',
     })
@@ -879,7 +878,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: second.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '第二条',
     })
@@ -924,7 +923,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: first.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '第一条',
     })
@@ -941,7 +940,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: second.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '第二条',
     })
@@ -988,7 +987,7 @@ describe('EnterpriseWeixinBridge', () => {
     const session = manager.sessions.get(created.id)
 
     bridge.bindTarget(session.id, {
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
     })
     bridge.unbindTarget(session.id)
@@ -1063,7 +1062,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: created.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '先建立绑定',
     })
@@ -1083,7 +1082,6 @@ describe('EnterpriseWeixinBridge', () => {
     expect(bridge.getBinding(created.id)).toEqual(
       expect.objectContaining({
         targetId: 'user-a',
-        userId: 'user-a',
       })
     )
     expect(manager.sessionDatabase.setImChannel).not.toHaveBeenCalledWith(created.id, null)
@@ -1097,7 +1095,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: current.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '当前绑定',
     })
@@ -1181,7 +1179,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     await bridge.sendToTarget({
       sessionId: created.id,
-      userId: 'user-a',
+      targetId: 'user-a',
       displayName: '雷斯林',
       text: '先建立绑定',
     })

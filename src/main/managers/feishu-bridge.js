@@ -1398,13 +1398,11 @@ class FeishuBridge {
       })
       return {
         targetId: restoredTarget.openId,
-        openId: restoredTarget.openId,
         displayName: restoredTarget.displayName,
       }
     }
     return {
       targetId: target.openId,
-      openId: target.openId,
       displayName: target.displayName,
     }
   }

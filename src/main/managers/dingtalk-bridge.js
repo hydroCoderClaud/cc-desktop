@@ -961,13 +961,11 @@ class DingTalkBridge {
       this._targetSessionMap.set(staffId, sessionId)
       return {
         targetId: restoredTarget.staffId,
-        staffId: restoredTarget.staffId,
         displayName: restoredTarget.displayName
       }
     }
     return {
       targetId: target.staffId,
-      staffId: target.staffId,
       displayName: target.displayName
     }
   }
