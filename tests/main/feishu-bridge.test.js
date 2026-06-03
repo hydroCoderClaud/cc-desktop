@@ -3680,11 +3680,10 @@ describe('ImSessionMapper', () => {
 
     const result = await mapper._queryHistorySessions({
       userId: 'ou_xxx',
-      chatId: 'oc_xxx',
-      chatType: 'group',
+      chatId: 'oc_xxx'
     })
 
-    expect(getImSessionsByType).toHaveBeenCalledWith('feishu', '', 'oc_xxx', 7)
+    expect(getImSessionsByType).toHaveBeenCalledWith('feishu', 'ou_xxx', 'oc_xxx', 7)
     expect(result).toEqual([{ session_id: 'f-1', type: 'feishu' }])
   })
 

@@ -240,17 +240,6 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
-     * 查询钉钉特定用户+会话的最近一条 agent 对话
-     */
-    getDingTalkSession(staffId, conversationId) {
-      return this.db.prepare(`
-        SELECT * FROM agent_conversations
-        WHERE staff_id = ? AND conversation_id = ?
-        ORDER BY updated_at DESC LIMIT 1
-      `).get(staffId, conversationId)
-    }
-
-    /**
      * 设置会话的 IM 平台绑定
      * @param {string} sessionId
      * @param {string|null} imChannel — dingtalk / weixin / feishu / enterprise-weixin
@@ -264,7 +253,7 @@ function withAgentOperations(BaseClass) {
     clearImIdentity(sessionId) {
       this.db.prepare(`
         UPDATE agent_conversations
-        SET staff_id = NULL, conversation_id = NULL, im_user_id = NULL, im_chat_id = NULL, updated_at = ?
+        SET im_user_id = NULL, im_chat_id = NULL, im_chat_type = NULL, updated_at = ?
         WHERE session_id = ?
       `).run(Date.now(), sessionId)
     }
@@ -291,21 +280,21 @@ function withAgentOperations(BaseClass) {
      * 查询钉钉特定用户+会话的历史对话列表（供用户选择继续哪个会话）
      * @deprecated 请使用 getImSessionsByIdentity
      */
-    getDingTalkSessions(staffId, conversationId, limit = 5) {
+    getDingTalkSessions(userId, chatId, limit = 5) {
       return this.db.prepare(`
         SELECT * FROM agent_conversations
-        WHERE staff_id = ? AND conversation_id = ?
+        WHERE im_user_id = ? AND im_chat_id = ?
         ORDER BY updated_at DESC LIMIT ?
-      `).all(staffId, conversationId, limit)
+      `).all(userId, chatId, limit)
     }
 
     /**
      * 查询指定 IM 渠道特定用户+会话的历史对话列表
      * 仅按 im_channel / im_user_id / im_chat_id 匹配；旧字段迁移另行处理。
      */
-    getImSessionsByType(type, staffId, conversationId, limit = 5) {
+    getImSessionsByType(type, userId, conversationId, limit = 5) {
       // p2p 场景 im_chat_id 无独立语义，不参与过滤；
-      // 群聊场景传真实 chatId，im_user_id 为空
+      // 群聊场景传入群 chatId 以区分同一用户在不同群的会话
       if (conversationId) {
         return this.db.prepare(`
           SELECT * FROM agent_conversations
@@ -313,14 +302,14 @@ function withAgentOperations(BaseClass) {
             AND im_user_id = ?
             AND im_chat_id = ?
           ORDER BY updated_at DESC LIMIT ?
-        `).all(type, staffId, conversationId, limit)
+        `).all(type, userId, conversationId, limit)
       }
       return this.db.prepare(`
         SELECT * FROM agent_conversations
         WHERE im_channel = ?
           AND im_user_id = ?
         ORDER BY updated_at DESC LIMIT ?
-      `).all(type, staffId, limit)
+      `).all(type, userId, limit)
     }
 
     /**
@@ -329,11 +318,10 @@ function withAgentOperations(BaseClass) {
     updateImIdentity(sessionId, { userId, chatId, chatType } = {}) {
       this.db.prepare(`
         UPDATE agent_conversations
-        SET staff_id = ?, conversation_id = ?,
-            im_user_id = ?, im_chat_id = ?, im_chat_type = ?,
+        SET im_user_id = ?, im_chat_id = ?, im_chat_type = ?,
             updated_at = ?
         WHERE session_id = ?
-      `).run(userId, chatId, userId, chatId, chatType || null, Date.now(), sessionId)
+      `).run(userId, chatId, chatType || null, Date.now(), sessionId)
     }
 
     /**

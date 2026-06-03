@@ -49,6 +49,6 @@ describe('Agent DB IM field queries', () => {
     expect(calls[0].kind).toBe('run')
     expect(calls[0].sql).toContain('im_user_id = ?')
     expect(calls[0].sql).toContain('im_chat_id = ?')
-    expect(calls[0].params).toEqual(['staff-1', 'conv-1', 'staff-1', 'conv-1', null, expect.any(Number), 'session-1'])
+    expect(calls[0].params).toEqual(['staff-1', 'conv-1', null, expect.any(Number), 'session-1'])
   })
 })
