@@ -1265,6 +1265,15 @@ class FeishuBridge {
     }
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedOpenId, sessionId)
+
+    // 写入 sessionMap（群聊 key=chatId，p2p key=userId:chatId）
+    const bindMapKey = this._sessionMapper.buildKey({
+      userId: resolvedOpenId,
+      chatId: targetType === 'chat' ? resolvedOpenId : resolvedOpenId,
+      chatType: targetType === 'chat' ? 'group' : 'p2p',
+    })
+    this._sessionMapper.sessionMap.set(bindMapKey, sessionId)
+
     this._sessionIdentities.set(sessionId, {
       senderId: resolvedOpenId,
       senderName: target.displayName || resolvedOpenId,
