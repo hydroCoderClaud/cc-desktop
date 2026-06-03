@@ -790,7 +790,7 @@ class DingTalkBridge {
         })
       }
     } catch (err) {
-      console.warn('[DingTalk] Failed to list bot chats:', err.message)
+      console.warn('[DingTalk] Failed to list bot chats:', err.message, err.stack)
     }
 
     return targets.sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-CN'))
@@ -809,10 +809,17 @@ class DingTalkBridge {
     }
     const result = await response.json()
     if (result.errcode) {
-      throw new Error(`DingTalk list bot chats failed: ${result.errcode} ${result.errmsg}`)
+      throw new Error(`DingTalk list bot chats failed: ${result.errcode} ${result.errmsg} body=${JSON.stringify(result).substring(0,200)}`)
     }
-    const list = Array.isArray(result?.chat_list) ? result.chat_list : []
-    return list.map(chat => ({ chatId: String(chat.conversationId || chat.chatid || chat.chatId), name: chat.title || chat.name || '' }))
+    console.log('[DingTalk] Bot chats response:', JSON.stringify(result).substring(0, 300))
+    const list = Array.isArray(result?.result?.chat_list) ? result.result.chat_list
+      : Array.isArray(result?.chat_list) ? result.chat_list
+      : []
+    console.log('[DingTalk] Bot chats found:', list.length)
+    return list.map(chat => ({
+      chatId: String(chat.conversationId || chat.chatid || chat.chatId || ''),
+      name: chat.title || chat.name || String(chat.conversationId || chat.chatid || ''),
+    }))
   }
 
   bindTarget(sessionId, { targetId, targetType, displayName } = {}) {
