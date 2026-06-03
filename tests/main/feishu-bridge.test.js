@@ -136,7 +136,6 @@ describe('FeishuBridge', () => {
     expect(sendResult).toMatchObject({ success: true, targetId: 'ou_target', messageId: 'om_send_1' })
     expect(bridge.getBinding(session.id)).toEqual({
       targetId: 'ou_target',
-      targetId: 'ou_target',
       displayName: '张三'
     })
 
@@ -544,7 +543,6 @@ describe('FeishuBridge', () => {
     expect(sendSpy).not.toHaveBeenCalled()
     expect(bridge.getBinding(session.id)).toEqual({
       targetId: 'ou_target_1',
-      targetId: 'ou_target_1',
       displayName: '张三'
     })
     expect(bridge._targetSessionMap.get('ou_target_2')).toBeUndefined()
@@ -606,7 +604,6 @@ describe('FeishuBridge', () => {
 
     expect(bridge.getBinding(session.id)).toEqual({
       targetId: 'ou_target',
-      targetId: 'ou_target',
       displayName: 'ou_target'
     })
     expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
@@ -648,7 +645,6 @@ describe('FeishuBridge', () => {
 
     expect(bridge.getBinding(session.id)).toEqual({
       targetId: 'ou_target',
-      targetId: 'ou_target',
       displayName: 'ou_target'
     })
     expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
@@ -686,7 +682,6 @@ describe('FeishuBridge', () => {
     ))
 
     expect(bridge.getBinding(session.id)).toEqual({
-      targetId: 'ou_target',
       targetId: 'ou_target',
       displayName: 'ou_target'
     })

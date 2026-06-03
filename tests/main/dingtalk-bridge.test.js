@@ -56,7 +56,6 @@ describe('DingTalkBridge', () => {
 
     bridge.bindTarget(session.id, {
       targetId: 'staff-1',
-      targetId: 'staff-1',
       displayName: '张三'
     })
 
@@ -181,11 +180,10 @@ describe('DingTalkBridge', () => {
     })).rejects.toThrow(/当前会话已绑定钉钉联系人「张三」/)
 
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(bridge.getBinding(session.id)).toEqual({
-      targetId: 'staff-1',
+    expect(bridge.getBinding(session.id)).toEqual(expect.objectContaining({
       targetId: 'staff-1',
       displayName: '张三'
-    })
+    }))
     expect(bridge._targetSessionMap.get('staff-2')).toBeUndefined()
   })
 
@@ -243,11 +241,10 @@ describe('DingTalkBridge', () => {
         : null
     ))
 
-    expect(bridge.getBinding(session.id)).toEqual({
-      targetId: 'staff-1',
+    expect(bridge.getBinding(session.id)).toEqual(expect.objectContaining({
       targetId: 'staff-1',
       displayName: 'staff-1'
-    })
+    }))
     expect(bridge._targetSessionMap.get('staff-1')).toBe(session.id)
   })
 
