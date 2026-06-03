@@ -732,7 +732,7 @@ describe('FeishuBridge', () => {
   it('preserves group-chat context for card actions instead of forcing p2p', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
 
     const created = manager.create({ type: 'feishu', source: 'feishu', title: '群会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
@@ -752,7 +752,7 @@ describe('FeishuBridge', () => {
       chatType: 'chat'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'chat_id',
       'oc_group',
       expect.objectContaining({
@@ -1761,7 +1761,7 @@ describe('FeishuBridge', () => {
   it('sends a help card for /help', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
 
     await bridge._handleCommand('/help', {
       senderId: 'ou_xxx',
@@ -1769,7 +1769,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_xxx',
       expect.objectContaining({
@@ -1785,7 +1785,7 @@ describe('FeishuBridge', () => {
   it('closes the active Feishu session', async () => {
     const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     const close = vi.spyOn(manager, 'close').mockResolvedValue()
 
     const created = manager.create({ type: 'feishu', source: 'feishu', title: '待关闭会话', cwd: tempDir })
@@ -1805,7 +1805,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(close).toHaveBeenCalledWith(session.id)
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_xxx',
       expect.objectContaining({
@@ -1824,7 +1824,7 @@ describe('FeishuBridge', () => {
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const close = vi.spyOn(manager, 'close').mockResolvedValue()
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
-    vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
 
     const created = manager.create({ type: 'chat', source: 'manual', title: '桌面主动会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
@@ -1875,7 +1875,7 @@ describe('FeishuBridge', () => {
   it('prompts for history after closing the current Feishu session instead of auto-using another proactive binding', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
     const findBoundSession = vi.spyOn(bridge, '_findBoundSessionIdBySenderId')
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
@@ -1949,7 +1949,7 @@ describe('FeishuBridge', () => {
   it('closes the active group-chat Feishu session from card actions', async () => {
     const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     const close = vi.spyOn(manager, 'close').mockResolvedValue()
 
     const created = manager.create({ type: 'feishu', source: 'feishu', title: '群待关闭会话', cwd: tempDir })
@@ -1971,7 +1971,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(close).toHaveBeenCalledWith(session.id)
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'chat_id',
       'oc_group',
       expect.objectContaining({
@@ -2280,7 +2280,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     bridge._eventClient._connected = true
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
 
     const created = manager.create({ type: 'feishu', source: 'feishu', title: '状态会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
@@ -2298,7 +2298,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_xxx',
       expect.objectContaining({
@@ -2321,7 +2321,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     bridge._eventClient._connected = true
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_send_1')
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([])
 
@@ -2344,7 +2344,7 @@ describe('FeishuBridge', () => {
       chatName: '张三'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_target',
       expect.objectContaining({
@@ -2367,7 +2367,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     bridge._eventClient._connected = true
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
 
     await bridge._handleCommand('/status@机器人', {
       senderId: 'ou_group',
@@ -2377,7 +2377,7 @@ describe('FeishuBridge', () => {
       mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'chat_id',
       'oc_group',
       expect.objectContaining({
@@ -2748,7 +2748,7 @@ describe('FeishuBridge', () => {
     }
     const manager = new AgentSessionManager(tempMainWindow, configManager)
     const bridge = new FeishuBridge(configManager, manager, tempMainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._sessionMapper, 'initPendingChoice').mockImplementation(async (_mapKey, history, onSendChoiceMenu, options) => {
       await onSendChoiceMenu(options.menuBuilder(history))
       return { sessionId: null }
@@ -2773,7 +2773,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_xxx',
       expect.objectContaining({
@@ -2821,7 +2821,7 @@ describe('FeishuBridge', () => {
   it('shows a historical session choice menu with /resume and no index', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
       { session_id: 'hist-1', title: '历史会话 1', updated_at: Date.now() - 60 * 1000 },
       { session_id: 'hist-2', title: '历史会话 2', updated_at: Date.now() - 2 * 60 * 1000 }
@@ -2837,7 +2837,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p'
     })
 
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_xxx',
       expect.objectContaining({
@@ -2853,7 +2853,6 @@ describe('FeishuBridge', () => {
   it('includes the current proactively rebound Feishu session in /resume even when DB history lookup is empty', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([])
     vi.spyOn(bridge._sessionMapper, 'initPendingChoice').mockImplementation(async (_mapKey, history, onSendChoiceMenu, options) => {
@@ -2906,7 +2905,7 @@ describe('FeishuBridge', () => {
       expect.any(Function),
       expect.any(Object)
     )
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_target',
       expect.objectContaining({
@@ -2922,7 +2921,6 @@ describe('FeishuBridge', () => {
   it('includes a proactively bound Feishu session in /resume before the current chat map is established', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([])
     vi.spyOn(bridge._sessionMapper, 'initPendingChoice').mockImplementation(async (_mapKey, history, onSendChoiceMenu, options) => {
@@ -2976,7 +2974,7 @@ describe('FeishuBridge', () => {
       expect.any(Function),
       expect.any(Object)
     )
-    expect(sendCardMessage).toHaveBeenCalledWith(
+    expect(sendTextMessage).toHaveBeenCalledWith(
       'open_id',
       'ou_target',
       expect.objectContaining({
@@ -2992,7 +2990,7 @@ describe('FeishuBridge', () => {
   it('falls back to text when sending the help card fails', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    vi.spyOn(bridge._api, 'sendCardMessage').mockRejectedValue(new Error('card failed'))
+    vi.spyOn(bridge._api, 'sendTextMessage').mockRejectedValue(new Error('card failed'))
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
 
     await bridge._handleCommand('/help', {
@@ -3253,7 +3251,7 @@ describe('FeishuBridge', () => {
   it('keeps the newly created Feishu session mapped after choosing new from history-choice', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
@@ -3296,7 +3294,7 @@ describe('FeishuBridge', () => {
       text: '继续说'
     })
 
-    expect(sendCardMessage).not.toHaveBeenCalled()
+    expect(sendTextMessage).not.toHaveBeenCalled()
     expect(enqueueMessage).toHaveBeenLastCalledWith(
       session.id,
       { text: '继续说', images: undefined },
@@ -3310,7 +3308,7 @@ describe('FeishuBridge', () => {
   it('keeps the newly created Feishu session mapped after replying 0 to the text history-choice menu', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
@@ -3353,7 +3351,7 @@ describe('FeishuBridge', () => {
       text: '继续说'
     })
 
-    expect(sendCardMessage).not.toHaveBeenCalled()
+    expect(sendTextMessage).not.toHaveBeenCalled()
     expect(enqueueMessage).toHaveBeenLastCalledWith(
       session.id,
       { text: '继续说', images: undefined },
@@ -3367,7 +3365,7 @@ describe('FeishuBridge', () => {
   it('keeps the resumed Feishu session mapped after choosing history and continues follow-up messages directly', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendCardMessage = vi.spyOn(bridge._api, 'sendCardMessage').mockResolvedValue('om_card')
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_card')
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
     vi.spyOn(bridge._sessionMapper, '_queryHistorySessions').mockResolvedValue([
@@ -3419,7 +3417,7 @@ describe('FeishuBridge', () => {
       text: '继续聊'
     })
 
-    expect(sendCardMessage).not.toHaveBeenCalled()
+    expect(sendTextMessage).not.toHaveBeenCalled()
     expect(enqueueMessage).toHaveBeenLastCalledWith(
       'hist-1',
       { text: '继续聊', images: undefined },
