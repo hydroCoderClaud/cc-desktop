@@ -93,6 +93,7 @@ class EnterpriseWeixinBridge {
     this._activeSendChunks = new Map()
     this._desktopPendingImagePaths = new Map()
     this._proactiveRebindSuppressedKeys = new Set()
+    this._knownChats = new Map()  // 被动收集的群聊
 
     this._bindAgentEvents()
   }
@@ -211,6 +212,7 @@ class EnterpriseWeixinBridge {
     this._activeSendChunks.clear()
     this._desktopPendingImagePaths.clear()
     this._proactiveRebindSuppressedKeys.clear()
+    this._knownChats.clear()
     this._sessionIdentities.clear()
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
@@ -396,6 +398,14 @@ class EnterpriseWeixinBridge {
 
     if (this._processedMsgIds.has(message.msgId)) return
     this._processedMsgIds.set(message.msgId, Date.now())
+
+    // 被动收集群聊：群消息入站时记录 chatId
+    if (message.chatType === 'group' && message.chatId) {
+      this._knownChats.set(message.chatId, {
+        chatId: message.chatId,
+        name: message.chatId || '',
+      })
+    }
 
     const identity = this._buildIdentity(message)
     const mapKey = this._sessionMapper.buildKey(identity)

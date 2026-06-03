@@ -23,12 +23,26 @@ function setupEnterpriseWeixinHandlers(ipcMain, bridge, configManager, wecomCliM
   setupImBridgeHandlers(ipcMain, bridge, configManager, 'enterprise-weixin')
 
   ipcMain.handle('enterprise-weixin:listTargets', async () => {
-    if (!wecomCliManager) return []
-    try {
-      return await wecomCliManager.listContacts()
-    } catch (err) {
-      return normalizeCliError(err)
+    const results = []
+    if (wecomCliManager) {
+      try {
+        results.push(...(await wecomCliManager.listContacts()))
+      } catch (err) {
+        return normalizeCliError(err)
+      }
     }
+    // 附加被动收集的群聊
+    for (const chat of (bridge._knownChats || new Map()).values()) {
+      results.push({
+        id: chat.chatId,
+        userId: chat.chatId,
+        targetId: chat.chatId,
+        displayName: chat.name || chat.chatId || '',
+        name: chat.name || '',
+        targetType: 'chat',
+      })
+    }
+    return results
   })
 
   ipcMain.handle('enterprise-weixin:bindTarget', async (_event, payload = {}) => {

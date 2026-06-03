@@ -98,6 +98,8 @@ class DingTalkBridge {
     this._sessionTargets = new Map()
     // 反向索引：staffId -> sessionId
     this._targetSessionMap = new Map()
+    // 被动收集的群聊：chatId → { chatId, name }
+    this._knownChats = new Map()
 
     // CC 桌面介入时待发送的 Q&A 块
     // key: sessionId, value: { userInput, inputImages[], textChunks[], imagePaths }
@@ -231,6 +233,7 @@ class DingTalkBridge {
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
     this._desktopPendingBlocks.clear()
+    this._knownChats.clear()
     this.sessionMap.clear()
     console.log('[DingTalk] Bridge stopped')
     this._notifyFrontend('dingtalk:statusChange', this.getStatus())
@@ -437,6 +440,14 @@ class DingTalkBridge {
     const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle, conversationType } = data
 
     console.log('[DingTalk] _handleDingTalkMessage: msgId:', msgId, 'msgtype:', msgtype, 'text:', text?.content?.substring(0, 50))
+
+    // 被动收集群聊：群消息入站时记录 chatId（工具栏列群用）
+    if (String(conversationType) === '2' && conversationId) {
+      this._knownChats.set(conversationId, {
+        chatId: conversationId,
+        name: conversationTitle || conversationId || '',
+      })
+    }
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
@@ -775,51 +786,20 @@ class DingTalkBridge {
 
     const targets = Array.from(seenUsers.values())
 
-    // 附加群列表
-    try {
-      const chats = await this._listBotChats(token)
-      for (const chat of chats) {
-        targets.push({
-          id: chat.chatId,
-          staffId: chat.chatId,
-          userId: chat.chatId,
-          displayName: chat.name || chat.chatId || '',
-          name: chat.name || '',
-          targetType: 'chat',
-          hasContextToken: true,
-        })
-      }
-    } catch (err) {
-      console.warn('[DingTalk] Failed to list bot chats:', err.message, err.stack)
+    // 附加被动收集的群聊列表（群消息入站时记录）
+    for (const chat of this._knownChats.values()) {
+      targets.push({
+        id: chat.chatId,
+        staffId: chat.chatId,
+        userId: chat.chatId,
+        displayName: chat.name || chat.chatId || '',
+        name: chat.name || '',
+        targetType: 'chat',
+        hasContextToken: true,
+      })
     }
 
     return targets.sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-CN'))
-  }
-
-  async _listBotChats(token) {
-    const response = await globalThis.fetch(
-      `https://oapi.dingtalk.com/topapi/chat/list?access_token=${encodeURIComponent(token)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
-    if (!response.ok) {
-      throw new Error(`DingTalk list bot chats failed: ${response.status}`)
-    }
-    const result = await response.json()
-    if (result.errcode) {
-      throw new Error(`DingTalk list bot chats failed: ${result.errcode} ${result.errmsg} body=${JSON.stringify(result).substring(0,200)}`)
-    }
-    console.log('[DingTalk] Bot chats response:', JSON.stringify(result).substring(0, 300))
-    const list = Array.isArray(result?.result?.chat_list) ? result.result.chat_list
-      : Array.isArray(result?.chat_list) ? result.chat_list
-      : []
-    console.log('[DingTalk] Bot chats found:', list.length)
-    return list.map(chat => ({
-      chatId: String(chat.conversationId || chat.chatid || chat.chatId || ''),
-      name: chat.title || chat.name || String(chat.conversationId || chat.chatid || ''),
-    }))
   }
 
   bindTarget(sessionId, { targetId, targetType, displayName } = {}) {
