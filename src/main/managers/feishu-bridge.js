@@ -1269,10 +1269,11 @@ class FeishuBridge {
     this._targetSessionMap.set(resolvedOpenId, sessionId)
 
     // 写入 sessionMap（群聊 key=chatId，p2p key=userId:chatId）
+    const isGroup = targetType === 'chat' || targetType === 'group'
     const bindMapKey = this._sessionMapper.buildKey({
       userId: resolvedOpenId,
-      chatId: targetType === 'chat' ? resolvedOpenId : resolvedOpenId,
-      chatType: targetType === 'chat' ? 'group' : 'p2p',
+      chatId: isGroup ? resolvedOpenId : resolvedOpenId,
+      chatType: isGroup ? 'group' : 'p2p',
     })
     this._sessionMapper.sessionMap.set(bindMapKey, sessionId)
     console.log('[FeishuBridge] bindTarget sessionMap set:', JSON.stringify({ bindMapKey, sessionId, targetType }))
@@ -1280,13 +1281,13 @@ class FeishuBridge {
     this._sessionIdentities.set(sessionId, {
       senderId: resolvedOpenId,
       senderName: target.displayName || resolvedOpenId,
-      chatId: targetType === 'chat' ? resolvedOpenId : null,
-      chatType: targetType === 'chat' ? 'group' : 'p2p',
+      chatId: isGroup ? resolvedOpenId : null,
+      chatType: isGroup ? 'group' : 'p2p',
       chatName: target.displayName || resolvedOpenId,
     })
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: targetType === 'chat' ? resolvedOpenId : '', chatType: targetType === 'chat' ? 'group' : 'p2p' })
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: isGroup ? resolvedOpenId : '', chatType: isGroup ? 'group' : 'p2p' })
       } catch (err) {
         console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
       }
