@@ -1020,14 +1020,13 @@ class DingTalkBridge {
     return { success: true }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, staffId } = {}) {
     const content = typeof text === 'string' ? text.trim() : ''
     if (!content) {
       throw new Error('发送内容不能为空')
     }
-    const resolvedStaffId = typeof (targetId || this._sessionTargets.get(sessionId)?.staffId) === 'string'
-      ? String(targetId || this._sessionTargets.get(sessionId)?.staffId).trim()
-      : ''
+    const resolvedId = targetId || staffId || this._sessionTargets.get(sessionId)?.staffId || ''
+    const resolvedStaffId = typeof resolvedId === 'string' ? String(resolvedId).trim() : ''
     if (!resolvedStaffId) {
       throw new Error('targetId 不能为空')
     }

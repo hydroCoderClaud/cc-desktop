@@ -1502,12 +1502,12 @@ class EnterpriseWeixinBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, text, displayName } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, text, displayName, userId } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     if (!content) throw new Error('发送内容不能为空')
 
-    const resolvedId = typeof targetId === 'string' ? targetId.trim() : ''
+    const resolvedId = typeof (targetId || userId || '') === 'string' ? (targetId || userId || '').trim() : ''
     if (!resolvedId) throw new Error('targetId 不能为空')
     if (!this._wsClient || !this._connected) throw new Error('企业微信未连接')
 

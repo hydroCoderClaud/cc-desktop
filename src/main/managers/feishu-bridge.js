@@ -1380,15 +1380,14 @@ class FeishuBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, openId } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     if (!content) {
       throw new Error('发送内容不能为空')
     }
-    const resolvedOpenId = typeof (targetId || this._sessionTargets.get(sessionId)?.openId || '') === 'string'
-      ? (targetId || this._sessionTargets.get(sessionId)?.openId || '').trim()
-      : ''
+    const resolvedId = targetId || openId || this._sessionTargets.get(sessionId)?.openId || ''
+    const resolvedOpenId = typeof resolvedId === 'string' ? resolvedId.trim() : ''
     if (!resolvedOpenId) {
       throw new Error('targetId 不能为空')
     }
