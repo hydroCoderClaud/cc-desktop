@@ -101,14 +101,14 @@ describe('EnterpriseWeixinBridge', () => {
           im_chat_id: null,
         })
       }),
-      updateDingTalkMetadata: vi.fn((sessionId, staffId, conversationId) => {
+      updateImIdentity: vi.fn((sessionId, { userId, chatId }) => {
         const current = conversationRows.get(sessionId) || { session_id: sessionId }
         conversationRows.set(sessionId, {
           ...current,
-          staff_id: staffId,
-          conversation_id: conversationId,
-          im_user_id: staffId,
-          im_chat_id: conversationId,
+          staff_id: userId,
+          conversation_id: chatId,
+          im_user_id: userId,
+          im_chat_id: chatId,
         })
       }),
       closeAgentConversation: vi.fn(),
@@ -484,7 +484,7 @@ describe('EnterpriseWeixinBridge', () => {
     const { bridge, manager } = createHarness()
     const reopened = manager.create({ type: 'chat', source: 'manual', title: '历史会话 1' })
     reopened.imChannel = 'enterprise-weixin'
-    const updateMetadataSpy = manager.sessionDatabase.updateDingTalkMetadata
+    const updateMetadataSpy = manager.sessionDatabase.updateImIdentity
     const enqueueSpy = vi.spyOn(bridge, '_enqueueInboundMessage').mockResolvedValue()
     manager.sessionDatabase.getImSessionsByType.mockReturnValue([
       {
@@ -501,7 +501,7 @@ describe('EnterpriseWeixinBridge', () => {
       text: { content: '/resume 1' },
     }))
 
-    expect(updateMetadataSpy).toHaveBeenCalledWith(reopened.id, 'user-a', 'user-a')
+    expect(updateMetadataSpy).toHaveBeenCalledWith(reopened.id, expect.objectContaining({ userId: 'user-a', chatId: 'user-a' }))
     expect(manager.sessionDatabase.getAgentConversation(reopened.id)).toEqual(
       expect.objectContaining({
         im_user_id: 'user-a',
@@ -683,7 +683,7 @@ describe('EnterpriseWeixinBridge', () => {
       userId: 'user-b',
       displayName: 'HydroCoder',
     })
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenLastCalledWith(created.id, 'user-b', '')
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-b', chatId: '' }))
   })
 
   it('reuses the bound session after proactive send without asking history choice again', async () => {
@@ -716,7 +716,7 @@ describe('EnterpriseWeixinBridge', () => {
         }),
       })
     )
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenLastCalledWith(created.id, 'user-a', 'user-a')
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-a', chatId: 'user-a' }))
   })
 
   it('clears stale history choice state after proactive bind so the next inbound reply is not treated as a numeric selection', async () => {

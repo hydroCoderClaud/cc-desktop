@@ -39,7 +39,7 @@ describe('DingTalkBridge', () => {
       insertAgentMessage: vi.fn(),
       createAgentConversation: vi.fn(() => ({ id: 1 })),
       updateAgentConversation: vi.fn(),
-      updateDingTalkMetadata: vi.fn(),
+      updateImIdentity: vi.fn(),
       closeAgentConversation: vi.fn(),
       getAgentConversation: vi.fn(() => null),
       getDingTalkSessions: vi.fn(() => []),
@@ -327,7 +327,7 @@ describe('DingTalkBridge', () => {
     expect(result).toBe(session.id)
     expect(bridge._targetSessionMap.get('staff-1')).toBe(session.id)
     expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(session.id)
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'staff-1', 'conv-1')
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'staff-1', chatId: 'conv-1' }))
   })
 
   it('clears stale DingTalk pending choice when the user is proactively rebound to an active session', async () => {

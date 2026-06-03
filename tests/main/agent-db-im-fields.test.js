@@ -43,12 +43,12 @@ describe('Agent DB IM field queries', () => {
   it('stores IM identity into the new identity columns when updating legacy metadata', () => {
     const { harness, calls } = createDbHarness()
 
-    harness.updateDingTalkMetadata('session-1', 'staff-1', 'conv-1')
+    harness.updateImIdentity('session-1', { userId: 'staff-1', chatId: 'conv-1' })
 
     expect(calls).toHaveLength(1)
     expect(calls[0].kind).toBe('run')
     expect(calls[0].sql).toContain('im_user_id = ?')
     expect(calls[0].sql).toContain('im_chat_id = ?')
-    expect(calls[0].params).toEqual(['staff-1', 'conv-1', 'staff-1', 'conv-1', expect.any(Number), 'session-1'])
+    expect(calls[0].params).toEqual(['staff-1', 'conv-1', 'staff-1', 'conv-1', null, expect.any(Number), 'session-1'])
   })
 })

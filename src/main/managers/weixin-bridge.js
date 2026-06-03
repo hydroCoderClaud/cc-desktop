@@ -532,8 +532,8 @@ class WeixinBridge {
     this.desktopPendingBlocks.delete(sessionId)
 
     const db = this.agentSessionManager.sessionDatabase
-    if (db?.updateDingTalkMetadata) {
-      db.updateDingTalkMetadata(sessionId, targetId, accountId)
+    if (db?.updateImIdentity) {
+      db.updateImIdentity(sessionId, { userId: targetId, chatId: accountId, chatType: 'p2p' })
     }
 
     console.log(`[WeixinBridge] Bound session ${sessionId} to target ${targetId} (${displayName || targetId})`)

@@ -41,6 +41,7 @@ class AgentSession {
     this.modelId = typeof options.modelId === 'string' && options.modelId.trim() ? options.modelId.trim() : null
     this.source = options.source || 'manual'
     this.imChannel = options.imChannel || null        // IM 平台：dingtalk/weixin/feishu/enterprise-weixin
+    this.imChatType = options.imChatType || null      // IM 会话类型：p2p/single/group
     this.taskId = options.taskId || null
     this.meta = options.meta || {}  // 元数据（如钉钉的 conversationId）
     this.pendingInteractions = new Map()  // 待处理的宿主交互请求

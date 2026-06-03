@@ -1106,9 +1106,9 @@ class FeishuBridge {
           chatType,
           chatName: identity.chatName || null,
         })
-        if (this._sessionDatabase?.updateDingTalkMetadata) {
+        if (this._sessionDatabase?.updateImIdentity) {
           try {
-            this._sessionDatabase.updateDingTalkMetadata(proactiveSessionId, senderId || '', chatId || '')
+            this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: chatId || '', chatType: 'p2p' })
           } catch (err) {
             console.warn('[FeishuBridge] Failed to persist proactive Feishu binding:', err.message)
           }
@@ -1308,9 +1308,9 @@ class FeishuBridge {
       chatType: 'p2p',
       chatName: target.displayName || resolvedOpenId,
     })
-    if (this._sessionDatabase?.updateDingTalkMetadata) {
+    if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateDingTalkMetadata(sessionId, resolvedOpenId, '')
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: '', chatType: 'p2p' })
       } catch (err) {
         console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
       }

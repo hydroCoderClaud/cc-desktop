@@ -70,7 +70,7 @@ describe('FeishuBridge', () => {
         api_base_url: null
       })),
       getImSessionsByType: vi.fn(() => []),
-      updateDingTalkMetadata: vi.fn()
+      updateImIdentity: vi.fn()
     }
     return { mainWindow, configManager, manager, sent }
   }
@@ -156,7 +156,7 @@ describe('FeishuBridge', () => {
 
     expect(sessionId).toBe(session.id)
     expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(session.id)
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', 'oc_reply')
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: 'oc_reply' }))
   })
 
   it('reuses the proactively bound session on first p2p reply even after in-memory Feishu target mapping is lost', async () => {
@@ -481,7 +481,7 @@ describe('FeishuBridge', () => {
     expect(manager.sessionDatabase.updateAgentConversation).not.toHaveBeenCalledWith(session.id, {
       source: 'feishu'
     })
-    expect(manager.sessionDatabase.updateDingTalkMetadata).not.toHaveBeenCalledWith(session.id, 'ou_target', '')
+    expect(manager.sessionDatabase.updateImIdentity).not.toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: '' }))
   })
 
   it('persists the proactive Feishu target identity when binding a normal session', async () => {
@@ -496,7 +496,7 @@ describe('FeishuBridge', () => {
       displayName: '张三'
     })
 
-    expect(manager.sessionDatabase.updateDingTalkMetadata).toHaveBeenCalledWith(session.id, 'ou_target', '')
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: '' }))
   })
 
   it('locks a normal session to Feishu after first proactive send', async () => {
@@ -2768,7 +2768,7 @@ describe('FeishuBridge', () => {
       getImSessionsByType: vi.fn(() => [
         { session_id: 'hist-1', title: '历史会话 1', updated_at: Date.now() - 60 * 1000, type: 'feishu' }
       ]),
-      updateDingTalkMetadata: vi.fn(),
+      updateImIdentity: vi.fn(),
       closeAllActiveAgentConversations: vi.fn()
     })
 

@@ -44,6 +44,7 @@ function withAgentOperations(BaseClass) {
       modelId,
       source,
       imChannel,
+      imChatType,
       taskId,
       ownerClientId,
       clientType,
@@ -52,10 +53,10 @@ function withAgentOperations(BaseClass) {
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO agent_conversations (
-          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, im_channel, task_id,
+          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, im_channel, im_chat_type, task_id,
           owner_client_id, client_type, client_meta, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         type || 'chat',
@@ -67,6 +68,7 @@ function withAgentOperations(BaseClass) {
         normalizeModelId(modelId),
         source || 'manual',
         imChannel || null,
+        imChatType || null,
         taskId || null,
         ownerClientId || 'host-ui',
         clientType || 'host',
@@ -336,14 +338,16 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
-     * 更新钉钉元数据（staffId、conversationId）到对话记录
+     * 更新 IM 身份（userId、chatId、chatType）到对话记录
      */
-    updateDingTalkMetadata(sessionId, staffId, conversationId) {
+    updateImIdentity(sessionId, { userId, chatId, chatType } = {}) {
       this.db.prepare(`
         UPDATE agent_conversations
-        SET staff_id = ?, conversation_id = ?, im_user_id = ?, im_chat_id = ?, updated_at = ?
+        SET staff_id = ?, conversation_id = ?,
+            im_user_id = ?, im_chat_id = ?, im_chat_type = ?,
+            updated_at = ?
         WHERE session_id = ?
-      `).run(staffId, conversationId, staffId, conversationId, Date.now(), sessionId)
+      `).run(userId, chatId, userId, chatId, chatType || null, Date.now(), sessionId)
     }
 
     /**

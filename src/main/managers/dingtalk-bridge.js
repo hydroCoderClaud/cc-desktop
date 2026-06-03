@@ -668,7 +668,7 @@ class DingTalkBridge {
         liveSession.meta.conversationId = conversationId
         this.sessionMap.set(mapKey, boundSessionId)
         if (db && conversationId) {
-          db.updateDingTalkMetadata(boundSessionId, staffId, conversationId)
+          db.updateImIdentity(boundSessionId, { userId: staffId, chatId: conversationId, chatType: 'p2p' })
         }
         console.log(`[DingTalk] Reused active proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
         return boundSessionId
@@ -690,7 +690,7 @@ class DingTalkBridge {
           session.meta.conversationId = conversationId
           this.sessionMap.set(mapKey, boundSessionId)
           if (db && conversationId) {
-            db.updateDingTalkMetadata(boundSessionId, staffId, conversationId)
+            db.updateImIdentity(boundSessionId, { userId: staffId, chatId: conversationId, chatType: 'p2p' })
           }
           console.log(`[DingTalk] Reused proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
           return boundSessionId
@@ -738,7 +738,7 @@ class DingTalkBridge {
 
     const db = this.agentSessionManager.sessionDatabase
     if (db && conversationId) {
-      db.updateDingTalkMetadata(sessionId, staffId, conversationId)
+      db.updateImIdentity(sessionId, { userId: staffId, chatId: conversationId, chatType: 'p2p' })
     }
 
     console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
@@ -818,9 +818,9 @@ class DingTalkBridge {
     }
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedStaffId, sessionId)
-    if (this.agentSessionManager.sessionDatabase?.updateDingTalkMetadata) {
+    if (this.agentSessionManager.sessionDatabase?.updateImIdentity) {
       try {
-        this.agentSessionManager.sessionDatabase.updateDingTalkMetadata(sessionId, resolvedStaffId, '')
+        this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: resolvedStaffId, chatId: '', chatType: 'p2p' })
       } catch (err) {
         console.warn('[DingTalk] Failed to persist proactive target identity:', err.message)
       }

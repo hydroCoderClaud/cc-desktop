@@ -1575,9 +1575,9 @@ class EnterpriseWeixinBridge {
       chatName: target.displayName || resolvedUserId,
     })
 
-    if (this._sessionDatabase?.updateDingTalkMetadata) {
+    if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateDingTalkMetadata(sessionId, resolvedUserId, '')
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedUserId, chatId: '', chatType: 'single' })
       } catch (err) {
         console.warn('[EnterpriseWeixin] Failed to persist bound target identity:', err.message)
       }
@@ -1732,7 +1732,7 @@ class EnterpriseWeixinBridge {
   _persistSessionChatContext(sessionId, { userId, chatId } = {}) {
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
     const normalizedChatId = typeof chatId === 'string' ? chatId.trim() : ''
-    if (!sessionId || !normalizedUserId || !normalizedChatId || !this._sessionDatabase?.updateDingTalkMetadata) {
+    if (!sessionId || !normalizedUserId || !normalizedChatId || !this._sessionDatabase?.updateImIdentity) {
       return
     }
 
@@ -1748,7 +1748,7 @@ class EnterpriseWeixinBridge {
     }
 
     try {
-      this._sessionDatabase.updateDingTalkMetadata(sessionId, normalizedUserId, normalizedChatId)
+      this._sessionDatabase.updateImIdentity(sessionId, { userId: normalizedUserId, chatId: normalizedChatId, chatType: normalizedChatId ? 'group' : 'single' })
     } catch (err) {
       console.warn('[EnterpriseWeixin] Failed to persist chat context:', err.message)
     }

@@ -185,13 +185,13 @@ class ImSessionMapper {
           identityKey: this.buildKey(identity),
         },
       })
-      if (session?.id && this._sessionDatabase?.updateDingTalkMetadata) {
+      if (session?.id && this._sessionDatabase?.updateImIdentity) {
         // 复用钉钉的 staff_id/conversation_id 列存储 IM 身份
         // userId → staff_id, chatId → conversation_id
         const staffId = identity.staffId || identity.userId || ''
         const conversationId = identity.conversationId || identity.chatId || ''
         try {
-          this._sessionDatabase.updateDingTalkMetadata(session.id, staffId, conversationId)
+          this._sessionDatabase.updateImIdentity(session.id, { userId: staffId, chatId: conversationId, chatType: conversationId ? 'group' : 'p2p' })
         } catch (e) {
           console.warn(`[ImSessionMapper] Failed to save IM identity metadata:`, e.message)
         }
@@ -357,10 +357,10 @@ class ImSessionMapper {
         try {
           await this._agentSessionManager.reopen(sessionId)
           this.sessionMap.set(mapKey, sessionId)
-          if (this._sessionDatabase?.updateDingTalkMetadata) {
+          if (this._sessionDatabase?.updateImIdentity) {
             const staffId = identity.staffId || identity.userId || ''
             const conversationId = identity.conversationId || identity.chatId || ''
-            this._sessionDatabase.updateDingTalkMetadata(sessionId, staffId, conversationId)
+            this._sessionDatabase.updateImIdentity(sessionId, { userId: staffId, chatId: conversationId, chatType: conversationId ? 'group' : 'p2p' })
           }
         } catch (err) {
           console.error(`[ImSessionMapper] reopen failed:`, err)
