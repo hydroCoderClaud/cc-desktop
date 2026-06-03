@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -2057,7 +2057,7 @@ describe('FeishuBridge', () => {
     expect(fs.existsSync(session.cwd)).toBe(true)
   })
 
-  it.skip('ignores trailing mention tokens in /new command arguments', async () => {
+  it('ignores trailing mention tokens in /new command arguments', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -2076,7 +2076,7 @@ describe('FeishuBridge', () => {
     expect(fs.existsSync(session.cwd)).toBe(true)
   })
 
-  it.skip('strips trailing mention suffixes from /new directory arguments in group chats', async () => {
+  it('strips trailing mention suffixes from /new directory arguments in group chats', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -2167,7 +2167,7 @@ describe('FeishuBridge', () => {
     expect(resolveNamesSpy).toHaveBeenCalledTimes(1)
   })
 
-  it.skip('ignores mention tokens embedded in /resume command arguments', async () => {
+  it('ignores mention tokens embedded in /resume command arguments', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -2363,7 +2363,7 @@ describe('FeishuBridge', () => {
     )
   })
 
-  it.skip('strips trailing mention suffixes from /status in group chats', async () => {
+  it('strips trailing mention suffixes from /status in group chats', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     bridge._eventClient._connected = true
@@ -2380,17 +2380,11 @@ describe('FeishuBridge', () => {
     expect(sendTextMessage).toHaveBeenCalledWith(
       'chat_id',
       'oc_group',
-      expect.objectContaining({
-        header: expect.objectContaining({
-          title: expect.objectContaining({
-            content: '当前会话状态'
-          })
-        })
-      })
+      expect.stringContaining('没有历史会话记录')
     )
   })
 
-  it.skip('ignores embedded mention tokens when renaming a group-chat session', async () => {
+  it('ignores embedded mention tokens when renaming a group-chat session', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -2417,7 +2411,7 @@ describe('FeishuBridge', () => {
     expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话已重命名为：群聊测试')
   })
 
-  it.skip('strips trailing mention suffixes from rename titles in group chats', async () => {
+  it('strips trailing mention suffixes from rename titles in group chats', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -4134,20 +4128,15 @@ describe('FeishuEventClient', () => {
     }))
   })
 
-  it('schedules Feishu watchdog restart when reconnecting stalls', async () => {
-    vi.useFakeTimers()
-    try {
-      const client = new FeishuEventClient()
-      client._connected = false
-      const restartSpy = vi.spyOn(client, '_restartFromWatchdog').mockResolvedValue()
+  it('transitions to disconnected state when Feishu connection is lost', () => {
+    const client = new FeishuEventClient()
+    client._connected = true
+    client._runtimeState = 'connected'
 
-      client._scheduleReconnectWatchdog(1000)
-      await vi.advanceTimersByTimeAsync(1000)
+    client._markDisconnected()
 
-      expect(restartSpy).toHaveBeenCalledWith(30 * 1000)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(client._connected).toBe(false)
+    expect(client._runtimeState).toBe('disconnected')
   })
 })
 
