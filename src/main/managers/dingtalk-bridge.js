@@ -818,7 +818,7 @@ class DingTalkBridge {
     this._targetSessionMap.set(resolvedStaffId, sessionId)
     if (this.agentSessionManager.sessionDatabase?.updateImIdentity) {
       try {
-        this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: resolvedStaffId, chatId: '', chatType: 'p2p' })
+        this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: resolvedStaffId, chatId: targetType === 'chat' ? resolvedStaffId : '', chatType: targetType === 'chat' ? 'group' : 'p2p' })
       } catch (err) {
         console.warn('[DingTalk] Failed to persist proactive target identity:', err.message)
       }

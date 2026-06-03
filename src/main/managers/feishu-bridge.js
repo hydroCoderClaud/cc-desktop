@@ -1285,7 +1285,7 @@ class FeishuBridge {
     })
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: '', chatType: 'p2p' })
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedOpenId, chatId: targetType === 'chat' ? resolvedOpenId : '', chatType: targetType === 'chat' ? 'group' : 'p2p' })
       } catch (err) {
         console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
       }

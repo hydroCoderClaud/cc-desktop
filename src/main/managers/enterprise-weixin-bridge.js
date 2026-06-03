@@ -1577,7 +1577,7 @@ class EnterpriseWeixinBridge {
 
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedUserId, chatId: '', chatType: 'single' })
+        this._sessionDatabase.updateImIdentity(sessionId, { userId: resolvedUserId, chatId: targetType === 'chat' ? resolvedUserId : '', chatType: targetType === 'chat' ? 'group' : 'single' })
       } catch (err) {
         console.warn('[EnterpriseWeixin] Failed to persist bound target identity:', err.message)
       }
