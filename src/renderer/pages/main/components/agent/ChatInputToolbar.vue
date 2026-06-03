@@ -1019,6 +1019,7 @@ const sendDingTalkQuickMessage = async () => {
       sessionId: props.sessionId,
       staffId: target.staffId || target.userId || target.id,
       targetId: target.id,
+      targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(dingtalkText.value)
     })
@@ -1075,6 +1076,7 @@ const sendFeishuQuickMessage = async () => {
     const result = await feishuApi.sendFeishuNotifyText({
       sessionId: props.sessionId,
       openId: target.openId || target.id,
+      targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(feishuText.value)
     })
@@ -1104,6 +1106,7 @@ const sendEnterpriseWeixinQuickMessage = async () => {
       sessionId: props.sessionId,
       userId: target.userId || target.id,
       targetId: target.id,
+      targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(enterpriseWeixinText.value)
     })
