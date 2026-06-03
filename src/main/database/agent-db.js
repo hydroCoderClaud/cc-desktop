@@ -251,20 +251,6 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
-     * 通用 IM 身份持久化写入（同时写新旧列，向后兼容）
-     * @param {string} sessionId
-     * @param {string} userId — IM 用户标识
-     * @param {string} chatId — IM 聊天标识（群聊/单聊）
-     */
-    updateImIdentity(sessionId, userId, chatId) {
-      this.db.prepare(`
-        UPDATE agent_conversations
-        SET staff_id = ?, conversation_id = ?, im_user_id = ?, im_chat_id = ?, updated_at = ?
-        WHERE session_id = ?
-      `).run(userId, chatId, userId, chatId, Date.now(), sessionId)
-    }
-
-    /**
      * 设置会话的 IM 平台绑定
      * @param {string} sessionId
      * @param {string|null} imChannel — dingtalk / weixin / feishu / enterprise-weixin
