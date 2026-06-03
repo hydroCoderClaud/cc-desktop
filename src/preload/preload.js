@@ -488,9 +488,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteWeixinNotifyTarget: (payload) => ipcRenderer.invoke('weixin-notify:deleteTarget', payload),
   pollWeixinNotifyOnce: (options) => ipcRenderer.invoke('weixin-notify:pollOnce', options),
   sendWeixinNotifyText: (payload) => ipcRenderer.invoke('weixin-notify:sendText', payload),
-  bindSessionToWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:bindSessionToTarget', payload),
-  unbindSessionWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:unbindSessionTarget', payload),
-  getSessionWeixinBinding: (sessionId) => ipcRenderer.invoke('weixin-notify:getSessionBinding', sessionId),
+  bindSessionToWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:bindTarget', payload),
+  unbindSessionWeixinTarget: (payload) => ipcRenderer.invoke('weixin-notify:unbindTarget', payload),
+  getSessionWeixinBinding: (sessionId) => ipcRenderer.invoke('weixin-notify:getBinding', sessionId),
 
   // ========================================
   // Claude 配置文件
@@ -1071,9 +1071,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDingTalkEnabled: (enabled) => ipcRenderer.invoke('dingtalk:setEnabled', enabled),
   updateDingTalkConfig: (config) => ipcRenderer.invoke('dingtalk:updateConfig', config),
   listDingTalkTargets: () => ipcRenderer.invoke('dingtalk:listTargets'),
-  bindSessionToDingTalkTarget: (payload) => ipcRenderer.invoke('dingtalk:bindSessionToTarget', payload),
-  unbindSessionDingTalkTarget: (payload) => ipcRenderer.invoke('dingtalk:unbindSessionTarget', payload),
-  getSessionDingTalkBinding: (sessionId) => ipcRenderer.invoke('dingtalk:getSessionBinding', sessionId),
+  bindSessionToDingTalkTarget: (payload) => ipcRenderer.invoke('dingtalk:bindTarget', payload),
+  unbindSessionDingTalkTarget: (payload) => ipcRenderer.invoke('dingtalk:unbindTarget', payload),
+  getSessionDingTalkBinding: (sessionId) => ipcRenderer.invoke('dingtalk:getBinding', sessionId),
   sendDingTalkText: (payload) => ipcRenderer.invoke('dingtalk:sendText', payload),
 
   // 飞书桥接
@@ -1084,9 +1084,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setFeishuEnabled: (enabled) => ipcRenderer.invoke('feishu:setEnabled', enabled),
   updateFeishuConfig: (config) => ipcRenderer.invoke('feishu:updateConfig', config),
   listFeishuTargets: (payload) => ipcRenderer.invoke('feishu:listTargets', payload),
-  bindSessionToFeishuTarget: (payload) => ipcRenderer.invoke('feishu:bindSessionToTarget', payload),
-  unbindSessionFeishuTarget: (payload) => ipcRenderer.invoke('feishu:unbindSessionTarget', payload),
-  getSessionFeishuBinding: (sessionId) => ipcRenderer.invoke('feishu:getSessionBinding', sessionId),
+  bindSessionToFeishuTarget: (payload) => ipcRenderer.invoke('feishu:bindTarget', payload),
+  unbindSessionFeishuTarget: (payload) => ipcRenderer.invoke('feishu:unbindTarget', payload),
+  getSessionFeishuBinding: (sessionId) => ipcRenderer.invoke('feishu:getBinding', sessionId),
   sendFeishuNotifyText: (payload) => ipcRenderer.invoke('feishu:sendText', payload),
 
   // 企业微信桥接
@@ -1098,9 +1098,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
   openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
   listEnterpriseWeixinTargets: () => ipcRenderer.invoke('enterprise-weixin:listTargets'),
-  bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindSessionToTarget', payload),
-  unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindSessionTarget', payload),
-  getSessionEnterpriseWeixinBinding: (sessionId) => ipcRenderer.invoke('enterprise-weixin:getSessionBinding', sessionId),
+  bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindTarget', payload),
+  unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindTarget', payload),
+  getSessionEnterpriseWeixinBinding: (sessionId) => ipcRenderer.invoke('enterprise-weixin:getBinding', sessionId),
   sendEnterpriseWeixinText: (payload) => ipcRenderer.invoke('enterprise-weixin:sendText', payload),
   getEnterpriseWeixinCliStatus: () => ipcRenderer.invoke('enterprise-weixin-cli:getStatus'),
   getEnterpriseWeixinCliBootstrapStatus: () => ipcRenderer.invoke('enterprise-weixin-cli:getBootstrapStatus'),
