@@ -222,9 +222,11 @@ class FeishuBridge {
         }
       },
       agentDeleted: (sessionId) => {
+        this._suppressProactiveRebind(sessionId)
         this._clearSessionIdentity(sessionId)
       },
       agentClosed: (sessionId) => {
+        this._suppressProactiveRebind(sessionId)
         this._clearSessionIdentity(sessionId)
       },
     }
@@ -1702,6 +1704,17 @@ class FeishuBridge {
 
   _formatRelativeTime(timestamp) {
     return formatRelativeTime(timestamp)
+  }
+
+  _suppressProactiveRebind(sessionId) {
+    const identity = this._sessionIdentities.get(sessionId)
+    if (!identity || identity.chatType !== 'p2p') return
+    const mapKey = this._sessionMapper.buildKey({
+      userId: identity.senderId,
+      chatId: identity.chatId,
+      chatType: identity.chatType,
+    })
+    this._proactiveRebindSuppressedKeys.add(mapKey)
   }
 
   _clearSessionIdentity(sessionId) {
