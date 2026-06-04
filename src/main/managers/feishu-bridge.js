@@ -274,6 +274,27 @@ class FeishuBridge {
       this._processedMsgIds.set(initialMsgId, Date.now())
     }
 
+    // 命令快速路径：在 hydrate 之前检测 / 开头，跳过不必要的 API 调用
+    const rawText = typeof event?.text === 'string' ? event.text : ''
+    const rawMentions = Array.isArray(event?.mentions) ? event.mentions : []
+    const rawChatType = event?.chatType || ''
+    const commandCandidate = this._normalizeInboundText(rawText, { chatType: rawChatType, mentions: rawMentions })
+    if (commandCandidate && commandCandidate.startsWith('/')) {
+      const msgId = event?.msgId || ''
+      if (!initialMsgId && msgId) {
+        if (this._processedMsgIds.has(msgId)) return
+        this._processedMsgIds.set(msgId, Date.now())
+      }
+      this._handleCommand(commandCandidate, {
+        senderId: event?.senderId,
+        senderName: event?.senderName || event?.senderId || '',
+        chatId: event?.chatId,
+        chatType: event?.chatType,
+        chatName: event?.chatName || event?.chatId || '',
+      }, { mentions: rawMentions }).catch(() => {})
+      return
+    }
+
     const hydratedEvent = await this._hydrateInboundEvent(event)
     const { msgId, senderId, senderName, chatId, chatType, chatName, text, images, unsupported, msgType, mentions } = hydratedEvent
     if (!initialMsgId && msgId) {
@@ -286,7 +307,6 @@ class FeishuBridge {
       return
     }
 
-    // 命令提前分发——跳过展示名 API 解析（命令不需要展示名）
     const normalizedText = this._normalizeInboundText(text, { chatType, mentions })
     if (normalizedText && normalizedText.startsWith('/')) {
       this._handleCommand(normalizedText, {
