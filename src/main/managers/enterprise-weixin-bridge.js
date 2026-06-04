@@ -373,16 +373,11 @@ class EnterpriseWeixinBridge {
         }
       },
       agentDeleted: (sessionId) => {
+        this._suppressProactiveRebind(sessionId)
         this._clearSessionIdentity(sessionId)
       },
       agentClosed: (sessionId) => {
-        const identity = this._sessionIdentities.get(sessionId)
-        if (identity?.chatType === 'single' && identity.userId) {
-          if (identity.chatId) {
-            this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.chatId}`)
-          }
-          this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
-        }
+        this._suppressProactiveRebind(sessionId)
         this._clearSessionIdentity(sessionId)
       },
     }
@@ -1737,6 +1732,16 @@ class EnterpriseWeixinBridge {
       }
     } catch (err) {
       console.warn('[EnterpriseWeixin] Failed to load known chats:', err.message)
+    }
+  }
+
+  _suppressProactiveRebind(sessionId) {
+    const identity = this._sessionIdentities.get(sessionId)
+    if (identity?.chatType === 'single' && identity.userId) {
+      if (identity.chatId) {
+        this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.chatId}`)
+      }
+      this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
     }
   }
 
