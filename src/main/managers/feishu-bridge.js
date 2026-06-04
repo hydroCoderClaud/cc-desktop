@@ -218,7 +218,7 @@ class FeishuBridge {
     this._agentListeners = {
       userMessage: ({ sessionId, imChannel, content, images, source }) => {
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'im-inbound' && source !== 'feishu' && (imChannel === 'feishu' || hasBinding)) {
+        if (source !== 'im-inbound' && (imChannel === 'feishu' || hasBinding)) {
           this._onDesktopIntervention(sessionId, content, images)
         }
       },
@@ -1099,7 +1099,7 @@ class FeishuBridge {
 
     try {
       await this._agentSessionManager.sendMessage(sessionId, message, {
-        meta: { source: 'feishu', senderNick: identity.senderName || senderId, feishuChatId: chatId },
+        meta: { source: 'im-inbound', senderNick: identity.senderName || senderId, feishuChatId: chatId },
       })
       await donePromise
     } catch (err) {

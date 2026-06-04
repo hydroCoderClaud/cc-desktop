@@ -106,7 +106,7 @@ describe('WeixinBridge', () => {
       '收到请回复',
       {
         meta: expect.objectContaining({
-          source: 'weixin',
+          source: 'im-inbound',
           senderNick: '雷斯林',
           accountId: 'acc-1',
           targetId: 'acc-1:user-a',
@@ -126,7 +126,7 @@ describe('WeixinBridge', () => {
     expect(session.messages[0]).toMatchObject({
       role: 'user',
       content: '收到请回复',
-      source: 'weixin',
+      source: 'im-inbound',
       senderNick: '雷斯林'
     })
 
@@ -187,7 +187,7 @@ describe('WeixinBridge', () => {
       expect.any(String),
       { text: '', images },
       expect.objectContaining({
-        meta: expect.objectContaining({ source: 'weixin' })
+        meta: expect.objectContaining({ source: 'im-inbound' })
       })
     )
     const session = Array.from(manager.sessions.values())[0]
@@ -222,7 +222,7 @@ describe('WeixinBridge', () => {
     expect(originalSession.messages[0]).toMatchObject({
       role: 'user',
       content: '我收到了',
-      source: 'weixin',
+      source: 'im-inbound',
       senderNick: '雷斯林'
     })
   })
@@ -378,7 +378,7 @@ describe('WeixinBridge', () => {
 
   it('syncs desktop intervention in a Weixin session back to Weixin', async () => {
     const { bridge, manager, events } = createHarness()
-    const session = manager.create({ type: 'weixin', source: 'weixin', title: '微信 · 雷斯林' })
+    const session = manager.create({ type: 'weixin', source: 'im-inbound', title: '微信 · 雷斯林' })
 
     bridge.start()
     events.emit('sent', {
@@ -416,7 +416,7 @@ describe('WeixinBridge', () => {
 
   it('syncs desktop intervention images back to Weixin', async () => {
     const { bridge, manager, events } = createHarness()
-    const session = manager.create({ type: 'weixin', source: 'weixin', title: '微信 · 雷斯林' })
+    const session = manager.create({ type: 'weixin', source: 'im-inbound', title: '微信 · 雷斯林' })
     const images = [{ base64: Buffer.from('image').toString('base64'), mediaType: 'image/png' }]
 
     bridge.start()

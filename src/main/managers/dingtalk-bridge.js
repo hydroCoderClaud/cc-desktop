@@ -125,7 +125,7 @@ class DingTalkBridge {
       userMessage: ({ sessionId, imChannel, content, images, source }) => {
         // 非 IM 来源 + 钉钉会话 → CC 桌面介入，同步给钉钉
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'im-inbound' && source !== 'dingtalk' && (imChannel === 'dingtalk' || hasBinding)) {
+        if (source !== 'im-inbound' && (imChannel === 'dingtalk' || hasBinding)) {
           try { this.onUserMessage(sessionId, content, images) } catch (e) {
             console.error('[DingTalk] onUserMessage threw:', e)
           }
@@ -609,7 +609,7 @@ class DingTalkBridge {
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     // 附带钉钉元数据，用于持久化来源信息
-    const meta = { source: 'dingtalk', senderNick, conversationId }
+    const meta = { source: 'im-inbound', senderNick, conversationId }
     try {
       await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
