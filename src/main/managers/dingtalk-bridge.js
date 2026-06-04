@@ -185,6 +185,7 @@ class DingTalkBridge {
       await this._connect(appKey, appSecret)
       this._loadKnownChats()
       this._migrateGroupImUserId()
+      this._restoreSessionImChannel()
       return true
     } catch (err) {
       const shouldKeepReconnecting = preserveRuntimeState || (!this._stopped && !!this.client)
@@ -787,6 +788,16 @@ class DingTalkBridge {
       }
     } catch (err) {
       console.warn('[DingTalk] Failed to migrate group im_user_id:', err.message)
+    }
+  }
+
+  _restoreSessionImChannel() {
+    const db = this.agentSessionManager.sessionDatabase
+    for (const [sessionId, session] of this.agentSessionManager.sessions.entries()) {
+      if (!session.imChannel) {
+        session.imChannel = 'dingtalk'
+        try { db?.setImChannel?.(sessionId, 'dingtalk') } catch {}
+      }
     }
   }
 

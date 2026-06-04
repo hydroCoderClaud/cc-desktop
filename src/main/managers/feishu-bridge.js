@@ -131,6 +131,7 @@ class FeishuBridge {
 
     this._sessionMapper = this._createSessionMapper(cfg)
     this._api.setCredentials(cfg.appId, cfg.appSecret)
+    this._restoreSessionImChannel()
     this._bindEventClientEvents()
     this._startMsgIdCleanupTimer()
     this._migrateGroupImUserId()
@@ -1688,6 +1689,18 @@ class FeishuBridge {
       chatType: identity.chatType,
     })
     this._proactiveRebindSuppressedKeys.add(mapKey)
+  }
+
+  _restoreSessionImChannel() {
+    this._syncSessionDatabase()
+    for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
+      if (!session.imChannel) {
+        session.imChannel = 'feishu'
+        try {
+          this._sessionDatabase?.setImChannel?.(sessionId, 'feishu')
+        } catch {}
+      }
+    }
   }
 
   _clearSessionIdentity(sessionId) {
