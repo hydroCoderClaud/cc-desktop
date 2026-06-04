@@ -126,6 +126,7 @@ class FeishuBridge {
     this._api.setCredentials(cfg.appId, cfg.appSecret)
     this._bindEventClientEvents()
     this._startMsgIdCleanupTimer()
+    this._migrateGroupImUserId()
     try {
       await this._eventClient.connect(cfg.appId, cfg.appSecret)
       return true
@@ -1704,6 +1705,27 @@ class FeishuBridge {
 
   _formatRelativeTime(timestamp) {
     return formatRelativeTime(timestamp)
+  }
+
+  _migrateGroupImUserId() {
+    this._syncSessionDatabase()
+    const db = this._sessionDatabase
+    if (!db?.db) return
+    try {
+      const info = db.db.prepare(`
+        UPDATE agent_conversations
+        SET im_user_id = ''
+        WHERE im_channel = 'feishu'
+          AND im_chat_type IN ('group', 'chat')
+          AND im_user_id != ''
+          AND im_user_id IS NOT NULL
+      `).run()
+      if (info.changes > 0) {
+        console.log(`[FeishuBridge] Migrated ${info.changes} group session im_user_id to empty`)
+      }
+    } catch (err) {
+      console.warn('[FeishuBridge] Failed to migrate group im_user_id:', err.message)
+    }
   }
 
   _suppressProactiveRebind(sessionId) {

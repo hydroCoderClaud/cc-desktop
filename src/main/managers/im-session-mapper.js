@@ -194,9 +194,9 @@ class ImSessionMapper {
         const staffId = identity.staffId || identity.userId || ''
         const conversationId = identity.conversationId || identity.chatId || ''
         // 群聊 im_user_id 固定为空，仅靠 im_chat_id 标识
-        const isGroup = !!conversationId
+        const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
         try {
-          this._sessionDatabase.updateImIdentity(session.id, { userId: isGroup ? '' : staffId, chatId: conversationId, chatType: isGroup ? 'group' : 'p2p' })
+          this._sessionDatabase.updateImIdentity(session.id, { userId: isGroupChat ? '' : staffId, chatId: conversationId, chatType: isGroupChat ? 'group' : 'p2p' })
         } catch (e) {
           console.warn(`[ImSessionMapper] Failed to save IM identity metadata:`, e.message)
         }
@@ -365,7 +365,8 @@ class ImSessionMapper {
           if (this._sessionDatabase?.updateImIdentity) {
             const staffId = identity.staffId || identity.userId || ''
             const conversationId = identity.conversationId || identity.chatId || ''
-            this._sessionDatabase.updateImIdentity(sessionId, { userId: staffId, chatId: conversationId, chatType: conversationId ? 'group' : 'p2p' })
+            const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
+            this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : staffId, chatId: conversationId, chatType: isGroupChat ? 'group' : 'p2p' })
           }
         } catch (err) {
           console.error(`[ImSessionMapper] reopen failed:`, err)
