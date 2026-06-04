@@ -1696,12 +1696,29 @@ class FeishuBridge {
 
   _restoreSessionImChannel() {
     this._syncSessionDatabase()
+    const db = this._sessionDatabase
+    // 修复 DB 中 im_channel 缺失的飞书会话（飞书特有: im_chat_type=chat/p2p, im_user_id 以 ou_ 开头）
+    if (db?.db) {
+      try {
+        const info = db.db.prepare(`
+          UPDATE agent_conversations
+          SET im_channel = 'feishu'
+          WHERE (im_channel IS NULL OR im_channel = '')
+            AND im_chat_type IN ('p2p', 'chat')
+            AND (im_user_id LIKE 'ou\_%' ESCAPE '\\' OR im_user_id = '')
+        `).run()
+        if (info.changes > 0) {
+          console.log(`[FeishuBridge] Fixed im_channel for ${info.changes} sessions in DB`)
+        }
+      } catch (err) {
+        console.warn('[FeishuBridge] Failed to fix im_channel in DB:', err.message)
+      }
+    }
+    // 修复内存中已加载的会话
     for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
       if (!session.imChannel) {
         session.imChannel = 'feishu'
-        try {
-          this._sessionDatabase?.setImChannel?.(sessionId, 'feishu')
-        } catch {}
+        try { db?.setImChannel?.(sessionId, 'feishu') } catch {}
       }
     }
   }
