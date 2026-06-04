@@ -381,6 +381,38 @@ function withAgentOperations(BaseClass) {
         ORDER BY timestamp ASC
       `).all(conversationId)
     }
+
+    /**
+     * 写入或更新已知群聊（被动收集，工具栏列群用）
+     * @param {string} channel - IM 渠道 'dingtalk' | 'enterprise-weixin'
+     * @param {string} chatId - 群聊 ID
+     * @param {string} chatName - 群名
+     */
+    upsertKnownChat(channel, chatId, chatName = '') {
+      if (!chatId) return
+      const now = Date.now()
+      this.db.prepare(`
+        INSERT INTO im_known_chats (im_channel, chat_id, chat_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(im_channel, chat_id) DO UPDATE SET
+          chat_name = CASE WHEN excluded.chat_name != '' THEN excluded.chat_name ELSE chat_name END,
+          updated_at = excluded.updated_at
+      `).run(channel, chatId, chatName, now, now)
+    }
+
+    /**
+     * 获取指定渠道的所有已知群聊
+     * @param {string} channel - IM 渠道
+     * @returns {Array<{chatId, chatName}>}
+     */
+    getKnownChats(channel) {
+      return this.db.prepare(`
+        SELECT chat_id AS chatId, chat_name AS chatName
+        FROM im_known_chats
+        WHERE im_channel = ?
+        ORDER BY updated_at DESC
+      `).all(channel)
+    }
   }
 }
 

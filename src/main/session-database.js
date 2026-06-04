@@ -716,6 +716,18 @@ class SessionDatabaseBase {
       )
     `)
 
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS im_known_chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        im_channel TEXT NOT NULL,
+        chat_id TEXT NOT NULL,
+        chat_name TEXT DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(im_channel, chat_id)
+      )
+    `)
+
     console.log('[SessionDB] Tables created')
   }
 
@@ -741,6 +753,7 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_enabled ON scheduled_tasks(enabled);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_state_next_run ON scheduled_task_state(next_run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task_id ON scheduled_task_runs(task_id);
+      CREATE INDEX IF NOT EXISTS idx_im_known_chats_channel ON im_known_chats(im_channel);
     `)
 
     console.log('[SessionDB] Indexes created')

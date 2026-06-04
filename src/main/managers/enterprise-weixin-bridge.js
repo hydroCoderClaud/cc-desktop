@@ -176,6 +176,7 @@ class EnterpriseWeixinBridge {
       try {
         await this._connect(botId, secret)
         this._startMsgIdCleanup()
+        this._loadKnownChats()
         console.log('[EnterpriseWeixin] Bridge started successfully')
         return true
       } catch (err) {
@@ -405,6 +406,10 @@ class EnterpriseWeixinBridge {
         chatId: message.chatId,
         name: message.chatId || '',
       })
+      // 持久化到 DB，桥重启后可恢复
+      try {
+        this._sessionDatabase?.upsertKnownChat?.(this._imType, message.chatId, '')
+      } catch {}
     }
 
     const identity = this._buildIdentity(message)
@@ -1714,6 +1719,24 @@ class EnterpriseWeixinBridge {
       if (session && !session.imChannel) {
         session.imChannel = this._imType
       }
+    }
+  }
+
+  _loadKnownChats() {
+    this._syncSessionDatabase()
+    if (!this._sessionDatabase?.getKnownChats) return
+    try {
+      const rows = this._sessionDatabase.getKnownChats(this._imType)
+      for (const row of rows) {
+        if (!this._knownChats.has(row.chatId)) {
+          this._knownChats.set(row.chatId, { chatId: row.chatId, name: row.chatName || row.chatId })
+        }
+      }
+      if (rows.length > 0) {
+        console.log(`[EnterpriseWeixin] Loaded ${rows.length} known chats from DB`)
+      }
+    } catch (err) {
+      console.warn('[EnterpriseWeixin] Failed to load known chats:', err.message)
     }
   }
 

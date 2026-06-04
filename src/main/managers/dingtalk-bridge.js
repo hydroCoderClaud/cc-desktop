@@ -183,6 +183,7 @@ class DingTalkBridge {
     this._notifyFrontend('dingtalk:statusChange', this.getStatus())
     try {
       await this._connect(appKey, appSecret)
+      this._loadKnownChats()
       return true
     } catch (err) {
       const shouldKeepReconnecting = preserveRuntimeState || (!this._stopped && !!this.client)
@@ -455,10 +456,12 @@ class DingTalkBridge {
     if (String(conversationType) === '2' && conversationId) {
       const existing = this._knownChats.get(conversationId)
       if (!existing || conversationTitle) {
-        this._knownChats.set(conversationId, {
-          chatId: conversationId,
-          name: conversationTitle || existing?.name || conversationId || '',
-        })
+        const chatName = conversationTitle || existing?.name || conversationId || ''
+        this._knownChats.set(conversationId, { chatId: conversationId, name: chatName })
+        // 持久化到 DB，桥重启后可恢复
+        try {
+          this.agentSessionManager.sessionDatabase?.upsertKnownChat?.('dingtalk', conversationId, conversationTitle || '')
+        } catch {}
       }
     }
 
@@ -763,6 +766,24 @@ class DingTalkBridge {
     })
 
     return sessionId
+  }
+
+  _loadKnownChats() {
+    const db = this.agentSessionManager.sessionDatabase
+    if (!db?.getKnownChats) return
+    try {
+      const rows = db.getKnownChats('dingtalk')
+      for (const row of rows) {
+        if (!this._knownChats.has(row.chatId)) {
+          this._knownChats.set(row.chatId, { chatId: row.chatId, name: row.chatName || row.chatId })
+        }
+      }
+      if (rows.length > 0) {
+        console.log(`[DingTalk] Loaded ${rows.length} known chats from DB`)
+      }
+    } catch (err) {
+      console.warn('[DingTalk] Failed to load known chats:', err.message)
+    }
   }
 
   async listTargets() {
