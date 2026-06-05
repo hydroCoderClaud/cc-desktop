@@ -788,46 +788,6 @@ class AgentSessionManager extends EventEmitter {
     return this._serializeSession(session)
   }
 
-  appendExternalUserMessage(sessionId, { content, source, senderNick, meta, images } = {}) {
-    const session = this.sessions.get(sessionId)
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`)
-    }
-
-    const text = String(content || '').trim()
-    if (!text) {
-      throw new Error('External message content is empty')
-    }
-
-    const message = {
-      id: `msg-ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      role: 'user',
-      content: text,
-      timestamp: Date.now()
-    }
-
-    if (source) message.source = source
-    if (senderNick) message.senderNick = senderNick
-    if (Array.isArray(images) && images.length > 0) message.images = images
-    if (meta && typeof meta === 'object') message.meta = meta
-
-    this._storeMessage(session, message)
-    session.messageCount++
-    session.updatedAt = new Date()
-
-    if (this.sessionDatabase) {
-      try {
-        this.sessionDatabase.updateAgentConversation(sessionId, {
-          messageCount: session.messageCount
-        })
-      } catch (err) {
-        console.error('[AgentSession] Failed to update external message metadata:', err)
-      }
-    }
-
-    return message
-  }
-
   _classifyProbeFailure(error) {
     const message = error?.message || String(error)
 

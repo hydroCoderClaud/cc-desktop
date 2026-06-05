@@ -1281,7 +1281,6 @@ class EnterpriseWeixinBridge {
       },
     })
 
-    // sendMessage 内部已调用 _storeMessage 持久化，不额外 appendExternalUserMessage 避免 DB 双写
     const session = this._agentSessionManager.sessions.get(sessionId)
     if (session) {
       this._notifier.notifySessionCreated({
