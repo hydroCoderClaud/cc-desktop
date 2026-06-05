@@ -131,7 +131,6 @@ class FeishuBridge {
 
     this._sessionMapper = this._createSessionMapper(cfg)
     this._api.setCredentials(cfg.appId, cfg.appSecret)
-    this._restoreSessionImChannel()
     this._freshStart = true
     this._bindEventClientEvents()
     this._startMsgIdCleanupTimer()
@@ -997,10 +996,6 @@ class FeishuBridge {
     if (sessionId) {
       const reopened = this._agentSessionManager.reopen(sessionId)
       if (reopened) {
-        if (!reopened.imChannel) {
-          reopened.imChannel = 'feishu'
-          try { this._sessionDatabase?.setImChannel?.(sessionId, 'feishu') } catch {}
-        }
         return sessionId
       }
       this._clearSessionIdentity(sessionId)
@@ -1024,11 +1019,6 @@ class FeishuBridge {
           chatType,
           chatName: identity.chatName || null,
         })
-        const proactiveSession = this._agentSessionManager.sessions.get(proactiveSessionId)
-        if (proactiveSession && !proactiveSession.imChannel) {
-          proactiveSession.imChannel = 'feishu'
-          try { this._sessionDatabase?.setImChannel?.(proactiveSessionId, 'feishu') } catch {}
-        }
         if (this._sessionDatabase?.updateImIdentity) {
           try {
             this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: chatId || '', chatType: 'p2p' })
@@ -1724,17 +1714,6 @@ class FeishuBridge {
       chatType: identity.chatType,
     })
     this._proactiveRebindSuppressedKeys.add(mapKey)
-  }
-
-  _restoreSessionImChannel() {
-    this._syncSessionDatabase()
-    const db = this._sessionDatabase
-    for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
-      if (!session.imChannel) {
-        session.imChannel = 'feishu'
-        try { db?.setImChannel?.(sessionId, 'feishu') } catch {}
-      }
-    }
   }
 
   _clearSessionIdentity(sessionId) {

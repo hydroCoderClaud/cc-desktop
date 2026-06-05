@@ -186,7 +186,6 @@ class DingTalkBridge {
       await this._connect(appKey, appSecret)
       this._loadKnownChats()
       this._migrateGroupImUserId()
-      this._restoreSessionImChannel()
       this._migrateMessageSource()
       return true
     } catch (err) {
@@ -671,11 +670,6 @@ class DingTalkBridge {
         // 会话状态正常（idle/streaming）→ 恢复
         const session = this.agentSessionManager.reopen(sessionId)
         if (session) {
-          // 恢复 imChannel（老会话可能缺）
-          if (!session.imChannel) {
-            session.imChannel = 'dingtalk'
-            try { db?.setImChannel?.(sessionId, 'dingtalk') } catch {}
-          }
           // 更新会话的 conversationId（确保会话属于当前钉钉对话）
           if (!session.meta) session.meta = {}
           session.meta.conversationId = conversationId
@@ -813,16 +807,6 @@ class DingTalkBridge {
       }
     } catch (err) {
       console.warn('[DingTalk] Failed to migrate group im_user_id:', err.message)
-    }
-  }
-
-  _restoreSessionImChannel() {
-    const db = this.agentSessionManager.sessionDatabase
-    for (const [sessionId, session] of this.agentSessionManager.sessions.entries()) {
-      if (!session.imChannel) {
-        session.imChannel = 'dingtalk'
-        try { db?.setImChannel?.(sessionId, 'dingtalk') } catch {}
-      }
     }
   }
 
