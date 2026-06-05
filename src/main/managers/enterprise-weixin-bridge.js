@@ -177,7 +177,6 @@ class EnterpriseWeixinBridge {
         await this._connect(botId, secret)
         this._startMsgIdCleanup()
         this._loadKnownChats()
-        this._migrateGroupImUserId()
         console.log('[EnterpriseWeixin] Bridge started successfully')
         return true
       } catch (err) {
