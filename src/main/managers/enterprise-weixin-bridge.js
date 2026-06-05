@@ -1305,9 +1305,10 @@ class EnterpriseWeixinBridge {
     }
 
     try {
+      // source='enterprise-weixin'（非 'im-inbound'）：前端 MessageBubble 通过 isExternalImType 判定 IM 来源标签
       await this._agentSessionManager.sendMessage(sessionId, userMessage, {
         meta: {
-          source: 'im-inbound',
+          source: 'enterprise-weixin',
           senderNick,
           enterpriseWeixinChatId: message.chatId,
         },

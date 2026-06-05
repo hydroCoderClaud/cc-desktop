@@ -125,7 +125,8 @@ class DingTalkBridge {
       userMessage: ({ sessionId, imChannel, content, images, source }) => {
         // 非 IM 来源 + 钉钉会话 → CC 桌面介入，同步给钉钉
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'im-inbound' && (imChannel === 'dingtalk' || hasBinding)) {
+        // 兼容 'im-inbound'（旧值）和 'dingtalk'（新值），桌面端来源才是 IM 来源，不再重复路由
+        if (source !== 'im-inbound' && source !== 'dingtalk' && (imChannel === 'dingtalk' || hasBinding)) {
           try { this.onUserMessage(sessionId, content, images) } catch (e) {
             console.error('[DingTalk] onUserMessage threw:', e)
           }
@@ -186,6 +187,7 @@ class DingTalkBridge {
       this._loadKnownChats()
       this._migrateGroupImUserId()
       this._restoreSessionImChannel()
+      this._migrateMessageSource()
       return true
     } catch (err) {
       const shouldKeepReconnecting = preserveRuntimeState || (!this._stopped && !!this.client)
@@ -609,7 +611,8 @@ class DingTalkBridge {
 
     // 发送到 Agent（userMessage 可以是 string 或 { text, images }）
     // 附带钉钉元数据，用于持久化来源信息
-    const meta = { source: 'im-inbound', senderNick, conversationId }
+    // source='dingtalk'（非 'im-inbound'）：前端 MessageBubble 通过 isExternalImType(source) 判定是否渲染 IM 来源标签
+    const meta = { source: 'dingtalk', senderNick, conversationId }
     try {
       await this.agentSessionManager.sendMessage(sessionId, userMessage, { meta })
     } catch (err) {
@@ -774,6 +777,23 @@ class DingTalkBridge {
     })
 
     return sessionId
+  }
+
+  _migrateMessageSource() {
+    const db = this.agentSessionManager.sessionDatabase
+    if (!db?.db) return
+    try {
+      const info = db.db.prepare(`
+        UPDATE agent_messages
+        SET content = REPLACE(content, '"source":"im-inbound"', '"source":"dingtalk"')
+        WHERE content LIKE '%"source":"im-inbound"%'
+      `).run()
+      if (info.changes > 0) {
+        console.log(`[DingTalk] Migrated ${info.changes} messages from im-inbound to dingtalk source`)
+      }
+    } catch (err) {
+      console.warn('[DingTalk] Failed to migrate message source:', err.message)
+    }
   }
 
   _migrateGroupImUserId() {

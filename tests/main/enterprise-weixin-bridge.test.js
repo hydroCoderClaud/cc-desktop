@@ -211,7 +211,7 @@ describe('EnterpriseWeixinBridge', () => {
       '收到请回复',
       {
         meta: expect.objectContaining({
-          source: 'im-inbound',
+          source: 'enterprise-weixin',
           senderNick: '雷斯林',
           enterpriseWeixinChatId: 'user-a',
         }),
@@ -710,7 +710,7 @@ describe('EnterpriseWeixinBridge', () => {
       '企业微信回复',
       expect.objectContaining({
         meta: expect.objectContaining({
-          source: 'im-inbound',
+          source: 'enterprise-weixin',
           enterpriseWeixinChatId: 'user-a',
         }),
       })
@@ -754,7 +754,7 @@ describe('EnterpriseWeixinBridge', () => {
       '这条应该进当前绑定会话，而不是被当作编号',
       expect.objectContaining({
         meta: expect.objectContaining({
-          source: 'im-inbound',
+          source: 'enterprise-weixin',
           enterpriseWeixinChatId: 'user-a',
         }),
       })
@@ -774,7 +774,7 @@ describe('EnterpriseWeixinBridge', () => {
       return { sessionId: null }
     })
 
-    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '当前会话' })
+    const current = manager.create({ type: 'chat', source: 'enterprise-weixin', imChannel: 'enterprise-weixin', title: '当前会话' })
     const oldBound = manager.create({ type: 'chat', source: 'manual', imChannel: 'enterprise-weixin', title: '旧主动绑定会话' })
     manager.sessions.get(current.id).queryGenerator = {}
     manager.sessions.get(oldBound.id).queryGenerator = {}
@@ -822,7 +822,7 @@ describe('EnterpriseWeixinBridge', () => {
       return { sessionId: null }
     })
 
-    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '当前会话' })
+    const current = manager.create({ type: 'chat', source: 'enterprise-weixin', imChannel: 'enterprise-weixin', title: '当前会话' })
     const oldBound = manager.create({ type: 'chat', source: 'manual', imChannel: 'enterprise-weixin', title: '旧主动绑定会话' })
     manager.sessions.get(current.id).queryGenerator = {}
     manager.sessions.get(oldBound.id).queryGenerator = {}
@@ -1217,7 +1217,7 @@ describe('EnterpriseWeixinBridge', () => {
       }),
       expect.objectContaining({
         meta: expect.objectContaining({
-          source: 'im-inbound',
+          source: 'enterprise-weixin',
         }),
       })
     )

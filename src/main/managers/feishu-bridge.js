@@ -136,6 +136,7 @@ class FeishuBridge {
     this._bindEventClientEvents()
     this._startMsgIdCleanupTimer()
     this._migrateGroupImUserId()
+    this._migrateMessageSource()
     try {
       await this._eventClient.connect(cfg.appId, cfg.appSecret)
       return true
@@ -218,7 +219,8 @@ class FeishuBridge {
     this._agentListeners = {
       userMessage: ({ sessionId, imChannel, content, images, source }) => {
         const hasBinding = this._sessionTargets.has(sessionId)
-        if (source !== 'im-inbound' && (imChannel === 'feishu' || hasBinding)) {
+        // 兼容 'im-inbound'（旧值）和 'feishu'（新值），桌面端来源才是 IM 来源，不再重复路由
+        if (source !== 'im-inbound' && source !== 'feishu' && (imChannel === 'feishu' || hasBinding)) {
           this._onDesktopIntervention(sessionId, content, images)
         }
       },
@@ -1098,8 +1100,10 @@ class FeishuBridge {
     this._activeSendChunks.set(sessionId, sendChunk)
 
     try {
+      // source='feishu'（非 'im-inbound'）：前端 MessageBubble 通过 isExternalImType(source) 判定是否渲染 IM 来源标签，
+      // DB 持久化后的历史消息加载也依赖此字段识别渠道，必须与 external-im-meta 中注册的渠道名一致
       await this._agentSessionManager.sendMessage(sessionId, message, {
-        meta: { source: 'im-inbound', senderNick: identity.senderName || senderId, feishuChatId: chatId },
+        meta: { source: 'feishu', senderNick: identity.senderName || senderId, feishuChatId: chatId },
       })
       await donePromise
     } catch (err) {
@@ -1669,6 +1673,25 @@ class FeishuBridge {
 
   _formatRelativeTime(timestamp) {
     return formatRelativeTime(timestamp)
+  }
+
+  _migrateMessageSource() {
+    this._syncSessionDatabase()
+    const db = this._sessionDatabase
+    if (!db?.db) return
+    try {
+      // 旧消息持久化时 source 写成了 'im-inbound'，前端 isExternalImType 不识别 → IM 来源标签丢失
+      const info = db.db.prepare(`
+        UPDATE agent_messages
+        SET content = REPLACE(content, '"source":"im-inbound"', '"source":"feishu"')
+        WHERE content LIKE '%"source":"im-inbound"%'
+      `).run()
+      if (info.changes > 0) {
+        console.log(`[FeishuBridge] Migrated ${info.changes} messages from im-inbound to feishu source`)
+      }
+    } catch (err) {
+      console.warn('[FeishuBridge] Failed to migrate message source:', err.message)
+    }
   }
 
   _migrateGroupImUserId() {
