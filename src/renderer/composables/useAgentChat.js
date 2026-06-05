@@ -333,9 +333,19 @@ export function useAgentChat(sessionId, options = {}) {
       const history = await agentApi.getAgentMessages(sessionId)
       if (Array.isArray(history) && history.length > 0) {
         if (messages.value.length > 0) {
-          // 已有消息（如钉钉实时注入），将历史插入到前面，避免覆盖运行时状态
+          // 已有消息（如 IM 实时注入），将历史插入到前面，避免覆盖运行时状态
+          // 用 ID + 内容双重去重：IM 实时推送和 DB 加载的同一条消息可能 ID 不同（normalize 随机 ID vs DB msg_id）
           const existingIds = new Set(messages.value.map(m => m.id))
-          const toInsert = history.filter(m => !existingIds.has(m.id))
+          const existingFingerprints = new Set(
+            messages.value.map(m => `${m.role}|${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
+          )
+          const toInsert = history.filter(m => {
+            if (existingIds.has(m.id)) return false
+            // 内容指纹去重：同角色 + 同内容 ≈ 同一条消息
+            const fp = `${m.role}|${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`
+            if (existingFingerprints.has(fp)) return false
+            return true
+          })
           if (toInsert.length > 0) {
             messages.value = [...toInsert, ...messages.value]
             isRestored.value = !isStreaming.value
