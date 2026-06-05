@@ -1663,6 +1663,17 @@ class FeishuBridge {
     return formatRelativeTime(timestamp)
   }
 
+  _suppressProactiveRebind(sessionId) {
+    const identity = this._sessionIdentities.get(sessionId)
+    if (!identity || identity.chatType !== 'p2p') return
+    const mapKey = this._sessionMapper.buildKey({
+      userId: identity.senderId,
+      chatId: identity.chatId,
+      chatType: identity.chatType,
+    })
+    this._proactiveRebindSuppressedKeys.add(mapKey)
+  }
+
   _clearSessionIdentity(sessionId) {
     clearSessionMappingsForSession({
       sessionMap: this._sessionMapper.sessionMap,
