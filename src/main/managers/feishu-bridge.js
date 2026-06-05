@@ -1729,27 +1729,6 @@ class FeishuBridge {
   _restoreSessionImChannel() {
     this._syncSessionDatabase()
     const db = this._sessionDatabase
-    if (db?.db) {
-      try {
-        // 一次性迁移：从旧列 staff_id/conversation_id 复制身份数据，用标题区分渠道
-        // clearImIdentity 解绑时会同时清空 staff_id，确保不会误迁移已解绑会话
-        const info = db.db.prepare(`
-          UPDATE agent_conversations
-          SET im_user_id = COALESCE(im_user_id, staff_id),
-              im_chat_id = COALESCE(im_chat_id, conversation_id),
-              im_channel = 'feishu'
-          WHERE im_channel IS NULL
-            AND staff_id IS NOT NULL
-            AND title LIKE '飞书 · %'
-        `).run()
-        if (info.changes > 0) {
-          console.log(`[FeishuBridge] Migrated ${info.changes} sessions from old staff_id/conversation_id columns`)
-        }
-      } catch (err) {
-        console.warn('[FeishuBridge] Failed to migrate old sessions:', err.message)
-      }
-    }
-    // 修复内存中已加载的会话
     for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
       if (!session.imChannel) {
         session.imChannel = 'feishu'

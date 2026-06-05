@@ -818,22 +818,6 @@ class DingTalkBridge {
 
   _restoreSessionImChannel() {
     const db = this.agentSessionManager.sessionDatabase
-    if (db?.db) {
-      try {
-        // 一次性迁移：从旧列 staff_id/conversation_id 复制，标题区分渠道，staff_id IS NOT NULL 排除已解绑
-        db.db.prepare(`
-          UPDATE agent_conversations
-          SET im_user_id = COALESCE(im_user_id, staff_id),
-              im_chat_id = COALESCE(im_chat_id, conversation_id),
-              im_channel = 'dingtalk'
-          WHERE im_channel IS NULL
-            AND staff_id IS NOT NULL
-            AND title LIKE '钉钉 · %'
-        `).run()
-      } catch (err) {
-        console.warn('[DingTalk] Failed to migrate old sessions:', err.message)
-      }
-    }
     for (const [sessionId, session] of this.agentSessionManager.sessions.entries()) {
       if (!session.imChannel) {
         session.imChannel = 'dingtalk'
