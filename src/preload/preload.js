@@ -1101,6 +1101,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindTarget', payload),
   unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindTarget', payload),
   getSessionEnterpriseWeixinBinding: (sessionId) => ipcRenderer.invoke('enterprise-weixin:getBinding', sessionId),
+  renameEnterpriseWeixinKnownChat: (payload) => ipcRenderer.invoke('enterprise-weixin:renameKnownChat', payload),
   sendEnterpriseWeixinText: (payload) => ipcRenderer.invoke('enterprise-weixin:sendText', payload),
   getEnterpriseWeixinCliStatus: () => ipcRenderer.invoke('enterprise-weixin-cli:getStatus'),
   getEnterpriseWeixinCliBootstrapStatus: () => ipcRenderer.invoke('enterprise-weixin-cli:getBootstrapStatus'),

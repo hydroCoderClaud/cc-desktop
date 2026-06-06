@@ -174,6 +174,7 @@ class EnterpriseWeixinBridge {
       }
 
       this._sessionMapper = this._createSessionMapper(config)
+      this._loadKnownChats()
       this._restoreSessionBindings()
       this._runtimeState = 'connecting'
       this._notifier.notifyStatusChange(this.getStatus())
@@ -181,7 +182,6 @@ class EnterpriseWeixinBridge {
       try {
         await this._connect(botId, secret)
         this._startMsgIdCleanup()
-        this._loadKnownChats()
         console.log('[EnterpriseWeixin] Bridge started successfully')
         return true
       } catch (err) {
@@ -1729,6 +1729,50 @@ class EnterpriseWeixinBridge {
     return { success: true, target }
   }
 
+  renameKnownChat(chatId, displayName = '') {
+    this._syncSessionDatabase()
+    const resolvedChatId = typeof chatId === 'string' ? chatId.trim() : ''
+    if (!resolvedChatId) {
+      throw new Error('chatId 不能为空')
+    }
+
+    const resolvedDisplayName = typeof displayName === 'string' ? displayName.trim() : ''
+    const storedDisplayName = resolvedDisplayName || resolvedChatId
+
+    this._knownChats.set(resolvedChatId, {
+      chatId: resolvedChatId,
+      name: storedDisplayName,
+    })
+
+    try {
+      this._sessionDatabase?.upsertKnownChat?.(this._imType, resolvedChatId, storedDisplayName)
+    } catch (err) {
+      console.warn('[EnterpriseWeixin] Failed to rename known chat:', err.message)
+    }
+
+    for (const [sessionId, target] of this._sessionTargets.entries()) {
+      if (target?.userId !== resolvedChatId) continue
+      this._sessionTargets.set(sessionId, {
+        ...target,
+        displayName: storedDisplayName,
+      })
+      const identity = this._sessionIdentities.get(sessionId)
+      if (identity?.chatId === resolvedChatId) {
+        this._sessionIdentities.set(sessionId, {
+          ...identity,
+          senderName: storedDisplayName,
+          chatName: storedDisplayName,
+        })
+      }
+    }
+
+    return {
+      success: true,
+      chatId: resolvedChatId,
+      displayName: storedDisplayName,
+    }
+  }
+
   _assertSessionTargetAllowed(sessionId, resolvedUserId, displayName) {
     if (!sessionId || !resolvedUserId) return
 
@@ -1771,11 +1815,13 @@ class EnterpriseWeixinBridge {
       return {
         targetId,
         displayName: knownChatName || targetId,
+        targetType: isGroupChat ? 'chat' : 'user',
       }
     }
     return {
       targetId: target.userId,
       displayName: target.displayName,
+      targetType: this._sessionIdentities.get(sessionId)?.chatType === 'group' ? 'chat' : 'user',
     }
   }
 

@@ -101,6 +101,19 @@ describe('chat input IM binding props', () => {
     expect(toolbarSource).toContain(': enterpriseWeixinApi?.listEnterpriseWeixinContacts')
   })
 
+  it('supports editing enterprise weixin group local aliases inside the quick-send dropdown', () => {
+    const toolbarSource = fs.readFileSync(chatInputToolbarPath, 'utf-8')
+    const preloadSource = fs.readFileSync(path.resolve(__dirname, '../../src/preload/preload.js'), 'utf-8')
+    const embeddedPanelSource = fs.readFileSync(path.resolve(__dirname, '../../src/renderer/components/embedded-agent/EmbeddedAgentPanel.vue'), 'utf-8')
+
+    expect(toolbarSource).toContain("const isEnterpriseWeixinChatTarget = (target) => target?.targetType === 'chat'")
+    expect(toolbarSource).toContain("{{ t('agent.imQuickAliasEdit') }}")
+    expect(toolbarSource).toContain("enterpriseWeixinApi?.renameEnterpriseWeixinKnownChat")
+    expect(toolbarSource).toContain("const saveEnterpriseWeixinAlias = async (target) => {")
+    expect(preloadSource).toContain("renameEnterpriseWeixinKnownChat: (payload) => ipcRenderer.invoke('enterprise-weixin:renameKnownChat', payload)")
+    expect(embeddedPanelSource).toContain("renameEnterpriseWeixinKnownChat: api.renameEnterpriseWeixinKnownChat?.bind(api)")
+  })
+
   it('dispatches an IM binding refresh event after quick-send binding changes', () => {
     const toolbarSource = fs.readFileSync(chatInputToolbarPath, 'utf-8')
 

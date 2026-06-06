@@ -61,6 +61,10 @@ function setupEnterpriseWeixinHandlers(ipcMain, bridge, configManager, wecomCliM
     return bridge.getBinding(sessionId)
   })
 
+  ipcMain.handle('enterprise-weixin:renameKnownChat', async (_event, payload = {}) => {
+    return bridge.renameKnownChat(payload.chatId, payload.displayName)
+  })
+
   ipcMain.handle('enterprise-weixin-cli:getStatus', async () => {
     if (!wecomCliManager) return { installed: false, initialized: false, authStatus: 'unknown', contactAuth: 'unknown' }
     return wecomCliManager.getDetailedStatus()

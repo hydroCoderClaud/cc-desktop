@@ -266,6 +266,7 @@ const enterpriseWeixinNotifyApi = computed(() => {
     getSessionEnterpriseWeixinBinding: api.getSessionEnterpriseWeixinBinding?.bind(api),
     bindSessionToEnterpriseWeixinTarget: api.bindSessionToEnterpriseWeixinTarget?.bind(api),
     unbindSessionEnterpriseWeixinTarget: api.unbindSessionEnterpriseWeixinTarget?.bind(api),
+    renameEnterpriseWeixinKnownChat: api.renameEnterpriseWeixinKnownChat?.bind(api),
     sendEnterpriseWeixinText: api.sendEnterpriseWeixinText?.bind(api),
     getEnterpriseWeixinCliStatus: api.getEnterpriseWeixinCliStatus?.bind(api),
     getEnterpriseWeixinCliBootstrapStatus: api.getEnterpriseWeixinCliBootstrapStatus?.bind(api),

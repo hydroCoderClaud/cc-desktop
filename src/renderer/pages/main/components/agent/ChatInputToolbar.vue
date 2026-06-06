@@ -197,7 +197,51 @@
                   :class="{ active: selectedEnterpriseWeixinTargetId === target.id }"
                   @click="selectedEnterpriseWeixinTargetId = target.id"
                 >
-                  <span class="enterprise-weixin-target-name">{{ target.displayName || target.name || target.userId || target.id || '未命名' }}</span>
+                  <div class="enterprise-weixin-target-body">
+                    <div class="enterprise-weixin-target-head">
+                      <span class="enterprise-weixin-target-name">{{ resolveEnterpriseWeixinTargetDisplayName(target) || '未命名' }}</span>
+                      <button
+                        v-if="isEnterpriseWeixinChatTarget(target) && enterpriseWeixinEditingTargetId !== target.id"
+                        class="enterprise-weixin-target-edit-trigger"
+                        type="button"
+                        @click.stop="startEnterpriseWeixinAliasEdit(target)"
+                      >
+                        {{ t('agent.imQuickAliasEdit') }}
+                      </button>
+                    </div>
+                    <div v-if="isEnterpriseWeixinChatTarget(target)" class="enterprise-weixin-target-id">{{ target.id }}</div>
+                    <div
+                      v-if="enterpriseWeixinEditingTargetId === target.id"
+                      class="enterprise-weixin-target-alias-editor"
+                      @click.stop
+                    >
+                      <input
+                        v-model="enterpriseWeixinAliasDraft"
+                        class="enterprise-weixin-target-alias-input"
+                        :placeholder="t('agent.imQuickAliasPlaceholder')"
+                        @keyup.enter.stop="saveEnterpriseWeixinAlias(target)"
+                        @keyup.esc.stop="cancelEnterpriseWeixinAliasEdit"
+                      />
+                      <div class="enterprise-weixin-target-alias-actions">
+                        <button
+                          class="enterprise-weixin-target-edit-action primary"
+                          type="button"
+                          :disabled="enterpriseWeixinAliasSavingTargetId === target.id || !hasEnterpriseWeixinAliasChanges(target)"
+                          @click.stop="saveEnterpriseWeixinAlias(target)"
+                        >
+                          {{ t('common.save') }}
+                        </button>
+                        <button
+                          class="enterprise-weixin-target-edit-action"
+                          type="button"
+                          :disabled="enterpriseWeixinAliasSavingTargetId === target.id"
+                          @click.stop="cancelEnterpriseWeixinAliasEdit"
+                        >
+                          {{ t('common.cancel') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <textarea
@@ -458,6 +502,9 @@ const enterpriseWeixinError = ref('')
 const enterpriseWeixinLoading = ref(false)
 const enterpriseWeixinSending = ref(false)
 const enterpriseWeixinActionCommand = ref('')
+const enterpriseWeixinEditingTargetId = ref(null)
+const enterpriseWeixinAliasDraft = ref('')
+const enterpriseWeixinAliasSavingTargetId = ref(null)
 const dingtalkBridgeEnabled = ref(null)
 const feishuBridgeEnabled = ref(null)
 const enterpriseWeixinBridgeEnabled = ref(null)
@@ -507,6 +554,17 @@ const canSendEnterpriseWeixin = computed(() => Boolean(selectedEnterpriseWeixinT
 const hasBoundEnterpriseWeixinTarget = computed(() => Boolean(props.sessionImChannel === 'enterprise-weixin' && selectedEnterpriseWeixinTarget.value))
 const resolvedEnterpriseWeixinNotifyApi = computed(() => props.enterpriseWeixinNotifyApi || window.electronAPI || null)
 
+const isEnterpriseWeixinChatTarget = (target) => target?.targetType === 'chat'
+
+const resolveEnterpriseWeixinTargetDisplayName = (target) => {
+  if (!target) return ''
+  return target.displayName || target.name || target.userId || target.id || ''
+}
+
+const hasEnterpriseWeixinAliasChanges = (target) => {
+  return enterpriseWeixinAliasDraft.value.trim() !== resolveEnterpriseWeixinTargetDisplayName(target).trim()
+}
+
 const closeDingTalkBridgeUi = () => {
   showDingTalkDropdown.value = false
   dingtalkError.value = ''
@@ -521,6 +579,9 @@ const closeEnterpriseWeixinBridgeUi = () => {
   showEnterpriseWeixinDropdown.value = false
   enterpriseWeixinError.value = ''
   enterpriseWeixinActionCommand.value = ''
+  enterpriseWeixinEditingTargetId.value = null
+  enterpriseWeixinAliasDraft.value = ''
+  enterpriseWeixinAliasSavingTargetId.value = null
 }
 
 const resolveBridgeEnabled = (status, fallbackEnabled = false) => {
@@ -774,7 +835,8 @@ const loadEnterpriseWeixinTargets = async () => {
           id: bindingTargetId,
           userId: binding?.userId || bindingTargetId,
           displayName: binding?.displayName || bindingTargetId,
-          name: binding?.displayName || bindingTargetId
+          name: binding?.displayName || bindingTargetId,
+          targetType: binding?.targetType || 'user'
         }
       enterpriseWeixinTargets.value = [boundTarget]
       selectedEnterpriseWeixinTargetId.value = boundTarget.id
@@ -793,6 +855,64 @@ const loadEnterpriseWeixinTargets = async () => {
     enterpriseWeixinError.value = err?.message || t('agent.enterpriseWeixinQuickSendFailed')
   } finally {
     enterpriseWeixinLoading.value = false
+  }
+}
+
+const startEnterpriseWeixinAliasEdit = (target) => {
+  if (!isEnterpriseWeixinChatTarget(target)) return
+  enterpriseWeixinEditingTargetId.value = target.id
+  enterpriseWeixinAliasDraft.value = resolveEnterpriseWeixinTargetDisplayName(target)
+  enterpriseWeixinError.value = ''
+}
+
+const cancelEnterpriseWeixinAliasEdit = () => {
+  enterpriseWeixinEditingTargetId.value = null
+  enterpriseWeixinAliasDraft.value = ''
+  enterpriseWeixinAliasSavingTargetId.value = null
+}
+
+const patchEnterpriseWeixinTargetAlias = (chatId, displayName) => {
+  const nextDisplayName = displayName || chatId
+  enterpriseWeixinTargets.value = enterpriseWeixinTargets.value.map(target => {
+    if (target?.id !== chatId) return target
+    return {
+      ...target,
+      displayName: nextDisplayName,
+      name: nextDisplayName,
+    }
+  })
+}
+
+const saveEnterpriseWeixinAlias = async (target) => {
+  const enterpriseWeixinApi = resolvedEnterpriseWeixinNotifyApi.value
+  if (!isEnterpriseWeixinChatTarget(target) || !enterpriseWeixinApi?.renameEnterpriseWeixinKnownChat) return
+  const nextDisplayName = enterpriseWeixinAliasDraft.value.trim()
+  if (!nextDisplayName) {
+    enterpriseWeixinError.value = t('agent.imQuickAliasRequired')
+    return
+  }
+  if (!hasEnterpriseWeixinAliasChanges(target)) {
+    cancelEnterpriseWeixinAliasEdit()
+    return
+  }
+
+  enterpriseWeixinAliasSavingTargetId.value = target.id
+  enterpriseWeixinError.value = ''
+  try {
+    const result = await enterpriseWeixinApi.renameEnterpriseWeixinKnownChat({
+      chatId: target.id,
+      displayName: nextDisplayName,
+    })
+    if (result?.error || result?.success === false) {
+      throw new Error(result?.error || t('agent.imQuickAliasSaveFailed'))
+    }
+    patchEnterpriseWeixinTargetAlias(target.id, result?.displayName || nextDisplayName)
+    cancelEnterpriseWeixinAliasEdit()
+  } catch (err) {
+    console.error('[ChatInputToolbar] save enterprise weixin alias error:', err)
+    enterpriseWeixinError.value = err?.message || t('agent.imQuickAliasSaveFailed')
+  } finally {
+    enterpriseWeixinAliasSavingTargetId.value = null
   }
 }
 
@@ -1672,6 +1792,87 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.enterprise-weixin-target-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.enterprise-weixin-target-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.enterprise-weixin-target-edit-trigger {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.enterprise-weixin-target-id {
+  font-size: 11px;
+  color: var(--text-color-3);
+  word-break: break-all;
+}
+
+.enterprise-weixin-target-alias-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.enterprise-weixin-target-alias-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-color);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  outline: none;
+}
+
+.enterprise-weixin-target-alias-input:focus {
+  border-color: var(--primary-color);
+}
+
+.enterprise-weixin-target-alias-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.enterprise-weixin-target-edit-action {
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-color);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.enterprise-weixin-target-edit-action.primary {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.enterprise-weixin-target-edit-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .weixin-target-account {

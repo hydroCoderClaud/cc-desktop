@@ -98,14 +98,16 @@ describe('EnterpriseWeixinBridge', () => {
           ...current,
           im_user_id: null,
           im_chat_id: null,
+          im_chat_type: null,
         })
       }),
-      updateImIdentity: vi.fn((sessionId, { userId, chatId }) => {
+      updateImIdentity: vi.fn((sessionId, { userId, chatId, chatType }) => {
         const current = conversationRows.get(sessionId) || { session_id: sessionId }
         conversationRows.set(sessionId, {
           ...current,
           im_user_id: userId,
           im_chat_id: chatId,
+          im_chat_type: chatType || null,
         })
       }),
       closeAgentConversation: vi.fn(),
@@ -729,6 +731,7 @@ describe('EnterpriseWeixinBridge', () => {
     expect(bridge.getBinding(created.id)).toEqual({
       targetId: 'user-b',
       displayName: 'HydroCoder',
+      targetType: 'user',
     })
     expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-b', chatId: '' }))
   })
@@ -1461,6 +1464,7 @@ describe('EnterpriseWeixinBridge', () => {
     expect(bridge.getBinding(created.id)).toEqual({
       targetId: 'group-encoded-1',
       displayName: '研发群',
+      targetType: 'chat',
     })
     expect(sessionId).toBeTruthy()
   })
@@ -1493,6 +1497,62 @@ describe('EnterpriseWeixinBridge', () => {
         name: '项目群A',
       })
     )
+  })
+
+  it('renames a known enterprise weixin group alias and updates bound display state', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '群会话' })
+    const updateKnownChatSpy = manager.sessionDatabase.upsertKnownChat
+
+    bridge.bindTarget(created.id, {
+      targetId: 'group-bound-2',
+      targetType: 'chat',
+      displayName: '原群名',
+    })
+
+    const result = bridge.renameKnownChat('group-bound-2', '新本地别名')
+
+    expect(result).toEqual({
+      success: true,
+      chatId: 'group-bound-2',
+      displayName: '新本地别名',
+    })
+    expect(updateKnownChatSpy).toHaveBeenLastCalledWith('enterprise-weixin', 'group-bound-2', '新本地别名')
+    expect(bridge._knownChats.get('group-bound-2')).toEqual(
+      expect.objectContaining({
+        chatId: 'group-bound-2',
+        name: '新本地别名',
+      })
+    )
+    expect(bridge.getBinding(created.id)).toEqual({
+      targetId: 'group-bound-2',
+      displayName: '新本地别名',
+      targetType: 'chat',
+    })
+  })
+
+  it('restores enterprise weixin group binding display name from known chats loaded before binding restore', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '群会话' })
+
+    manager.sessionDatabase.updateImIdentity(created.id, {
+      userId: '',
+      chatId: 'group-restored-1',
+      chatType: 'group',
+    })
+    manager.sessionDatabase.setImChannel(created.id, 'enterprise-weixin')
+    manager.sessionDatabase.getKnownChats = vi.fn(() => [
+      { chatId: 'group-restored-1', chatName: '恢复后的群别名' },
+    ])
+
+    bridge._loadKnownChats()
+    bridge._restoreSessionBindings()
+
+    expect(bridge.getBinding(created.id)).toEqual({
+      targetId: 'group-restored-1',
+      displayName: '恢复后的群别名',
+      targetType: 'chat',
+    })
   })
 
   it('uses active send for enterprise weixin group stream replies instead of replyStream', async () => {
