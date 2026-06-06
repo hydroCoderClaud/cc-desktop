@@ -815,6 +815,44 @@ describe('EnterpriseWeixinBridge', () => {
     expect(replies.some(item => item?.markdown?.content?.includes('编号错误'))).toBe(false)
   })
 
+  it('treats a proactively bound enterprise weixin group reply as the current session instead of entering resume choice', async () => {
+    const { bridge, manager, replies } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const created = manager.create({ type: 'chat', source: 'manual', title: '企业微信群会话' })
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
+      { session_id: 'hist-group-1', title: '旧群会话', updated_at: Date.now() - 1000 },
+    ])
+
+    await bridge.sendToTarget({
+      sessionId: created.id,
+      targetId: 'group-1',
+      targetType: 'chat',
+      displayName: '研发群',
+      text: '桌面先发到群里',
+    })
+
+    await bridge._handleMessage(inboundFrame({
+      chattype: 'group',
+      chatid: 'group-1',
+      chat_name: '研发群',
+      text: { content: '@HydroDesktop 明白' },
+    }))
+
+    expect(replies.some(item => JSON.stringify(item).includes('历史会话'))).toBe(false)
+    expect(replies.some(item => JSON.stringify(item).includes('编号错误'))).toBe(false)
+    expect(sendMessage).toHaveBeenCalledWith(
+      created.id,
+      '明白',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          origin: 'im-inbound',
+          imChannel: 'enterprise-weixin',
+          enterpriseWeixinChatId: 'group-1',
+        }),
+      })
+    )
+  })
+
   it('prompts for history after closing the current enterprise weixin session instead of auto-using another proactive binding', async () => {
     const { bridge, manager, replies } = createHarness()
     const sendMessage = stubSendMessage(manager)

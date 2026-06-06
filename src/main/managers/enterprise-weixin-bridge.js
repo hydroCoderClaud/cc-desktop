@@ -1692,13 +1692,14 @@ class EnterpriseWeixinBridge {
         console.warn('[EnterpriseWeixin] Failed to persist known group chat:', err.message)
       }
     }
+    const isGroupChat = targetType === 'chat'
     const proactiveIdentity = {
       userId: resolvedUserId,
       channelId: resolvedUserId,
-      chatId: resolvedUserId,
-      chatType: 'single',
+      chatId: isGroupChat ? resolvedUserId : '',
+      chatType: isGroupChat ? 'group' : 'single',
       nickname: target.displayName || resolvedUserId,
-      channelName: '',
+      channelName: isGroupChat ? (target.displayName || resolvedUserId) : '',
     }
     const proactiveMapKey = this._sessionMapper.buildKey(proactiveIdentity)
     this._sessionTargets.set(sessionId, target)
@@ -1717,7 +1718,6 @@ class EnterpriseWeixinBridge {
 
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        const isGroupChat = targetType === 'chat'
         this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : resolvedUserId, chatId: isGroupChat ? resolvedUserId : '', chatType: isGroupChat ? 'group' : 'single' })
       } catch (err) {
         console.warn('[EnterpriseWeixin] Failed to persist bound target identity:', err.message)
