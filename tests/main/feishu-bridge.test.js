@@ -787,7 +787,7 @@ describe('FeishuBridge', () => {
     expect(bridge._enqueueMessage).toHaveBeenCalledTimes(1)
   })
 
-  it('uses readable sender and chat names for default Feishu session titles', async () => {
+  it('uses readable sender names for default Feishu p2p session titles', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
@@ -814,6 +814,37 @@ describe('FeishuBridge', () => {
       '张三',
       'oc_xxx',
       'p2p'
+    )
+  })
+
+  it('uses readable chat names for default Feishu group session titles', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    bridge._api.setCredentials('app-id', 'app-secret')
+    vi.spyOn(bridge._api, 'getUserInfo').mockResolvedValue({ name: '张三' })
+    vi.spyOn(bridge._api, 'getChatInfo').mockResolvedValue({ name: '项目群' })
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_group_named_1',
+      senderId: 'ou_xxx',
+      chatId: 'oc_group',
+      chatType: 'chat',
+      text: '@_user_1 你好',
+      mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }],
+      images: []
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(session.title).toBe('飞书 · 项目群')
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: '你好', images: undefined },
+      '张三',
+      'oc_group',
+      'chat'
     )
   })
 
@@ -1295,10 +1326,10 @@ describe('FeishuBridge', () => {
 
     expect(handleCommand).toHaveBeenCalledWith('/rename 群聊测试', {
       senderId: 'ou_group',
-      senderName: 'ou_group',
+      senderName: '',
       chatId: 'oc_group',
       chatType: 'chat',
-      chatName: 'oc_group',
+      chatName: '',
     }, {
       mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
     })
@@ -1334,10 +1365,10 @@ describe('FeishuBridge', () => {
     expect(bridge._api.getMessage).toHaveBeenCalledWith('om_group_rename_missing_mentions')
     expect(handleCommand).toHaveBeenCalledWith('/rename 群聊测试', {
       senderId: 'ou_group',
-      senderName: 'ou_group',
+      senderName: '',
       chatId: 'oc_group',
       chatType: 'chat',
-      chatName: 'oc_group',
+      chatName: '',
     }, {
       mentions: [{ key: '@_user_1', name: '机器人', id: 'app-id', idType: 'app_id' }]
     })
@@ -1761,7 +1792,7 @@ describe('FeishuBridge', () => {
     expect(sent.find(item => item.channel === 'feishu:sessionCreated')?.data.sessionId).toBe(session.id)
   })
 
-  it('uses readable sender and chat names when creating a new Feishu session with /new', async () => {
+  it('uses readable chat names when creating a new Feishu group session with /new', async () => {
     const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
@@ -1778,7 +1809,7 @@ describe('FeishuBridge', () => {
 
     const session = Array.from(manager.sessions.values())[0]
     expect(session).toBeTruthy()
-    expect(session.title).toBe('飞书 · 张三')
+    expect(session.title).toBe('飞书 · 项目群')
     expect(sendTextMessage).toHaveBeenCalledWith('chat_id', 'oc_group', '会话创建中，请等待信息返回后，即可开始聊天')
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
@@ -1788,6 +1819,48 @@ describe('FeishuBridge', () => {
       'chat'
     )
     expect(sent.find(item => item.channel === 'feishu:sessionCreated')?.data.sessionId).toBe(session.id)
+  })
+
+  it('resolves readable p2p sender names for inbound Feishu /new commands', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    bridge._api.setCredentials('app-id', 'app-secret')
+    const getUserInfo = vi.spyOn(bridge._api, 'getUserInfo').mockResolvedValue({ name: '张三' })
+    vi.spyOn(bridge._api, 'getChatInfo').mockResolvedValue({})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_new_p2p',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      text: '/new',
+      images: [],
+      unsupported: false,
+      msgType: 'text',
+      mentions: [],
+    })
+    await vi.waitFor(() => {
+      expect(manager.sessions.size).toBe(1)
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    expect(session).toBeTruthy()
+    expect(session.title).toBe('飞书 · 张三')
+    expect(getUserInfo).toHaveBeenCalledWith('ou_xxx')
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_xxx', '会话创建中，请等待信息返回后，即可开始聊天')
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      { text: 'hello', images: undefined },
+      '张三',
+      'oc_xxx',
+      'p2p'
+    )
+    expect(sent.find(item => item.channel === 'feishu:sessionCreated')?.data).toMatchObject({
+      sessionId: session.id,
+      nickname: '张三',
+    })
   })
 
   it('creates a new Feishu session under a requested relative directory with /new [目录]', async () => {
@@ -1885,7 +1958,7 @@ describe('FeishuBridge', () => {
     expect(notifySessionCreated).toHaveBeenCalledWith({ sessionId: 'hist-1', nickname: 'ou_xxx' })
   })
 
-  it('dispatches slash commands with raw names to avoid API calls for display name resolution', async () => {
+  it('dispatches slash commands without treating ids as display names', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const commandSpy = vi.spyOn(bridge, '_handleCommand').mockResolvedValue()
@@ -1908,10 +1981,10 @@ describe('FeishuBridge', () => {
 
     expect(commandSpy).toHaveBeenCalledWith('/resume 1', {
       senderId: 'ou_xxx',
-      senderName: 'ou_xxx',
+      senderName: '',
       chatId: 'oc_xxx',
       chatType: 'p2p',
-      chatName: 'oc_xxx',
+      chatName: '',
     }, {
       mentions: [],
     })

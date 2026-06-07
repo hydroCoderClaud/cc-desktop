@@ -56,6 +56,15 @@ function buildSessionReplyingText(title) {
   return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
 }
 
+function buildFeishuSessionTitle(identity = {}) {
+  const chatType = String(identity.chatType || '').toLowerCase()
+  const isGroupChat = chatType === 'chat' || chatType === 'group'
+  const displayName = isGroupChat
+    ? (identity.chatName || identity.chatId || identity.nickname || identity.userId?.substring(0, 8) || '')
+    : (identity.nickname || identity.userId?.substring(0, 8) || '')
+  return `飞书 · ${displayName}`
+}
+
 class FeishuBridge {
   constructor(configManager, agentSessionManager, mainWindow) {
     this._config = configManager
@@ -83,10 +92,7 @@ class FeishuBridge {
       imType: 'feishu',
       maxHistorySessions: 5,
       buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
-      buildSessionTitle: (identity) => {
-        const nickname = identity.nickname || identity.userId?.substring(0, 8) || ''
-        return `飞书 · ${nickname}`
-      },
+      buildSessionTitle: buildFeishuSessionTitle,
     })
 
     /** @type {Map<string, Promise>} 串行消息队列 */
@@ -254,10 +260,7 @@ class FeishuBridge {
       maxHistorySessions: cfg.maxHistorySessions || 5,
       defaultCwd: cfg.defaultCwd || null,
       buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
-      buildSessionTitle: (identity) => {
-        const nickname = identity.nickname || identity.userId?.substring(0, 8) || ''
-        return `飞书 · ${nickname}`
-      },
+      buildSessionTitle: buildFeishuSessionTitle,
     })
   }
 
@@ -298,10 +301,10 @@ class FeishuBridge {
       }
       this._handleCommand(commandCandidate, {
         senderId: event?.senderId,
-        senderName: event?.senderName || event?.senderId || '',
+        senderName: event?.senderName || '',
         chatId: event?.chatId,
         chatType: event?.chatType,
-        chatName: event?.chatName || event?.chatId || '',
+        chatName: event?.chatName || '',
       }, { mentions: rawMentions }).catch(() => {})
       return
     }
@@ -322,10 +325,10 @@ class FeishuBridge {
     if (normalizedText && normalizedText.startsWith('/')) {
       this._handleCommand(normalizedText, {
         senderId,
-        senderName: senderName || senderId,
+        senderName: senderName || '',
         chatId,
         chatType,
-        chatName: chatName || chatId,
+        chatName: chatName || '',
       }, { mentions }).catch(() => {})
       return
     }
