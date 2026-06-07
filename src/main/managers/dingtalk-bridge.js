@@ -68,13 +68,122 @@ function isGroupChatType(chatType) {
   return normalized === '2' || normalized === 'group' || normalized === 'chat'
 }
 
-function normalizeInboundConversationType(conversationType, conversationId, senderStaffId) {
-  if (isGroupConversationType(conversationType)) return '2'
+function toDingTalkConversationType(chatType) {
+  return isGroupChatType(chatType) ? '2' : '1'
+}
+
+function deriveDingTalkP2PDisplayName({ displayName = '', sessionTitle = '', fallbackId = '' } = {}) {
+  const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : ''
+  if (normalizedDisplayName) return normalizedDisplayName
+
+  const normalizedTitle = typeof sessionTitle === 'string' ? sessionTitle.trim() : ''
+  if (normalizedTitle.startsWith('钉钉 · ')) {
+    const parts = normalizedTitle
+      .split(' · ')
+      .map(part => part.trim())
+      .filter(Boolean)
+    const candidate = parts[parts.length - 1] || ''
+    if (candidate && candidate !== '钉钉') {
+      return candidate
+    }
+  }
+
+  return typeof fallbackId === 'string' ? fallbackId.trim() : ''
+}
+
+function normalizeInboundConversationType(
+  bridge,
+  conversationType,
+  conversationId,
+  senderStaffId,
+  senderNick = '',
+  conversationTitle = ''
+) {
+  const rawConversationType = String(conversationType || '').trim()
   const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
   const normalizedStaffId = typeof senderStaffId === 'string' ? senderStaffId.trim() : ''
-  if (normalizedConversationId && normalizedStaffId && normalizedConversationId !== normalizedStaffId) {
+  const normalizedSenderNick = typeof senderNick === 'string' ? senderNick.trim() : ''
+  const normalizedConversationTitle = typeof conversationTitle === 'string' ? conversationTitle.trim() : ''
+  const hasDistinctConversationTitle = Boolean(
+    normalizedConversationTitle
+    && normalizedConversationTitle !== normalizedSenderNick
+  )
+  const hasGroupSessionMap = Boolean(
+    normalizedConversationId
+    && bridge?.sessionMap instanceof Map
+    && bridge.sessionMap.has(normalizedConversationId)
+  )
+  const hasKnownGroupChat = Boolean(
+    normalizedConversationId
+    && bridge?._knownChats instanceof Map
+    && bridge._knownChats.has(normalizedConversationId)
+  )
+  const hasGroupTargetBinding = () => {
+    if (!(bridge?._sessionTargets instanceof Map)) return false
+    const mappedSessionId = bridge?._targetSessionMap instanceof Map
+      ? bridge._targetSessionMap.get(normalizedConversationId)
+      : null
+    if (mappedSessionId) {
+      const target = bridge._sessionTargets.get(mappedSessionId)
+      if (target?.targetType === 'chat') return true
+    }
+    for (const target of bridge._sessionTargets.values()) {
+      if (
+        target?.targetType === 'chat'
+        && typeof target?.staffId === 'string'
+        && target.staffId.trim() === normalizedConversationId
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+  const hasStoredGroupHistory = () => {
+    const db = bridge?.agentSessionManager?.sessionDatabase
+    if (!normalizedConversationId || !db?.listAllAgentConversations) return false
+    try {
+      const rows = db.listAllAgentConversations({
+        limit: Math.max(bridge?.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5, 20),
+      })
+      return Array.isArray(rows) && rows.some((row) => (
+        row?.im_channel === 'dingtalk'
+        && typeof row?.im_chat_id === 'string'
+        && row.im_chat_id.trim() === normalizedConversationId
+        && isGroupChatType(row?.im_chat_type)
+      ))
+    } catch {
+      return false
+    }
+  }
+
+  if (rawConversationType === '1') {
+    return '1'
+  }
+
+  if (rawConversationType === '2') {
+    if (!normalizedConversationId || normalizedConversationId === normalizedStaffId) {
+      return '1'
+    }
     return '2'
   }
+
+  if (!normalizedConversationId || normalizedConversationId === normalizedStaffId) {
+    return '1'
+  }
+
+  if (
+    hasGroupSessionMap
+    || hasKnownGroupChat
+    || hasGroupTargetBinding()
+    || hasStoredGroupHistory()
+  ) {
+    return '2'
+  }
+
+  if (normalizedConversationTitle && normalizedConversationTitle !== normalizedSenderNick) {
+    return '2'
+  }
+
   return '1'
 }
 
@@ -99,7 +208,7 @@ class DingTalkBridge {
     this._stopped = false
     this._runtimeState = 'disabled'
 
-    // 钉钉用户+会话 → Agent 会话映射：{ "staffId:conversationId": sessionId }
+    // 钉钉身份 → Agent 会话映射：单聊 "staffId:conversationId"，群聊 "conversationId"
     this.sessionMap = new Map()
 
     // 响应收集器：{ sessionId: { chunks, resolve, webhook } }
@@ -119,7 +228,7 @@ class DingTalkBridge {
     this._sessionProcessQueues = new Map()
 
     // 待选择状态：用户发消息时有历史会话，等待用户选择继续或新建
-    // key: "staffId:conversationId"，value: { sessions, originalMessage, robotCode, senderStaffId, timer }
+    // key: 共享 identity key，value: { sessions, originalMessage, robotCode, senderStaffId, timer }
     this._pendingChoices = new Map()
     this._CHOICE_TTL = 10 * 60 * 1000 // 10 分钟无响应则超时清除
 
@@ -139,6 +248,8 @@ class DingTalkBridge {
     this._sessionTargets = new Map()
     // 反向索引：staffId -> sessionId
     this._targetSessionMap = new Map()
+    // 本次运行内由桌面主动发送建立的单聊绑定；普通入站只允许这类绑定静默接管。
+    this._runtimeProactiveTargetMap = new Map()
     // 单聊关闭/解绑后的主动回绑抑制：防止下一条消息静默回落到旧会话
     this._proactiveRebindSuppressedKeys = new Set()
     // 被动收集的群聊：chatId → { chatId, name }
@@ -176,15 +287,7 @@ class DingTalkBridge {
           ? `钉钉 · ${conversationTitle} · ${nickname}`
           : `钉钉 · ${nickname}`
       },
-      queryHistorySessions: (identity = {}) => {
-        const db = this.agentSessionManager?.sessionDatabase
-        const conversationId = identity.conversationId || identity.chatId || ''
-        if (!db || !conversationId) return []
-        const limit = this.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5
-        const isGroupChat = isGroupConversationType(identity.conversationType || identity.chatType)
-        const queryUserId = isGroupChat ? '' : (identity.staffId || identity.userId || '')
-        return db.getImSessionsByType('dingtalk', queryUserId, conversationId, limit)
-      },
+      queryHistorySessions: (identity = {}) => this._queryDingTalkHistorySessions(identity),
     })
   }
 
@@ -311,6 +414,7 @@ class DingTalkBridge {
     this._sessionWebhooks.clear()
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
+    this._runtimeProactiveTargetMap.clear()
     this._desktopPendingBlocks.clear()
     this._knownChats.clear()
     this.sessionMap.clear()
@@ -517,7 +621,24 @@ class DingTalkBridge {
       return
     }
     const { msgId, msgtype, text, content, senderStaffId, senderNick, sessionWebhook, robotCode, conversationId, conversationTitle } = data
-    const conversationType = normalizeInboundConversationType(data?.conversationType, conversationId, senderStaffId)
+    const conversationType = normalizeInboundConversationType(
+      this,
+      data?.conversationType,
+      conversationId,
+      senderStaffId,
+      senderNick,
+      conversationTitle
+    )
+    const context = this._buildDingTalkContext({
+      robotCode,
+      senderStaffId,
+      senderNick,
+      conversationId,
+      conversationTitle,
+      conversationType,
+      sessionWebhook,
+    })
+    const { identity, mapKey } = context
 
     console.log('[DingTalk] _handleDingTalkMessage: msgId:', msgId, 'msgtype:', msgtype, 'text:', text?.content?.substring(0, 50))
 
@@ -532,14 +653,14 @@ class DingTalkBridge {
 
     // 被动收集群聊：群消息入站时记录 chatId（工具栏列群用）
     // 放在去重之后，避免重投消息无 conversationTitle 时覆盖好名字
-    if (String(conversationType) === '2' && conversationId) {
-      const existing = this._knownChats.get(conversationId)
+    if (identity.chatType === 'chat' && identity.chatId) {
+      const existing = this._knownChats.get(identity.chatId)
       if (!existing || conversationTitle) {
-        const chatName = conversationTitle || existing?.name || conversationId || ''
-        this._knownChats.set(conversationId, { chatId: conversationId, name: chatName })
+        const chatName = identity.chatName || existing?.name || identity.chatId || ''
+        this._knownChats.set(identity.chatId, { chatId: identity.chatId, name: chatName })
         // 持久化到 DB，桥重启后可恢复
         try {
-          this.agentSessionManager.sessionDatabase?.upsertKnownChat?.('dingtalk', conversationId, conversationTitle || '')
+          this.agentSessionManager.sessionDatabase?.upsertKnownChat?.('dingtalk', identity.chatId, chatName)
         } catch {}
       }
     }
@@ -549,25 +670,27 @@ class DingTalkBridge {
       const rawText = (text?.content || '').trim()
       if (rawText.startsWith('/')) {
         console.log('[DingTalk] _handleDingTalkMessage: detected command:', rawText)
-        const mapKey = this._buildMapKey(senderStaffId, conversationId, conversationType)
-        await this._handleCommand(rawText, sessionWebhook, {
-          robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, mapKey
-        })
+        await this._handleCommand(rawText, sessionWebhook, context)
         return
       }
     }
 
-    const mapKey = this._buildMapKey(senderStaffId, conversationId, conversationType)
     const pendingChoice = this._pendingChoices.get(mapKey)
     if (pendingChoice && pendingChoice.source !== 'resume-command') {
       const activeSessionId = this._resolveActiveSessionId(mapKey)
       if (activeSessionId) {
         this._clearPendingChoice(mapKey)
       } else {
-        const proactivelyBoundSessionId = this._findBoundSessionIdByStaffId(senderStaffId, { mapKey })
-        if (proactivelyBoundSessionId) {
-          this.sessionMap.set(mapKey, proactivelyBoundSessionId)
-          this._clearPendingChoice(mapKey)
+        if (identity.chatType === 'p2p') {
+          const proactivelyBoundSessionId = this._findBoundSessionIdByStaffId(identity.userId, {
+            mapKey,
+            allowDatabaseFallback: false,
+            runtimeOnly: true,
+          })
+          if (proactivelyBoundSessionId) {
+            this.sessionMap.set(mapKey, proactivelyBoundSessionId)
+            this._clearPendingChoice(mapKey)
+          }
         }
       }
     }
@@ -575,7 +698,7 @@ class DingTalkBridge {
     // 如果有待选择状态，优先处理（用户正在选择历史会话）
     if (this._pendingChoices.has(mapKey)) {
       const choiceText = text?.content?.trim()
-      await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType })
+      await this._handlePendingChoice(mapKey, choiceText, sessionWebhook, context)
       return
     }
 
@@ -644,11 +767,11 @@ class DingTalkBridge {
     }
 
     // 查找或创建 Agent 会话
-    const result = await this._ensureSession(senderStaffId, senderNick, conversationId, conversationTitle, conversationType)
+    const result = await this._ensureSession(identity)
 
     // 有历史会话需要用户选择：发送菜单并等待
     if (result && result.needsChoice) {
-      this._setPendingChoice(mapKey, { sessions: result.sessions, originalMessage: agentMessage, robotCode, senderStaffId })
+      this._setPendingChoice(mapKey, { sessions: result.sessions, originalMessage: agentMessage, robotCode, senderStaffId: identity.userId })
       await this._sendChoiceMenu(sessionWebhook, result.sessions)
       return
     }
@@ -656,7 +779,7 @@ class DingTalkBridge {
     const sessionId = result
 
     // 通知前端：收到钉钉消息（立即通知，不等待处理）
-    const notification = { sessionId, senderNick, text: displayText }
+    const notification = { sessionId, senderNick: identity.nickname, text: displayText }
     // 图片消息：附带 base64 数据供前端气泡显示
     if (agentMessage && typeof agentMessage === 'object' && agentMessage.images) {
       notification.images = agentMessage.images.map(img => ({
@@ -667,7 +790,7 @@ class DingTalkBridge {
     this._notifyFrontend('dingtalk:messageReceived', notification)
 
     // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
-    this._enqueueMessage(sessionId, agentMessage, sessionWebhook, senderNick, { robotCode, senderStaffId, conversationId, conversationType })
+    this._enqueueMessage(sessionId, agentMessage, sessionWebhook, identity.nickname, context)
   }
 
   /**
@@ -716,28 +839,23 @@ class DingTalkBridge {
    * - DB 有历史记录 → 返回 { needsChoice: true, sessions } 让用户选择
    * - 无历史 → 新建并返回 sessionId
    */
-  async _ensureSession(staffId, nickname, conversationId, conversationTitle, conversationType = '1') {
-    const identity = this._buildSessionIdentity(
-      staffId,
-      nickname,
-      conversationId,
-      conversationTitle,
-      conversationType
-    )
-    const mapKey = this._buildMapKey(staffId, conversationId, conversationType)
+  async _ensureSession(staffOrIdentity, nickname, conversationId, conversationTitle, conversationType = '1') {
+    const identity = typeof staffOrIdentity === 'object' && staffOrIdentity !== null
+      ? this._normalizeDingTalkIdentity(staffOrIdentity)
+      : this._buildSessionIdentity(
+          staffOrIdentity,
+          nickname,
+          conversationId,
+          conversationTitle,
+          conversationType
+        )
+    const mapKey = this._sessionMapper.buildKey(identity)
     let sessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
 
     if (sessionId) {
       const session = this.agentSessionManager.reopen(sessionId)
       if (session) {
-        if (!session.meta) session.meta = {}
-        session.meta.conversationId = conversationId
-        this._restoreRuntimeBinding(sessionId, {
-          staffId,
-          conversationId,
-          conversationTitle,
-          conversationType,
-        })
+        this._applyDingTalkSessionContext(sessionId, identity, { mapKey })
         return sessionId
       }
       console.log(`[DingTalk] Session ${sessionId} not available during ensure, clearing mapping`)
@@ -750,41 +868,38 @@ class DingTalkBridge {
       mapKey,
       identity,
       resolveBoundSessionId: async () => {
-        if (isGroupConversationType(conversationType)) return null
-        const boundSessionId = this._findBoundSessionIdByStaffId(staffId, { mapKey })
+        if (identity.chatType !== 'p2p') return null
+        const boundSessionId = this._findBoundSessionIdByStaffId(identity.userId, {
+          mapKey,
+          allowDatabaseFallback: false,
+          runtimeOnly: true,
+        })
         if (!boundSessionId) return null
 
         const db = this.agentSessionManager.sessionDatabase
         const liveSession = this.agentSessionManager.sessions.get(boundSessionId)
         if (liveSession) {
-          if (!liveSession.meta) liveSession.meta = {}
-          liveSession.meta.conversationId = conversationId
-          if (db && conversationId) {
-            db.updateImIdentity(boundSessionId, { userId: staffId, chatId: conversationId, chatType: 'p2p' })
-          }
-          console.log(`[DingTalk] Reused active proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
+          this._applyDingTalkSessionContext(boundSessionId, identity, { mapKey })
+          console.log(`[DingTalk] Reused active proactive-bound session ${boundSessionId} for ${identity.nickname}(${identity.userId})`)
           return boundSessionId
         }
 
         const row = db && db.getAgentConversation(boundSessionId)
         if (!row || row.status === 'closed') {
-          console.log(`[DingTalk] Bound session ${boundSessionId} is unavailable, clearing proactive binding for ${staffId}`)
-          this._targetSessionMap.delete(staffId)
+          console.log(`[DingTalk] Bound session ${boundSessionId} is unavailable, clearing proactive binding for ${identity.userId}`)
+          this._targetSessionMap.delete(identity.userId)
           const currentTarget = this._sessionTargets.get(boundSessionId)
-          if (currentTarget?.staffId === staffId) {
+          if (currentTarget?.staffId === identity.userId) {
             this._sessionTargets.delete(boundSessionId)
           }
+          this._clearRuntimeProactiveTargetBinding(boundSessionId, identity.userId)
           return null
         }
 
         const reopened = this.agentSessionManager.reopen(boundSessionId)
         if (!reopened) return null
-        if (!reopened.meta) reopened.meta = {}
-        reopened.meta.conversationId = conversationId
-        if (db && conversationId) {
-          db.updateImIdentity(boundSessionId, { userId: staffId, chatId: conversationId, chatType: 'p2p' })
-        }
-        console.log(`[DingTalk] Reused proactive-bound session ${boundSessionId} for ${nickname}(${staffId})`)
+        this._applyDingTalkSessionContext(boundSessionId, identity, { mapKey })
+        console.log(`[DingTalk] Reused proactive-bound session ${boundSessionId} for ${identity.nickname}(${identity.userId})`)
         return boundSessionId
       },
     })
@@ -796,71 +911,27 @@ class DingTalkBridge {
     sessionId = decision?.sessionId || null
     if (!sessionId) return null
 
-    const session = this.agentSessionManager.sessions.get(sessionId) || this.agentSessionManager.reopen(sessionId)
-    if (session) {
-      if (!session.meta) session.meta = {}
-      session.meta.conversationId = conversationId
-      this._restoreRuntimeBinding(sessionId, {
-        staffId,
-        conversationId,
-        conversationTitle,
-        conversationType,
-      })
-    }
-
-    if (decision?.action === 'create_new') {
-      this._notifyFrontend('dingtalk:sessionCreated', {
-        sessionId,
-        staffId,
-        nickname,
-        conversationId,
-        conversationTitle,
-        title: session?.title || sessionId
-      })
-    }
+    this._applyDingTalkSessionContext(sessionId, identity, {
+      mapKey,
+      notify: decision?.action === 'create_new',
+    })
 
     return sessionId
   }
 
-  /**
-   * 新建 Agent 会话（供 _ensureSession 和 _handlePendingChoice 共用）
-   */
-  async _createNewSession(staffId, nickname, conversationId, conversationTitle, mapKey, { cwd, conversationType = '1' } = {}) {
-    const title = conversationTitle
-      ? `钉钉 · ${conversationTitle} · ${nickname || staffId}`
-      : `钉钉 · ${nickname || staffId}`
+  async _createSessionFromIdentity(identity, { cwd, mapKey, notify = true } = {}) {
+    const resolvedMapKey = mapKey || this._sessionMapper.buildKey(identity)
+    const sessionId = await this._sessionMapper.createSession(identity, { cwd })
+    if (!sessionId) return null
 
-    const session = this.agentSessionManager.create({
-      type: 'chat',
-      source: 'im-inbound',
-      imChannel: 'dingtalk',
-      title,
-      cwd: cwd || undefined,
-      cwdSubDir: cwd ? undefined : 'dingtalk',
-      meta: { conversationId }
+    this.sessionMap.set(resolvedMapKey, sessionId)
+    this._applyDingTalkSessionContext(sessionId, identity, {
+      mapKey: resolvedMapKey,
+      notify,
     })
 
-    const sessionId = session.id
-    this.sessionMap.set(mapKey, sessionId)
-
-    const db = this.agentSessionManager.sessionDatabase
-    if (db && conversationId) {
-      const isGroupChat = isGroupConversationType(conversationType)
-      db.updateImIdentity(sessionId, { userId: isGroupChat ? '' : staffId, chatId: conversationId, chatType: isGroupChat ? 'group' : 'p2p' })
-    }
-    this._restoreRuntimeBinding(sessionId, {
-      staffId,
-      conversationId,
-      conversationTitle,
-      conversationType,
-    })
-
-    console.log(`[DingTalk] Created session ${sessionId} for ${nickname}(${staffId}) in conversation ${conversationTitle || conversationId}`)
-
-    this._notifyFrontend('dingtalk:sessionCreated', {
-      sessionId, staffId, nickname, conversationId, conversationTitle, title: session.title
-    })
-
+    const label = identity.chatName || identity.conversationTitle || identity.chatId || identity.userId
+    console.log(`[DingTalk] Created session ${sessionId} through shared mapper for ${label}`)
     return sessionId
   }
 
@@ -945,6 +1016,7 @@ class DingTalkBridge {
     const previousTarget = this._sessionTargets.get(sessionId)
     if (previousTarget?.staffId && previousTarget.staffId !== resolvedStaffId) {
       this._targetSessionMap.delete(previousTarget.staffId)
+      this._clearRuntimeProactiveTargetBinding(sessionId, previousTarget.staffId)
     }
 
     const previousSessionId = this._targetSessionMap.get(resolvedStaffId)
@@ -955,6 +1027,7 @@ class DingTalkBridge {
         this._targetSessionMap.delete(previousSessionTarget.staffId)
       }
       this._sessionTargets.delete(previousSessionId)
+      this._clearRuntimeProactiveTargetBinding(previousSessionId, resolvedStaffId)
     }
 
     if (normalizedTargetType === 'chat') {
@@ -971,6 +1044,19 @@ class DingTalkBridge {
         || (normalizedTargetType === 'chat' ? (this._knownChats.get(resolvedStaffId)?.name || '') : '')
         || resolvedStaffId
     }
+    const isGroupChat = normalizedTargetType === 'chat'
+    const proactiveIdentity = this._normalizeDingTalkIdentity({
+      staffId: isGroupChat ? '' : resolvedStaffId,
+      userId: isGroupChat ? '' : resolvedStaffId,
+      conversationId: isGroupChat ? resolvedStaffId : '',
+      chatId: isGroupChat ? resolvedStaffId : '',
+      conversationType: isGroupChat ? '2' : '1',
+      chatType: isGroupChat ? 'chat' : 'p2p',
+      nickname: target.displayName || resolvedStaffId,
+      chatName: isGroupChat ? (target.displayName || resolvedStaffId) : '',
+      conversationTitle: isGroupChat ? (target.displayName || resolvedStaffId) : '',
+    })
+    const proactiveMapKey = this._sessionMapper.buildKey(proactiveIdentity)
     if (normalizedTargetType === 'chat') {
       this._knownChats.set(resolvedStaffId, {
         chatId: resolvedStaffId,
@@ -984,15 +1070,26 @@ class DingTalkBridge {
     }
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedStaffId, sessionId)
-    if (normalizedTargetType === 'chat') {
-      this.sessionMap.set(this._buildMapKey('', resolvedStaffId, '2'), sessionId)
+    this._sessionMapper.clearPendingChoice(proactiveMapKey)
+    if (isGroupChat) {
+      this.sessionMap.set(proactiveMapKey, sessionId)
     }
     if (this.agentSessionManager.sessionDatabase?.updateImIdentity) {
       try {
-        const isGroupChat = normalizedTargetType === 'chat'
         this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : resolvedStaffId, chatId: isGroupChat ? resolvedStaffId : '', chatType: isGroupChat ? 'group' : 'p2p' })
       } catch (err) {
         console.warn('[DingTalk] Failed to persist proactive target identity:', err.message)
+      }
+    }
+    const liveSession = this.agentSessionManager.sessions.get(sessionId)
+    if (liveSession) {
+      if (!liveSession.meta || typeof liveSession.meta !== 'object') {
+        liveSession.meta = {}
+      }
+      liveSession.meta.dingtalkTargetStaffId = resolvedStaffId
+      liveSession.meta.dingtalkTargetType = normalizedTargetType
+      if (isGroupChat) {
+        liveSession.meta.conversationId = resolvedStaffId
       }
     }
     if (normalizedTargetType !== 'chat') {
@@ -1014,31 +1111,95 @@ class DingTalkBridge {
       const targetId = isGroupChat && chatId ? chatId : staffId
       if (!targetId) continue
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
+      const identity = this._normalizeDingTalkIdentity({
+        staffId: isGroupChat ? '' : staffId,
+        userId: isGroupChat ? '' : staffId,
+        conversationId: isGroupChat ? chatId : (chatId || ''),
+        chatId: isGroupChat ? chatId : (chatId || ''),
+        conversationType: isGroupChat ? '2' : '1',
+        chatType: isGroupChat ? 'chat' : 'p2p',
+        nickname: isGroupChat
+          ? (knownChatName || targetId)
+          : deriveDingTalkP2PDisplayName({
+              displayName: '',
+              sessionTitle: session?.title || row?.title || '',
+              fallbackId: targetId,
+            }),
+        chatName: isGroupChat ? (knownChatName || targetId) : '',
+        conversationTitle: isGroupChat ? (knownChatName || targetId) : '',
+      })
+      const mapKey = this._sessionMapper.buildKey(identity)
+      const displayName = isGroupChat
+        ? (knownChatName || targetId)
+        : deriveDingTalkP2PDisplayName({
+            displayName: '',
+            sessionTitle: session?.title || row?.title || '',
+            fallbackId: targetId,
+          })
 
       this._sessionTargets.set(sessionId, {
         staffId: targetId,
         targetType: isGroupChat ? 'chat' : 'user',
-        displayName: knownChatName || targetId,
+        displayName: displayName || targetId,
       })
       this._targetSessionMap.set(targetId, sessionId)
-      this.sessionMap.set(this._buildMapKey(staffId, chatId, isGroupChat ? '2' : '1'), sessionId)
+      this.sessionMap.set(mapKey, sessionId)
 
       if (session && !session.imChannel) {
         session.imChannel = 'dingtalk'
       }
       if (session?.meta && typeof session.meta === 'object') {
+        session.meta.conversationId = identity.conversationId || session.meta.conversationId
+        session.meta.dingtalkTargetStaffId = targetId
         if (isGroupChat) {
           session.meta.dingtalkTargetType = 'chat'
         } else if (staffId) {
-          session.meta.dingtalkTargetStaffId = staffId
           session.meta.dingtalkTargetType = 'user'
         }
       }
     }
   }
 
-  _buildSessionIdentity(staffId, nickname, conversationId, conversationTitle, conversationType = '1') {
+  _buildSessionIdentity(staffId, nickname, conversationId, conversationTitle, conversationType = '') {
+    return this._normalizeDingTalkIdentity({
+      staffId,
+      userId: staffId,
+      conversationId,
+      chatId: conversationId,
+      conversationType,
+      nickname,
+      chatName: conversationTitle,
+      conversationTitle,
+    })
+  }
+
+  _normalizeDingTalkIdentity(identity = {}) {
+    const staffId = typeof (identity.staffId || identity.userId) === 'string'
+      ? (identity.staffId || identity.userId).trim()
+      : ''
+    const conversationId = typeof (identity.conversationId || identity.chatId) === 'string'
+      ? (identity.conversationId || identity.chatId).trim()
+      : ''
+    const rawConversationType = typeof identity.conversationType === 'string'
+      ? identity.conversationType.trim()
+      : ''
+    const rawChatType = typeof identity.chatType === 'string'
+      ? identity.chatType.trim()
+      : ''
+    const nickname = identity.nickname || identity.senderName || staffId || '未命名'
+    const rawConversationTitle = identity.conversationTitle || identity.chatName || ''
+    const conversationType = rawConversationType
+      || (rawChatType ? toDingTalkConversationType(rawChatType) : normalizeInboundConversationType(
+        this,
+        '',
+        conversationId,
+        staffId,
+        nickname,
+        rawConversationTitle
+      ))
     const isGroupChat = isGroupConversationType(conversationType)
+    const conversationTitle = rawConversationTitle || (isGroupChat ? conversationId : nickname)
+
     return {
       staffId,
       userId: staffId,
@@ -1046,19 +1207,67 @@ class DingTalkBridge {
       chatId: conversationId,
       conversationType,
       chatType: isGroupChat ? 'chat' : 'p2p',
-      nickname: nickname || staffId || '未命名',
-      chatName: conversationTitle || '',
-      conversationTitle: conversationTitle || '',
+      nickname,
+      chatName: conversationTitle,
+      conversationTitle,
     }
   }
 
-  _buildMapKey(staffId, conversationId, conversationType = '1') {
-    const normalizedStaffId = typeof staffId === 'string' ? staffId.trim() : ''
-    const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
-    if (isGroupConversationType(conversationType) && normalizedConversationId) {
-      return normalizedConversationId
+  _buildDingTalkContext({
+    robotCode = '',
+    senderStaffId = '',
+    senderNick = '',
+    conversationId = '',
+    conversationTitle = '',
+    conversationType = '',
+    sessionWebhook = null,
+  } = {}) {
+    const identity = this._buildSessionIdentity(
+      senderStaffId,
+      senderNick,
+      conversationId,
+      conversationTitle,
+      conversationType
+    )
+    const mapKey = this._sessionMapper.buildKey(identity)
+    return {
+      identity,
+      mapKey,
+      robotCode,
+      senderStaffId: identity.staffId,
+      senderNick: identity.nickname,
+      conversationId: identity.conversationId,
+      conversationTitle: identity.conversationTitle,
+      conversationType: identity.conversationType,
+      chatType: identity.chatType,
+      chatId: identity.chatId,
+      sessionWebhook,
     }
-    return `${normalizedStaffId}:${normalizedConversationId || 'default'}`
+  }
+
+  _resolveDingTalkHistoryLookup(identity = {}) {
+    const normalizedIdentity = this._normalizeDingTalkIdentity(identity)
+    const isGroupChat = isGroupConversationType(normalizedIdentity.conversationType)
+
+    return {
+      ...normalizedIdentity,
+      isGroupChat,
+      queryUserId: isGroupChat ? '' : normalizedIdentity.staffId,
+      // p2p history is owned by the sender; conversationId is context that may
+      // be learned later after a proactive desktop send.
+      queryChatId: isGroupChat ? normalizedIdentity.conversationId : '',
+    }
+  }
+
+  _queryDingTalkHistorySessions(identity = {}, { limit } = {}) {
+    const db = this.agentSessionManager?.sessionDatabase
+    if (!db?.getImSessionsByType) return []
+
+    const lookup = this._resolveDingTalkHistoryLookup(identity)
+    if (!lookup.queryUserId && !lookup.queryChatId) return []
+
+    const resolvedLimit = limit || this.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5
+    return db.getImSessionsByType('dingtalk', lookup.queryUserId, lookup.queryChatId, resolvedLimit)
   }
 
   _resolveBindingTargetType(sessionId, row = null, target = null) {
@@ -1218,31 +1427,65 @@ class DingTalkBridge {
     }
   }
 
-  _findBoundSessionIdByStaffId(staffId, { mapKey = '' } = {}) {
+  _findBoundSessionIdByStaffId(staffId, {
+    mapKey = '',
+    allowSuppressed = false,
+    allowDatabaseFallback = true,
+    runtimeOnly = false,
+  } = {}) {
     const normalizedStaffId = typeof staffId === 'string' ? staffId.trim() : ''
     if (!normalizedStaffId) return null
-    if (mapKey && this._proactiveRebindSuppressedKeys.has(mapKey)) {
+    if (!allowSuppressed && mapKey && this._proactiveRebindSuppressedKeys.has(mapKey)) {
       return null
     }
-    if (this._proactiveRebindSuppressedKeys.has(`${normalizedStaffId}:${normalizedStaffId}`)) {
+    if (!allowSuppressed && this._proactiveRebindSuppressedKeys.has(`${normalizedStaffId}:${normalizedStaffId}`)) {
       return null
+    }
+
+    const isRuntimeProactiveSession = (sessionId) => {
+      return Boolean(sessionId && this._runtimeProactiveTargetMap.get(normalizedStaffId) === sessionId)
     }
 
     const isSessionAvailable = (sessionId) => {
       if (!sessionId) return false
+      if (runtimeOnly && !isRuntimeProactiveSession(sessionId)) return false
+      const target = this._sessionTargets.get(sessionId)
+      if (target && target.targetType !== 'user') return false
       const liveSession = this.agentSessionManager.sessions.get(sessionId)
-      if (liveSession) return true
+      if (liveSession) {
+        const targetType = typeof liveSession?.meta?.dingtalkTargetType === 'string'
+          ? liveSession.meta.dingtalkTargetType.trim()
+          : ''
+        if (targetType && targetType !== 'user') return false
+        return true
+      }
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
       return Boolean(
         row
         && row.status !== 'closed'
         && row.im_channel === 'dingtalk'
+        && !isGroupChatType(row.im_chat_type)
         && typeof row.im_user_id === 'string'
         && row.im_user_id.trim() === normalizedStaffId
       )
     }
 
+    if (runtimeOnly) {
+      const runtimeSessionId = this._runtimeProactiveTargetMap.get(normalizedStaffId)
+      if (isSessionAvailable(runtimeSessionId)) {
+        return runtimeSessionId
+      }
+      if (runtimeSessionId) {
+        this._runtimeProactiveTargetMap.delete(normalizedStaffId)
+      }
+      return null
+    }
+
     const directSessionId = this._targetSessionMap.get(normalizedStaffId)
+    const directTarget = directSessionId ? this._sessionTargets.get(directSessionId) : null
+    if (directTarget?.targetType && directTarget.targetType !== 'user') {
+      return null
+    }
     if (isSessionAvailable(directSessionId)) {
       return directSessionId
     }
@@ -1253,6 +1496,7 @@ class DingTalkBridge {
 
     for (const [sessionId, target] of this._sessionTargets.entries()) {
       if (target?.staffId !== normalizedStaffId) continue
+      if (target?.targetType !== 'user') continue
       if (!isSessionAvailable(sessionId)) {
         this._sessionTargets.delete(sessionId)
         continue
@@ -1265,14 +1509,26 @@ class DingTalkBridge {
       const targetStaffId = typeof session?.meta?.dingtalkTargetStaffId === 'string'
         ? session.meta.dingtalkTargetStaffId.trim()
         : ''
+      const targetType = typeof session?.meta?.dingtalkTargetType === 'string'
+        ? session.meta.dingtalkTargetType.trim()
+        : ''
       if (targetStaffId !== normalizedStaffId) continue
+      if (targetType && targetType !== 'user') continue
       this._sessionTargets.set(sessionId, {
         staffId: normalizedStaffId,
-        displayName: this._sessionTargets.get(sessionId)?.displayName || normalizedStaffId,
+        displayName: deriveDingTalkP2PDisplayName({
+          displayName: this._sessionTargets.get(sessionId)?.displayName || '',
+          sessionTitle: session?.title || '',
+          fallbackId: normalizedStaffId,
+        }),
         targetType: 'user',
       })
       this._targetSessionMap.set(normalizedStaffId, sessionId)
       return sessionId
+    }
+
+    if (!allowDatabaseFallback) {
+      return null
     }
 
     const rows = this.agentSessionManager.sessionDatabase?.listAllAgentConversations?.({
@@ -1282,6 +1538,7 @@ class DingTalkBridge {
       ? rows
         .filter(row => row?.status !== 'closed')
         .filter(row => row?.im_channel === 'dingtalk')
+        .filter(row => !isGroupChatType(row?.im_chat_type))
         .filter(row => row?.im_user_id === normalizedStaffId)
         .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))[0]
       : null
@@ -1291,7 +1548,11 @@ class DingTalkBridge {
         this._targetSessionMap.set(normalizedStaffId, fallbackSessionId)
         this._sessionTargets.set(fallbackSessionId, {
           staffId: normalizedStaffId,
-          displayName: this._sessionTargets.get(fallbackSessionId)?.displayName || normalizedStaffId,
+          displayName: deriveDingTalkP2PDisplayName({
+            displayName: this._sessionTargets.get(fallbackSessionId)?.displayName || '',
+            sessionTitle: matched?.title || '',
+            fallbackId: normalizedStaffId,
+          }),
           targetType: 'user',
         })
         return fallbackSessionId
@@ -1308,20 +1569,98 @@ class DingTalkBridge {
     this._clearProactiveRebindSuppressionForStaff(staffId)
   }
 
+  _markRuntimeProactiveTargetBinding(targetId, sessionId) {
+    const normalizedTargetId = typeof targetId === 'string' ? targetId.trim() : ''
+    const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : ''
+    if (!normalizedTargetId || !normalizedSessionId) return
+    this._runtimeProactiveTargetMap.set(normalizedTargetId, normalizedSessionId)
+  }
+
+  _clearRuntimeProactiveTargetBinding(sessionId, targetId = '') {
+    const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : ''
+    const normalizedTargetId = typeof targetId === 'string' ? targetId.trim() : ''
+    if (normalizedTargetId) {
+      if (!normalizedSessionId || this._runtimeProactiveTargetMap.get(normalizedTargetId) === normalizedSessionId) {
+        this._runtimeProactiveTargetMap.delete(normalizedTargetId)
+      }
+      return
+    }
+    if (!normalizedSessionId) return
+    for (const [storedTargetId, storedSessionId] of this._runtimeProactiveTargetMap.entries()) {
+      if (storedSessionId === normalizedSessionId) {
+        this._runtimeProactiveTargetMap.delete(storedTargetId)
+      }
+    }
+  }
+
+  _applyDingTalkSessionContext(sessionId, identity = {}, { mapKey = '', notify = false, bindSource = true } = {}) {
+    if (!sessionId) return null
+
+    const normalizedIdentity = this._normalizeDingTalkIdentity(identity)
+    const session = this.agentSessionManager.sessions.get(sessionId)
+      || this.agentSessionManager.reopen(sessionId)
+      || null
+
+    if (bindSource) {
+      this.agentSessionManager.bindSessionExternalImSource(sessionId, 'dingtalk')
+    }
+
+    if (session) {
+      if (!session.meta || typeof session.meta !== 'object') {
+        session.meta = {}
+      }
+      session.meta.conversationId = normalizedIdentity.conversationId || session.meta.conversationId
+    }
+
+    const db = this.agentSessionManager.sessionDatabase
+    if (db?.updateImIdentity && normalizedIdentity.conversationId) {
+      const isGroupChat = isGroupConversationType(normalizedIdentity.conversationType)
+      db.updateImIdentity(sessionId, {
+        userId: isGroupChat ? '' : normalizedIdentity.staffId,
+        chatId: normalizedIdentity.conversationId,
+        chatType: isGroupChat ? 'group' : 'p2p',
+      })
+    }
+
+    const resolvedMapKey = mapKey || this._sessionMapper.buildKey(normalizedIdentity)
+    const binding = this._restoreRuntimeBinding(sessionId, normalizedIdentity, { mapKey: resolvedMapKey })
+
+    if (notify) {
+      this._notifyFrontend('dingtalk:sessionCreated', {
+        sessionId,
+        staffId: normalizedIdentity.staffId,
+        nickname: normalizedIdentity.nickname,
+        conversationId: normalizedIdentity.conversationId,
+        conversationTitle: normalizedIdentity.conversationTitle,
+        title: session?.title || sessionId,
+      })
+    }
+
+    return binding
+  }
+
   getBinding(sessionId) {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
       if (row?.im_channel !== 'dingtalk') return null
+      const liveSession = this.agentSessionManager.sessions.get(sessionId) || null
       const staffId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
       const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
       const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
       const targetId = isGroupChat && chatId ? chatId : staffId
       if (!targetId || row?.status === 'closed') return null
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
+      const restoredDisplayName = isGroupChat
+        ? (knownChatName || targetId)
+        : deriveDingTalkP2PDisplayName({
+            displayName: '',
+            sessionTitle: liveSession?.title || row?.title || '',
+            fallbackId: targetId,
+          })
       const restoredTarget = {
         staffId: targetId,
-        displayName: knownChatName || targetId,
+        displayName: restoredDisplayName,
         targetType: isGroupChat ? 'chat' : 'user',
       }
       this._sessionTargets.set(sessionId, restoredTarget)
@@ -1347,6 +1686,7 @@ class DingTalkBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (target?.staffId) {
       this._targetSessionMap.delete(target.staffId)
+      this._clearRuntimeProactiveTargetBinding(sessionId, target.staffId)
       if (target.targetType === 'chat') {
         this._clearCurrentConversationMapBinding(sessionId, target.staffId, 'chat')
       } else {
@@ -1424,29 +1764,45 @@ class DingTalkBridge {
     }
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedStaffId, targetType: normalizedTargetType, displayName })
+      if (normalizedTargetType !== 'chat') {
+        this._markRuntimeProactiveTargetBinding(resolvedStaffId, sessionId)
+      }
     }
     return { success: true, targetId: resolvedStaffId, result }
   }
 
-  _restoreRuntimeBinding(sessionId, { staffId = '', conversationId = '', conversationTitle = '', conversationType = '1' } = {}) {
+  _restoreRuntimeBinding(sessionId, identity = {}, { mapKey = '' } = {}) {
     const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : ''
     if (!normalizedSessionId) return null
 
-    const normalizedStaffId = typeof staffId === 'string' ? staffId.trim() : ''
-    const normalizedConversationId = typeof conversationId === 'string' ? conversationId.trim() : ''
-    const isGroupChat = isGroupConversationType(conversationType)
+    const normalizedIdentity = this._normalizeDingTalkIdentity(identity)
+    const normalizedStaffId = normalizedIdentity.staffId
+    const normalizedNickname = normalizedIdentity.nickname === '未命名' ? '' : normalizedIdentity.nickname
+    const normalizedConversationId = normalizedIdentity.conversationId
+    const isGroupChat = isGroupConversationType(normalizedIdentity.conversationType)
     const targetId = isGroupChat ? normalizedConversationId : normalizedStaffId
     if (!targetId) return null
 
     const displayName = isGroupChat
-      ? (typeof conversationTitle === 'string' && conversationTitle.trim()) || this._knownChats.get(targetId)?.name || targetId
-      : normalizedStaffId
+      ? normalizedIdentity.conversationTitle || this._knownChats.get(targetId)?.name || targetId
+      : normalizedNickname
+        || this._sessionTargets.get(normalizedSessionId)?.displayName
+        || deriveDingTalkP2PDisplayName({
+          sessionTitle: this.agentSessionManager.sessions.get(normalizedSessionId)?.title || '',
+          fallbackId: normalizedStaffId,
+        })
+        || normalizedStaffId
 
     if (isGroupChat) {
       this._knownChats.set(targetId, {
         chatId: targetId,
         name: displayName,
       })
+      try {
+        this.agentSessionManager.sessionDatabase?.upsertKnownChat?.('dingtalk', targetId, displayName)
+      } catch (err) {
+        console.warn('[DingTalk] Failed to persist runtime known group chat:', err.message)
+      }
     }
 
     this._sessionTargets.set(normalizedSessionId, {
@@ -1455,7 +1811,7 @@ class DingTalkBridge {
       displayName,
     })
     this._targetSessionMap.set(targetId, normalizedSessionId)
-    this.sessionMap.set(this._buildMapKey(normalizedStaffId, normalizedConversationId, conversationType), normalizedSessionId)
+    this.sessionMap.set(mapKey || this._sessionMapper.buildKey(normalizedIdentity), normalizedSessionId)
 
     const session = this.agentSessionManager.sessions.get(normalizedSessionId)
     if (session && (!session.meta || typeof session.meta !== 'object')) {
@@ -1514,6 +1870,7 @@ class DingTalkBridge {
       const target = this._sessionTargets.get(sessionId)
       if (target?.staffId) {
         this._targetSessionMap.delete(target.staffId)
+        this._clearRuntimeProactiveTargetBinding(sessionId, target.staffId)
       }
       this._sessionTargets.delete(sessionId)
     }
@@ -1532,6 +1889,7 @@ class DingTalkBridge {
     if (target?.staffId && this._targetSessionMap.get(target.staffId) === sessionId) {
       this._targetSessionMap.delete(target.staffId)
     }
+    this._clearRuntimeProactiveTargetBinding(sessionId)
 
     this._sessionTargets.delete(sessionId)
     this._sessionWebhooks.delete(sessionId)
@@ -1611,22 +1969,32 @@ class DingTalkBridge {
    * 注意：如果用户输入非有效数字，会丢弃该输入，不会替换 originalMessage
    * 这样可以避免用户误输入被当作消息发送给 Agent
    */
-  async _handlePendingChoice(mapKey, choiceText, webhook, { robotCode, senderStaffId, senderNick, conversationId, conversationTitle, conversationType }) {
-    const pending = this._pendingChoices.get(mapKey)
+  async _handlePendingChoice(mapKey, choiceText, webhook, context = {}) {
+    const identity = this._normalizeDingTalkIdentity(context.identity || {
+      staffId: context.senderStaffId,
+      userId: context.senderStaffId,
+      conversationId: context.conversationId,
+      chatId: context.conversationId,
+      conversationType: context.conversationType,
+      chatType: context.chatType,
+      nickname: context.senderNick,
+      chatName: context.conversationTitle,
+      conversationTitle: context.conversationTitle,
+    })
+    const resolvedMapKey = mapKey || context.mapKey || this._sessionMapper.buildKey(identity)
+    const robotCode = context.robotCode
+    const senderStaffId = identity.staffId
+    const senderNick = identity.nickname
+    const conversationId = identity.conversationId
+    const conversationType = identity.conversationType
+    const pending = this._pendingChoices.get(resolvedMapKey)
     if (!pending) {
       // 极少数情况：TTL 刚好过期或并发调用已清除
-      console.warn(`[DingTalk] Pending choice for ${mapKey} not found, ignoring`)
+      console.warn(`[DingTalk] Pending choice for ${resolvedMapKey} not found, ignoring`)
       return
     }
     const { sessions, originalMessage } = pending
-    const currentSessionId = this._resolveActiveSessionId(mapKey)
-    const identity = this._buildSessionIdentity(
-      senderStaffId,
-      senderNick,
-      conversationId,
-      conversationTitle,
-      conversationType
-    )
+    const currentSessionId = this._resolveActiveSessionId(resolvedMapKey)
     const choice = parseInt(choiceText, 10)
     const isValid = !isNaN(choice) && choice >= 0 && choice <= sessions.length
 
@@ -1652,35 +2020,23 @@ class DingTalkBridge {
     let alreadySentPrompt = false  // 是否已发送提示（避免重复）
     let isNewSession = false  // 是否是新建会话
 
-    const result = await this._sessionMapper.handleChoice(mapKey, choiceText, identity)
+    const result = await this._sessionMapper.handleChoice(resolvedMapKey, choiceText, identity)
     sessionId = result?.sessionId || null
 
     if (!sessionId && result?.action === 'resume') {
       const failedSessionId = result?.selectedSession?.session_id || result?.selectedSession?.sessionId || result?.selectedSession?.id || null
       console.warn(`[DingTalk] Cannot restore session ${failedSessionId}, creating new`)
-      sessionId = await this._createNewSession(
-        senderStaffId,
-        senderNick,
-        conversationId,
-        conversationTitle,
-        mapKey,
-        { conversationType }
-      )
-      this._restoreSessionAfterExplicitChoice(mapKey, senderStaffId)
+      sessionId = await this._createSessionFromIdentity(identity, { mapKey: resolvedMapKey, notify: true })
+      this._restoreSessionAfterExplicitChoice(resolvedMapKey, senderStaffId)
       needActivation = true
       isNewSession = true
     } else if (sessionId) {
-      const session = this.agentSessionManager.sessions.get(sessionId) || this.agentSessionManager.reopen(sessionId)
-      if (session) {
-        if (!session.meta) session.meta = {}
-        session.meta.conversationId = conversationId
-      }
-
-      this._restoreSessionAfterExplicitChoice(mapKey, senderStaffId)
-      this._notifyFrontend('dingtalk:sessionCreated', {
-        sessionId, staffId: senderStaffId, nickname: senderNick,
-        conversationId, conversationTitle, title: result?.selectedSession?.title || session?.title || sessionId
+      this._applyDingTalkSessionContext(sessionId, identity, {
+        mapKey: resolvedMapKey,
+        notify: result?.action === 'resume' || result?.action === 'new',
       })
+
+      this._restoreSessionAfterExplicitChoice(resolvedMapKey, senderStaffId)
 
       if (result?.action === 'resume') {
         const resumedSession = this.agentSessionManager.sessions.get(sessionId) || null

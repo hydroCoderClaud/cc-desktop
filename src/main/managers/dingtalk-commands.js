@@ -33,14 +33,71 @@ function buildSessionReplyingText(title) {
   return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
 }
 
-function buildDingTalkCommandContext(context = {}, webhook = null) {
-  return {
-    mapKey: context?.mapKey || '',
-    senderStaffId: context?.senderStaffId || '',
-    senderNick: context?.senderNick || '',
-    conversationId: context?.conversationId || '',
-    conversationTitle: context?.conversationTitle || '',
+function isDingTalkGroupIdentity(identity = {}) {
+  const chatType = String(identity.chatType || '').trim().toLowerCase()
+  const conversationType = String(identity.conversationType || '').trim()
+  return chatType === 'chat' || chatType === 'group' || conversationType === '2'
+}
+
+function normalizeDingTalkCommandIdentity(bridge, context = {}) {
+  const rawIdentity = context?.identity || {
+    staffId: context?.senderStaffId || context?.staffId || context?.userId || '',
+    userId: context?.senderStaffId || context?.staffId || context?.userId || '',
+    conversationId: context?.conversationId || context?.chatId || '',
+    chatId: context?.chatId || context?.conversationId || '',
     conversationType: context?.conversationType || '',
+    chatType: context?.chatType || '',
+    nickname: context?.senderNick || context?.nickname || '',
+    chatName: context?.conversationTitle || context?.chatName || '',
+    conversationTitle: context?.conversationTitle || context?.chatName || '',
+  }
+
+  if (typeof bridge?._normalizeDingTalkIdentity === 'function') {
+    return bridge._normalizeDingTalkIdentity(rawIdentity)
+  }
+
+  const staffId = typeof (rawIdentity.staffId || rawIdentity.userId) === 'string'
+    ? (rawIdentity.staffId || rawIdentity.userId).trim()
+    : ''
+  const conversationId = typeof (rawIdentity.conversationId || rawIdentity.chatId) === 'string'
+    ? (rawIdentity.conversationId || rawIdentity.chatId).trim()
+    : ''
+  const conversationType = String(rawIdentity.conversationType || '').trim()
+    || (String(rawIdentity.chatType || '').trim().toLowerCase() === 'chat' ? '2' : '1')
+  const isGroupChat = conversationType === '2'
+  const nickname = rawIdentity.nickname || rawIdentity.senderName || staffId || '未命名'
+  const conversationTitle = rawIdentity.conversationTitle || rawIdentity.chatName || (isGroupChat ? conversationId : nickname)
+  return {
+    staffId,
+    userId: staffId,
+    conversationId,
+    chatId: conversationId,
+    conversationType,
+    chatType: isGroupChat ? 'chat' : 'p2p',
+    nickname,
+    chatName: conversationTitle,
+    conversationTitle,
+  }
+}
+
+function buildDingTalkCommandContext(context = {}, webhook = null, bridge = null) {
+  const identity = normalizeDingTalkCommandIdentity(bridge, context)
+  const mapKey = context?.mapKey
+    || bridge?._sessionMapper?.buildKey?.(identity)
+    || (isDingTalkGroupIdentity(identity)
+      ? identity.chatId
+      : `${identity.userId}:${identity.chatId || 'default'}`)
+
+  return {
+    identity,
+    mapKey,
+    senderStaffId: identity.staffId || '',
+    senderNick: identity.nickname || '',
+    conversationId: identity.conversationId || '',
+    conversationTitle: identity.conversationTitle || '',
+    conversationType: identity.conversationType || '',
+    chatType: identity.chatType || '',
+    chatId: identity.chatId || '',
     robotCode: context?.robotCode || '',
     sessionWebhook: webhook || null,
   }
@@ -59,9 +116,10 @@ function mergeDingTalkHistoryRows(...groups) {
     .sort((a, b) => (b?.updated_at || 0) - (a?.updated_at || 0))
 }
 
-function getCurrentBoundHistoryRow(bridge, db, staffId) {
+function getCurrentBoundHistoryRow(bridge, db, identity, options = {}) {
+  const staffId = identity?.staffId || identity?.userId || ''
   const boundSessionId = typeof bridge?._findBoundSessionIdByStaffId === 'function'
-    ? bridge._findBoundSessionIdByStaffId(staffId)
+    ? bridge._findBoundSessionIdByStaffId(staffId, options)
     : null
   if (!boundSessionId) return null
   const row = db?.getAgentConversation?.(boundSessionId)
@@ -75,6 +133,9 @@ function getCurrentBoundHistoryRow(bridge, db, staffId) {
   }
   const liveSession = bridge?.agentSessionManager?.sessions?.get(boundSessionId)
   if (!liveSession) return null
+  const conversationId = typeof liveSession?.meta?.conversationId === 'string'
+    ? liveSession.meta.conversationId.trim()
+    : (identity?.conversationId || identity?.chatId || '')
   return {
     session_id: boundSessionId,
     title: liveSession.title || boundSessionId,
@@ -85,18 +146,21 @@ function getCurrentBoundHistoryRow(bridge, db, staffId) {
     source: liveSession.source,
     im_channel: 'dingtalk',
     im_user_id: staffId,
-    im_chat_id: '',
+    im_chat_id: conversationId,
+    im_chat_type: 'p2p',
     status: liveSession.status || 'idle'
   }
 }
 
-function buildCurrentHistoryRow(bridge, db, currentSessionId, { senderStaffId, conversationId, conversationType }) {
+function buildCurrentHistoryRow(bridge, db, currentSessionId, identity = {}) {
   if (!currentSessionId) return null
 
   const liveCurrent = bridge?.agentSessionManager?.sessions?.get(currentSessionId) || null
   const dbRow = db?.getAgentConversation?.(currentSessionId) || null
   if (!liveCurrent && (!dbRow || dbRow.status === 'closed')) return null
-  const isGroupChat = String(conversationType || '').trim() === '2'
+  const isGroupChat = isDingTalkGroupIdentity(identity)
+  const userId = identity.staffId || identity.userId || ''
+  const chatId = identity.conversationId || identity.chatId || ''
 
   return {
     ...(dbRow || {}),
@@ -108,41 +172,48 @@ function buildCurrentHistoryRow(bridge, db, currentSessionId, { senderStaffId, c
     type: dbRow?.type || liveCurrent?.type || 'chat',
     source: dbRow?.source || liveCurrent?.source || 'im-inbound',
     im_channel: 'dingtalk',
-    im_user_id: dbRow?.im_user_id || (isGroupChat ? '' : (senderStaffId || '')),
-    im_chat_id: dbRow?.im_chat_id || conversationId || '',
+    im_user_id: dbRow?.im_user_id || (isGroupChat ? '' : userId),
+    im_chat_id: chatId || dbRow?.im_chat_id || '',
+    im_chat_type: dbRow?.im_chat_type || (isGroupChat ? 'group' : 'p2p'),
     status: dbRow?.status || liveCurrent?.status || 'idle'
   }
 }
 
 function loadDingTalkHistorySessions(bridge, {
   currentSessionId,
-  senderStaffId,
-  conversationId,
-  conversationType,
+  identity,
+  mapKey,
 }) {
   const db = bridge?.agentSessionManager?.sessionDatabase
   const limit = bridge?.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5
-  if (!db || !conversationId) {
+  const normalizedIdentity = normalizeDingTalkCommandIdentity(bridge, { identity })
+  if (!db || (!normalizedIdentity.userId && !normalizedIdentity.chatId)) {
     return { db, limit, sessions: [] }
   }
 
-  const isGroupChat = String(conversationType) === '2'
-  const queryUserId = isGroupChat ? '' : senderStaffId
-  const exactSessions = db.getImSessionsByType('dingtalk', queryUserId, conversationId, limit)
-  const boundHistoryRow = isGroupChat ? null : getCurrentBoundHistoryRow(bridge, db, senderStaffId)
+  const lookup = typeof bridge?._resolveDingTalkHistoryLookup === 'function'
+    ? bridge._resolveDingTalkHistoryLookup(normalizedIdentity)
+    : {
+        isGroupChat: isDingTalkGroupIdentity(normalizedIdentity),
+        queryUserId: isDingTalkGroupIdentity(normalizedIdentity) ? '' : normalizedIdentity.userId,
+        queryChatId: isDingTalkGroupIdentity(normalizedIdentity) ? normalizedIdentity.chatId : '',
+      }
+  const exactSessions = db.getImSessionsByType('dingtalk', lookup.queryUserId, lookup.queryChatId, limit)
+  const boundHistoryRow = lookup.isGroupChat
+    ? null
+    : getCurrentBoundHistoryRow(bridge, db, normalizedIdentity, {
+        mapKey,
+        allowSuppressed: true,
+      })
   const mergedHistory = mergeDingTalkHistoryRows(exactSessions, boundHistoryRow ? [boundHistoryRow] : [])
-  const currentRow = buildCurrentHistoryRow(bridge, db, currentSessionId, {
-    senderStaffId,
-    conversationId,
-    conversationType,
-  })
+  const currentRow = buildCurrentHistoryRow(bridge, db, currentSessionId, normalizedIdentity)
   const sessions = mergeCurrentSessionIntoHistory({
     history: mergedHistory,
     currentSessionId,
     currentRow,
   }).slice(0, limit)
 
-  return { db, limit, sessions }
+  return { db, limit, sessions, identity: normalizedIdentity }
 }
 
 module.exports = {
@@ -159,12 +230,12 @@ module.exports = {
    */
   async _handleCommand(text, webhook, context) {
     console.log('[DingTalk] _handleCommand called, text:', text, 'context:', context)
-    const commandContext = buildDingTalkCommandContext(context, webhook)
+    const commandContext = buildDingTalkCommandContext(context, webhook, this)
     const dispatchResult = await dispatchImCommand({
       text,
       normalizeText: (rawText) => String(rawText || '').trim(),
       beforeExecute: ({ command, args }) => {
-        const { mapKey } = context
+        const { mapKey } = commandContext
         if (mapKey && this._pendingChoices.has(mapKey)) {
           console.log('[DingTalk] _handleCommand: clearing pending choice for', mapKey)
           this._clearPendingChoice(mapKey)
@@ -174,10 +245,10 @@ module.exports = {
       handlers: {
         help: () => this._cmdHelp(commandContext),
         status: () => this._cmdStatus(commandContext),
-        close: ({ args }) => this._cmdClose(args, context),
-        new: ({ args }) => this._cmdNew(args, context, webhook),
-        resume: ({ args }) => this._cmdResume(args, context, webhook),
-        rename: ({ args }) => this._cmdRename(args, context),
+        close: ({ args }) => this._cmdClose(args, commandContext),
+        new: ({ args }) => this._cmdNew(args, commandContext, webhook),
+        resume: ({ args }) => this._cmdResume(args, commandContext, webhook),
+        rename: ({ args }) => this._cmdRename(args, commandContext),
       },
       onUnknown: ({ command }) => `❓ ${buildUnknownCommandText(command)}`,
     })
@@ -197,17 +268,20 @@ module.exports = {
     })
   },
 
-  async _cmdResume(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, conversationType, robotCode }, webhook) {
+  async _cmdResume(args, context, webhook) {
+    const commandContext = buildDingTalkCommandContext(context, webhook, this)
+    const { mapKey, identity, senderStaffId, senderNick, conversationId, conversationType, robotCode } = commandContext
     // 获取当前活跃会话（如果有）
-    const currentSessionId = this._resolveActiveSessionId(mapKey)
-    const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
-    const identity = this._buildSessionIdentity(
-      senderStaffId,
-      senderNick,
-      conversationId,
-      conversationTitle,
-      conversationType
+    const currentSessionId = mapKey ? this._resolveActiveSessionId(mapKey) : null
+    const resumeSessionId = currentSessionId || (
+      identity.chatType === 'p2p' && identity.userId
+        ? this._findBoundSessionIdByStaffId?.(identity.userId, {
+            mapKey,
+            allowDatabaseFallback: false,
+          }) || null
+        : null
     )
+    const currentSession = resumeSessionId ? this.agentSessionManager.sessions.get(resumeSessionId) : null
 
     // 如果正在 streaming，不允许操作
     if (currentSession?.status === 'streaming') {
@@ -216,12 +290,11 @@ module.exports = {
 
     // 查询历史会话
     const { db, limit, sessions } = loadDingTalkHistorySessions(this, {
-      currentSessionId,
-      senderStaffId,
-      conversationId,
-      conversationType,
+      currentSessionId: resumeSessionId,
+      identity,
+      mapKey,
     })
-    if (!db || !conversationId) return '📭 没有历史会话记录'
+    if (!db || (!identity.userId && !identity.chatId)) return '📭 没有历史会话记录'
 
     if (!sessions || sessions.length === 0) return `📭 ${buildNoHistoryText()}`
 
@@ -231,7 +304,7 @@ module.exports = {
       const selection = resolveResumeSelection({
         history: sessions,
         selectedIndex: numArg,
-        currentSessionId,
+        currentSessionId: resumeSessionId,
         currentSession,
       })
       if (selection.action === 'invalid_index') {
@@ -255,21 +328,12 @@ module.exports = {
         return `❌ 无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话`
       }
 
-      const session = this.agentSessionManager.sessions.get(resumedSessionId) || this.agentSessionManager.reopen(resumedSessionId)
-      if (session) {
-        if (!session.meta) session.meta = {}
-        session.meta.conversationId = conversationId
-      }
+      this._applyDingTalkSessionContext(resumedSessionId, identity, {
+        mapKey,
+        notify: true,
+      })
 
       this._restoreSessionAfterExplicitChoice(mapKey, senderStaffId)
-      this._notifyFrontend('dingtalk:sessionCreated', {
-        sessionId: resumedSessionId,
-        staffId: senderStaffId,
-        nickname: senderNick,
-        conversationId,
-        conversationTitle,
-        title: result?.selectedSession?.title || session?.title || resumedSessionId
-      })
 
       const resumedSession = this.agentSessionManager.sessions.get(resumedSessionId) || null
       const shouldWaitForReply = resumedSession?.status === 'streaming'
@@ -300,7 +364,7 @@ module.exports = {
 
     // 无参数 → 显示选择菜单（传入当前会话 ID 用于标记）
     this._setPendingChoice(mapKey, { sessions, originalMessage: null, robotCode: null, senderStaffId, source: 'resume-command' })
-    await this._sendChoiceMenu(webhook, sessions, currentSessionId)
+    await this._sendChoiceMenu(webhook, sessions, resumeSessionId)
     return null  // 已由 _sendChoiceMenu 回复
   },
 
@@ -317,15 +381,23 @@ module.exports = {
   },
 
   _cmdStatus(context) {
-    const { mapKey, senderStaffId, conversationId, conversationType } = context || {}
+    const commandContext = buildDingTalkCommandContext(context, context?.sessionWebhook || null, this)
+    const { mapKey, identity } = commandContext
     const currentSessionId = mapKey ? this._resolveActiveSessionId(mapKey) : null
+    const historySessionId = currentSessionId || (
+      identity.chatType === 'p2p' && identity.userId
+        ? this._findBoundSessionIdByStaffId?.(identity.userId, {
+            mapKey,
+            allowSuppressed: true,
+          }) || null
+        : null
+    )
     const { db, limit, sessions } = loadDingTalkHistorySessions(this, {
-      currentSessionId,
-      senderStaffId,
-      conversationId,
-      conversationType,
+      currentSessionId: historySessionId,
+      identity,
+      mapKey,
     })
-    if (!db || !conversationId) return '📭 没有历史会话记录'
+    if (!db || (!identity.userId && !identity.chatId)) return '📭 没有历史会话记录'
     if (!sessions || sessions.length === 0) return `📭 ${buildNoHistoryText()}`
     return buildHistoryChoiceMenuText({
       sessions,
@@ -371,7 +443,9 @@ module.exports = {
     return '✅ 会话已关闭'
   },
 
-  async _cmdNew(args, { mapKey, senderStaffId, senderNick, conversationId, conversationTitle, robotCode, conversationType }, webhook) {
+  async _cmdNew(args, context, webhook) {
+    const commandContext = buildDingTalkCommandContext(context, webhook, this)
+    const { mapKey, identity, senderStaffId, senderNick, conversationId, conversationType, robotCode } = commandContext
     const currentSessionId = this._resolveActiveSessionId(mapKey)
     if (currentSessionId) {
       const session = this.agentSessionManager.sessions.get(currentSessionId)
@@ -393,10 +467,14 @@ module.exports = {
       return `❌ ${err.message}`
     }
 
-    const sessionId = await this._createNewSession(senderStaffId, senderNick, conversationId, conversationTitle, mapKey, {
+    const sessionId = await this._createSessionFromIdentity(identity, {
       cwd,
-      conversationType,
+      mapKey,
+      notify: true,
     })
+    if (!sessionId) {
+      return '❌ 创建新会话失败'
+    }
     this._restoreSessionAfterExplicitChoice(mapKey, senderStaffId)
 
     // 发送"会话创建中"提示
