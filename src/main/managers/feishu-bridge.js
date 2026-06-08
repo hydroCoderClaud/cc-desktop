@@ -49,6 +49,7 @@ const {
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
 const {
+  buildImIdentityPayload,
   getPersistedImTargetFromRow,
   assertSameImTarget,
 } = require('./im-binding-policy')
@@ -1040,7 +1041,11 @@ class FeishuBridge {
         })
         if (this._sessionDatabase?.updateImIdentity) {
           try {
-            this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: '', chatType: 'p2p' })
+            this._sessionDatabase.updateImIdentity(proactiveSessionId, buildImIdentityPayload({
+              targetId: senderId,
+              targetType: 'user',
+              singleChatType: 'p2p',
+            }))
           } catch (err) {
             console.warn('[FeishuBridge] Failed to persist proactive Feishu binding:', err.message)
           }
@@ -1267,7 +1272,11 @@ class FeishuBridge {
     })
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroup ? '' : resolvedOpenId, chatId: isGroup ? resolvedOpenId : '', chatType: isGroup ? 'group' : 'p2p' })
+        this._sessionDatabase.updateImIdentity(sessionId, buildImIdentityPayload({
+          targetId: resolvedOpenId,
+          targetType: isGroup ? 'chat' : 'user',
+          singleChatType: 'p2p',
+        }))
       } catch (err) {
         console.warn('[FeishuBridge] Failed to persist bound Feishu target identity:', err.message)
       }
@@ -1357,12 +1366,12 @@ class FeishuBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      if (row?.im_channel !== 'feishu') return null
-      const openId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
+      const persistedTarget = getPersistedImTargetFromRow(row, 'feishu')
+      if (!persistedTarget) return null
       const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
-      // 群聊用 im_chat_id 作为 targetId
-      const targetId = isGroupChat && chatId ? chatId : openId
+      const isGroupChat = persistedTarget.targetType === 'chat'
+      const targetId = persistedTarget.targetId
+      const openId = isGroupChat ? '' : targetId
       if (!targetId) return null
       if (isGroupChat) {
         const identity = this._sessionIdentities.get(sessionId)

@@ -1,3 +1,5 @@
+const { buildImIdentityPayload } = require('./im-binding-policy')
+
 /**
  * IM 会话映射 helper
  *
@@ -184,10 +186,13 @@ class ImSessionMapper {
       if (session?.id && this._sessionDatabase?.updateImIdentity) {
         const staffId = identity.staffId || identity.userId || ''
         const conversationId = identity.conversationId || identity.chatId || ''
-        // 群聊 im_user_id 固定为空，仅靠 im_chat_id 标识
-        const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
         try {
-          this._sessionDatabase.updateImIdentity(session.id, { userId: isGroupChat ? '' : staffId, chatId: isGroupChat ? conversationId : '', chatType: isGroupChat ? 'group' : 'p2p' })
+          this._sessionDatabase.updateImIdentity(session.id, buildImIdentityPayload({
+            userId: staffId,
+            chatId: conversationId,
+            chatType: identity.chatType,
+            singleChatType: 'p2p',
+          }))
         } catch (e) {
           console.warn(`[ImSessionMapper] Failed to save IM identity metadata:`, e.message)
         }
@@ -360,8 +365,12 @@ class ImSessionMapper {
             if (this._sessionDatabase?.updateImIdentity) {
               const staffId = identity.staffId || identity.userId || ''
               const conversationId = identity.conversationId || identity.chatId || ''
-              const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
-              this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : staffId, chatId: isGroupChat ? conversationId : '', chatType: isGroupChat ? 'group' : 'p2p' })
+              this._sessionDatabase.updateImIdentity(sessionId, buildImIdentityPayload({
+                userId: staffId,
+                chatId: conversationId,
+                chatType: identity.chatType,
+                singleChatType: 'p2p',
+              }))
             }
           }
         } catch (err) {

@@ -148,6 +148,19 @@ describe('DingTalkBridge', () => {
     })
   })
 
+  it('ACKs DingTalk callback messages by stream messageId before async handling', () => {
+    const { bridge } = createHarness()
+    const send = vi.fn()
+    bridge.client = { send }
+
+    bridge._ackDingTalkCallback({
+      headers: { messageId: 'stream-message-1' },
+      data: '{}'
+    })
+
+    expect(send).toHaveBeenCalledWith('stream-message-1', { status: 'SUCCESS' })
+  })
+
   it('uses IM-aware history lookup for DingTalk resume and ensureSession', async () => {
     const { bridge, manager } = createHarness()
     vi.spyOn(bridge, '_sendChoiceMenu').mockResolvedValue()

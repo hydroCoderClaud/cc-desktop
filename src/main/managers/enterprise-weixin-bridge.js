@@ -56,6 +56,7 @@ const {
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
 const {
+  buildImIdentityPayload,
   getPersistedImTargetFromRow,
   assertSameImTarget,
 } = require('./im-binding-policy')
@@ -1150,13 +1151,14 @@ class EnterpriseWeixinBridge {
     if (!sessionId || this._sessionIdentities.has(sessionId)) return this._sessionIdentities.get(sessionId) || null
 
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    if (row?.im_channel !== this._imType) return null
-    const userId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
+    const persistedTarget = getPersistedImTargetFromRow(row, this._imType)
+    if (!persistedTarget) return null
     const chatId = typeof row?.im_chat_id === 'string' && row.im_chat_id.trim()
       ? row.im_chat_id.trim()
       : ''
-    const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
-    const targetId = isGroupChat ? chatId : userId
+    const isGroupChat = persistedTarget.targetType === 'chat'
+    const targetId = persistedTarget.targetId
+    const userId = isGroupChat ? '' : targetId
     if (!targetId) return null
     const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
     const displayName = this._sessionTargets.get(sessionId)?.displayName || knownChatName || targetId
@@ -1759,7 +1761,11 @@ class EnterpriseWeixinBridge {
 
     if (this._sessionDatabase?.updateImIdentity) {
       try {
-        this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : resolvedUserId, chatId: isGroupChat ? resolvedUserId : '', chatType: isGroupChat ? 'group' : 'single' })
+        this._sessionDatabase.updateImIdentity(sessionId, buildImIdentityPayload({
+          targetId: resolvedUserId,
+          targetType: targetType === 'chat' ? 'chat' : 'user',
+          singleChatType: 'single',
+        }))
       } catch (err) {
         console.warn('[EnterpriseWeixin] Failed to persist bound target identity:', err.message)
       }
@@ -1855,11 +1861,10 @@ class EnterpriseWeixinBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-      if (row?.im_channel !== this._imType) return null
-      const userId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
-      const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
-      const targetId = isGroupChat && chatId ? chatId : userId
+      const persistedTarget = getPersistedImTargetFromRow(row, this._imType)
+      if (!persistedTarget) return null
+      const isGroupChat = persistedTarget.targetType === 'chat'
+      const targetId = persistedTarget.targetId
       if (!targetId) return null
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
       return {
@@ -1915,12 +1920,12 @@ class EnterpriseWeixinBridge {
 
     for (const [sessionId, session] of this._agentSessionManager.sessions.entries()) {
       const row = this._sessionDatabase.getAgentConversation(sessionId)
-      if (row?.im_channel !== this._imType) continue
-      const userId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
+      const persistedTarget = getPersistedImTargetFromRow(row, this._imType)
+      if (!persistedTarget) continue
       const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
-      const targetId = isGroupChat && chatId ? chatId : userId
-      if (!targetId) continue
+      const isGroupChat = persistedTarget.targetType === 'chat'
+      const targetId = persistedTarget.targetId
+      const userId = isGroupChat ? '' : targetId
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
 
       this._sessionTargets.set(sessionId, {
@@ -2042,7 +2047,12 @@ class EnterpriseWeixinBridge {
     }
 
     try {
-      this._sessionDatabase.updateImIdentity(sessionId, { userId: persistedUserId, chatId: persistedChatId, chatType: isGroupChat ? 'group' : 'single' })
+      this._sessionDatabase.updateImIdentity(sessionId, buildImIdentityPayload({
+        userId: persistedUserId,
+        chatId: persistedChatId,
+        chatType: isGroupChat ? 'group' : 'single',
+        singleChatType: 'single',
+      }))
     } catch (err) {
       console.warn('[EnterpriseWeixin] Failed to persist chat context:', err.message)
     }

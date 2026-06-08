@@ -6,6 +6,33 @@ function isGroupImChatType(chatType) {
   return chatType === 'group' || chatType === 'chat'
 }
 
+function isGroupTargetType(targetType) {
+  return targetType === 'group' || targetType === 'chat'
+}
+
+function buildImIdentityPayload({
+  targetId = '',
+  userId = '',
+  chatId = '',
+  targetType = '',
+  chatType = '',
+  singleChatType = 'p2p',
+  groupChatType = 'group',
+} = {}) {
+  const normalizedTargetType = normalizeString(targetType)
+  const normalizedChatType = normalizeString(chatType)
+  const isGroup = isGroupTargetType(normalizedTargetType) || isGroupImChatType(normalizedChatType)
+  const resolvedTargetId = normalizeString(targetId)
+  const resolvedUserId = normalizeString(userId) || resolvedTargetId
+  const resolvedChatId = normalizeString(chatId) || resolvedTargetId
+
+  return {
+    userId: isGroup ? '' : resolvedUserId,
+    chatId: isGroup ? resolvedChatId : '',
+    chatType: isGroup ? (normalizeString(groupChatType) || 'group') : (normalizeString(singleChatType) || 'p2p'),
+  }
+}
+
 function getPersistedImTargetFromRow(row, imChannel) {
   const channel = normalizeString(imChannel)
   if (!row || row.im_channel !== channel) return null
@@ -40,6 +67,7 @@ function assertSameImTarget({
 }
 
 module.exports = {
+  buildImIdentityPayload,
   getPersistedImTargetFromRow,
   assertSameImTarget,
 }

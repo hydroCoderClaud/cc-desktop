@@ -27,6 +27,7 @@ const {
   buildSessionActivatingText,
 } = require('./im-command-policy')
 const {
+  buildImIdentityPayload,
   getPersistedImTargetFromRow,
   assertSameImTarget,
 } = require('./im-binding-policy')
@@ -488,6 +489,7 @@ class DingTalkBridge {
     this.client.registerCallbackListener(
       '/v1.0/im/bot/messages/get',
       (res) => {
+        this._ackDingTalkCallback(res)
         this._handleDingTalkMessage(res).catch(err => {
           console.error('[DingTalk] Message handling error:', err)
         })
@@ -506,6 +508,19 @@ class DingTalkBridge {
 
     // 监听 SDK 内部 socket 事件，同步连接状态 + 兜底重连
     this._hookSocketEvents()
+  }
+
+  _ackDingTalkCallback(res) {
+    const messageId = typeof res?.headers?.messageId === 'string'
+      ? res.headers.messageId.trim()
+      : ''
+    if (!messageId || typeof this.client?.send !== 'function') return
+
+    try {
+      this.client.send(messageId, { status: 'SUCCESS' })
+    } catch (err) {
+      console.warn('[DingTalk] Failed to ACK callback message:', err.message)
+    }
   }
 
   /**
@@ -1076,7 +1091,11 @@ class DingTalkBridge {
     this.sessionMap.set(proactiveMapKey, sessionId)
     if (this.agentSessionManager.sessionDatabase?.updateImIdentity) {
       try {
-        this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : resolvedStaffId, chatId: isGroupChat ? resolvedStaffId : '', chatType: isGroupChat ? 'group' : 'p2p' })
+        this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, buildImIdentityPayload({
+          targetId: resolvedStaffId,
+          targetType: normalizedTargetType,
+          singleChatType: 'p2p',
+        }))
       } catch (err) {
         console.warn('[DingTalk] Failed to persist proactive target identity:', err.message)
       }
@@ -1104,12 +1123,12 @@ class DingTalkBridge {
 
     for (const [sessionId, session] of this.agentSessionManager.sessions.entries()) {
       const row = db.getAgentConversation(sessionId)
-      if (row?.im_channel !== 'dingtalk') continue
-      const staffId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
+      const persistedTarget = getPersistedImTargetFromRow(row, 'dingtalk')
+      if (!persistedTarget) continue
       const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      const isGroupChat = isGroupChatType(row?.im_chat_type)
-      const targetId = isGroupChat && chatId ? chatId : staffId
-      if (!targetId) continue
+      const isGroupChat = persistedTarget.targetType === 'chat'
+      const targetId = persistedTarget.targetId
+      const staffId = isGroupChat ? '' : targetId
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
       const identity = this._normalizeDingTalkIdentity({
         staffId: isGroupChat ? '' : staffId,
@@ -1596,12 +1615,12 @@ class DingTalkBridge {
 
     const db = this.agentSessionManager.sessionDatabase
     if (db?.updateImIdentity && normalizedIdentity.conversationId) {
-      const isGroupChat = isGroupConversationType(normalizedIdentity.conversationType)
-      db.updateImIdentity(sessionId, {
-        userId: isGroupChat ? '' : normalizedIdentity.staffId,
-        chatId: isGroupChat ? normalizedIdentity.conversationId : '',
-        chatType: isGroupChat ? 'group' : 'p2p',
-      })
+      db.updateImIdentity(sessionId, buildImIdentityPayload({
+        userId: normalizedIdentity.staffId,
+        chatId: normalizedIdentity.conversationId,
+        chatType: normalizedIdentity.chatType,
+        singleChatType: 'p2p',
+      }))
     }
 
     const resolvedMapKey = mapKey || this._sessionMapper.buildKey(normalizedIdentity)
@@ -1625,12 +1644,11 @@ class DingTalkBridge {
     const target = this._sessionTargets.get(sessionId) || null
     if (!target) {
       const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
-      if (row?.im_channel !== 'dingtalk') return null
+      const persistedTarget = getPersistedImTargetFromRow(row, 'dingtalk')
+      if (!persistedTarget) return null
       const liveSession = this.agentSessionManager.sessions.get(sessionId) || null
-      const staffId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
-      const chatId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      const isGroupChat = row?.im_chat_type === 'group' || row?.im_chat_type === 'chat'
-      const targetId = isGroupChat && chatId ? chatId : staffId
+      const isGroupChat = persistedTarget.targetType === 'chat'
+      const targetId = persistedTarget.targetId
       if (!targetId || row?.status === 'closed') return null
       const knownChatName = isGroupChat ? (this._knownChats.get(targetId)?.name || '') : ''
       const restoredDisplayName = isGroupChat
