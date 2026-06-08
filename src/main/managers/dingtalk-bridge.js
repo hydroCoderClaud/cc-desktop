@@ -26,6 +26,10 @@ const {
   buildSessionReplyingText,
   buildSessionActivatingText,
 } = require('./im-command-policy')
+const {
+  getPersistedImTargetFromRow,
+  assertSameImTarget,
+} = require('./im-binding-policy')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -1328,6 +1332,7 @@ class DingTalkBridge {
     const existingTarget = this._sessionTargets.get(sessionId)
     const liveSession = this.agentSessionManager.sessions.get(sessionId)
     const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
+    const persistedTarget = getPersistedImTargetFromRow(row, 'dingtalk')
     const existingTargetType = this._resolveBindingTargetType(sessionId, row, existingTarget)
     const metaStaffId = typeof liveSession?.meta?.dingtalkTargetStaffId === 'string'
       ? liveSession.meta.dingtalkTargetStaffId.trim()
@@ -1335,21 +1340,17 @@ class DingTalkBridge {
     const metaChatType = typeof liveSession?.meta?.dingtalkTargetType === 'string'
       ? liveSession.meta.dingtalkTargetType.trim()
       : ''
-    const rowStaffId = row?.im_channel === 'dingtalk' && typeof row?.im_user_id === 'string'
-      ? row.im_user_id.trim()
-      : ''
-    const rowChatId = row?.im_channel === 'dingtalk' && typeof row?.im_chat_id === 'string'
-      ? row.im_chat_id.trim()
-      : ''
     const existingStaffId = existingTargetType === 'chat'
-      ? (existingTarget?.staffId || rowChatId)
-      : (existingTarget?.staffId || (metaChatType === 'user' ? metaStaffId : '') || rowStaffId)
+      ? (existingTarget?.staffId || (persistedTarget?.targetType === 'chat' ? persistedTarget.targetId : ''))
+      : (existingTarget?.staffId || (metaChatType === 'user' ? metaStaffId : '') || (persistedTarget?.targetType === 'user' ? persistedTarget.targetId : ''))
 
-    if (existingStaffId && existingStaffId !== resolvedStaffId) {
-      const currentLabel = existingTarget?.displayName || existingStaffId
-      const nextLabel = displayName || resolvedStaffId
-      throw new Error(`当前会话已绑定钉钉联系人「${currentLabel}」，不能再发送给「${nextLabel}」。请新建会话后再联系其他成员。`)
-    }
+    assertSameImTarget({
+      channelLabel: '钉钉',
+      currentTargetId: existingStaffId,
+      nextTargetId: resolvedStaffId,
+      currentLabel: existingTarget?.displayName || existingStaffId,
+      nextLabel: displayName || resolvedStaffId,
+    })
   }
 
   _clearCurrentConversationMapBinding(sessionId, staffId, targetType = 'user') {

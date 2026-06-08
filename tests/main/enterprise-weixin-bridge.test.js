@@ -1118,6 +1118,55 @@ describe('EnterpriseWeixinBridge', () => {
     expect(bridge.getBinding(created.id)).toBe(null)
   })
 
+  it('rejects rebinding a persisted enterprise weixin target after in-memory binding is lost', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '普通会话' })
+
+    bridge._sessionTargets.clear()
+    bridge._targetSessionMap.clear()
+    bridge._sessionIdentities.clear()
+    manager.sessionDatabase.getAgentConversation.mockReturnValue({
+      session_id: created.id,
+      type: 'chat',
+      source: 'im-inbound',
+      im_channel: 'enterprise-weixin',
+      im_user_id: 'user-a',
+      im_chat_id: '',
+      im_chat_type: 'single',
+      status: 'idle',
+    })
+
+    expect(() => bridge.bindTarget(created.id, {
+      targetId: 'user-b',
+      displayName: '另一个用户',
+    })).toThrow(/当前会话已绑定企业微信联系人「user-a」/)
+  })
+
+  it('rejects rebinding a persisted enterprise weixin group target after in-memory binding is lost', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '群会话' })
+
+    bridge._sessionTargets.clear()
+    bridge._targetSessionMap.clear()
+    bridge._sessionIdentities.clear()
+    manager.sessionDatabase.getAgentConversation.mockReturnValue({
+      session_id: created.id,
+      type: 'chat',
+      source: 'im-inbound',
+      im_channel: 'enterprise-weixin',
+      im_user_id: '',
+      im_chat_id: 'group-a',
+      im_chat_type: 'group',
+      status: 'idle',
+    })
+
+    expect(() => bridge.bindTarget(created.id, {
+      targetId: 'group-b',
+      targetType: 'chat',
+      displayName: '另一个群',
+    })).toThrow(/当前会话已绑定企业微信联系人「group-a」/)
+  })
+
   it('restores a proactive enterprise weixin binding without fabricating single chat id', () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })

@@ -557,6 +557,39 @@ describe('FeishuBridge', () => {
     })).toThrow(/当前会话已绑定飞书联系人「ou_target_1」/)
   })
 
+  it('rejects rebinding a persisted Feishu group target after in-memory binding is lost', () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '群会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    bridge._sessionTargets.clear()
+    bridge._targetSessionMap.clear()
+    bridge._sessionIdentities.clear()
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => (
+      sessionId === session.id
+        ? {
+            session_id: session.id,
+            type: 'chat',
+            source: 'im-inbound',
+            title: '群会话',
+            im_user_id: '',
+            im_chat_id: 'oc_group_1',
+            im_chat_type: 'group',
+            im_channel: 'feishu',
+            status: 'idle'
+          }
+        : null
+    ))
+
+    expect(() => bridge.bindTarget(session.id, {
+      targetId: 'oc_group_2',
+      targetType: 'chat',
+      displayName: '另一个群'
+    })).toThrow(/当前会话已绑定飞书联系人「oc_group_1」/)
+  })
+
   it('restores a persisted Feishu target binding for toolbar filtering after memory is lost', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

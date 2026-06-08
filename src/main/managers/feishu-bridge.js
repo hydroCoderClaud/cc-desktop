@@ -48,6 +48,10 @@ const {
   resolveStrictCurrentSessionId,
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
+const {
+  getPersistedImTargetFromRow,
+  assertSameImTarget,
+} = require('./im-binding-policy')
 
 // 图片相关常量（与钉钉保持一致）
 const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
@@ -1278,17 +1282,19 @@ class FeishuBridge {
     const existingTarget = this._sessionTargets.get(sessionId)
     const identity = this._sessionIdentities.get(sessionId)
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+    const persistedTarget = getPersistedImTargetFromRow(row, 'feishu')
     const identityOpenId = identity?.chatType === 'p2p' && typeof identity?.senderId === 'string'
       ? identity.senderId.trim()
       : ''
-    const rowOpenId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
-    const existingOpenId = existingTarget?.openId || identityOpenId || rowOpenId
+    const existingOpenId = existingTarget?.openId || identityOpenId || persistedTarget?.targetId
 
-    if (existingOpenId && existingOpenId !== resolvedOpenId) {
-      const currentLabel = existingTarget?.displayName || identity?.senderName || existingOpenId
-      const nextLabel = displayName || resolvedOpenId
-      throw new Error(`当前会话已绑定飞书联系人「${currentLabel}」，不能再发送给「${nextLabel}」。请新建会话后再联系其他成员。`)
-    }
+    assertSameImTarget({
+      channelLabel: '飞书',
+      currentTargetId: existingOpenId,
+      nextTargetId: resolvedOpenId,
+      currentLabel: existingTarget?.displayName || identity?.senderName || existingOpenId,
+      nextLabel: displayName || resolvedOpenId,
+    })
   }
 
   _clearP2PSessionMapBinding(sessionId, senderId) {

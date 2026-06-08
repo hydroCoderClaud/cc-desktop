@@ -55,6 +55,10 @@ const {
   resolveStrictCurrentSessionId,
   ensureHistoryChoiceOrCurrent,
 } = require('./im-session-decision')
+const {
+  getPersistedImTargetFromRow,
+  assertSameImTarget,
+} = require('./im-binding-policy')
 const { extractImagePaths } = require('./im-utils')
 
 const MAX_TEXT_LENGTH = 6000
@@ -1816,16 +1820,19 @@ class EnterpriseWeixinBridge {
     const existingTarget = this._sessionTargets.get(sessionId)
     const identity = this._sessionIdentities.get(sessionId)
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    const rowUserId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
-      ? row.im_user_id.trim()
-      : ''
-    const existingUserId = existingTarget?.userId || identity?.senderId || rowUserId
+    const persistedTarget = getPersistedImTargetFromRow(row, this._imType)
+    const identityTargetId = identity?.chatType === 'group'
+      ? identity?.chatId
+      : (identity?.senderId || identity?.userId)
+    const existingUserId = existingTarget?.userId || identityTargetId || persistedTarget?.targetId
 
-    if (existingUserId && existingUserId !== resolvedUserId) {
-      const currentLabel = existingTarget?.displayName || identity?.senderName || existingUserId
-      const nextLabel = displayName || resolvedUserId
-      throw new Error(`当前会话已绑定企业微信联系人「${currentLabel}」，不能再发送给「${nextLabel}」。请新建会话后再联系其他成员。`)
-    }
+    assertSameImTarget({
+      channelLabel: '企业微信',
+      currentTargetId: existingUserId,
+      nextTargetId: resolvedUserId,
+      currentLabel: existingTarget?.displayName || identity?.senderName || existingUserId,
+      nextLabel: displayName || resolvedUserId,
+    })
   }
 
   _clearSingleSessionMapBindingsForUser(userId, keepSessionId = null) {
