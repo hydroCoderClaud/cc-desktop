@@ -32,6 +32,7 @@ const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
+  buildSessionReplyingText,
   buildSessionActivatingText,
   buildSessionCreatingText,
   buildNoHistoryText,
@@ -51,10 +52,6 @@ const {
 const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
 const FEISHU_MSG_ID_CLEANUP_INTERVAL = 60 * 1000
 const FEISHU_UNSUPPORTED_MESSAGE_TEXT = '暂不支持该类型的飞书消息，请发送文本、图片或图文消息'
-
-function buildSessionReplyingText(title) {
-  return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
-}
 
 function buildFeishuSessionTitle(identity = {}) {
   const chatType = String(identity.chatType || '').toLowerCase()

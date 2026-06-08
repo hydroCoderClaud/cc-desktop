@@ -39,6 +39,7 @@ const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
+  buildSessionReplyingText,
   buildSessionActivatingText,
   buildSessionCreatingText,
   buildNoHistoryText,
@@ -90,10 +91,6 @@ function stripLeadingEnterpriseWeixinGroupMentions(text) {
     normalized = normalized.slice(match[0].length).replace(/^\s+/, '')
   }
   return normalized
-}
-
-function buildSessionReplyingText(title) {
-  return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
 }
 
 class EnterpriseWeixinBridge {

@@ -23,6 +23,7 @@ const {
 const { runResumePostAction } = require('./im-resume-post-action')
 const {
   buildSessionSwitchedText,
+  buildSessionReplyingText,
   buildSessionActivatingText,
 } = require('./im-command-policy')
 
@@ -53,10 +54,6 @@ const DINGTALK_I18N = {
     sessionSwitched: '✅ Switched to session: {title}\n\nYou can continue chatting now',
     replyTitle: 'CC Agent Reply'
   }
-}
-
-function buildSessionReplyingText(title) {
-  return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
 }
 
 function isGroupConversationType(conversationType) {

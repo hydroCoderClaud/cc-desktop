@@ -29,6 +29,10 @@ function buildSessionSwitchedText(title) {
   return `✅ 已切换到会话：${title || '当前会话'}\n\n现在可以继续对话了`
 }
 
+function buildSessionReplyingText(title) {
+  return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
+}
+
 function buildSessionActivatingText() {
   return '会话恢复中，请等待信息返回后，即可开始聊天'
 }
@@ -98,6 +102,7 @@ module.exports = {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
+  buildSessionReplyingText,
   buildSessionActivatingText,
   buildSessionCreatingText,
   buildNoHistoryText,

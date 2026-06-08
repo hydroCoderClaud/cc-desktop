@@ -17,6 +17,7 @@ const {
   buildImCommandHelpText,
   buildAlreadyConnectedText,
   buildSessionSwitchedText,
+  buildSessionReplyingText,
   buildSessionActivatingText,
   buildSessionCreatingText,
   buildNoHistoryText,
@@ -28,10 +29,6 @@ const {
   mergeCurrentSessionIntoHistory,
 } = require('./im-command-policy')
 const { runResumePostAction } = require('./im-resume-post-action')
-
-function buildSessionReplyingText(title) {
-  return `✅ 已切换到会话：${title || '当前会话'}\n\n当前正在回复，请等待完成`
-}
 
 function isDingTalkGroupIdentity(identity = {}) {
   const chatType = String(identity.chatType || '').trim().toLowerCase()
