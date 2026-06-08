@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -132,8 +132,8 @@ describe('FeishuBridge', () => {
     )
 
     expect(sessionId).toBe(session.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(session.id)
-    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: 'oc_reply' }))
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(session.id)
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: '' }))
   })
 
   it('reuses the proactively bound session on first p2p reply even after in-memory Feishu target mapping is lost', async () => {
@@ -201,7 +201,7 @@ describe('FeishuBridge', () => {
 
     expect(reboundSessionId).toBe(session.id)
     expect(bridge._targetSessionMap.get('ou_target')).toBe(session.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(session.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(session.id)
   })
 
   it('switches the active Feishu reply binding to the latest desktop session for the same user', async () => {
@@ -219,7 +219,7 @@ describe('FeishuBridge', () => {
       text: '第一条'
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', first.id)
     bridge._sessionIdentities.set(first.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -236,7 +236,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(bridge._targetSessionMap.get('ou_target')).toBe(second.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(second.id)
 
     const reboundSessionId = await bridge._ensureSession(
       {
@@ -253,7 +253,7 @@ describe('FeishuBridge', () => {
     )
 
     expect(reboundSessionId).toBe(second.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(second.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(second.id)
   })
 
   it('switches active Feishu replies when the old inbound session only has a chat map', async () => {
@@ -264,7 +264,7 @@ describe('FeishuBridge', () => {
     const inbound = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '旧入站会话', cwd: tempDir })
     const desktop = manager.create({ type: 'chat', source: 'manual', title: '新桌面会话', cwd: tempDir })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', inbound.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', inbound.id)
     bridge._sessionIdentities.set(inbound.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -282,7 +282,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(bridge._targetSessionMap.get('ou_target')).toBe(desktop.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(desktop.id)
     expect(bridge._sessionIdentities.get(inbound.id)).toBeUndefined()
 
     const reboundSessionId = await bridge._ensureSession(
@@ -300,7 +300,7 @@ describe('FeishuBridge', () => {
     )
 
     expect(reboundSessionId).toBe(desktop.id)
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBe(desktop.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(desktop.id)
   })
 
   it('only clears the old p2p map key when rebinding the same Feishu user to a newer desktop session', async () => {
@@ -318,8 +318,8 @@ describe('FeishuBridge', () => {
       text: '第一条'
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_group', first.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', first.id)
+    bridge._sessionMapper.sessionMap.set('oc_group', first.id)
     bridge._sessionIdentities.set(first.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -335,8 +335,8 @@ describe('FeishuBridge', () => {
       text: '第二条'
     })
 
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_group')).toBe(first.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(second.id)
+    expect(bridge._sessionMapper.sessionMap.get('oc_group')).toBe(first.id)
   })
 
   it('clears Feishu inbound routing state after unbinding a proactively bound session', () => {
@@ -357,16 +357,16 @@ describe('FeishuBridge', () => {
       chatType: 'p2p',
       chatName: '张三'
     })
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', session.id)
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_group', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', session.id)
+    bridge._sessionMapper.sessionMap.set('oc_group', session.id)
 
     expect(bridge.unbindTarget(session.id)).toEqual({ success: true })
 
     expect(bridge._targetSessionMap.get('ou_target')).toBeUndefined()
     expect(bridge._sessionTargets.get(session.id)).toBeUndefined()
     expect(bridge._sessionIdentities.get(session.id)).toBeUndefined()
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_group')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('oc_group')).toBeUndefined()
     expect(manager.sessionDatabase.setImChannel).toHaveBeenCalledWith(session.id, null)
     expect(manager.sessionDatabase.clearImIdentity).toHaveBeenCalledWith(session.id)
   })
@@ -589,7 +589,7 @@ describe('FeishuBridge', () => {
     expect(bridge._sessionIdentities.get(session.id)).toEqual({
       senderId: 'ou_target',
       senderName: 'ou_target',
-      chatId: null,
+      chatId: '',
       chatType: 'p2p',
       chatName: 'ou_target'
     })
@@ -630,7 +630,7 @@ describe('FeishuBridge', () => {
     expect(bridge._sessionIdentities.get(session.id)).toEqual({
       senderId: 'ou_target',
       senderName: 'ou_target',
-      chatId: 'oc_reply',
+      chatId: '',
       chatType: 'p2p',
       chatName: 'ou_target'
     })
@@ -947,7 +947,7 @@ describe('FeishuBridge', () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
 
-    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+    bridge._pendingMessages.set('ou_xxx', {
       message: { text: '待发送', images: undefined },
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -969,7 +969,7 @@ describe('FeishuBridge', () => {
     const handleChoiceReply = vi.spyOn(bridge, '_handleChoiceReply').mockResolvedValue()
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
-    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+    bridge._sessionMapper._pendingChoices.set('ou_xxx', {
       sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
       resolve: vi.fn(),
       timer: setTimeout(() => {}, 1000),
@@ -985,7 +985,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(handleChoiceReply).toHaveBeenCalledWith(
-      'ou_xxx:oc_xxx',
+      'ou_xxx',
       '不是数字',
       expect.objectContaining({
         userId: 'ou_xxx',
@@ -1000,7 +1000,7 @@ describe('FeishuBridge', () => {
     )
     expect(enqueueMessage).not.toHaveBeenCalled()
 
-    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx:oc_xxx').timer)
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx').timer)
   })
 
   it('prompts for historical session selection when mapped Feishu session was closed on desktop', async () => {
@@ -1014,7 +1014,7 @@ describe('FeishuBridge', () => {
     })
     const closedSessionId = 'closed-feishu-session'
 
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', closedSessionId)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', closedSessionId)
     bridge._sessionIdentities.set(closedSessionId, {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -1062,7 +1062,7 @@ describe('FeishuBridge', () => {
       expect.stringContaining('检测到 1 个历史会话')
     )
     expect(createSession).not.toHaveBeenCalled()
-    expect(bridge._pendingMessages.get('ou_xxx:oc_xxx')?.message).toEqual({
+    expect(bridge._pendingMessages.get('ou_xxx')?.message).toEqual({
       text: '继续之前的话题',
       images: undefined
     })
@@ -1084,7 +1084,7 @@ describe('FeishuBridge', () => {
       return { id: sessionId, type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '恢复中的会话' }
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', 'live-db-session')
+    bridge._sessionMapper.sessionMap.set('ou_xxx', 'live-db-session')
     manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => ({
       id: 1,
       session_id: sessionId,
@@ -1117,7 +1117,7 @@ describe('FeishuBridge', () => {
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
 
     const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '飞书会话', cwd: tempDir })
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', session.id)
     bridge._sessionTargets.set(session.id, {
       targetId: 'ou_xxx',
       displayName: '张三'
@@ -1201,7 +1201,7 @@ describe('FeishuBridge', () => {
       displayName: '张三',
       text: '当前绑定'
     })
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', current.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', current.id)
     bridge._sessionIdentities.set(current.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -1242,7 +1242,7 @@ describe('FeishuBridge', () => {
       text: '第一条'
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', first.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', first.id)
     bridge._sessionIdentities.set(first.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -1265,7 +1265,7 @@ describe('FeishuBridge', () => {
       chatType: 'p2p',
       chatName: '张三'
     })
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', second.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', second.id)
 
     bridge._onDesktopIntervention(first.id, '旧会话不应回发', undefined)
     await bridge._onAgentResult(first.id)
@@ -1291,7 +1291,7 @@ describe('FeishuBridge', () => {
 
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '旧标题', cwd: tempDir })
     const session = manager.sessions.get(created.id)
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -1619,7 +1619,7 @@ describe('FeishuBridge', () => {
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '待关闭会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -1653,7 +1653,7 @@ describe('FeishuBridge', () => {
       targetId: 'ou_target',
       displayName: '张三'
     })
-    bridge._sessionMapper.sessionMap.delete('ou_target:oc_reply')
+    bridge._sessionMapper.sessionMap.delete('ou_target')
     bridge._sessionIdentities.delete(session.id)
 
     await bridge._handleCommand('/close', {
@@ -1675,7 +1675,7 @@ describe('FeishuBridge', () => {
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '待关闭会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -1714,7 +1714,7 @@ describe('FeishuBridge', () => {
       manager.sessions.delete(sessionId)
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', current.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', current.id)
     bridge._sessionIdentities.set(current.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -1747,16 +1747,16 @@ describe('FeishuBridge', () => {
 
     expect(findBoundSession).not.toHaveBeenCalledWith('ou_target')
     expect(bridge._sessionMapper.initPendingChoice).toHaveBeenCalledWith(
-      'ou_target:oc_reply',
+      'ou_target',
       [expect.objectContaining({ session_id: 'old-bound-session' })],
       expect.any(Function),
       expect.any(Object)
     )
-    expect(bridge._pendingMessages.get('ou_target:oc_reply')?.message).toEqual({
+    expect(bridge._pendingMessages.get('ou_target')?.message).toEqual({
       text: '关闭后继续',
       images: undefined
     })
-    expect(bridge._sessionMapper.sessionMap.get('ou_target:oc_reply')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBeUndefined()
     expect(enqueueMessage).not.toHaveBeenCalledWith(
       oldBound.id,
       expect.anything(),
@@ -2147,7 +2147,7 @@ describe('FeishuBridge', () => {
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '状态会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_xxx', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -2198,6 +2198,11 @@ describe('FeishuBridge', () => {
       'ou_target',
       expect.stringContaining('当前会话状态：')
     )
+    expect(sendTextMessage).toHaveBeenCalledWith(
+      'open_id',
+      'ou_target',
+      expect.stringContaining('1. ✅')
+    )
   })
 
   it('shows a proactively bound Feishu session as activated instead of current in /status after /close', async () => {
@@ -2215,7 +2220,7 @@ describe('FeishuBridge', () => {
       manager.sessions.delete(sessionId)
     })
 
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', current.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', current.id)
     bridge._sessionIdentities.set(current.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -2766,7 +2771,7 @@ describe('FeishuBridge', () => {
 
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '桌面发起会话', cwd: tempDir })
     const session = manager.sessions.get(created.id)
-    bridge._sessionMapper.sessionMap.set('ou_target:oc_reply', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_target', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_target',
       senderName: '张三',
@@ -2805,7 +2810,7 @@ describe('FeishuBridge', () => {
       expect.stringContaining('没有历史会话记录')
     )
     expect(bridge._sessionMapper.initPendingChoice).toHaveBeenCalledWith(
-      'ou_target:oc_reply',
+      'ou_target',
       [expect.objectContaining({ session_id: session.id, title: '桌面发起会话' })],
       expect.any(Function),
       expect.any(Object)
@@ -2866,7 +2871,7 @@ describe('FeishuBridge', () => {
       expect.stringContaining('没有历史会话记录')
     )
     expect(bridge._sessionMapper.initPendingChoice).toHaveBeenCalledWith(
-      'ou_target:oc_reply',
+      'ou_target',
       [expect.objectContaining({ session_id: session.id, title: '桌面主动绑定会话' })],
       expect.any(Function),
       expect.any(Object)
@@ -2883,7 +2888,7 @@ describe('FeishuBridge', () => {
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
 
-    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+    bridge._sessionMapper._pendingChoices.set('ou_xxx', {
       sessions: [
         {
           session_id: 'hist-1',
@@ -2900,7 +2905,7 @@ describe('FeishuBridge', () => {
     })
 
     await bridge._handleChoiceReply(
-      'ou_xxx:oc_xxx',
+      'ou_xxx',
       'abc',
       { userId: 'ou_xxx', chatId: 'oc_xxx', chatType: 'p2p' },
       'ou_xxx',
@@ -2914,7 +2919,7 @@ describe('FeishuBridge', () => {
       expect.stringContaining('您有以下历史会话，请回复数字选择：')
     )
 
-    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx:oc_xxx').timer)
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx').timer)
   })
 
   it('replays the pending user message to the desktop frontend after choosing a historical session', async () => {
@@ -2930,7 +2935,7 @@ describe('FeishuBridge', () => {
       wasActivated: false
     })
 
-    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+    bridge._pendingMessages.set('ou_xxx', {
       message: {
         text: '继续分析这张图',
         images: [{ base64: Buffer.from('img').toString('base64'), mediaType: 'image/png' }]
@@ -2941,7 +2946,7 @@ describe('FeishuBridge', () => {
     })
 
     await bridge._handleChoiceReply(
-      'ou_xxx:oc_xxx',
+      'ou_xxx',
       '1',
       { userId: 'ou_xxx', chatId: 'oc_xxx', chatType: 'p2p' },
       'ou_xxx',
@@ -2991,7 +2996,7 @@ describe('FeishuBridge', () => {
       queryGenerator: {}
     })
 
-    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+    bridge._pendingMessages.set('ou_xxx', {
       message: { text: '你是谁', images: undefined },
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -2999,7 +3004,7 @@ describe('FeishuBridge', () => {
     })
 
     await bridge._handleChoiceReply(
-      'ou_xxx:oc_xxx',
+      'ou_xxx',
       '1',
       { userId: 'ou_xxx', chatId: 'oc_xxx', chatType: 'p2p' },
       'ou_xxx',
@@ -3043,7 +3048,7 @@ describe('FeishuBridge', () => {
       imChannel: 'feishu',
       queryGenerator: {}
     })
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', 'hist-1')
+    bridge._sessionMapper.sessionMap.set('ou_xxx', 'hist-1')
     bridge._sessionIdentities.set('hist-1', {
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -3069,7 +3074,7 @@ describe('FeishuBridge', () => {
     const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
-    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+    bridge._sessionMapper._pendingChoices.set('ou_xxx', {
       sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
       resolve: vi.fn(),
       timer: setTimeout(() => {}, 1000),
@@ -3077,7 +3082,7 @@ describe('FeishuBridge', () => {
         menuBuilder: (sessions) => bridge._buildHistoryChoiceMenuText(sessions, null)
       }
     })
-    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+    bridge._pendingMessages.set('ou_xxx', {
       message: { text: '这是新的问题', images: undefined },
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -3094,7 +3099,7 @@ describe('FeishuBridge', () => {
 
     const session = Array.from(manager.sessions.values())[0]
     expect(session).toBeTruthy()
-    expect(bridge._sessionMapper.sessionMap.get('ou_xxx:oc_xxx')).toBe(session.id)
+    expect(bridge._sessionMapper.sessionMap.get('ou_xxx')).toBe(session.id)
     sendTextMessage.mockClear()
 
     manager.sessionDatabase.getImSessionsByType.mockReturnValue([
@@ -3117,7 +3122,7 @@ describe('FeishuBridge', () => {
       'oc_xxx',
       'p2p'
     )
-    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx:oc_xxx')?.timer)
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('ou_xxx')?.timer)
   })
 
   it('ignores a stale pending choice when the Feishu mapKey already has an active session', async () => {
@@ -3127,8 +3132,8 @@ describe('FeishuBridge', () => {
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
     vi.spyOn(manager, 'reopen').mockReturnValue({ id: 'hist-1', type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '历史会话 1' })
 
-    bridge._sessionMapper.sessionMap.set('ou_xxx:oc_xxx', 'hist-1')
-    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+    bridge._sessionMapper.sessionMap.set('ou_xxx', 'hist-1')
+    bridge._sessionMapper._pendingChoices.set('ou_xxx', {
       sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
       resolve: vi.fn(),
       timer: setTimeout(() => {}, 1000),
@@ -3144,7 +3149,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(handleChoiceReply).not.toHaveBeenCalled()
-    expect(bridge._sessionMapper._pendingChoices.has('ou_xxx:oc_xxx')).toBe(false)
+    expect(bridge._sessionMapper._pendingChoices.has('ou_xxx')).toBe(false)
     expect(enqueueMessage).toHaveBeenCalledWith(
       'hist-1',
       { text: '继续发言', images: undefined },
@@ -3171,13 +3176,13 @@ describe('FeishuBridge', () => {
       text: '任务已完成'
     })
 
-    bridge._sessionMapper._pendingChoices.set('ou_xxx:oc_xxx', {
+    bridge._sessionMapper._pendingChoices.set('ou_xxx', {
       sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
       resolve: vi.fn(),
       timer: setTimeout(() => {}, 1000),
       options: {}
     })
-    bridge._pendingMessages.set('ou_xxx:oc_xxx', {
+    bridge._pendingMessages.set('ou_xxx', {
       message: { text: '旧的待处理消息', images: undefined },
       senderId: 'ou_xxx',
       chatId: 'oc_xxx',
@@ -3193,9 +3198,9 @@ describe('FeishuBridge', () => {
     })
 
     expect(handleChoiceReply).not.toHaveBeenCalled()
-    expect(bridge._sessionMapper._pendingChoices.has('ou_xxx:oc_xxx')).toBe(false)
-    expect(bridge._pendingMessages.has('ou_xxx:oc_xxx')).toBe(false)
-    expect(bridge._sessionMapper.sessionMap.get('ou_xxx:oc_xxx')).toBe(session.id)
+    expect(bridge._sessionMapper._pendingChoices.has('ou_xxx')).toBe(false)
+    expect(bridge._pendingMessages.has('ou_xxx')).toBe(false)
+    expect(bridge._sessionMapper.sessionMap.get('ou_xxx')).toBe(session.id)
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
       { text: '这是新的回复', images: undefined },
@@ -3213,7 +3218,7 @@ describe('FeishuBridge', () => {
 
     const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '旧标题', cwd: tempDir })
     const session = manager.sessions.get(created.id)
-    bridge._sessionMapper.sessionMap.set('ou_old:oc_xxx', session.id)
+    bridge._sessionMapper.sessionMap.set('ou_old', session.id)
     bridge._sessionIdentities.set(session.id, {
       senderId: 'ou_old',
       chatId: 'oc_xxx',
@@ -3227,7 +3232,7 @@ describe('FeishuBridge', () => {
     })
 
     expect(rename).not.toHaveBeenCalled()
-    expect(bridge._sessionMapper.sessionMap.get('ou_new:oc_xxx')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('ou_new')).toBeUndefined()
     expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_new', '当前没有活跃会话，无法重命名')
   })
 
@@ -3296,7 +3301,7 @@ describe('ImSessionMapper', () => {
       sessionDatabase: { getImSessionsByType },
       imType: 'feishu',
       maxHistorySessions: 7,
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
@@ -3317,12 +3322,12 @@ describe('ImSessionMapper', () => {
         getAgentConversation: vi.fn(() => ({ session_id: 'f-1', status: 'idle' }))
       },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
-    mapper.sessionMap.set('ou_xxx:oc_xxx', 'f-1')
-    const sessionId = await mapper.resolveActiveSessionId('ou_xxx:oc_xxx')
+    mapper.sessionMap.set('ou_xxx', 'f-1')
+    const sessionId = await mapper.resolveActiveSessionId('ou_xxx')
 
     expect(sessionId).toBe('f-1')
   })
@@ -3344,7 +3349,7 @@ describe('ImSessionMapper', () => {
       agentSessionManager: { sessions: new Map() },
       sessionDatabase: { getImSessionsByType, listAllAgentConversations },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
@@ -3376,7 +3381,7 @@ describe('ImSessionMapper', () => {
       agentSessionManager: { sessions: new Map() },
       sessionDatabase: { getImSessionsByType, listAllAgentConversations },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
@@ -3428,7 +3433,7 @@ describe('ImSessionMapper', () => {
       agentSessionManager: { sessions: new Map() },
       sessionDatabase: { getImSessionsByType, listAllAgentConversations },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
@@ -3459,7 +3464,7 @@ describe('ImSessionMapper', () => {
       agentSessionManager: { sessions: new Map() },
       sessionDatabase: { getImSessionsByType, listAllAgentConversations },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
@@ -3482,15 +3487,15 @@ describe('ImSessionMapper', () => {
         })
       },
       imType: 'feishu',
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId,
       buildSessionTitle: () => '飞书会话'
     })
 
-    mapper.sessionMap.set('ou_xxx:oc_xxx', 'f-1')
-    const sessionId = await mapper.resolveActiveSessionId('ou_xxx:oc_xxx')
+    mapper.sessionMap.set('ou_xxx', 'f-1')
+    const sessionId = await mapper.resolveActiveSessionId('ou_xxx')
 
     expect(sessionId).toBe(null)
-    expect(mapper.sessionMap.has('ou_xxx:oc_xxx')).toBe(false)
+    expect(mapper.sessionMap.has('ou_xxx')).toBe(false)
   })
 })
 

@@ -105,7 +105,7 @@ function buildDingTalkCommandContext(context = {}, webhook = null, bridge = null
     || bridge?._sessionMapper?.buildKey?.(identity)
     || (commandIdentity.isGroupChat
       ? commandIdentity.chatId
-      : `${commandIdentity.userId}:${commandIdentity.chatId || 'default'}`)
+      : commandIdentity.userId)
 
   return {
     identity,
@@ -422,6 +422,11 @@ module.exports = {
           }) || null
         : null
     )
+    const statusCurrentSessionId = currentSessionId || (
+      !isGroupChat && userId
+        ? this._findBoundSessionIdByStaffId?.(userId, { mapKey }) || null
+        : null
+    )
     const { db, limit, sessions } = loadDingTalkHistorySessions(this, {
       currentSessionId: historySessionId,
       identity,
@@ -431,7 +436,7 @@ module.exports = {
     if (!sessions || sessions.length === 0) return `📭 ${buildNoHistoryText()}`
     return buildHistoryChoiceMenuText({
       sessions,
-      currentSessionId,
+      currentSessionId: statusCurrentSessionId,
       maxSessions: limit,
       getDirName: (cwd) => path.basename(cwd),
       getProfileName: (profileId) => profileId

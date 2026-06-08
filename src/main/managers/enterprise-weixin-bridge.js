@@ -154,8 +154,7 @@ class EnterpriseWeixinBridge {
       defaultCwd: cfg.defaultCwd || null,
       buildIdentityKey: (identity) => {
         const userId = identity.userId || ''
-        const channelId = identity.channelId || identity.chatId || identity.userId || ''
-        return `${userId}:${channelId}`
+        return userId
       },
       buildSessionTitle: (identity = {}) => {
         const chatType = String(identity.chatType || '').toLowerCase()
@@ -891,9 +890,6 @@ class EnterpriseWeixinBridge {
           this._clearSessionIdentity(sessionId)
           if ((context.chatType || '').toLowerCase() === 'single') {
             this._proactiveRebindSuppressedKeys.add(mapKey)
-            if (identity.userId) {
-              this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
-            }
           }
           this._notifier.notifySessionClosed({ sessionId })
 
@@ -1079,7 +1075,7 @@ class EnterpriseWeixinBridge {
   _findBoundSessionIdByUserId(userId) {
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
     if (!normalizedUserId) return null
-    if (this._proactiveRebindSuppressedKeys.has(`${normalizedUserId}:${normalizedUserId}`)) {
+    if (this._proactiveRebindSuppressedKeys.has(normalizedUserId)) {
       return null
     }
 
@@ -1221,6 +1217,7 @@ class EnterpriseWeixinBridge {
     const liveSession = this._agentSessionManager.sessions.get(currentSessionId)
     const dbRow = this._sessionDatabase?.getAgentConversation?.(currentSessionId)
     if (!liveSession && (!dbRow || dbRow.status === 'closed')) return rows
+    const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
 
     const currentRow = {
       ...(dbRow || {}),
@@ -1232,8 +1229,8 @@ class EnterpriseWeixinBridge {
       type: 'chat',
       source: 'im-inbound',
       im_channel: this._imType,
-      im_user_id: dbRow?.im_user_id || identity.userId || '',
-      im_chat_id: dbRow?.im_chat_id || identity.chatId || '',
+      im_user_id: dbRow?.im_user_id || (isGroupChat ? '' : identity.userId) || '',
+      im_chat_id: dbRow?.im_chat_id || (isGroupChat ? identity.chatId : '') || '',
       status: dbRow?.status || liveSession?.status || 'idle',
     }
 
@@ -1839,9 +1836,15 @@ class EnterpriseWeixinBridge {
   }
 
   _clearSingleSessionMapBindingsForUser(userId, keepSessionId = null) {
+    const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
+    if (!normalizedUserId) return
+    const mappedSessionId = this._sessionMapper.sessionMap.get(normalizedUserId)
+    if (mappedSessionId && (!keepSessionId || mappedSessionId !== keepSessionId)) {
+      this._sessionMapper.clearSessionState(normalizedUserId)
+    }
     deleteSessionMappingsByPrefix({
       sessionMap: this._sessionMapper.sessionMap,
-      prefix: `${typeof userId === 'string' ? userId.trim() : ''}:`,
+      prefix: `${normalizedUserId}:`,
       keepSessionId,
       deleteEntry: (mapKey) => this._sessionMapper.clearSessionState(mapKey),
     })
@@ -1880,10 +1883,7 @@ class EnterpriseWeixinBridge {
       ? (target?.userId || identity?.senderId).trim()
       : ''
     if (userId) {
-      this._proactiveRebindSuppressedKeys.add(`${userId}:${userId}`)
-      if (identity?.chatId) {
-        this._proactiveRebindSuppressedKeys.add(`${userId}:${identity.chatId}`)
-      }
+      this._proactiveRebindSuppressedKeys.add(userId)
     }
     if (target?.userId) {
       this._targetSessionMap.delete(target.userId)
@@ -1986,10 +1986,7 @@ class EnterpriseWeixinBridge {
   _suppressProactiveRebind(sessionId) {
     const identity = this._sessionIdentities.get(sessionId)
     if (identity?.chatType === 'single' && identity.userId) {
-      if (identity.chatId) {
-        this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.chatId}`)
-      }
-      this._proactiveRebindSuppressedKeys.add(`${identity.userId}:${identity.userId}`)
+      this._proactiveRebindSuppressedKeys.add(identity.userId)
     }
   }
 
@@ -2013,6 +2010,7 @@ class EnterpriseWeixinBridge {
   _clearProactiveRebindSuppressionForUser(userId) {
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
     if (!normalizedUserId) return
+    this._proactiveRebindSuppressedKeys.delete(normalizedUserId)
     for (const key of this._proactiveRebindSuppressedKeys) {
       if (key.startsWith(`${normalizedUserId}:`)) {
         this._proactiveRebindSuppressedKeys.delete(key)
@@ -2023,9 +2021,14 @@ class EnterpriseWeixinBridge {
   _persistSessionChatContext(sessionId, { userId, chatId } = {}) {
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : ''
     const normalizedChatId = typeof chatId === 'string' ? chatId.trim() : ''
-    if (!sessionId || !normalizedUserId || !normalizedChatId || !this._sessionDatabase?.updateImIdentity) {
+    if (!sessionId || !normalizedUserId || !this._sessionDatabase?.updateImIdentity) {
       return
     }
+
+    const isGroupChat = this._sessionIdentities.get(sessionId)?.chatType === 'group'
+    const persistedUserId = isGroupChat ? '' : normalizedUserId
+    const persistedChatId = isGroupChat ? normalizedChatId : ''
+    if (isGroupChat && !persistedChatId) return
 
     const row = this._sessionDatabase.getAgentConversation?.(sessionId)
     const rowUserId = row?.im_channel === this._imType && typeof row?.im_user_id === 'string'
@@ -2034,13 +2037,12 @@ class EnterpriseWeixinBridge {
     const rowChatId = row?.im_channel === this._imType && typeof row?.im_chat_id === 'string'
       ? row.im_chat_id.trim()
       : ''
-    if (rowUserId !== normalizedUserId || rowChatId === normalizedChatId) {
+    if (rowUserId !== persistedUserId || rowChatId === persistedChatId) {
       return
     }
 
     try {
-      const isGroupChat = this._sessionIdentities.get(sessionId)?.chatType === 'group'
-      this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : normalizedUserId, chatId: normalizedChatId, chatType: isGroupChat ? 'group' : 'single' })
+      this._sessionDatabase.updateImIdentity(sessionId, { userId: persistedUserId, chatId: persistedChatId, chatType: isGroupChat ? 'group' : 'single' })
     } catch (err) {
       console.warn('[EnterpriseWeixin] Failed to persist chat context:', err.message)
     }

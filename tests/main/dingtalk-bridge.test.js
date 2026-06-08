@@ -156,7 +156,7 @@ describe('DingTalkBridge', () => {
     ])
 
     const resumeResult = await bridge._cmdResume([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -195,24 +195,16 @@ describe('DingTalkBridge', () => {
     expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', '', 'conv-group', 5)
   })
 
-  it('shows the resume choice instead of silently reusing an old p2p binding on normal inbound text', async () => {
+  it('shows the resume choice for p2p history when there is no current binding on normal inbound text', async () => {
     const { bridge, manager } = createHarness()
     const sendChoiceMenu = vi.spyOn(bridge, '_sendChoiceMenu').mockResolvedValue()
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
-    const created = manager.create({ type: 'chat', source: 'manual', title: '旧单聊绑定会话' })
-    const session = manager.sessions.get(created.id)
-    bridge.bindTarget(session.id, {
-      targetId: 'staff-1',
-      targetType: 'user',
-      displayName: '张三',
-    })
-
-    manager.sessionDatabase.updateImIdentity(session.id, {
-      userId: 'staff-1',
-      chatId: 'conv-1',
-      chatType: 'p2p',
-    })
+    const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', title: '旧单聊历史会话' })
+    await manager.close(session.id)
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([
+      { session_id: session.id, title: '旧单聊历史会话', im_user_id: 'staff-1', im_chat_id: '', im_chat_type: 'p2p', updated_at: Date.now() }
+    ])
 
     await bridge._handleDingTalkMessage({
       data: JSON.stringify({
@@ -233,13 +225,13 @@ describe('DingTalkBridge', () => {
       'https://example.com/webhook',
       [expect.objectContaining({ session_id: session.id })]
     )
-    expect(bridge._pendingChoices.get('staff-1:conv-1')).toEqual(
+    expect(bridge._pendingChoices.get('staff-1')).toEqual(
       expect.objectContaining({
         originalMessage: 'hi',
         sessions: [expect.objectContaining({ session_id: session.id })],
       })
     )
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBeUndefined()
     expect(enqueueMessage).not.toHaveBeenCalled()
   })
 
@@ -522,23 +514,14 @@ describe('DingTalkBridge', () => {
         updated_at: Date.now()
       }
     ])
-    vi.spyOn(manager, 'reopen').mockImplementation((sessionId) => {
-      manager.sessions.set(sessionId, {
-        id: sessionId,
-        type: 'chat',
-        title: '桌面会话',
-        imChannel: 'dingtalk',
-        meta: {}
-      })
-      return manager.sessions.get(sessionId)
-    })
+    vi.spyOn(manager, 'reopen').mockImplementation((sessionId) => manager.sessions.get(sessionId))
 
     const result = await bridge._ensureSession('staff-1', '张三', 'conv-1', '测试群')
 
     expect(result).toBe(session.id)
     expect(bridge._targetSessionMap.get('staff-1')).toBe(session.id)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(session.id)
-    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'staff-1', chatId: 'conv-1' }))
+    expect(bridge.sessionMap.get('staff-1')).toBe(session.id)
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'staff-1', chatId: '' }))
   })
 
   it('clears stale DingTalk p2p pending choice when the user is proactively rebound to an active session', async () => {
@@ -568,7 +551,7 @@ describe('DingTalkBridge', () => {
       text: '任务已完成'
     })
 
-    bridge._pendingChoices.set('staff-1:conv-1', {
+    bridge._pendingChoices.set('staff-1', {
       sessions: [{ session_id: 'hist-1', title: '历史会话 1' }],
       originalMessage: '旧消息',
       timer: setTimeout(() => {}, 1000)
@@ -591,8 +574,8 @@ describe('DingTalkBridge', () => {
 
     expect(handlePendingChoice).not.toHaveBeenCalled()
     expect(sendChoiceMenu).not.toHaveBeenCalled()
-    expect(bridge._pendingChoices.has('staff-1:conv-1')).toBe(false)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(session.id)
+    expect(bridge._pendingChoices.has('staff-1')).toBe(false)
+    expect(bridge.sessionMap.get('staff-1')).toBe(session.id)
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
       '来了',
@@ -653,7 +636,7 @@ describe('DingTalkBridge', () => {
         conversationType: '2',
       })
     )
-    expect(bridge.sessionMap.get('staff-1:conv-group')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBe(p2p.id)
     expect(bridge.sessionMap.get('conv-group')).toBeUndefined()
     expect(enqueueMessage).not.toHaveBeenCalled()
   })
@@ -737,7 +720,7 @@ describe('DingTalkBridge', () => {
       text: '第一条'
     })
 
-    bridge.sessionMap.set('staff-1:conv-1', first.id)
+    bridge.sessionMap.set('staff-1', first.id)
     manager.sessions.get(first.id).meta = {
       ...(manager.sessions.get(first.id).meta || {}),
       conversationId: 'conv-1'
@@ -753,12 +736,12 @@ describe('DingTalkBridge', () => {
     })
 
     expect(bridge._targetSessionMap.get('staff-1')).toBe(second.id)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBe(second.id)
 
     const reboundSessionId = await bridge._ensureSession('staff-1', '张三', 'conv-1', '测试群')
 
     expect(reboundSessionId).toBe(second.id)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(second.id)
+    expect(bridge.sessionMap.get('staff-1')).toBe(second.id)
   })
 
   it('shows proactively bound p2p sessions in DingTalk resume history even before chat metadata is learned', async () => {
@@ -787,11 +770,11 @@ describe('DingTalkBridge', () => {
       text: '任务已完成'
     })
 
-    bridge.sessionMap.delete('staff-1:conv-1')
+    bridge.sessionMap.delete('staff-1')
     manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
 
     const result = await bridge._cmdResume([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -802,7 +785,7 @@ describe('DingTalkBridge', () => {
 
     expect(result).toBeNull()
     expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', '', 5)
-    expect(bridge._pendingChoices.get('staff-1:conv-1')?.sessions).toEqual([
+    expect(bridge._pendingChoices.get('staff-1')?.sessions).toEqual([
       expect.objectContaining({ session_id: session.id })
     ])
     expect(sendChoiceMenu).toHaveBeenCalledWith(
@@ -843,7 +826,7 @@ describe('DingTalkBridge', () => {
     ))
 
     const result = await bridge._cmdResume([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -854,7 +837,7 @@ describe('DingTalkBridge', () => {
 
     expect(result).toBeNull()
     expect(manager.sessionDatabase.getImSessionsByType).toHaveBeenCalledWith('dingtalk', 'staff-1', '', 5)
-    expect(bridge._pendingChoices.get('staff-1:conv-1')?.sessions).toEqual([
+    expect(bridge._pendingChoices.get('staff-1')?.sessions).toEqual([
       expect.objectContaining({ session_id: session.id, im_chat_id: 'conv-1' })
     ])
     expect(sendChoiceMenu).toHaveBeenCalledWith(
@@ -873,16 +856,16 @@ describe('DingTalkBridge', () => {
       targetId: 'staff-1',
       displayName: '张三'
     })
-    bridge.sessionMap.set('staff-1:conv-1', session.id)
+    bridge.sessionMap.set('staff-1', session.id)
 
     const reply = await bridge._cmdClose([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1'
     })
 
     expect(reply).toContain('会话已关闭')
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBeUndefined()
     expect(bridge.getBinding(session.id)).toBe(null)
     expect(bridge._targetSessionMap.get('staff-1')).toBeUndefined()
   })
@@ -890,10 +873,10 @@ describe('DingTalkBridge', () => {
   it('rejects /close with numbered arguments', async () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话' })
-    bridge.sessionMap.set('staff-1:conv-1', created.id)
+    bridge.sessionMap.set('staff-1', created.id)
 
     const reply = await bridge._cmdClose(['1'], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1'
     })
@@ -925,7 +908,7 @@ describe('DingTalkBridge', () => {
       text: '任务已完成'
     })
 
-    bridge.sessionMap.set('staff-1:conv-1', session.id)
+    bridge.sessionMap.set('staff-1', session.id)
     session.meta = {
       ...(session.meta || {}),
       conversationId: 'conv-1'
@@ -934,7 +917,7 @@ describe('DingTalkBridge', () => {
     await manager.close(session.id)
 
     expect(bridge._targetSessionMap.get('staff-1')).toBeUndefined()
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBeUndefined()
     expect(bridge.getBinding(session.id)).toBe(null)
 
     manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
@@ -943,7 +926,7 @@ describe('DingTalkBridge', () => {
 
     expect(typeof result).toBe('string')
     expect(result).not.toBe(session.id)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBe(result)
+    expect(bridge.sessionMap.get('staff-1')).toBe(result)
   })
 
   it('does not silently reuse another active DingTalk session for the same user after /close', async () => {
@@ -959,14 +942,14 @@ describe('DingTalkBridge', () => {
       targetId: 'staff-1',
       displayName: '张三'
     })
-    bridge.sessionMap.set('staff-1:conv-1', current.id)
+    bridge.sessionMap.set('staff-1', current.id)
     manager.sessions.get(current.id).meta = {
       ...(manager.sessions.get(current.id).meta || {}),
       conversationId: 'conv-1'
     }
 
     const reply = await bridge._cmdClose([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -974,8 +957,7 @@ describe('DingTalkBridge', () => {
     })
 
     expect(reply).toContain('会话已关闭')
-    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1:conv-1')).toBe(true)
-    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1:staff-1')).toBe(true)
+    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1')).toBe(true)
 
     manager.sessionDatabase.getImSessionsByType.mockReturnValue([
       {
@@ -996,7 +978,7 @@ describe('DingTalkBridge', () => {
       needsChoice: true,
       sessions: [expect.objectContaining({ session_id: other.id })]
     })
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBeUndefined()
   })
 
   it('clears DingTalk proactive rebind suppression after binding the same user again', () => {
@@ -1014,14 +996,14 @@ describe('DingTalkBridge', () => {
     }
 
     bridge._suppressProactiveRebind(first.id)
-    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1:staff-1')).toBe(true)
+    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1')).toBe(true)
 
     bridge.bindTarget(second.id, {
       targetId: 'staff-1',
       displayName: '张三'
     })
 
-    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1:staff-1')).toBe(false)
+    expect(bridge._proactiveRebindSuppressedKeys.has('staff-1')).toBe(false)
     expect(bridge._targetSessionMap.get('staff-1')).toBe(second.id)
   })
 
@@ -1051,7 +1033,7 @@ describe('DingTalkBridge', () => {
     ])
 
     const result = await bridge._cmdResume([], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -1064,7 +1046,7 @@ describe('DingTalkBridge', () => {
     expect(sendChoiceMenu).toHaveBeenCalledWith(
       'https://example.com/webhook',
       [expect.objectContaining({ session_id: session.id })],
-      null
+      session.id
     )
   })
 
@@ -1088,7 +1070,7 @@ describe('DingTalkBridge', () => {
     ])
 
     const result = await bridge._cmdResume(['1'], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -1141,7 +1123,7 @@ describe('DingTalkBridge', () => {
     ])
 
     const result = await bridge._cmdResume(['1'], {
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
       conversationId: 'conv-1',
@@ -1277,7 +1259,7 @@ describe('DingTalkBridge', () => {
     })
 
     expect(bridge.sessionMap.get('conv-1')).toBe(session.id)
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBeUndefined()
     expect(enqueueMessage).toHaveBeenCalledWith(
       session.id,
       '大家好',
@@ -1374,7 +1356,7 @@ describe('DingTalkBridge', () => {
     await manager.close(session.id)
 
     const text = bridge._cmdStatus({
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1',
       conversationType: ''
@@ -1392,13 +1374,13 @@ describe('DingTalkBridge', () => {
     const created = manager.create({ type: 'chat', source: 'manual', title: '历史会话' })
     const image = { base64: Buffer.from('img').toString('base64'), mediaType: 'image/png' }
 
-    bridge._pendingChoices.set('staff-1:conv-1', {
+    bridge._pendingChoices.set('staff-1', {
       sessions: [{ session_id: created.id, title: '历史会话', updated_at: Date.now() }],
       originalMessage: { text: '', images: [image] },
       timer: setTimeout(() => {}, 1000)
     })
 
-    await bridge._handlePendingChoice('staff-1:conv-1', '1', 'https://example.com/webhook', {
+    await bridge._handlePendingChoice('staff-1', '1', 'https://example.com/webhook', {
       robotCode: 'robot-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
@@ -1440,13 +1422,13 @@ describe('DingTalkBridge', () => {
     session.queryGenerator = {}
     session.status = 'streaming'
 
-    bridge._pendingChoices.set('staff-1:conv-1', {
+    bridge._pendingChoices.set('staff-1', {
       sessions: [{ session_id: created.id, title: '历史会话', updated_at: Date.now() }],
       originalMessage: '继续处理',
       timer: setTimeout(() => {}, 1000)
     })
 
-    await bridge._handlePendingChoice('staff-1:conv-1', '1', 'https://example.com/webhook', {
+    await bridge._handlePendingChoice('staff-1', '1', 'https://example.com/webhook', {
       robotCode: 'robot-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
@@ -1514,7 +1496,7 @@ describe('DingTalkBridge', () => {
     vi.spyOn(bridge, '_sendCollectedImages').mockResolvedValue()
 
     const current = manager.create({ type: 'chat', source: 'manual', title: '当前会话' })
-    bridge.sessionMap.set('staff-1:conv-1', current.id)
+    bridge.sessionMap.set('staff-1', current.id)
     bridge._sessionWebhooks.set(current.id, {
       webhook: 'https://example.com/webhook',
       robotCode: 'robot-1',
@@ -1559,7 +1541,7 @@ describe('DingTalkBridge', () => {
       conversationId: 'conv-1',
       conversationType: '1',
     })
-    bridge.sessionMap.set('staff-1:conv-1', second.id)
+    bridge.sessionMap.set('staff-1', second.id)
 
     bridge.onUserMessage(first.id, '旧会话不应回发', null)
     bridge.onAgentMessage(first.id, {
@@ -1679,7 +1661,7 @@ describe('DingTalkBridge', () => {
     const session = manager.sessions.get(created.id)
     session.queryGenerator = {}
     session.status = 'idle'
-    bridge.sessionMap.set('staff-1:conv-1', session.id)
+    bridge.sessionMap.set('staff-1', session.id)
     manager.sessionDatabase.updateImIdentity(session.id, {
       userId: 'staff-1',
       chatId: 'conv-1',
@@ -1687,7 +1669,7 @@ describe('DingTalkBridge', () => {
     })
 
     const text = bridge._cmdStatus({
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1'
     })
@@ -1725,7 +1707,7 @@ describe('DingTalkBridge', () => {
     ))
 
     const text = bridge._cmdStatus({
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1'
     })
@@ -1757,13 +1739,13 @@ describe('DingTalkBridge', () => {
       }
     ])
 
-    bridge._pendingChoices.set('staff-1:conv-1', {
+    bridge._pendingChoices.set('staff-1', {
       sessions: [{ session_id: history.id, title: '历史会话', updated_at: Date.now() }],
       originalMessage: '你好',
       timer: setTimeout(() => {}, 1000)
     })
 
-    await bridge._handlePendingChoice('staff-1:conv-1', '0', 'https://example.com/webhook', {
+    await bridge._handlePendingChoice('staff-1', '0', 'https://example.com/webhook', {
       robotCode: 'robot-1',
       senderStaffId: 'staff-1',
       senderNick: '张三',
@@ -1772,7 +1754,7 @@ describe('DingTalkBridge', () => {
       conversationType: '1'
     })
 
-    const createdSessionId = bridge.sessionMap.get('staff-1:conv-1')
+    const createdSessionId = bridge.sessionMap.get('staff-1')
     expect(createSession).toHaveBeenCalledTimes(1)
     expect(createSession).toHaveBeenCalledWith(expect.objectContaining({
       staffId: 'staff-1',
@@ -1788,7 +1770,7 @@ describe('DingTalkBridge', () => {
     expect(createdRow).toEqual(expect.objectContaining({
       im_channel: 'dingtalk',
       im_user_id: 'staff-1',
-      im_chat_id: 'conv-1',
+      im_chat_id: '',
       im_chat_type: 'p2p',
       title: '钉钉 · 张三'
     }))
@@ -1808,7 +1790,7 @@ describe('DingTalkBridge', () => {
     })
 
     const text = bridge._cmdStatus({
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1',
       conversationType: '1'
@@ -1937,7 +1919,7 @@ describe('DingTalkBridge', () => {
     ))
 
     const text = bridge._cmdStatus({
-      mapKey: 'staff-1:conv-1',
+      mapKey: 'staff-1',
       senderStaffId: 'staff-1',
       conversationId: 'conv-1',
       conversationType: '1'
@@ -1945,7 +1927,7 @@ describe('DingTalkBridge', () => {
 
     expect(text).toContain('当前会话状态：')
     expect(text).toContain('单聊绑定会话')
-    expect(text).toContain('1. 🔵')
+    expect(text).toContain('1. ✅')
   })
 
   it('treats inbound DingTalk p2p commands as single chat when conversationType is missing', async () => {
@@ -2099,7 +2081,8 @@ describe('DingTalkBridge', () => {
       'https://example.com/webhook',
       expect.stringContaining('没有历史会话记录')
     )
-    expect(bridge.sessionMap.get('staff-1:conv-1')).toBeUndefined()
+    expect(bridge.sessionMap.get('staff-1')).toBe(session.id)
+    expect(bridge.sessionMap.get('conv-1')).toBeUndefined()
   })
 
   it('does not consume or clear a DingTalk group target when looking up a p2p binding by sender', () => {
@@ -2113,7 +2096,7 @@ describe('DingTalkBridge', () => {
     })
 
     const found = bridge._findBoundSessionIdByStaffId('staff-1', {
-      mapKey: 'staff-1:conv-p2p',
+      mapKey: 'staff-1',
       allowDatabaseFallback: false
     })
 

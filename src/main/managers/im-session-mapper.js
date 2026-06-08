@@ -10,7 +10,7 @@
  *     sessionDatabase,
  *     imType: 'feishu',
  *     maxHistorySessions: 5,
- *     buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+ *     buildIdentityKey: (identity) => identity.userId,
  *     buildSessionTitle: (identity) => `飞书 · ${identity.chatName} · ${identity.nickname}`,
  *   })
  */
@@ -52,12 +52,13 @@ class ImSessionMapper {
 
   buildKey(identity) {
     // 群聊 key = chatId，同一群不同成员共享会话
-    // p2p key = userId:chatId
+    // p2p/single key = userId，与 agent_conversations.im_user_id / 空 im_chat_id 语义一致
     // Feishu 群聊 chatType='chat'，企业微信群聊 chatType='group'
     if ((identity.chatType === 'group' || identity.chatType === 'chat') && identity.chatId) {
       return identity.chatId
     }
-    return this._buildIdentityKey(identity)
+    const userId = identity.staffId || identity.userId || identity.senderId || ''
+    return userId || this._buildIdentityKey(identity)
   }
 
   // ─── Webhook ───
@@ -186,7 +187,7 @@ class ImSessionMapper {
         // 群聊 im_user_id 固定为空，仅靠 im_chat_id 标识
         const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
         try {
-          this._sessionDatabase.updateImIdentity(session.id, { userId: isGroupChat ? '' : staffId, chatId: conversationId, chatType: isGroupChat ? 'group' : 'p2p' })
+          this._sessionDatabase.updateImIdentity(session.id, { userId: isGroupChat ? '' : staffId, chatId: isGroupChat ? conversationId : '', chatType: isGroupChat ? 'group' : 'p2p' })
         } catch (e) {
           console.warn(`[ImSessionMapper] Failed to save IM identity metadata:`, e.message)
         }
@@ -360,7 +361,7 @@ class ImSessionMapper {
               const staffId = identity.staffId || identity.userId || ''
               const conversationId = identity.conversationId || identity.chatId || ''
               const isGroupChat = identity.chatType === 'group' || identity.chatType === 'chat'
-              this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : staffId, chatId: conversationId, chatType: isGroupChat ? 'group' : 'p2p' })
+              this._sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : staffId, chatId: isGroupChat ? conversationId : '', chatType: isGroupChat ? 'group' : 'p2p' })
             }
           }
         } catch (err) {

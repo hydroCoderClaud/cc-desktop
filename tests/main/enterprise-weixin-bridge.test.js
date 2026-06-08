@@ -283,7 +283,7 @@ describe('EnterpriseWeixinBridge', () => {
     const { bridge, manager, replies } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '企业微信测试会话' })
     session.imChannel = 'enterprise-weixin'
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionMapper.sessionMap.set('user-a', session.id)
     bridge._sessionIdentities.set(session.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -313,7 +313,7 @@ describe('EnterpriseWeixinBridge', () => {
     manager.sessions.get(current.id).queryGenerator = {}
     manager.sessions.get(other.id).queryGenerator = {}
 
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
+    bridge._sessionMapper.sessionMap.set('user-a', current.id)
     bridge._sessionIdentities.set(current.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -346,7 +346,7 @@ describe('EnterpriseWeixinBridge', () => {
     const { bridge, manager, replies, sent } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '待关闭会话' })
     session.imChannel = 'enterprise-weixin'
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionMapper.sessionMap.set('user-a', session.id)
     bridge._sessionIdentities.set(session.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -369,7 +369,7 @@ describe('EnterpriseWeixinBridge', () => {
     const { bridge, manager, replies } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '待关闭会话' })
     session.imChannel = 'enterprise-weixin'
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionMapper.sessionMap.set('user-a', session.id)
     bridge._sessionIdentities.set(session.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -391,7 +391,7 @@ describe('EnterpriseWeixinBridge', () => {
     const { bridge, manager, replies } = createHarness()
     const session = manager.create({ type: 'chat', source: 'manual', title: '原始标题' })
     session.imChannel = 'enterprise-weixin'
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionMapper.sessionMap.set('user-a', session.id)
     bridge._sessionIdentities.set(session.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -435,7 +435,7 @@ describe('EnterpriseWeixinBridge', () => {
     await bridge._handleMessage(inboundFrame({ text: { content: '1' } }))
 
     expect(replies.at(-1).markdown.content).toContain('会话恢复中，请等待信息返回后，即可开始聊天')
-    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBe(reopened.id)
+    expect(bridge._sessionMapper.sessionMap.get('user-a')).toBe(reopened.id)
   })
 
   it('shows waiting text when a pending enterprise weixin message is replayed into an already-activated historical session', async () => {
@@ -504,7 +504,7 @@ describe('EnterpriseWeixinBridge', () => {
     }))
 
     expect(replies.at(-1).markdown.content).toContain('会话恢复中，请等待信息返回后，即可开始聊天')
-    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBe(reopened.id)
+    expect(bridge._sessionMapper.sessionMap.get('user-a')).toBe(reopened.id)
     expect(sent.map(item => item.channel)).toContain('enterprise-weixin:sessionCreated')
     expect(enqueueSpy).toHaveBeenCalled()
   })
@@ -551,11 +551,11 @@ describe('EnterpriseWeixinBridge', () => {
       text: { content: '/resume 1' },
     }))
 
-    expect(updateMetadataSpy).toHaveBeenCalledWith(reopened.id, expect.objectContaining({ userId: 'user-a', chatId: 'user-a' }))
+    expect(updateMetadataSpy).toHaveBeenCalledWith(reopened.id, expect.objectContaining({ userId: 'user-a', chatId: '' }))
     expect(manager.sessionDatabase.getAgentConversation(reopened.id)).toEqual(
       expect.objectContaining({
         im_user_id: 'user-a',
-        im_chat_id: 'user-a',
+        im_chat_id: '',
       })
     )
     expect(enqueueSpy).toHaveBeenCalled()
@@ -767,7 +767,7 @@ describe('EnterpriseWeixinBridge', () => {
         }),
       })
     )
-    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-a', chatId: 'user-a' }))
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenLastCalledWith(created.id, expect.objectContaining({ userId: 'user-a', chatId: '' }))
   })
 
   it('clears stale history choice state after proactive bind so the next inbound reply is not treated as a numeric selection', async () => {
@@ -782,7 +782,7 @@ describe('EnterpriseWeixinBridge', () => {
       text: { content: '第一次入站，先触发历史菜单' },
     }))
 
-    const mapKey = 'user-a:user-a'
+    const mapKey = 'user-a'
     expect(bridge._sessionMapper._pendingChoices.has(mapKey)).toBe(true)
     expect(bridge._pendingInboundMessages.has(mapKey)).toBe(true)
 
@@ -873,7 +873,7 @@ describe('EnterpriseWeixinBridge', () => {
       manager.sessions.delete(sessionId)
     })
 
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
+    bridge._sessionMapper.sessionMap.set('user-a', current.id)
     bridge._sessionIdentities.set(current.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -918,7 +918,7 @@ describe('EnterpriseWeixinBridge', () => {
     manager.sessions.get(current.id).queryGenerator = {}
     manager.sessions.get(oldBound.id).queryGenerator = {}
 
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
+    bridge._sessionMapper.sessionMap.set('user-a', current.id)
     bridge._sessionIdentities.set(current.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -984,7 +984,7 @@ describe('EnterpriseWeixinBridge', () => {
       chatType: 'single',
       chatName: '雷斯林',
     })
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', second.id)
+    bridge._sessionMapper.sessionMap.set('user-a', second.id)
 
     bridge._onDesktopIntervention(first.id, '旧会话不应回发', null)
     await bridge._onAgentResult(first.id)
@@ -1019,7 +1019,7 @@ describe('EnterpriseWeixinBridge', () => {
       text: '第一条',
     })
 
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', first.id)
+    bridge._sessionMapper.sessionMap.set('user-a', first.id)
     bridge._sessionIdentities.set(first.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -1037,7 +1037,7 @@ describe('EnterpriseWeixinBridge', () => {
     })
 
     expect(bridge._targetSessionMap.get('user-a')).toBe(second.id)
-    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBe(second.id)
+    expect(bridge._sessionMapper.sessionMap.get('user-a')).toBe(second.id)
   })
 
   it('clears enterprise weixin inbound routing state after unbinding a bound session', () => {
@@ -1058,7 +1058,7 @@ describe('EnterpriseWeixinBridge', () => {
       chatType: 'single',
       chatName: '雷斯林',
     })
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', session.id)
+    bridge._sessionMapper.sessionMap.set('user-a', session.id)
     bridge._sessionMapper.sessionMap.set('user-a:group-1', session.id)
 
     expect(bridge.unbindTarget(session.id)).toEqual({ success: true })
@@ -1066,7 +1066,7 @@ describe('EnterpriseWeixinBridge', () => {
     expect(bridge._targetSessionMap.get('user-a')).toBeUndefined()
     expect(bridge._sessionTargets.get(session.id)).toBeUndefined()
     expect(bridge._sessionIdentities.get(session.id)).toBeUndefined()
-    expect(bridge._sessionMapper.sessionMap.get('user-a:user-a')).toBeUndefined()
+    expect(bridge._sessionMapper.sessionMap.get('user-a')).toBeUndefined()
     expect(bridge._sessionMapper.sessionMap.get('user-a:group-1')).toBeUndefined()
     expect(manager.sessionDatabase.setImChannel).toHaveBeenCalledWith(session.id, null)
     expect(manager.sessionDatabase.clearImIdentity).toHaveBeenCalledWith(session.id)
@@ -1189,7 +1189,7 @@ describe('EnterpriseWeixinBridge', () => {
 
     manager.sessions.get(current.id).imChannel = 'enterprise-weixin'
     manager.sessions.get(history.id).imChannel = 'enterprise-weixin'
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', current.id)
+    bridge._sessionMapper.sessionMap.set('user-a', current.id)
     bridge._sessionIdentities.set(current.id, {
       userId: 'user-a',
       senderId: 'user-a',
@@ -1746,7 +1746,7 @@ describe('EnterpriseWeixinBridge', () => {
       chatType: 'single',
       chatName: '雷斯林',
     })
-    bridge._sessionMapper.sessionMap.set('user-a:user-a', sessionId)
+    bridge._sessionMapper.sessionMap.set('user-a', sessionId)
 
     bridge._onDesktopIntervention(sessionId, '', [
       {

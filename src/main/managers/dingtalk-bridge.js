@@ -208,7 +208,7 @@ class DingTalkBridge {
     this._stopped = false
     this._runtimeState = 'disabled'
 
-    // 钉钉身份 → Agent 会话映射：单聊 "staffId:conversationId"，群聊 "conversationId"
+    // 钉钉身份 → Agent 会话映射：单聊 "staffId"，群聊 "conversationId"
     this.sessionMap = new Map()
 
     // 响应收集器：{ sessionId: { chunks, resolve, webhook } }
@@ -276,8 +276,7 @@ class DingTalkBridge {
       defaultCwd: this.configManager?.getConfig?.()?.dingtalk?.defaultCwd || null,
       buildIdentityKey: (identity = {}) => {
         const staffId = identity.staffId || identity.userId || ''
-        const conversationId = identity.conversationId || identity.chatId || ''
-        return `${staffId}:${conversationId || 'default'}`
+        return staffId
       },
       buildSessionTitle: (identity = {}) => {
         const staffId = identity.staffId || identity.userId || ''
@@ -1073,9 +1072,7 @@ class DingTalkBridge {
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedStaffId, sessionId)
     this._sessionMapper.clearPendingChoice(proactiveMapKey)
-    if (isGroupChat) {
-      this.sessionMap.set(proactiveMapKey, sessionId)
-    }
+    this.sessionMap.set(proactiveMapKey, sessionId)
     if (this.agentSessionManager.sessionDatabase?.updateImIdentity) {
       try {
         this.agentSessionManager.sessionDatabase.updateImIdentity(sessionId, { userId: isGroupChat ? '' : resolvedStaffId, chatId: isGroupChat ? resolvedStaffId : '', chatType: isGroupChat ? 'group' : 'p2p' })
@@ -1360,31 +1357,23 @@ class DingTalkBridge {
 
   _clearCurrentConversationMapBinding(sessionId, staffId, targetType = 'user') {
     if (!sessionId || !staffId) return
-    if (targetType === 'chat') {
-      clearExactSessionMapping({
-        sessionMap: this.sessionMap,
-        mapKey: staffId,
-        sessionId,
-      })
-      return
-    }
-    const liveSession = this.agentSessionManager.sessions.get(sessionId)
-    const row = this.agentSessionManager.sessionDatabase?.getAgentConversation?.(sessionId)
-    const conversationId = liveSession?.meta?.conversationId
-      || (row?.im_channel === 'dingtalk' ? row?.im_chat_id : '')
-      || ''
-    if (!conversationId) return
     clearExactSessionMapping({
       sessionMap: this.sessionMap,
-      mapKey: `${staffId}:${conversationId}`,
+      mapKey: staffId,
       sessionId,
     })
   }
 
   _clearStaffConversationMapBindings(staffId, keepSessionId = null) {
+    const normalizedStaffId = typeof staffId === 'string' ? staffId.trim() : ''
+    if (!normalizedStaffId) return
+    const mappedSessionId = this.sessionMap.get(normalizedStaffId)
+    if (mappedSessionId && (!keepSessionId || mappedSessionId !== keepSessionId)) {
+      this.sessionMap.delete(normalizedStaffId)
+    }
     deleteSessionMappingsByPrefix({
       sessionMap: this.sessionMap,
-      prefix: `${staffId}:`,
+      prefix: `${normalizedStaffId}:`,
       keepSessionId,
     })
   }
@@ -1408,23 +1397,13 @@ class DingTalkBridge {
     const staffId = target?.staffId || metaStaffId || rowStaffId
     if (!staffId) return
 
-    const conversationId = typeof liveSession?.meta?.conversationId === 'string'
-      ? liveSession.meta.conversationId.trim()
-      : (
-          row?.im_channel === 'dingtalk' && typeof row?.im_chat_id === 'string'
-            ? row.im_chat_id.trim()
-            : ''
-        )
-
-    if (conversationId) {
-      this._proactiveRebindSuppressedKeys.add(`${staffId}:${conversationId}`)
-    }
-    this._proactiveRebindSuppressedKeys.add(`${staffId}:${staffId}`)
+    this._proactiveRebindSuppressedKeys.add(staffId)
   }
 
   _clearProactiveRebindSuppressionForStaff(staffId) {
     const normalizedStaffId = typeof staffId === 'string' ? staffId.trim() : ''
     if (!normalizedStaffId) return
+    this._proactiveRebindSuppressedKeys.delete(normalizedStaffId)
     for (const key of this._proactiveRebindSuppressedKeys) {
       if (key.startsWith(`${normalizedStaffId}:`)) {
         this._proactiveRebindSuppressedKeys.delete(key)
@@ -1443,7 +1422,7 @@ class DingTalkBridge {
     if (!allowSuppressed && mapKey && this._proactiveRebindSuppressedKeys.has(mapKey)) {
       return null
     }
-    if (!allowSuppressed && this._proactiveRebindSuppressedKeys.has(`${normalizedStaffId}:${normalizedStaffId}`)) {
+    if (!allowSuppressed && this._proactiveRebindSuppressedKeys.has(normalizedStaffId)) {
       return null
     }
 
@@ -1622,7 +1601,7 @@ class DingTalkBridge {
       const isGroupChat = isGroupConversationType(normalizedIdentity.conversationType)
       db.updateImIdentity(sessionId, {
         userId: isGroupChat ? '' : normalizedIdentity.staffId,
-        chatId: normalizedIdentity.conversationId,
+        chatId: isGroupChat ? normalizedIdentity.conversationId : '',
         chatType: isGroupChat ? 'group' : 'p2p',
       })
     }

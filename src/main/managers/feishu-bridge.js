@@ -91,7 +91,7 @@ class FeishuBridge {
       sessionDatabase: this._sessionDatabase,
       imType: 'feishu',
       maxHistorySessions: 5,
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId || '',
       buildSessionTitle: buildFeishuSessionTitle,
     })
 
@@ -259,7 +259,7 @@ class FeishuBridge {
       imType: 'feishu',
       maxHistorySessions: cfg.maxHistorySessions || 5,
       defaultCwd: cfg.defaultCwd || null,
-      buildIdentityKey: (identity) => `${identity.userId}:${identity.chatId}`,
+      buildIdentityKey: (identity) => identity.userId || '',
       buildSessionTitle: buildFeishuSessionTitle,
     })
   }
@@ -939,6 +939,7 @@ class FeishuBridge {
     const liveSession = this._agentSessionManager.sessions.get(sessionId)
     const dbRow = this._sessionDatabase?.getAgentConversation?.(sessionId)
     if (!liveSession && (!dbRow || dbRow.status === 'closed')) return rows
+    const isGroupChat = context.chatType === 'group' || context.chatType === 'chat'
 
     const currentRow = {
       ...(dbRow || {}),
@@ -950,8 +951,8 @@ class FeishuBridge {
       type: 'chat',
       source: 'im-inbound',
       im_channel: 'feishu',
-      im_user_id: dbRow?.im_user_id || context.senderId || '',
-      im_chat_id: dbRow?.im_chat_id || context.chatId || '',
+      im_user_id: dbRow?.im_user_id || (isGroupChat ? '' : context.senderId) || '',
+      im_chat_id: dbRow?.im_chat_id || (isGroupChat ? context.chatId : '') || '',
       status: dbRow?.status || liveSession?.status || 'idle',
     }
 
@@ -1012,6 +1013,11 @@ class FeishuBridge {
     if (sessionId) {
       const reopened = this._agentSessionManager.reopen(sessionId)
       if (reopened) {
+        if (chatType === 'p2p') {
+          this._restoreP2PTargetBinding(sessionId, senderId, {
+            displayName: identity.nickname || identity.chatName || senderId,
+          })
+        }
         return sessionId
       }
       this._clearSessionIdentity(sessionId)
@@ -1037,7 +1043,7 @@ class FeishuBridge {
         })
         if (this._sessionDatabase?.updateImIdentity) {
           try {
-            this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: chatId || '', chatType: 'p2p' })
+            this._sessionDatabase.updateImIdentity(proactiveSessionId, { userId: senderId || '', chatId: '', chatType: 'p2p' })
           } catch (err) {
             console.warn('[FeishuBridge] Failed to persist proactive Feishu binding:', err.message)
           }
@@ -1245,11 +1251,11 @@ class FeishuBridge {
     this._sessionTargets.set(sessionId, target)
     this._targetSessionMap.set(resolvedOpenId, sessionId)
 
-    // 写入 sessionMap（群聊 key=chatId，p2p key=userId:chatId）
+    // 写入 sessionMap（群聊 key=chatId，p2p key=userId）
     const isGroup = targetType === 'chat' || targetType === 'group'
     const bindMapKey = this._sessionMapper.buildKey({
       userId: resolvedOpenId,
-      chatId: isGroup ? resolvedOpenId : null,
+      chatId: isGroup ? resolvedOpenId : '',
       chatType: isGroup ? 'group' : 'p2p',
     })
     this._sessionMapper.sessionMap.set(bindMapKey, sessionId)
@@ -1258,7 +1264,7 @@ class FeishuBridge {
     this._sessionIdentities.set(sessionId, {
       senderId: resolvedOpenId,
       senderName: target.displayName || resolvedOpenId,
-      chatId: isGroup ? resolvedOpenId : null,
+      chatId: isGroup ? resolvedOpenId : '',
       chatType: isGroup ? 'group' : 'p2p',
       chatName: target.displayName || resolvedOpenId,
     })
@@ -1295,10 +1301,10 @@ class FeishuBridge {
   _clearP2PSessionMapBinding(sessionId, senderId) {
     if (!sessionId || !senderId) return
     const identity = this._sessionIdentities.get(sessionId)
-    if (!identity || identity.chatType !== 'p2p' || !identity.chatId) return
+    if (!identity || identity.chatType !== 'p2p') return
     clearExactSessionMapping({
       sessionMap: this._sessionMapper.sessionMap,
-      mapKey: this._sessionMapper.buildKey({ userId: senderId, chatId: identity.chatId }),
+      mapKey: this._sessionMapper.buildKey({ userId: senderId, chatType: 'p2p' }),
       sessionId,
       deleteEntry: (mapKeyToDelete) => this._sessionMapper.clearSessionState(mapKeyToDelete),
     })
@@ -1322,10 +1328,7 @@ class FeishuBridge {
       ? (target?.openId || identity?.senderId).trim()
       : ''
     if (senderId) {
-      this._proactiveRebindSuppressedKeys.add(`${senderId}:${senderId}`)
-      if (identity?.chatId) {
-        this._proactiveRebindSuppressedKeys.add(`${senderId}:${identity.chatId}`)
-      }
+      this._proactiveRebindSuppressedKeys.add(senderId)
     }
     if (target?.openId) {
       this._targetSessionMap.delete(target.openId)
@@ -1420,19 +1423,21 @@ class FeishuBridge {
   }
 
   _clearProactiveRebindSuppressionForSender(senderId) {
-    if (!senderId) return
+    const normalizedSenderId = typeof senderId === 'string' ? senderId.trim() : ''
+    if (!normalizedSenderId) return
+    this._proactiveRebindSuppressedKeys.delete(normalizedSenderId)
     for (const key of this._proactiveRebindSuppressedKeys) {
-      if (key.startsWith(`${senderId}:`)) {
+      if (key.startsWith(`${normalizedSenderId}:`)) {
         this._proactiveRebindSuppressedKeys.delete(key)
       }
     }
   }
 
-  async _findBoundSessionIdBySenderId(senderId, { allowDatabaseFallback = true } = {}) {
+  async _findBoundSessionIdBySenderId(senderId, { allowDatabaseFallback = true, allowSuppressed = false } = {}) {
     const normalizedSenderId = typeof senderId === 'string' ? senderId.trim() : ''
     if (!normalizedSenderId) return null
     if (this._freshStart) return null
-    if (this._proactiveRebindSuppressedKeys.has(`${normalizedSenderId}:${normalizedSenderId}`)) {
+    if (!allowSuppressed && this._proactiveRebindSuppressedKeys.has(normalizedSenderId)) {
       return null
     }
     const sessionId = this._targetSessionMap.get(normalizedSenderId)
@@ -1491,7 +1496,7 @@ class FeishuBridge {
     this._sessionIdentities.set(sessionId, {
       senderId: resolvedOpenId,
       senderName: resolvedDisplayName,
-      chatId: chatId || null,
+      chatId: '',
       chatType: 'p2p',
       chatName: resolvedDisplayName,
     })
@@ -1597,9 +1602,15 @@ class FeishuBridge {
       : null
     const historySessionId = currentSessionId || (
       context?.chatType === 'p2p' && context?.senderId
-        ? await this._findBoundSessionIdBySenderId(context.senderId)
+        ? await this._findBoundSessionIdBySenderId(context.senderId, { allowSuppressed: true })
         : null
     )
+    const senderId = typeof context?.senderId === 'string' ? context.senderId.trim() : ''
+    const statusFallbackSuppressed = context?.chatType === 'p2p' && senderId && (
+      (mapKey && this._proactiveRebindSuppressedKeys.has(mapKey)) ||
+      this._proactiveRebindSuppressedKeys.has(senderId)
+    )
+    const statusCurrentSessionId = currentSessionId || (statusFallbackSuppressed ? null : historySessionId)
     const history = context?.senderId && chatId
       ? this._mergeCurrentSessionIntoHistory(
           await this._sessionMapper._queryHistorySessions({
@@ -1618,7 +1629,7 @@ class FeishuBridge {
         )
       : []
     const statusText = Array.isArray(history) && history.length > 0
-      ? this._buildHistoryChoiceMenuText(history, currentSessionId, {
+      ? this._buildHistoryChoiceMenuText(history, statusCurrentSessionId, {
           title: '当前会话状态：',
           includeActionHint: false,
           includeNewSessionHint: false,
@@ -1688,7 +1699,6 @@ class FeishuBridge {
     if (!identity || identity.chatType !== 'p2p') return
     const mapKey = this._sessionMapper.buildKey({
       userId: identity.senderId,
-      chatId: identity.chatId,
       chatType: identity.chatType,
     })
     this._proactiveRebindSuppressedKeys.add(mapKey)
