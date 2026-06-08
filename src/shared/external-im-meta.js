@@ -55,14 +55,6 @@ export const EXTERNAL_IM_CHANNELS = {
   },
 }
 
-// 兼容旧名字（外部 import 仍在使用）
-export const EXTERNAL_IM_TYPES = EXTERNAL_IM_CHANNELS
-
-/** @returns {string[]} */
-export function getAllExternalImTypeIds() {
-  return Object.keys(EXTERNAL_IM_CHANNELS)
-}
-
 export function getAllExternalImChannels() {
   return Object.keys(EXTERNAL_IM_CHANNELS)
 }
@@ -71,9 +63,6 @@ export function getAllExternalImChannels() {
 export function isExternalImChannel(channel) {
   return typeof channel === 'string' && channel in EXTERNAL_IM_CHANNELS
 }
-
-// 兼容旧调用名
-export const isExternalImType = isExternalImChannel
 
 /** 获取 IM 渠道元数据 */
 export function getExternalImMeta(channel) {
@@ -90,16 +79,6 @@ export function getSessionImChannel(conv) {
   return conv?.imChannel || null
 }
 
-/** 获取会话图标 */
-export function getConversationIcon(conv) {
-  if (conv?.imChannel && isExternalImChannel(conv.imChannel)) {
-    return EXTERNAL_IM_CHANNELS[conv.imChannel].icon
-  }
-  if (conv?.taskId) return 'clock'
-  if (conv?.type === 'notebook') return 'notebook'
-  return 'chat'
-}
-
 /** 获取观察模式提示 i18n key */
 export function getObserveKey(channel) {
   const meta = EXTERNAL_IM_CHANNELS[channel]
@@ -110,9 +89,4 @@ export function getObserveKey(channel) {
 export function getSuffixKey(channel) {
   const meta = EXTERNAL_IM_CHANNELS[channel]
   return meta?.suffixKey || null
-}
-
-/** 需要禁用 slash 命令的 IM 渠道列表 */
-export function getExternalObserveSessionTypes() {
-  return Object.keys(EXTERNAL_IM_CHANNELS)
 }

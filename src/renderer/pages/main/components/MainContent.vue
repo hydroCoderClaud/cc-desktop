@@ -188,7 +188,7 @@ import AgentChatTab from './AgentChatTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
 import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
-import { EXTERNAL_IM_TYPES } from '@shared/external-im-meta'
+import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -669,8 +669,8 @@ const setupSessionListeners = () => {
   }
 
   // 外部 IM 会话关闭时，关闭对应 Tab（元数据驱动）
-  for (const imType of Object.keys(EXTERNAL_IM_TYPES)) {
-    const meta = EXTERNAL_IM_TYPES[imType]
+  for (const imType of Object.keys(EXTERNAL_IM_CHANNELS)) {
+    const meta = EXTERNAL_IM_CHANNELS[imType]
     const api = window.electronAPI
     const closeHandlerName = `on${meta.listenerPrefix}SessionClosed`
     const createHandlerName = `on${meta.listenerPrefix}SessionCreated`

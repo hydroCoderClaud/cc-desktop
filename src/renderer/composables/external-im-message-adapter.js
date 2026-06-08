@@ -8,11 +8,11 @@
  * 新增 IM 渠道时只需在此文件中添加一条 Listener 配置即可。
  */
 import { MessageRole } from './useAgentChat'
-import { EXTERNAL_IM_TYPES, getAllExternalImTypeIds } from '@shared/external-im-meta'
+import { EXTERNAL_IM_CHANNELS, getAllExternalImChannels } from '@shared/external-im-meta'
 
 /**
  * IM 消息监听器配置表
- * key: IM type id
+ * key: IM channel id
  * value: { channelName, normalize(data) → message bubble }
  */
 const IM_MESSAGE_LISTENER_CONFIG = {
@@ -76,14 +76,14 @@ const IM_MESSAGE_LISTENER_CONFIG = {
 
 /**
  * 为指定 IM 类型注册消息监听器
- * @param {string} imType - IM type id
+ * @param {string} imChannel - IM channel id
  * @param {string} sessionId - 当前会话 ID
  * @param {import('vue').Ref<Array>} messagesRef - 消息数组 ref
  * @param {Array<Function>} cleanupFns - 清理函数数组
  * @returns {boolean} 是否成功注册
  */
-function registerImListener(imType, sessionId, messagesRef, cleanupFns) {
-  const config = IM_MESSAGE_LISTENER_CONFIG[imType]
+function registerImListener(imChannel, sessionId, messagesRef, cleanupFns) {
+  const config = IM_MESSAGE_LISTENER_CONFIG[imChannel]
   if (!config) return false
 
   const api = window.electronAPI
@@ -105,25 +105,13 @@ function registerImListener(imType, sessionId, messagesRef, cleanupFns) {
  * @param {string} sessionId - 当前会话 ID
  * @param {import('vue').Ref<Array>} messagesRef - 消息数组 ref
  * @param {Array<Function>} cleanupFns - 清理函数数组（传入现有的 cleanupFns 即可）
- * @param {string[]} [enabledTypes] - 可选，只启用特定类型；不传则启用全部已注册的 IM 类型
+ * @param {string[]} [enabledChannels] - 可选，只启用特定渠道；不传则启用全部已注册的 IM 渠道
  */
-export function setupExternalImListeners(sessionId, messagesRef, cleanupFns, enabledTypes) {
-  const types = enabledTypes || getAllExternalImTypeIds()
-  for (const imType of types) {
-    if (EXTERNAL_IM_TYPES[imType]) {
-      registerImListener(imType, sessionId, messagesRef, cleanupFns)
+export function setupExternalImListeners(sessionId, messagesRef, cleanupFns, enabledChannels) {
+  const channels = enabledChannels || getAllExternalImChannels()
+  for (const imChannel of channels) {
+    if (EXTERNAL_IM_CHANNELS[imChannel]) {
+      registerImListener(imChannel, sessionId, messagesRef, cleanupFns)
     }
   }
-}
-
-/**
- * 构建外部 IM 消息 bubble（供外部手动推送使用）
- * @param {string} imType - IM type id
- * @param {{ text: string, senderNick?: string, images?: Array }} data
- * @returns {{ id: string, role: string, content: string, timestamp: number, origin: string, imChannel: string, senderNick?: string, images?: Array }|null}
- */
-export function buildExternalImMessage(imType, data) {
-  const config = IM_MESSAGE_LISTENER_CONFIG[imType]
-  if (!config) return null
-  return config.normalize({ text: data.text, senderNick: data.senderNick, images: data.images })
 }

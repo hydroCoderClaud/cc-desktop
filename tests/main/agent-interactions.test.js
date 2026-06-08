@@ -7,7 +7,6 @@ vi.mock('uuid', () => ({ v4: () => 'interaction-uuid-fixed' }))
 
 const { AgentSessionManager } = await import('../../src/main/agent-session-manager.js')
 const { AgentSession } = await import('../../src/main/agent-session.js')
-const { getConversationIcon } = await import('../../src/shared/external-im-meta.js')
 const {
   DESKTOP_CAPABILITY_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
@@ -205,13 +204,6 @@ describe('AgentSessionManager interactions', () => {
         im_channel: 'feishu'
       })
     ])
-  })
-
-  it('uses IM icon for chat sessions bound by IM channel', () => {
-    expect(getConversationIcon({ imChannel: 'feishu' })).toBe('feishu')
-    expect(getConversationIcon({ imChannel: 'weixin' })).toBe('weixin')
-    expect(getConversationIcon({ imChannel: 'dingtalk' })).toBe('dingtalk')
-    expect(getConversationIcon({ imChannel: 'enterprise-weixin' })).toBe('wecom')
   })
 
   it('emits session updated when binding an IM channel onto a normal chat session', () => {
