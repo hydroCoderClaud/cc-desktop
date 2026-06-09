@@ -14,11 +14,8 @@ const QR_LOGIN_TTL_MS = 5 * 60 * 1000
 const QR_POLL_TIMEOUT_MS = 35 * 1000
 const API_TIMEOUT_MS = 15 * 1000
 const UPDATES_TIMEOUT_MS = 45 * 1000
-const BACKGROUND_POLL_INTERVAL_MS = 1500
-const BACKGROUND_FAST_POLL_INTERVAL_MS = 500
-const BACKGROUND_POLL_TIMEOUT_MS = 5000
-const BACKGROUND_FAST_POLL_TIMEOUT_MS = 2000
-const FAST_POLL_WINDOW_MS = 60 * 1000
+const BACKGROUND_POLL_INTERVAL_MS = 100
+const BACKGROUND_POLL_TIMEOUT_MS = 500
 const IMAGE_MAX_SIZE = 20 * 1024 * 1024
 const PRE_CAPTURE_WELCOME_TEXT = '您已经绑定HydroDesktop，可以随时接收和发送信息给后台大模型。'
 const STATE_VERSION = 2
@@ -206,6 +203,20 @@ function isAbortError(err) {
   return err?.name === 'AbortError' || err?.message === 'This operation was aborted'
 }
 
+function isWeixinQueueTimingEnabled() {
+  const value = String(process.env.HYDRO_WEIXIN_QUEUE_TIMING || '').trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+function logWeixinQueueTiming(event, payload = {}) {
+  if (!isWeixinQueueTimingEnabled()) return
+  try {
+    console.log(`[WeixinQueueTiming] ${event}`, JSON.stringify(payload))
+  } catch {
+    console.log(`[WeixinQueueTiming] ${event}`)
+  }
+}
+
 function getDefaultSecretStore() {
   try {
     const { safeStorage } = require('electron')
@@ -246,16 +257,10 @@ class WeixinNotifyService {
     this.backgroundTimer = null
     this.backgroundStopped = true
     this.backgroundPollIntervalMs = Math.max(Number(options.backgroundPollIntervalMs) || BACKGROUND_POLL_INTERVAL_MS, 100)
-    this.backgroundFastPollIntervalMs = Math.max(Number(options.backgroundFastPollIntervalMs) || BACKGROUND_FAST_POLL_INTERVAL_MS, 100)
     this.backgroundPollTimeoutMs = Math.min(
-      Math.max(Number(options.backgroundPollTimeoutMs) || BACKGROUND_POLL_TIMEOUT_MS, 1000),
+      Math.max(Number(options.backgroundPollTimeoutMs) || BACKGROUND_POLL_TIMEOUT_MS, 500),
       UPDATES_TIMEOUT_MS
     )
-    this.backgroundFastPollTimeoutMs = Math.min(
-      Math.max(Number(options.backgroundFastPollTimeoutMs) || BACKGROUND_FAST_POLL_TIMEOUT_MS, 1000),
-      UPDATES_TIMEOUT_MS
-    )
-    this.fastPollUntilMs = 0
   }
 
   start() {
@@ -434,9 +439,16 @@ class WeixinNotifyService {
   async _pollOnceUnlocked({ accountId, timeoutMs, emitInbound = true } = {}) {
     const accounts = accountId ? [this._requireAccount(accountId)] : this.state.accounts
     const pollTimeoutMs = Math.min(
-      Math.max(Number(timeoutMs) || UPDATES_TIMEOUT_MS, 1000),
+      Math.max(Number(timeoutMs) || UPDATES_TIMEOUT_MS, 500),
       UPDATES_TIMEOUT_MS
     )
+    const pollStartedAt = Date.now()
+    logWeixinQueueTiming('poll batch start', {
+      accountId: accountId || null,
+      accountCount: accounts.length,
+      pollTimeoutMs,
+      emitInbound,
+    })
     const results = await Promise.all(accounts.map(account => this._queueAccountPoll(
       account.accountId,
       () => this._pollAccountOnce(account, pollTimeoutMs)
@@ -446,6 +458,16 @@ class WeixinNotifyService {
     const targets = results.flatMap(result => result.targets)
 
     const result = { messages, targets }
+    logWeixinQueueTiming('poll batch done', {
+      accountId: accountId || null,
+      accountCount: accounts.length,
+      pollTimeoutMs,
+      emitInbound,
+      elapsedMs: Date.now() - pollStartedAt,
+      messageCount: messages.length,
+      inboundCount: inboundMessages.length,
+      targetCount: targets.length,
+    })
     if (emitInbound) {
       this._emitInboundMessages(inboundMessages)
     }
@@ -467,6 +489,7 @@ class WeixinNotifyService {
   }
 
   async _pollAccountOnce(account, pollTimeoutMs) {
+    const pollStartedAt = Date.now()
     const messages = []
     const inboundMessages = []
     const targets = []
@@ -485,6 +508,12 @@ class WeixinNotifyService {
       throw err
     }
     assertWeixinResponseOk(response, 'getupdates')
+    logWeixinQueueTiming('poll account done', {
+      accountId: account.accountId,
+      pollTimeoutMs,
+      elapsedMs: Date.now() - pollStartedAt,
+      returnedCount: Array.isArray(response?.msgs) ? response.msgs.length : 0,
+    })
 
     if (response.get_updates_buf) {
       account.cursor = response.get_updates_buf
@@ -522,6 +551,17 @@ class WeixinNotifyService {
         createTimeMs: message.create_time_ms || null,
         target: publicMessageTarget
       }
+      logWeixinQueueTiming('poll message captured', {
+        accountId: account.accountId,
+        targetId: target.id,
+        from: message.from_user_id,
+        textPreview: String(text || '').slice(0, 80),
+        messageCreateTimeMs: message.create_time_ms || null,
+        captureDelayMs: Number.isFinite(Number(message.create_time_ms))
+          ? Date.now() - Number(message.create_time_ms)
+          : null,
+        pollElapsedMs: Date.now() - pollStartedAt,
+      })
       messages.push(normalizedMessage)
       if (preCapturing) {
         capturedForPreCapture = true
@@ -561,14 +601,29 @@ class WeixinNotifyService {
   async sendText({ accountId, targetId, text, sessionId } = {}) {
     const normalizedText = String(text || '').trim()
     if (!normalizedText) throw new Error('发送内容不能为空')
+    const startedAt = Date.now()
+    logWeixinQueueTiming('notify sendText start', {
+      accountId,
+      targetId,
+      sessionId: sessionId || null,
+      textPreview: normalizedText.slice(0, 80),
+    })
 
-    return this._sendMessageItems({
+    const result = await this._sendMessageItems({
       accountId,
       targetId,
       sessionId,
       items: [{ type: MESSAGE_ITEM_TYPE.TEXT, text_item: { text: normalizedText } }],
       text: normalizedText
     })
+    logWeixinQueueTiming('notify sendText done', {
+      accountId,
+      targetId,
+      sessionId: sessionId || null,
+      elapsedMs: Date.now() - startedAt,
+      textPreview: normalizedText.slice(0, 80),
+    })
+    return result
   }
 
   async sendImages({ accountId, targetId, text = '', images = [], imagePaths = [], sessionId } = {}) {
@@ -634,11 +689,20 @@ class WeixinNotifyService {
   }
 
   async _sendMessageItems({ accountId, targetId, items, text = '', sessionId, imageCount = 0, target: resolvedTarget, account: resolvedAccount } = {}) {
+    const startedAt = Date.now()
     const target = resolvedTarget || this._resolveTarget({ accountId, targetId })
     const account = resolvedAccount || this._requireAccount(target.accountId)
     if (!target.contextToken) {
       throw new Error('目标缺少 contextToken，请先让该微信用户向 bot 发送一条消息')
     }
+    logWeixinQueueTiming('notify sendmessage items start', {
+      accountId: target.accountId,
+      targetId: target.id,
+      sessionId: sessionId || null,
+      itemCount: Array.isArray(items) ? items.length : 0,
+      imageCount,
+      textPreview: String(text || '').slice(0, 80),
+    })
 
     let lastResponse = null
     let lastClientId = null
@@ -692,6 +756,16 @@ class WeixinNotifyService {
       response: publicSendResponse(lastResponse),
       target: publicTarget(target)
     }
+    logWeixinQueueTiming('notify sendmessage items done', {
+      accountId: target.accountId,
+      targetId: target.id,
+      sessionId: sessionId || null,
+      elapsedMs: Date.now() - startedAt,
+      itemCount: Array.isArray(items) ? items.length : 0,
+      imageCount,
+      messageId: lastClientId,
+      textPreview: String(text || '').slice(0, 80),
+    })
     this.events.emit('sent', {
       accountId: target.accountId,
       targetId: target.id,
@@ -992,20 +1066,16 @@ class WeixinNotifyService {
     }
   }
 
-  _isFastPollingActive() {
-    return Date.now() < this.fastPollUntilMs
-  }
-
-  _activateFastPolling(windowMs = FAST_POLL_WINDOW_MS) {
-    this.fastPollUntilMs = Math.max(this.fastPollUntilMs, Date.now() + windowMs)
-  }
-
   _getBackgroundPollIntervalMs() {
-    return this._isFastPollingActive() ? this.backgroundFastPollIntervalMs : this.backgroundPollIntervalMs
+    return this.backgroundPollIntervalMs
   }
 
   _getBackgroundPollTimeoutMs() {
-    return this._isFastPollingActive() ? this.backgroundFastPollTimeoutMs : this.backgroundPollTimeoutMs
+    return this.backgroundPollTimeoutMs
+  }
+
+  _activateFastPolling() {
+    // Polling is now fixed to a single cadence; keep this no-op for call-site compatibility.
   }
 
   _scheduleBackgroundPoll(delayMs = this._getBackgroundPollIntervalMs()) {
@@ -1107,6 +1177,14 @@ class WeixinNotifyService {
     const body = JSON.stringify(payload)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const startedAt = Date.now()
+    const endpointText = String(endpoint || '')
+    if (endpointText.includes('sendmessage')) {
+      logWeixinQueueTiming('notify api start', {
+        endpoint: endpointText,
+        timeoutMs,
+      })
+    }
     try {
       const response = await globalThis.fetch(new URL(endpoint, ensureTrailingSlash(baseUrl)), {
         method: 'POST',
@@ -1116,7 +1194,23 @@ class WeixinNotifyService {
       })
       const text = await response.text()
       if (!response.ok) throw new Error(`微信接口请求失败：${response.status} ${text}`)
+      if (endpointText.includes('sendmessage')) {
+        logWeixinQueueTiming('notify api done', {
+          endpoint: endpointText,
+          elapsedMs: Date.now() - startedAt,
+          status: response.status,
+        })
+      }
       return text ? JSON.parse(text) : {}
+    } catch (err) {
+      if (endpointText.includes('sendmessage')) {
+        logWeixinQueueTiming('notify api failed', {
+          endpoint: endpointText,
+          elapsedMs: Date.now() - startedAt,
+          error: err?.message || String(err),
+        })
+      }
+      throw err
     } finally {
       clearTimeout(timer)
     }

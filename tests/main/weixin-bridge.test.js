@@ -189,6 +189,18 @@ describe('WeixinBridge', () => {
     expect(calls).toEqual(['第一条', '第二条'])
   })
 
+  it('resolves inbound queue immediately when the session is not streaming', async () => {
+    const { bridge, manager } = createHarness()
+    const commandSpy = vi.spyOn(bridge, '_handleWeixinCommand').mockResolvedValue()
+
+    bridge.start()
+    const first = bridge._enqueueInboundMessage(inboundMessage({ text: '/help' }))
+    await expect(first).resolves.toBeNull()
+
+    expect(commandSpy).toHaveBeenCalledWith('/help', expect.objectContaining({ targetId: 'acc-1:user-a' }))
+    expect(manager.sessions.size).toBe(0)
+  })
+
   it('submits inbound Weixin images to Agent and frontend', async () => {
     const { bridge, manager, sent } = createHarness()
     const sendMessage = stubSendMessage(manager)

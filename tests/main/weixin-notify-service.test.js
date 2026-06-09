@@ -1045,6 +1045,18 @@ describe('WeixinNotifyService', () => {
     expect(signal).toBeInstanceOf(AbortSignal)
   })
 
+  it('uses a single fixed background polling cadence', () => {
+    const service = createService()
+
+    expect(service._getBackgroundPollTimeoutMs()).toBe(500)
+    expect(service._getBackgroundPollIntervalMs()).toBe(100)
+
+    service._activateFastPolling()
+
+    expect(service._getBackgroundPollTimeoutMs()).toBe(500)
+    expect(service._getBackgroundPollIntervalMs()).toBe(100)
+  })
+
   it('rejects nonzero sendmessage business responses', async () => {
     const service = createService()
     service.state.accounts.push({

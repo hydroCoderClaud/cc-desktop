@@ -31,6 +31,20 @@ const {
   resolveRenameCommand,
 } = require('./im-command-executor')
 
+function isWeixinQueueTimingEnabled() {
+  const value = String(process.env.HYDRO_WEIXIN_QUEUE_TIMING || '').trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+function logWeixinQueueTiming(event, payload = {}) {
+  if (!isWeixinQueueTimingEnabled()) return
+  try {
+    console.log(`[WeixinQueueTiming] ${event}`, JSON.stringify(payload))
+  } catch {
+    console.log(`[WeixinQueueTiming] ${event}`)
+  }
+}
+
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
     this.configManager = configManager
@@ -93,9 +107,17 @@ class WeixinBridge {
   _enqueueInboundMessage(message) {
     const mapKey = this._getMapKey(message)
     const previous = this.inboundMessageQueues.get(mapKey) || Promise.resolve()
+    const queuedAt = Date.now()
+    const debugLabel = String(message?.text || '').trim() || (Array.isArray(message?.images) && message.images.length > 0 ? '[images]' : '[empty]')
+    logWeixinQueueTiming('queued inbound', {
+      mapKey,
+      targetId: message?.targetId || null,
+      text: debugLabel,
+      hadPrevious: this.inboundMessageQueues.has(mapKey),
+    })
     const next = previous
       .catch(() => {})
-      .then(() => this._handleMessageAndWait(message))
+      .then(() => this._handleMessageAndWait(message, { queuedAt, mapKey, debugLabel }))
       .catch(err => {
         console.error('[WeixinBridge] Message handling error:', err)
       })
@@ -108,20 +130,69 @@ class WeixinBridge {
     return next
   }
 
-  async _handleMessageAndWait(message) {
+  async _handleMessageAndWait(message, debugMeta = null) {
+    const handleStartedAt = Date.now()
+    logWeixinQueueTiming('start handling inbound', {
+      mapKey: debugMeta?.mapKey || this._getMapKey(message),
+      targetId: message?.targetId || null,
+      text: debugMeta?.debugLabel || String(message?.text || '').trim() || null,
+      queueWaitMs: typeof debugMeta?.queuedAt === 'number' ? handleStartedAt - debugMeta.queuedAt : null,
+    })
     const sessionId = await this._handleMessage(message)
     if (!sessionId) return null
-    return this._waitForAgentCompletion(sessionId)
+    const waitStartedAt = Date.now()
+    await this._waitForAgentCompletion(sessionId, {
+      ...debugMeta,
+      handleStartedAt,
+      waitStartedAt,
+      message,
+    })
+    logWeixinQueueTiming('inbound fully handled', {
+      mapKey: debugMeta?.mapKey || this._getMapKey(message),
+      sessionId,
+      targetId: message?.targetId || null,
+      text: debugMeta?.debugLabel || String(message?.text || '').trim() || null,
+      totalSinceQueuedMs: typeof debugMeta?.queuedAt === 'number' ? Date.now() - debugMeta.queuedAt : null,
+      waitAfterHandleMs: Date.now() - waitStartedAt,
+    })
+    return null
   }
 
-  _waitForAgentCompletion(sessionId) {
+  _waitForAgentCompletion(sessionId, debugMeta = null) {
     if (!sessionId) return Promise.resolve()
     const session = this.agentSessionManager?.sessions?.get(sessionId)
-    if (!session || session.status !== 'streaming') return Promise.resolve()
+    if (!session || session.status !== 'streaming') {
+      logWeixinQueueTiming('no streaming wait', {
+        sessionId,
+        status: session?.status || null,
+        mapKey: debugMeta?.mapKey || null,
+        targetId: debugMeta?.message?.targetId || null,
+        text: debugMeta?.debugLabel || null,
+      })
+      return Promise.resolve()
+    }
+
+    logWeixinQueueTiming('waiting for agent completion', {
+      sessionId,
+      status: session.status,
+      mapKey: debugMeta?.mapKey || null,
+      targetId: debugMeta?.message?.targetId || null,
+      text: debugMeta?.debugLabel || null,
+    })
 
     return new Promise(resolve => {
       const waiters = this.inboundCompletionWaiters.get(sessionId) || []
-      waiters.push(resolve)
+      waiters.push(() => {
+        logWeixinQueueTiming('streaming wait released', {
+          sessionId,
+          mapKey: debugMeta?.mapKey || null,
+          targetId: debugMeta?.message?.targetId || null,
+          text: debugMeta?.debugLabel || null,
+          waitedMs: typeof debugMeta?.waitStartedAt === 'number' ? Date.now() - debugMeta.waitStartedAt : null,
+          totalSinceQueuedMs: typeof debugMeta?.queuedAt === 'number' ? Date.now() - debugMeta.queuedAt : null,
+        })
+        resolve()
+      })
       this.inboundCompletionWaiters.set(sessionId, waiters)
     })
   }
@@ -852,9 +923,22 @@ class WeixinBridge {
   }
 
   async _handleWeixinCommand(text, message, options = {}) {
+    const commandStartedAt = Date.now()
     const identity = this._buildIdentity(message)
     const mapKey = this._sessionMapper.buildKey(identity)
+    logWeixinQueueTiming('command resolve current start', {
+      command: String(text || '').trim(),
+      mapKey,
+      targetId: message?.targetId || null,
+    })
     let currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
+    logWeixinQueueTiming('command resolve current done', {
+      command: String(text || '').trim(),
+      mapKey,
+      targetId: message?.targetId || null,
+      currentSessionId,
+      elapsedMs: Date.now() - commandStartedAt,
+    })
     const receiveTarget = {
       accountId: message.accountId,
       targetId: message.targetId,
@@ -1072,6 +1156,12 @@ class WeixinBridge {
         await this._replyToWeixin(receiveTarget, buildUnknownCommandText(rawCommand))
       },
     })
+    logWeixinQueueTiming('command dispatch done', {
+      command: String(text || '').trim(),
+      mapKey,
+      targetId: message?.targetId || null,
+      totalElapsedMs: Date.now() - commandStartedAt,
+    })
   }
 
   _cmdHelp() {
@@ -1141,6 +1231,12 @@ class WeixinBridge {
 
   async _replyToWeixin(message, text) {
     if (!this.weixinNotifyService?.sendText) return
+    const replyStartedAt = Date.now()
+    logWeixinQueueTiming('reply send start', {
+      targetId: message?.targetId || null,
+      sessionId: this.sessionMap.get(message.targetId) || null,
+      textPreview: String(text || '').slice(0, 80),
+    })
     try {
       await this.weixinNotifyService.sendText({
         accountId: message.accountId,
@@ -1148,7 +1244,19 @@ class WeixinBridge {
         text,
         sessionId: this.sessionMap.get(message.targetId) || null,
       })
+      logWeixinQueueTiming('reply send done', {
+        targetId: message?.targetId || null,
+        sessionId: this.sessionMap.get(message.targetId) || null,
+        elapsedMs: Date.now() - replyStartedAt,
+        textPreview: String(text || '').slice(0, 80),
+      })
     } catch (err) {
+      logWeixinQueueTiming('reply send failed', {
+        targetId: message?.targetId || null,
+        sessionId: this.sessionMap.get(message.targetId) || null,
+        elapsedMs: Date.now() - replyStartedAt,
+        error: err?.message || String(err),
+      })
       console.error('[WeixinBridge] Command reply failed:', err.message)
     }
   }
