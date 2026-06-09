@@ -304,6 +304,16 @@ class WeixinNotifyService {
       .map(publicTarget)
   }
 
+  getTargetById(targetId) {
+    this.state = this._loadState()
+    const rawTargetId = String(targetId || '').trim()
+    if (!rawTargetId) return null
+    const target = this.state.targets.find(item =>
+      this._isVisibleTarget(item) && item.id === rawTargetId
+    )
+    return target ? publicTarget(target) : null
+  }
+
   updateTarget({ accountId, targetId, displayName } = {}) {
     const target = this._resolveTarget({ accountId, targetId })
     const normalizedName = String(displayName || '').trim()

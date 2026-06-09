@@ -38,19 +38,29 @@ describe('WeixinBridge', () => {
       insertAgentMessage: vi.fn(),
       createAgentConversation: vi.fn(() => ({ id: 1 })),
       updateAgentConversation: vi.fn(),
+      updateImIdentity: vi.fn(),
       updateAgentMessageToolOutput: vi.fn(),
       getAgentConversation: vi.fn(() => null)
     }
     const service = {
       sendText: vi.fn(async payload => ({ success: true, target: { id: payload.targetId } })),
       sendImages: vi.fn(async payload => ({ success: true, target: { id: payload.targetId } })),
+      getTargetById: vi.fn(targetId => targetId === 'acc-1:user-a'
+        ? {
+            id: 'acc-1:user-a',
+            accountId: 'acc-1',
+            userId: 'user-a',
+            displayName: '雷斯林',
+            hasContextToken: true
+          }
+        : null),
       on: (eventName, listener) => {
         events.on(eventName, listener)
         return () => events.off(eventName, listener)
       }
     }
     const bridge = new WeixinBridge(configManager, manager, service, mainWindow)
-    return { bridge, manager, events, sent }
+    return { bridge, manager, events, sent, service }
   }
 
   function inboundMessage(overrides = {}) {
@@ -331,6 +341,211 @@ describe('WeixinBridge', () => {
         })
       }
     })
+  })
+
+  it('persists canonical weixin single chat identity without accountId in im_chat_id', () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    bridge.bindTarget(created.id, {
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+
+    expect(manager.sessionDatabase.updateAgentConversation).toHaveBeenCalledWith(created.id, {
+      imChannel: 'weixin'
+    })
+    expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(created.id, {
+      userId: 'acc-1:user-a',
+      chatId: '',
+      chatType: 'p2p'
+    })
+  })
+
+  it('restores weixin binding from persisted targetId via weixin target registry', () => {
+    const { bridge, manager, service } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+
+    manager.sessions.delete(created.id)
+    manager.sessionDatabase.getAgentConversation.mockReturnValue({
+      session_id: created.id,
+      status: 'streaming',
+      im_channel: 'weixin',
+      im_user_id: 'acc-1:user-a',
+      im_chat_id: ''
+    })
+
+    expect(bridge.getBinding(created.id)).toEqual({
+      accountId: 'acc-1',
+      targetId: 'acc-1:user-a',
+      displayName: '雷斯林'
+    })
+    expect(service.getTargetById).toHaveBeenCalledWith('acc-1:user-a')
+  })
+
+  it('prompts for history after the current weixin session was closed on desktop', async () => {
+    const { bridge, manager } = createHarness()
+    stubSendMessage(manager)
+
+    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'weixin', title: '当前会话' })
+    const historyRow = {
+      session_id: 'hist-weixin-1',
+      title: '历史微信会话',
+      type: 'chat',
+      source: 'im-inbound',
+      im_channel: 'weixin',
+      im_user_id: 'acc-1:user-a',
+      im_chat_id: '',
+      updated_at: Date.now() - 60 * 1000,
+      status: 'idle'
+    }
+
+    bridge.sessionMap.set('acc-1:user-a', current.id)
+    manager.sessionDatabase.getAgentConversation.mockImplementation((sessionId) => {
+      if (sessionId === current.id) {
+        return {
+          session_id: current.id,
+          type: 'chat',
+          title: '当前会话',
+          im_channel: 'weixin',
+          status: 'closed'
+        }
+      }
+      return null
+    })
+    manager.sessionDatabase.getImSessionsByType = vi.fn(() => [historyRow])
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+    const createSession = vi.spyOn(bridge._sessionMapper, 'createSession')
+
+    manager.sessions.delete(current.id)
+    await bridge._handleMessage(inboundMessage({ text: '关闭后继续' }))
+
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'acc-1:user-a' }),
+      expect.stringContaining('历史微信会话')
+    )
+    expect(createSession).not.toHaveBeenCalled()
+    expect(bridge.pendingInboundMessages.get('acc-1:user-a')?.message).toEqual(
+      expect.objectContaining({ text: '关闭后继续' })
+    )
+  })
+
+  it('resumes selected weixin history session after numeric reply', async () => {
+    const { bridge, manager } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+
+    const historySessionId = 'hist-weixin-2'
+    bridge._sessionMapper._pendingChoices.set('acc-1:user-a', {
+      sessions: [{ session_id: historySessionId, title: '历史微信会话 2', updated_at: Date.now() - 60 * 1000 }],
+      resolve: () => {},
+      timer: setTimeout(() => {}, 60 * 1000),
+      options: {}
+    })
+    bridge.pendingInboundMessages.set('acc-1:user-a', {
+      message: inboundMessage({ text: '继续之前内容' }),
+      identity: {
+        userId: 'acc-1:user-a',
+        targetId: 'acc-1:user-a',
+        chatType: 'p2p',
+        nickname: '雷斯林',
+      }
+    })
+
+    const reopened = manager.create({ type: 'chat', source: 'manual', title: '历史微信会话 2' })
+    manager.sessions.delete(reopened.id)
+    vi.spyOn(manager, 'reopen').mockImplementation((sessionId) => {
+      if (sessionId !== historySessionId) return null
+      const session = {
+        ...reopened,
+        id: historySessionId,
+        title: '历史微信会话 2',
+        messages: [],
+        status: 'idle',
+        imChannel: 'weixin'
+      }
+      manager.sessions.set(historySessionId, session)
+      return session
+    })
+
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+    const notifySpy = vi.spyOn(bridge, '_notifyFrontend')
+
+    await bridge._handleMessage(inboundMessage({ text: '1' }))
+
+    expect(manager.reopen).toHaveBeenCalledWith(historySessionId)
+    expect(bridge.sessionMap.get('acc-1:user-a')).toBe(historySessionId)
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '1' }),
+      expect.stringContaining('会话恢复中，请等待信息返回后，即可开始聊天')
+    )
+    expect(notifySpy).toHaveBeenCalledWith(
+      'weixin:sessionCreated',
+      expect.objectContaining({ sessionId: historySessionId })
+    )
+    expect(sendMessage).toHaveBeenCalledWith(
+      historySessionId,
+      '继续之前内容',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          origin: 'im-inbound',
+          imChannel: 'weixin',
+          targetId: 'acc-1:user-a'
+        })
+      })
+    )
+
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('acc-1:user-a')?.timer)
+  })
+
+  it('creates a new weixin session from pending choice and replays hello activation', async () => {
+    const { bridge, manager } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+    const notifySpy = vi.spyOn(bridge, '_notifyFrontend')
+
+    bridge._sessionMapper._pendingChoices.set('acc-1:user-a', {
+      sessions: [{ session_id: 'hist-weixin-3', title: '历史微信会话 3', updated_at: Date.now() - 60 * 1000 }],
+      resolve: () => {},
+      timer: setTimeout(() => {}, 60 * 1000),
+      options: {}
+    })
+    bridge.pendingInboundMessages.set('acc-1:user-a', {
+      message: inboundMessage({ text: '重新开始' }),
+      identity: {
+        userId: 'acc-1:user-a',
+        targetId: 'acc-1:user-a',
+        chatType: 'p2p',
+        nickname: '雷斯林',
+      }
+    })
+
+    await bridge._handleMessage(inboundMessage({ text: '0' }))
+
+    const created = Array.from(manager.sessions.values()).find(session => session.title === '微信 · 雷斯林')
+    expect(created).toBeTruthy()
+    expect(bridge.sessionMap.get('acc-1:user-a')).toBe(created.id)
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '0' }),
+      expect.stringContaining('会话创建中，请等待信息返回后，即可开始聊天')
+    )
+    expect(notifySpy).toHaveBeenCalledWith(
+      'weixin:sessionCreated',
+      expect.objectContaining({ sessionId: created.id })
+    )
+    expect(sendMessage).toHaveBeenCalledWith(
+      created.id,
+      '重新开始',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          origin: 'im-inbound',
+          imChannel: 'weixin',
+          targetId: 'acc-1:user-a'
+        })
+      })
+    )
+
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('acc-1:user-a')?.timer)
   })
 
   it('does not remove the newer route when unbinding an old session', () => {
@@ -640,6 +855,126 @@ describe('WeixinBridge', () => {
       imagePaths: [imagePath],
       sessionId: session.id
     })
+  })
+
+  it('shows status as a history-style menu for the current weixin target', async () => {
+    const { bridge, manager } = createHarness()
+    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'weixin', title: '当前微信会话' })
+    current.queryGenerator = {}
+    bridge.sessionMap.set('acc-1:user-a', current.id)
+    manager.sessionDatabase.getImSessionsByType = vi.fn(() => [
+      {
+        session_id: current.id,
+        title: '当前微信会话',
+        cwd: current.cwd,
+        api_profile_id: null,
+        updated_at: Date.now(),
+        im_channel: 'weixin',
+        im_user_id: 'acc-1:user-a',
+        im_chat_id: '',
+        status: 'idle'
+      }
+    ])
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+
+    await bridge._handleWeixinCommand('/status', inboundMessage({ text: '/status' }))
+
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'acc-1:user-a' }),
+      expect.stringContaining('当前会话状态：')
+    )
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'acc-1:user-a' }),
+      expect.stringContaining('✅ ')
+    )
+  })
+
+  it('shows resume history choice menu for the current weixin target', async () => {
+    const { bridge, manager } = createHarness()
+    const current = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'weixin', title: '当前微信会话' })
+    bridge.sessionMap.set('acc-1:user-a', current.id)
+    manager.sessionDatabase.getImSessionsByType = vi.fn(() => [
+      {
+        session_id: current.id,
+        title: '当前微信会话',
+        cwd: current.cwd,
+        api_profile_id: null,
+        updated_at: Date.now(),
+        im_channel: 'weixin',
+        im_user_id: 'acc-1:user-a',
+        im_chat_id: '',
+        status: 'idle'
+      },
+      {
+        session_id: 'hist-weixin-resume',
+        title: '更早的微信会话',
+        cwd: current.cwd,
+        api_profile_id: null,
+        updated_at: Date.now() - 60 * 1000,
+        im_channel: 'weixin',
+        im_user_id: 'acc-1:user-a',
+        im_chat_id: '',
+        status: 'idle'
+      }
+    ])
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+
+    await bridge._handleWeixinCommand('/resume', inboundMessage({ text: '/resume' }))
+
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'acc-1:user-a' }),
+      expect.stringContaining('您有以下历史会话，请回复数字选择：')
+    )
+    expect(bridge._sessionMapper._pendingChoices.get('acc-1:user-a')).toBeTruthy()
+    clearTimeout(bridge._sessionMapper._pendingChoices.get('acc-1:user-a')?.timer)
+  })
+
+  it('activates a new weixin session after /new command', async () => {
+    const { bridge, manager } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    const replySpy = vi.spyOn(bridge, '_replyToWeixin').mockResolvedValue()
+    const notifySpy = vi.spyOn(bridge, '_notifyFrontend')
+
+    await bridge._handleWeixinCommand('/new', inboundMessage({ text: '/new' }))
+
+    const created = Array.from(manager.sessions.values()).find(session => session.title === '微信 · 雷斯林')
+    expect(created).toBeTruthy()
+    expect(bridge.sessionMap.get('acc-1:user-a')).toBe(created.id)
+    expect(replySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'acc-1:user-a' }),
+      expect.stringContaining('会话创建中，请等待信息返回后，即可开始聊天')
+    )
+    expect(notifySpy).toHaveBeenCalledWith(
+      'weixin:sessionCreated',
+      expect.objectContaining({ sessionId: created.id })
+    )
+    expect(sendMessage).toHaveBeenCalledWith(
+      created.id,
+      'hello',
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          origin: 'im-inbound',
+          imChannel: 'weixin',
+          targetId: 'acc-1:user-a'
+        })
+      })
+    )
+  })
+
+  it('formats weixin help text with blank-line-separated commands', () => {
+    const { bridge } = createHarness()
+
+    expect(bridge._cmdHelp()).toBe(
+      [
+        '微信 Agent 桥接命令:',
+        '/help    - 显示帮助',
+        '/status  - 查看历史会话状态',
+        '/close   - 关闭当前会话',
+        '/new     - 新建会话',
+        '/resume [编号] - 恢复历史会话',
+        '/rename <名称> - 重命名当前会话',
+      ].join('\n\n')
+    )
   })
 
   it('ignores context-only updates', async () => {

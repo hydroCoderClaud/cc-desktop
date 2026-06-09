@@ -5,8 +5,31 @@
 
 const path = require('path')
 const { extractImagePaths, normalizePath, IMAGE_EXTENSIONS, IMAGE_PATH_MAX_DEPTH } = require('./im-utils')
-const { buildImCommandHelpText, buildNoHistoryText } = require('./im-command-policy')
+const {
+  buildAlreadyConnectedText,
+  buildImCommandHelpText,
+  buildNoHistoryText,
+  buildRenameMissingSessionText,
+  buildRenamePromptText,
+  buildRenameSuccessText,
+  buildSessionActivatingText,
+  buildSessionCreatingText,
+  buildSessionReplyingText,
+  buildSessionSwitchedText,
+  buildUnknownCommandText,
+  mergeCurrentSessionIntoHistory,
+  buildCurrentImHistoryRow,
+  resolveCommandCwd,
+} = require('./im-command-policy')
 const { buildHistoryChoiceMenuText } = require('./im-command-presenter')
+const { ImSessionMapper } = require('./im-session-mapper')
+const { ensureHistoryChoiceOrCurrent, resolveStrictCurrentSessionId } = require('./im-session-decision')
+const { runResumePostAction } = require('./im-resume-post-action')
+const {
+  dispatchImCommand,
+  resolveCloseCommand,
+  resolveRenameCommand,
+} = require('./im-command-executor')
 
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
@@ -22,9 +45,18 @@ class WeixinBridge {
     this.desktopPendingBlocks = new Map()
     this.inboundMessageQueues = new Map()
     this.inboundCompletionWaiters = new Map()
+    this.pendingInboundMessages = new Map()
     this._unbindMessage = null
     this._unbindSent = null
     this._agentListeners = null
+    this._sessionMapper = new ImSessionMapper({
+      agentSessionManager,
+      sessionDatabase: agentSessionManager?.sessionDatabase,
+      imType: 'weixin',
+      buildIdentityKey: (identity) => identity?.targetId || identity?.userId || '',
+      buildSessionTitle: (identity) => `微信 · ${identity?.nickname || identity?.targetId || identity?.userId || '未知用户'}`,
+    })
+    this.sessionMap = this._sessionMapper.sessionMap
   }
 
   start() {
@@ -53,7 +85,8 @@ class WeixinBridge {
     this.replySendQueues.clear()
     this.desktopPendingBlocks.clear()
     this.inboundMessageQueues.clear()
-    this.sessionMap.clear()
+    this.pendingInboundMessages.clear()
+    this._sessionMapper.clearAll()
     this._resolveInboundCompletionWaiters()
   }
 
@@ -112,12 +145,20 @@ class WeixinBridge {
     const images = Array.isArray(message?.images) ? message.images : []
     if (!text && images.length === 0) return null
 
+    const identity = this._buildIdentity(message)
+    const mapKey = this._sessionMapper.buildKey(identity)
+    const pendingChoice = this._sessionMapper._pendingChoices.get(mapKey)
+    if (pendingChoice && text) {
+      return this._handlePendingChoice(message, identity, mapKey)
+    }
+
     // 命令拦截
     if (text.startsWith('/')) {
       return this._handleWeixinCommand(text, message)
     }
 
-    const session = this._ensureSession(message)
+    const session = await this._ensureSession(message, identity, mapKey)
+    if (!session) return null
     const senderNick = this._getTargetDisplayName(message)
     this._rememberSessionTarget(session.id, message)
     const userMessage = images.length > 0 ? { text, images } : text
@@ -407,38 +448,53 @@ class WeixinBridge {
     return [...unique]
   }
 
-  _ensureSession(message) {
-    const mapKey = this._getMapKey(message)
-    const existingSessionId = this.sessionMap.get(mapKey)
-    if (existingSessionId) {
-      const existingSession = this._resolveSession(existingSessionId)
-      if (existingSession) return existingSession
-      this.sessionMap.delete(mapKey)
+  async _ensureSession(message, identity, mapKey) {
+    this._sessionMapper._sessionDatabase = this.agentSessionManager?.sessionDatabase
+    let currentSessionId = await resolveStrictCurrentSessionId(this._sessionMapper, mapKey)
+    if (currentSessionId) {
+      const reopened = this.agentSessionManager.reopen(currentSessionId)
+      if (reopened) return reopened
+      this._sessionMapper.clearSessionState(mapKey)
+      currentSessionId = null
     }
 
-    const senderNick = this._getTargetDisplayName(message)
-    const session = this.agentSessionManager.create({
-      type: 'chat',
-      source: 'im-inbound',
-      imChannel: 'weixin',
-      title: `微信 · ${senderNick}`,
-      cwdSubDir: 'weixin',
-      meta: {
+    const ensured = currentSessionId
+      ? { action: 'use_current', sessionId: currentSessionId, mapKey }
+      : await ensureHistoryChoiceOrCurrent({
+        sessionMapper: this._sessionMapper,
+        mapKey,
+        identity,
+        resolveBoundSessionId: async () => this._findBoundSessionIdByTargetId(identity.targetId, mapKey),
+      })
+
+    if (ensured?.action === 'show_choice') {
+      this.pendingInboundMessages.set(mapKey, { message, identity })
+      this._sessionMapper.initPendingChoice(mapKey, ensured.sessions, async (menuText) => {
+        await this._replyToWeixin(message, menuText)
+      }, {
+        menuBuilder: (sessions) => this._buildHistoryChoiceMenuText(sessions),
+      }).catch(err => {
+        console.error('[WeixinBridge] initPendingChoice failed:', err?.message || err)
+      })
+      return null
+    }
+
+    const sessionId = ensured?.sessionId || null
+    if (!sessionId) return null
+
+    const session = this._resolveSession(sessionId)
+    if (!session) return null
+
+    if (ensured.action === 'create_new') {
+      this._notifyFrontend('weixin:sessionCreated', {
+        sessionId: session.id,
         accountId: message.accountId,
         targetId: message.targetId,
-        from: message.from
-      }
-    })
-
-    this.sessionMap.set(mapKey, session.id)
-    this._notifyFrontend('weixin:sessionCreated', {
-      sessionId: session.id,
-      accountId: message.accountId,
-      targetId: message.targetId,
-      from: message.from,
-      senderNick,
-      title: session.title
-    })
+        from: message.from,
+        senderNick: identity.nickname,
+        title: session.title
+      })
+    }
 
     return session
   }
@@ -497,8 +553,173 @@ class WeixinBridge {
     return message?.targetId || `${message?.accountId || 'unknown'}:${message?.from || 'unknown'}`
   }
 
+  _buildIdentity(message) {
+    const targetId = String(message?.targetId || '').trim()
+    return {
+      userId: targetId,
+      targetId,
+      chatType: 'p2p',
+      nickname: this._getTargetDisplayName(message),
+      accountId: message?.accountId || '',
+      from: message?.from || '',
+    }
+  }
+
+  _findBoundSessionIdByTargetId(targetId, mapKey = '') {
+    const normalizedTargetId = String(targetId || '').trim()
+    if (!normalizedTargetId) return null
+    for (const [sessionId, target] of this.sessionTargets.entries()) {
+      if (target?.targetId !== normalizedTargetId) continue
+      const live = this._resolveSession(sessionId)
+      if (!live) continue
+      if (mapKey && this.sessionMap.get(mapKey) === sessionId) return sessionId
+      return sessionId
+    }
+    return null
+  }
+
   _getTargetDisplayName(message) {
     return message?.target?.displayName || message?.from || message?.targetId || '未知用户'
+  }
+
+  _buildHistoryChoiceMenuText(sessions, currentSessionId = null) {
+    return buildHistoryChoiceMenuText({
+      sessions,
+      currentSessionId,
+      getDirName: (cwd) => (cwd ? path.basename(cwd) : '-'),
+      getProfileName: (profileId) => profileId || '-',
+      isSessionActivated: (sessionId) => {
+        const session = this.agentSessionManager?.sessions?.get?.(sessionId)
+        return !!session?.queryGenerator
+      },
+    })
+  }
+
+  async _handlePendingChoice(message, identity, mapKey) {
+    const inputText = String(message?.text || '').trim()
+    if (!inputText) return null
+
+    if (inputText === '/new') {
+      await this._handleWeixinCommand('/new', message, {
+        preservePendingSelection: true,
+      })
+      return null
+    }
+
+    const currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
+    const result = await this._sessionMapper.handleChoice(mapKey, inputText, identity)
+    if (result?.invalidChoice) {
+      await this._replyToWeixin(message, `编号错误：请输入 0-${this._sessionMapper._pendingChoices.get(mapKey)?.sessions?.length || 0} 之间的数字\n\n${result.menuText}`)
+      return null
+    }
+
+    const sessionId = result?.sessionId || null
+    if (!sessionId) {
+      await this._replyToWeixin(message, '无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话')
+      return null
+    }
+
+    const session = this._resolveSession(sessionId)
+    if (!session) {
+      await this._replyToWeixin(message, '无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话')
+      return null
+    }
+
+    this._notifyFrontend('weixin:sessionCreated', {
+      sessionId,
+      accountId: message.accountId,
+      targetId: message.targetId,
+      from: message.from,
+      senderNick: identity.nickname,
+      title: session.title
+    })
+
+    const pending = this.pendingInboundMessages.get(mapKey)
+    const shouldWaitForReply = Boolean(pending) || session?.status === 'streaming'
+
+    if (result.action === 'resume') {
+      if (currentSessionId && currentSessionId === sessionId && result.wasActivated && !shouldWaitForReply) {
+        await this._replyToWeixin(message, buildAlreadyConnectedText(result.selectedSession?.title || session.title || sessionId))
+      } else if (result.wasActivated) {
+        await this._replyToWeixin(
+          message,
+          shouldWaitForReply
+            ? buildSessionReplyingText(result.selectedSession?.title || session.title || sessionId)
+            : buildSessionSwitchedText(result.selectedSession?.title || session.title || sessionId)
+        )
+      } else {
+        await this._replyToWeixin(message, buildSessionActivatingText())
+      }
+    } else {
+      await this._replyToWeixin(message, buildSessionCreatingText())
+    }
+
+    await runResumePostAction({
+      pendingMessage: pending,
+      clearPendingMessage: () => this.pendingInboundMessages.delete(mapKey),
+      wasActivated: result.wasActivated,
+      notifyMessageReceived: () => {
+        this._notifyFrontend('weixin:messageReceived', {
+          sessionId,
+          accountId: message.accountId,
+          targetId: message.targetId,
+          from: message.from,
+          text: 'hello',
+          images: [],
+          senderNick: identity.nickname,
+          timestamp: Date.now(),
+          messageId: null
+        })
+      },
+      replayPendingMessage: async (pendingSelection) => {
+        const pendingText = String(pendingSelection?.message?.text || '').trim()
+        const pendingImages = Array.isArray(pendingSelection?.message?.images) ? pendingSelection.message.images : []
+        this._notifyFrontend('weixin:messageReceived', {
+          sessionId,
+          accountId: pendingSelection?.message?.accountId || message.accountId,
+          targetId: pendingSelection?.message?.targetId || message.targetId,
+          from: pendingSelection?.message?.from || message.from,
+          text: pendingText || (pendingImages.length > 0 ? '[图片]' : ''),
+          images: pendingImages,
+          senderNick: pendingSelection?.identity?.nickname || identity.nickname,
+          timestamp: Date.now(),
+          messageId: null
+        })
+        this._rememberSessionTarget(sessionId, pendingSelection.message || message)
+        await this.agentSessionManager.sendMessage(
+          sessionId,
+          pendingImages.length > 0 ? { text: pendingText, images: pendingImages } : pendingText,
+          {
+            meta: {
+              origin: 'im-inbound',
+              imChannel: 'weixin',
+              senderNick: pendingSelection?.identity?.nickname || identity.nickname,
+              accountId: pendingSelection?.message?.accountId || message.accountId,
+              targetId: pendingSelection?.message?.targetId || message.targetId,
+              from: pendingSelection?.message?.from || message.from,
+              contextToken: pendingSelection?.message?.contextToken || message.contextToken || null,
+              createTimeMs: pendingSelection?.message?.createTimeMs || message.createTimeMs || null
+            }
+          }
+        )
+      },
+      enqueueHello: async () => {
+        this._rememberSessionTarget(sessionId, message)
+        await this.agentSessionManager.sendMessage(sessionId, 'hello', {
+          meta: {
+            origin: 'im-inbound',
+            imChannel: 'weixin',
+            senderNick: identity.nickname,
+            accountId: message.accountId,
+            targetId: message.targetId,
+            from: message.from,
+            contextToken: message.contextToken || null,
+            createTimeMs: message.createTimeMs || null
+          }
+        })
+      },
+    })
+    return sessionId
   }
 
   /**
@@ -541,7 +762,7 @@ class WeixinBridge {
 
     const db = this.agentSessionManager.sessionDatabase
     if (db?.updateImIdentity) {
-      db.updateImIdentity(sessionId, { userId: targetId, chatId: accountId, chatType: 'p2p' })
+      db.updateImIdentity(sessionId, { userId: targetId, chatId: '', chatType: 'p2p' })
     }
 
     console.log(`[WeixinBridge] Bound session ${sessionId} to target ${targetId} (${displayName || targetId})`)
@@ -612,9 +833,13 @@ class WeixinBridge {
       const db = this.agentSessionManager.sessionDatabase
       const row = db?.getAgentConversation?.(sessionId)
       const targetId = typeof row?.im_user_id === 'string' ? row.im_user_id.trim() : ''
-      const accountId = typeof row?.im_chat_id === 'string' ? row.im_chat_id.trim() : ''
-      if (targetId && accountId && row?.im_channel === 'weixin' && row?.status !== 'closed') {
-        target = { accountId, targetId, displayName: targetId }
+      const restored = this.weixinNotifyService?.getTargetById?.(targetId) || null
+      if (targetId && restored && row?.im_channel === 'weixin' && row?.status !== 'closed') {
+        target = {
+          accountId: restored.accountId,
+          targetId: restored.id,
+          displayName: restored.displayName || restored.userId || restored.id
+        }
         this.knownTargets.set(sessionId, target)
         this.sessionTargets.set(sessionId, target)
       }
@@ -627,37 +852,293 @@ class WeixinBridge {
     }
   }
 
-  async _handleWeixinCommand(text, message) {
-    const cmd = text.replace(/^\/+/, '').split(/\s+/)[0].toLowerCase()
-
-    if (cmd === 'help') {
-      return this._replyToWeixin(message, this._cmdHelp())
+  async _handleWeixinCommand(text, message, options = {}) {
+    const identity = this._buildIdentity(message)
+    const mapKey = this._sessionMapper.buildKey(identity)
+    let currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
+    const receiveTarget = {
+      accountId: message.accountId,
+      targetId: message.targetId,
+      text,
     }
-    if (cmd === 'status') {
-      return this._replyToWeixin(message, this._cmdStatus(message))
-    }
 
-    return this._replyToWeixin(message, `未知命令: ${cmd}\n发送 /help 查看可用命令`)
+    await dispatchImCommand({
+      text,
+      beforeExecute: () => {
+        if (!options.preservePendingSelection) {
+          this._sessionMapper.clearPendingChoice(mapKey)
+          this.pendingInboundMessages.delete(mapKey)
+        }
+      },
+      handlers: {
+        help: async () => {
+          await this._replyToWeixin(receiveTarget, this._cmdHelp())
+        },
+        status: async () => {
+          await this._replyToWeixin(receiveTarget, this._cmdStatus(identity, currentSessionId))
+        },
+        close: async ({ args }) => {
+          const activeSessions = [...this.agentSessionManager.sessions.values()].filter(session => session?.imChannel === 'weixin')
+          const closeDecision = resolveCloseCommand({
+            args,
+            activeSessions,
+            currentSessionId,
+            getSessionById: (sessionId) => this.agentSessionManager.sessions.get(sessionId) || null,
+          })
+          if (closeDecision.action === 'invalid_index') {
+            await this._replyToWeixin(receiveTarget, `编号错误：请输入 1-${closeDecision.max} 之间的数字`)
+            return
+          }
+          if (closeDecision.action === 'missing_current') {
+            await this._replyToWeixin(receiveTarget, '当前没有连接会话，无需关闭\n\n发送任意消息可开始新会话')
+            return
+          }
+          if (closeDecision.action === 'streaming') {
+            await this._replyToWeixin(receiveTarget, 'AI 正在响应中，请等待完成后再关闭')
+            return
+          }
+          await this.agentSessionManager.close(closeDecision.targetSessionId)
+          this._sessionMapper.clearSessionState(mapKey)
+          currentSessionId = await this._sessionMapper.resolveActiveSessionId(mapKey)
+          await this._replyToWeixin(receiveTarget, closeDecision.closeText || '会话已关闭')
+        },
+        new: async ({ args }) => {
+          const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
+          if (currentSession?.status === 'streaming') {
+            await this._replyToWeixin(receiveTarget, 'AI 正在响应中，请等待完成后再操作')
+            return
+          }
+          let cwd
+          try {
+            const outputBaseDir = this.configManager?.getConfig?.()?.settings?.agent?.outputBaseDir
+            cwd = resolveCommandCwd({
+              args,
+              outputBaseDir,
+              imSubdir: 'weixin',
+            })
+          } catch (err) {
+            await this._replyToWeixin(receiveTarget, err.message)
+            return
+          }
+          const newId = await this._sessionMapper.createSession(identity, { cwd })
+          if (!newId) {
+            await this._replyToWeixin(receiveTarget, '创建新会话失败')
+            return
+          }
+          this._sessionMapper.sessionMap.set(mapKey, newId)
+          this._notifyFrontend('weixin:sessionCreated', {
+            sessionId: newId,
+            accountId: message.accountId,
+            targetId: message.targetId,
+            from: message.from,
+            senderNick: identity.nickname,
+            title: this.agentSessionManager.sessions.get(newId)?.title || `微信 · ${identity.nickname}`,
+          })
+          await this._replyToWeixin(receiveTarget, buildSessionCreatingText())
+          await runResumePostAction({
+            pendingMessage: null,
+            clearPendingMessage: () => this.pendingInboundMessages.delete(mapKey),
+            wasActivated: false,
+            notifyMessageReceived: () => {
+              this._notifyFrontend('weixin:messageReceived', {
+                sessionId: newId,
+                accountId: message.accountId,
+                targetId: message.targetId,
+                from: message.from,
+                text: 'hello',
+                images: [],
+                senderNick: identity.nickname,
+                timestamp: Date.now(),
+                messageId: null
+              })
+            },
+            replayPendingMessage: async () => {},
+            enqueueHello: async () => {
+              this._rememberSessionTarget(newId, message)
+              await this.agentSessionManager.sendMessage(newId, 'hello', {
+                meta: {
+                  origin: 'im-inbound',
+                  imChannel: 'weixin',
+                  senderNick: identity.nickname,
+                  accountId: message.accountId,
+                  targetId: message.targetId,
+                  from: message.from,
+                  contextToken: message.contextToken || null,
+                  createTimeMs: message.createTimeMs || null
+                }
+              })
+            },
+          })
+        },
+        resume: async ({ args }) => {
+          let history = await this._sessionMapper._queryHistorySessions(identity)
+          history = this._mergeCurrentSessionIntoHistory(history, currentSessionId, identity)
+          if (!history || history.length === 0) {
+            await this._replyToWeixin(receiveTarget, buildNoHistoryText())
+            return
+          }
+          const selectedIndex = Number.parseInt(args[0], 10)
+          if (Number.isNaN(selectedIndex)) {
+            this.pendingInboundMessages.delete(mapKey)
+            this._sessionMapper.initPendingChoice(mapKey, history, async (menuText) => {
+              await this._replyToWeixin(receiveTarget, menuText)
+            }, {
+              menuBuilder: (sessions) => this._buildHistoryChoiceMenuText(sessions, currentSessionId),
+            }).catch(err => {
+              console.error('[WeixinBridge] initPendingChoice failed:', err?.message || err)
+            })
+            return
+          }
+
+          const currentSession = currentSessionId ? this.agentSessionManager.sessions.get(currentSessionId) : null
+          if (currentSession?.status === 'streaming') {
+            await this._replyToWeixin(receiveTarget, 'AI 正在响应中，请等待完成后再操作')
+            return
+          }
+
+          const result = await this._sessionMapper.handleDirectChoice(mapKey, history, String(selectedIndex), identity)
+          if (result?.invalidChoice) {
+            await this._replyToWeixin(receiveTarget, result.menuText || '编号错误')
+            return
+          }
+          if (!result?.sessionId) {
+            await this._replyToWeixin(receiveTarget, '无法恢复该会话，可能已被删除\n\n发送任意消息可开始新会话')
+            return
+          }
+          const resumedSession = this.agentSessionManager.sessions.get(result.sessionId) || null
+          const shouldWaitForReply = resumedSession?.status === 'streaming'
+          this._notifyFrontend('weixin:sessionCreated', {
+            sessionId: result.sessionId,
+            accountId: message.accountId,
+            targetId: message.targetId,
+            from: message.from,
+            senderNick: identity.nickname,
+            title: resumedSession?.title || result.selectedSession?.title || result.sessionId,
+          })
+          if (result.action === 'resume') {
+            if (currentSessionId && currentSessionId === result.sessionId && result.wasActivated && !shouldWaitForReply) {
+              await this._replyToWeixin(receiveTarget, buildAlreadyConnectedText(result.selectedSession?.title || result.sessionId))
+            } else if (result.wasActivated) {
+              await this._replyToWeixin(
+                receiveTarget,
+                shouldWaitForReply
+                  ? buildSessionReplyingText(result.selectedSession?.title || result.sessionId)
+                  : buildSessionSwitchedText(result.selectedSession?.title || result.sessionId)
+              )
+            } else {
+              await this._replyToWeixin(receiveTarget, buildSessionActivatingText())
+            }
+          } else {
+            await this._replyToWeixin(receiveTarget, buildSessionCreatingText())
+          }
+          await runResumePostAction({
+            pendingMessage: null,
+            clearPendingMessage: () => this.pendingInboundMessages.delete(mapKey),
+            wasActivated: result.wasActivated,
+            notifyMessageReceived: () => {
+              this._notifyFrontend('weixin:messageReceived', {
+                sessionId: result.sessionId,
+                accountId: message.accountId,
+                targetId: message.targetId,
+                from: message.from,
+                text: 'hello',
+                images: [],
+                senderNick: identity.nickname,
+                timestamp: Date.now(),
+                messageId: null
+              })
+            },
+            replayPendingMessage: async () => {},
+            enqueueHello: async () => {},
+          })
+        },
+        rename: async ({ args }) => {
+          const renameDecision = resolveRenameCommand({
+            args,
+            currentSessionId,
+          })
+          if (renameDecision.action === 'missing_current') {
+            await this._replyToWeixin(receiveTarget, buildRenameMissingSessionText())
+            return
+          }
+          if (renameDecision.action === 'missing_title') {
+            await this._replyToWeixin(receiveTarget, buildRenamePromptText())
+            return
+          }
+          this.agentSessionManager.rename(renameDecision.sessionId, renameDecision.newTitle)
+          await this._replyToWeixin(receiveTarget, buildRenameSuccessText(renameDecision.newTitle))
+        },
+      },
+      onUnknown: async ({ rawCommand }) => {
+        await this._replyToWeixin(receiveTarget, buildUnknownCommandText(rawCommand))
+      },
+    })
   }
 
   _cmdHelp() {
-    return buildImCommandHelpText({
+    const helpText = buildImCommandHelpText({
       title: '微信 Agent 桥接命令:',
       includeDirectoryArg: false,
       includeHistoryHint: false,
     })
+    return helpText
+      .split('\n')
+      .map(line => line.trimEnd())
+      .filter(Boolean)
+      .join('\n\n')
   }
 
-  _cmdStatus(message) {
-    const sessionId = this.sessionMap.get(message.targetId)
-    if (!sessionId) return buildNoHistoryText()
+  _cmdStatus(identity, currentSessionId = null) {
+    const history = this._mergeCurrentSessionIntoHistory(
+      this.agentSessionManager?.sessionDatabase?.getImSessionsByType?.('weixin', identity.userId || '', '', 10) || [],
+      currentSessionId,
+      identity
+    )
+    if (!Array.isArray(history) || history.length === 0) {
+      return buildNoHistoryText()
+    }
+    return buildHistoryChoiceMenuText({
+      sessions: history,
+      currentSessionId,
+      maxSessions: 10,
+      getDirName: (cwd) => (cwd ? path.basename(cwd) : '-'),
+      getProfileName: (profileId) => profileId || '-',
+      isSessionActivated: (sessionId) => !!this.agentSessionManager?.sessions?.get?.(sessionId)?.queryGenerator,
+      title: '当前会话状态：',
+      includeActionHint: false,
+      includeNewSessionHint: false,
+    })
+  }
 
-    const session = this.agentSessionManager.sessions.get(sessionId)
-    if (!session) return buildNoHistoryText()
+  _mergeCurrentSessionIntoHistory(history, sessionId, identity = {}) {
+    const rows = Array.isArray(history) ? history : []
+    if (!sessionId) return rows
 
-    const dir = session.cwd ? path.basename(session.cwd) : '-'
-    const status = session.status === 'streaming' ? '🟢 执行中' : '⭕ 空闲'
-    return `当前会话状态：\n\n1. ${status} ${session.title || '未命名'} (${dir})`
+    const hasCurrent = rows.some(row => {
+      const rowSessionId = row?.session_id || row?.sessionId || row?.id || null
+      return rowSessionId === sessionId
+    })
+    if (hasCurrent) return rows
+
+    const liveSession = this.agentSessionManager.sessions.get(sessionId)
+    const dbRow = this.agentSessionManager?.sessionDatabase?.getAgentConversation?.(sessionId)
+    const currentRow = buildCurrentImHistoryRow({
+      sessionId,
+      liveSession,
+      dbRow,
+      imChannel: 'weixin',
+      imUserId: dbRow?.im_user_id || identity.userId || '',
+      imChatId: '',
+      imChatType: 'p2p',
+      type: 'chat',
+      source: 'im-inbound',
+    })
+
+    return mergeCurrentSessionIntoHistory({
+      history: rows,
+      currentSessionId: sessionId,
+      currentRow,
+    })
   }
 
   async _replyToWeixin(message, text) {
