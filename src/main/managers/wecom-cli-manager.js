@@ -2,6 +2,7 @@ const { spawn } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { buildBasicEnv } = require('../utils/env-builder')
 
 const DEFAULT_TIMEOUT = 30000
 const WECOM_COMMAND = 'wecom-cli'
@@ -23,6 +24,10 @@ class WecomCliManager {
 
   _spawn(...args) {
     return spawn(...args)
+  }
+
+  _getExecEnv(extraEnv = {}) {
+    return buildBasicEnv(extraEnv)
   }
 
   getConfigDir() {
@@ -378,6 +383,7 @@ end tell`
 
   async _exec(args, options = {}) {
     const timeout = options.timeout || this.timeout
+    const env = this._getExecEnv(options.env || {})
     return new Promise((resolve, reject) => {
       let stdout = ''
       let stderr = ''
@@ -389,11 +395,11 @@ end tell`
         const cmdLine = args.map(arg => /[\s"&|<>^]/.test(arg) ? `"${arg}"` : arg).join(' ')
         child = this._spawn(process.env.COMSPEC || 'cmd.exe', ['/s', '/c', cmdLine], {
           windowsHide: true,
-          env: process.env,
+          env,
         })
       } else {
         child = this._spawn(args[0], args.slice(1), {
-          env: process.env,
+          env,
         })
       }
 

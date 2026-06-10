@@ -60,6 +60,34 @@ describe('WecomCliManager', () => {
     expect(execSpy).toHaveBeenCalledWith(['wecom-cli', 'auth', 'show', '--auth-status'])
   })
 
+  it('uses enhanced basic env when spawning wecom-cli commands', async () => {
+    const manager = new WecomCliManager()
+    const fakeStdout = { on: vi.fn() }
+    const fakeStderr = { on: vi.fn() }
+    const spawnResult = {
+      stdout: fakeStdout,
+      stderr: fakeStderr,
+      on: vi.fn((event, handler) => {
+        if (event === 'close') {
+          setTimeout(() => handler(0), 0)
+        }
+      })
+    }
+    const spawnSpy = vi.spyOn(manager, '_spawn').mockReturnValue(spawnResult)
+    const envSpy = vi.spyOn(manager, '_getExecEnv').mockReturnValue({ PATH: '/enhanced/bin', TEST_FLAG: '1' })
+
+    await manager._exec(['wecom-cli', 'auth', 'show', '--auth-status'])
+
+    expect(envSpy).toHaveBeenCalledWith({})
+    expect(spawnSpy).toHaveBeenCalledWith(
+      'wecom-cli',
+      ['auth', 'show', '--auth-status'],
+      expect.objectContaining({
+        env: { PATH: '/enhanced/bin', TEST_FLAG: '1' }
+      })
+    )
+  })
+
   it('maps errcode 850002 to CONTACT_NOT_AUTHORIZED', async () => {
     const manager = new WecomCliManager()
     vi.spyOn(manager, 'isInstalled').mockReturnValue(true)
