@@ -63,6 +63,13 @@ class ImSessionMapper {
     return userId || this._buildIdentityKey(identity)
   }
 
+  setDefaultWorkspaceRoot(defaultWorkspaceRoot) {
+    const normalized = typeof defaultWorkspaceRoot === 'string'
+      ? defaultWorkspaceRoot.trim()
+      : ''
+    this._defaultCwd = normalized || null
+  }
+
   // ─── Webhook ───
 
   setWebhook(sessionId, webhook) {
@@ -168,8 +175,10 @@ class ImSessionMapper {
    */
   async createSession(identity, opts = {}) {
     const title = this._buildSessionTitle(identity)
-    const cwd = opts.cwd || this._defaultCwd || undefined
-    const cwdSubDir = cwd ? undefined : this._imType
+    const cwd = opts.cwd || undefined
+    const cwdSubDir = cwd
+      ? undefined
+      : (opts.cwdSubDir || this._defaultCwd || this._imType)
     try {
       const session = await this._agentSessionManager.create({
         type: 'chat',

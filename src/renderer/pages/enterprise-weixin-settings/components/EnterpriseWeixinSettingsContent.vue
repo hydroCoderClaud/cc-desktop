@@ -60,12 +60,24 @@
         </n-form-item>
 
         <n-form-item label="默认工作目录">
-          <n-input
-            v-model:value="formData.defaultCwd"
-            placeholder="企业微信会话的默认工作目录（留空则使用用户目录）"
-            :disabled="!formData.enabled"
-          />
-          <template #feedback>企业微信消息创建的 Agent 会话将在此目录下工作</template>
+          <div style="display: flex; gap: 8px; width: 100%">
+            <n-input
+              :value="effectiveDefaultCwd"
+              placeholder="企业微信会话默认工作目录"
+              readonly
+              style="flex: 1"
+            />
+            <n-button @click="handleSelectDefaultCwd">
+              {{ t('common.browse') }}
+            </n-button>
+            <n-button
+              v-if="formData.defaultCwd"
+              @click="formData.defaultCwd = ''"
+            >
+              {{ t('common.restoreDefault') }}
+            </n-button>
+          </div>
+          <template #feedback>默认会在该目录下自动创建 conv-会话号工作目录</template>
         </n-form-item>
       </n-card>
 
@@ -171,6 +183,7 @@ import { ref, computed, onMounted, onUnmounted, onActivated } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useLocale } from '@composables/useLocale'
+import { getImDefaultWorkspaceRoot } from '@/utils/im-working-directory'
 
 const props = defineProps({
   embedded: { type: Boolean, default: false }
@@ -203,6 +216,7 @@ const cliReauthorizeCommand = ref('')
 const copiedCommandText = ref('')
 const cliActionType = ref('')
 const CLI_CONTACT_TEST_COMMAND = 'wecom-cli contact get_userlist'
+const loadedConfig = ref({})
 
 let cleanupFns = []
 
@@ -239,6 +253,17 @@ const primaryActionText = computed(() => {
   if (runtimeState.value === 'connecting') return '连接中'
   return '连接'
 })
+const effectiveDefaultCwd = computed(() => getImDefaultWorkspaceRoot(
+  {
+    ...(loadedConfig.value || {}),
+    enterpriseWeixin: {
+      ...(loadedConfig.value?.enterpriseWeixin || {}),
+      defaultCwd: formData.value.defaultCwd,
+    },
+  },
+  'enterprise-weixin',
+  'enterpriseWeixin'
+))
 
 const buildFriendlyConnectMessage = () => {
   if (runtimeState.value === 'connecting' || runtimeState.value === 'reconnecting') {
@@ -274,6 +299,7 @@ const applyStatus = (status) => {
 const loadConfig = async () => {
   try {
     const config = await invoke('getConfig')
+    loadedConfig.value = config || {}
     console.log('[EnterpriseWeixinSettings] Loaded config:', { ...config?.enterpriseWeixin, secret: config?.enterpriseWeixin?.secret ? '***' : '' })
     if (config?.enterpriseWeixin) {
       formData.value = { ...formData.value, ...config.enterpriseWeixin }
@@ -297,6 +323,14 @@ const buildConfigPayload = (enabled = formData.value.enabled) => ({
   defaultCwd: formData.value.defaultCwd,
   maxHistorySessions: formData.value.maxHistorySessions,
 })
+
+const handleSelectDefaultCwd = async () => {
+  if (!window.electronAPI?.selectFolder) return
+  const folderPath = await window.electronAPI.selectFolder()
+  if (folderPath) {
+    formData.value.defaultCwd = folderPath
+  }
+}
 
 const handleEnabledChange = async (nextEnabled) => {
   if (togglingEnabled.value || nextEnabled === formData.value.enabled) return

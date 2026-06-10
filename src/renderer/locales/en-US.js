@@ -29,6 +29,8 @@ export default {
     search: 'Search',
     reset: 'Reset',
     refresh: 'Refresh',
+    clear: 'Clear',
+    restoreDefault: 'Restore Default',
     copy: 'Copy',
     cut: 'Cut',
     paste: 'Paste',

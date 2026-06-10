@@ -31,6 +31,7 @@ const {
   resolveCloseCommand,
   resolveRenameCommand,
 } = require('./im-command-executor')
+const { getImDefaultWorkspaceRoot, getImWorkspaceSubdir } = require('./im-working-directory')
 
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
@@ -56,6 +57,11 @@ class WeixinBridge {
       agentSessionManager,
       sessionDatabase: agentSessionManager?.sessionDatabase,
       imType: 'weixin',
+      defaultCwd: getImDefaultWorkspaceRoot(
+        this.configManager?.getConfig?.() || {},
+        'weixin',
+        'weixin'
+      ),
       buildIdentityKey: (identity) => identity?.targetId || identity?.userId || '',
       buildSessionTitle: (identity) => `微信 · ${identity?.nickname || identity?.targetId || identity?.userId || '未知用户'}`,
     })
@@ -80,6 +86,14 @@ class WeixinBridge {
 
   _notifyStatusChange() {
     this._notifyFrontend('weixin:statusChange', this.getStatus())
+  }
+
+  refreshSessionMapperConfig() {
+    if (this._sessionMapper && typeof this._sessionMapper.setDefaultWorkspaceRoot === 'function') {
+      this._sessionMapper.setDefaultWorkspaceRoot(
+        getImDefaultWorkspaceRoot(this.configManager?.getConfig?.() || {}, 'weixin', 'weixin')
+      )
+    }
   }
 
   start() {
@@ -1043,11 +1057,14 @@ class WeixinBridge {
           }
           let cwd
           try {
-            const outputBaseDir = this.configManager?.getConfig?.()?.settings?.agent?.outputBaseDir
+            const config = this.configManager?.getConfig?.() || {}
+            const outputBaseDir = config?.settings?.agent?.outputBaseDir
             cwd = resolveCommandCwd({
               args,
+              config,
               outputBaseDir,
-              imSubdir: 'weixin',
+              imSubdir: getImWorkspaceSubdir('weixin'),
+              configKey: 'weixin',
             })
           } catch (err) {
             await this._replyToWeixin(receiveTarget, err.message)

@@ -30,6 +30,7 @@ const {
   buildCurrentImHistoryRow,
 } = require('./im-command-policy')
 const { runResumePostAction } = require('./im-resume-post-action')
+const { getImWorkspaceSubdir } = require('./im-working-directory')
 
 function isDingTalkGroupIdentity(identity = {}) {
   const chatType = String(identity.chatType || '').trim().toLowerCase()
@@ -481,8 +482,10 @@ module.exports = {
     try {
       cwd = resolveCommandCwd({
         args,
+        config: this.configManager?.getConfig?.() || {},
         outputBaseDir: this.agentSessionManager._getOutputBaseDir(),
-        imSubdir: 'dingtalk',
+        imSubdir: getImWorkspaceSubdir('dingtalk'),
+        configKey: 'dingtalk',
       })
     } catch (err) {
       return `❌ ${err.message}`

@@ -35,6 +35,7 @@ const {
   registerImRuntimeTarget,
   clearImRuntimeSessionTarget,
 } = require('./im-binding-runtime')
+const { getImDefaultWorkspaceRoot } = require('./im-working-directory')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -148,8 +149,9 @@ function normalizeInboundConversationType(
     const db = bridge?.agentSessionManager?.sessionDatabase
     if (!normalizedConversationId || !db?.listAllAgentConversations) return false
     try {
+      const maxHistorySessions = bridge?._getConfig?.().maxHistorySessions || 5
       const rows = db.listAllAgentConversations({
-        limit: Math.max(bridge?.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5, 20),
+        limit: Math.max(maxHistorySessions, 20),
       })
       return Array.isArray(rows) && rows.some((row) => (
         row?.im_channel === 'dingtalk'
@@ -273,13 +275,23 @@ class DingTalkBridge {
     this._bindAgentEvents()
   }
 
+  _getConfig() {
+    try {
+      return this.configManager?.getConfig?.()?.dingtalk || {}
+    } catch {
+      return {}
+    }
+  }
+
   _createSessionMapper() {
+    const cfg = this._getConfig()
+    const fullConfig = this.configManager?.getConfig?.() || {}
     return new ImSessionMapper({
       agentSessionManager: this.agentSessionManager,
       sessionDatabase: this.agentSessionManager.sessionDatabase,
       imType: 'dingtalk',
-      maxHistorySessions: this.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5,
-      defaultCwd: this.configManager?.getConfig?.()?.dingtalk?.defaultCwd || null,
+      maxHistorySessions: cfg.maxHistorySessions || 5,
+      defaultCwd: getImDefaultWorkspaceRoot(fullConfig, 'dingtalk', 'dingtalk'),
       buildIdentityKey: (identity = {}) => {
         const staffId = identity.staffId || identity.userId || ''
         return staffId
@@ -296,6 +308,16 @@ class DingTalkBridge {
       },
       queryHistorySessions: (identity = {}) => this._queryDingTalkHistorySessions(identity),
     })
+  }
+
+  refreshSessionMapperConfig() {
+    if (this._sessionMapper && typeof this._sessionMapper.setDefaultWorkspaceRoot === 'function') {
+      const fullConfig = this.configManager?.getConfig?.() || {}
+      this._sessionMapper.setDefaultWorkspaceRoot(
+        getImDefaultWorkspaceRoot(fullConfig, 'dingtalk', 'dingtalk')
+      )
+      this._sessionMapper._maxHistorySessions = this._getConfig().maxHistorySessions || 5
+    }
   }
 
   /**
@@ -357,8 +379,7 @@ class DingTalkBridge {
   async start(options = {}) {
     const { silent = false, preserveRuntimeState = false } = options || {}
     this._stopped = false
-    const config = this.configManager.getConfig()
-    const { enabled, appKey, appSecret } = config.dingtalk || {}
+    const { enabled, appKey, appSecret } = this._getConfig()
 
     if (!enabled || !appKey || !appSecret) {
       this._runtimeState = 'disabled'
@@ -1290,7 +1311,7 @@ class DingTalkBridge {
     const lookup = this._resolveDingTalkHistoryLookup(identity)
     if (!lookup.queryUserId && !lookup.queryChatId) return []
 
-    const resolvedLimit = limit || this.configManager?.getConfig?.()?.dingtalk?.maxHistorySessions || 5
+    const resolvedLimit = limit || this._getConfig().maxHistorySessions || 5
     return db.getImSessionsByType('dingtalk', lookup.queryUserId, lookup.queryChatId, resolvedLimit)
   }
 
@@ -1535,7 +1556,7 @@ class DingTalkBridge {
     }
 
     const rows = this.agentSessionManager.sessionDatabase?.listAllAgentConversations?.({
-      limit: Math.max(this.configManager.getConfig()?.dingtalk?.maxHistorySessions || 5, 20)
+      limit: Math.max(this._getConfig().maxHistorySessions || 5, 20)
     })
     const matched = Array.isArray(rows)
       ? rows
@@ -1735,8 +1756,7 @@ class DingTalkBridge {
       this._assertSessionTargetAllowed(sessionId, resolvedStaffId, displayName)
     }
     const token = await this._getAccessToken()
-    const config = this.configManager.getConfig()
-    const robotCode = config?.dingtalk?.robotCode || ''
+    const robotCode = this._getConfig().robotCode || ''
     if (!robotCode) {
       throw new Error('钉钉未配置 robotCode，无法主动发送')
     }
@@ -2382,8 +2402,7 @@ class DingTalkBridge {
       return this._accessToken
     }
 
-    const config = this.configManager.getConfig()
-    const { appKey, appSecret } = config.dingtalk || {}
+    const { appKey, appSecret } = this._getConfig()
 
     if (!appKey || !appSecret) {
       throw new Error('钉钉未配置 appKey/appSecret，无法获取 access token')

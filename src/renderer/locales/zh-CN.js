@@ -30,6 +30,8 @@ export default {
     search: '搜索',
     reset: '重置',
     refresh: '刷新',
+    clear: '清空',
+    restoreDefault: '恢复默认',
     copy: '复制',
     cut: '剪切',
     paste: '粘贴',

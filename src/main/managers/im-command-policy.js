@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const { buildCommandHelpText } = require('./im-command-presenter')
+const { getImDefaultWorkspaceRoot } = require('./im-working-directory')
 
 function buildImCommandHelpText({
   title,
@@ -65,13 +66,18 @@ function resolveCommandCwd({
   args,
   outputBaseDir,
   imSubdir,
+  config = null,
+  configKey = null,
 }) {
   const dirArg = Array.isArray(args) ? args.join(' ').trim() : ''
   if (!dirArg) return undefined
 
+  const baseDir = config
+    ? getImDefaultWorkspaceRoot(config, imSubdir, configKey || imSubdir)
+    : path.join(outputBaseDir, imSubdir)
   const cwd = path.isAbsolute(dirArg) || /^[A-Za-z]:[/\\]/.test(dirArg)
     ? dirArg
-    : path.join(outputBaseDir, imSubdir, dirArg)
+    : path.join(baseDir, dirArg)
   try {
     fs.mkdirSync(cwd, { recursive: true })
   } catch (err) {

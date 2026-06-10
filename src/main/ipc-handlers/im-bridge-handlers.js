@@ -68,6 +68,9 @@ function setupImBridgeHandlers(ipcMain, bridge, configManager, prefix) {
     const configKey = _resolveConfigKey(bridge, prefix)
     current[configKey] = { ...current[configKey], ...config }
     await configManager.save(current)
+    if (typeof bridge.refreshSessionMapperConfig === 'function') {
+      bridge.refreshSessionMapperConfig()
+    }
     return bridge.getStatus()
   })
 

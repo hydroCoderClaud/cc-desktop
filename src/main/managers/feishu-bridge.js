@@ -57,6 +57,7 @@ const {
   registerImRuntimeTarget,
   clearImRuntimeSessionTarget,
 } = require('./im-binding-runtime')
+const { getImDefaultWorkspaceRoot, getImWorkspaceSubdir } = require('./im-working-directory')
 
 // 图片相关常量（与钉钉保持一致）
 const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
@@ -93,11 +94,17 @@ class FeishuBridge {
 
     this._notifier = new ImFrontendNotifier(mainWindow, 'feishu')
     this._replyCollector = new ImReplyCollector({ maxTextLength: 6000 })
+    const initialConfig = this._getConfig()
     this._sessionMapper = new ImSessionMapper({
       agentSessionManager,
       sessionDatabase: this._sessionDatabase,
       imType: 'feishu',
-      maxHistorySessions: 5,
+      maxHistorySessions: initialConfig.maxHistorySessions || 5,
+      defaultCwd: getImDefaultWorkspaceRoot(
+        this._config?.getConfig?.() || {},
+        'feishu',
+        'feishu'
+      ),
       buildIdentityKey: (identity) => identity.userId || '',
       buildSessionTitle: buildFeishuSessionTitle,
     })
@@ -134,13 +141,13 @@ class FeishuBridge {
     }
   }
 
-  get config() {
+  _getConfig() {
     try { return this._config.getConfig()?.feishu || {} } catch { return {} }
   }
 
   async start() {
     this._syncSessionDatabase()
-    const cfg = this.config
+    const cfg = this._getConfig()
     if (!cfg.enabled || !cfg.appId || !cfg.appSecret) {
       console.log('[FeishuBridge] Not enabled or missing credentials')
       return false
@@ -259,16 +266,29 @@ class FeishuBridge {
     }
   }
 
-  _createSessionMapper(cfg = this.config) {
+  _createSessionMapper(cfg = this._getConfig()) {
     return new ImSessionMapper({
       agentSessionManager: this._agentSessionManager,
       sessionDatabase: this._sessionDatabase,
       imType: 'feishu',
       maxHistorySessions: cfg.maxHistorySessions || 5,
-      defaultCwd: cfg.defaultCwd || null,
+      defaultCwd: getImDefaultWorkspaceRoot(
+        this._config?.getConfig?.() || {},
+        'feishu',
+        'feishu'
+      ),
       buildIdentityKey: (identity) => identity.userId || '',
       buildSessionTitle: buildFeishuSessionTitle,
     })
+  }
+
+  refreshSessionMapperConfig() {
+    if (this._sessionMapper && typeof this._sessionMapper.setDefaultWorkspaceRoot === 'function') {
+      this._sessionMapper.setDefaultWorkspaceRoot(
+        getImDefaultWorkspaceRoot(this._config?.getConfig?.() || {}, 'feishu', 'feishu')
+      )
+      this._sessionMapper._maxHistorySessions = this._getConfig().maxHistorySessions || 5
+    }
   }
 
   _startMsgIdCleanupTimer() {
@@ -1470,7 +1490,7 @@ class FeishuBridge {
 
     try {
       const rows = this._sessionDatabase.listAllAgentConversations({
-        limit: Math.max(this.config?.maxHistorySessions || 5, 20)
+        limit: Math.max(this._getConfig().maxHistorySessions || 5, 20)
       })
       const matched = Array.isArray(rows)
         ? rows
@@ -1786,9 +1806,11 @@ class FeishuBridge {
 
   _resolveNewSessionCwd(args) {
     return resolveCommandCwd({
+      config: this._config?.getConfig?.() || {},
       args,
       outputBaseDir: this._agentSessionManager._getOutputBaseDir(),
-      imSubdir: 'feishu',
+      imSubdir: getImWorkspaceSubdir('feishu'),
+      configKey: 'feishu',
     })
   }
 }

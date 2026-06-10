@@ -65,6 +65,7 @@ const {
   clearImRuntimeSessionTarget,
 } = require('./im-binding-runtime')
 const { extractImagePaths } = require('./im-utils')
+const { getImDefaultWorkspaceRoot, getImWorkspaceSubdir } = require('./im-working-directory')
 
 const MAX_TEXT_LENGTH = 6000
 const MSG_ID_TTL = 10 * 60 * 1000
@@ -158,7 +159,11 @@ class EnterpriseWeixinBridge {
       sessionDatabase: this._agentSessionManager.sessionDatabase,
       imType: this._imType,
       maxHistorySessions: cfg.maxHistorySessions || DEFAULT_HISTORY_LIMIT,
-      defaultCwd: cfg.defaultCwd || null,
+      defaultCwd: getImDefaultWorkspaceRoot(
+        this._configManager?.getConfig?.() || {},
+        this._imType,
+        this._configKey
+      ),
       buildIdentityKey: (identity) => {
         const userId = identity.userId || ''
         return userId
@@ -171,6 +176,19 @@ class EnterpriseWeixinBridge {
         return `企业微信 · ${displayName}`
       },
     })
+  }
+
+  refreshSessionMapperConfig() {
+    if (this._sessionMapper && typeof this._sessionMapper.setDefaultWorkspaceRoot === 'function') {
+      this._sessionMapper.setDefaultWorkspaceRoot(
+        getImDefaultWorkspaceRoot(
+          this._configManager?.getConfig?.() || {},
+          this._imType,
+          this._configKey
+        )
+      )
+      this._sessionMapper._maxHistorySessions = this._getConfig().maxHistorySessions || DEFAULT_HISTORY_LIMIT
+    }
   }
 
   getStatus() {
@@ -910,9 +928,11 @@ class EnterpriseWeixinBridge {
           let cwd
           try {
             cwd = resolveCommandCwd({
+              config: this._configManager?.getConfig?.() || {},
               args,
               outputBaseDir: this._agentSessionManager._getOutputBaseDir(),
-              imSubdir: this._imType,
+              imSubdir: getImWorkspaceSubdir(this._imType),
+              configKey: this._configKey,
             })
           } catch (err) {
             await this._sendTextReply(context.frame, err.message)
@@ -1187,10 +1207,11 @@ class EnterpriseWeixinBridge {
   }
 
   _buildHistoryChoiceMenu(sessions, currentSessionId = null, options = {}) {
+    const cfg = this._getConfig()
     return buildHistoryChoiceMenuText({
       sessions,
       currentSessionId,
-      maxSessions: this._getConfig().maxHistorySessions || DEFAULT_HISTORY_LIMIT,
+      maxSessions: cfg.maxHistorySessions || DEFAULT_HISTORY_LIMIT,
       getDirName: (cwd) => this._getDirName(cwd),
       isSessionActivated: (sessionId) => !!this._agentSessionManager.sessions.get(sessionId)?.queryGenerator,
       title: options.title || '您有以下历史会话，请回复数字选择：',

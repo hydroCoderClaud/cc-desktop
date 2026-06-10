@@ -723,7 +723,9 @@ class AgentSessionManager extends EventEmitter {
    * @param {string} [subDir='desktop'] 子目录命名空间，桌面端用 'desktop'，钉钉用 'dingtalk'
    */
   _assignCwd(session, subDir = 'desktop') {
-    const baseDir = path.join(this._getOutputBaseDir(), subDir)
+    const baseDir = path.isAbsolute(subDir)
+      ? subDir
+      : path.join(this._getOutputBaseDir(), subDir)
     const sessionDir = path.join(baseDir, `conv-${session.id.substring(0, 8)}`)
     try {
       if (!fs.existsSync(sessionDir)) {

@@ -66,6 +66,27 @@
           />
           <template #feedback>{{ t('dingtalkSettings.robotCodeHint') }}</template>
         </n-form-item>
+
+        <n-form-item label="默认工作目录">
+          <div style="display: flex; gap: 8px; width: 100%">
+            <n-input
+              :value="effectiveDefaultCwd"
+              placeholder="钉钉会话默认工作目录"
+              readonly
+              style="flex: 1"
+            />
+            <n-button @click="handleSelectDefaultCwd">
+              {{ t('common.browse') }}
+            </n-button>
+            <n-button
+              v-if="formData.defaultCwd"
+              @click="formData.defaultCwd = ''"
+            >
+              {{ t('common.restoreDefault') }}
+            </n-button>
+          </div>
+          <template #feedback>默认会在该目录下自动创建 conv-会话号工作目录</template>
+        </n-form-item>
       </n-card>
 
       <n-card :title="t('dingtalkSettings.connectionControl')" class="settings-section">
@@ -119,6 +140,7 @@ import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
+import { getImDefaultWorkspaceRoot } from '@/utils/im-working-directory'
 
 const props = defineProps({
   embedded: {
@@ -137,6 +159,7 @@ const formData = ref({
   appKey: '',
   appSecret: '',
   robotCode: '',
+  defaultCwd: '',
   maxHistorySessions: 5
 })
 
@@ -147,6 +170,7 @@ const togglingEnabled = ref(false)
 const configLoaded = ref(false)
 const runtimeState = ref('disabled')
 const manualStopped = ref(false)
+const loadedConfig = ref({})
 
 // Cleanup listeners
 const cleanups = []
@@ -185,6 +209,18 @@ const primaryActionText = computed(() => {
   if (runtimeState.value === 'connecting') return '连接中'
   return t('dingtalkSettings.connect')
 })
+
+const effectiveDefaultCwd = computed(() => getImDefaultWorkspaceRoot(
+  {
+    ...(loadedConfig.value || {}),
+    dingtalk: {
+      ...(loadedConfig.value?.dingtalk || {}),
+      defaultCwd: formData.value.defaultCwd,
+    },
+  },
+  'dingtalk',
+  'dingtalk'
+))
 
 const buildFriendlyConnectMessage = () => {
   if (runtimeState.value === 'connecting' || runtimeState.value === 'reconnecting') {
@@ -235,11 +271,13 @@ onUnmounted(() => {
 const loadConfig = async () => {
   try {
     const config = await invoke('getConfig')
+    loadedConfig.value = config || {}
     const dt = config?.dingtalk || {}
     formData.value.enabled = dt.enabled || false
     formData.value.appKey = dt.appKey || ''
     formData.value.appSecret = dt.appSecret || ''
     formData.value.robotCode = dt.robotCode || ''
+    formData.value.defaultCwd = dt.defaultCwd || ''
     formData.value.maxHistorySessions = dt.maxHistorySessions || 5
   } catch (err) {
     console.error('Failed to load DingTalk config:', err)
@@ -259,9 +297,18 @@ const buildConfigPayload = (enabled = formData.value.enabled) => ({
   appKey: formData.value.appKey,
   appSecret: formData.value.appSecret,
   robotCode: formData.value.robotCode,
+  defaultCwd: formData.value.defaultCwd,
   enabled,
   maxHistorySessions: formData.value.maxHistorySessions,
 })
+
+const handleSelectDefaultCwd = async () => {
+  if (!window.electronAPI?.selectFolder) return
+  const folderPath = await window.electronAPI.selectFolder()
+  if (folderPath) {
+    formData.value.defaultCwd = folderPath
+  }
+}
 
 const handleEnabledChange = async (nextEnabled) => {
   if (togglingEnabled.value || nextEnabled === formData.value.enabled) return

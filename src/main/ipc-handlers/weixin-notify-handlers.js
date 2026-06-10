@@ -79,6 +79,9 @@ function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, m
       enabled: !!enabled,
     }
     await weixinNotifyService?.configManager?.save?.(current)
+    if (typeof weixinBridge?.refreshSessionMapperConfig === 'function') {
+      weixinBridge.refreshSessionMapperConfig()
+    }
     if (!enabled) {
       weixinBridge?.stop?.({ preserveDisabledState: true })
     } else {
@@ -98,6 +101,9 @@ function setupWeixinNotifyHandlers(ipcMain, weixinNotifyService, weixinBridge, m
       ...config,
     }
     await weixinNotifyService?.configManager?.save?.(current)
+    if (typeof weixinBridge?.refreshSessionMapperConfig === 'function') {
+      weixinBridge.refreshSessionMapperConfig()
+    }
     if (typeof weixinNotifyService?.applyRuntimeConfig === 'function') {
       weixinNotifyService.applyRuntimeConfig()
     }

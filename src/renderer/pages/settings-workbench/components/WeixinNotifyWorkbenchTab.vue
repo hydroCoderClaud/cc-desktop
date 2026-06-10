@@ -65,11 +65,31 @@
           </n-form-item>
         </div>
 
+        <n-form-item label="默认工作目录">
+          <div style="display: flex; gap: 8px; width: 100%">
+            <n-input
+              :value="effectiveDefaultCwd"
+              placeholder="微信会话默认工作目录"
+              readonly
+              style="flex: 1"
+            />
+            <n-button @click="handleSelectDefaultCwd">
+              {{ t('common.browse') }}
+            </n-button>
+            <n-button
+              v-if="weixinDefaultCwd"
+              @click="weixinDefaultCwd = ''"
+            >
+              {{ t('common.restoreDefault') }}
+            </n-button>
+          </div>
+          <template #feedback>默认会在该目录下自动创建 conv-会话号工作目录</template>
+        </n-form-item>
+
         <div class="config-actions">
           <n-button
             type="primary"
             :loading="savingConfig"
-            :disabled="!enabled"
             @click="saveConfig"
           >
             {{ t('common.save') }}
@@ -212,6 +232,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import { getImDefaultWorkspaceRoot } from '@/utils/im-working-directory'
 import {
   collectSendableTargetIds,
   hasNewSendableTarget,
@@ -242,9 +263,11 @@ const preCaptureStatus = ref('idle')
 const enabled = ref(false)
 const pollIntervalMs = ref(100)
 const pollTimeoutMs = ref(500)
+const weixinDefaultCwd = ref('')
 const runtimeState = ref('disabled')
 const cleanupFns = []
 const configReady = ref(false)
+const loadedConfig = ref({})
 
 const MANUAL_CAPTURE_POLL_TIMEOUT_MS = 8000
 const PRE_CAPTURE_REFRESH_INTERVAL_MS = 2000
@@ -279,6 +302,17 @@ const preCaptureStatusText = computed(() => {
   if (preCaptureStatus.value === 'timeout') return t('weixinNotify.preCaptureTimeout')
   return ''
 })
+const effectiveDefaultCwd = computed(() => getImDefaultWorkspaceRoot(
+  {
+    ...(loadedConfig.value || {}),
+    weixin: {
+      ...(loadedConfig.value?.weixin || {}),
+      defaultCwd: weixinDefaultCwd.value,
+    },
+  },
+  'weixin',
+  'weixin'
+))
 
 const throwIfIpcError = (result) => {
   if (result?.error) throw new Error(result.error)
@@ -286,10 +320,12 @@ const throwIfIpcError = (result) => {
 }
 
 const applyWeixinConfig = (config = {}) => {
+  loadedConfig.value = config || {}
   const weixinConfig = config?.weixin || {}
   enabled.value = weixinConfig.enabled !== false
   pollIntervalMs.value = Number(weixinConfig.pollIntervalMs) || 100
   pollTimeoutMs.value = Number(weixinConfig.pollTimeoutMs) || 500
+  weixinDefaultCwd.value = weixinConfig.defaultCwd || ''
 }
 
 const applyWeixinStatus = (status = null) => {
@@ -334,7 +370,16 @@ const buildWeixinConfigPayload = () => ({
   enabled: enabled.value,
   pollIntervalMs: Number(pollIntervalMs.value) || 100,
   pollTimeoutMs: Number(pollTimeoutMs.value) || 500,
+  defaultCwd: weixinDefaultCwd.value,
 })
+
+const handleSelectDefaultCwd = async () => {
+  if (!window.electronAPI?.selectFolder) return
+  const folderPath = await window.electronAPI.selectFolder()
+  if (folderPath) {
+    weixinDefaultCwd.value = folderPath
+  }
+}
 
 const handleEnabledChange = async (nextEnabled) => {
   if (togglingEnabled.value || nextEnabled === enabled.value) return

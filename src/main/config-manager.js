@@ -121,6 +121,7 @@ class ConfigManager {
         enabled: true,
         pollIntervalMs: 100,
         pollTimeoutMs: 500,
+        defaultCwd: '',
       },
 
       settings: {
