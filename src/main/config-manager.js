@@ -124,6 +124,11 @@ class ConfigManager {
         defaultCwd: '',
       },
 
+      // 内置 IM 公共配置
+      imCommon: {
+        desktopInterventionLabel: '桌面端介入',
+      },
+
       settings: {
         theme: 'light',
 

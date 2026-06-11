@@ -1002,7 +1002,7 @@ describe('EnterpriseWeixinBridge', () => {
     expect(wsClient.sendMessage).toHaveBeenLastCalledWith('user-a', {
       msgtype: 'markdown',
       markdown: {
-        content: '桌面介入> 新会话应回发\n\n来自新会话的回复',
+        content: '桌面端介入：\n> 新会话应回发\n\n来自新会话的回复',
       },
     })
   })

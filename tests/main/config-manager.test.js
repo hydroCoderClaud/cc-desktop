@@ -76,6 +76,9 @@ describe('ConfigManager', () => {
       expect(config).toBeDefined()
       expect(config.recentProjects).toEqual([])
       expect(config.apiProfiles).toEqual([])
+      expect(config.imCommon).toEqual({
+        desktopInterventionLabel: '桌面端介入'
+      })
       expect(config.settings).toBeDefined()
       expect(config.settings.theme).toBe('light')
       expect(config.settings.appMode).toBe('agent')

@@ -895,7 +895,19 @@ export default {
     title: '渠道配置',
     subtitle: '统一管理桌面端消息渠道的接入配置。当前支持钉钉与微信，后续可继续扩展飞书等渠道。',
     sidebarTitle: '渠道列表',
+    commonSettings: {
+      boundary: '这里放置所有内置 IM 渠道共用的展示文案与交互文案配置。',
+      imTextTitle: '公共文案',
+      desktopInterventionLabel: '桌面介入文案',
+      desktopInterventionLabelHint: '用于 IM 端展示桌面侧继续发言的前缀。保存时会自动补上冒号，并统一应用到钉钉、飞书、企业微信和微信。',
+      previewTitle: '发送预览',
+      saveSuccess: '公共 IM 文案已保存',
+    },
     channels: {
+      common: {
+        label: '公共设置',
+        description: '所有 IM 渠道共用的文案和展示配置'
+      },
       dingtalk: {
         label: '钉钉',
         description: '企业内部机器人桥接与会话接入'

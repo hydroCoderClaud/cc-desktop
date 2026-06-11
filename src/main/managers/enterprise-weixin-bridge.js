@@ -21,6 +21,7 @@ const { generateReqId, MessageType } = require('@wecom/aibot-node-sdk')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
 const { ImReplyCollector } = require('./im-reply-collector')
 const { ImSessionMapper } = require('./im-session-mapper')
+const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const {
   isMappedCurrentSession,
   deleteSessionMappingsByPrefix,
@@ -1572,7 +1573,10 @@ class EnterpriseWeixinBridge {
       this._desktopPendingImagePaths.delete(sessionId)
 
       if (data?.fullText) {
-        const block = `桌面介入> ${data.userContent}\n\n${data.fullText}`
+        const block = buildDesktopInterventionText(this._configManager, {
+          userContent: data.userContent,
+          fullText: data.fullText,
+        })
         await this._wsClient.sendMessage(chatId, {
           msgtype: 'markdown',
           markdown: { content: block },

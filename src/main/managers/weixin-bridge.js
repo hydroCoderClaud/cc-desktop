@@ -32,6 +32,7 @@ const {
   resolveRenameCommand,
 } = require('./im-command-executor')
 const { getImDefaultWorkspaceRoot, getImWorkspaceSubdir } = require('./im-working-directory')
+const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 
 class WeixinBridge {
   constructor(configManager, agentSessionManager, weixinNotifyService, mainWindow) {
@@ -516,16 +517,10 @@ class WeixinBridge {
     const responseText = pending.textChunks.join('\n\n').trim()
     if (!pending.userInput && !responseText) return null
 
-    const lines = ['桌面端介入：']
-    if (pending.userInput) {
-      lines.push(pending.userInput.split('\n').map(line => `> ${line}`).join('\n'))
-    }
-    if (responseText) {
-      lines.push('')
-      lines.push(responseText)
-    }
-
-    const text = lines.join('\n')
+    const text = buildDesktopInterventionText(this.configManager, {
+      userContent: pending.userInput,
+      fullText: responseText,
+    })
     const imagePaths = [...(pending.imagePaths || [])]
     if ((pending.inputImages.length > 0 || imagePaths.length > 0) && this.weixinNotifyService.sendImages) {
       return this.weixinNotifyService.sendImages({

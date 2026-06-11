@@ -36,6 +36,7 @@ const {
   clearImRuntimeSessionTarget,
 } = require('./im-binding-runtime')
 const { getImDefaultWorkspaceRoot } = require('./im-working-directory')
+const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -2284,17 +2285,10 @@ class DingTalkBridge {
 
       // 有用户输入或有响应文本时才发送（避免发空消息）
       if (pending.userInput || responseText) {
-        const lines = ['💻 桌面端介入：']
-        if (pending.userInput) {
-          // 多行输入每行加引用前缀
-          const quotedInput = pending.userInput.split('\n').map(l => `> ${l}`).join('\n')
-          lines.push(quotedInput)
-        }
-        if (responseText) {
-          lines.push('')
-          lines.push(responseText)
-        }
-        const replyText = lines.join('\n')
+        const replyText = buildDesktopInterventionText(this.configManager, {
+          userContent: pending.userInput,
+          fullText: responseText,
+        })
         if (webhookInfo?.webhook) {
           this._replyToDingTalk(webhookInfo.webhook, replyText).catch(err => {
             console.error('[DingTalk] Desktop intervention reply failed:', err.message)

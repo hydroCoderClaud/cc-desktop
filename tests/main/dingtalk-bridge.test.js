@@ -1553,7 +1553,7 @@ describe('DingTalkBridge', () => {
     expect(replyToDingTalk).toHaveBeenCalledTimes(1)
     expect(replyToDingTalk).toHaveBeenCalledWith(
       'https://example.com/webhook',
-      '💻 桌面端介入：\n> 桌面介入消息\n\n来自桌面的回复'
+      '桌面端介入：\n> 桌面介入消息\n\n来自桌面的回复'
     )
   })
 
@@ -1600,7 +1600,7 @@ describe('DingTalkBridge', () => {
     expect(replyToDingTalk).toHaveBeenCalledTimes(1)
     expect(replyToDingTalk).toHaveBeenCalledWith(
       'https://example.com/new',
-      '💻 桌面端介入：\n> 新会话应回发\n\n新会话回复'
+      '桌面端介入：\n> 新会话应回发\n\n新会话回复'
     )
   })
 
@@ -1666,7 +1666,7 @@ describe('DingTalkBridge', () => {
     const lastBody = JSON.parse(lastCall[1].body)
     expect(lastBody.userIds).toEqual(['staff-1'])
     expect(JSON.parse(lastBody.msgParam)).toEqual({
-      content: '💻 桌面端介入：\n> 桌面继续追问\n\n这是桌面继续回复'
+      content: '桌面端介入：\n> 桌面继续追问\n\n这是桌面继续回复'
     })
   })
 

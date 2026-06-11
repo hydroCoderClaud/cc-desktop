@@ -11,6 +11,7 @@ const path = require('path')
 const { ImSessionMapper } = require('./im-session-mapper')
 const { ImReplyCollector } = require('./im-reply-collector')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
+const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
@@ -1180,7 +1181,7 @@ class FeishuBridge {
       sessionId, { content, images },
       async (sid, { userContent, fullText }) => {
         if (!fullText) return
-        const block = `桌面介入> ${userContent}\n\n${fullText}`
+        const block = buildDesktopInterventionText(this._config, { userContent, fullText })
         await this._api.sendTextMessage(receiveIdType, receiveId, block)
       }
     )
@@ -1560,7 +1561,10 @@ class FeishuBridge {
       if (!identity) return
       const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
       const receiveIdType = identity.chatType === 'p2p' ? 'open_id' : 'chat_id'
-      const block = `桌面介入> ${data.userContent}\n\n${data.fullText}`
+      const block = buildDesktopInterventionText(this._config, {
+        userContent: data.userContent,
+        fullText: data.fullText,
+      })
       await this._api.sendTextMessage(receiveIdType, receiveId, block)
       if (Array.isArray(data.userImages) && data.userImages.length > 0) {
         await this._sendBase64Images(receiveIdType, receiveId, data.userImages)

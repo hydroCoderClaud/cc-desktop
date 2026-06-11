@@ -38,6 +38,7 @@
 import { computed, markRaw, ref } from 'vue'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
+import ChannelCommonSettings from './ChannelCommonSettings.vue'
 import EmbeddedDingTalkSettings from './EmbeddedDingTalkSettings.vue'
 import EmbeddedFeishuSettings from './EmbeddedFeishuSettings.vue'
 import EmbeddedEnterpriseWeixinSettings from './EmbeddedEnterpriseWeixinSettings.vue'
@@ -47,6 +48,11 @@ const { cssVars } = useTheme()
 const { t } = useLocale()
 
 const channels = computed(() => ([
+  {
+    id: 'common',
+    label: t('channelSettings.channels.common.label'),
+    description: t('channelSettings.channels.common.description')
+  },
   {
     id: 'dingtalk',
     label: t('channelSettings.channels.dingtalk.label'),
@@ -70,15 +76,16 @@ const channels = computed(() => ([
 ]))
 
 const channelComponents = {
+  common: markRaw(ChannelCommonSettings),
   dingtalk: markRaw(EmbeddedDingTalkSettings),
   weixin: markRaw(WeixinNotifyWorkbenchTab),
   feishu: markRaw(EmbeddedFeishuSettings),
   'enterprise-weixin': markRaw(EmbeddedEnterpriseWeixinSettings)
 }
 
-const activeChannel = ref('dingtalk')
+const activeChannel = ref('common')
 
-const currentChannelComponent = computed(() => channelComponents[activeChannel.value] || channelComponents.dingtalk)
+const currentChannelComponent = computed(() => channelComponents[activeChannel.value] || channelComponents.common)
 </script>
 
 <style scoped>
