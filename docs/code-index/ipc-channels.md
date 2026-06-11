@@ -1,6 +1,6 @@
 # IPC 通道清单
 
-> Hydro Desktop v1.7.78+ | [← 返回架构文档](../ARCHITECTURE.md)
+> Hydro Desktop v1.7.79+ | [← 返回架构文档](../ARCHITECTURE.md)
 
 ## 概览
 
