@@ -719,16 +719,11 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     if (!fs.existsSync(filePath)) {
       return { success: false, error: `Guide not found: ${filePath}` };
     }
-    // 用系统默认浏览器打开本地 HTML 文件
-    const { exec } = require('child_process');
-    const cmd = process.platform === 'win32'
-      ? `start "" "${filePath}"`
-      : process.platform === 'darwin'
-        ? `open "${filePath}"`
-        : `xdg-open "${filePath}"`;
-    exec(cmd, (err) => {
-      if (err) console.error('[im:openGuide] exec error:', err.message);
-    });
+    // 统一交给 Electron 处理本地文件打开，避免不同平台的命令行差异
+    const result = await shell.openPath(filePath);
+    if (result) {
+      return { success: false, error: result };
+    }
     return { success: true };
   });
 
