@@ -1079,8 +1079,6 @@ export default {
     autocompactDefault: '留空使用 CLI 默认值 (~95%)',
     messageQueue: '消息队列',
     messageQueueHint: '开启后，AI 输出期间可继续输入消息排队，输出结束后自动依次发送',
-    allowScheduledSessionScheduleTools: '定时任务会话允许继续创建定时任务',
-    allowScheduledSessionScheduleToolsHint: '开启后，已带定时任务属性的会话仍会注入定时任务能力，可在同一会话中继续新增或调整多个定时任务',
     enableDeveloperMode: '启用开发者模式',
     enableDeveloperModeHint: '关闭后将隐藏开发者模式入口；如当前正在开发者模式，会自动切回智能体模式',
     developerClaudeSource: 'Claude 启动来源',

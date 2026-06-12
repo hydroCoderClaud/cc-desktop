@@ -17,8 +17,8 @@ describe('useAgentPanel filters', () => {
         listAgentSessions: vi.fn().mockResolvedValue([
           { id: 'manual-1', type: 'chat', source: 'manual', cwd: 'C:/manual-a', updatedAt: '2026-04-22T01:00:00.000Z' },
           { id: 'manual-2', type: 'chat', source: 'manual', taskId: 101, cwd: 'C:/shared', updatedAt: '2026-04-22T02:00:00.000Z' },
-          { id: 'scheduled-1', type: 'chat', source: 'scheduled', taskId: 102, cwd: 'C:/scheduled-a', updatedAt: '2026-04-22T03:00:00.000Z' },
-          { id: 'scheduled-2', type: 'chat', source: 'scheduled', cwd: 'C:/shared', updatedAt: '2026-04-21T03:00:00.000Z' },
+          { id: 'manual-3', type: 'chat', source: 'manual', taskId: 102, cwd: 'C:/scheduled-a', updatedAt: '2026-04-22T03:00:00.000Z' },
+          { id: 'manual-4', type: 'chat', source: 'manual', cwd: 'C:/shared', updatedAt: '2026-04-21T03:00:00.000Z' },
           { id: 'ding-1', type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', cwd: 'C:/dingtalk-a', updatedAt: '2026-04-20T03:00:00.000Z' },
           { id: 'feishu-1', type: 'chat', source: 'im-inbound', imChannel: 'feishu', taskId: 201, cwd: 'C:/feishu-a', updatedAt: '2026-04-20T03:30:00.000Z' },
           { id: 'notebook-1', type: 'notebook', source: 'manual', cwd: 'C:/notebook-a', updatedAt: '2026-04-22T04:00:00.000Z' },

@@ -84,7 +84,6 @@ describe('ConfigManager', () => {
       expect(config.settings.appMode).toBe('agent')
       expect(config.settings.enableDeveloperMode).toBe(true)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
-      expect(config.settings.agent.allowScheduledSessionScheduleTools).toBe(true)
     })
 
     it('应该初始化内置服务商及其默认模型 ID 列表', () => {

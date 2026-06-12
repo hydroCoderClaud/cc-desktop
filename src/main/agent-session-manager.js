@@ -58,7 +58,6 @@ function normalizeSessionType(type) {
 }
 
 function normalizeSessionSource(source, imChannel) {
-  if (source === 'scheduled') return 'scheduled'
   if (source === 'im-inbound') return 'im-inbound'
   if (isExternalImChannel(source) || isExternalImChannel(imChannel)) return 'im-inbound'
   return 'manual'
@@ -1053,7 +1052,7 @@ class AgentSessionManager extends EventEmitter {
         type: row.type,
         title: row.title || '',
         cwd: row.cwd,
-        source: row.source || 'manual',
+        source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
         imChannel: row.im_channel || null,
         taskId: row.task_id || null,
         ownerClientId: row.owner_client_id || 'host-ui',
@@ -1854,7 +1853,7 @@ class AgentSessionManager extends EventEmitter {
             apiProfileId: row.api_profile_id || null,
             apiBaseUrl: row.api_base_url || null,
             modelId: normalizeModelIdOrNull(row.model_id),
-            source: row.source || 'manual',
+            source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
             imChannel: row.im_channel || null,
             taskId: row.task_id || null
           }
@@ -2572,7 +2571,7 @@ class AgentSessionManager extends EventEmitter {
             apiProfileId: row.api_profile_id || null,
             apiBaseUrl: row.api_base_url || null,
             modelId: normalizeModelIdOrNull(row.model_id),
-            source: row.source || 'manual',
+            source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
             imChannel: row.im_channel || null,
             taskId: row.task_id || null
           })

@@ -333,7 +333,7 @@ describe('AgentSessionManager interactions', () => {
 
   it('emits interruption events when closeAllSync tears down sessions', () => {
     const { manager } = createManager()
-    const session = new AgentSession({ id: 's-close', cwd: '/tmp', source: 'scheduled' })
+    const session = new AgentSession({ id: 's-close', cwd: '/tmp', source: 'manual' })
     const interrupted = []
 
     manager.sessionDatabase = {
@@ -356,7 +356,7 @@ describe('AgentSessionManager interactions', () => {
 
   it('emits interruption events when user cancels an active session', async () => {
     const { manager, sent } = createManager()
-    const session = new AgentSession({ id: 's-cancel', cwd: '/tmp', source: 'scheduled' })
+    const session = new AgentSession({ id: 's-cancel', cwd: '/tmp', source: 'manual' })
     const interrupted = []
 
     session.queryGenerator = {
@@ -1340,9 +1340,9 @@ describe('AgentSessionManager interactions', () => {
     )
   })
 
-  it('filters sentinel no-response assistant text from scheduled tool-only runs', async () => {
+  it('filters sentinel no-response assistant text from task-triggered tool-only runs', async () => {
     const { manager, sent } = createManager()
-    const session = new AgentSession({ id: 's-no-response', cwd: '/tmp', source: 'scheduled' })
+    const session = new AgentSession({ id: 's-no-response', cwd: '/tmp', source: 'manual' })
     session.dbConversationId = 1
     manager.sessions.set('s-no-response', session)
     manager.runner = { normalizeMessage: raw => raw }
@@ -1974,9 +1974,9 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toContain('Use hydrology tools for real business entities')
   })
 
-  it('injects scheduled-task MCP tools for scheduled source sessions by default', async () => {
+  it('injects scheduled-task MCP tools for task-linked sessions the same as normal sessions', async () => {
     const { manager } = createManager()
-    const session = new AgentSession({ id: 'scheduled-session', cwd: '/tmp', taskId: 1 })
+    const session = new AgentSession({ id: 'task-linked-session', cwd: '/tmp', taskId: 1 })
     session.dbConversationId = 1
     manager.sessions.set(session.id, session)
     manager.scheduledTaskService = {
@@ -1984,10 +1984,7 @@ describe('AgentSessionManager interactions', () => {
       configManager: {
         getConfig: () => ({
           settings: {
-            locale: 'zh-CN',
-            agent: {
-              allowScheduledSessionScheduleTools: true
-            }
+            locale: 'zh-CN'
           }
         })
       }

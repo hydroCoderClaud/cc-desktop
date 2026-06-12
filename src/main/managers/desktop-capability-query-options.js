@@ -14,9 +14,9 @@ const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'Do not claim there are no tasks, no history, or a task is disabled without calling the relevant tool first.',
   'After any mutation or inspection, summarize the actual task state returned by the tool, especially enabled, nextRunAt, lastError, and failureCount.',
   'Scheduled tasks no longer own an independent model or API profile configuration; they reuse the currently bound session runtime.',
-  'For normal chat-bound tasks or tasks using sessionBindingMode=new, a missing bound session will be recreated as a fresh default session on the next run.',
+  'For normal chat-bound tasks or tasks using sessionBindingMode=new, a missing bound session will be recreated as a fresh default task session on the next run.',
   'For embedded-app tasks bound to the current session, the task follows that app\'s current session instead of reopening an old embedded session.',
-  'If an embedded-app current-session task has no current app session to follow, the run will be skipped instead of falling back to a fresh default scheduled session.',
+  'If an embedded-app current-session task has no current app session to follow, the run will be skipped instead of falling back to a fresh default task session.',
   'When creating a scheduled task from the current chat session, default to binding the task to the current session.',
   'Only set sessionBindingMode to new when the user explicitly asks for a separate, independent, or background session.',
   'If the user does not explicitly request a separate session, omit sessionBindingMode or use current instead of new.'
@@ -56,7 +56,8 @@ const WEIXIN_NOTIFY_ALLOWED_TOOLS = WEIXIN_NOTIFY_TOOL_NAMES.map(
 )
 const IM_BUILTIN_TOOL_NAMES = [
   'im_list_targets',
-  'im_send'
+  'im_send',
+  'im_unbind'
 ]
 const IM_BUILTIN_ALLOWED_TOOLS = IM_BUILTIN_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
@@ -76,6 +77,7 @@ const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
 const IM_BUILTIN_SYSTEM_PROMPT = [
   'You can send built-in IM messages through Hydro Desktop for enabled channels such as DingTalk, Feishu, and Enterprise Weixin when those channels are available in this session.',
   'If the current session is already bound to an IM target and the user did not ask to change recipient, call im_send directly and default to that bound target.',
+  'If the user explicitly asks to解除绑定, 解绑, unbind, disconnect, or clear the current IM recipient for this session, call im_unbind.',
   'Use im_list_targets before sending only when the current session is not already bound to a target, or when the user explicitly wants to choose or change the recipient.',
   'Prefer the channel and targetKey returned by im_list_targets.',
   'If the recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
@@ -150,11 +152,8 @@ function getDisplayLocale(scheduledTaskService) {
   return DISPLAY_I18N[locale] ? locale : 'zh-CN'
 }
 
-function shouldAllowScheduleToolsForSession(scheduledTaskService, session) {
-  if (!scheduledTaskService) return false
-  if (!session?.taskId) return true
-
-  return scheduledTaskService?.configManager?.getConfig?.()?.settings?.agent?.allowScheduledSessionScheduleTools !== false
+function shouldAllowScheduleToolsForSession(scheduledTaskService) {
+  return !!scheduledTaskService
 }
 
 function getDisplayDict(locale) {
@@ -779,7 +778,7 @@ function buildBoundImPrompt(bound = {}, provider = null, { channelAvailable = tr
   }[bound.channel] || bound.channel)
   const targetLabel = bound.displayName || bound.targetId
   if (!channelAvailable) {
-    return `The current session is already bound to ${channelLabel} target "${targetLabel}", but that channel is currently unavailable. Do not ask for message content, do not call im_send, and do not call im_list_targets to look for other IM channels for this same session. Explain that this bound channel must be restored first, or the user must use another session.`
+    return `The current session is already bound to ${channelLabel} target "${targetLabel}", but that channel is currently unavailable. Do not ask for message content, do not call im_send, and do not call im_list_targets to look for other IM channels for this same session. If the user explicitly asks to unbind or disconnect this current recipient, you may call im_unbind. Otherwise explain that this bound channel must be restored first, or the user must use another session.`
   }
   return `The current session is already bound to ${channelLabel} target "${targetLabel}". Unless the user explicitly asks to change recipient, call im_send directly and reuse this bound target.`
 }
@@ -906,7 +905,10 @@ function collectEnabledImProviders({
           hasContextToken: true,
         }])[0] || {}) || null
         return { result, recipient }
-      }
+      },
+      unbind: typeof dingtalkBridge.unbindTarget === 'function'
+        ? (sessionId) => dingtalkBridge.unbindTarget(sessionId)
+        : null,
     })
   }
 
@@ -942,7 +944,10 @@ function collectEnabledImProviders({
           hasContextToken: true,
         }])[0] || {}) || null
         return { result, recipient }
-      }
+      },
+      unbind: typeof feishuBridge.unbindTarget === 'function'
+        ? (sessionId) => feishuBridge.unbindTarget(sessionId)
+        : null,
     })
   }
 
@@ -994,7 +999,10 @@ function collectEnabledImProviders({
           hasContextToken: true,
         }])[0] || {}) || null
         return { result, recipient }
-      }
+      },
+      unbind: typeof enterpriseWeixinBridge.unbindTarget === 'function'
+        ? (sessionId) => enterpriseWeixinBridge.unbindTarget(sessionId)
+        : null,
     })
   }
 
@@ -1011,7 +1019,7 @@ async function buildDesktopCapabilityQueryOptions({
   wecomCliManager,
   session
 }) {
-  const includeScheduleTools = shouldAllowScheduleToolsForSession(scheduledTaskService, session)
+  const includeScheduleTools = shouldAllowScheduleToolsForSession(scheduledTaskService)
   const getImProviders = ({ includeDisabled = false } = {}) => collectEnabledImProviders({
     weixinNotifyService,
     weixinBridge,
@@ -1021,15 +1029,14 @@ async function buildDesktopCapabilityQueryOptions({
     wecomCliManager,
     includeDisabled
   })
-  const isScheduledSourceSession = Boolean(session?.taskId)
   const includeWeixinNotifyTools = Boolean(
-    PERSONAL_WEIXIN_ENABLED && isScheduledSourceSession && weixinNotifyService && (
+    PERSONAL_WEIXIN_ENABLED && weixinNotifyService && (
       typeof weixinNotifyService.isEnabled === 'function'
         ? weixinNotifyService.isEnabled()
         : true
     )
   )
-  const includeImBuiltinTools = !isScheduledSourceSession && getImProviders({ includeDisabled: true }).length > 0
+  const includeImBuiltinTools = getImProviders({ includeDisabled: true }).length > 0
   const initialImProviders = includeImBuiltinTools ? getImProviders({ includeDisabled: true }) : []
   const initialAvailableImProviders = includeImBuiltinTools ? getImProviders() : []
   const initialSessionProvider = session?.imChannel
@@ -1493,6 +1500,35 @@ async function buildDesktopCapabilityQueryOptions({
           channel,
           channelLabel: provider.channelLabel,
           recipient,
+          result,
+        })
+      }
+    ),
+    tool(
+      IM_BUILTIN_TOOL_NAMES[2],
+      '解除当前会话与已绑定内置 IM 目标的绑定。仅对当前会话生效，解绑后该会话不再默认发送给原绑定对象。',
+      {},
+      async () => {
+        if (!session?.id || !session?.imChannel) {
+          throw new Error('当前会话没有已绑定的 IM 渠道，无需解绑。')
+        }
+
+        const allImProviders = getImProviders({ includeDisabled: true })
+        const sessionBoundProvider = allImProviders.find(item => item.channel === session.imChannel) || null
+        const boundTarget = getBoundImTargetFromSession(session, sessionBoundProvider)
+
+        if (!sessionBoundProvider?.unbind) {
+          throw new Error(`当前会话绑定的 ${session.imChannel} 渠道不支持解绑。`)
+        }
+
+        const result = await sessionBoundProvider.unbind(session.id)
+        return buildToolResult({
+          action: 'im_unbind',
+          channel: sessionBoundProvider.channel,
+          channelLabel: sessionBoundProvider.channelLabel,
+          recipient: boundTarget
+            ? toPublicImTarget(normalizeBoundImTargetEntry(boundTarget, sessionBoundProvider) || {})
+            : null,
           result,
         })
       }

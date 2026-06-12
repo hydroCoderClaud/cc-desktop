@@ -925,7 +925,7 @@ describe('ScheduledTaskService', () => {
     }
   })
 
-  it('recreates a default scheduled session when the bound session is missing', async () => {
+  it('recreates a default task session when the bound session is missing', async () => {
     vi.useFakeTimers()
 
     try {
@@ -1242,11 +1242,10 @@ describe('ScheduledTaskService', () => {
     }))
   })
 
-  it('keeps a session scheduled when detaching one task but another task is still bound to the same session', async () => {
+  it('keeps task binding on a shared session when detaching one task but another task is still bound to the same session', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const liveSession = {
       id: 'shared-session-1',
-      source: 'scheduled',
       taskId: 81,
       meta: { scheduledTaskId: 81 }
     }
@@ -1578,7 +1577,6 @@ describe('ScheduledTaskService', () => {
       runtimeState: { _scheduler: { resetSessionAfterRun: true, reason: 'cwd-changed' } }
     }
     const liveSession = {
-      source: 'scheduled',
       taskId: 76,
       meta: { scheduledTaskId: 76 }
     }
@@ -1698,7 +1696,6 @@ describe('ScheduledTaskService', () => {
       cwd: 'C:/workspace/new'
     }
     const liveSession = {
-      source: 'scheduled',
       taskId: 81,
       meta: { scheduledTaskId: 81 }
     }
@@ -1751,7 +1748,6 @@ describe('ScheduledTaskService', () => {
       apiProfileId: 'profile-new'
     }
     const liveSession = {
-      source: 'scheduled',
       taskId: 82,
       meta: { scheduledTaskId: 82 }
     }
@@ -1782,7 +1778,7 @@ describe('ScheduledTaskService', () => {
     expect(rename).toHaveBeenCalledWith(currentTask.sessionId, '配置切换任务（新）')
   })
 
-  it('downgrades the linked agent session to manual when deleting a scheduled task', async () => {
+  it('clears task binding on the linked agent session when deleting a scheduled task', async () => {
     const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
     const currentTask = {
       id: 12,
@@ -1795,7 +1791,6 @@ describe('ScheduledTaskService', () => {
     }
 
     const liveSession = {
-      source: 'scheduled',
       taskId: 12,
       meta: { scheduledTaskId: 12 }
     }
@@ -1837,7 +1832,6 @@ describe('ScheduledTaskService', () => {
     }
 
     const liveSession = {
-      source: 'scheduled',
       taskId: 119,
       meta: { scheduledTaskId: 119 }
     }

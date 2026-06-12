@@ -1076,8 +1076,6 @@ export default {
     autocompactDefault: 'Empty = CLI default (~95%)',
     messageQueue: 'Message Queue',
     messageQueueHint: 'When enabled, you can queue messages while AI is responding. They auto-send when output finishes.',
-    allowScheduledSessionScheduleTools: 'Allow scheduled sessions to create scheduled tasks',
-    allowScheduledSessionScheduleToolsHint: 'When enabled, sessions already marked as scheduled still receive scheduled-task tools, so the same session can add or adjust multiple scheduled tasks.',
     enableDeveloperMode: 'Enable Developer Mode',
     enableDeveloperModeHint: 'When disabled, the Developer mode entry is hidden. If a window is currently in Developer mode, it switches back to Agent mode.',
     developerClaudeSource: 'Claude Launch Source',

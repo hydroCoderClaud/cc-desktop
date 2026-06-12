@@ -153,8 +153,7 @@ class ConfigManager {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
           defaultAgentType: 'chat',    // 默认 Agent 类型
-          messageQueue: true,          // 消息队列：流式输出期间允许排队发送
-          allowScheduledSessionScheduleTools: true // 定时任务会话是否继续注入定时任务能力
+          messageQueue: true           // 消息队列：流式输出期间允许排队发送
         },
 
         localAgentApi: {

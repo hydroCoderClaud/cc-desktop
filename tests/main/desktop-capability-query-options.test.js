@@ -140,7 +140,7 @@ describe('desktop capability query options', () => {
       ...bridgeOverrides
     }
     const options = await buildDesktopCapabilityQueryOptions({
-      scheduledTaskService: session.taskId ? null : {
+      scheduledTaskService: {
         configManager: { getConfig: () => ({ settings: { locale: 'zh-CN' } }) },
         listTasks: vi.fn(() => [])
       },
@@ -281,7 +281,7 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('default to binding the task to the current session')
     expect(options.appendSystemPrompt).toContain('Only set sessionBindingMode to new when the user explicitly asks for a separate')
     expect(options.appendSystemPrompt).toContain('follows that app\'s current session instead of reopening an old embedded session')
-    expect(options.appendSystemPrompt).toContain('will be skipped instead of falling back to a fresh default scheduled session')
+    expect(options.appendSystemPrompt).toContain('will be skipped instead of falling back to a fresh default task session')
   })
 
   it('serializes task diagnostics in list/get responses', async () => {
@@ -449,7 +449,7 @@ describe('desktop capability query options', () => {
           id: 18,
           name: '工作台任务',
           sessionBindingMode: 'new',
-          sessionId: 'scheduled-session-18'
+          sessionId: 'task-session-18'
         })
       ]),
       updateTask: vi.fn(async (taskId, updates) => buildTask({ id: Number(taskId), ...updates }))
@@ -480,49 +480,12 @@ describe('desktop capability query options', () => {
     }))
   })
 
-  it('still injects scheduled-task tools into scheduled sessions when the global switch is enabled', async () => {
+  it('binds the current task-linked session when sessionBindingMode defaults to current', async () => {
     const scheduledTaskService = {
       configManager: {
         getConfig: () => ({
           settings: {
-            locale: 'zh-CN',
-            agent: {
-              allowScheduledSessionScheduleTools: true
-            }
-          }
-        })
-      },
-      listTasks: vi.fn(() => [])
-    }
-
-    const options = await buildDesktopCapabilityQueryOptions({
-      scheduledTaskService,
-      session: { id: 'scheduled-session-1', taskId: 1 }
-    })
-
-    const tools = Object.fromEntries(
-      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
-    )
-
-    expect(Object.keys(tools)).toEqual(expect.arrayContaining([
-      'schedule_list',
-      'schedule_create'
-    ]))
-    expect(options.allowedTools).toEqual(expect.arrayContaining([
-      'mcp__hydrodesktop__schedule_list',
-      'mcp__hydrodesktop__schedule_create'
-    ]))
-  })
-
-  it('binds the current scheduled session when reinjection is enabled and sessionBindingMode defaults to current', async () => {
-    const scheduledTaskService = {
-      configManager: {
-        getConfig: () => ({
-          settings: {
-            locale: 'zh-CN',
-            agent: {
-              allowScheduledSessionScheduleTools: true
-            }
+            locale: 'zh-CN'
           }
         })
       },
@@ -532,7 +495,7 @@ describe('desktop capability query options', () => {
 
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService,
-      session: { id: 'scheduled-session-current-1', taskId: 1 }
+      session: { id: 'task-linked-session-1', taskId: 1 }
     })
 
     const tools = Object.fromEntries(
@@ -541,7 +504,7 @@ describe('desktop capability query options', () => {
 
     await tools.schedule_create.handler({
       name: '同会话追加任务',
-      prompt: '继续当前定时任务会话',
+      prompt: '继续当前任务关联会话',
       scheduleType: 'interval',
       intervalMinutes: 45,
       firstRunAt: '2026-05-01T10:00:00+08:00'
@@ -549,31 +512,8 @@ describe('desktop capability query options', () => {
 
     expect(scheduledTaskService.createTask).toHaveBeenCalledWith(expect.objectContaining({
       sessionBindingMode: 'current',
-      boundSessionId: 'scheduled-session-current-1'
+      boundSessionId: 'task-linked-session-1'
     }))
-  })
-
-  it('does not inject scheduled-task tools into scheduled sessions when the global switch is disabled', async () => {
-    const scheduledTaskService = {
-      configManager: {
-        getConfig: () => ({
-          settings: {
-            locale: 'zh-CN',
-            agent: {
-              allowScheduledSessionScheduleTools: false
-            }
-          }
-        })
-      },
-      listTasks: vi.fn(() => [])
-    }
-
-    const options = await buildDesktopCapabilityQueryOptions({
-      scheduledTaskService,
-      session: { id: 'scheduled-session-2', taskId: 1 }
-    })
-
-    expect(options).toEqual({})
   })
 
   it('serializes linked session metadata for english locale', async () => {
@@ -674,13 +614,23 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).not.toContain('Weixin notification')
   })
 
-  it('keeps scheduled source sessions limited to weixin notification tools', async () => {
+  it('keeps task-linked sessions injected the same as other sessions for weixin-capable flows', async () => {
     const { options, tools } = await createOptionsWithWeixin({
       session: { taskId: 1 }
     })
 
-    expect(Object.keys(tools)).toEqual([])
-    expect(options).toEqual({})
+    expect(Object.keys(tools)).toEqual([
+      'schedule_list',
+      'schedule_get',
+      'schedule_runs',
+      'schedule_create',
+      'schedule_update',
+      'schedule_enable',
+      'schedule_disable',
+      'schedule_run_now',
+      'schedule_delete'
+    ])
+    expect(options.allowedTools).toEqual(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
   })
 
   it('injects unified builtin IM tools for non-weixin channels', async () => {
@@ -688,13 +638,52 @@ describe('desktop capability query options', () => {
 
     expect(Object.keys(tools)).toEqual([
       'im_list_targets',
-      'im_send'
+      'im_send',
+      'im_unbind'
     ])
     expect(options.allowedTools).toEqual([
       'mcp__hydrodesktop__im_list_targets',
-      'mcp__hydrodesktop__im_send'
+      'mcp__hydrodesktop__im_send',
+      'mcp__hydrodesktop__im_unbind'
     ])
     expect(options.appendSystemPrompt).toContain('built-in IM messages')
+  })
+
+  it('unbinds the current session from its bound builtin IM target', async () => {
+    const session = { id: 'chat-im-bound-1', source: 'manual', imChannel: 'feishu' }
+    const boundBinding = {
+      targetId: 'ou_123',
+      displayName: '飞书李四',
+      targetType: 'user'
+    }
+    const { tools, feishuBridge } = await createOptionsWithBuiltinIm({
+      session,
+      overrides: {
+        feishuBridge: {
+          getBinding: vi.fn((sessionId) => sessionId === session.id ? boundBinding : null),
+          unbindTarget: vi.fn((sessionId) => ({ success: true, sessionId }))
+        }
+      }
+    })
+
+    const payload = parseToolPayload(await tools.im_unbind.handler({}))
+
+    expect(feishuBridge.unbindTarget).toHaveBeenCalledWith('chat-im-bound-1')
+    expect(payload.action).toBe('im_unbind')
+    expect(payload.channel).toBe('feishu')
+    expect(payload.recipient).toEqual(expect.objectContaining({
+      channel: 'feishu',
+      displayName: '飞书李四'
+    }))
+    expect(payload.result).toEqual({ success: true, sessionId: 'chat-im-bound-1' })
+  })
+
+  it('rejects im_unbind when the current session is not bound to a builtin IM channel', async () => {
+    const { tools } = await createOptionsWithBuiltinIm({
+      session: { id: 'chat-im-unbound-1', source: 'manual' }
+    })
+
+    await expect(tools.im_unbind.handler({})).rejects.toThrow('当前会话没有已绑定的 IM 渠道，无需解绑。')
   })
 
   it('tells the model to send directly to the bound IM target by default', async () => {
@@ -748,6 +737,7 @@ describe('desktop capability query options', () => {
 
     expect(options.appendSystemPrompt).toContain('but that channel is currently unavailable')
     expect(options.appendSystemPrompt).toContain('Do not ask for message content')
+    expect(options.appendSystemPrompt).toContain('you may call im_unbind')
     expect(options.appendSystemPrompt).toContain('ZhangYueSheng')
   })
 
