@@ -900,9 +900,9 @@ class WeixinBridge {
     return { success: true, target }
   }
 
-  async sendToTarget({ sessionId, accountId, targetId, displayName, text } = {}) {
+  async sendToTarget({ sessionId, accountId, targetId, displayName, text, images = [] } = {}) {
     const content = typeof text === 'string' ? text.trim() : ''
-    if (!content) {
+    if (!content && (!Array.isArray(images) || images.length === 0)) {
       throw new Error('发送内容不能为空')
     }
     if (!accountId || !targetId) {
@@ -916,6 +916,7 @@ class WeixinBridge {
       accountId,
       targetId,
       text: content,
+      images,
       sessionId
     })
 

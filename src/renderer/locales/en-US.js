@@ -1556,6 +1556,8 @@ export default {
     imQuickAliasPlaceholder: 'Enter a local display name',
     imQuickAliasRequired: 'Alias cannot be empty',
     imQuickAliasSaveFailed: 'Failed to save the local alias',
+    imQuickSendEmptyHint: 'Please enter content before sending',
+    imQuickSendImageCount: '{count} images',
     imQuickSendSessionPrefix: 'From session "{title}"',
     imQuickSendUntitledSession: 'Untitled session {id}',
     imQuickUnbind: 'Unbind',

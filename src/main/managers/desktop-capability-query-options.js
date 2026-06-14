@@ -64,6 +64,13 @@ const IM_BUILTIN_TOOL_NAMES = [
 const IM_BUILTIN_ALLOWED_TOOLS = IM_BUILTIN_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
 )
+const SESSION_TOOL_NAMES = [
+  'session_get_current',
+  'session_match_task'
+]
+const SESSION_ALLOWED_TOOLS = SESSION_TOOL_NAMES.map(
+  toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
+)
 const PERSONAL_WEIXIN_ENABLED = false
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
@@ -86,6 +93,13 @@ const IM_BUILTIN_SYSTEM_PROMPT = [
   'Use im_send for short text messages and local image files to already available built-in IM targets.',
   'Do not claim you can message arbitrary contacts. Only use enabled Hydro Desktop IM channels and targets actually returned by im_list_targets.',
   'After sending, report the channel, recipient displayName, and returned message identifier when available.'
+].join(' ')
+
+const SESSION_SYSTEM_PROMPT = [
+  'You can inspect the current Hydro Desktop session context through read-only session MCP tools.',
+  'Use session_get_current when the user asks which session this chat is, whether it is task-linked, or what IM target is currently bound.',
+  'Use session_match_task when the user asks whether a scheduled task is bound to this current chat session.',
+  'These session tools are read-only helpers for comparison and routing. Do not claim a task/session match without calling them when the answer depends on live session state.'
 ].join(' ')
 
 const DEFAULT_DAILY_TIME = '09:00'
@@ -413,6 +427,59 @@ function mergeSystemPrompts(...prompts) {
 function getTaskCandidates(scheduledTaskService) {
   const tasks = scheduledTaskService?.listTasks?.()
   return Array.isArray(tasks) ? tasks : []
+}
+
+function serializeBoundImTarget(bound = {}, provider = null) {
+  if (!bound?.channel || !bound?.targetId) return null
+  const normalizedEntry = normalizeBoundImTargetEntry(bound, provider)
+  if (normalizedEntry) {
+    return toPublicImTarget(normalizedEntry)
+  }
+  return {
+    channel: bound.channel,
+    channelLabel: provider?.channelLabel || bound.channel,
+    targetKey: bound.displayName || bound.targetId,
+    displayName: bound.displayName || bound.targetId,
+    displayLabel: bound.displayName || bound.targetId,
+    targetType: bound.targetType || 'user',
+    sendable: true,
+    hasContextToken: true
+  }
+}
+
+function serializeCurrentSession(session = {}, {
+  getImProviders = () => [],
+  weixinNotifyService = null
+} = {}) {
+  const allProviders = typeof getImProviders === 'function' ? getImProviders({ includeDisabled: true }) : []
+  const sessionProvider = session?.imChannel
+    ? allProviders.find(provider => provider.channel === session.imChannel) || null
+    : null
+  const boundImTarget = session?.id
+    ? getBoundImTargetFromSession(session, sessionProvider)
+    : null
+  let boundTarget = null
+  if (boundImTarget?.channel === 'weixin') {
+    const weixinTarget = normalizeBoundWeixinNotifyTarget(boundImTarget, weixinNotifyService)
+    boundTarget = weixinTarget
+      ? serializeWeixinTargetForTool(weixinTarget, new Map([[weixinTarget.displayName || weixinTarget.userId || weixinTarget.id, 1]]))
+      : null
+  } else {
+    boundTarget = serializeBoundImTarget(boundImTarget, sessionProvider)
+  }
+
+  return {
+    sessionId: session?.id || null,
+    taskId: session?.taskId ?? null,
+    source: session?.source || null,
+    imChannel: session?.imChannel || null,
+    ownerClientId: session?.ownerClientId || null,
+    clientType: session?.clientType || null,
+    appId: session?.clientMeta?.appId || null,
+    currentTaskSession: Boolean(session?.taskId),
+    embeddedSession: session?.clientType === 'embedded',
+    boundTarget
+  }
 }
 
 function resolveTaskReference(scheduledTaskService, { taskId, taskName }) {
@@ -1065,6 +1132,10 @@ async function buildDesktopCapabilityQueryOptions({
   const initialBoundWeixinTarget = session?.id
     ? getBoundImTargetFromSession(session, initialWeixinProvider)
     : null
+  const serializedCurrentSession = serializeCurrentSession(session, {
+    getImProviders,
+    weixinNotifyService
+  })
 
   if (!includeScheduleTools && !includeWeixinNotifyTools && !includeImBuiltinTools) {
     return {}
@@ -1550,6 +1621,37 @@ async function buildDesktopCapabilityQueryOptions({
     )
   ] : []
 
+  const sessionTools = session?.id ? [
+    tool(
+      SESSION_TOOL_NAMES[0],
+      '查看当前 Hydro Desktop 会话的只读上下文，包括当前 sessionId、taskId、来源和当前绑定目标摘要。',
+      {},
+      async () => {
+        return buildToolResult({
+          action: 'session_get_current',
+          session: serializedCurrentSession
+        })
+      }
+    ),
+    tool(
+      SESSION_TOOL_NAMES[1],
+      '判断一个定时任务当前是否绑定到这个聊天会话。先提供 taskId；若没有 taskId，可提供 taskName。',
+      taskRefShape,
+      async (args) => {
+        const task = resolveTaskReference(scheduledTaskService, args)
+        const currentSessionId = session?.id || null
+        const taskSessionId = task?.sessionId || null
+        return buildToolResult({
+          action: 'session_match_task',
+          matched: Boolean(currentSessionId && taskSessionId && currentSessionId === taskSessionId),
+          currentSessionId,
+          taskSessionId,
+          task: serializeTaskWithMetadata(task, displayLocale)
+        })
+      }
+    )
+  ] : []
+
   return {
     mcpServers: {
       [DESKTOP_CAPABILITY_SERVER_NAME]: createSdkMcpServer({
@@ -1557,7 +1659,8 @@ async function buildDesktopCapabilityQueryOptions({
         tools: [
           ...scheduleTools,
           ...weixinNotifyTools,
-          ...imBuiltinTools
+          ...imBuiltinTools,
+          ...sessionTools
         ]
       })
     },
@@ -1565,12 +1668,14 @@ async function buildDesktopCapabilityQueryOptions({
       includeScheduleTools ? DESKTOP_CAPABILITY_SYSTEM_PROMPT : null,
       includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null,
       includeImBuiltinTools ? IM_BUILTIN_SYSTEM_PROMPT : null,
+      session?.id ? SESSION_SYSTEM_PROMPT : null,
       boundImPrompt
     ),
     allowedTools: [
       ...(includeScheduleTools ? DESKTOP_CAPABILITY_ALLOWED_TOOLS : []),
       ...(includeWeixinNotifyTools ? WEIXIN_NOTIFY_ALLOWED_TOOLS : []),
-      ...(includeImBuiltinTools ? IM_BUILTIN_ALLOWED_TOOLS : [])
+      ...(includeImBuiltinTools ? IM_BUILTIN_ALLOWED_TOOLS : []),
+      ...(session?.id ? SESSION_ALLOWED_TOOLS : [])
     ],
     disallowedTools: includeScheduleTools ? CONFLICTING_CRON_TOOLS : undefined
   }
@@ -1582,5 +1687,6 @@ module.exports = {
   CONFLICTING_CRON_TOOLS,
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
   WEIXIN_NOTIFY_ALLOWED_TOOLS,
-  IM_BUILTIN_ALLOWED_TOOLS
+  IM_BUILTIN_ALLOWED_TOOLS,
+  SESSION_ALLOWED_TOOLS
 }

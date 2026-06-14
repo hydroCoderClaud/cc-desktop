@@ -15,7 +15,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 const {
   buildDesktopCapabilityQueryOptions,
-  DESKTOP_CAPABILITY_ALLOWED_TOOLS
+  DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  SESSION_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
 
 describe('desktop capability query options', () => {
@@ -291,6 +292,10 @@ describe('desktop capability query options', () => {
       'mcp__hydrodesktop__schedule_run_now',
       'mcp__hydrodesktop__schedule_delete'
     ])
+    expect(SESSION_ALLOWED_TOOLS).toEqual([
+      'mcp__hydrodesktop__session_get_current',
+      'mcp__hydrodesktop__session_match_task'
+    ])
     expect(options.appendSystemPrompt).toContain('定时任务')
     expect(options.appendSystemPrompt).toContain('schedule_run_now')
     expect(options.appendSystemPrompt).toContain('Do not claim there are no tasks')
@@ -348,6 +353,78 @@ describe('desktop capability query options', () => {
     expect(getPayload.task).not.toHaveProperty('modelTier')
     expect(getPayload.task).not.toHaveProperty('firstRunMode')
     expect(getPayload.task.runtimeState?._scheduler).toBeUndefined()
+  })
+
+  it('returns current session context through session_get_current', async () => {
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: {
+        configManager: {
+          getConfig: () => ({
+            settings: { locale: 'zh-CN' }
+          })
+        },
+        listTasks: vi.fn(() => [buildTask()])
+      },
+      session: {
+        id: 'chat-session-current-1',
+        source: 'manual',
+        taskId: 77,
+        ownerClientId: 'main-window',
+        clientType: 'window',
+        clientMeta: { appId: 'chat' }
+      }
+    })
+
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+    const payload = parseToolPayload(await tools.session_get_current.handler())
+
+    expect(payload).toEqual({
+      action: 'session_get_current',
+      session: {
+        sessionId: 'chat-session-current-1',
+        taskId: 77,
+        source: 'manual',
+        imChannel: null,
+        ownerClientId: 'main-window',
+        clientType: 'window',
+        appId: 'chat',
+        currentTaskSession: true,
+        embeddedSession: false,
+        boundTarget: null
+      }
+    })
+  })
+
+  it('compares the current session against a scheduled task session through session_match_task', async () => {
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: {
+        configManager: {
+          getConfig: () => ({
+            settings: { locale: 'zh-CN' }
+          })
+        },
+        listTasks: vi.fn(() => [buildTask({ id: 9, sessionId: 'match-session-1' })])
+      },
+      session: {
+        id: 'match-session-1',
+        source: 'manual'
+      }
+    })
+
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+    const payload = parseToolPayload(await tools.session_match_task.handler({ taskId: 9 }))
+
+    expect(payload.matched).toBe(true)
+    expect(payload.currentSessionId).toBe('match-session-1')
+    expect(payload.taskSessionId).toBe('match-session-1')
+    expect(payload.task).toMatchObject({
+      id: 9,
+      sessionId: 'match-session-1'
+    })
   })
 
   it('aligns create/update schemas with the scheduled task service contract', async () => {
@@ -628,14 +705,16 @@ describe('desktop capability query options', () => {
       'schedule_run_now',
       'schedule_delete'
     ])
-    expect(options.allowedTools).toEqual(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    expect(options.allowedTools).toEqual([
+      ...DESKTOP_CAPABILITY_ALLOWED_TOOLS
+    ])
     expect(options.appendSystemPrompt).not.toContain('built-in IM messages')
     expect(options.appendSystemPrompt).not.toContain('Weixin notification')
   })
 
-  it('keeps task-linked sessions injected the same as other sessions for weixin-capable flows', async () => {
+  it('injects session tools only when a current session id exists', async () => {
     const { options, tools } = await createOptionsWithWeixin({
-      session: { taskId: 1 }
+      session: { id: 'chat-im-2', taskId: 1 }
     })
 
     expect(Object.keys(tools)).toEqual([
@@ -647,9 +726,14 @@ describe('desktop capability query options', () => {
       'schedule_enable',
       'schedule_disable',
       'schedule_run_now',
-      'schedule_delete'
+      'schedule_delete',
+      'session_get_current',
+      'session_match_task'
     ])
-    expect(options.allowedTools).toEqual(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    expect(options.allowedTools).toEqual([
+      ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+      ...SESSION_ALLOWED_TOOLS
+    ])
   })
 
   it('injects unified builtin IM tools for non-weixin channels', async () => {
@@ -658,12 +742,16 @@ describe('desktop capability query options', () => {
     expect(Object.keys(tools)).toEqual([
       'im_list_targets',
       'im_send',
-      'im_unbind'
+      'im_unbind',
+      'session_get_current',
+      'session_match_task'
     ])
     expect(options.allowedTools).toEqual([
       'mcp__hydrodesktop__im_list_targets',
       'mcp__hydrodesktop__im_send',
-      'mcp__hydrodesktop__im_unbind'
+      'mcp__hydrodesktop__im_unbind',
+      'mcp__hydrodesktop__session_get_current',
+      'mcp__hydrodesktop__session_match_task'
     ])
     expect(options.appendSystemPrompt).toContain('built-in IM messages')
   })

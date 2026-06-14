@@ -1561,6 +1561,8 @@ export default {
     imQuickAliasPlaceholder: '输入本地显示名称',
     imQuickAliasRequired: '别名不能为空',
     imQuickAliasSaveFailed: '保存本地别名失败',
+    imQuickSendEmptyHint: '请先输入内容再发送',
+    imQuickSendImageCount: '{count} 张图片',
     imQuickSendSessionPrefix: '来自会话《{title}》',
     imQuickSendUntitledSession: '未命名会话 {id}',
     imQuickUnbind: '解除绑定',

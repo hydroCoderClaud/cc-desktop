@@ -1742,12 +1742,15 @@ class DingTalkBridge {
     return { success: true }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text, staffId, imagePaths = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, staffId, imagePaths = [], images = [] } = {}) {
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
       ? imagePaths.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0) {
+    const normalizedImages = Array.isArray(images)
+      ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
+      : []
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) {
       throw new Error('发送内容不能为空')
     }
     const resolvedId = targetId || staffId || this._sessionTargets.get(sessionId)?.staffId || ''
@@ -1807,6 +1810,15 @@ class DingTalkBridge {
         conversationType: normalizedTargetType === 'chat' ? '2' : '1'
       })
       sendResults.push({ kind: 'images', count: sentImageCount })
+    }
+    if (normalizedImages.length > 0) {
+      const sentImageCount = await this._sendBase64Images(normalizedImages, {
+        robotCode,
+        senderStaffId: resolvedStaffId,
+        conversationId: resolvedStaffId,
+        conversationType: normalizedTargetType === 'chat' ? '2' : '1'
+      })
+      sendResults.push({ kind: 'base64-images', count: sentImageCount })
     }
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedStaffId, targetType: normalizedTargetType, displayName })

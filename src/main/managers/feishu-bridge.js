@@ -1424,13 +1424,16 @@ class FeishuBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text, openId, imagePaths = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, openId, imagePaths = [], images = [] } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
       ? imagePaths.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0) {
+    const normalizedImages = Array.isArray(images)
+      ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
+      : []
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) {
       throw new Error('发送内容不能为空')
     }
     const resolvedId = targetId || openId || this._sessionTargets.get(sessionId)?.openId || ''
@@ -1451,6 +1454,18 @@ class FeishuBridge {
     for (const imagePath of normalizedImagePaths) {
       const imageKey = await this._api.uploadImage(imagePath)
       await this._api.sendImageMessage(receiveIdType, resolvedOpenId, imageKey)
+    }
+    for (const image of normalizedImages) {
+      const { filePath, dirPath } = await this._writeTempBase64Image(image)
+      try {
+        const imageKey = await this._api.uploadImage(filePath)
+        await this._api.sendImageMessage(receiveIdType, resolvedOpenId, imageKey)
+      } finally {
+        await fs.promises.unlink(filePath).catch(() => {})
+        if (dirPath) {
+          await fs.promises.rmdir(dirPath).catch(() => {})
+        }
+      }
     }
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedOpenId, targetType: bindChatType, displayName })

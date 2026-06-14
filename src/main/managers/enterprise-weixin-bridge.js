@@ -1686,13 +1686,16 @@ class EnterpriseWeixinBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, text, displayName, userId, imagePaths = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, text, displayName, userId, imagePaths = [], images = [] } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
       ? imagePaths.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0) throw new Error('发送内容不能为空')
+    const normalizedImages = Array.isArray(images)
+      ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
+      : []
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) throw new Error('发送内容不能为空')
 
     const resolvedId = typeof (targetId || userId || '') === 'string' ? (targetId || userId || '').trim() : ''
     if (!resolvedId) throw new Error('targetId 不能为空')
@@ -1712,6 +1715,9 @@ class EnterpriseWeixinBridge {
     let sentImageCount = 0
     if (normalizedImagePaths.length > 0) {
       sentImageCount = await this._sendImagesToChat(resolvedId, normalizedImagePaths)
+    }
+    if (normalizedImages.length > 0) {
+      sentImageCount += await this._sendBase64ImagesToChat(resolvedId, normalizedImages)
     }
 
     if (sessionId) {

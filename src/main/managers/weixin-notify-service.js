@@ -614,32 +614,17 @@ class WeixinNotifyService {
     }
   }
 
-  async sendText({ accountId, targetId, text, sessionId } = {}) {
+  async sendText({ accountId, targetId, text, images = [], sessionId } = {}) {
     const normalizedText = String(text || '').trim()
-    if (!normalizedText) throw new Error('发送内容不能为空')
-    const startedAt = Date.now()
-    logWeixinQueueTiming('notify sendText start', {
+    const normalizedImages = Array.isArray(images) ? images.map(image => normalizeBase64Image(image)).filter(Boolean) : []
+    if (!normalizedText && normalizedImages.length === 0) throw new Error('发送内容不能为空')
+    return this.sendImages({
       accountId,
       targetId,
-      sessionId: sessionId || null,
-      textPreview: normalizedText.slice(0, 80),
+      text: normalizedText,
+      images,
+      sessionId
     })
-
-    const result = await this._sendMessageItems({
-      accountId,
-      targetId,
-      sessionId,
-      items: [{ type: MESSAGE_ITEM_TYPE.TEXT, text_item: { text: normalizedText } }],
-      text: normalizedText
-    })
-    logWeixinQueueTiming('notify sendText done', {
-      accountId,
-      targetId,
-      sessionId: sessionId || null,
-      elapsedMs: Date.now() - startedAt,
-      textPreview: normalizedText.slice(0, 80),
-    })
-    return result
   }
 
   async sendImages({ accountId, targetId, text = '', images = [], imagePaths = [], sessionId } = {}) {
