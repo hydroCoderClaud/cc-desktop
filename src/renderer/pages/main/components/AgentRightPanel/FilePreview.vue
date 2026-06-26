@@ -114,6 +114,51 @@
         />
       </div>
 
+      <!-- PDF -->
+      <div v-else-if="preview?.type === 'pdf'" class="preview-pdf">
+        <div v-if="showToolbar" class="pdf-toolbar">
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
+            @click="$emit('insert-path', preview.filePath)"
+            :title="t('agent.files.insertPath')"
+          >
+            <Icon name="send" :size="14" />
+          </button>
+          <button
+            v-if="preview?.filePath"
+            class="toolbar-btn"
+            @click="openPdfExternal"
+            :title="t('agent.files.openInDefaultApp')"
+          >
+            <Icon name="externalLink" :size="14" />
+          </button>
+        </div>
+
+        <webview
+          v-if="preview?.filePath"
+          :src="getPdfWebviewSrc()"
+          partition="persist:webview-preview"
+          class="pdf-iframe"
+        />
+        <div v-else class="preview-placeholder">
+          <Icon name="fileText" :size="24" />
+          <span>无法预览此 PDF</span>
+          <span class="preview-meta">{{ preview.ext }} · {{ formatFileSize(preview.size) }}</span>
+        </div>
+      </div>
+
+      <!-- Office -->
+      <div v-else-if="['word', 'excel', 'pptx'].includes(preview?.type)" class="preview-office">
+        <OfficeRenderer
+          :type="preview.type"
+          :content="preview.content"
+          :name="preview.name"
+          :meta="preview.meta || {}"
+          @open-external="openOfficeExternal"
+        />
+      </div>
+
       <!-- Image Enhanced -->
       <div v-else-if="preview?.type === 'image'" class="preview-image-enhanced">
         <!-- Image Toolbar -->
@@ -235,6 +280,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useLocale } from '@composables/useLocale'
 import { formatFileSize } from '@composables/useWorkspaceFiles'
 import Icon from '@components/icons/Icon.vue'
+import OfficeRenderer from '@/pages/notebook/components/renderers/OfficeRenderer.vue'
 
 const { t } = useLocale()
 
@@ -268,7 +314,7 @@ const showToolbar = ref(true) // 默认显示
 // 判断当前类型是否有工具栏
 const hasToolbar = computed(() => {
   const type = props.preview?.type
-  return type === 'image' || type === 'video' || type === 'html' || type === 'url' || type === 'text'
+  return type === 'image' || type === 'video' || type === 'html' || type === 'url' || type === 'text' || type === 'pdf'
 })
 
 // 切换工具栏显示
@@ -477,6 +523,11 @@ const getWebviewSrc = () => {
   return ''
 }
 
+const getPdfWebviewSrc = () => {
+  if (!props.preview?.filePath) return ''
+  return `file://${props.preview.filePath}`
+}
+
 // 统一的外部打开方法
 const openExternal = async () => {
   if (!window.electronAPI) return
@@ -488,6 +539,17 @@ const openExternal = async () => {
     // HTML 文件：在默认应用打开
     await window.electronAPI.openPath(props.preview.filePath)
   }
+}
+
+// 在默认应用中打开 PDF
+const openPdfExternal = async () => {
+  if (!window.electronAPI || !props.preview?.filePath) return
+  await window.electronAPI.openPath(props.preview.filePath)
+}
+
+const openOfficeExternal = async () => {
+  if (!window.electronAPI || !props.preview?.filePath) return
+  await window.electronAPI.openPath(props.preview.filePath)
 }
 
 // webview 加载完成后处理
@@ -653,6 +715,36 @@ onUnmounted(() => {
 }
 
 /* 图片预览增强 */
+.preview-pdf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-color-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.pdf-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: white;
+}
+
+.preview-office {
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+}
+
 .preview-image-enhanced {
   display: flex;
   flex-direction: column;

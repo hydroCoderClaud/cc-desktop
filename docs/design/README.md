@@ -13,6 +13,8 @@
 | [session-management.md](./session-management.md) | 会话管理设计 |
 | [design-system.md](./design-system.md) | 设计系统 |
 | [image-recognition.md](./image-recognition.md) | 图片识别链路 |
+| [im-attachment-unified-design.md](./im-attachment-unified-design.md) | IM 统一附件抽象设计 |
+| [im-attachment-unified-implementation-breakdown.md](./im-attachment-unified-implementation-breakdown.md) | IM 统一附件抽象实施任务拆解 |
 | [dingtalk-weixin-reuse-evaluation.md](./dingtalk-weixin-reuse-evaluation.md) | 钉钉 / 微信复用评估（历史评估文档） |
 | [im-bridge-refactoring.md](./im-bridge-refactoring.md) | 当前 IM Bridge 架构（钉钉 / 飞书 / 企业微信 / 微信） |
 | [im-session-fields-and-binding.md](./im-session-fields-and-binding.md) | 当前 IM 字段、单聊/群聊语义、运行态绑定模型 |

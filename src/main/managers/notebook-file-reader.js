@@ -49,8 +49,12 @@ async function readFileContent(fullPath) {
     }
   }
 
-  if (ext === 'pdf' || ext === 'html') {
-    return { type: ext === 'pdf' ? 'pdf' : 'html', content: fullPath }
+  if (ext === 'pdf') {
+    return { type: 'pdf', content: fullPath }
+  }
+
+  if (ext === 'html') {
+    return { type: 'html', content: fullPath }
   }
 
   // Word 预览 (docx -> html)

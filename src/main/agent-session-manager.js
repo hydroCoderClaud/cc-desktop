@@ -53,6 +53,39 @@ function isExternalImChannel(channel) {
   return typeof channel === 'string' && EXTERNAL_IM_CHANNEL_SET.has(channel)
 }
 
+function formatAttachmentPathHint(attachment) {
+  if (!attachment || typeof attachment !== 'object') return null
+  const filename = attachment.filename || attachment.name || 'attachment'
+  const localPath = attachment.localPath || attachment.filePath || null
+  if (!localPath) return `- ${filename}`
+  return `- ${filename}: ${localPath}`
+}
+
+function compactAttachmentForHistory(attachment) {
+  if (!attachment || typeof attachment !== 'object') return null
+
+  return {
+    id: attachment.id || null,
+    kind: attachment.kind || null,
+    subKind: attachment.subKind || null,
+    mimeType: attachment.mimeType || null,
+    filename: attachment.filename || attachment.name || 'attachment',
+    sizeBytes: attachment.sizeBytes || attachment.size || 0,
+    source: attachment.source || null,
+    channel: attachment.channel || null,
+    localPath: attachment.localPath || null,
+    remoteRef: attachment.remoteRef || null,
+    preview: attachment.preview
+      ? {
+          kind: attachment.preview.kind || null,
+          thumbnailUrl: attachment.preview.thumbnailUrl || null
+      }
+      : null,
+    transcript: attachment.transcript || null,
+    meta: attachment.meta || null
+  }
+}
+
 function normalizeSessionType(type) {
   return type === AgentType.NOTEBOOK ? AgentType.NOTEBOOK : AgentType.CHAT
 }
@@ -1161,6 +1194,7 @@ class AgentSessionManager extends EventEmitter {
     let messageContent
     let displayContent  // 用于存储到数据库的可读内容
     let imageData = null  // 图片数据（用于保存到数据库）
+    let attachmentData = null
     let savedImagePaths = []
 
     if (typeof userMessage === 'string') {
@@ -1168,8 +1202,13 @@ class AgentSessionManager extends EventEmitter {
       messageContent = userMessage
       displayContent = userMessage
     } else if (userMessage && typeof userMessage === 'object') {
-      // 新格式：{ text, images: [{base64, mediaType}] }
-      const { text = '', images = [] } = userMessage
+      // 新格式：{ text, images: [{base64, mediaType}], attachments: [...] }
+      const { text = '', images = [], attachments = [] } = userMessage
+
+      attachmentData = Array.isArray(attachments)
+        ? attachments.map(compactAttachmentForHistory).filter(Boolean)
+        : null
+      const attachmentPathHint = this._buildAttachmentPathHint(attachmentData)
 
       if (images.length > 0) {
         // 多模态消息：文本 + 图片
@@ -1188,6 +1227,7 @@ class AgentSessionManager extends EventEmitter {
         const textBlocks = []
         if (normalizedText) textBlocks.push(normalizedText)
         if (pathHintText) textBlocks.push(pathHintText)
+        if (attachmentPathHint) textBlocks.push(attachmentPathHint)
         if (textBlocks.length > 0) {
           messageContent.push({ type: 'text', text: textBlocks.join('\n\n') })
         }
@@ -1213,8 +1253,13 @@ class AgentSessionManager extends EventEmitter {
         }
       } else {
         // 只有文本
-        messageContent = text
-        displayContent = text
+        if (attachmentPathHint) {
+          messageContent = [text, attachmentPathHint].filter(Boolean).join('\n\n')
+          displayContent = text || '[附件]'
+        } else {
+          messageContent = text
+          displayContent = text
+        }
       }
     } else {
       throw new Error('Invalid message format')
@@ -1243,6 +1288,9 @@ class AgentSessionManager extends EventEmitter {
       if (imageData && imageData.length > 0) {
         userMsgToStore.images = imageData
       }
+      if (attachmentData && attachmentData.length > 0) {
+        userMsgToStore.attachments = attachmentData
+      }
 
       // 附加消息元数据（消息来源、IM 渠道、发送者昵称）
       if (meta) {
@@ -1261,6 +1309,7 @@ class AgentSessionManager extends EventEmitter {
         imChannel: session.imChannel,
         content: displayContent,
         images: imageData || null,
+        attachments: attachmentData || null,
         origin: meta?.origin || 'desktop'
       })
     }
@@ -1732,12 +1781,13 @@ class AgentSessionManager extends EventEmitter {
       try {
         let contentToSave = msg.content
 
-        // 如果消息包含图片或元数据（来源、渠道、发送者），将 content 合并为对象保存
+        // 如果消息包含附件、图片或元数据（来源、渠道、发送者），将 content 合并为对象保存
         const hasMeta = msg.origin || msg.imChannel || msg.senderNick
-        if ((msg.images && msg.images.length > 0) || hasMeta) {
+        if ((msg.images && msg.images.length > 0) || (msg.attachments && msg.attachments.length > 0) || hasMeta) {
           contentToSave = {
             text: msg.content || '',
             ...(msg.images?.length > 0 && { images: msg.images }),
+            ...(msg.attachments?.length > 0 && { attachments: msg.attachments }),
             ...(msg.origin && { origin: msg.origin }),
             ...(msg.imChannel && { imChannel: msg.imChannel }),
             ...(msg.senderNick && { senderNick: msg.senderNick })
@@ -2666,6 +2716,7 @@ class AgentSessionManager extends EventEmitter {
           // 反序列化 content（如果是 JSON 字符串，解析为对象/数组）
           let content = row.content || undefined
           let images = undefined
+          let attachments = undefined
           let origin = undefined
           let imChannel = undefined
           let senderNick = undefined
@@ -2676,15 +2727,16 @@ class AgentSessionManager extends EventEmitter {
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
               try {
                 const parsed = JSON.parse(content)
-                // 如果是扩展消息格式 { text, images?, origin?, imChannel?, senderNick? }
+                // 如果是扩展消息格式 { text, images?, attachments?, origin?, imChannel?, senderNick? }
                 if (
                   parsed &&
                   typeof parsed === 'object' &&
                   !Array.isArray(parsed) &&
-                  ('text' in parsed || 'images' in parsed || 'origin' in parsed || 'imChannel' in parsed || 'senderNick' in parsed)
+                  ('text' in parsed || 'images' in parsed || 'attachments' in parsed || 'origin' in parsed || 'imChannel' in parsed || 'senderNick' in parsed)
                 ) {
                   content = typeof parsed.text === 'string' ? parsed.text : ''
                   images = parsed.images
+                  attachments = parsed.attachments
                   origin = parsed.origin
                   imChannel = parsed.imChannel
                   senderNick = parsed.senderNick
@@ -2711,6 +2763,9 @@ class AgentSessionManager extends EventEmitter {
           // 如果有图片，添加到消息对象
           if (images && images.length > 0) {
             message.images = images
+          }
+          if (attachments && attachments.length > 0) {
+            message.attachments = attachments
           }
           if (origin) message.origin = origin
           if (imChannel) message.imChannel = imChannel
@@ -3049,6 +3104,16 @@ class AgentSessionManager extends EventEmitter {
     if (!Array.isArray(paths) || paths.length === 0) return ''
     const lines = paths.map(filePath => `- ${this._toWorkspaceRelativePath(filePath)}`)
     return `${IMAGE_PATH_HINT_HEADER}\n${lines.join('\n')}`
+  }
+
+  _buildAttachmentPathHint(attachments) {
+    if (!Array.isArray(attachments) || attachments.length === 0) return ''
+    const lines = attachments
+      .filter(attachment => attachment?.kind !== 'image')
+      .map(formatAttachmentPathHint)
+      .filter(Boolean)
+    if (lines.length === 0) return ''
+    return `附件已保存到以下路径。需要读取附件内容时，请使用文件读取能力打开对应路径：\n${lines.join('\n')}`
   }
 
   _toWorkspaceRelativePath(filePath) {

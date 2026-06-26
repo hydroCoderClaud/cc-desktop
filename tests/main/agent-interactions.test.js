@@ -2180,4 +2180,135 @@ describe('AgentSessionManager interactions', () => {
     expect(fs.existsSync(savedDir)).toBe(true)
     expect(fs.readdirSync(savedDir).length).toBe(1)
   })
+
+  it('passes document attachment paths to the agent without extracting text', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 's-doc-attach', cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'agent-doc-attach-')) })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+
+    let firstQueuedMessage = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (messageQueue) => ({
+        async *[Symbol.asyncIterator]() {
+          const first = await messageQueue.next()
+          firstQueuedMessage = first.value
+          yield {
+            type: 'system',
+            subtype: 'init',
+            session_id: 'sdk-doc-attach',
+            tools: [],
+            model: 'claude-sonnet-4-6'
+          }
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: false,
+            result: 'ok',
+            total_cost_usd: 0,
+            num_turns: 1,
+            duration_ms: 5
+          }
+        },
+        close: vi.fn(async () => {})
+      })),
+      normalizeMessage: raw => {
+        if (raw.type === 'system' && raw.subtype === 'init') {
+          return {
+            type: 'init',
+            sdkSessionId: raw.session_id,
+            tools: raw.tools,
+            model: raw.model,
+            slashCommands: raw.slash_commands || []
+          }
+        }
+        if (raw.type === 'result') {
+          return {
+            type: 'result',
+            subtype: raw.subtype,
+            isError: raw.is_error,
+            result: raw.result,
+            totalCostUsd: raw.total_cost_usd,
+            numTurns: raw.num_turns,
+            durationMs: raw.duration_ms
+          }
+        }
+        return raw
+      }
+    }
+
+    await manager.sendMessage(session.id, {
+      text: '请查看附件',
+      attachments: [{
+        kind: 'document',
+        subKind: 'pdf',
+        filename: 'report.pdf',
+        localPath: path.join(session.cwd, 'report.pdf')
+      }]
+    })
+
+    expect(firstQueuedMessage).toBeTruthy()
+    expect(Array.isArray(firstQueuedMessage.message.content)).toBe(false)
+    expect(firstQueuedMessage.message.content).toContain('请查看附件')
+    expect(firstQueuedMessage.message.content).toContain('附件已保存到以下路径')
+    expect(firstQueuedMessage.message.content).toContain('report.pdf')
+    expect(firstQueuedMessage.message.content).toContain(path.join(session.cwd, 'report.pdf'))
+  })
+
+  it('stores and reloads attachment metadata with user messages', () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 's-attachment-history', cwd: '/tmp' })
+    session.dbConversationId = 7
+    manager.sessions.set(session.id, session)
+
+    let savedMessage = null
+    manager.sessionDatabase = {
+      insertAgentMessage: vi.fn((_conversationId, message) => {
+        savedMessage = message
+      }),
+      getAgentConversation: vi.fn(() => ({ id: 7 })),
+      getAgentMessagesByConversationId: vi.fn(() => ([{
+        msg_id: savedMessage.msgId,
+        role: savedMessage.role,
+        content: savedMessage.content,
+        tool_name: savedMessage.toolName,
+        tool_input: savedMessage.toolInput,
+        tool_output: savedMessage.toolOutput,
+        timestamp: savedMessage.timestamp
+      }]))
+    }
+
+    manager._storeMessage(session, {
+      id: 'msg-with-attachment',
+      role: 'user',
+      content: '请查看附件',
+      timestamp: 123,
+      attachments: [{
+        id: 'att-1',
+        kind: 'document',
+        subKind: 'pdf',
+        mimeType: 'application/pdf',
+        filename: 'report.pdf',
+        sizeBytes: 42,
+        preview: { kind: 'pdf' },
+        localPath: '/tmp/report.pdf'
+      }]
+    })
+
+    expect(savedMessage.content).toContain('"attachments"')
+
+    const messages = manager.getMessages(session.id)
+    expect(messages[0]).toMatchObject({
+      id: 'msg-with-attachment',
+      content: '请查看附件',
+      attachments: [{
+        id: 'att-1',
+        kind: 'document',
+        subKind: 'pdf',
+        filename: 'report.pdf',
+        localPath: '/tmp/report.pdf'
+      }]
+    })
+  })
 })

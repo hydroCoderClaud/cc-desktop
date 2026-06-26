@@ -25,6 +25,14 @@ const {
   MIME_MAP,
   VIDEO_MIME_MAP
 } = require('../utils/agent-constants')
+const {
+  buildAttachmentBase,
+  inferAttachmentKind,
+  inferAttachmentSubKind,
+  inferAttachmentMimeType
+} = require('./attachment-types')
+const { ImageAttachmentProcessor } = require('./attachment-processors/image-attachment-processor')
+const { DocumentAttachmentProcessor } = require('./attachment-processors/document-attachment-processor')
 
 class AgentFileManager {
   /**
@@ -32,6 +40,24 @@ class AgentFileManager {
    */
   constructor(sessionManager) {
     this.sessionManager = sessionManager
+    this.imageAttachmentProcessor = new ImageAttachmentProcessor()
+    this.documentAttachmentProcessor = new DocumentAttachmentProcessor()
+  }
+
+  _buildAttachmentBase({ filePath, name, size, ext, type, mimeType, source = 'desktop', kind, subKind }) {
+    return buildAttachmentBase({ filePath, name, size, ext, type, mimeType, source, kind, subKind })
+  }
+
+  _inferAttachmentKind(type, ext) {
+    return inferAttachmentKind(type, ext)
+  }
+
+  _inferAttachmentSubKind(type, ext) {
+    return inferAttachmentSubKind(type, ext)
+  }
+
+  _inferMimeType(type, ext) {
+    return inferAttachmentMimeType(type, ext)
   }
 
   /**
@@ -169,65 +195,133 @@ class AgentFileManager {
       const ext = path.extname(filePath).toLowerCase()
       const name = path.basename(filePath)
       const base = { name, size: stat.size, mtime: stat.mtime.toISOString(), ext }
+      const attachment = this._buildAttachmentBase({ filePath, name, size: stat.size, ext })
 
       // SVG 作为图片处理（优先于 textExts 检查）
       if (ext === '.svg') {
+        const imageAttachment = this.imageAttachmentProcessor.normalize({
+          filePath,
+          name,
+          size: stat.size,
+          ext,
+          source: 'desktop'
+        })
         if (stat.size > MAX_IMG_SIZE) {
-          return { ...base, type: 'image', tooLarge: true, filePath }
+          return { ...base, type: 'image', tooLarge: true, filePath, attachment: imageAttachment }
         }
         const content = await fsp.readFile(filePath, 'utf-8')
-        return { ...base, type: 'image', content: `data:image/svg+xml;base64,${Buffer.from(content).toString('base64')}`, filePath }
+        const dataUrl = `data:image/svg+xml;base64,${Buffer.from(content).toString('base64')}`
+        return { ...base, type: 'image', content: dataUrl, filePath, attachment: this.imageAttachmentProcessor.preparePreview(imageAttachment, { dataUrl }) }
       }
 
       // HTML 文件特殊处理（用于 iframe 渲染）
       if (ext === '.html' || ext === '.htm') {
+        const documentAttachment = this.documentAttachmentProcessor.normalize({
+          filePath,
+          name,
+          size: stat.size,
+          ext,
+          type: 'html',
+          source: 'desktop'
+        })
         if (stat.size > MAX_TEXT_SIZE) {
-          return { ...base, type: 'html', tooLarge: true, filePath }
+          return { ...base, type: 'html', tooLarge: true, filePath, attachment: documentAttachment }
         }
         try {
           const content = await fsp.readFile(filePath, 'utf-8')
-          return { ...base, type: 'html', content, filePath }
+          return {
+            ...base,
+            type: 'html',
+            content,
+            filePath,
+            attachment: await this.documentAttachmentProcessor.preparePreview(documentAttachment, { filePath })
+          }
         } catch {
-          return { ...base, type: 'binary' }
+          return { ...base, type: 'binary', attachment }
         }
       }
 
       if (TEXT_EXTS.has(ext) || (name.startsWith('.') && !ext)) {
         // 文本文件（含无扩展名的 dotfiles）
+        const documentAttachment = this.documentAttachmentProcessor.normalize({
+          filePath,
+          name,
+          size: stat.size,
+          ext,
+          type: 'text',
+          source: 'desktop'
+        })
         if (stat.size > MAX_TEXT_SIZE) {
-          return { ...base, type: 'text', tooLarge: true, language: LANG_MAP[ext] || 'text', filePath }
+          return { ...base, type: 'text', tooLarge: true, language: LANG_MAP[ext] || 'text', filePath, attachment: documentAttachment }
         }
         try {
           const content = await fsp.readFile(filePath, 'utf-8')
-          return { ...base, type: 'text', content, language: LANG_MAP[ext] || 'text', filePath }
+          return {
+            ...base,
+            type: 'text',
+            content,
+            language: LANG_MAP[ext] || 'text',
+            filePath,
+            attachment: await this.documentAttachmentProcessor.preparePreview(documentAttachment, { filePath })
+          }
         } catch {
           // UTF-8 解码失败（如二进制 dotfile），退化为 binary
-          return { ...base, type: 'binary' }
+          return { ...base, type: 'binary', attachment }
+        }
+      }
+
+      if (this.documentAttachmentProcessor.match({ ext })) {
+        const documentAttachment = this.documentAttachmentProcessor.normalize({
+          filePath,
+          name,
+          size: stat.size,
+          ext,
+          type: 'document',
+          source: 'desktop'
+        })
+        const preparedAttachment = await this.documentAttachmentProcessor.preparePreview(documentAttachment, { filePath })
+        const preview = preparedAttachment.preview
+
+        return {
+          ...base,
+          type: ['html', 'pdf', 'text', 'word', 'excel', 'pptx'].includes(preview?.kind) ? preview.kind : 'binary',
+          content: preview?.content || filePath,
+          filePath,
+          meta: preparedAttachment.meta || {},
+          attachment: preparedAttachment
         }
       }
 
       if (IMAGE_EXTS.has(ext)) {
-        if (stat.size > MAX_IMG_SIZE) {
-          return { ...base, type: 'image', tooLarge: true, filePath }
-        }
         const mime = MIME_MAP[ext] || 'application/octet-stream'
+        const imageAttachment = this.imageAttachmentProcessor.normalize({
+          filePath,
+          name,
+          size: stat.size,
+          ext,
+          mimeType: mime,
+          source: 'desktop'
+        })
+        if (stat.size > MAX_IMG_SIZE) {
+          return { ...base, type: 'image', tooLarge: true, filePath, attachment: imageAttachment }
+        }
         const buf = await fsp.readFile(filePath)
         const content = `data:${mime};base64,${buf.toString('base64')}`
-        return { ...base, type: 'image', content, filePath }
+        return { ...base, type: 'image', content, filePath, attachment: this.imageAttachmentProcessor.preparePreview(imageAttachment, { dataUrl: content }) }
       }
 
       // 视频文件（与图片相同，返回 base64 data URL）
       if (VIDEO_EXTS.has(ext)) {
         if (stat.size > MAX_VIDEO_SIZE) {
-          return { ...base, type: 'video', tooLarge: true, filePath }
+          return { ...base, type: 'video', tooLarge: true, filePath, attachment: { ...attachment, kind: 'media', subKind: ext.replace('.', ''), mimeType: this._inferMimeType('video', ext) } }
         }
         const buf = await fsp.readFile(filePath)
         const content = `data:${VIDEO_MIME_MAP[ext] || 'video/mp4'};base64,${buf.toString('base64')}`
-        return { ...base, type: 'video', content, filePath }
+        return { ...base, type: 'video', content, filePath, attachment: { ...attachment, kind: 'media', subKind: ext.replace('.', ''), mimeType: this._inferMimeType('video', ext) } }
       }
 
       // 其他二进制文件
-      return { ...base, type: 'binary' }
+      return { ...base, type: 'binary', attachment }
     } catch (err) {
       console.error('[AgentFileManager] readFile error:', err.message)
       return { error: 'Failed to read file' }
