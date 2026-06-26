@@ -738,6 +738,105 @@ describe('DingTalkBridge', () => {
     expect(enqueueMessage).not.toHaveBeenCalled()
   })
 
+  it('sends permission interaction menus to DingTalk and resolves them from IM replies', async () => {
+    const { bridge, manager } = createHarness()
+    const replySpy = vi.spyOn(bridge, '_replyToDingTalk').mockResolvedValue()
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', title: '钉钉会话', cwd: tempDir })
+
+    bridge._sessionWebhooks.set(created.id, {
+      webhook: 'https://example.com/webhook',
+      robotCode: 'robot-1',
+      senderStaffId: 'staff-1',
+      conversationId: 'conv-1',
+      conversationType: '1',
+    })
+
+    bridge._onAgentInteractionRequest(created.id, {
+      interactionId: 'interaction-dt-1',
+      kind: 'permission_request',
+      toolName: 'Bash',
+      actions: [{ key: 'allow_once', label: '允许一次', updatedPermissions: [] }],
+    })
+
+    await Promise.resolve()
+    expect(replySpy).toHaveBeenCalledWith('https://example.com/webhook', expect.stringContaining('工具需要你的确认'))
+
+    await bridge._handleDingTalkMessage({
+      data: JSON.stringify({
+        msgId: 'msg-interaction-1',
+        msgtype: 'text',
+        text: { content: '1' },
+        senderStaffId: 'staff-1',
+        senderNick: '张三',
+        sessionWebhook: 'https://example.com/webhook',
+        robotCode: 'robot-1',
+        conversationId: 'conv-1',
+        conversationTitle: '张三',
+        conversationType: '1',
+      }),
+    })
+
+    expect(resolveInteraction).toHaveBeenCalledWith(created.id, 'interaction-dt-1', expect.objectContaining({
+      behavior: 'allow',
+    }))
+  })
+
+  it('sends ask_user_question menus to DingTalk and resolves them from IM replies', async () => {
+    const { bridge, manager } = createHarness()
+    const replySpy = vi.spyOn(bridge, '_replyToDingTalk').mockResolvedValue()
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', title: '钉钉问答会话', cwd: tempDir })
+
+    bridge._sessionWebhooks.set(created.id, {
+      webhook: 'https://example.com/webhook',
+      robotCode: 'robot-1',
+      senderStaffId: 'staff-ask-1',
+      conversationId: 'conv-ask-1',
+      conversationType: '1',
+    })
+
+    bridge._onAgentInteractionRequest(created.id, {
+      interactionId: 'interaction-dt-ask-1',
+      kind: 'ask_user_question',
+      title: '请选择执行路线',
+      questions: [{
+        header: '执行路线',
+        question: '接下来怎么处理？',
+        options: [
+          { label: '回退', description: '停止当前动作' },
+          { label: '继续', description: '维持当前计划' },
+        ],
+      }],
+    })
+
+    await Promise.resolve()
+    expect(replySpy).toHaveBeenCalledWith('https://example.com/webhook', expect.stringContaining('请选择执行路线'))
+
+    await bridge._handleDingTalkMessage({
+      data: JSON.stringify({
+        msgId: 'msg-interaction-ask-1',
+        msgtype: 'text',
+        text: { content: '2' },
+        senderStaffId: 'staff-ask-1',
+        senderNick: '张三',
+        sessionWebhook: 'https://example.com/webhook',
+        robotCode: 'robot-1',
+        conversationId: 'conv-ask-1',
+        conversationTitle: '张三',
+        conversationType: '1',
+      }),
+    })
+
+    expect(resolveInteraction).toHaveBeenCalledWith(created.id, 'interaction-dt-ask-1', expect.objectContaining({
+      behavior: 'allow',
+      answers: [{
+        question: '接下来怎么处理？',
+        answer: '继续',
+      }],
+    }))
+  })
+
   it('handles DingTalk resume menu numeric replies even when a session is already active', async () => {
     const { bridge, manager } = createHarness()
     vi.spyOn(bridge, '_sendChoiceMenu').mockResolvedValue()

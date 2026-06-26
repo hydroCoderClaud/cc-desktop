@@ -1034,6 +1034,94 @@ describe('FeishuBridge', () => {
     expect(bridge._msgIdCleanupTimer).toBe(null)
   })
 
+  it('sends permission interaction menus to Feishu and resolves them from IM replies', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '飞书会话', cwd: tempDir })
+
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_perm',
+      senderName: '张三',
+      chatId: 'oc_perm',
+      chatType: 'p2p',
+      chatName: '张三',
+    })
+
+    bridge._onAgentInteractionRequest(session.id, {
+      interactionId: 'interaction-feishu-1',
+      kind: 'permission_request',
+      toolName: 'Bash',
+      description: '需要执行命令',
+      actions: [{ key: 'allow_once', label: '允许一次', updatedPermissions: [] }],
+    })
+
+    await Promise.resolve()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_perm', expect.stringContaining('工具需要你的确认'))
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_interaction_1',
+      senderId: 'ou_perm',
+      chatId: 'oc_perm',
+      chatType: 'p2p',
+      text: '1',
+    })
+
+    expect(resolveInteraction).toHaveBeenCalledWith(session.id, 'interaction-feishu-1', expect.objectContaining({
+      behavior: 'allow',
+    }))
+  })
+
+  it('sends ask_user_question menus to Feishu and resolves them from IM replies', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'feishu', title: '飞书问答会话', cwd: tempDir })
+
+    bridge._sessionIdentities.set(session.id, {
+      senderId: 'ou_ask',
+      senderName: '李四',
+      chatId: 'oc_ask',
+      chatType: 'p2p',
+      chatName: '李四',
+    })
+
+    bridge._onAgentInteractionRequest(session.id, {
+      interactionId: 'interaction-feishu-ask-1',
+      kind: 'ask_user_question',
+      title: '请选择下一步',
+      questions: [{
+        header: '下一步',
+        question: '要继续哪种处理方式？',
+        options: [
+          { label: '保守处理', description: '先保留现状' },
+          { label: '继续执行', description: '按原计划进行' },
+        ],
+      }],
+    })
+
+    await Promise.resolve()
+    expect(sendTextMessage).toHaveBeenCalledWith('open_id', 'ou_ask', expect.stringContaining('请选择下一步'))
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_interaction_ask_1',
+      senderId: 'ou_ask',
+      chatId: 'oc_ask',
+      chatType: 'p2p',
+      text: '2',
+    })
+
+    expect(resolveInteraction).toHaveBeenCalledWith(session.id, 'interaction-feishu-ask-1', expect.objectContaining({
+      behavior: 'allow',
+      answers: [{
+        question: '要继续哪种处理方式？',
+        answer: '继续执行',
+      }],
+    }))
+  })
+
   it('treats non-numeric text as history-choice input while a pending choice exists', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

@@ -8,6 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
 const { ImSessionMapper } = require('./im-session-mapper')
+const { ImInteractionBridge } = require('./im-interaction-bridge')
 const {
   resolveStrictCurrentSessionId,
   ensureHistoryChoiceOrCurrent,
@@ -211,6 +212,7 @@ class DingTalkBridge {
     this.agentSessionManager = agentSessionManager
     this.mainWindow = mainWindow
     this._notifier = new ImFrontendNotifier(mainWindow, 'dingtalk')
+    this._interactionBridge = new ImInteractionBridge()
 
     this.client = null
     this.connected = false
@@ -344,6 +346,14 @@ class DingTalkBridge {
           console.error('[DingTalk] onAgentMessage threw:', e)
         }
       },
+      agentInteractionRequest: (sessionId, interaction) => {
+        try { this._onAgentInteractionRequest(sessionId, interaction) } catch (e) {
+          console.error('[DingTalk] onAgentInteractionRequest threw:', e)
+        }
+      },
+      agentInteractionResolved: (_sessionId, payload) => {
+        this._interactionBridge.clearByInteractionId(payload?.interactionId || '')
+      },
       agentResult: (sessionId) => {
         try { this.onAgentResult(sessionId) } catch (e) {
           console.error('[DingTalk] onAgentResult threw:', e)
@@ -440,6 +450,7 @@ class DingTalkBridge {
     this._sessionProcessQueues.clear()
     for (const choice of this._pendingChoices.values()) clearTimeout(choice.timer)
     this._pendingChoices.clear()
+    this._interactionBridge.clearAll()
     this._sessionWebhooks.clear()
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
@@ -684,6 +695,19 @@ class DingTalkBridge {
     const { identity, mapKey } = context
 
     console.log('[DingTalk] _handleDingTalkMessage: msgId:', msgId, 'msgtype:', msgtype, 'text:', text?.content?.substring(0, 50))
+
+    const interactionConsumeResult = await this._interactionBridge.consume({
+      mapKey,
+      text: text?.content?.trim() || '',
+      resolveInteraction: (sessionId, interactionId, response) => this.agentSessionManager.resolveInteraction(sessionId, interactionId, response),
+      cancelInteraction: (sessionId, interactionId, reason) => this.agentSessionManager.cancelInteraction(sessionId, interactionId, reason),
+    })
+    if (interactionConsumeResult.handled) {
+      if (interactionConsumeResult.invalidChoice && interactionConsumeResult.replyText) {
+        await this._replyToDingTalk(sessionWebhook, interactionConsumeResult.replyText)
+      }
+      return
+    }
 
     // 消息去重：SDK 未及时收到 ACK 时会重投同一条消息
     if (msgId && this._processedMsgIds.has(msgId)) {
@@ -2452,6 +2476,31 @@ class DingTalkBridge {
       .split('\n')
       .map((line) => line.trimEnd())
       .join('\n\n')
+  }
+
+  _onAgentInteractionRequest(sessionId, interaction = {}) {
+    if (!['permission_request', 'ask_user_question'].includes(interaction?.kind)) return
+    const webhookInfo = this._sessionWebhooks.get(sessionId) || null
+    if (!webhookInfo?.webhook) return
+    const session = this.agentSessionManager.sessions.get(sessionId) || null
+    const identity = this._normalizeDingTalkIdentity({
+      staffId: session?.meta?.dingtalkTargetType === 'chat' ? '' : (webhookInfo.senderStaffId || ''),
+      userId: session?.meta?.dingtalkTargetType === 'chat' ? '' : (webhookInfo.senderStaffId || ''),
+      conversationId: webhookInfo.conversationId || '',
+      chatId: webhookInfo.conversationId || '',
+      conversationType: webhookInfo.conversationType || '1',
+      chatType: webhookInfo.conversationType === '2' ? 'chat' : 'p2p',
+      nickname: '',
+      conversationTitle: '',
+    })
+    const mapKey = this._sessionMapper.buildKey(identity)
+    this._interactionBridge.startPending({
+      mapKey,
+      sessionId,
+      interaction,
+      identity,
+      sendMenu: (menuText) => this._replyToDingTalk(webhookInfo.webhook, menuText),
+    })
   }
 
   /**

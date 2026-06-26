@@ -851,6 +851,85 @@ describe('EnterpriseWeixinBridge', () => {
     expect(replies.some(item => item?.markdown?.content?.includes('编号错误'))).toBe(false)
   })
 
+  it('sends permission interaction menus to enterprise weixin and resolves them from IM replies', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '企微会话', cwd: tempDir })
+
+    bridge._sessionIdentities.set(session.id, {
+      userId: 'user-a',
+      senderId: 'user-a',
+      senderName: '雷斯林',
+      chatId: 'user-a',
+      chatType: 'single',
+      channelName: '',
+    })
+    bridge._connected = true
+
+    bridge._onAgentInteractionRequest(session.id, {
+      interactionId: 'interaction-wecom-1',
+      kind: 'permission_request',
+      toolName: 'Bash',
+      actions: [{ key: 'allow_once', label: '允许一次', updatedPermissions: [] }],
+    })
+
+    await Promise.resolve()
+    expect(sent.some(item => item?.markdown?.content?.includes('工具需要你的确认'))).toBe(true)
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '1' },
+    }))
+
+    expect(resolveInteraction).toHaveBeenCalledWith(session.id, 'interaction-wecom-1', expect.objectContaining({
+      behavior: 'allow',
+    }))
+  })
+
+  it('sends ask_user_question menus to enterprise weixin and resolves them from IM replies', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const resolveInteraction = vi.spyOn(manager, 'resolveInteraction').mockReturnValue({ success: true })
+    const session = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'enterprise-weixin', title: '企微问答会话', cwd: tempDir })
+
+    bridge._sessionIdentities.set(session.id, {
+      userId: 'user-a',
+      senderId: 'user-a',
+      senderName: '雷斯林',
+      chatId: 'user-a',
+      chatType: 'single',
+      channelName: '',
+    })
+    bridge._connected = true
+
+    bridge._onAgentInteractionRequest(session.id, {
+      interactionId: 'interaction-wecom-ask-1',
+      kind: 'ask_user_question',
+      title: '请选择处理策略',
+      questions: [{
+        header: '处理策略',
+        question: '这一步要怎么走？',
+        options: [
+          { label: '先暂停', description: '等待人工确认' },
+          { label: '继续推进', description: '直接执行' },
+        ],
+      }],
+    })
+
+    await Promise.resolve()
+    expect(sent.some(item => item?.markdown?.content?.includes('请选择处理策略'))).toBe(true)
+
+    await bridge._handleMessage(inboundFrame({
+      text: { content: '2' },
+    }))
+
+    expect(resolveInteraction).toHaveBeenCalledWith(session.id, 'interaction-wecom-ask-1', expect.objectContaining({
+      behavior: 'allow',
+      answers: [{
+        question: '这一步要怎么走？',
+        answer: '继续推进',
+      }],
+    }))
+  })
+
   it('treats a proactively bound enterprise weixin group reply as the current session instead of entering resume choice', async () => {
     const { bridge, manager, replies } = createHarness()
     const sendMessage = stubSendMessage(manager)

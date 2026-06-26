@@ -21,6 +21,7 @@ const { generateReqId, MessageType } = require('@wecom/aibot-node-sdk')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
 const { ImReplyCollector } = require('./im-reply-collector')
 const { ImSessionMapper } = require('./im-session-mapper')
+const { ImInteractionBridge } = require('./im-interaction-bridge')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const {
   isMappedCurrentSession,
@@ -121,6 +122,7 @@ class EnterpriseWeixinBridge {
 
     this._notifier = new ImFrontendNotifier(mainWindow, this._imType)
     this._replyCollector = new ImReplyCollector({ maxTextLength: MAX_TEXT_LENGTH })
+    this._interactionBridge = new ImInteractionBridge()
     this._sessionMapper = this._createSessionMapper(this._getConfig())
 
     this._processedMsgIds = new Map()
@@ -275,6 +277,7 @@ class EnterpriseWeixinBridge {
     this._processQueues.clear()
     this._processedMsgIds.clear()
     this._pendingInboundMessages.clear()
+    this._interactionBridge.clearAll()
     this._activeSendChunks.clear()
     this._desktopPendingImagePaths.clear()
     this._proactiveRebindSuppressedKeys.clear()
@@ -423,6 +426,12 @@ class EnterpriseWeixinBridge {
       agentMessage: (sessionId, message) => {
         this._onAgentMessage(sessionId, message)
       },
+      agentInteractionRequest: (sessionId, interaction) => {
+        this._onAgentInteractionRequest(sessionId, interaction)
+      },
+      agentInteractionResolved: (_sessionId, payload) => {
+        this._interactionBridge.clearByInteractionId(payload?.interactionId || '')
+      },
       agentResult: (sessionId) => {
         return this._onAgentResult(sessionId)
       },
@@ -483,6 +492,19 @@ class EnterpriseWeixinBridge {
 
     const identity = this._buildIdentity(message)
     const mapKey = this._sessionMapper.buildKey(identity)
+
+    const interactionConsumeResult = await this._interactionBridge.consume({
+      mapKey,
+      text: normalizedText,
+      resolveInteraction: (sessionId, interactionId, response) => this._agentSessionManager.resolveInteraction(sessionId, interactionId, response),
+      cancelInteraction: (sessionId, interactionId, reason) => this._agentSessionManager.cancelInteraction(sessionId, interactionId, reason),
+    })
+    if (interactionConsumeResult.handled) {
+      if (interactionConsumeResult.invalidChoice && interactionConsumeResult.replyText) {
+        await this._sendTextReply(frame, interactionConsumeResult.replyText)
+      }
+      return
+    }
 
     if (message.unsupported) {
       await this._sendTextReply(frame, ENTERPRISE_WEIXIN_UNSUPPORTED_MESSAGE_TEXT)
@@ -1630,6 +1652,25 @@ class EnterpriseWeixinBridge {
     this._desktopPendingImagePaths.set(sessionId, new Set())
 
     this._replyCollector.recordDesktopIntervention(sessionId, { content, images }, async () => {})
+  }
+
+  _onAgentInteractionRequest(sessionId, interaction = {}) {
+    if (!['permission_request', 'ask_user_question'].includes(interaction?.kind)) return
+    const identity = this._sessionIdentities.get(sessionId)
+    if (!identity) return
+    const mapKey = this._sessionMapper.buildKey(identity)
+    const chatId = identity.chatType === 'group' ? identity.chatId : identity.senderId
+    if (!chatId) return
+    this._interactionBridge.startPending({
+      mapKey,
+      sessionId,
+      interaction,
+      identity,
+      sendMenu: (menuText) => this._wsClient?.sendMessage(chatId, {
+        msgtype: 'markdown',
+        markdown: { content: menuText },
+      }),
+    })
   }
 
   async _sendBase64ImagesToChat(chatId, images = []) {

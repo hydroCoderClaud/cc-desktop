@@ -11,6 +11,7 @@ const path = require('path')
 const { ImSessionMapper } = require('./im-session-mapper')
 const { ImReplyCollector } = require('./im-reply-collector')
 const { ImFrontendNotifier } = require('./im-frontend-notifier')
+const { ImInteractionBridge } = require('./im-interaction-bridge')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
@@ -95,6 +96,7 @@ class FeishuBridge {
 
     this._notifier = new ImFrontendNotifier(mainWindow, 'feishu')
     this._replyCollector = new ImReplyCollector({ maxTextLength: 6000 })
+    this._interactionBridge = new ImInteractionBridge()
     const initialConfig = this._getConfig()
     this._sessionMapper = new ImSessionMapper({
       agentSessionManager,
@@ -179,6 +181,7 @@ class FeishuBridge {
     this._processQueues.clear()
     this._processedMsgIds.clear()
     this._pendingMessages.clear()
+    this._interactionBridge.clearAll()
     this._sessionIdentities.clear()
     this._sessionTargets.clear()
     this._targetSessionMap.clear()
@@ -248,6 +251,8 @@ class FeishuBridge {
       agentMessage: (sessionId, message) => { this._onAgentMessage(sessionId, message) },
       agentResult: (sessionId) => { this._onAgentResult(sessionId) },
       agentError: (sessionId, error) => { this._onAgentError(sessionId, error) },
+      agentInteractionRequest: (sessionId, interaction) => { this._onAgentInteractionRequest(sessionId, interaction) },
+      agentInteractionResolved: (sessionId, payload) => { this._onAgentInteractionResolved(sessionId, payload) },
       agentInterrupted: (sessionId, details) => {
         if (details?.reason === 'host-cleanup') {
           this._clearSessionIdentity(sessionId)
@@ -350,6 +355,26 @@ class FeishuBridge {
     }
 
     const normalizedText = this._normalizeInboundText(text, { chatType, mentions })
+    const interactionIdentity = {
+      userId: senderId,
+      chatId,
+      chatType,
+      nickname: senderName || senderId,
+      chatName: chatName || chatId,
+    }
+    const interactionMapKey = this._sessionMapper.buildKey(interactionIdentity)
+    const interactionConsumeResult = await this._interactionBridge.consume({
+      mapKey: interactionMapKey,
+      text: normalizedText,
+      resolveInteraction: (sessionId, interactionId, response) => this._agentSessionManager.resolveInteraction(sessionId, interactionId, response),
+      cancelInteraction: (sessionId, interactionId, reason) => this._agentSessionManager.cancelInteraction(sessionId, interactionId, reason),
+    })
+    if (interactionConsumeResult.handled) {
+      if (interactionConsumeResult.invalidChoice && interactionConsumeResult.replyText) {
+        await this._api.sendTextMessage(chatType === 'p2p' ? 'open_id' : 'chat_id', chatType === 'p2p' ? senderId : chatId, interactionConsumeResult.replyText)
+      }
+      return
+    }
     if (normalizedText && normalizedText.startsWith('/')) {
       this._handleCommand(normalizedText, {
         senderId,
@@ -1632,6 +1657,31 @@ class FeishuBridge {
       const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
       const receiveIdType = identity.chatType === 'p2p' ? 'open_id' : 'chat_id'
       await this._api.sendTextMessage(receiveIdType, receiveId, `处理消息时出错: ${errMsg}`)
+    })
+  }
+
+  _onAgentInteractionResolved(_sessionId, payload = {}) {
+    this._interactionBridge.clearByInteractionId(payload?.interactionId || '')
+  }
+
+  _onAgentInteractionRequest(sessionId, interaction = {}) {
+    if (!['permission_request', 'ask_user_question'].includes(interaction?.kind)) return
+    const identity = this._sessionIdentities.get(sessionId)
+    if (!identity) return
+    const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
+    const receiveIdType = identity.chatType === 'p2p' ? 'open_id' : 'chat_id'
+    if (!receiveId) return
+    const mapKey = this._sessionMapper.buildKey({
+      userId: identity.senderId,
+      chatId: identity.chatId,
+      chatType: identity.chatType,
+    })
+    this._interactionBridge.startPending({
+      mapKey,
+      sessionId,
+      interaction,
+      identity,
+      sendMenu: (menuText) => this._api.sendTextMessage(receiveIdType, receiveId, menuText),
     })
   }
 

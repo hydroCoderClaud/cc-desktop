@@ -537,6 +537,12 @@ class AgentSessionManager extends EventEmitter {
     }
 
     this._storeMessage(session, toolMessage)
+    this.emit('agentInteractionRequest', session.id, {
+      interactionId,
+      kind,
+      messageId,
+      ...payload
+    })
     this._safeSend('agent:interactionRequest', {
       sessionId: session.id,
       interaction: {
@@ -629,6 +635,10 @@ class AgentSessionManager extends EventEmitter {
         }
 
     pending.resolve(permissionResult)
+    this.emit('agentInteractionResolved', sessionId, {
+      interactionId,
+      output
+    })
 
     this._safeSend('agent:interactionResolved', {
       sessionId,
@@ -666,6 +676,10 @@ class AgentSessionManager extends EventEmitter {
       behavior: 'deny',
       message: reason
     })
+    this.emit('agentInteractionResolved', sessionId, {
+      interactionId,
+      output
+    })
 
     this._safeSend('agent:interactionResolved', {
       sessionId,
@@ -688,6 +702,10 @@ class AgentSessionManager extends EventEmitter {
       pending.resolve({
         behavior: 'deny',
         message: reason
+      })
+      this.emit('agentInteractionResolved', session.id, {
+        interactionId,
+        output
       })
       this._safeSend('agent:interactionResolved', {
         sessionId: session.id,
