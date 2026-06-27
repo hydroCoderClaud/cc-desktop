@@ -1525,11 +1525,18 @@ export default {
 
     // 图片识别
     uploadImage: '上传图片',
+    uploadAttachment: '上传文件',
     clearInput: '清空输入（Ctrl+L）',
     imageUploadTitle: '图片上传',
     imageLimitReached: '最多只能上传 {max} 张图片',
     imageTooLarge: '图片过大（超过 5MB），发送时可能失败',
     imageQueueNotSupported: '带图片的消息暂不支持加入队列，请等待当前输出完成后发送',
+    attachmentLimitReached: '最多只能添加 {max} 个文件',
+    attachmentTooLarge: '文件不能超过 {max}MB',
+    attachmentTypeUnsupported: '暂只支持 PDF、Word、Excel、PowerPoint 文件',
+    attachmentEmptyUnsupported: '暂不支持发送空文件',
+    attachmentPathUnavailable: '无法读取文件路径，请重新选择文件',
+    attachmentQueueNotSupported: '带附件的消息暂不支持加入队列，请等待当前输出完成后发送',
 
     // 钉钉会话
     dingtalkObserving: '钉钉观察模式 — 来自钉钉的消息将实时显示',
@@ -1570,6 +1577,8 @@ export default {
     imQuickAliasSaveFailed: '保存本地别名失败',
     imQuickSendEmptyHint: '请先输入内容再发送',
     imQuickSendImageCount: '{count} 张图片',
+    imQuickSendAttachmentOnlyHint: '将发送所选文件',
+    imQuickSendAttachmentCount: '{count} 个文件',
     imQuickSendSessionPrefix: '来自会话《{title}》',
     imQuickSendUntitledSession: '未命名会话 {id}',
     imQuickUnbind: '解除绑定',

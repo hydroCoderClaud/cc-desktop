@@ -7,7 +7,7 @@ import { Readable } from 'stream'
 const { AgentSessionManager } = await import('../../src/main/agent-session-manager.js')
 const { FeishuBridge } = await import('../../src/main/managers/feishu-bridge.js')
 const { FeishuEventClient } = await import('../../src/main/managers/feishu-event-client.js')
-const { FeishuMessageAPI } = await import('../../src/main/managers/feishu-message-api.js')
+const { FeishuMessageAPI, resolveFeishuFileType } = await import('../../src/main/managers/feishu-message-api.js')
 const { ImSessionMapper } = await import('../../src/main/managers/im-session-mapper.js')
 
 describe('FeishuBridge', () => {
@@ -135,6 +135,63 @@ describe('FeishuBridge', () => {
     expect(sessionId).toBe(session.id)
     expect(bridge._sessionMapper.sessionMap.get('ou_target')).toBe(session.id)
     expect(manager.sessionDatabase.updateImIdentity).toHaveBeenCalledWith(session.id, expect.objectContaining({ userId: 'ou_target', chatId: '' }))
+  })
+
+  it('sends a desktop file to a proactive Feishu target without requiring text', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const uploadSpy = vi.spyOn(bridge._api, 'uploadFile').mockResolvedValue('file_key_1')
+    const sendFileSpy = vi.spyOn(bridge._api, 'sendFileMessage').mockResolvedValue('om_file_1')
+    const sendTextSpy = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text_1')
+
+    const filePath = path.join(tempDir, 'report.pdf')
+    fs.writeFileSync(filePath, Buffer.from('pdfdata'))
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    const result = await bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'ou_target',
+      displayName: '张三',
+      filePaths: [filePath]
+    })
+
+    expect(uploadSpy).toHaveBeenCalledWith(filePath)
+    expect(sendFileSpy).toHaveBeenCalledWith('open_id', 'ou_target', 'file_key_1')
+    expect(sendTextSpy).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      success: true,
+      targetId: 'ou_target',
+      sentText: false,
+      fileCount: 1
+    })
+  })
+
+  it('normalizes and deduplicates outbound Feishu attachment paths', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const uploadSpy = vi.spyOn(bridge._api, 'uploadFile').mockResolvedValue('file_key_1')
+    const sendFileSpy = vi.spyOn(bridge._api, 'sendFileMessage').mockResolvedValue('om_file_1')
+
+    const filePath = path.join(tempDir, 'plan.docx')
+    fs.writeFileSync(filePath, Buffer.from('docxdata'))
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    const result = await bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'ou_target',
+      displayName: '张三',
+      attachments: [
+        { localPath: filePath, filename: 'plan.docx' },
+        { filePath, filename: 'duplicate.docx' }
+      ]
+    })
+
+    expect(uploadSpy).toHaveBeenCalledTimes(1)
+    expect(uploadSpy).toHaveBeenCalledWith(filePath)
+    expect(sendFileSpy).toHaveBeenCalledTimes(1)
+    expect(result.fileCount).toBe(1)
   })
 
   it('reuses the proactively bound session on first p2p reply even after in-memory Feishu target mapping is lost', async () => {
@@ -3982,6 +4039,14 @@ describe('FeishuEventClient', () => {
 })
 
 describe('FeishuMessageAPI', () => {
+  it('resolves Feishu upload file types from common document extensions', () => {
+    expect(resolveFeishuFileType('report.pdf')).toBe('pdf')
+    expect(resolveFeishuFileType('plan.docx')).toBe('doc')
+    expect(resolveFeishuFileType('budget.xlsx')).toBe('xls')
+    expect(resolveFeishuFileType('deck.pptx')).toBe('ppt')
+    expect(resolveFeishuFileType('archive.zip')).toBe('stream')
+  })
+
   it('returns image_key from the SDK top-level upload response', async () => {
     const api = new FeishuMessageAPI()
     api.setCredentials('app-id', 'app-secret')
@@ -4008,6 +4073,45 @@ describe('FeishuMessageAPI', () => {
     })
 
     await expect(api.uploadImage(Buffer.from('pngdata'))).resolves.toBe('img_nested')
+  })
+
+  it('uploads files with the Feishu document file_type and file_name', async () => {
+    const api = new FeishuMessageAPI()
+    api.setCredentials('app-id', 'app-secret')
+    api._client.im.v1.file = {
+      create: vi.fn().mockResolvedValue({ file_key: 'file_top_level' })
+    }
+
+    const fileKey = await api.uploadFile(Buffer.from('pdfdata'), 'report.pdf')
+
+    expect(fileKey).toBe('file_top_level')
+    expect(api._client.im.v1.file.create).toHaveBeenCalledWith({
+      data: {
+        file_type: 'pdf',
+        file_name: 'report.pdf',
+        file: expect.any(Buffer)
+      }
+    })
+  })
+
+  it('sends Feishu file messages with file_key content', async () => {
+    const api = new FeishuMessageAPI()
+    api.setCredentials('app-id', 'app-secret')
+    const createSpy = vi.spyOn(api._client.im.v1.message, 'create').mockResolvedValue({
+      data: { message_id: 'om_file_1' }
+    })
+
+    const messageId = await api.sendFileMessage('open_id', 'ou_target', 'file_key_1')
+
+    expect(messageId).toBe('om_file_1')
+    expect(createSpy).toHaveBeenCalledWith({
+      params: { receive_id_type: 'open_id' },
+      data: {
+        receive_id: 'ou_target',
+        msg_type: 'file',
+        content: JSON.stringify({ file_key: 'file_key_1' })
+      }
+    })
   })
 
   it('downloads message images from the SDK stream wrapper', async () => {

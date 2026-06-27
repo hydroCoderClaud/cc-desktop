@@ -18,6 +18,7 @@
         :session-im-channel="sessionImChannel"
         :draft-text="inputText"
         :draft-images="attachedImages"
+        :draft-attachments="attachedAttachments"
         :dingtalk-notify-api="dingtalkNotifyApi"
         :weixin-notify-api="weixinNotifyApi"
         :feishu-notify-api="feishuNotifyApi"
@@ -28,6 +29,7 @@
         @toggle-expanded="toggleExpanded"
         @schedule="handleSchedule"
         @trigger-image-upload="triggerImageUpload"
+        @trigger-attachment-upload="triggerAttachmentUpload"
         @clear="handleClear"
         @use-capability="useCapability"
       />
@@ -40,9 +42,11 @@
       style="display: none"
       @change="handleImageUpload"
     />
-
     <div v-if="attachedImages.length > 0" ref="imagePreviewRef">
       <ChatInputImagePreview :images="attachedImages" @remove="removeImage" />
+    </div>
+    <div v-if="attachedAttachments.length > 0" ref="attachmentPreviewRef">
+      <ChatInputAttachmentPreview :attachments="attachedAttachments" @remove="removeAttachment" />
     </div>
 
     <!-- 输入区域 -->
@@ -87,7 +91,7 @@
       <button
         v-else
         class="send-btn"
-        :disabled="(!inputText.trim() && attachedImages.length === 0) || disabled"
+        :disabled="!hasSendableDraft || disabled"
         @click="handleSend"
         :title="t('agent.send')"
       >
@@ -105,6 +109,7 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
 import ChatInputToolbar from './ChatInputToolbar.vue'
+import ChatInputAttachmentPreview from './ChatInputAttachmentPreview.vue'
 import ChatInputImagePreview from './ChatInputImagePreview.vue'
 import ChatInputSlashPanel from './ChatInputSlashPanel.vue'
 import ChatInputQueuePanel from './ChatInputQueuePanel.vue'
@@ -310,8 +315,14 @@ const inputWrapperRef = ref(null)
 const chatInputAreaRef = ref(null)
 const inputToolbarRef = ref(null)
 const imagePreviewRef = ref(null)
+const attachmentPreviewRef = ref(null)
 const isExpanded = ref(false)
 const expandedTextareaHeight = ref(0)
+const hasSendableDraft = computed(() => Boolean(
+  inputText.value.trim() ||
+  attachedImages.value.length > 0 ||
+  attachedAttachments.value.length > 0
+))
 
 const textareaStyle = computed(() => {
   if (!isExpanded.value || !expandedTextareaHeight.value) return {}
@@ -342,9 +353,10 @@ const updateExpandedLayout = () => {
   const hostHeight = host?.clientHeight || window.innerHeight
   const toolbarHeight = inputToolbarRef.value?.offsetHeight || 0
   const previewHeight = imagePreviewRef.value?.offsetHeight || 0
+  const attachmentPreviewHeight = attachmentPreviewRef.value?.offsetHeight || 0
   const wrapperPadding = getWrapperVerticalPadding()
   const actionAreaHeight = 52
-  const reservedHeight = toolbarHeight + previewHeight + wrapperPadding + actionAreaHeight + 28
+  const reservedHeight = toolbarHeight + previewHeight + attachmentPreviewHeight + wrapperPadding + actionAreaHeight + 28
   const targetHeight = Math.round(hostHeight * props.expandedHeightRatio) - reservedHeight
   expandedTextareaHeight.value = Math.max(180, targetHeight)
 }
@@ -455,14 +467,43 @@ const dequeue = () => {
 // 图片上传与处理
 // ============================
 const attachedImages = ref([])
+const attachedAttachments = ref([])
 const imageInputRef = ref(null)
 let imageIdCounter = 0
+let attachmentIdCounter = 0
 const MAX_IMAGE_SIZE_MB = 5
 const MAX_IMAGES = 4  // 最多4张图片
+const MAX_ATTACHMENT_SIZE_MB = 30
+const MAX_ATTACHMENTS = 5
+const ATTACHMENT_DIALOG_FILTERS = [
+  { name: 'Documents', extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'] },
+  { name: 'PDF', extensions: ['pdf'] },
+  { name: 'Office Documents', extensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'] }
+]
+const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'])
 
 const triggerImageUpload = () => {
   if (props.disabled) return
   imageInputRef.value?.click()
+}
+
+const triggerAttachmentUpload = async () => {
+  if (props.disabled) return
+  if (!window.electronAPI?.selectFiles) {
+    message.warning(t('agent.attachmentPathUnavailable'))
+    return
+  }
+  try {
+    const selectedFiles = await window.electronAPI.selectFiles({
+      title: t('agent.uploadAttachment'),
+      filters: ATTACHMENT_DIALOG_FILTERS,
+      withMetadata: true
+    })
+    await processAttachments(Array.isArray(selectedFiles) ? selectedFiles : [])
+  } catch (error) {
+    console.error('Failed to select attachment files:', error)
+    message.warning(error?.message || t('agent.attachmentPathUnavailable'))
+  }
 }
 
 const handleImageUpload = async (event) => {
@@ -530,7 +571,89 @@ const removeImage = (index) => {
   attachedImages.value.splice(index, 1)
 }
 
-watch(() => attachedImages.value.length, () => {
+const getAttachmentExtension = (fileName = '') => {
+  const match = String(fileName || '').toLowerCase().match(/\.([^.]+)$/)
+  return match ? `.${match[1]}` : ''
+}
+
+const resolveAttachmentSubKind = (ext) => {
+  if (ext === '.pdf') return 'pdf'
+  if (ext === '.doc' || ext === '.docx') return 'word'
+  if (ext === '.xls' || ext === '.xlsx') return 'spreadsheet'
+  if (ext === '.ppt' || ext === '.pptx') return 'presentation'
+  return 'document'
+}
+
+const getFileNameFromPath = (filePath = '') => {
+  return String(filePath || '').split(/[\\/]/).filter(Boolean).pop() || ''
+}
+
+const processAttachments = async (files) => {
+  if (files.length === 0) return
+
+  const remaining = MAX_ATTACHMENTS - attachedAttachments.value.length
+  if (remaining <= 0) {
+    message.warning(t('agent.attachmentLimitReached', { max: MAX_ATTACHMENTS }))
+    return
+  }
+
+  const filesToProcess = files.slice(0, remaining)
+  const existingPaths = new Set(attachedAttachments.value.map(item => item.localPath).filter(Boolean))
+
+  for (const file of filesToProcess) {
+    const localPath = typeof file === 'string'
+      ? file.trim()
+      : (typeof file?.path === 'string' ? file.path.trim() : '')
+    const filename = typeof file === 'string'
+      ? getFileNameFromPath(localPath)
+      : (file?.name || getFileNameFromPath(localPath) || 'attachment')
+    const ext = getAttachmentExtension(filename || localPath)
+    const rawSize = typeof file === 'object' ? Number(file?.sizeBytes ?? file?.size) : NaN
+    const hasKnownSize = Number.isFinite(rawSize) && rawSize >= 0
+    const sizeBytes = hasKnownSize ? rawSize : 0
+
+    if (!SUPPORTED_ATTACHMENT_EXTENSIONS.has(ext)) {
+      message.warning(t('agent.attachmentTypeUnsupported'))
+      continue
+    }
+    if (hasKnownSize && sizeBytes === 0) {
+      message.warning(t('agent.attachmentEmptyUnsupported'))
+      continue
+    }
+    if (hasKnownSize && sizeBytes > MAX_ATTACHMENT_SIZE_MB * 1024 * 1024) {
+      message.warning(t('agent.attachmentTooLarge', { max: MAX_ATTACHMENT_SIZE_MB }))
+      continue
+    }
+
+    if (!localPath) {
+      message.warning(t('agent.attachmentPathUnavailable'))
+      continue
+    }
+    if (existingPaths.has(localPath)) continue
+    existingPaths.add(localPath)
+
+    attachedAttachments.value.push({
+      id: `attachment-${++attachmentIdCounter}`,
+      kind: 'document',
+      subKind: resolveAttachmentSubKind(ext),
+      mimeType: '',
+      filename,
+      sizeBytes,
+      sizeText: hasKnownSize ? formatFileSize(sizeBytes) : '',
+      source: 'desktop',
+      channel: null,
+      localPath,
+      preview: null,
+      meta: { ext }
+    })
+  }
+}
+
+const removeAttachment = (index) => {
+  attachedAttachments.value.splice(index, 1)
+}
+
+watch(() => [attachedImages.value.length, attachedAttachments.value.length], () => {
   if (!isExpanded.value) return
   nextTick(() => {
     updateExpandedLayout()
@@ -540,6 +663,7 @@ watch(() => attachedImages.value.length, () => {
 const handleClear = () => {
   inputText.value = ''
   attachedImages.value = []
+  attachedAttachments.value = []
   emit('input-change', '')
   nextTick(autoResize)
 }
@@ -550,12 +674,14 @@ const handleSchedule = () => {
 
 const handleSend = () => {
   const text = inputText.value.trim()
-  // 有文本或有图片才能发送
-  if ((!text && attachedImages.value.length === 0) || props.disabled) return
+  const hasImages = attachedImages.value.length > 0
+  const hasAttachments = attachedAttachments.value.length > 0
+  // 有文本、图片或附件才能发送
+  if ((!text && !hasImages && !hasAttachments) || props.disabled) return
   // 队列关闭时，流式输出中禁止发送
   if (props.isStreaming && !props.queueEnabled) return
 
-  if (shouldBlockAsUnavailableSlash({ text, slashUnavailable: showSlashUnavailableHint.value })) {
+  if (!hasImages && !hasAttachments && shouldBlockAsUnavailableSlash({ text, slashUnavailable: showSlashUnavailableHint.value })) {
     showSlashPanel.value = false
     message.warning(t('agent.slashDisabledHint'))
     return
@@ -565,30 +691,45 @@ const handleSend = () => {
 
   // 构建消息对象
   const outgoingMessage = {
-    text,
-    images: attachedImages.value.map(img => ({
+    text
+  }
+  if (hasImages) {
+    outgoingMessage.images = attachedImages.value.map(img => ({
       base64: img.base64,
       mediaType: img.mediaType,
       sizeBytes: img.sizeBytes,
       warning: img.warning
     }))
   }
+  if (hasAttachments) {
+    outgoingMessage.attachments = attachedAttachments.value.map(attachment => ({
+      id: attachment.id,
+      kind: attachment.kind,
+      subKind: attachment.subKind,
+      mimeType: attachment.mimeType,
+      filename: attachment.filename,
+      sizeBytes: attachment.sizeBytes,
+      source: attachment.source,
+      channel: attachment.channel,
+      localPath: attachment.localPath,
+      preview: attachment.preview,
+      meta: attachment.meta && typeof attachment.meta === 'object' ? { ...attachment.meta } : null
+    }))
+  }
 
   if (props.isStreaming) {
     // 流式输出中 → 加入队列（上限 MAX_QUEUE_SIZE 条）
-    // 注意：队列暂不支持图片，仅支持文本
+    // 注意：队列暂不支持图片和附件，仅支持文本
     if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
-    if (attachedImages.value.length > 0) {
-      // 有图片时，不允许加入队列，提示用户等待
-      message.warning(t('agent.imageQueueNotSupported'))
+    if (hasImages || hasAttachments) {
+      message.warning(t(hasAttachments ? 'agent.attachmentQueueNotSupported' : 'agent.imageQueueNotSupported'))
       return
     }
     messageQueue.value.push({ id: ++queueIdCounter, text })
     emit('enqueue', text)
   } else {
-    // 根据是否有图片决定发送格式
-    if (attachedImages.value.length > 0) {
-      // 有图片：发送对象格式
+    // 根据是否有图片/附件决定发送格式
+    if (hasImages || hasAttachments) {
       emit('send', outgoingMessage)
     } else {
       // 无图片：发送纯文本（兼容旧代码）
@@ -596,9 +737,10 @@ const handleSend = () => {
     }
   }
 
-  // 清空输入和图片
+  // 清空输入、图片和附件
   inputText.value = ''
   attachedImages.value = []
+  attachedAttachments.value = []
   nextTick(autoResize)
 }
 
@@ -639,6 +781,7 @@ const focus = () => {
 const setText = (text) => {
   inputText.value = typeof text === 'string' ? text : ''
   attachedImages.value = []
+  attachedAttachments.value = []
   showSlashPanel.value = false
   slashFilter.value = ''
   emit('input-change', inputText.value)

@@ -1520,11 +1520,18 @@ export default {
 
     // Image recognition
     uploadImage: 'Upload Image',
+    uploadAttachment: 'Upload File',
     clearInput: 'Clear Input (Ctrl+L)',
     imageUploadTitle: 'Image Upload',
     imageLimitReached: 'Maximum {max} images allowed',
     imageTooLarge: 'Image too large (over 5MB), may fail to send',
     imageQueueNotSupported: 'Messages with images cannot be queued, please wait for current output to finish',
+    attachmentLimitReached: 'Maximum {max} files allowed',
+    attachmentTooLarge: 'File must be {max}MB or smaller',
+    attachmentTypeUnsupported: 'Only PDF, Word, Excel, and PowerPoint files are supported for now',
+    attachmentEmptyUnsupported: 'Empty files are not supported yet',
+    attachmentPathUnavailable: 'Cannot read the file path. Please choose the file again',
+    attachmentQueueNotSupported: 'Messages with attachments cannot be queued, please wait for current output to finish',
 
     // DingTalk session
     dingtalkObserving: 'DingTalk Observe Mode — Messages from DingTalk will be displayed in real time',
@@ -1565,6 +1572,8 @@ export default {
     imQuickAliasSaveFailed: 'Failed to save the local alias',
     imQuickSendEmptyHint: 'Please enter content before sending',
     imQuickSendImageCount: '{count} images',
+    imQuickSendAttachmentOnlyHint: 'Selected files will be sent',
+    imQuickSendAttachmentCount: '{count} files',
     imQuickSendSessionPrefix: 'From session "{title}"',
     imQuickSendUntitledSession: 'Untitled session {id}',
     imQuickUnbind: 'Unbind',

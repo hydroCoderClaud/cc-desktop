@@ -591,7 +591,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 选择多个文件
   ipcMain.handle('dialog:selectFiles', async (event, options = {}) => {
-    const { title, filters } = options
+    const { title, filters, withMetadata = false } = options
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile', 'multiSelections'],
       title: title || translate('app.dialogs.selectFiles'),
@@ -600,6 +600,17 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
     if (result.canceled || result.filePaths.length === 0) {
       return null;
+    }
+
+    if (withMetadata) {
+      return await Promise.all(result.filePaths.map(async (filePath) => {
+        const stats = await fs.promises.stat(filePath).catch(() => null)
+        return {
+          path: filePath,
+          name: path.basename(filePath),
+          sizeBytes: stats && stats.isFile() ? stats.size : 0
+        }
+      }))
     }
 
     return result.filePaths;

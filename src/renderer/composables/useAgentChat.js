@@ -364,7 +364,7 @@ export function useAgentChat(sessionId, options = {}) {
   /**
    * 添加用户消息
    */
-  const addUserMessage = (text, images = null) => {
+  const addUserMessage = (text, images = null, attachments = null) => {
     const message = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       sessionId,
@@ -376,6 +376,10 @@ export function useAgentChat(sessionId, options = {}) {
     // 如果有图片，附加到消息对象
     if (images && images.length > 0) {
       message.images = images
+    }
+
+    if (attachments && attachments.length > 0) {
+      message.attachments = attachments
     }
 
     messages.value.push(message)
@@ -640,11 +644,36 @@ export function useAgentChat(sessionId, options = {}) {
         .filter(image => image.base64 && image.mediaType)
       : []
 
-    if (images.length === 0) {
+    const attachments = Array.isArray(message.attachments)
+      ? message.attachments
+        .filter(attachment => attachment && typeof attachment === 'object')
+        .map(attachment => ({
+          id: attachment.id || attachment.localPath || attachment.filePath || attachment.path || attachment.filename || attachment.name || '',
+          kind: attachment.kind || 'document',
+          subKind: attachment.subKind || '',
+          mimeType: attachment.mimeType || '',
+          filename: attachment.filename || attachment.name || 'attachment',
+          sizeBytes: Number.isFinite(attachment.sizeBytes) ? attachment.sizeBytes : 0,
+          source: attachment.source || 'desktop',
+          channel: attachment.channel || null,
+          localPath: attachment.localPath || attachment.filePath || attachment.path || null,
+          remoteRef: attachment.remoteRef || null,
+          preview: attachment.preview || null,
+          transcript: attachment.transcript || null,
+          meta: attachment.meta && typeof attachment.meta === 'object' ? { ...attachment.meta } : null
+        }))
+        .filter(attachment => attachment.localPath || attachment.filename)
+      : []
+
+    if (images.length === 0 && attachments.length === 0) {
       return text
     }
 
-    return { text, images }
+    return {
+      text,
+      ...(images.length > 0 ? { images } : {}),
+      ...(attachments.length > 0 ? { attachments } : {})
+    }
   }
 
   const sendMessage = async (text) => {
@@ -652,6 +681,7 @@ export function useAgentChat(sessionId, options = {}) {
     let textContent = ''
     let originalMessage = null
     let hasImages = false
+    let hasAttachments = false
     const normalizedMessage = normalizeOutgoingMessage(text)
 
     if (typeof normalizedMessage === 'string') {
@@ -661,10 +691,11 @@ export function useAgentChat(sessionId, options = {}) {
       textContent = normalizedMessage.text || ''
       originalMessage = normalizedMessage
       hasImages = normalizedMessage.images && normalizedMessage.images.length > 0
+      hasAttachments = normalizedMessage.attachments && normalizedMessage.attachments.length > 0
     }
 
-    // 必须有文本内容或图片
-    if ((!textContent.trim() && !hasImages) || isStreaming.value) {
+    // 必须有文本内容、图片或附件
+    if ((!textContent.trim() && !hasImages && !hasAttachments) || isStreaming.value) {
       return
     }
 
@@ -673,7 +704,7 @@ export function useAgentChat(sessionId, options = {}) {
     const isActualSlashCommand = getLeadingSlashInputKind(trimmed) === 'slash-command'
 
     // 本地 slash 命令拦截（仅对纯文本消息）
-    if (slashCommandsReady.value && isActualSlashCommand && parsedSlashCommand.isSlashCommand) {
+    if (!hasImages && !hasAttachments && slashCommandsReady.value && isActualSlashCommand && parsedSlashCommand.isSlashCommand) {
       // /clear 比较特殊，不添加到消息列表（因为会重建 session）
       if (parsedSlashCommand.lowerName === '/clear') {
         return await handleLocalSlashCommand(parsedSlashCommand)
@@ -696,11 +727,17 @@ export function useAgentChat(sessionId, options = {}) {
 
     // 添加用户消息到界面
     if (trimmed && !isActualSlashCommand) {
-      // 有文字内容，传递图片数据（如果有）
-      addUserMessage(trimmed, hasImages ? originalMessage.images : null)
+      // 有文字内容，传递图片/附件数据（如果有）
+      addUserMessage(
+        trimmed,
+        hasImages ? originalMessage.images : null,
+        hasAttachments ? originalMessage.attachments : null
+      )
     } else if (hasImages && !trimmed) {
       // 只有图片，没有文字，显示 [图片] 但附加图片数据
-      addUserMessage('[图片]', originalMessage.images)
+      addUserMessage('[图片]', originalMessage.images, hasAttachments ? originalMessage.attachments : null)
+    } else if (hasAttachments && !trimmed) {
+      addUserMessage('', null, originalMessage.attachments)
     }
 
     // 第一条用户消息 → 自动设为对话标题（截取前10个字符）
@@ -711,6 +748,8 @@ export function useAgentChat(sessionId, options = {}) {
     } else if (userMessages.length === 1 && hasImages && !trimmed) {
       // 第一条消息是纯图片，标题设为 [图片]
       agentApi?.renameAgentSession?.({ sessionId, title: '[图片]' }).catch(() => {})
+    } else if (userMessages.length === 1 && hasAttachments && !trimmed) {
+      agentApi?.renameAgentSession?.({ sessionId, title: '[附件]' }).catch(() => {})
     }
 
     isStreaming.value = true
@@ -732,7 +771,8 @@ export function useAgentChat(sessionId, options = {}) {
         requestedModel: sendOptions.model || null,
         hasActiveSession: hasActiveSession.value,
         messageKind: typeof originalMessage === 'string' ? 'text' : 'multimodal',
-        imageCount: Array.isArray(originalMessage?.images) ? originalMessage.images.length : 0
+        imageCount: Array.isArray(originalMessage?.images) ? originalMessage.images.length : 0,
+        attachmentCount: Array.isArray(originalMessage?.attachments) ? originalMessage.attachments.length : 0
       })
       await agentApi.sendAgentMessage(sendOptions)
     } catch (err) {

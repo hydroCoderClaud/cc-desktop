@@ -1470,7 +1470,7 @@ class FeishuBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text, openId, imagePaths = [], images = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, openId, imagePaths = [], images = [], filePaths = [], attachments = [] } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
@@ -1479,7 +1479,8 @@ class FeishuBridge {
     const normalizedImages = Array.isArray(images)
       ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) {
+    const normalizedFilePaths = this._normalizeOutboundFilePaths({ filePaths, attachments })
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0 && normalizedFilePaths.length === 0) {
       throw new Error('发送内容不能为空')
     }
     const resolvedId = targetId || openId || this._sessionTargets.get(sessionId)?.openId || ''
@@ -1513,6 +1514,10 @@ class FeishuBridge {
         }
       }
     }
+    for (const filePath of normalizedFilePaths) {
+      const fileKey = await this._api.uploadFile(filePath)
+      await this._api.sendFileMessage(receiveIdType, resolvedOpenId, fileKey)
+    }
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedOpenId, targetType: bindChatType, displayName })
       this._clearProactiveRebindSuppressionForSender(resolvedOpenId)
@@ -1522,8 +1527,30 @@ class FeishuBridge {
       messageId,
       targetId: resolvedOpenId,
       sentText: Boolean(content),
-      imageCount: normalizedImagePaths.length
+      imageCount: normalizedImagePaths.length,
+      fileCount: normalizedFilePaths.length
     }
+  }
+
+  _normalizeOutboundFilePaths({ filePaths = [], attachments = [] } = {}) {
+    const paths = []
+    const pushPath = (value) => {
+      const normalized = typeof value === 'string' ? value.trim() : ''
+      if (normalized) paths.push(normalized)
+    }
+    if (Array.isArray(filePaths)) {
+      filePaths.forEach(pushPath)
+    }
+    if (Array.isArray(attachments)) {
+      for (const attachment of attachments) {
+        if (typeof attachment === 'string') {
+          pushPath(attachment)
+        } else if (attachment && typeof attachment === 'object') {
+          pushPath(attachment.localPath || attachment.filePath || attachment.path)
+        }
+      }
+    }
+    return [...new Set(paths)]
   }
 
   _resolveMapKeyForSession(sessionId) {

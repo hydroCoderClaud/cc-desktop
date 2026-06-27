@@ -9,8 +9,19 @@
 
 const { Client } = require('@larksuiteoapi/node-sdk')
 const fs = require('fs')
+const path = require('path')
 
 const MAX_TEXT_LENGTH = 6000
+const MAX_FEISHU_FILE_SIZE = 30 * 1024 * 1024
+
+function resolveFeishuFileType(fileName = '') {
+  const ext = path.extname(fileName).toLowerCase()
+  if (ext === '.pdf') return 'pdf'
+  if (ext === '.doc' || ext === '.docx') return 'doc'
+  if (ext === '.xls' || ext === '.xlsx') return 'xls'
+  if (ext === '.ppt' || ext === '.pptx') return 'ppt'
+  return 'stream'
+}
 
 class FeishuMessageAPI {
   constructor(opts = {}) {
@@ -267,6 +278,37 @@ class FeishuMessageAPI {
   }
 
   /**
+   * 上传文件
+   * @param {Buffer|string} source - 文件 buffer 或磁盘路径
+   * @param {string} [fileName] - source 为 Buffer 时必须传入
+   * @returns {Promise<string>} file_key
+   */
+  async uploadFile(source, fileName = '') {
+    this._assertReady()
+    const resolvedFileName = fileName || (typeof source === 'string' ? path.basename(source) : '')
+    if (!resolvedFileName) {
+      throw new Error('fileName is required to upload Feishu file')
+    }
+
+    const buffer = Buffer.isBuffer(source) ? source : fs.readFileSync(source)
+    if (buffer.length === 0) {
+      throw new Error('Feishu file upload does not allow empty files')
+    }
+    if (buffer.length > MAX_FEISHU_FILE_SIZE) {
+      throw new Error('Feishu file upload size exceeds 30MB')
+    }
+
+    const r = await this._client.im.v1.file.create({
+      data: {
+        file_type: resolveFeishuFileType(resolvedFileName),
+        file_name: resolvedFileName,
+        file: buffer,
+      },
+    })
+    return r?.file_key || r?.data?.file_key || null
+  }
+
+  /**
    * 下载消息中的图片资源
    * @param {string} imageKey - file_key
    * @param {string} messageId
@@ -322,6 +364,26 @@ class FeishuMessageAPI {
         receive_id: receiveId,
         msg_type: 'image',
         content: JSON.stringify({ image_key: imageKey }),
+      },
+    })
+    return r?.data?.message_id || null
+  }
+
+  /**
+   * 发送文件消息
+   * @param {'open_id'|'chat_id'} receiveIdType
+   * @param {string} receiveId
+   * @param {string} fileKey
+   * @returns {Promise<string|null>} message_id
+   */
+  async sendFileMessage(receiveIdType, receiveId, fileKey) {
+    this._assertReady()
+    const r = await this._client.im.v1.message.create({
+      params: { receive_id_type: receiveIdType },
+      data: {
+        receive_id: receiveId,
+        msg_type: 'file',
+        content: JSON.stringify({ file_key: fileKey }),
       },
     })
     return r?.data?.message_id || null
@@ -392,4 +454,4 @@ class FeishuMessageAPI {
   }
 }
 
-module.exports = { FeishuMessageAPI }
+module.exports = { FeishuMessageAPI, resolveFeishuFileType }

@@ -93,6 +93,10 @@
         <Icon name="image" :size="13" />
       </div>
 
+      <div class="attachment-upload-btn" :title="t('agent.uploadAttachment')" @click="emit('trigger-attachment-upload')">
+        <Icon name="fileText" :size="13" />
+      </div>
+
       <div class="clear-input-btn" :title="t('agent.clearInput')" @click="emit('clear')">
         <Icon name="delete" :size="13" />
       </div>
@@ -406,9 +410,14 @@
             </div>
             <div v-if="feishuTargets.length === 0" class="feishu-empty">{{ t('agent.feishuNoTargets') }}</div>
             <template v-else>
-              <div class="feishu-message-preview">{{ draftText || t('agent.imQuickSendEmptyHint') }}</div>
+              <div class="feishu-message-preview">
+                {{ draftText || (resolvedDraftAttachments.length > 0 ? t('agent.imQuickSendAttachmentOnlyHint') : t('agent.imQuickSendEmptyHint')) }}
+              </div>
               <div v-if="draftImages.length > 0" class="feishu-image-preview-count">
                 {{ t('agent.imQuickSendImageCount', { count: draftImages.length }) }}
+              </div>
+              <div v-if="resolvedDraftAttachments.length > 0" class="feishu-attachment-preview-count">
+                {{ t('agent.imQuickSendAttachmentCount', { count: resolvedDraftAttachments.length }) }}
               </div>
               <div v-if="feishuError" class="feishu-error">{{ feishuError }}</div>
               <div class="feishu-actions">
@@ -472,6 +481,7 @@ const props = defineProps({
   sessionImChannel: { type: String, default: null },
   draftText: { type: String, default: '' },
   draftImages: { type: Array, default: () => [] },
+  draftAttachments: { type: Array, default: () => [] },
   dingtalkNotifyApi: {
     type: Object,
     default: null
@@ -497,6 +507,7 @@ const emit = defineEmits([
   'toggle-expanded',
   'schedule',
   'trigger-image-upload',
+  'trigger-attachment-upload',
   'clear',
   'use-capability'
 ])
@@ -596,7 +607,9 @@ const hasBoundEnterpriseWeixinTarget = computed(() => Boolean(props.sessionImCha
 const resolvedEnterpriseWeixinNotifyApi = computed(() => props.enterpriseWeixinNotifyApi || window.electronAPI || null)
 const resolvedDraftText = computed(() => typeof props.draftText === 'string' ? props.draftText.trim() : '')
 const resolvedDraftImages = computed(() => Array.isArray(props.draftImages) ? props.draftImages : [])
+const resolvedDraftAttachments = computed(() => Array.isArray(props.draftAttachments) ? props.draftAttachments : [])
 const hasDraftContent = computed(() => Boolean(resolvedDraftText.value || resolvedDraftImages.value.length > 0))
+const hasFeishuDraftContent = computed(() => Boolean(hasDraftContent.value || resolvedDraftAttachments.value.length > 0))
 
 const isDingTalkChatTarget = (target) => target?.targetType === 'chat'
 
@@ -661,8 +674,33 @@ const collectOutboundImages = () => {
     .filter(Boolean)
 }
 
-const requireDraftContent = () => {
-  if (hasDraftContent.value) return true
+const collectOutboundAttachments = () => {
+  return resolvedDraftAttachments.value
+    .map((attachment) => {
+      if (!attachment || typeof attachment !== 'object') return null
+      const localPath = typeof attachment.localPath === 'string'
+        ? attachment.localPath.trim()
+        : (typeof attachment.filePath === 'string' ? attachment.filePath.trim() : '')
+      if (!localPath) return null
+      return {
+        id: attachment.id || localPath,
+        kind: attachment.kind || 'document',
+        subKind: attachment.subKind || '',
+        mimeType: attachment.mimeType || '',
+        filename: attachment.filename || attachment.name || localPath.split(/[\\/]/).pop() || 'attachment',
+        sizeBytes: Number.isFinite(attachment.sizeBytes) ? attachment.sizeBytes : 0,
+        source: attachment.source || 'desktop',
+        channel: attachment.channel || null,
+        localPath,
+        preview: attachment.preview || null,
+        meta: attachment.meta && typeof attachment.meta === 'object' ? { ...attachment.meta } : null
+      }
+    })
+    .filter(Boolean)
+}
+
+const requireDraftContent = ({ includeAttachments = false } = {}) => {
+  if (includeAttachments ? hasFeishuDraftContent.value : hasDraftContent.value) return true
   message.warning(t('agent.imQuickSendEmptyHint'))
   return false
 }
@@ -1363,7 +1401,7 @@ const sendWeixinQuickMessage = async () => {
 const sendFeishuQuickMessage = async () => {
   const feishuApi = resolvedFeishuNotifyApi.value
   if (!selectedFeishuTarget.value || !props.sessionId || !feishuApi?.sendFeishuNotifyText) return
-  if (!requireDraftContent()) return
+  if (!requireDraftContent({ includeAttachments: true })) return
   feishuSending.value = true
   feishuError.value = ''
   try {
@@ -1374,7 +1412,8 @@ const sendFeishuQuickMessage = async () => {
       targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(resolvedDraftText.value),
-      images: collectOutboundImages()
+      images: collectOutboundImages(),
+      attachments: collectOutboundAttachments()
     })
     if (result?.error || result?.success === false) {
       console.error('[ChatInputToolbar] send feishu failed:', result?.error)
@@ -1667,6 +1706,7 @@ onUnmounted(() => {
 .schedule-task-btn,
 .queue-toggle,
 .image-upload-btn,
+.attachment-upload-btn,
 .clear-input-btn,
 .expand-input-btn,
 .dingtalk-btn,
@@ -1707,6 +1747,7 @@ onUnmounted(() => {
 .schedule-task-btn:hover,
 .queue-toggle:hover,
 .image-upload-btn:hover,
+.attachment-upload-btn:hover,
 .clear-input-btn:hover,
 .expand-input-btn:hover,
 .dingtalk-btn:hover,
@@ -2141,6 +2182,31 @@ onUnmounted(() => {
   margin-left: 8px;
   font-size: 11px;
   color: var(--text-color-3);
+}
+
+.dingtalk-message-preview,
+.weixin-message-preview,
+.feishu-message-preview,
+.enterprise-weixin-message-preview {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dingtalk-image-preview-count,
+.weixin-image-preview-count,
+.feishu-image-preview-count,
+.feishu-attachment-preview-count,
+.enterprise-weixin-image-preview-count {
+  margin-top: 6px;
+  color: var(--text-color-3);
+  font-size: 12px;
 }
 
 .dingtalk-message-input,
