@@ -25,8 +25,29 @@
             />
           </div>
         </div>
+        <div v-if="attachmentItems.length > 0" class="bubble-attachments">
+          <div
+            v-for="attachment in attachmentItems"
+            :key="attachment.id || attachment.localPath || attachment.filename"
+            class="bubble-attachment-item"
+            :class="{ clickable: Boolean(attachment.localPath) }"
+            :role="attachment.localPath ? 'button' : null"
+            :tabindex="attachment.localPath ? 0 : -1"
+            @click="handleAttachmentClick(attachment)"
+            @keydown.enter.prevent="handleAttachmentClick(attachment)"
+            @keydown.space.prevent="handleAttachmentClick(attachment)"
+          >
+            <Icon name="file" :size="14" />
+            <div class="bubble-attachment-main">
+              <div class="bubble-attachment-name">{{ attachment.filename }}</div>
+              <div v-if="attachment.localPath" class="bubble-attachment-path">{{ attachment.localPath }}</div>
+            </div>
+            <span v-if="attachment.subKind" class="bubble-attachment-kind">{{ attachment.subKind }}</span>
+          </div>
+        </div>
         <!-- 文字内容（过滤掉 [图片] 占位符） -->
         <div
+          v-if="renderedContent"
           class="bubble-body"
           :class="{ 'user-clamped': shouldClampUserMessage && isUserCollapsed, 'user-toggleable': shouldClampUserMessage }"
           ref="bodyRef"
@@ -130,6 +151,18 @@ const externalSenderLabel = computed(() => {
     return suffixKey ? `${props.message.senderNick}${t(suffixKey)}` : ''
   }
   return ''
+})
+const attachmentItems = computed(() => {
+  if (!Array.isArray(props.message.attachments)) return []
+  return props.message.attachments
+    .filter(item => item && typeof item === 'object')
+    .map(item => ({
+      id: item.id || null,
+      filename: item.filename || item.name || 'attachment',
+      localPath: item.localPath || item.filePath || '',
+      subKind: item.subKind || item.kind || '',
+      sizeBytes: item.sizeBytes || item.size || 0,
+    }))
 })
 const normalizePathForAction = async (rawPath) => {
   if (!rawPath) return rawPath
@@ -286,6 +319,11 @@ const handleImageClick = (img) => {
     size: img.base64 ? Math.round((img.base64.length * 3) / 4) : 0, // base64 大小估算
     ext: `.${img.mediaType?.split('/')[1] || 'png'}`
   })
+}
+
+const handleAttachmentClick = async (attachment) => {
+  if (!attachment?.localPath) return
+  emit('preview-path', await normalizePathForAction(attachment.localPath))
 }
 
 const buildImagePreviewPayload = (img) => ({
@@ -722,6 +760,74 @@ const copyContentToAchievement = async () => {
 /* 用户消息的图片样式 */
 .message-bubble.user .bubble-images {
   justify-content: flex-end;
+}
+
+.bubble-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.message-bubble.user .bubble-attachments {
+  align-items: flex-end;
+}
+
+.bubble-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(420px, 100%);
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-color-secondary);
+  color: var(--text-color);
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.bubble-attachment-item.clickable {
+  cursor: pointer;
+}
+
+.bubble-attachment-item.clickable:hover,
+.bubble-attachment-item.clickable:focus-visible {
+  border-color: var(--primary-color);
+  background: var(--bg-color-tertiary);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.bubble-attachment-main {
+  min-width: 0;
+}
+
+.bubble-attachment-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble-attachment-path {
+  margin-top: 2px;
+  max-width: 320px;
+  color: var(--text-color-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble-attachment-kind {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 /* 外部来源标识 */

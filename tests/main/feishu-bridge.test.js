@@ -981,10 +981,19 @@ describe('FeishuBridge', () => {
     ])
   })
 
-  it('replies with an explicit notice for unsupported Feishu message types', async () => {
-    const { configManager, manager, mainWindow } = createManager()
+  it('downloads inbound Feishu file attachments into the session workspace and forwards attachment metadata', async () => {
+    const { configManager, manager, mainWindow, sent } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)
-    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const fileBuffer = Buffer.from('%PDF-1.4 fake pdf')
+    const downloadResource = vi.spyOn(bridge._api, 'downloadMessageResource').mockResolvedValue({
+      buffer: fileBuffer,
+      mediaType: 'application/pdf',
+      headers: { 'content-type': 'application/pdf' },
+      fileKey: 'file_pdf_1',
+      messageId: 'om_file_1',
+      resourceType: 'file'
+    })
+    manager.sessionDatabase.getImSessionsByType.mockReturnValue([])
     const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
 
     await bridge._handleFeishuMessage({
@@ -993,6 +1002,68 @@ describe('FeishuBridge', () => {
       chatId: 'oc_xxx',
       chatType: 'p2p',
       msgType: 'file',
+      text: '请查看这个 PDF',
+      images: [],
+      attachments: [{
+        id: 'feishu:om_file_1:file_pdf_1',
+        kind: 'document',
+        filename: 'report.pdf',
+        sizeBytes: fileBuffer.length,
+        source: 'inbound',
+        channel: 'feishu',
+        remoteRef: 'file_pdf_1',
+        meta: { messageId: 'om_file_1', resourceType: 'file' }
+      }],
+      unsupported: false
+    })
+
+    const session = Array.from(manager.sessions.values())[0]
+    const expectedPath = path.join(session.cwd, 'im_attachments', 'report.pdf')
+    expect(downloadResource).toHaveBeenCalledWith('file_pdf_1', 'om_file_1', 'file')
+    expect(fs.existsSync(expectedPath)).toBe(true)
+    expect(fs.readFileSync(expectedPath)).toEqual(fileBuffer)
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      session.id,
+      expect.objectContaining({
+        text: '请查看这个 PDF',
+        images: undefined,
+        attachments: [
+          expect.objectContaining({
+            id: 'feishu:om_file_1:file_pdf_1',
+            kind: 'document',
+            subKind: 'pdf',
+            mimeType: 'application/pdf',
+            filename: 'report.pdf',
+            localPath: expectedPath,
+            remoteRef: 'file_pdf_1',
+            preview: null
+          })
+        ]
+      }),
+      'ou_xxx',
+      'oc_xxx',
+      'p2p'
+    )
+    expect(sent.some(item =>
+      item.channel === 'feishu:messageReceived' &&
+      item.data.sessionId === session.id &&
+      item.data.text === '请查看这个 PDF' &&
+      item.data.attachments?.[0]?.localPath === expectedPath
+    )).toBe(true)
+  })
+
+  it('replies with an explicit notice for unsupported Feishu message types', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const sendTextMessage = vi.spyOn(bridge._api, 'sendTextMessage').mockResolvedValue('om_text')
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+
+    await bridge._handleFeishuMessage({
+      msgId: 'om_audio_1',
+      senderId: 'ou_xxx',
+      chatId: 'oc_xxx',
+      chatType: 'p2p',
+      msgType: 'audio',
       text: '',
       images: [],
       unsupported: true
@@ -3713,7 +3784,7 @@ describe('FeishuEventClient', () => {
     }))
   })
 
-  it('marks unsupported Feishu message types explicitly', () => {
+  it('extracts Feishu file attachment references without marking them unsupported', () => {
     const client = new FeishuEventClient()
     const messageHandler = vi.fn()
     client.on('message', messageHandler)
@@ -3721,8 +3792,53 @@ describe('FeishuEventClient', () => {
     client._handleImMessage({
       event_type: 'im.message.receive_v1',
       message: {
-        message_id: 'om_file_unsupported',
+        message_id: 'om_file_supported',
         message_type: 'file',
+        chat_id: 'oc_xxx',
+        chat_type: 'p2p',
+        content: JSON.stringify({
+          file_key: 'file_pdf_1',
+          file_name: 'report.pdf',
+          file_size: 17
+        })
+      },
+      sender: {
+        sender_id: {
+          open_id: 'ou_xxx'
+        }
+      }
+    })
+
+    expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
+      msgId: 'om_file_supported',
+      msgType: 'file',
+      unsupported: false,
+      attachments: [
+        expect.objectContaining({
+          id: 'feishu:om_file_supported:file_pdf_1',
+          kind: 'document',
+          filename: 'report.pdf',
+          sizeBytes: 17,
+          remoteRef: 'file_pdf_1',
+          meta: expect.objectContaining({
+            messageId: 'om_file_supported',
+            resourceType: 'file'
+          })
+        })
+      ]
+    }))
+  })
+
+  it('marks media Feishu message types unsupported until the media stage', () => {
+    const client = new FeishuEventClient()
+    const messageHandler = vi.fn()
+    client.on('message', messageHandler)
+
+    client._handleImMessage({
+      event_type: 'im.message.receive_v1',
+      message: {
+        message_id: 'om_audio_unsupported',
+        message_type: 'audio',
         chat_id: 'oc_xxx',
         chat_type: 'p2p',
         content: '{}'
@@ -3735,8 +3851,8 @@ describe('FeishuEventClient', () => {
     })
 
     expect(messageHandler).toHaveBeenCalledWith(expect.objectContaining({
-      msgId: 'om_file_unsupported',
-      msgType: 'file',
+      msgId: 'om_audio_unsupported',
+      msgType: 'audio',
       unsupported: true
     }))
   })
@@ -3911,6 +4027,29 @@ describe('FeishuMessageAPI', () => {
     expect(image).toEqual({
       base64: Buffer.from('image-bytes').toString('base64'),
       mediaType: 'image/png'
+    })
+  })
+
+  it('downloads generic message resources as buffers', async () => {
+    const api = new FeishuMessageAPI()
+    api.setCredentials('app-id', 'app-secret')
+    const getSpy = vi.spyOn(api._client.im.v1.messageResource, 'get').mockResolvedValue({
+      headers: { 'content-type': 'application/pdf' },
+      getReadableStream: () => Readable.from([Buffer.from('pdf-bytes')])
+    })
+
+    const resource = await api.downloadMessageResource('file_pdf_1', 'om_file_1', 'file')
+
+    expect(getSpy).toHaveBeenCalledWith({
+      path: { message_id: 'om_file_1', file_key: 'file_pdf_1' },
+      params: { type: 'file' }
+    })
+    expect(resource).toMatchObject({
+      buffer: Buffer.from('pdf-bytes'),
+      mediaType: 'application/pdf',
+      fileKey: 'file_pdf_1',
+      messageId: 'om_file_1',
+      resourceType: 'file'
     })
   })
 

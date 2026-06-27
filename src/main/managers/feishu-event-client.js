@@ -141,6 +141,7 @@ class FeishuEventClient extends EventEmitter {
 
       console.log('[FeishuEventClient] event_type:', data?.event_type, 'message_type:', msg.message_type)
 
+      const attachments = this._extractAttachments(msg, msg.message_id)
       const parsed = {
         msgId: msg.message_id,
         msgType: msg.message_type,
@@ -152,7 +153,8 @@ class FeishuEventClient extends EventEmitter {
         mentions: this._extractMentions(msg),
         text: this._extractText(msg),
         images: this._extractImages(msg, msg.message_id),
-        unsupported: this._isUnsupportedMessageType(msg),
+        attachments,
+        unsupported: this._isUnsupportedMessageType(msg, { attachments }),
         content: msg.content,
         raw: data,
       }
@@ -278,6 +280,40 @@ class FeishuEventClient extends EventEmitter {
     return images
   }
 
+  _extractAttachments(msg, messageId) {
+    const attachments = []
+    const msgType = msg.message_type || msg.msg_type
+    if (msgType !== 'file') return attachments
+
+    try {
+      const parsed = typeof msg.content === 'string'
+        ? JSON.parse(msg.content || '{}')
+        : (msg.content || {})
+      const fileKey = msg.file_key || msg.fileKey || parsed?.file_key || parsed?.fileKey || parsed?.file_token || parsed?.fileToken || null
+      if (!fileKey) return attachments
+
+      const filename = msg.file_name || msg.fileName || parsed?.file_name || parsed?.fileName || parsed?.name || 'attachment'
+      const sizeBytes = Number(msg.file_size || msg.fileSize || parsed?.file_size || parsed?.fileSize || parsed?.size || 0) || 0
+      attachments.push({
+        id: `feishu:${messageId || ''}:${fileKey}`,
+        kind: 'document',
+        filename,
+        sizeBytes,
+        source: 'inbound',
+        channel: 'feishu',
+        localPath: null,
+        remoteRef: fileKey,
+        preview: null,
+        meta: {
+          messageId,
+          resourceType: 'file',
+          rawContent: parsed,
+        },
+      })
+    } catch {}
+    return attachments
+  }
+
   _collectPostElements(parsed) {
     const result = []
     const visit = (value) => {
@@ -300,9 +336,12 @@ class FeishuEventClient extends EventEmitter {
     return result
   }
 
-  _isUnsupportedMessageType(msg) {
+  _isUnsupportedMessageType(msg, context = {}) {
     const msgType = msg?.message_type || msg?.msg_type
-    return !['text', 'post', 'image'].includes(msgType)
+    if (msgType === 'file') {
+      return !Array.isArray(context.attachments) || context.attachments.length === 0
+    }
+    return !['text', 'post', 'image', 'file'].includes(msgType)
   }
 }
 

@@ -15,6 +15,8 @@ const { ImInteractionBridge } = require('./im-interaction-bridge')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
+const { buildAttachmentBase, inferAttachmentMimeType } = require('./attachment-types')
+const { saveInboundAttachment } = require('./im-attachment-store')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
 const {
   isMappedCurrentSession,
@@ -65,6 +67,16 @@ const { getImDefaultWorkspaceRoot, getImWorkspaceSubdir } = require('./im-workin
 const FEISHU_MSG_ID_TTL = 10 * 60 * 1000
 const FEISHU_MSG_ID_CLEANUP_INTERVAL = 60 * 1000
 const FEISHU_UNSUPPORTED_MESSAGE_TEXT = '暂不支持该类型的飞书消息，请发送文本、图片或图文消息'
+const FEISHU_RESOURCE_EXTENSIONS = {
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'text/csv': '.csv',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+}
 
 function buildFeishuSessionTitle(identity = {}) {
   const chatType = String(identity.chatType || '').toLowerCase()
@@ -343,7 +355,7 @@ class FeishuBridge {
     }
 
     const hydratedEvent = await this._hydrateInboundEvent(event)
-    const { msgId, senderId, senderName, chatId, chatType, chatName, text, images, unsupported, msgType, mentions } = hydratedEvent
+    const { msgId, senderId, senderName, chatId, chatType, chatName, text, images, attachments, unsupported, msgType, mentions } = hydratedEvent
     if (!initialMsgId && msgId) {
       if (this._processedMsgIds.has(msgId)) return
       this._processedMsgIds.set(msgId, Date.now())
@@ -494,7 +506,11 @@ class FeishuBridge {
       downloadedImages = downloadedImages.length > 0 ? downloadedImages : undefined
     }
 
-    const message = { text: normalizedText, images: downloadedImages }
+    const message = {
+      text: normalizedText,
+      images: downloadedImages,
+      ...(Array.isArray(attachments) && attachments.length > 0 ? { attachments } : {})
+    }
 
     const sessionId = await this._ensureSession({
       userId: senderId,
@@ -505,6 +521,8 @@ class FeishuBridge {
     }, message, senderId, chatId, chatType)
 
     if (!sessionId) return
+
+    const preparedMessage = await this._prepareInboundMessageAttachments(sessionId, message, msgId)
 
     // 存储飞书身份（用于桌面端介入和图片发送）
     this._sessionIdentities.set(sessionId, {
@@ -519,14 +537,16 @@ class FeishuBridge {
       sessionId,
       chatType,
       imagesCount: Array.isArray(downloadedImages) ? downloadedImages.length : 0,
+      attachmentsCount: Array.isArray(preparedMessage.attachments) ? preparedMessage.attachments.length : 0,
     }))
     this._notifier.notifyMessageReceived({
       sessionId, text: normalizedText,
       senderNick: resolvedNames.senderName || senderId,
-      images: downloadedImages,
+      images: preparedMessage.images,
+      attachments: preparedMessage.attachments,
     })
 
-    this._enqueueMessage(sessionId, message, resolvedNames.senderName || senderId, chatId, chatType)
+    this._enqueueMessage(sessionId, preparedMessage, resolvedNames.senderName || senderId, chatId, chatType)
   }
 
   async _resolveFeishuDisplayNames({ senderId, senderName, chatId, chatType, chatName }) {
@@ -697,8 +717,8 @@ class FeishuBridge {
           })
         },
         replayPendingMessage: async (pendingSelection) => {
-          this._notifyPendingMessageReceived(result.sessionId, displayName, pendingSelection.message)
-          this._enqueueMessage(result.sessionId, pendingSelection.message, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
+          const preparedMessage = await this._notifyPendingMessageReceived(result.sessionId, displayName, pendingSelection.message)
+          this._enqueueMessage(result.sessionId, preparedMessage, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
         },
         enqueueHello: async () => {
           this._enqueueMessage(result.sessionId, { text: 'hello', images: undefined }, displayName, chatId, chatType)
@@ -838,8 +858,8 @@ class FeishuBridge {
               })
             },
             replayPendingMessage: async (pendingSelection) => {
-              this._notifyPendingMessageReceived(newId, context.senderName || context.senderId, pendingSelection.message)
-              this._enqueueMessage(newId, pendingSelection.message, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
+              const preparedMessage = await this._notifyPendingMessageReceived(newId, context.senderName || context.senderId, pendingSelection.message)
+              this._enqueueMessage(newId, preparedMessage, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
             },
             enqueueHello: async () => {
               this._enqueueMessage(newId, { text: 'hello', images: undefined }, context.senderName || context.senderId, context.chatId, context.chatType)
@@ -938,8 +958,8 @@ class FeishuBridge {
                   })
                 },
                 replayPendingMessage: async (pendingSelection) => {
-                  this._notifyPendingMessageReceived(resolvedSessionId, context.senderName || context.senderId, pendingSelection.message)
-                  this._enqueueMessage(resolvedSessionId, pendingSelection.message, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
+                  const preparedMessage = await this._notifyPendingMessageReceived(resolvedSessionId, context.senderName || context.senderId, pendingSelection.message)
+                  this._enqueueMessage(resolvedSessionId, preparedMessage, pendingSelection.senderId, pendingSelection.chatId, pendingSelection.chatType)
                 },
                 enqueueHello: async () => {
                   this._enqueueMessage(resolvedSessionId, { text: 'hello', images: undefined }, context.senderName || context.senderId, context.chatId, context.chatType)
@@ -1153,6 +1173,7 @@ class FeishuBridge {
     const identity = this._sessionIdentities.get(sessionId) || { senderId, chatId, chatType }
     const receiveId = identity.chatType === 'p2p' ? identity.senderId : identity.chatId
     const receiveIdType = identity.chatType === 'p2p' ? 'open_id' : 'chat_id'
+    const preparedMessage = await this._prepareInboundMessageAttachments(sessionId, message)
 
     const { donePromise, sendChunk } = this._replyCollector.startCollect(sessionId, {
       sendFn: async (text) => {
@@ -1164,7 +1185,7 @@ class FeishuBridge {
     this._activeSendChunks.set(sessionId, sendChunk)
 
     try {
-      await this._agentSessionManager.sendMessage(sessionId, message, {
+      await this._agentSessionManager.sendMessage(sessionId, preparedMessage, {
         meta: { origin: 'im-inbound', imChannel: 'feishu', senderNick: identity.senderName || senderId, feishuChatId: chatId },
       })
       await donePromise
@@ -1769,19 +1790,144 @@ class FeishuBridge {
     await this._api.sendTextMessage(receiveIdType, receiveId, fallbackText || this._buildHistoryChoiceMenuText(sessions, currentSessionId))
   }
 
-  _notifyPendingMessageReceived(sessionId, senderNick, message) {
+  async _notifyPendingMessageReceived(sessionId, senderNick, message) {
+    const preparedMessage = await this._prepareInboundMessageAttachments(sessionId, message)
     const text = typeof message === 'string'
       ? message
-      : (message?.text || (Array.isArray(message?.images) && message.images.length > 0 ? '[图片]' : ''))
+      : (preparedMessage?.text || (Array.isArray(preparedMessage?.images) && preparedMessage.images.length > 0 ? '[图片]' : ''))
     const payload = {
       sessionId,
       senderNick,
       text,
     }
-    if (message && typeof message === 'object' && Array.isArray(message.images) && message.images.length > 0) {
-      payload.images = message.images
+    if (preparedMessage && typeof preparedMessage === 'object' && Array.isArray(preparedMessage.images) && preparedMessage.images.length > 0) {
+      payload.images = preparedMessage.images
+    }
+    if (preparedMessage && typeof preparedMessage === 'object' && Array.isArray(preparedMessage.attachments) && preparedMessage.attachments.length > 0) {
+      payload.attachments = preparedMessage.attachments
     }
     this._notifier.notifyMessageReceived(payload)
+    return preparedMessage
+  }
+
+  async _prepareInboundMessageAttachments(sessionId, message, fallbackMessageId = '') {
+    if (!message || typeof message !== 'object' || !Array.isArray(message.attachments) || message.attachments.length === 0) {
+      return message
+    }
+
+    const attachments = []
+    for (const attachment of message.attachments) {
+      const prepared = await this._prepareInboundAttachment(sessionId, attachment, fallbackMessageId)
+      if (prepared) attachments.push(prepared)
+    }
+    return {
+      ...message,
+      attachments,
+    }
+  }
+
+  async _prepareInboundAttachment(sessionId, attachment, fallbackMessageId = '') {
+    if (!attachment || typeof attachment !== 'object') return null
+    if (attachment?.meta?.downloadError) return attachment
+    if (attachment.localPath) {
+      return this._prepareLocalInboundAttachment(attachment)
+    }
+
+    const remoteRef = attachment.remoteRef || attachment.fileKey || attachment.file_key || ''
+    const messageId = attachment?.meta?.messageId || fallbackMessageId || ''
+    const resourceType = attachment?.meta?.resourceType || 'file'
+    if (!remoteRef || !messageId) return attachment
+
+    try {
+      const cwd = this._resolveInboundAttachmentCwd(sessionId)
+      const resource = await this._api.downloadMessageResource(remoteRef, messageId, resourceType)
+      const filename = this._resolveFeishuAttachmentFilename(attachment, resource.mediaType)
+      const saved = await saveInboundAttachment({
+        cwd,
+        filename,
+        buffer: resource.buffer,
+      })
+      const ext = path.extname(saved.filePath).toLowerCase()
+      const mimeType = attachment.mimeType || (resource.mediaType === 'application/octet-stream' ? null : resource.mediaType)
+      const normalized = buildAttachmentBase({
+        filePath: saved.filePath,
+        name: saved.filename,
+        size: saved.sizeBytes,
+        ext,
+        type: 'document',
+        mimeType: mimeType || inferAttachmentMimeType('document', ext),
+        source: 'inbound',
+        channel: 'feishu',
+        kind: 'document',
+        subKind: ext.replace('.', '') || 'file',
+      })
+      return {
+        ...normalized,
+        id: attachment.id || normalized.id,
+        remoteRef,
+        meta: {
+          ...(normalized.meta || {}),
+          ...(attachment.meta || {}),
+          messageId,
+          resourceType,
+          originalFilename: attachment.filename || attachment.name || null,
+        },
+      }
+    } catch (err) {
+      console.error('[FeishuBridge] Attachment download failed:', err.message)
+      return {
+        ...attachment,
+        meta: {
+          ...(attachment.meta || {}),
+          downloadError: err.message,
+        },
+      }
+    }
+  }
+
+  async _prepareLocalInboundAttachment(attachment) {
+    const filePath = attachment.localPath
+    const filename = attachment.filename || attachment.name || path.basename(filePath)
+    const ext = path.extname(filePath).toLowerCase()
+    const normalized = buildAttachmentBase({
+      filePath,
+      name: filename,
+      size: attachment.sizeBytes || attachment.size || 0,
+      ext,
+      type: 'document',
+      mimeType: attachment.mimeType || inferAttachmentMimeType('document', ext),
+      source: attachment.source || 'inbound',
+      channel: attachment.channel || 'feishu',
+      kind: attachment.kind || 'document',
+      subKind: attachment.subKind || ext.replace('.', '') || 'file',
+    })
+    return {
+      ...normalized,
+      id: attachment.id || normalized.id,
+      remoteRef: attachment.remoteRef || null,
+      meta: {
+        ...(normalized.meta || {}),
+        ...(attachment.meta || {}),
+      },
+    }
+  }
+
+  _resolveInboundAttachmentCwd(sessionId) {
+    const liveSession = this._agentSessionManager?.sessions?.get?.(sessionId)
+    if (liveSession?.cwd) return liveSession.cwd
+    const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+    if (row?.cwd) return row.cwd
+    throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
+  }
+
+  _resolveFeishuAttachmentFilename(attachment = {}, mediaType = '') {
+    const filename = attachment.filename || attachment.name || 'attachment'
+    if (path.extname(filename)) return filename
+    const normalizedMediaType = typeof mediaType === 'string'
+      ? mediaType.split(';')[0].trim().toLowerCase()
+      : ''
+    const ext = FEISHU_RESOURCE_EXTENSIONS[normalizedMediaType] || ''
+    return ext ? `${filename}${ext}` : filename
   }
 
   _buildHistoryChoiceMenuText(sessions, currentSessionId = null, options = {}) {

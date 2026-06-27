@@ -28,6 +28,7 @@ const IM_MESSAGE_LISTENER_CONFIG = {
       imChannel: 'dingtalk',
       senderNick: data.senderNick,
       ...(data.images && data.images.length > 0 ? { images: data.images } : {}),
+      ...(data.attachments && data.attachments.length > 0 ? { attachments: data.attachments } : {}),
     }),
   },
   weixin: {
@@ -42,6 +43,7 @@ const IM_MESSAGE_LISTENER_CONFIG = {
       imChannel: 'weixin',
       senderNick: data.senderNick,
       ...(data.images && data.images.length > 0 ? { images: data.images } : {}),
+      ...(data.attachments && data.attachments.length > 0 ? { attachments: data.attachments } : {}),
     }),
   },
   feishu: {
@@ -56,6 +58,7 @@ const IM_MESSAGE_LISTENER_CONFIG = {
       imChannel: 'feishu',
       senderNick: data.senderNick,
       ...(data.images && data.images.length > 0 ? { images: data.images } : {}),
+      ...(data.attachments && data.attachments.length > 0 ? { attachments: data.attachments } : {}),
     }),
   },
   'enterprise-weixin': {
@@ -70,6 +73,7 @@ const IM_MESSAGE_LISTENER_CONFIG = {
       imChannel: 'enterprise-weixin',
       senderNick: data.senderNick,
       ...(data.images && data.images.length > 0 ? { images: data.images } : {}),
+      ...(data.attachments && data.attachments.length > 0 ? { attachments: data.attachments } : {}),
     }),
   },
 }

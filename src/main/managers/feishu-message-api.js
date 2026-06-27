@@ -273,15 +273,38 @@ class FeishuMessageAPI {
    * @returns {Promise<{base64: string, mediaType: string}>}
    */
   async downloadImage(imageKey, messageId) {
+    const resource = await this.downloadMessageResource(imageKey, messageId, 'image')
+    return {
+      base64: resource.buffer.toString('base64'),
+      mediaType: resource.mediaType || 'image/jpeg'
+    }
+  }
+
+  /**
+   * 下载消息中的通用资源（文件、图片等）
+   * @param {string} fileKey
+   * @param {string} messageId
+   * @param {string} resourceType
+   * @returns {Promise<{buffer: Buffer, mediaType: string, headers: object, fileKey: string, messageId: string, resourceType: string}>}
+   */
+  async downloadMessageResource(fileKey, messageId, resourceType = 'file') {
     this._assertReady()
     const r = await this._client.im.v1.messageResource.get({
-      path: { message_id: messageId, file_key: imageKey },
-      params: { type: 'image' },
+      path: { message_id: messageId, file_key: fileKey },
+      params: { type: resourceType || 'file' },
     })
     const buf = await this._binaryResponseToBuffer(r)
-    const contentType = r?.headers?.['content-type'] || 'image/jpeg'
-    const mediaType = String(contentType).split(';')[0].trim() || 'image/jpeg'
-    return { base64: buf.toString('base64'), mediaType }
+    const headers = r?.headers || {}
+    const contentType = headers?.['content-type'] || headers?.['Content-Type'] || 'application/octet-stream'
+    const mediaType = String(contentType).split(';')[0].trim() || 'application/octet-stream'
+    return {
+      buffer: buf,
+      mediaType,
+      headers,
+      fileKey,
+      messageId,
+      resourceType: resourceType || 'file'
+    }
   }
 
   /**
