@@ -36,6 +36,12 @@ describe('desktop capability query options', () => {
     return filePath
   }
 
+  function createDocumentFile(name = 'report.pdf') {
+    const filePath = path.join(tempDir, name)
+    fs.writeFileSync(filePath, Buffer.from('fake-document'))
+    return filePath
+  }
+
   function parseToolPayload(result) {
     expect(result?.content?.[0]?.type).toBe('text')
     return JSON.parse(result.content[0].text)
@@ -819,7 +825,7 @@ describe('desktop capability query options', () => {
 
     expect(options.appendSystemPrompt).toContain('call im_send directly and default to that bound target')
     expect(options.appendSystemPrompt).toContain('agent群A')
-    expect(tools.im_send.description).toContain('可直接只传 text 或 imagePaths 发送到该绑定目标')
+    expect(tools.im_send.description).toContain('可直接只传 text、imagePaths 或 filePaths 发送到该绑定目标')
     expect(tools.im_send.inputSchema.channel.safeParse(undefined).success).toBe(true)
   })
 
@@ -1083,6 +1089,57 @@ describe('desktop capability query options', () => {
     })
   })
 
+  it('passes document file paths through unified builtin IM sends', async () => {
+    const {
+      tools,
+      dingtalkBridge,
+      feishuBridge,
+      enterpriseWeixinBridge
+    } = await createOptionsWithBuiltinIm()
+    const pdfPath = createDocumentFile('report.pdf')
+    const docxPath = createDocumentFile('summary.docx')
+    const pptxPath = createDocumentFile('slides.pptx')
+
+    await tools.im_send.handler({
+      channel: 'dingtalk',
+      targetKey: '钉钉张三',
+      filePaths: [pdfPath]
+    })
+    expect(dingtalkBridge.sendToTarget).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'dingtalk',
+      targetId: 'staff-1',
+      filePaths: [pdfPath],
+      text: ''
+    }))
+
+    await tools.im_send.handler({
+      channel: 'feishu',
+      targetKey: '飞书李四',
+      text: '请查收文档',
+      filePaths: [docxPath]
+    })
+    expect(feishuBridge.sendToTarget).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'feishu',
+      targetId: 'ou_123',
+      openId: 'ou_123',
+      filePaths: [docxPath],
+      text: '请查收文档'
+    }))
+
+    await tools.im_send.handler({
+      channel: 'enterprise-weixin',
+      targetKey: '企微王五',
+      filePaths: [pptxPath]
+    })
+    expect(enterpriseWeixinBridge.sendToTarget).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'enterprise-weixin',
+      targetId: 'wecom-user-1',
+      userId: 'wecom-user-1',
+      filePaths: [pptxPath],
+      text: ''
+    }))
+  })
+
   it('accepts POSIX absolute image paths for builtin IM sends', async () => {
     const {
       tools,
@@ -1105,13 +1162,13 @@ describe('desktop capability query options', () => {
     fs.rmSync(posixImagePath, { force: true })
   })
 
-  it('rejects im_send when both text and imagePaths are empty', async () => {
+  it('rejects im_send when text, imagePaths and filePaths are all empty', async () => {
     const { tools } = await createOptionsWithBuiltinIm()
 
     await expect(tools.im_send.handler({
       channel: 'feishu',
       targetKey: '飞书李四'
-    })).rejects.toThrow('text 与 imagePaths 不能同时为空')
+    })).rejects.toThrow('text、imagePaths 与 filePaths 不能同时为空')
   })
 
   it('rejects relative image paths for builtin IM sends', async () => {
@@ -1136,6 +1193,32 @@ describe('desktop capability query options', () => {
       targetKey: '飞书李四',
       imagePaths: [filePath]
     })).rejects.toThrow('图片路径必须是受支持的图片文件')
+
+    expect(feishuBridge.sendToTarget).not.toHaveBeenCalled()
+  })
+
+  it('rejects relative document file paths for builtin IM sends', async () => {
+    const { tools, feishuBridge } = await createOptionsWithBuiltinIm()
+
+    await expect(tools.im_send.handler({
+      channel: 'feishu',
+      targetKey: '飞书李四',
+      filePaths: ['report.pdf']
+    })).rejects.toThrow('文件路径必须是本地绝对路径')
+
+    expect(feishuBridge.sendToTarget).not.toHaveBeenCalled()
+  })
+
+  it('rejects unsupported document file types for builtin IM sends', async () => {
+    const { tools, feishuBridge } = await createOptionsWithBuiltinIm()
+    const filePath = path.join(tempDir, 'archive.zip')
+    fs.writeFileSync(filePath, 'zip')
+
+    await expect(tools.im_send.handler({
+      channel: 'feishu',
+      targetKey: '飞书李四',
+      filePaths: [filePath]
+    })).rejects.toThrow('暂不支持发送该文件类型')
 
     expect(feishuBridge.sendToTarget).not.toHaveBeenCalled()
   })
@@ -1176,6 +1259,47 @@ describe('desktop capability query options', () => {
       openId: 'oc_group_a',
       text: 'hello bound',
       sessionId: 'chat-im-bound-1'
+    })
+  })
+
+  it('uses bound target by default when sending only document file paths', async () => {
+    const session = {
+      id: 'chat-im-bound-file-1',
+      source: 'manual',
+      imChannel: 'feishu'
+    }
+    const { tools, feishuBridge } = await createOptionsWithBuiltinIm({
+      session,
+      overrides: {
+        feishuBridge: {
+          getBinding: vi.fn((sessionId) => sessionId === session.id
+            ? { targetId: 'oc_group_a', displayName: 'agent群A', targetType: 'chat' }
+            : null)
+        }
+      },
+      feishuTargets: [{
+        id: 'oc_group_a',
+        openId: 'oc_group_a',
+        displayName: 'agent群A',
+        targetType: 'chat',
+        hasContextToken: true
+      }]
+    })
+    const filePath = createDocumentFile('bound-report.xlsx')
+
+    await tools.im_send.handler({
+      filePaths: [filePath]
+    })
+
+    expect(feishuBridge.sendToTarget).toHaveBeenCalledWith({
+      channel: 'feishu',
+      targetId: 'oc_group_a',
+      targetType: 'chat',
+      displayName: 'agent群A',
+      openId: 'oc_group_a',
+      text: '',
+      filePaths: [filePath],
+      sessionId: 'chat-im-bound-file-1'
     })
   })
 

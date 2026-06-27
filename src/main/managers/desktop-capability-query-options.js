@@ -1,4 +1,13 @@
-const { validateLocalImagePaths } = require('./im-utils')
+const fs = require('fs')
+const {
+  isAbsoluteLocalPath,
+  normalizePath,
+  validateLocalImagePaths
+} = require('./im-utils')
+const {
+  DEFAULT_OUTBOUND_FILE_MAX_SIZE,
+  normalizeOutboundFilePaths
+} = require('./im-file-attachments')
 
 const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'You can manage hydrodesktop scheduled tasks with MCP tools.',
@@ -90,7 +99,8 @@ const IM_BUILTIN_SYSTEM_PROMPT = [
   'Use im_list_targets before sending only when the current session is not already bound to a target, or when the user explicitly wants to choose or change the recipient.',
   'Prefer the channel and targetKey returned by im_list_targets.',
   'If the recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
-  'Use im_send for short text messages and local image files to already available built-in IM targets.',
+  'Use im_send for short text messages, local image files, and local PDF/Office document files to already available built-in IM targets.',
+  'When sending documents through im_send, pass local absolute file paths in filePaths. Supported document formats are PDF, Word, Excel, and PowerPoint.',
   'Do not claim you can message arbitrary contacts. Only use enabled Hydro Desktop IM channels and targets actually returned by im_list_targets.',
   'After sending, report the channel, recipient displayName, and returned message identifier when available.'
 ].join(' ')
@@ -727,12 +737,18 @@ function resolveImSendArgs(args = {}) {
       .map(item => typeof item === 'string' ? item.trim() : '')
       .filter(Boolean)
     : []
+  const filePaths = Array.isArray(args.filePaths)
+    ? args.filePaths
+      .map(item => typeof item === 'string' ? item.trim() : '')
+      .filter(Boolean)
+    : []
   const sendArgs = {
     channel,
     text: typeof args.text === 'string' ? args.text : '',
   }
   if (targetId) sendArgs.targetId = targetId
   if (imagePaths.length > 0) sendArgs.imagePaths = imagePaths
+  if (filePaths.length > 0) sendArgs.filePaths = filePaths
   if (targetType) sendArgs.targetType = targetType
   if (typeof args.displayName === 'string' && args.displayName.trim()) sendArgs.displayName = args.displayName.trim()
   if (typeof args.accountId === 'string' && args.accountId.trim()) sendArgs.accountId = args.accountId.trim()
@@ -740,6 +756,38 @@ function resolveImSendArgs(args = {}) {
   if (typeof args.openId === 'string' && args.openId.trim()) sendArgs.openId = args.openId.trim()
   if (typeof args.staffId === 'string' && args.staffId.trim()) sendArgs.staffId = args.staffId.trim()
   return sendArgs
+}
+
+async function validateLocalDocumentFilePaths(filePaths = []) {
+  const normalizedPaths = Array.isArray(filePaths)
+    ? normalizeOutboundFilePaths({
+      filePaths: filePaths.map(item => typeof item === 'string' ? normalizePath(item.trim()) : '').filter(Boolean)
+    })
+    : []
+
+  if (normalizedPaths.length === 0) {
+    return []
+  }
+
+  const validated = []
+  for (const filePath of normalizedPaths) {
+    if (!isAbsoluteLocalPath(filePath)) {
+      throw new Error(`文件路径必须是本地绝对路径: ${filePath}`)
+    }
+    const stats = await fs.promises.stat(filePath).catch(() => null)
+    if (!stats || !stats.isFile()) {
+      throw new Error(`文件不存在: ${filePath}`)
+    }
+    if (stats.size <= 0) {
+      throw new Error(`文件为空: ${filePath}`)
+    }
+    if (stats.size > DEFAULT_OUTBOUND_FILE_MAX_SIZE) {
+      throw new Error(`文件不能超过 ${Math.floor(DEFAULT_OUTBOUND_FILE_MAX_SIZE / (1024 * 1024))}MB: ${filePath}`)
+    }
+    validated.push(filePath)
+  }
+
+  return validated
 }
 
 function getBoundImTargetFromSession(session = {}, provider = null) {
@@ -1474,7 +1522,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       IM_BUILTIN_TOOL_NAMES[1],
-      '通过 Hydro Desktop 内置 IM 渠道发送文本和本地图片。若当前会话已绑定 IM 目标且用户未要求更换收件人，可直接只传 text 或 imagePaths 发送到该绑定目标；否则先用 im_list_targets 获取 channel 与 targetKey，再用本工具发送。',
+      '通过 Hydro Desktop 内置 IM 渠道发送文本、本地图片和本地 PDF/Office 文档。若当前会话已绑定 IM 目标且用户未要求更换收件人，可直接只传 text、imagePaths 或 filePaths 发送到该绑定目标；否则先用 im_list_targets 获取 channel 与 targetKey，再用本工具发送。',
       {
         channel: z.enum(['dingtalk', 'feishu', 'enterprise-weixin']).optional().describe('目标 IM 渠道。若当前会话已绑定 IM 目标且不更换收件人，可省略。'),
         targetKey: z.string().min(1).optional().describe('推荐使用 im_list_targets 返回的 targetKey。'),
@@ -1485,16 +1533,22 @@ async function buildDesktopCapabilityQueryOptions({
         userId: z.string().min(1).optional().describe('企业微信兼容字段。'),
         openId: z.string().min(1).optional().describe('飞书兼容字段。'),
         staffId: z.string().min(1).optional().describe('钉钉兼容字段。'),
-        text: z.string().min(1).max(4000).optional().describe('要发送的文本内容。可为空，但 text 与 imagePaths 不能同时为空。'),
-        imagePaths: z.array(z.string().min(1)).optional().describe('要发送的本地图片绝对路径列表。可单独发送图片，或与 text 一起发送。')
+        text: z.string().min(1).max(4000).optional().describe('要发送的文本内容。可为空，但 text、imagePaths 与 filePaths 不能同时为空。'),
+        imagePaths: z.array(z.string().min(1)).optional().describe('要发送的本地图片绝对路径列表。可单独发送图片，或与 text / filePaths 一起发送。'),
+        filePaths: z.array(z.string().min(1)).optional().describe('要发送的本地 PDF/Office 文档绝对路径列表。支持 pdf、doc、docx、xls、xlsx、ppt、pptx；可单独发送文件，或与 text / imagePaths 一起发送。')
       },
       async (args) => {
         const sendArgs = resolveImSendArgs(args)
-        if (!sendArgs.text.trim() && (!Array.isArray(sendArgs.imagePaths) || sendArgs.imagePaths.length === 0)) {
-          throw new Error('text 与 imagePaths 不能同时为空')
+        const hasImagePaths = Array.isArray(sendArgs.imagePaths) && sendArgs.imagePaths.length > 0
+        const hasFilePaths = Array.isArray(sendArgs.filePaths) && sendArgs.filePaths.length > 0
+        if (!sendArgs.text.trim() && !hasImagePaths && !hasFilePaths) {
+          throw new Error('text、imagePaths 与 filePaths 不能同时为空')
         }
-        if (Array.isArray(sendArgs.imagePaths) && sendArgs.imagePaths.length > 0) {
+        if (hasImagePaths) {
           sendArgs.imagePaths = await validateLocalImagePaths(sendArgs.imagePaths)
+        }
+        if (hasFilePaths) {
+          sendArgs.filePaths = await validateLocalDocumentFilePaths(sendArgs.filePaths)
         }
         const explicitChannel = normalizeImText(sendArgs.channel)
         const allImProviders = getImProviders({ includeDisabled: true })
