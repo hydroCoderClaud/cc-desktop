@@ -23,6 +23,12 @@ const { ImReplyCollector } = require('./im-reply-collector')
 const { ImSessionMapper } = require('./im-session-mapper')
 const { ImInteractionBridge } = require('./im-interaction-bridge')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
+const { saveInboundAttachment } = require('./im-attachment-store')
+const {
+  DEFAULT_OUTBOUND_FILE_MAX_SIZE,
+  normalizeOutboundFilePaths,
+  buildSavedInboundFileAttachment,
+} = require('./im-file-attachments')
 const {
   isMappedCurrentSession,
   deleteSessionMappingsByPrefix,
@@ -590,14 +596,17 @@ class EnterpriseWeixinBridge {
       userId: identity.userId,
       chatId: message.chatId,
     })
+    const preparedMessage = await this._hydrateInboundFiles(message, sessionId)
+
     this._notifier.notifyMessageReceived({
       sessionId,
       senderNick: identity.nickname || identity.userId,
-      text: message.text || (message.images?.length ? '[图片]' : ''),
-      images: message.images,
-      imagesCount: Array.isArray(message.images) ? message.images.length : 0,
+      text: preparedMessage.text || (preparedMessage.images?.length ? '[图片]' : (preparedMessage.attachments?.length ? '[文件]' : '')),
+      images: preparedMessage.images,
+      attachments: preparedMessage.attachments,
+      imagesCount: Array.isArray(preparedMessage.images) ? preparedMessage.images.length : 0,
     })
-    await this._enqueueInboundMessage(sessionId, frame, message, identity)
+    await this._enqueueInboundMessage(sessionId, frame, preparedMessage, identity)
   }
 
   async _handleEvent(frame) {
@@ -651,6 +660,7 @@ class EnterpriseWeixinBridge {
       senderName,
       text: '',
       images: [],
+      attachments: [],
       unsupported: false,
     }
 
@@ -672,6 +682,9 @@ class EnterpriseWeixinBridge {
         imageItems: items
           .filter(item => item?.msgtype === 'image' && item?.image?.url)
           .map(item => item.image),
+        fileItems: items
+          .filter(item => item?.msgtype === 'file' && item?.file?.url)
+          .map(item => item.file),
       }
     }
 
@@ -679,6 +692,13 @@ class EnterpriseWeixinBridge {
       return {
         ...base,
         imageItems: body?.image?.url ? [body.image] : [],
+      }
+    }
+
+    if (msgType === MessageType.File || msgType === 'file') {
+      return {
+        ...base,
+        fileItems: body?.file?.url ? [body.file] : [],
       }
     }
 
@@ -856,14 +876,16 @@ class EnterpriseWeixinBridge {
         })
       },
       replayPendingMessage: async (pendingSelection) => {
+        const preparedSelectionMessage = await this._hydrateInboundFiles(pendingSelection.message, sessionId)
         this._notifier.notifyMessageReceived({
           sessionId,
           senderNick: identity.nickname || identity.userId,
-          text: pendingSelection.message.text || (pendingSelection.message.images?.length ? '[图片]' : ''),
-          images: pendingSelection.message.images,
-          imagesCount: Array.isArray(pendingSelection.message.images) ? pendingSelection.message.images.length : 0,
+          text: preparedSelectionMessage.text || (preparedSelectionMessage.images?.length ? '[图片]' : (preparedSelectionMessage.attachments?.length ? '[文件]' : '')),
+          images: preparedSelectionMessage.images,
+          imagesCount: Array.isArray(preparedSelectionMessage.images) ? preparedSelectionMessage.images.length : 0,
+          attachments: preparedSelectionMessage.attachments,
         })
-        await this._enqueueInboundMessage(sessionId, pendingSelection.frame, pendingSelection.message, identity)
+        await this._enqueueInboundMessage(sessionId, pendingSelection.frame, preparedSelectionMessage, identity)
       },
       enqueueHello: async () => {
         await this._enqueueInboundMessage(sessionId, frame, {
@@ -1317,7 +1339,9 @@ class EnterpriseWeixinBridge {
       ...message,
       images,
       imageItems: [],
-      unsupported: images.length === 0 && !String(message?.text || '').trim(),
+      unsupported: images.length === 0
+        && !String(message?.text || '').trim()
+        && !(Array.isArray(message?.fileItems) && message.fileItems.length > 0),
     }
   }
 
@@ -1337,6 +1361,86 @@ class EnterpriseWeixinBridge {
       console.error('[EnterpriseWeixin] Failed to download inbound image:', err.message)
       return null
     }
+  }
+
+  async _hydrateInboundFiles(message, sessionId = '') {
+    const fileItems = Array.isArray(message?.fileItems) ? message.fileItems : []
+    if (!this._wsClient || fileItems.length === 0) {
+      return {
+        ...message,
+        attachments: Array.isArray(message?.attachments) ? message.attachments : [],
+        fileItems: [],
+        unsupported: !!message?.unsupported,
+      }
+    }
+
+    const attachments = Array.isArray(message?.attachments) ? [...message.attachments] : []
+    for (const file of fileItems) {
+      const downloadedFile = await this._downloadInboundFile(file, sessionId)
+      if (downloadedFile) {
+        attachments.push(downloadedFile)
+      }
+    }
+
+    const hasContent = Boolean(
+      String(message?.text || '').trim()
+      || (Array.isArray(message?.images) && message.images.length > 0)
+      || attachments.length > 0
+    )
+
+    return {
+      ...message,
+      attachments,
+      fileItems: [],
+      unsupported: !hasContent,
+    }
+  }
+
+  async _downloadInboundFile(file, sessionId = '') {
+    const url = typeof file?.url === 'string' ? file.url.trim() : ''
+    if (!url || typeof this._wsClient?.downloadFile !== 'function') return null
+
+    try {
+      const { buffer, filename, contentType } = await this._wsClient.downloadFile(url, file?.aeskey)
+      if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) return null
+
+      const cwd = this._resolveInboundAttachmentCwd(sessionId)
+      const saved = await saveInboundAttachment({
+        cwd,
+        filename: filename || file?.filename || file?.name || this._resolveDownloadedFilename('', url),
+        buffer,
+      })
+
+      return buildSavedInboundFileAttachment({
+        filePath: saved.filePath,
+        filename: saved.filename,
+        sizeBytes: saved.sizeBytes,
+        mimeType: contentType || 'application/octet-stream',
+        channel: this._imType,
+        remoteRef: url,
+        original: {
+          filename: filename || file?.filename || file?.name || null,
+          remoteRef: url,
+          meta: {
+            aeskey: file?.aeskey || null,
+          },
+        },
+        meta: {
+          originalFilename: filename || file?.filename || file?.name || null,
+        },
+      })
+    } catch (err) {
+      console.error('[EnterpriseWeixin] Failed to download inbound file:', err.message)
+      return null
+    }
+  }
+
+  _resolveInboundAttachmentCwd(sessionId) {
+    const liveSession = this._agentSessionManager?.sessions?.get?.(sessionId)
+    if (liveSession?.cwd) return liveSession.cwd
+    const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
+    if (row?.cwd) return row.cwd
+    throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
   }
 
   _detectInboundImageMediaType(buffer, filename, contentType) {
@@ -1404,6 +1508,23 @@ class EnterpriseWeixinBridge {
     }
   }
 
+  async _uploadFileMedia(filePath) {
+    if (!this._wsClient || typeof this._wsClient.uploadMedia !== 'function') return null
+    if (typeof filePath !== 'string' || !filePath.trim()) return null
+
+    const stats = await fs.promises.stat(filePath).catch(() => null)
+    if (!stats || !stats.isFile() || stats.size <= 0 || stats.size > DEFAULT_OUTBOUND_FILE_MAX_SIZE) {
+      throw new Error(`Invalid file: ${filePath}`)
+    }
+
+    const buffer = await fs.promises.readFile(filePath)
+    const result = await this._wsClient.uploadMedia(buffer, {
+      type: 'file',
+      filename: path.basename(filePath) || 'attachment',
+    })
+    return result?.media_id || null
+  }
+
   async _replyImages(frame, imagePaths = []) {
     if (!this._wsClient || typeof this._wsClient.replyMedia !== 'function') return
     for (const imagePath of imagePaths) {
@@ -1436,6 +1557,25 @@ class EnterpriseWeixinBridge {
     return sentCount
   }
 
+  async _sendFilesToChat(chatId, filePaths = []) {
+    if (!this._wsClient || typeof this._wsClient.sendMediaMessage !== 'function') return 0
+    let sentCount = 0
+    for (const filePath of filePaths) {
+      const mediaId = await this._uploadFileMedia(filePath)
+      if (!mediaId) {
+        throw new Error(`企业微信文件上传失败: ${filePath}`)
+      }
+      try {
+        await this._wsClient.sendMediaMessage(chatId, 'file', mediaId)
+        sentCount += 1
+      } catch (err) {
+        console.error('[EnterpriseWeixin] Failed to send proactive file media:', filePath, err.message)
+        throw new Error(`企业微信文件发送失败: ${filePath} (${err.message})`)
+      }
+    }
+    return sentCount
+  }
+
   _enqueueInboundMessage(sessionId, frame, message, identity) {
     const prev = this._processQueues.get(sessionId) || Promise.resolve()
     const next = prev.then(() => this._processOneMessage(sessionId, frame, message, identity)).catch(err => {
@@ -1452,12 +1592,13 @@ class EnterpriseWeixinBridge {
   async _processOneMessage(sessionId, frame, message, identity) {
     const text = typeof message.text === 'string' ? message.text : ''
     const images = Array.isArray(message.images) ? message.images : []
-    if (!text.trim() && images.length === 0) return
+    const attachments = Array.isArray(message.attachments) ? message.attachments : []
+    if (!text.trim() && images.length === 0 && attachments.length === 0) return
 
     const senderNick = identity.nickname || identity.userId
-    const userMessage = images.length > 0 && !text.trim()
-      ? { text: '', images }
-      : (images.length > 0 ? { text, images } : text)
+    const userMessage = images.length > 0 || attachments.length > 0
+      ? { text, images, attachments }
+      : text
 
     const { donePromise } = this._replyCollector.startCollect(sessionId, {
       webhook: frame,
@@ -1727,7 +1868,7 @@ class EnterpriseWeixinBridge {
     }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, text, displayName, userId, imagePaths = [], images = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, text, displayName, userId, imagePaths = [], images = [], filePaths = [], attachments = [] } = {}) {
     this._syncSessionDatabase()
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
@@ -1736,7 +1877,8 @@ class EnterpriseWeixinBridge {
     const normalizedImages = Array.isArray(images)
       ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) throw new Error('发送内容不能为空')
+    const normalizedFilePaths = normalizeOutboundFilePaths({ filePaths, attachments })
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0 && normalizedFilePaths.length === 0) throw new Error('发送内容不能为空')
 
     const resolvedId = typeof (targetId || userId || '') === 'string' ? (targetId || userId || '').trim() : ''
     if (!resolvedId) throw new Error('targetId 不能为空')
@@ -1760,6 +1902,10 @@ class EnterpriseWeixinBridge {
     if (normalizedImages.length > 0) {
       sentImageCount += await this._sendBase64ImagesToChat(resolvedId, normalizedImages)
     }
+    let sentFileCount = 0
+    if (normalizedFilePaths.length > 0) {
+      sentFileCount = await this._sendFilesToChat(resolvedId, normalizedFilePaths)
+    }
 
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedId, targetType: targetType || 'user', displayName })
@@ -1769,7 +1915,8 @@ class EnterpriseWeixinBridge {
       success: true,
       targetId: resolvedId,
       sentText: Boolean(content),
-      imageCount: sentImageCount
+      imageCount: sentImageCount,
+      fileCount: sentFileCount
     }
   }
 

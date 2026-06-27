@@ -38,6 +38,8 @@ const {
 } = require('./im-binding-runtime')
 const { getImDefaultWorkspaceRoot } = require('./im-working-directory')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
+const { saveInboundAttachment } = require('./im-attachment-store')
+const { normalizeOutboundFilePaths, buildSavedInboundFileAttachment } = require('./im-file-attachments')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -770,7 +772,7 @@ class DingTalkBridge {
     }
 
     // 根据消息类型构建 Agent 消息
-    let agentMessage = null  // string 或 { text, images }
+    let agentMessage = null  // string 或 { text, images, attachments }
     let displayText = ''     // 用于前端显示和日志
 
     if (msgtype === 'picture') {
@@ -791,6 +793,29 @@ class DingTalkBridge {
         console.error(`[DingTalk] Image download failed:`, err.message)
         return
       }
+    } else if (msgtype === 'file') {
+      const downloadCode = content?.downloadCode || content?.fileDownloadCode || content?.downloadUrlCode || ''
+      if (!downloadCode) return
+
+      const filename = content?.fileName || content?.filename || content?.name || 'attachment'
+      agentMessage = {
+        text: '',
+        attachments: [{
+          id: downloadCode,
+          filename,
+          source: 'inbound',
+          channel: 'dingtalk',
+          remoteRef: downloadCode,
+          meta: {
+            downloadCode,
+            robotCode,
+            fileSize: content?.fileSize || content?.size || null,
+            fileType: content?.fileType || path.extname(filename).replace('.', '') || null,
+          },
+        }],
+      }
+      displayText = `[文件] ${filename}`
+      console.log(`[DingTalk] File from ${senderNick}(${senderStaffId}): ${filename}`)
     } else if (msgtype === 'richText') {
       // 富文本消息（可能包含图片+文字混合）
       const richTextContent = content?.richText || []
@@ -845,19 +870,24 @@ class DingTalkBridge {
 
     const sessionId = result
 
+    const preparedAgentMessage = await this._prepareInboundMessageAttachments(sessionId, agentMessage)
+
     // 通知前端：收到钉钉消息（立即通知，不等待处理）
     const notification = { sessionId, senderNick: identity.nickname, text: displayText }
     // 图片消息：附带 base64 数据供前端气泡显示
-    if (agentMessage && typeof agentMessage === 'object' && agentMessage.images) {
-      notification.images = agentMessage.images.map(img => ({
+    if (preparedAgentMessage && typeof preparedAgentMessage === 'object' && preparedAgentMessage.images) {
+      notification.images = preparedAgentMessage.images.map(img => ({
         base64: img.base64,
         mediaType: img.mediaType
       }))
     }
+    if (preparedAgentMessage && typeof preparedAgentMessage === 'object' && Array.isArray(preparedAgentMessage.attachments)) {
+      notification.attachments = preparedAgentMessage.attachments
+    }
     this._notifyFrontend('dingtalk:messageReceived', notification)
 
     // 使用 promise chain 确保同一会话的消息串行处理（消除竞态条件）
-    this._enqueueMessage(sessionId, agentMessage, sessionWebhook, identity.nickname, context)
+    this._enqueueMessage(sessionId, preparedAgentMessage, sessionWebhook, identity.nickname, context)
   }
 
   /**
@@ -898,6 +928,72 @@ class DingTalkBridge {
     } catch (err) {
       console.error(`[DingTalk] Response handling failed:`, err.message)
     }
+  }
+
+  async _prepareInboundMessageAttachments(sessionId, message) {
+    if (!message || typeof message !== 'object' || !Array.isArray(message.attachments) || message.attachments.length === 0) {
+      return message
+    }
+
+    const attachments = []
+    for (const attachment of message.attachments) {
+      const prepared = await this._prepareInboundAttachment(sessionId, attachment)
+      if (prepared) attachments.push(prepared)
+    }
+    return {
+      ...message,
+      attachments,
+    }
+  }
+
+  async _prepareInboundAttachment(sessionId, attachment) {
+    if (!attachment || typeof attachment !== 'object') return null
+    if (attachment.localPath) return attachment
+
+    const downloadCode = attachment?.meta?.downloadCode || attachment.remoteRef || ''
+    const robotCode = attachment?.meta?.robotCode || this._getConfig().robotCode || ''
+    if (!downloadCode || !robotCode) return attachment
+
+    try {
+      const cwd = this._resolveInboundAttachmentCwd(sessionId)
+      const resource = await this._downloadFile(downloadCode, robotCode, attachment.filename || attachment.name || 'attachment')
+      const saved = await saveInboundAttachment({
+        cwd,
+        filename: resource.filename,
+        buffer: resource.buffer,
+      })
+
+      return buildSavedInboundFileAttachment({
+        filePath: saved.filePath,
+        filename: saved.filename,
+        sizeBytes: saved.sizeBytes,
+        mimeType: resource.contentType || attachment.mimeType || '',
+        channel: 'dingtalk',
+        remoteRef: downloadCode,
+        original: attachment,
+        meta: {
+          downloadCode,
+          originalFilename: attachment.filename || attachment.name || null,
+        },
+      })
+    } catch (err) {
+      console.error('[DingTalk] Attachment download failed:', err.message)
+      return {
+        ...attachment,
+        meta: {
+          ...(attachment.meta || {}),
+          downloadError: err.message,
+        },
+      }
+    }
+  }
+
+  _resolveInboundAttachmentCwd(sessionId) {
+    const liveSession = this.agentSessionManager?.sessions?.get?.(sessionId)
+    if (liveSession?.cwd) return liveSession.cwd
+    const row = this.agentSessionManager?.sessionDatabase?.getAgentConversation?.(sessionId)
+    if (row?.cwd) return row.cwd
+    throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
   }
 
   /**
@@ -1766,7 +1862,7 @@ class DingTalkBridge {
     return { success: true }
   }
 
-  async sendToTarget({ sessionId, targetId, targetType, displayName, text, staffId, imagePaths = [], images = [] } = {}) {
+  async sendToTarget({ sessionId, targetId, targetType, displayName, text, staffId, imagePaths = [], images = [], filePaths = [], attachments = [] } = {}) {
     const content = typeof text === 'string' ? text.trim() : ''
     const normalizedImagePaths = Array.isArray(imagePaths)
       ? imagePaths.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean)
@@ -1774,7 +1870,8 @@ class DingTalkBridge {
     const normalizedImages = Array.isArray(images)
       ? images.map(item => item && typeof item === 'object' ? item : null).filter(Boolean)
       : []
-    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0) {
+    const normalizedFilePaths = normalizeOutboundFilePaths({ filePaths, attachments })
+    if (!content && normalizedImagePaths.length === 0 && normalizedImages.length === 0 && normalizedFilePaths.length === 0) {
       throw new Error('发送内容不能为空')
     }
     const resolvedId = targetId || staffId || this._sessionTargets.get(sessionId)?.staffId || ''
@@ -1844,6 +1941,15 @@ class DingTalkBridge {
       })
       sendResults.push({ kind: 'base64-images', count: sentImageCount })
     }
+    if (normalizedFilePaths.length > 0) {
+      const sentFileCount = await this._sendCollectedFiles(normalizedFilePaths, {
+        robotCode,
+        senderStaffId: resolvedStaffId,
+        conversationId: resolvedStaffId,
+        conversationType: normalizedTargetType === 'chat' ? '2' : '1'
+      })
+      sendResults.push({ kind: 'files', count: sentFileCount })
+    }
     if (sessionId) {
       this.bindTarget(sessionId, { targetId: resolvedStaffId, targetType: normalizedTargetType, displayName })
       if (normalizedTargetType !== 'chat') {
@@ -1855,7 +1961,8 @@ class DingTalkBridge {
       targetId: resolvedStaffId,
       result: sendResults[0]?.result,
       sentText: Boolean(content),
-      imageCount: normalizedImagePaths.length
+      imageCount: normalizedImagePaths.length,
+      fileCount: normalizedFilePaths.length
     }
   }
 
@@ -2172,18 +2279,22 @@ class DingTalkBridge {
         })
       },
       replayPendingMessage: async (pendingSelection) => {
-        const displayText = typeof pendingSelection === 'string'
-          ? pendingSelection
-          : (pendingSelection?.text || '[图片]')
+        const preparedSelection = await this._prepareInboundMessageAttachments(sessionId, pendingSelection)
+        const displayText = typeof preparedSelection === 'string'
+          ? preparedSelection
+          : (preparedSelection?.text || (preparedSelection?.attachments?.length ? '[文件]' : '[图片]'))
         const notification = { sessionId, senderNick, text: displayText }
-        if (pendingSelection && typeof pendingSelection === 'object' && Array.isArray(pendingSelection.images)) {
-          notification.images = pendingSelection.images.map(img => ({
+        if (preparedSelection && typeof preparedSelection === 'object' && Array.isArray(preparedSelection.images)) {
+          notification.images = preparedSelection.images.map(img => ({
             base64: img.base64,
             mediaType: img.mediaType
           }))
         }
+        if (preparedSelection && typeof preparedSelection === 'object' && Array.isArray(preparedSelection.attachments)) {
+          notification.attachments = preparedSelection.attachments
+        }
         this._notifyFrontend('dingtalk:messageReceived', notification)
-        this._enqueueMessage(sessionId, pendingSelection, webhook, senderNick, {
+        this._enqueueMessage(sessionId, preparedSelection, webhook, senderNick, {
           robotCode, senderStaffId, conversationId, conversationType
         })
       },

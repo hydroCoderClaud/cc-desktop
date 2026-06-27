@@ -194,6 +194,28 @@ describe('FeishuBridge', () => {
     expect(result.fileCount).toBe(1)
   })
 
+  it('rejects unsupported outbound Feishu file types before upload', async () => {
+    const { configManager, manager, mainWindow } = createManager()
+    const bridge = new FeishuBridge(configManager, manager, mainWindow)
+    const uploadSpy = vi.spyOn(bridge._api, 'uploadFile').mockResolvedValue('file_key_1')
+    const sendFileSpy = vi.spyOn(bridge._api, 'sendFileMessage').mockResolvedValue('om_file_1')
+
+    const filePath = path.join(tempDir, 'archive.zip')
+    fs.writeFileSync(filePath, Buffer.from('zipdata'))
+    const created = manager.create({ type: 'chat', source: 'manual', title: '桌面会话', cwd: tempDir })
+    const session = manager.sessions.get(created.id)
+
+    await expect(bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'ou_target',
+      displayName: '张三',
+      attachments: [{ localPath: filePath, filename: 'archive.zip' }]
+    })).rejects.toThrow('暂不支持发送该文件类型')
+
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(sendFileSpy).not.toHaveBeenCalled()
+  })
+
   it('reuses the proactively bound session on first p2p reply even after in-memory Feishu target mapping is lost', async () => {
     const { configManager, manager, mainWindow } = createManager()
     const bridge = new FeishuBridge(configManager, manager, mainWindow)

@@ -399,6 +399,136 @@ describe('DingTalkBridge', () => {
     })
   })
 
+  it('supports proactive DingTalk file-only sends', async () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const session = manager.sessions.get(created.id)
+    const filePath = path.join(tempDir, 'report.pdf')
+    fs.writeFileSync(filePath, Buffer.from('%PDF-1.4 test'))
+
+    vi.spyOn(bridge, '_getAccessToken').mockResolvedValue('token')
+    bridge.configManager.getConfig = () => ({
+      settings: { agent: { outputBaseDir: tempDir } },
+      dingtalk: { maxHistorySessions: 5, robotCode: 'robot-1' }
+    })
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes('/media/upload')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ media_id: 'media-file-1' })
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true })
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'staff-1',
+      displayName: '张三',
+      attachments: [{ localPath: filePath, filename: 'report.pdf' }]
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0][0]).toBe('https://oapi.dingtalk.com/media/upload?access_token=token&type=file')
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend')
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(body.userIds).toEqual(['staff-1'])
+    expect(body.msgKey).toBe('sampleFile')
+    expect(JSON.parse(body.msgParam)).toMatchObject({
+      mediaId: 'media-file-1',
+      fileName: 'report.pdf',
+      fileType: 'pdf',
+    })
+    expect(result).toMatchObject({
+      success: true,
+      targetId: 'staff-1',
+      sentText: false,
+      imageCount: 0,
+      fileCount: 1
+    })
+  })
+
+  it('supports proactive DingTalk group file-only sends', async () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '群聊会话' })
+    const session = manager.sessions.get(created.id)
+    const filePath = path.join(tempDir, 'group-report.xlsx')
+    fs.writeFileSync(filePath, Buffer.from('xlsx test'))
+
+    vi.spyOn(bridge, '_getAccessToken').mockResolvedValue('token')
+    bridge.configManager.getConfig = () => ({
+      settings: { agent: { outputBaseDir: tempDir } },
+      dingtalk: { maxHistorySessions: 5, robotCode: 'robot-1' }
+    })
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes('/media/upload')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ media_id: 'media-file-group-1' })
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true })
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'cid-group-1',
+      targetType: 'chat',
+      displayName: '项目群',
+      attachments: [{ localPath: filePath, filename: 'group-report.xlsx' }]
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][0]).toBe('https://api.dingtalk.com/v1.0/robot/groupMessages/send')
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(body.openConversationId).toBe('cid-group-1')
+    expect(body.userIds).toBeUndefined()
+    expect(body.msgKey).toBe('sampleFile')
+    expect(JSON.parse(body.msgParam)).toMatchObject({
+      mediaId: 'media-file-group-1',
+      fileName: 'group-report.xlsx',
+      fileType: 'xlsx',
+    })
+    expect(result).toMatchObject({
+      success: true,
+      targetId: 'cid-group-1',
+      sentText: false,
+      imageCount: 0,
+      fileCount: 1
+    })
+  })
+
+  it('rejects unsupported outbound DingTalk file types before upload', async () => {
+    const { bridge, manager } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const session = manager.sessions.get(created.id)
+    const filePath = path.join(tempDir, 'archive.zip')
+    fs.writeFileSync(filePath, Buffer.from('zipdata'))
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(bridge.sendToTarget({
+      sessionId: session.id,
+      targetId: 'staff-1',
+      displayName: '张三',
+      attachments: [{ localPath: filePath, filename: 'archive.zip' }]
+    })).rejects.toThrow('暂不支持发送该文件类型')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('fails proactive DingTalk image sends when image forwarding fails', async () => {
     const { bridge, manager } = createHarness()
     const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
@@ -1465,6 +1595,81 @@ describe('DingTalkBridge', () => {
         senderStaffId: 'staff-1',
         conversationId: 'conv-1',
         conversationType: '2'
+      })
+    )
+  })
+
+  it('downloads inbound DingTalk file attachments and forwards attachment metadata', async () => {
+    const { bridge, manager, sent } = createHarness()
+    const enqueueMessage = vi.spyOn(bridge, '_enqueueMessage').mockImplementation(() => {})
+    vi.spyOn(bridge, '_downloadFile').mockResolvedValue({
+      buffer: Buffer.from('%PDF-1.4 inbound'),
+      filename: 'report.pdf',
+      contentType: 'application/pdf'
+    })
+
+    const created = manager.create({ type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', title: '钉钉文件会话', cwd: tempDir })
+    bridge.sessionMap.set('staff-1', created.id)
+
+    await bridge._handleDingTalkMessage({
+      data: JSON.stringify({
+        msgId: 'msg-inbound-file',
+        msgtype: 'file',
+        content: {
+          downloadCode: 'download-code-1',
+          fileName: 'report.pdf',
+          fileSize: 17,
+          fileType: 'pdf'
+        },
+        senderStaffId: 'staff-1',
+        senderNick: '张三',
+        sessionWebhook: 'https://example.com/webhook',
+        robotCode: 'robot-1',
+        conversationId: 'conv-1',
+        conversationTitle: '张三',
+        conversationType: '1'
+      })
+    })
+
+    const expectedPath = path.join(tempDir, 'im_attachments', 'report.pdf')
+    expect(fs.existsSync(expectedPath)).toBe(true)
+    expect(bridge._downloadFile).toHaveBeenCalledWith('download-code-1', 'robot-1', 'report.pdf')
+    expect(sent).toContainEqual({
+      channel: 'dingtalk:messageReceived',
+      data: expect.objectContaining({
+        sessionId: created.id,
+        senderNick: '张三',
+        text: '[文件] report.pdf',
+        attachments: [
+          expect.objectContaining({
+            filename: 'report.pdf',
+            localPath: expectedPath,
+            mimeType: 'application/pdf',
+            channel: 'dingtalk',
+            remoteRef: 'download-code-1'
+          })
+        ]
+      })
+    })
+    expect(enqueueMessage).toHaveBeenCalledWith(
+      created.id,
+      expect.objectContaining({
+        text: '',
+        attachments: [
+          expect.objectContaining({
+            filename: 'report.pdf',
+            localPath: expectedPath,
+            mimeType: 'application/pdf'
+          })
+        ]
+      }),
+      'https://example.com/webhook',
+      '张三',
+      expect.objectContaining({
+        robotCode: 'robot-1',
+        senderStaffId: 'staff-1',
+        conversationId: 'conv-1',
+        conversationType: '1'
       })
     )
   })

@@ -250,6 +250,9 @@
               <div v-if="draftImages.length > 0" class="enterprise-weixin-image-preview-count">
                 {{ t('agent.imQuickSendImageCount', { count: draftImages.length }) }}
               </div>
+              <div v-if="resolvedDraftAttachments.length > 0" class="enterprise-weixin-attachment-preview-count">
+                {{ t('agent.imQuickSendAttachmentCount', { count: resolvedDraftAttachments.length }) }}
+              </div>
               <div class="enterprise-weixin-actions">
                 <button class="enterprise-weixin-action secondary" type="button" @click="closeEnterpriseWeixinDropdown">
                   {{ t('common.cancel') }}
@@ -354,6 +357,9 @@
               <div class="dingtalk-message-preview">{{ draftText || t('agent.imQuickSendEmptyHint') }}</div>
               <div v-if="draftImages.length > 0" class="dingtalk-image-preview-count">
                 {{ t('agent.imQuickSendImageCount', { count: draftImages.length }) }}
+              </div>
+              <div v-if="resolvedDraftAttachments.length > 0" class="dingtalk-attachment-preview-count">
+                {{ t('agent.imQuickSendAttachmentCount', { count: resolvedDraftAttachments.length }) }}
               </div>
               <div class="dingtalk-actions">
                 <button class="dingtalk-action secondary" type="button" @click="closeDingTalkDropdown">
@@ -609,7 +615,7 @@ const resolvedDraftText = computed(() => typeof props.draftText === 'string' ? p
 const resolvedDraftImages = computed(() => Array.isArray(props.draftImages) ? props.draftImages : [])
 const resolvedDraftAttachments = computed(() => Array.isArray(props.draftAttachments) ? props.draftAttachments : [])
 const hasDraftContent = computed(() => Boolean(resolvedDraftText.value || resolvedDraftImages.value.length > 0))
-const hasFeishuDraftContent = computed(() => Boolean(hasDraftContent.value || resolvedDraftAttachments.value.length > 0))
+const hasAttachmentDraftContent = computed(() => Boolean(hasDraftContent.value || resolvedDraftAttachments.value.length > 0))
 
 const isDingTalkChatTarget = (target) => target?.targetType === 'chat'
 
@@ -700,7 +706,7 @@ const collectOutboundAttachments = () => {
 }
 
 const requireDraftContent = ({ includeAttachments = false } = {}) => {
-  if (includeAttachments ? hasFeishuDraftContent.value : hasDraftContent.value) return true
+  if (includeAttachments ? hasAttachmentDraftContent.value : hasDraftContent.value) return true
   message.warning(t('agent.imQuickSendEmptyHint'))
   return false
 }
@@ -1337,7 +1343,7 @@ const unbindEnterpriseWeixinTarget = async () => {
 const sendDingTalkQuickMessage = async () => {
   const dingtalkApi = resolvedDingTalkNotifyApi.value
   if (!selectedDingTalkTarget.value || !props.sessionId || !dingtalkApi?.sendDingTalkText) return
-  if (!requireDraftContent()) return
+  if (!requireDraftContent({ includeAttachments: true })) return
   dingtalkSending.value = true
   dingtalkError.value = ''
   try {
@@ -1349,7 +1355,8 @@ const sendDingTalkQuickMessage = async () => {
       targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(resolvedDraftText.value),
-      images: collectOutboundImages()
+      images: collectOutboundImages(),
+      attachments: collectOutboundAttachments()
     })
     if (result?.error || result?.success === false) {
       console.error('[ChatInputToolbar] send dingtalk failed:', result?.error)
@@ -1434,7 +1441,7 @@ const sendFeishuQuickMessage = async () => {
 const sendEnterpriseWeixinQuickMessage = async () => {
   const enterpriseWeixinApi = resolvedEnterpriseWeixinNotifyApi.value
   if (!selectedEnterpriseWeixinTarget.value || !props.sessionId || !enterpriseWeixinApi?.sendEnterpriseWeixinText) return
-  if (!requireDraftContent()) return
+  if (!requireDraftContent({ includeAttachments: true })) return
   enterpriseWeixinSending.value = true
   enterpriseWeixinError.value = ''
   try {
@@ -1446,7 +1453,8 @@ const sendEnterpriseWeixinQuickMessage = async () => {
       targetType: target.targetType || 'user',
       displayName: target.displayName || target.name || target.userId || target.id,
       text: buildOutboundImText(resolvedDraftText.value),
-      images: collectOutboundImages()
+      images: collectOutboundImages(),
+      attachments: collectOutboundAttachments()
     })
     if (result?.error || result?.success === false) {
       console.error('[ChatInputToolbar] send enterprise weixin failed:', result?.error)
@@ -2200,10 +2208,12 @@ onUnmounted(() => {
 }
 
 .dingtalk-image-preview-count,
+.dingtalk-attachment-preview-count,
 .weixin-image-preview-count,
 .feishu-image-preview-count,
 .feishu-attachment-preview-count,
-.enterprise-weixin-image-preview-count {
+.enterprise-weixin-image-preview-count,
+.enterprise-weixin-attachment-preview-count {
   margin-top: 6px;
   color: var(--text-color-3);
   font-size: 12px;

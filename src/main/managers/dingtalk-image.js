@@ -8,6 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const { extractImagePaths, normalizePath, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
+const { DEFAULT_OUTBOUND_FILE_MAX_SIZE } = require('./im-file-attachments')
 
 module.exports = {
   /**
@@ -74,6 +75,23 @@ module.exports = {
 
     const response = await globalThis.fetch(
       `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=image`,
+      { method: 'POST', body: formData }
+    )
+
+    if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
+    const result = await response.json()
+    if (result.errcode) throw new Error(`Upload error: ${result.errcode} ${result.errmsg}`)
+    return result.media_id
+  },
+
+  async _uploadFile(filePath, token) {
+    const fileBuffer = await fs.promises.readFile(filePath)
+    const fileName = path.basename(filePath) || 'attachment'
+    const formData = new FormData()
+    formData.append('media', new Blob([fileBuffer], { type: 'application/octet-stream' }), fileName)
+
+    const response = await globalThis.fetch(
+      `https://oapi.dingtalk.com/media/upload?access_token=${token}&type=file`,
       { method: 'POST', body: formData }
     )
 
@@ -160,6 +178,75 @@ module.exports = {
     }
   },
 
+  async _sendCollectedFiles(filePaths, { robotCode, senderStaffId, conversationId, conversationType }) {
+    const token = await this._getAccessToken()
+    let sentCount = 0
+    for (const filePath of filePaths) {
+      try {
+        const stats = await fs.promises.stat(filePath).catch(() => null)
+        if (!stats || !stats.isFile() || stats.size <= 0 || stats.size > DEFAULT_OUTBOUND_FILE_MAX_SIZE) {
+          throw new Error(`Invalid file: ${filePath}`)
+        }
+
+        const mediaId = await this._uploadFile(filePath, token)
+        await this._sendFileViaApi(mediaId, filePath, {
+          robotCode,
+          senderStaffId,
+          conversationId,
+          conversationType,
+          token,
+          sizeBytes: stats.size,
+        })
+        console.log(`[DingTalk] File forwarded: ${filePath}`)
+        sentCount += 1
+      } catch (err) {
+        console.error(`[DingTalk] Failed to forward file ${filePath}:`, err.message)
+        throw new Error(`钉钉文件发送失败: ${filePath} (${err.message})`)
+      }
+    }
+    return sentCount
+  },
+
+  async _sendFileViaApi(mediaId, filePath, { robotCode, senderStaffId, conversationId, conversationType, token, sizeBytes = 0 }) {
+    const fileName = path.basename(filePath) || 'attachment'
+    const fileType = path.extname(fileName).replace('.', '').toLowerCase() || 'file'
+    const body = {
+      robotCode,
+      msgKey: 'sampleFile',
+      msgParam: JSON.stringify({
+        mediaId,
+        fileName,
+        fileType,
+        fileSize: String(sizeBytes || ''),
+      }),
+    }
+
+    let endpoint = 'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend'
+    if (conversationType === '2' && conversationId) {
+      endpoint = 'https://api.dingtalk.com/v1.0/robot/groupMessages/send'
+      body.openConversationId = conversationId
+    } else {
+      body.userIds = [senderStaffId]
+    }
+
+    const response = await globalThis.fetch(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-acs-dingtalk-access-token': token,
+        },
+        body: JSON.stringify(body),
+      }
+    )
+
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(`File API failed: ${response.status} ${JSON.stringify(result)}`)
+    }
+  },
+
   /**
    * 通过钉钉 API 下载图片，返回 { base64, mediaType }
    */
@@ -204,5 +291,72 @@ module.exports = {
       base64: buffer.toString('base64'),
       mediaType
     }
+  },
+
+  async _downloadFile(downloadCode, robotCode, fallbackFilename = 'attachment') {
+    const token = await this._getAccessToken()
+
+    const response = await globalThis.fetch('https://api.dingtalk.com/v1.0/robot/messageFiles/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-acs-dingtalk-access-token': token
+      },
+      body: JSON.stringify({ downloadCode, robotCode })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Download API failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    const fileUrl = result.downloadUrl
+
+    if (!fileUrl) {
+      throw new Error('No downloadUrl in response')
+    }
+
+    const fileResponse = await globalThis.fetch(fileUrl)
+    if (!fileResponse.ok) {
+      throw new Error(`File fetch failed: ${fileResponse.status}`)
+    }
+
+    const buffer = Buffer.from(await fileResponse.arrayBuffer())
+    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream'
+    const disposition = fileResponse.headers.get('content-disposition') || ''
+    const filename = this._resolveDownloadedFileName(disposition, fallbackFilename, fileUrl)
+
+    return {
+      buffer,
+      filename,
+      contentType: contentType.split(';')[0].trim() || 'application/octet-stream',
+    }
+  },
+
+  _resolveDownloadedFileName(disposition = '', fallbackFilename = 'attachment', url = '') {
+    const encodedMatch = String(disposition || '').match(/filename\*=UTF-8''([^;]+)/i)
+    if (encodedMatch?.[1]) {
+      try {
+        return path.basename(decodeURIComponent(encodedMatch[1]))
+      } catch {}
+    }
+
+    const quotedMatch = String(disposition || '').match(/filename="?([^";]+)"?/i)
+    if (quotedMatch?.[1]) {
+      return path.basename(quotedMatch[1])
+    }
+
+    const fallback = typeof fallbackFilename === 'string' && fallbackFilename.trim()
+      ? path.basename(fallbackFilename.trim())
+      : ''
+    if (fallback && fallback !== 'attachment') return fallback
+
+    try {
+      const parsed = new URL(url)
+      const fromPath = path.basename(parsed.pathname || '')
+      if (fromPath) return fromPath
+    } catch {}
+
+    return fallback || 'attachment'
   }
 }

@@ -15,8 +15,9 @@ const { ImInteractionBridge } = require('./im-interaction-bridge')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const { FeishuEventClient } = require('./feishu-event-client')
 const { FeishuMessageAPI } = require('./feishu-message-api')
-const { buildAttachmentBase, inferAttachmentMimeType } = require('./attachment-types')
+const { inferAttachmentMimeType } = require('./attachment-types')
 const { saveInboundAttachment } = require('./im-attachment-store')
+const { normalizeOutboundFilePaths, buildSavedInboundFileAttachment } = require('./im-file-attachments')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
 const {
   isMappedCurrentSession,
@@ -1533,24 +1534,7 @@ class FeishuBridge {
   }
 
   _normalizeOutboundFilePaths({ filePaths = [], attachments = [] } = {}) {
-    const paths = []
-    const pushPath = (value) => {
-      const normalized = typeof value === 'string' ? value.trim() : ''
-      if (normalized) paths.push(normalized)
-    }
-    if (Array.isArray(filePaths)) {
-      filePaths.forEach(pushPath)
-    }
-    if (Array.isArray(attachments)) {
-      for (const attachment of attachments) {
-        if (typeof attachment === 'string') {
-          pushPath(attachment)
-        } else if (attachment && typeof attachment === 'object') {
-          pushPath(attachment.localPath || attachment.filePath || attachment.path)
-        }
-      }
-    }
-    return [...new Set(paths)]
+    return normalizeOutboundFilePaths({ filePaths, attachments })
   }
 
   _resolveMapKeyForSession(sessionId) {
@@ -1876,30 +1860,20 @@ class FeishuBridge {
       })
       const ext = path.extname(saved.filePath).toLowerCase()
       const mimeType = attachment.mimeType || (resource.mediaType === 'application/octet-stream' ? null : resource.mediaType)
-      const normalized = buildAttachmentBase({
+      return buildSavedInboundFileAttachment({
         filePath: saved.filePath,
-        name: saved.filename,
-        size: saved.sizeBytes,
-        ext,
-        type: 'document',
+        filename: saved.filename,
+        sizeBytes: saved.sizeBytes,
         mimeType: mimeType || inferAttachmentMimeType('document', ext),
-        source: 'inbound',
         channel: 'feishu',
-        kind: 'document',
-        subKind: ext.replace('.', '') || 'file',
-      })
-      return {
-        ...normalized,
-        id: attachment.id || normalized.id,
         remoteRef,
+        original: attachment,
         meta: {
-          ...(normalized.meta || {}),
-          ...(attachment.meta || {}),
           messageId,
           resourceType,
           originalFilename: attachment.filename || attachment.name || null,
         },
-      }
+      })
     } catch (err) {
       console.error('[FeishuBridge] Attachment download failed:', err.message)
       return {
@@ -1916,27 +1890,16 @@ class FeishuBridge {
     const filePath = attachment.localPath
     const filename = attachment.filename || attachment.name || path.basename(filePath)
     const ext = path.extname(filePath).toLowerCase()
-    const normalized = buildAttachmentBase({
+    return buildSavedInboundFileAttachment({
       filePath,
-      name: filename,
-      size: attachment.sizeBytes || attachment.size || 0,
-      ext,
-      type: 'document',
+      filename,
+      sizeBytes: attachment.sizeBytes || attachment.size || 0,
       mimeType: attachment.mimeType || inferAttachmentMimeType('document', ext),
       source: attachment.source || 'inbound',
       channel: attachment.channel || 'feishu',
-      kind: attachment.kind || 'document',
-      subKind: attachment.subKind || ext.replace('.', '') || 'file',
-    })
-    return {
-      ...normalized,
-      id: attachment.id || normalized.id,
       remoteRef: attachment.remoteRef || null,
-      meta: {
-        ...(normalized.meta || {}),
-        ...(attachment.meta || {}),
-      },
-    }
+      original: attachment,
+    })
   }
 
   _resolveInboundAttachmentCwd(sessionId) {

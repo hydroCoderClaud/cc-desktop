@@ -175,7 +175,9 @@ describe('EnterpriseWeixinBridge', () => {
     return vi.spyOn(manager, 'sendMessage').mockImplementation(async (sessionId, userMessage, options = {}) => {
       const meta = options.meta || {}
       const session = manager.sessions.get(sessionId)
-      const text = typeof userMessage === 'string' ? userMessage : (userMessage?.text || '[图片]')
+      const text = typeof userMessage === 'string'
+        ? userMessage
+        : (userMessage?.text || (userMessage?.attachments?.length ? '[文件]' : '[图片]'))
       const message = {
         id: `msg-ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: 'user',
@@ -187,6 +189,7 @@ describe('EnterpriseWeixinBridge', () => {
         meta,
       }
       if (userMessage?.images?.length) message.images = userMessage.images
+      if (userMessage?.attachments?.length) message.attachments = userMessage.attachments
       session.messages.push(message)
       manager.emit('userMessage', {
         sessionId,
@@ -194,6 +197,7 @@ describe('EnterpriseWeixinBridge', () => {
         imChannel: session.imChannel,
         content: text,
         images: userMessage?.images || null,
+        attachments: userMessage?.attachments || null,
         origin: meta.origin || 'desktop',
       })
       manager.emit('agentResult', sessionId)
@@ -723,7 +727,7 @@ describe('EnterpriseWeixinBridge', () => {
       text: '任务已完成',
     })
 
-    expect(result).toEqual({ success: true, targetId: 'user-b', sentText: true, imageCount: 0 })
+    expect(result).toEqual({ success: true, targetId: 'user-b', sentText: true, imageCount: 0, fileCount: 0 })
     expect(wsClient.sendMessage).toHaveBeenCalledWith('user-b', {
       msgtype: 'markdown',
       markdown: { content: '任务已完成' },
@@ -755,8 +759,59 @@ describe('EnterpriseWeixinBridge', () => {
       success: true,
       targetId: 'user-b',
       sentText: false,
-      imageCount: 1
+      imageCount: 1,
+      fileCount: 0
     })
+  })
+
+  it('supports proactive enterprise weixin file-only sends', async () => {
+    const { bridge, manager, wsClient } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const filePath = path.join(tempDir, 'report.pdf')
+    fs.writeFileSync(filePath, Buffer.from('%PDF-1.4 test'))
+
+    wsClient.uploadMedia.mockResolvedValueOnce({ media_id: 'media-file-1' })
+
+    const result = await bridge.sendToTarget({
+      sessionId: created.id,
+      targetId: 'user-b',
+      displayName: 'HydroCoder',
+      attachments: [{ localPath: filePath, filename: 'report.pdf' }],
+    })
+
+    expect(wsClient.sendMessage).not.toHaveBeenCalled()
+    expect(wsClient.uploadMedia).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({
+        type: 'file',
+        filename: 'report.pdf',
+      })
+    )
+    expect(wsClient.sendMediaMessage).toHaveBeenCalledWith('user-b', 'file', 'media-file-1')
+    expect(result).toEqual({
+      success: true,
+      targetId: 'user-b',
+      sentText: false,
+      imageCount: 0,
+      fileCount: 1
+    })
+  })
+
+  it('rejects unsupported outbound enterprise weixin file types before upload', async () => {
+    const { bridge, manager, wsClient } = createHarness()
+    const created = manager.create({ type: 'chat', source: 'manual', title: '普通会话' })
+    const filePath = path.join(tempDir, 'archive.zip')
+    fs.writeFileSync(filePath, Buffer.from('zipdata'))
+
+    await expect(bridge.sendToTarget({
+      sessionId: created.id,
+      targetId: 'user-b',
+      displayName: 'HydroCoder',
+      attachments: [{ localPath: filePath, filename: 'archive.zip' }],
+    })).rejects.toThrow('暂不支持发送该文件类型')
+
+    expect(wsClient.uploadMedia).not.toHaveBeenCalled()
+    expect(wsClient.sendMediaMessage).not.toHaveBeenCalled()
   })
 
   it('fails proactive enterprise weixin image sends when image forwarding fails', async () => {
@@ -1487,6 +1542,125 @@ describe('EnterpriseWeixinBridge', () => {
           }),
         ],
       })
+    )
+  })
+
+  it('downloads inbound file messages and submits attachments to Agent', async () => {
+    const { bridge, manager, sent, wsClient } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    wsClient.downloadFile.mockResolvedValueOnce({
+      buffer: Buffer.from('%PDF-1.4 inbound'),
+      filename: 'report.pdf',
+      contentType: 'application/pdf',
+    })
+
+    await bridge._handleMessage(inboundFrame({
+      msgtype: 'file',
+      file: {
+        url: 'https://example.com/assets/report.pdf',
+        aeskey: 'file-aes-key',
+        filename: 'report.pdf',
+      },
+      text: undefined,
+    }))
+
+    const session = Array.from(manager.sessions.values())[0]
+    const expectedPath = path.join(session.cwd, 'im_attachments', 'report.pdf')
+    expect(fs.existsSync(expectedPath)).toBe(true)
+    expect(wsClient.downloadFile).toHaveBeenCalledWith('https://example.com/assets/report.pdf', 'file-aes-key')
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        text: '',
+        attachments: [
+          expect.objectContaining({
+            filename: 'report.pdf',
+            localPath: expectedPath,
+            mimeType: 'application/pdf',
+            channel: 'enterprise-weixin',
+            remoteRef: 'https://example.com/assets/report.pdf',
+          })
+        ],
+      }),
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          origin: 'im-inbound',
+          imChannel: 'enterprise-weixin',
+        }),
+      })
+    )
+    expect(sent).toContainEqual({
+      channel: 'enterprise-weixin:messageReceived',
+      data: expect.objectContaining({
+        sessionId: session.id,
+        senderNick: '雷斯林',
+        text: '[文件]',
+        attachments: [
+          expect.objectContaining({
+            filename: 'report.pdf',
+            localPath: expectedPath,
+            mimeType: 'application/pdf',
+          })
+        ],
+      })
+    })
+    expect(session.messages.find(msg => msg.role === 'user' && msg.origin === 'im-inbound' && msg.imChannel === 'enterprise-weixin')).toEqual(
+      expect.objectContaining({
+        content: '[文件]',
+        attachments: [
+          expect.objectContaining({
+            filename: 'report.pdf',
+            localPath: expectedPath,
+          })
+        ],
+      })
+    )
+  })
+
+  it('hydrates file items from mixed enterprise weixin messages', async () => {
+    const { bridge, manager, wsClient } = createHarness()
+    const sendMessage = stubSendMessage(manager)
+    wsClient.downloadFile.mockResolvedValueOnce({
+      buffer: Buffer.from('%PDF-1.4 mixed'),
+      filename: 'mixed-report.pdf',
+      contentType: 'application/pdf',
+    })
+
+    await bridge._handleMessage(inboundFrame({
+      msgtype: 'mixed',
+      mixed: {
+        msg_item: [
+          { msgtype: 'text', text: { content: '请看附件' } },
+          {
+            msgtype: 'file',
+            file: {
+              url: 'https://example.com/assets/mixed-report.pdf',
+              aeskey: 'mixed-file-aes-key',
+              filename: 'mixed-report.pdf',
+            },
+          },
+        ],
+      },
+      text: undefined,
+    }))
+
+    const session = Array.from(manager.sessions.values())[0]
+    const expectedPath = path.join(session.cwd, 'im_attachments', 'mixed-report.pdf')
+    expect(fs.existsSync(expectedPath)).toBe(true)
+    expect(wsClient.downloadFile).toHaveBeenCalledWith('https://example.com/assets/mixed-report.pdf', 'mixed-file-aes-key')
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        text: '请看附件',
+        attachments: [
+          expect.objectContaining({
+            filename: 'mixed-report.pdf',
+            localPath: expectedPath,
+            mimeType: 'application/pdf',
+          })
+        ],
+      }),
+      expect.any(Object)
     )
   })
 
