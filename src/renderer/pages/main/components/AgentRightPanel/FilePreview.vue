@@ -308,6 +308,23 @@ const videoInfo = ref(null)
 // webview 相关（统一 HTML 和 URL）
 const webviewRef = ref(null)
 
+const encodeFileUrlSegment = (segment) => encodeURIComponent(segment).replace(/%3A/gi, ':')
+
+const buildLocalFileUrl = (filePath) => {
+  const normalized = String(filePath || '').trim()
+  if (!normalized) return ''
+  if (/^file:\/\//i.test(normalized)) return normalized
+
+  const slashPath = normalized.replace(/\\/g, '/')
+  if (/^\/\//.test(slashPath)) {
+    const [host = '', ...segments] = slashPath.replace(/^\/+/, '').split('/')
+    return `file://${host}/${segments.map(encodeFileUrlSegment).join('/')}`
+  }
+
+  const prefix = slashPath.startsWith('/') ? 'file://' : 'file:///'
+  return `${prefix}${slashPath.split('/').map(encodeFileUrlSegment).join('/')}`
+}
+
 // 工具栏显隐控制
 const showToolbar = ref(true) // 默认显示
 
@@ -518,14 +535,14 @@ const getWebviewSrc = () => {
     return props.preview.url
   } else if (props.preview?.type === 'html' && props.preview?.filePath) {
     // 本地 HTML 文件：使用 file:// 协议
-    return `file://${props.preview.filePath}`
+    return buildLocalFileUrl(props.preview.filePath)
   }
   return ''
 }
 
 const getPdfWebviewSrc = () => {
   if (!props.preview?.filePath) return ''
-  return `file://${props.preview.filePath}`
+  return buildLocalFileUrl(props.preview.filePath)
 }
 
 // 统一的外部打开方法

@@ -1162,6 +1162,28 @@ describe('desktop capability query options', () => {
     fs.rmSync(posixImagePath, { force: true })
   })
 
+  it('accepts POSIX absolute document file paths for builtin IM sends', async () => {
+    const {
+      tools,
+      feishuBridge
+    } = await createOptionsWithBuiltinIm()
+    const posixDocumentPath = path.posix.join('/tmp', `hydro-im-${Date.now()}.pdf`)
+    fs.mkdirSync(path.dirname(posixDocumentPath), { recursive: true })
+    fs.writeFileSync(posixDocumentPath, Buffer.from('fake-pdf'))
+
+    await tools.im_send.handler({
+      channel: 'feishu',
+      targetKey: '飞书李四',
+      filePaths: [posixDocumentPath]
+    })
+
+    expect(feishuBridge.sendToTarget).toHaveBeenCalledWith(expect.objectContaining({
+      filePaths: [posixDocumentPath]
+    }))
+
+    fs.rmSync(posixDocumentPath, { force: true })
+  })
+
   it('rejects im_send when text, imagePaths and filePaths are all empty', async () => {
     const { tools } = await createOptionsWithBuiltinIm()
 
