@@ -83,7 +83,10 @@ npm run dev
 1. 飞书：配置飞书应用后，可在飞书中直接发起对话，也可从桌面端主动发送给联系人或群聊。
 2. 钉钉：配置钉钉应用、机器人能力、通讯录权限和 `robotCode` 后，可在钉钉中直接发起对话，也可从桌面端主动发送给成员。
 3. 企业微信：配置智能机器人后，可在企业微信中直接发起对话；如需桌面端主动发送成员，还需完成 `wecom-cli` 初始化。
-4. 三条 IM 通道的统一手工回归可参考 [IM-REGRESSION-CHECKLIST.zh.md](./user-guide/IM-REGRESSION-CHECKLIST.zh.md)。
+4. 三端当前支持文本、图片，以及文档附件（`pdf/doc/docx/xls/xlsx/ppt/pptx`）的入站和出站。
+5. 从 IM 发来的文档会保存到对应会话工作目录的 `im_attachments/` 下；在右侧文件预览中，PDF 可直接预览，Office 文档复用 Notebook 预览能力。
+6. 从桌面端主动发送文档时，可在会话工具栏选择 IM 目标并附加文件；也可以在会话内要求 Agent 使用内置 MCP `im_send` 的 `filePaths` 发送本地绝对路径文件。
+7. 三条 IM 通道的统一手工回归可参考 [IM-REGRESSION-CHECKLIST.zh.md](./user-guide/IM-REGRESSION-CHECKLIST.zh.md)。
 
 ---
 

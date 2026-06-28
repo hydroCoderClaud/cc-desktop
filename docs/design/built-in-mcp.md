@@ -2,7 +2,7 @@
 
 > Hydro Desktop v1.7.64+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
 
-本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力和微信通知通道，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
+本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力、微信通知通道、IM 主动发送通道，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
 
 ---
 
@@ -10,7 +10,7 @@
 
 - 当前内置 MCP 不是能力市场里的普通 MCP，也不是写入用户 MCP 配置的外部 server。
 - 它是在 Agent 会话创建 `queryOptions` 时动态注入的 SDK MCP server。
-- 现有 server 名称是 `hydrodesktop`，暴露桌面端定时任务工具和微信通知工具。
+- 现有 server 名称是 `hydrodesktop`，暴露桌面端定时任务工具、微信通知工具和 IM 主动发送工具。
 - 定时任务管理工具会统一注入可用的 Agent 会话，不再按“任务执行会话”做特殊区分。
 - 微信通知工具会注入定时任务执行会话，用于让定时任务主动把结果推送给已绑定的微信目标。
 - 当前通过会话级 `allowedTools` 和 `disallowedTools` 做短期工具路由：允许 `mcp__hydrodesktop__schedule_*`，禁用 Claude Code 内建 `Cron*` 工具，避免用户意图被路由到错误调度系统。
@@ -40,6 +40,8 @@ AgentSessionManager.sendMessage()
   - 定义 `hydrodesktop` server、工具列表、工具 schema、工具 handler、系统提示和工具白名单
 - `src/main/managers/weixin-notify-service.js`
   - 内建微信 iLink 通知通道，负责扫码登录、捕获通知目标、保存 contextToken、发送文本通知
+- `src/main/managers/im-file-attachments.js`
+  - 统一 IM 文档附件的出站格式、支持扩展名和大小上限
 - `src/main/managers/scheduled-task-service.js`
   - 执行真实定时任务 CRUD、立即执行、历史记录、状态更新和调度轮询
 - `src/main/ipc-handlers/scheduled-task-handlers.js`
@@ -106,6 +108,32 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 - `weixin_notify_send` 支持 `targetKey`，同时兼容旧的 `targetId/displayName`。
 - 发送结果返回 `recipient`，用于聊天窗口向用户展示“发给了谁”和 `messageId`。
 
+`hydrodesktop` 还暴露 1 个 IM 主动发送工具：
+
+| 工具 | 作用 |
+|------|------|
+| `im_send` | 向已配置的飞书、钉钉或企业微信目标发送文本、图片或文档文件 |
+
+`im_send` 的当前输入边界：
+
+- `channel` 可指定 `feishu`、`dingtalk`、`enterprise-weixin`；省略时优先使用当前会话已绑定的 IM 目标。
+- `targetKey` 用于选择目标，可使用列表返回的稳定目标键、目标名称或明确 ID。
+- `text`、`imagePaths`、`filePaths` 至少提供一种。
+- `imagePaths` 继续用于图片发送，并保持图片视觉理解链路不变。
+- `filePaths` 支持本地绝对路径文档，当前格式为 `.pdf`、`.doc`、`.docx`、`.xls`、`.xlsx`、`.ppt`、`.pptx`，单文件大小上限为 30MB。
+- Windows 路径和 macOS/Linux POSIX 绝对路径均应可用；文件必须已存在且可读取。
+
+使用示例：
+
+```json
+{
+  "channel": "feishu",
+  "targetKey": "飞书李四",
+  "text": "请查收文档",
+  "filePaths": ["/Users/demo/report.pdf"]
+}
+```
+
 ---
 
 ## Prompt 策略
@@ -131,6 +159,7 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 - 具备桌面内置能力的会话会按同一规则注入 `allowedTools`；不再因为会话是否关联定时任务而做区别注入。
 - `disallowedTools` 对 Claude Code 内建 `Cron*` 是硬编码短期策略。远期需要更细粒度地区分目标域，而不是一刀切禁用。
 - 内置 MCP 工具与 UI IPC 共享底层 `ScheduledTaskService`，但不是同一入口；行为一致性主要靠服务层和测试保障。
+- `im_send` 只负责发送本地已存在文件，不负责创建、下载或解析文档；文档理解仍由 Agent 自身文件/PDF能力完成。
 - GitNexus 当前没有识别出这些工具为标准 MCP tool nodes，理解链路时需要直接看源码和测试。
 - 微信通知状态文件保存 bot token 和 contextToken，属于敏感凭证；正式 UI 需要明确提示本地存储边界，后续可考虑迁移到系统凭据存储或加密存储。
 
@@ -184,15 +213,14 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 - 权限、防骚扰、频率限制和审计仍未展开，当前仅依赖“已扫码授权 + 已捕获 contextToken”的发送边界。
 - 明确区分“通知通道”和“外部 IM 会话桥接”：MCP 工具仍是主动通知入口，微信会话桥接由后台轮询和 `WeixinBridge` 负责。
 
-### 阶段 4：图片与媒体附件
+### 阶段 4：微信图片与媒体附件
 
-目标：补齐高价值图文交互；语音、视频、文件暂缓，仅作为后续文件传输能力记录。
+目标：补齐微信通知 / 微信会话侧高价值图文交互；微信侧语音、视频、普通文件暂缓，仅作为后续文件传输能力记录。
 
-- 已实现图片双向：微信入站图片会经 iLink CDN 下载/解密为 `{ base64, mediaType }`，进入桌面气泡和 LLM 多模态输入；桌面介入图片、Agent 工具产出的本地图片路径会经 `getuploadurl`、CDN 上传和 `image_item` 回发微信。
-- 当前钉钉与微信的已落地媒体能力均为“文本 + 图片”双向；语音、视频、文件两端都未实现。
-- 暂不实现语音、视频、文件：这些能力本质上属于文件传输/附件收发，不是当前 AI 自我管理和通知闭环的核心路径。
-- 后续如果要恢复该任务，应先抽象 IM 媒体附件模型，再分别适配钉钉与微信协议，避免把语音/视频/文件逻辑散落在桥接层。
-- 后续优先级建议：先做钉钉/微信图文显示与交互复用抽象，再评估是否需要统一附件收发。
+- 已实现微信图片双向：微信入站图片会经 iLink CDN 下载/解密为 `{ base64, mediaType }`，进入桌面气泡和 LLM 多模态输入；桌面介入图片、Agent 工具产出的本地图片路径会经 `getuploadurl`、CDN 上传和 `image_item` 回发微信。
+- 当前个人微信链路的已落地媒体能力为“文本 + 图片”双向；语音、视频、普通文件仍未实现。
+- 飞书、钉钉、企业微信三端的文档附件能力已在 IM 统一附件阶段单独实现，不属于本微信通知阶段。
+- 后续如果要恢复微信侧媒体任务，应先复用 IM 附件模型，再适配微信 iLink 协议，避免把语音/视频/文件逻辑散落在桥接层。
 
 ---
 
