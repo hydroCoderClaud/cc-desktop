@@ -1,6 +1,6 @@
 # 渲染进程代码索引
 
-> Hydro Desktop v1.7.82+ | [← 架构总览](../ARCHITECTURE.md)
+> Hydro Desktop v1.7.83+ | [← 架构总览](../ARCHITECTURE.md)
 
 ## 概览
 
