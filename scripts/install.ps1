@@ -3,8 +3,7 @@
 .SYNOPSIS
     CC Desktop installer for Windows.
 .DESCRIPTION
-    Detects Claude Code CLI, installs it if missing, then launches
-    the CC Desktop .exe installer found in the same directory.
+    Launches the CC Desktop .exe installer found in the same directory.
 .NOTES
     Run: powershell -ExecutionPolicy Bypass -File .\install.ps1
 #>
@@ -71,102 +70,7 @@ if ($null -ne $nodeCmd) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Detect Claude Code CLI
-# ---------------------------------------------------------------------------
-Write-Step "Detecting Claude Code CLI..."
-
-function Test-Claude {
-    $cmd = Get-Command claude -ErrorAction SilentlyContinue
-    return $null -ne $cmd
-}
-
-if (Test-Claude) {
-    $ver = & claude --version 2>$null
-    Write-Ok "Claude CLI found: $ver"
-} else {
-    Write-Warn "Claude CLI not found. Installing..."
-
-    # ---------------------------------------------------------------------------
-    # 3. Network note
-    # ---------------------------------------------------------------------------
-    Write-Host ""
-    Write-Host "  📌 网络说明：" -ForegroundColor White
-    Write-Host "    • 本脚本会自动使用系统代理设置" -ForegroundColor White
-    Write-Host "    • 如果您使用代理，请确保系统代理已开启（设置 → 网络 → 代理）" -ForegroundColor White
-    Write-Host "    • 或手动设置环境变量：`$env:HTTPS_PROXY='http://your-proxy:port'" -ForegroundColor White
-    Write-Host ""
-
-    # ---------------------------------------------------------------------------
-    # 4. Install Claude Code CLI (official installer)
-    # ---------------------------------------------------------------------------
-    Write-Step "Installing Claude Code CLI..."
-
-    $cliInstalled = $false
-
-    # Try official installer
-    try {
-        Invoke-RestMethod https://claude.ai/install.ps1 -ErrorAction Stop | Invoke-Expression
-        Write-Ok "Installed via official installer"
-        $cliInstalled = $true
-    } catch {
-        Write-Warn "Official installer failed."
-
-        # Try npm if available
-        $npm = Get-Command npm -ErrorAction SilentlyContinue
-        if ($null -ne $npm) {
-            Write-Host ""
-            $useNpm = Read-Host "  是否尝试使用 npm 安装？(y/N)"
-
-            if ($useNpm -eq "y" -or $useNpm -eq "Y") {
-                try {
-                    & npm install -g @anthropic-ai/claude-code
-                    Write-Ok "Installed via npm"
-                    $cliInstalled = $true
-                } catch {
-                    Write-Warn "npm installation also failed."
-                }
-            }
-        }
-    }
-
-    # Check installation result
-    if ($cliInstalled) {
-        # Refresh PATH for the current session
-        $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-                    [System.Environment]::GetEnvironmentVariable('Path', 'User')
-
-        if (Test-Claude) {
-            $ver = & claude --version 2>$null
-            Write-Ok "Claude CLI installed successfully: $ver"
-        } else {
-            Write-Warn "Claude CLI installed but not in PATH. Please restart terminal."
-        }
-    } else {
-        # CLI installation failed, offer to continue with Desktop only
-        Write-Host ""
-        Write-Warn "Claude CLI 自动安装失败。"
-        Write-Host ""
-        Write-Host "  可以先安装 CC Desktop，稍后手动安装 Claude CLI：" -ForegroundColor White
-        Write-Host ""
-        Write-Host "  【方式 1】使用代理 + 官方脚本（推荐）" -ForegroundColor Yellow
-        Write-Host "    `$env:HTTPS_PROXY='http://your-proxy:port'" -ForegroundColor White
-        Write-Host "    irm https://claude.ai/install.ps1 | iex" -ForegroundColor White
-        Write-Host ""
-        Write-Host "  【方式 2】使用 npm（需要 Node.js）" -ForegroundColor Yellow
-        Write-Host "    npm install -g @anthropic-ai/claude-code" -ForegroundColor White
-        Write-Host ""
-        $continueDesktop = Read-Host "  是否继续仅安装 CC Desktop？(y/N)"
-
-        if ($continueDesktop -ne "y" -and $continueDesktop -ne "Y") {
-            Write-Host ""
-            Write-Host "安装已取消。" -ForegroundColor Yellow
-            exit 1
-        }
-    }
-}
-
-# ---------------------------------------------------------------------------
-# 5. Find and launch CC Desktop installer
+# 2. Find and launch CC Desktop installer
 # ---------------------------------------------------------------------------
 Write-Step "Looking for CC Desktop installer..."
 

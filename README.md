@@ -26,7 +26,7 @@ Repository / package identifier: `cc-desktop`.
 1. **Download** — Get the version from [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) and follow the installation guide
 2. **Run** — Launch Hydro Desktop, configure your API provider, and start coding
 
-> For detailed installation steps (Node.js, Git Bash, CLI setup), see the full [Installation Guide](docs/INSTALL_EN.md).
+> For detailed installation steps (Node.js, Git Bash, package install), see the full [Installation Guide](docs/INSTALL_EN.md).
 
 ### Usage
 
@@ -35,9 +35,6 @@ Repository / package identifier: `cc-desktop`.
 3. **Connect** — Select a project folder → Connect → start chatting with Claude
 
 ### FAQ
-
-**Q: "Claude Code CLI not found"?**
-Install the CLI: `irm https://claude.ai/install.ps1 | iex` (Windows) or `curl -fsSL https://claude.ai/install.sh | bash` (macOS)
 
 **Q: Garbled text in Windows terminal?**
 Ensure Git Bash is installed and added to PATH.
@@ -73,7 +70,7 @@ Custom license — personal use, learning, and development permitted; commercial
 1. **下载** — 从 [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 页面获取版本按照指南安装
 2. **运行** — 启动 Hydro Desktop，配置 API 服务商，开始编码
 
-> 详细安装步骤（Node.js、Git Bash、CLI 配置）请参阅完整 [安装指南](docs/INSTALL.md)。
+> 详细安装步骤（Node.js、Git Bash、安装包使用）请参阅完整 [安装指南](docs/INSTALL.md)。
 
 ### 使用入门
 
@@ -82,9 +79,6 @@ Custom license — personal use, learning, and development permitted; commercial
 3. **连接项目** — 选择项目文件夹 → 连接 → 开始与 Claude 对话
 
 ### 常见问题
-
-**Q: 提示"未找到 Claude Code CLI"？**
-安装 CLI：`irm https://claude.ai/install.ps1 | iex`（Windows）或 `curl -fsSL https://claude.ai/install.sh | bash`（macOS）
 
 **Q: Windows 终端显示乱码？**
 确保已安装 Git Bash 并添加到 PATH。

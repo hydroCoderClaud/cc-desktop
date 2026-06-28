@@ -32,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 This will:
-1. Check if Node.js and Claude Code CLI is installed (install if not)
+1. Check if Node.js is installed
 2. Launch CC Desktop installer
 
 ## Update Install

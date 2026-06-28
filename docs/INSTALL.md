@@ -22,37 +22,10 @@ winget install OpenJS.NodeJS.LTS
 
 安装后将 Git Bash 目录添加到系统 PATH 环境变量（通常是 `C:\Program Files\Git\bin`）。Claude Code 需要用它执行后台文件操作。
 
-#### 3. 安装 Claude Code CLI
-
-**推荐方式**（官方安装脚本）：
-
-以管理员身份运行 PowerShell，执行：
-
-```powershell
-irm https://claude.ai/install.ps1 | iex
-```
-
-> **注意**：首次运行 PowerShell 脚本可能遇到执行策略限制。如果报错，先以管理员身份运行：
-> ```powershell
-> Set-ExecutionPolicy RemoteSigned
-> ```
-
-**备选方式**（npm 安装）：
-
-> **国内网络提示**：如果 npm 下载速度慢或超时，请先设置国内镜像源：
-> ```powershell
-> npm config set registry https://registry.npmmirror.com
-> ```
-
-```powershell
-npm install -g @anthropic-ai/claude-code
-```
-
-#### 4. 验证安装
+#### 3. 验证安装
 
 ```powershell
 node --version
-claude --version
 ```
 
 ### macOS
@@ -67,32 +40,10 @@ brew install node
 
 或从 [Node.js 官网](https://nodejs.org/) 下载安装包。
 
-#### 2. 安装 Claude Code CLI
-
-**推荐方式**（官方安装脚本）：
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-> 官方安装脚本会自动处理环境变量配置，推荐使用。
-
-**备选方式**（npm 安装）：
-
-> **国内网络提示**：如果 npm 下载速度慢或超时，请先设置国内镜像源：
-> ```bash
-> npm config set registry https://registry.npmmirror.com
-> ```
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-#### 3. 验证安装
+#### 2. 验证安装
 
 ```bash
 node --version
-claude --version
 ```
 
 ## 二、安装 Hydro Desktop
@@ -122,8 +73,7 @@ claude --version
 
 **一键安装脚本功能**：
 - 可选配置代理（国内用户推荐，默认 `http://127.0.0.1:15236`）
-- 自动检测 Claude Code CLI，未安装时自动安装
-- 安装失败时提供详细的手动安装指引
+- 检查 Node.js
 - 自动安装 Hydro Desktop
 
 #### macOS 安全提示

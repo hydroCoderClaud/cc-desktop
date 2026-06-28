@@ -41,7 +41,7 @@ bash install.sh
 
 This installer package will:
 1. Verify your macOS architecture matches this package (${arch})
-2. Check Node.js and Claude Code CLI
+2. Check Node.js
 3. Install CC Desktop to /Applications
 
 ## Included Files

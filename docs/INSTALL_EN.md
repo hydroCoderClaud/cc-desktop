@@ -22,37 +22,10 @@ Download and install from [git-scm.com](https://git-scm.com/download/windows).
 
 After installation, add the Git Bash directory to your system PATH (usually `C:\Program Files\Git\bin`). Claude Code needs it for background file operations.
 
-#### 3. Install Claude Code CLI
-
-**Recommended** (official installer):
-
-Run PowerShell as Administrator and execute:
-
-```powershell
-irm https://claude.ai/install.ps1 | iex
-```
-
-> **Note**: If you encounter execution policy errors, run as Administrator first:
-> ```powershell
-> Set-ExecutionPolicy RemoteSigned
-> ```
-
-**Alternative** (npm):
-
-> **China network tip**: If npm downloads are slow or timing out, set the npmmirror registry first:
-> ```powershell
-> npm config set registry https://registry.npmmirror.com
-> ```
-
-```powershell
-npm install -g @anthropic-ai/claude-code
-```
-
-#### 4. Verify Installation
+#### 3. Verify Installation
 
 ```powershell
 node --version
-claude --version
 ```
 
 ### macOS
@@ -67,32 +40,10 @@ brew install node
 
 Or download from [nodejs.org](https://nodejs.org/).
 
-#### 2. Install Claude Code CLI
-
-**Recommended** (official installer):
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-> The official installer automatically handles environment variable configuration.
-
-**Alternative** (npm):
-
-> **China network tip**: If npm downloads are slow or timing out, set the npmmirror registry first:
-> ```bash
-> npm config set registry https://registry.npmmirror.com
-> ```
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-#### 3. Verify Installation
+#### 2. Verify Installation
 
 ```bash
 node --version
-claude --version
 ```
 
 ## 2. Install Hydro Desktop
@@ -122,8 +73,7 @@ Download the installer for your platform from [latest Release](https://github.co
 
 **What the installer script does**:
 - Optionally configures a proxy (recommended for users in China, default: `http://127.0.0.1:15236`)
-- Automatically detects Claude Code CLI; installs if missing
-- Provides detailed manual installation guidance on failure
+- Checks Node.js
 - Installs Hydro Desktop
 
 #### macOS Security Note
