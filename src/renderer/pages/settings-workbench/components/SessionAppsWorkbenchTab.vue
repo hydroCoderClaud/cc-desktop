@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -172,6 +172,10 @@ const props = defineProps({
   currentProject: {
     type: Object,
     default: null
+  },
+  initialSessionAppId: {
+    type: String,
+    default: ''
   }
 })
 
@@ -207,7 +211,12 @@ function toPlainPayload(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
+function normalizeAppId(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 const selectedApp = computed(() => apps.value.find(app => app.appId === selectedAppId.value) || null)
+const preferredInitialAppId = computed(() => normalizeAppId(props.initialSessionAppId))
 
 const selectedSessions = computed(() => {
   if (!selectedApp.value) return []
@@ -223,6 +232,17 @@ const selectApp = (appId) => {
   definitionExpanded.value = false
 }
 
+const resolvePreferredAppId = (availableApps = []) => {
+  const initialAppId = preferredInitialAppId.value
+  if (initialAppId && availableApps.some(app => app?.appId === initialAppId)) {
+    return initialAppId
+  }
+  if (selectedAppId.value && availableApps.some(app => app?.appId === selectedAppId.value)) {
+    return selectedAppId.value
+  }
+  return availableApps[0]?.appId || ''
+}
+
 const loadAll = async () => {
   if (!window.electronAPI) return
   loading.value = true
@@ -233,13 +253,13 @@ const loadAll = async () => {
     ])
     apps.value = Array.isArray(nextApps) ? nextApps : []
     conversations.value = Array.isArray(sessionList) ? sessionList.filter(session => session?.sessionAppId) : []
-
-    if (!apps.value.some(app => app.appId === selectedAppId.value)) {
-      selectedAppId.value = apps.value[0]?.appId || ''
-    }
-
-    if (selectedAppId.value) {
-      selectApp(selectedAppId.value)
+    const nextSelectedAppId = resolvePreferredAppId(apps.value)
+    selectedAppId.value = nextSelectedAppId
+    if (nextSelectedAppId) {
+      selectApp(nextSelectedAppId)
+    } else {
+      form.value = buildForm()
+      definitionExpanded.value = false
     }
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] loadAll failed:', err)
@@ -387,6 +407,13 @@ const formatSessionTime = (value) => {
   if (!Number.isFinite(time)) return ''
   return new Date(time).toLocaleString()
 }
+
+watch(preferredInitialAppId, (nextAppId) => {
+  if (!nextAppId) return
+  if (apps.value.some(app => app?.appId === nextAppId) && nextAppId !== selectedAppId.value) {
+    selectApp(nextAppId)
+  }
+})
 
 loadAll()
 </script>

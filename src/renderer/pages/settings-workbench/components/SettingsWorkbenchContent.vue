@@ -65,7 +65,7 @@
           <component
             :is="currentTabComponent"
             :key="`${activeTab}-${selectedContextKey || 'global'}-${refreshTick}`"
-            :current-project="currentProject"
+            v-bind="currentTabProps"
             @send-command="handleWorkbenchCommandAction"
             @insert-to-input="handleWorkbenchCommandAction"
             @insert-path="handleWorkbenchCommandAction"
@@ -154,7 +154,8 @@ const parseWindowContext = () => {
   return {
     mode: params.get('mode') || '',
     cwd: normalizePath(params.get('cwd') || ''),
-    section: params.get('section') || ''
+    section: params.get('section') || '',
+    sessionAppId: params.get('sessionAppId') || ''
   }
 }
 
@@ -317,6 +318,18 @@ const windowSectionToTab = {
 
 const currentTabComponent = computed(() => {
   return tabComponents[activeTab.value] || tabComponents.skills
+})
+
+const currentTabProps = computed(() => {
+  const base = {
+    currentProject: currentProject.value
+  }
+
+  if (activeTab.value === 'sessionApps' && windowContext.sessionAppId) {
+    base.initialSessionAppId = windowContext.sessionAppId
+  }
+
+  return base
 })
 
 const groupedDirectoryOptions = computed(() => {

@@ -371,12 +371,14 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     });
 
     const query = options.query || ''
+    const normalizedQuery = typeof query === 'string' ? query.replace(/^\?/, '') : ''
     if (process.env.VITE_DEV_SERVER_URL) {
       const baseUrl = process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '');
-      window.loadURL(`${baseUrl}/pages/${options.page}/${query}`);
+      const querySuffix = normalizedQuery ? `?${normalizedQuery}` : ''
+      window.loadURL(`${baseUrl}/pages/${options.page}/${querySuffix}`);
     } else {
       const filePath = pathModule.join(__dirname, `../renderer/pages-dist/pages/${options.page}/index.html`);
-      window.loadFile(filePath, { query: query.replace('?', '') });
+      window.loadFile(filePath, { query: normalizedQuery });
     }
 
     if (options.trustWeixinNotifyIPC) {
@@ -446,6 +448,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     if (options.mode) params.set('mode', options.mode)
     if (options.cwd) params.set('cwd', options.cwd)
     if (options.section) params.set('section', options.section)
+    if (options.sessionAppId) params.set('sessionAppId', options.sessionAppId)
     createSubWindow({
       width: 1100,
       height: 760,

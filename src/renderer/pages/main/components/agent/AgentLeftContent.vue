@@ -101,6 +101,15 @@
             <div class="conv-icon-group">
               <Icon :name="getConversationBaseIcon(conv)" :size="12" class="conv-icon" />
               <button
+                v-if="conv.sessionAppId"
+                type="button"
+                class="session-app-icon-btn"
+                :title="resolveSessionAppName(conv)"
+                @click.stop="openSessionAppDetails(conv)"
+              >
+                <Icon name="sessionApp" :size="12" class="session-app-inline-icon" />
+              </button>
+              <button
                 v-if="hasConversationTask(conv)"
                 class="conv-icon-btn"
                 :title="t('rightPanel.tabs.scheduledTasks')"
@@ -120,15 +129,8 @@
               @click.stop
               ref="renameInputRef"
             />
+            <span v-if="editingId === conv.id" class="conv-title conv-title-placeholder" />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-            <span
-              v-if="conv.sessionAppId"
-              class="session-app-badge"
-              :title="resolveSessionAppName(conv)"
-            >
-              <Icon name="sessionApp" :size="10" />
-              <span>{{ resolveSessionAppName(conv) }}</span>
-            </span>
             <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
               <span
                 v-if="profileName"
@@ -371,7 +373,7 @@ const appMenuOptions = computed(() => appFilterOptions.value.map(option => ({
   label: resolveAppFilterLabel(option),
   title: resolveAppFilterLabel(option),
   key: option.key,
-  iconName: appIconMap[option.key] || 'robot'
+  iconName: appIconMap[option.key] || 'sessionApp'
 })))
 
 const renderCwdMenuLabel = (option) => createFilterOptionLabel(option, selectedCwd.value || 'all')
@@ -419,7 +421,7 @@ const sourceFilterIcon = computed(() => {
 
 const taskFilterIcon = computed(() => taskIconMap[selectedTaskFilter.value] || taskIconMap.all)
 
-const appFilterIcon = computed(() => appIconMap[selectedAppFilter.value] || 'robot')
+const appFilterIcon = computed(() => appIconMap[selectedAppFilter.value] || 'sessionApp')
 
 const cwdFilterTitle = computed(() => `${t('agent.filterDirectory')}: ${selectedCwd.value ? getCwdDisplayName(selectedCwd.value) : t('agent.allDirectories')}`)
 
@@ -487,6 +489,22 @@ const handleScheduledTaskDeleted = async () => {
 
 const handleNewConversation = () => {
   emit('new-conversation-request')
+}
+
+const openSessionAppDetails = async (conv) => {
+  const appId = typeof conv?.sessionAppId === 'string' ? conv.sessionAppId.trim() : ''
+  if (!appId || !window.electronAPI?.openSettingsWorkbench) return
+
+  try {
+    await window.electronAPI.openSettingsWorkbench({
+      mode: 'agent',
+      cwd: conv?.cwd || props.currentProject?.path || null,
+      section: 'session-apps',
+      sessionAppId: appId
+    })
+  } catch (err) {
+    console.error('[AgentLeftContent] Failed to open Session App details:', err)
+  }
 }
 
 const startRename = (conv) => {
@@ -878,11 +896,17 @@ defineExpose({
 }
 
 .conv-title {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.conv-title-placeholder {
+  visibility: hidden;
 }
 
 .profile-badge {
@@ -917,24 +941,30 @@ defineExpose({
   line-height: 18px;
 }
 
-.session-app-badge {
+.session-app-icon-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-width: 0;
-  max-width: 132px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--primary-ghost);
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: var(--primary-color);
-  font-size: 11px;
-  line-height: 1.4;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.session-app-badge span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.session-app-icon-btn:hover {
+  background: var(--primary-ghost);
+  color: var(--primary-color-hover);
+  transform: translateY(-1px);
+}
+
+.session-app-inline-icon {
+  flex-shrink: 0;
 }
 
 .rename-input {
