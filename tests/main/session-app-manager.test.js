@@ -292,4 +292,70 @@ describe('SessionAppManager', () => {
     })
     expect(normalizePath(createArg.cwd)).toMatch(/cc-desktop-agent-output\/sessionapp\/conv-[a-z0-9]{8}$/)
   })
+
+  it('keeps Session App workspace defaults and launch directories POSIX-safe for macOS', () => {
+    const apps = new Map([
+      ['sap-macos', {
+        appId: 'sap-macos',
+        name: 'macOS Weekly Assistant',
+        startupMessageTemplate: '',
+        defaultContext: {
+          cwd: '/Users/demo/agent-output/sessionapp'
+        }
+      }]
+    ])
+
+    const sessionDatabase = {
+      getSessionApp: vi.fn((appId) => apps.get(appId) || null),
+      createSessionApp: vi.fn((app) => ({
+        ...app,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }))
+    }
+
+    const createdSession = new AgentSession({
+      id: 'session-app-run-macos',
+      title: 'macOS Weekly Assistant',
+      sessionAppId: 'sap-macos'
+    })
+
+    const agentSessionManager = {
+      create: vi.fn(() => createdSession),
+      sendMessage: vi.fn(async () => ({ success: true })),
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            agent: {
+              outputBaseDir: '/Users/demo/agent-output'
+            }
+          }
+        })
+      }
+    }
+
+    const manager = new SessionAppManager(sessionDatabase, agentSessionManager)
+    const created = manager.createApp({
+      name: 'macOS Default Workspace App'
+    })
+    expect(normalizePath(created.defaultContext.cwd)).toBe('/Users/demo/agent-output/sessionapp')
+
+    manager.launchApp({
+      appId: 'sap-macos',
+      sessionOptions: {
+        title: 'macOS Weekly Run'
+      }
+    })
+
+    const createArg = agentSessionManager.create.mock.calls[0][0]
+    expect(createArg).toMatchObject({
+      type: 'chat',
+      title: 'macOS Weekly Run',
+      sessionAppBinding: {
+        sessionAppId: 'sap-macos',
+        sessionAppInput: null
+      }
+    })
+    expect(normalizePath(createArg.cwd)).toMatch(/^\/Users\/demo\/agent-output\/sessionapp\/conv-[a-z0-9]{8}$/)
+  })
 })

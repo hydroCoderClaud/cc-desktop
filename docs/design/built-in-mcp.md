@@ -2,7 +2,7 @@
 
 > Hydro Desktop v1.7.64+ | [← 集成系统设计](./integrations.md) | [主进程设计](./main-process.md)
 
-本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力、微信通知通道、IM 主动发送通道，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
+本文记录 Hydro Desktop 当前“内置 MCP”机制的真实现状，供后续重新启动相关任务时快速恢复上下文。当前已落地桌面端定时任务管理能力、微信通知通道、IM 主动发送通道、会话应用工具，并已补齐微信双向聊天基础闭环；是否继续扩展新的内置工具，需以明确的日常使用价值为前提。
 
 ---
 
@@ -10,7 +10,7 @@
 
 - 当前内置 MCP 不是能力市场里的普通 MCP，也不是写入用户 MCP 配置的外部 server。
 - 它是在 Agent 会话创建 `queryOptions` 时动态注入的 SDK MCP server。
-- 现有 server 名称是 `hydrodesktop`，暴露桌面端定时任务工具、微信通知工具和 IM 主动发送工具。
+- 现有 server 名称是 `hydrodesktop`，暴露桌面端定时任务工具、微信通知工具、IM 主动发送工具和会话应用工具。
 - 定时任务管理工具会统一注入可用的 Agent 会话，不再按“任务执行会话”做特殊区分。
 - 微信通知工具会注入定时任务执行会话，用于让定时任务主动把结果推送给已绑定的微信目标。
 - 当前通过会话级 `allowedTools` 和 `disallowedTools` 做短期工具路由：允许 `mcp__hydrodesktop__schedule_*`，禁用 Claude Code 内建 `Cron*` 工具，避免用户意图被路由到错误调度系统。
@@ -44,8 +44,12 @@ AgentSessionManager.sendMessage()
   - 统一 IM 文档附件的出站格式、支持扩展名和大小上限
 - `src/main/managers/scheduled-task-service.js`
   - 执行真实定时任务 CRUD、立即执行、历史记录、状态更新和调度轮询
+- `src/main/managers/session-app-manager.js`
+  - 执行会话应用定义管理、复制、删除和基于应用启动新会话
 - `src/main/ipc-handlers/scheduled-task-handlers.js`
   - 给桌面 UI 提供同一套定时任务能力的 IPC 管理入口
+- `src/main/ipc-handlers/session-app-handlers.js`
+  - 给桌面 UI 提供会话应用的 IPC 管理入口，并支持从历史记录重新打开关联会话
 - `src/main/index.js`
   - 创建 `ScheduledTaskService`
   - 注入到 `agentSessionManager.scheduledTaskService`
@@ -133,6 +137,32 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
   "filePaths": ["/Users/demo/report.pdf"]
 }
 ```
+
+`hydrodesktop` 还暴露 5 个会话应用工具：
+
+| 工具 | 作用 |
+|------|------|
+| `session_app_list` | 列出当前全部会话应用 |
+| `session_app_get` | 查看单个会话应用定义 |
+| `session_app_create` | 创建会话应用 |
+| `session_app_update` | 更新会话应用 |
+| `session_app_launch` | 基于应用启动一个新的专用会话 |
+
+会话应用工具的当前边界：
+
+- 只暴露用户可理解且当前 UI 已稳定支持的字段
+- 不暴露删除工具，避免模型误删
+- 不暴露版本、草稿、快照等已废弃语义
+- 不鼓励模型把创建流程强行引导回 `/session-app` 或工作台，除非用户明确要求可视化编辑
+
+当前对模型的关键提示包括：
+
+- 创建、查看、修改、启动会话应用时优先使用 `session_app_*`
+- 目标不明确时先 `session_app_list`
+- 不得凭上下文记忆臆断“同名应用还存在”或“之前那个应用还在”
+- 不得声称已经创建、更新、启动成功，除非真实调用了对应工具
+
+当前实现上，会话应用并不是独立 MCP server，而是和定时任务、IM 一样复用 `hydrodesktop` server，在普通 Agent 会话中按能力动态注入。
 
 ---
 

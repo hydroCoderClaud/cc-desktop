@@ -15,6 +15,7 @@
 | [BUILD.md](./BUILD.md) | 构建与打包说明 |
 | [ROADMAP.md](./ROADMAP.md) | 路线图与中长期规划 |
 | [CHANGELOG.md](./CHANGELOG.md) | 版本变更记录 |
+| [user-guide/SESSION-APPS-GUIDE.zh.md](./user-guide/SESSION-APPS-GUIDE.zh.md) | 会话应用使用指南 |
 
 ## 设计文档分类约定
 
@@ -28,3 +29,4 @@
 - 查整体设计：先看 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 - 查文档归类：看 [design/README.md](./design/README.md)。
 - 查实现入口：结合 `code-index/` 与对应设计文档一起看。
+- 查会话应用使用方式：看 [user-guide/SESSION-APPS-GUIDE.zh.md](./user-guide/SESSION-APPS-GUIDE.zh.md)。
