@@ -8,7 +8,8 @@ vi.mock('uuid', () => ({ v4: () => 'interaction-uuid-fixed' }))
 const { AgentSessionManager } = await import('../../src/main/agent-session-manager.js')
 const { AgentSession } = await import('../../src/main/agent-session.js')
 const {
-  DESKTOP_CAPABILITY_ALLOWED_TOOLS
+  DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  SESSION_APP_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
 const {
   HYDROLOGY_ALLOWED_TOOLS
@@ -2000,6 +2001,59 @@ describe('AgentSessionManager interactions', () => {
     )
     expect(createQueryOptions.disallowedTools).toEqual(
       expect.arrayContaining(['CronList', 'CronCreate', 'CronUpdate', 'CronDelete', 'cronList', 'cronCreate', 'cronUpdate', 'cronDelete'])
+    )
+  })
+
+  it('injects session app MCP tools into manual chat sessions when sessionAppManager is available', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({ id: 'session-with-session-app-tools', cwd: '/tmp' })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+    manager.sessionAppManager = {
+      listApps: vi.fn(() => [{
+        appId: 'sap-weekly',
+        name: 'Weekly Assistant',
+        description: 'Build weekly reports',
+        systemPrompt: 'You are the weekly report assistant.',
+        startupMessageTemplate: 'Please prepare this week report.',
+        defaultContext: { cwd: 'C:/workspace/weekly' }
+      }]),
+      getApp: vi.fn((appId) => appId === 'sap-weekly'
+        ? {
+            appId: 'sap-weekly',
+            name: 'Weekly Assistant',
+            description: 'Build weekly reports',
+            systemPrompt: 'You are the weekly report assistant.',
+            startupMessageTemplate: 'Please prepare this week report.',
+            defaultContext: { cwd: 'C:/workspace/weekly' }
+          }
+        : null),
+      createApp: vi.fn(),
+      updateApp: vi.fn(),
+      launchApp: vi.fn()
+    }
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '帮我创建一个会话应用')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(createQueryOptions.appendSystemPrompt).toContain('Session Apps')
+    expect(createQueryOptions.mcpServers).toBeTruthy()
+    expect(Object.keys(createQueryOptions.mcpServers)).toContain('hydrodesktop')
+    expect(createQueryOptions.allowedTools).toEqual(
+      expect.arrayContaining(SESSION_APP_ALLOWED_TOOLS)
     )
   })
 

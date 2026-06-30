@@ -1,0 +1,103 @@
+<svg width="980" height="420" viewBox="0 0 980 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #f5f6f8; }
+      .card { fill: #ffffff; stroke: #d6d9df; stroke-width: 1.5; }
+      .label { fill: #1f2937; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 20px; font-weight: 600; }
+      .desc { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 14px; }
+      .toolbar { fill: #ffffff; stroke: #d6d9df; stroke-width: 1; }
+      .toolbar-slot { fill: #f8fafc; stroke: #d6d9df; stroke-width: 1; }
+      .toolbar-text { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .icon-stroke { stroke: #111827; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .icon-fill { fill: #111827; }
+      .muted { stroke: #9ca3af; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .badge { fill: #e8eefc; stroke: #b8c6f0; stroke-width: 1; }
+      .badge-text { fill: #3154a3; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 12px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="980" height="420" rx="24"/>
+
+  <rect class="toolbar" x="36" y="24" width="908" height="56" rx="16"/>
+  <text class="toolbar-text" x="64" y="58">Toolbar context preview</text>
+  <rect class="toolbar-slot" x="672" y="36" width="34" height="32" rx="10"/>
+  <path class="muted" d="M683 52h12"/>
+  <rect class="toolbar-slot" x="716" y="36" width="34" height="32" rx="10"/>
+  <path class="muted" d="M733 44a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+  <path class="muted" d="M733 48v4l2 2"/>
+
+  <rect class="toolbar-slot" x="760" y="36" width="34" height="32" rx="10"/>
+  <path class="muted" d="M769 47h16"/>
+  <path class="muted" d="M769 52h10"/>
+  <path class="muted" d="M769 57h7"/>
+
+  <g transform="translate(114,120)">
+    <rect class="card" x="0" y="0" width="232" height="246" rx="20"/>
+    <text class="label" x="24" y="36">方案 A</text>
+    <text class="desc" x="24" y="62">卡片模板 / 启动型应用</text>
+
+    <rect class="toolbar-slot" x="24" y="84" width="56" height="56" rx="16"/>
+    <path class="icon-stroke" d="M37 102.5h30v22a3 3 0 0 1-3 3H40a3 3 0 0 1-3-3v-22z"/>
+    <path class="icon-stroke" d="M43 97.5h18l6 5H37l6-5z"/>
+    <path class="icon-stroke" d="M45 109h14"/>
+    <path class="icon-stroke" d="M45 115h10"/>
+    <path class="icon-stroke" d="M60.5 118.5l5 5"/>
+    <path class="icon-stroke" d="M65.5 118.5v10"/>
+
+    <rect class="badge" x="24" y="154" width="76" height="24" rx="12"/>
+    <text class="badge-text" x="39" y="170">推荐</text>
+    <text class="desc" x="24" y="202">最像“把会话提炼成一个</text>
+    <text class="desc" x="24" y="224">可复用应用模板”。</text>
+    <text class="desc" x="24" y="248">和 Agent 本体区分清楚。</text>
+    <text class="desc" x="24" y="272">小尺寸识别也比较稳。</text>
+  </g>
+
+  <g transform="translate(374,120)">
+    <rect class="card" x="0" y="0" width="232" height="246" rx="20"/>
+    <text class="label" x="24" y="36">方案 B</text>
+    <text class="desc" x="24" y="62">框内 A / App 容器</text>
+
+    <rect class="toolbar-slot" x="24" y="84" width="56" height="56" rx="16"/>
+    <rect class="icon-stroke" x="36.5" y="97.5" width="31" height="31" rx="7"/>
+    <path class="icon-stroke" d="M46 122l6-18 6 18"/>
+    <path class="icon-stroke" d="M48.4 115h7.2"/>
+    <path class="icon-stroke" d="M61 123h4"/>
+
+    <rect class="badge" x="24" y="154" width="70" height="24" rx="12"/>
+    <text class="badge-text" x="39" y="170">备选</text>
+    <text class="desc" x="24" y="202">比纯字母 A 好一些，</text>
+    <text class="desc" x="24" y="224">因为有容器感。</text>
+    <text class="desc" x="24" y="248">但仍然容易被理解成</text>
+    <text class="desc" x="24" y="272">Agent / Agents。</text>
+  </g>
+
+  <g transform="translate(634,120)">
+    <rect class="card" x="0" y="0" width="232" height="246" rx="20"/>
+    <text class="label" x="24" y="36">方案 C</text>
+    <text class="desc" x="24" y="62">提示稿 / 会话蓝图</text>
+
+    <rect class="toolbar-slot" x="24" y="84" width="56" height="56" rx="16"/>
+    <path class="icon-stroke" d="M38 100h28v26H38z"/>
+    <path class="icon-stroke" d="M44 108h16"/>
+    <path class="icon-stroke" d="M44 114h12"/>
+    <path class="icon-stroke" d="M44 120h8"/>
+    <path class="icon-stroke" d="M58.5 101.5l7 7"/>
+    <path class="icon-stroke" d="M60.5 108.5h5v-5"/>
+
+    <rect class="badge" x="24" y="154" width="70" height="24" rx="12"/>
+    <text class="badge-text" x="39" y="170">备选</text>
+    <text class="desc" x="24" y="202">强调“启动消息 + 系统约束”</text>
+    <text class="desc" x="24" y="224">这类配置稿属性。</text>
+    <text class="desc" x="24" y="248">语义偏配置，不如 A 那么</text>
+    <text class="desc" x="24" y="272">像真正的 App 入口。</text>
+  </g>
+
+  <text class="desc" x="760" y="58">session app entry</text>
+  <rect class="toolbar-slot" x="840" y="36" width="34" height="32" rx="10"/>
+  <path class="icon-stroke" d="M848 44.5h18v13.5a2.2 2.2 0 0 1-2.2 2.2h-13.6A2.2 2.2 0 0 1 848 58V44.5z"/>
+  <path class="icon-stroke" d="M851.5 41.5h11l3.5 3H848z"/>
+  <path class="icon-stroke" d="M853 49h8"/>
+  <path class="icon-stroke" d="M853 53h6"/>
+  <path class="icon-stroke" d="M862 55.5l3 3"/>
+  <path class="icon-stroke" d="M865 55.5v6"/>
+</svg>

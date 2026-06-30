@@ -318,6 +318,9 @@ class AgentSessionManager extends EventEmitter {
 
     // Query 控制管理器（依赖注入）
     this.queryManager = new AgentQueryManager(this)
+
+    // 会话应用业务入口（由外部注入）
+    this.sessionAppManager = null
   }
 
   /**
@@ -915,7 +918,6 @@ class AgentSessionManager extends EventEmitter {
       sessionAppInput: sessionAppBinding?.sessionAppInput || null
     })
 
-    // 自动分配工作目录
     // Ensure explicit cwd exists before launch.
     // Session App startup can fail immediately if the CLI cwd is missing.
     if (!session.cwd) {
@@ -1606,6 +1608,7 @@ class AgentSessionManager extends EventEmitter {
             feishuBridge: this.feishuBridge,
             enterpriseWeixinBridge: this.enterpriseWeixinBridge,
             wecomCliManager: this.wecomCliManager,
+            sessionAppManager: this.sessionAppManager,
             session
           })
           if (desktopCapabilityOptions?.mcpServers) {

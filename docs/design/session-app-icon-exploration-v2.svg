@@ -1,0 +1,131 @@
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #f4f5f7; }
+      .board { fill: #ffffff; stroke: #d5d9e0; stroke-width: 1.5; }
+      .title { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 22px; font-weight: 700; }
+      .label { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 18px; font-weight: 700; }
+      .desc { fill: #667085; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 14px; }
+      .hint { fill: #475467; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .slot { fill: #ffffff; stroke: #d5d9e0; stroke-width: 1.5; }
+      .mini { fill: #f8fafc; stroke: #d5d9e0; stroke-width: 1; }
+      .toolbarText { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .icon { stroke: #111827; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .fill { fill: #111827; }
+      .muted { stroke: #98a2b3; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="760" rx="28"/>
+
+  <text class="title" x="48" y="56">Session App Icon Exploration V2</text>
+  <text class="desc" x="48" y="82">这次刻意避开“机器人 / 字母 A / 提示稿”，改为更偏工作流、约束、运行入口的语义。</text>
+
+  <rect class="board" x="48" y="108" width="1184" height="64" rx="18"/>
+  <text class="toolbarText" x="74" y="146">Toolbar preview</text>
+  <rect class="mini" x="904" y="124" width="34" height="32" rx="10"/>
+  <path class="muted" d="M915 140h12"/>
+  <rect class="mini" x="948" y="124" width="34" height="32" rx="10"/>
+  <path class="muted" d="M965 132a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+  <path class="muted" d="M965 136v4l2 2"/>
+  <rect class="mini" x="992" y="124" width="34" height="32" rx="10"/>
+  <path class="muted" d="M1001 136h16"/>
+  <path class="muted" d="M1001 141h10"/>
+  <path class="muted" d="M1001 146h7"/>
+  <text class="toolbarText" x="1042" y="146">session app</text>
+
+  <g transform="translate(1048,124)">
+    <rect class="mini" x="0" y="0" width="34" height="32" rx="10"/>
+    <path class="icon" d="M8 9.5h8v5h-8z"/>
+    <path class="icon" d="M19 8.5h7v7h-7z"/>
+    <path class="icon" d="M12 18.5h8v5h-8z"/>
+    <path class="icon" d="M16 12h3M22.5 15.5v3"/>
+  </g>
+
+  <g transform="translate(88,216)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 D</text>
+    <text class="desc" x="28" y="62">流程节点 / 运行编排</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <path class="icon" d="M40 100h10v8H40z"/>
+    <path class="icon" d="M58 98h14v12H58z"/>
+    <path class="icon" d="M48 120h12v8H48z"/>
+    <path class="icon" d="M50 104h8"/>
+    <path class="icon" d="M65 110v10"/>
+    <path class="icon" d="M60 124h6"/>
+    <text class="hint" x="28" y="178">重点表达“不是一个聊天体”，而是一段被封装的可运行流程。</text>
+    <text class="hint" x="28" y="200">优点是和 scheduled task 有点邻近，但更像编排，不像定时。</text>
+  </g>
+
+  <g transform="translate(468,216)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 E</text>
+    <text class="desc" x="28" y="62">会话气泡 + 应用边框</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <rect class="icon" x="39" y="96" width="26" height="22" rx="6"/>
+    <path class="icon" d="M47 118l-4 5v-5"/>
+    <path class="icon" d="M46 104h12"/>
+    <path class="icon" d="M46 109h8"/>
+    <path class="icon" d="M67 100h7v7"/>
+    <path class="icon" d="M74 100l-6 6"/>
+    <text class="hint" x="28" y="178">表达“会话被提升为一个可复用应用”。</text>
+    <text class="hint" x="28" y="200">更贴近你们产品定义，但气泡感仍稍重，需要看你是否愿意保留 chat 痕迹。</text>
+  </g>
+
+  <g transform="translate(848,216)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 F</text>
+    <text class="desc" x="28" y="62">受控轨道 / Guided Session</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <path class="icon" d="M45 97v34"/>
+    <path class="icon" d="M39 103h12"/>
+    <path class="icon" d="M39 114h12"/>
+    <path class="icon" d="M39 125h12"/>
+    <path class="icon" d="M57 104h12"/>
+    <path class="icon" d="M57 115h9"/>
+    <path class="icon" d="M57 126h12"/>
+    <text class="hint" x="28" y="178">这是“有边界、有轨道的会话”。</text>
+    <text class="hint" x="28" y="200">不太像 App Store 的 app，更像“受控工作台入口”。</text>
+  </g>
+
+  <g transform="translate(88,472)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 G</text>
+    <text class="desc" x="28" y="62">路线起点到落点</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <circle class="icon" cx="45" cy="102" r="4"/>
+    <path class="icon" d="M49 102h9"/>
+    <path class="icon" d="M58 102c5 0 5 5 5 8s0 8 5 8"/>
+    <rect class="icon" x="64" y="114" width="8" height="8" rx="2"/>
+    <path class="icon" d="M41 122h17"/>
+    <text class="hint" x="28" y="178">强调“从一次会话任务，变成一个可重复抵达的入口”。</text>
+    <text class="hint" x="28" y="200">有点抽象，但语义上我觉得比 A 更高级。</text>
+  </g>
+
+  <g transform="translate(468,472)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 H</text>
+    <text class="desc" x="28" y="62">模块窗格 / App 工作单元</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <rect class="icon" x="39" y="97" width="28" height="28" rx="6"/>
+    <path class="icon" d="M39 105h28"/>
+    <path class="icon" d="M47 112h4"/>
+    <path class="icon" d="M55 112h4"/>
+    <path class="icon" d="M47 118h12"/>
+    <text class="hint" x="28" y="178">更像“桌面里的一个可运行小单元”。</text>
+    <text class="hint" x="28" y="200">优点是产品味更强，缺点是和 embedded app 语义有点靠近。</text>
+  </g>
+
+  <g transform="translate(848,472)">
+    <rect class="slot" x="0" y="0" width="342" height="220" rx="22"/>
+    <text class="label" x="28" y="38">方案 I</text>
+    <text class="desc" x="28" y="62">封装胶囊 / Reusable Unit</text>
+    <rect class="mini" x="28" y="84" width="64" height="64" rx="18"/>
+    <rect class="icon" x="38" y="102" width="30" height="18" rx="9"/>
+    <path class="icon" d="M46 111h8"/>
+    <path class="icon" d="M59 108l5 3-5 3"/>
+    <path class="icon" d="M42 96h22"/>
+    <text class="hint" x="28" y="178">这是最“产品图标化”的一版。</text>
+    <text class="hint" x="28" y="200">不直白讲 chat / flow，而是讲“一个可重复运行的封装单元”。</text>
+  </g>
+</svg>

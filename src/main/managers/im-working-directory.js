@@ -11,6 +11,8 @@ const IM_WORKSPACE_SUBDIRS = {
   weixin: 'weixin',
 }
 
+const SESSION_APP_WORKSPACE_SUBDIR = 'sessionapp'
+
 function getAgentOutputBaseDir(config = {}) {
   const configuredDir = typeof config?.settings?.agent?.outputBaseDir === 'string'
     ? config.settings.agent.outputBaseDir.trim()
@@ -35,10 +37,16 @@ function getImDefaultWorkspaceRoot(config = {}, imKey, configKey = imKey) {
   return path.join(getAgentOutputBaseDir(config), getImWorkspaceSubdir(imKey))
 }
 
+function getSessionAppDefaultWorkspaceRoot(config = {}) {
+  return path.join(getAgentOutputBaseDir(config), SESSION_APP_WORKSPACE_SUBDIR)
+}
+
 module.exports = {
   DEFAULT_AGENT_OUTPUT_DIR_NAME,
   IM_WORKSPACE_SUBDIRS,
+  SESSION_APP_WORKSPACE_SUBDIR,
   getAgentOutputBaseDir,
   getImWorkspaceSubdir,
   getImDefaultWorkspaceRoot,
+  getSessionAppDefaultWorkspaceRoot,
 }

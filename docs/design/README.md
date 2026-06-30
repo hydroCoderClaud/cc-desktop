@@ -8,8 +8,10 @@
 |------|------|
 | [main-process.md](./main-process.md) | 主进程生命周期、IPC、会话、调度、更新、内嵌 app 支撑 |
 | [renderer.md](./renderer.md) | 渲染进程页面结构、主窗口 UI、内嵌 app 宿主组件 |
+| [main-window-mode-convergence-design.md](./main-window-mode-convergence-design.md) | 主窗口模式收口、Notebook 工作台归位与未来入口治理 |
 | [integrations.md](./integrations.md) | 钉钉、微信、MCP、Plugin、能力管理等系统集成 |
 | [built-in-mcp.md](./built-in-mcp.md) | 内置 MCP 能力现状 |
+| [session-app-hydrodesktop-mcp-plan.md](./session-app-hydrodesktop-mcp-plan.md) | 会话应用接入 hydrodesktop 内置 MCP 的计划 |
 | [session-management.md](./session-management.md) | 会话管理设计 |
 | [design-system.md](./design-system.md) | 设计系统 |
 | [image-recognition.md](./image-recognition.md) | 图片识别链路 |

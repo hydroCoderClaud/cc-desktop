@@ -1,0 +1,115 @@
+<svg width="1220" height="760" viewBox="0 0 1220 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #f3f4f6; }
+      .panel { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.5; }
+      .slot { fill: #f8fafc; stroke: #d1d5db; stroke-width: 1; }
+      .title { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 22px; font-weight: 700; }
+      .sub { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 14px; }
+      .name { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 18px; font-weight: 700; }
+      .desc { fill: #4b5563; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .toolbarText { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .icon { stroke: #111827; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .fill { fill: #111827; }
+      .muted { stroke: #98a2b3; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1220" height="760" rx="28"/>
+  <text class="title" x="44" y="52">Session App Icon Exploration V3</text>
+  <text class="sub" x="44" y="78">这轮不再“解释概念”，而是尽量做成真正能放进工具栏的小徽记。</text>
+
+  <rect class="panel" x="44" y="104" width="1132" height="60" rx="18"/>
+  <text class="toolbarText" x="68" y="140">Toolbar preview</text>
+  <rect class="slot" x="878" y="118" width="34" height="32" rx="10"/>
+  <path class="muted" d="M889 134h12"/>
+  <rect class="slot" x="922" y="118" width="34" height="32" rx="10"/>
+  <path class="muted" d="M939 126a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+  <path class="muted" d="M939 130v4l2 2"/>
+  <rect class="slot" x="966" y="118" width="34" height="32" rx="10"/>
+  <path class="muted" d="M975 130h16"/>
+  <path class="muted" d="M975 135h10"/>
+  <path class="muted" d="M975 140h7"/>
+  <text class="toolbarText" x="1016" y="140">session app</text>
+
+  <g transform="translate(1020,118)">
+    <rect class="slot" x="0" y="0" width="34" height="32" rx="10"/>
+    <rect class="icon" x="8.5" y="8.5" width="12" height="12" rx="3.5"/>
+    <path class="icon" d="M21 12.5h5v5"/>
+    <path class="icon" d="M26 12.5l-6 6"/>
+  </g>
+
+  <g transform="translate(78,208)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 J</text>
+    <text class="sub" x="26" y="60">运行角标</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="38" y="95" width="24" height="24" rx="6"/>
+    <path class="icon" d="M58 91h8v8"/>
+    <path class="icon" d="M66 91l-8 8"/>
+    <text class="desc" x="26" y="178">像“一个被启动的应用单元”。</text>
+    <text class="desc" x="26" y="198">非常像真实入口图标，简洁。</text>
+  </g>
+
+  <g transform="translate(454,208)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 K</text>
+    <text class="sub" x="26" y="60">收纳夹 + Play</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <path class="icon" d="M38 101h10l3-4h17v22a4 4 0 0 1-4 4H42a4 4 0 0 1-4-4v-18z"/>
+    <path class="icon" d="M53 106l7 4-7 4v-8z"/>
+    <text class="desc" x="26" y="178">表达“把一段能力封装进一个夹层，随时运行”。</text>
+    <text class="desc" x="26" y="198">比模板更产品化一点。</text>
+  </g>
+
+  <g transform="translate(830,208)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 L</text>
+    <text class="sub" x="26" y="60">路径穿框</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="39" y="96" width="26" height="26" rx="7"/>
+    <path class="icon" d="M34 109h10"/>
+    <path class="icon" d="M61 109h10"/>
+    <path class="icon" d="M68 109l-3-3"/>
+    <path class="icon" d="M68 109l-3 3"/>
+    <text class="desc" x="26" y="178">重点是“会话穿过约束边界，形成固定入口”。</text>
+    <text class="desc" x="26" y="198">更抽象，也更像系统能力。</text>
+  </g>
+
+  <g transform="translate(78,468)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 M</text>
+    <text class="sub" x="26" y="60">双层会话</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="42" y="100" width="18" height="16" rx="5"/>
+    <rect class="icon" x="48" y="94" width="18" height="16" rx="5"/>
+    <path class="icon" d="M57 102l5 3-5 3v-6z"/>
+    <text class="desc" x="26" y="178">表达“会话被提升为可复用层”。</text>
+    <text class="desc" x="26" y="198">和聊天有关，但不直接画气泡。</text>
+  </g>
+
+  <g transform="translate(454,468)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 N</text>
+    <text class="sub" x="26" y="60">胶囊入口</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="37" y="101" width="30" height="16" rx="8"/>
+    <path class="icon" d="M45 109h9"/>
+    <path class="icon" d="M57 106l5 3-5 3"/>
+    <path class="icon" d="M43 95h18"/>
+    <text class="desc" x="26" y="178">更像“一个可以直接触发的成品单元”。</text>
+    <text class="desc" x="26" y="198">产品感强，但稍微有点偏组件库。</text>
+  </g>
+
+  <g transform="translate(830,468)">
+    <rect class="panel" x="0" y="0" width="310" height="216" rx="22"/>
+    <text class="name" x="26" y="36">方案 O</text>
+    <text class="sub" x="26" y="60">旗标工作单元</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <path class="icon" d="M42 94v30"/>
+    <path class="icon" d="M42 96h19l-4 7 4 7H42"/>
+    <path class="icon" d="M50 108l4 2.5-4 2.5v-5z"/>
+    <text class="desc" x="26" y="178">像“立起来的一张任务旗标”。</text>
+    <text class="desc" x="26" y="198">有入口感，也有“固定方案”的味道。</text>
+  </g>
+</svg>

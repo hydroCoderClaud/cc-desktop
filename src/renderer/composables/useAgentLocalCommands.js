@@ -1,3 +1,5 @@
+import { getSessionAppDefaultWorkspaceRoot } from '@/utils/im-working-directory'
+
 export function useAgentLocalCommands({
   sessionId,
   t,
@@ -15,6 +17,24 @@ export function useAgentLocalCommands({
   addAssistantMessage,
   compactConversation
 }) {
+  let sessionAppDefaultWorkspaceRootPromise = null
+
+  const resolveSessionAppDefaultWorkspaceRoot = async () => {
+    if (!sessionAppDefaultWorkspaceRootPromise) {
+      sessionAppDefaultWorkspaceRootPromise = (async () => {
+        try {
+          const config = await window.electronAPI?.getConfig?.()
+          return getSessionAppDefaultWorkspaceRoot(config || {})
+        } catch (error) {
+          console.warn('[useAgentLocalCommands] Failed to resolve session app default workspace root:', error)
+          return getSessionAppDefaultWorkspaceRoot({})
+        }
+      })()
+    }
+
+    return sessionAppDefaultWorkspaceRootPromise
+  }
+
   const normalizeScheduledTaskSessionBindingMode = (value) => {
     return value === 'new' ? 'new' : 'current'
   }
@@ -120,7 +140,7 @@ export function useAgentLocalCommands({
       defaultContext: {
         cwd: typeof defaultContext.cwd === 'string' && defaultContext.cwd.trim()
           ? defaultContext.cwd.trim()
-          : (options.sessionCwd || null),
+          : '',
         apiProfileId: options.apiProfileId || null,
         modelId: typeof selectedModel?.value === 'string' && selectedModel.value.trim()
           ? selectedModel.value.trim()
@@ -177,14 +197,18 @@ export function useAgentLocalCommands({
     })
   }
 
-  const createSessionAppCard = (parsedCommand) => {
+  const createSessionAppCard = async (parsedCommand) => {
     const prompt = parsedCommand.args || getLatestSchedulablePrompt()
     const draftId = `session-app-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const defaultWorkspaceRoot = await resolveSessionAppDefaultWorkspaceRoot()
     const draft = normalizeSessionAppDraft({
       name: buildSessionAppName(prompt),
       description: prompt,
       startupMessageTemplate: prompt,
-      creationMode: 'chat'
+      creationMode: 'chat',
+      defaultContext: {
+        cwd: defaultWorkspaceRoot
+      }
     })
 
     messages.value.push({
@@ -215,7 +239,7 @@ export function useAgentLocalCommands({
   }
 
   const triggerSessionAppDraft = (prompt = '') => {
-    createSessionAppCard({
+    void createSessionAppCard({
       args: typeof prompt === 'string' ? prompt.trim() : ''
     })
   }
@@ -383,7 +407,7 @@ export function useAgentLocalCommands({
     }
 
     if (lower === '/session-app') {
-      createSessionAppCard(parsedCommand)
+      await createSessionAppCard(parsedCommand)
       return true
     }
 

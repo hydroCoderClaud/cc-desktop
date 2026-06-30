@@ -80,6 +80,16 @@ const SESSION_TOOL_NAMES = [
 const SESSION_ALLOWED_TOOLS = SESSION_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
 )
+const SESSION_APP_TOOL_NAMES = [
+  'session_app_list',
+  'session_app_get',
+  'session_app_create',
+  'session_app_update',
+  'session_app_launch'
+]
+const SESSION_APP_ALLOWED_TOOLS = SESSION_APP_TOOL_NAMES.map(
+  toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
+)
 const PERSONAL_WEIXIN_ENABLED = false
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
@@ -110,6 +120,21 @@ const SESSION_SYSTEM_PROMPT = [
   'Use session_get_current when the user asks which session this chat is, whether it is task-linked, or what IM target is currently bound.',
   'Use session_match_task when the user asks whether a scheduled task is bound to this current chat session.',
   'These session tools are read-only helpers for comparison and routing. Do not claim a task/session match without calling them when the answer depends on live session state.'
+].join(' ')
+
+const SESSION_APP_SYSTEM_PROMPT = [
+  'You can manage Hydro Desktop Session Apps through MCP tools in this session.',
+  'When the user asks to create, inspect, update, or launch a Session App, use the session_app_* tools instead of redirecting the user to /session-app or the desktop workbench.',
+  'Use session_app_list when the target app is unclear or the user asks what Session Apps already exist.',
+  'Use session_app_get for one Session App details, including startup message, system prompt, and default working directory.',
+  'Use session_app_create to create a new Session App from natural language requirements.',
+  'After session_app_create, do not claim duplicate-name conflicts, same-name counts, or "there are N apps with this name" unless you call session_app_list again and verify it from the live results.',
+  'Do not infer same-name Session Apps from conversation memory, earlier turns, or deleted historical examples.',
+  'Use session_app_update to modify an existing Session App, but only after the target app is unambiguous.',
+  'Use session_app_launch when the user explicitly wants to start a new conversation from a Session App.',
+  'Before updating an existing Session App, call session_app_list unless the user already provided a clear appId.',
+  'Do not invent Session App definitions or claim an app was updated without calling the relevant tool first.',
+  'Do not expose or modify internal-only fields that are not part of the public Session App editing surface.'
 ].join(' ')
 
 const DEFAULT_DAILY_TIME = '09:00'
@@ -437,6 +462,38 @@ function mergeSystemPrompts(...prompts) {
 function getTaskCandidates(scheduledTaskService) {
   const tasks = scheduledTaskService?.listTasks?.()
   return Array.isArray(tasks) ? tasks : []
+}
+
+function serializeSessionApp(app = {}) {
+  const defaultContext = app.defaultContext && typeof app.defaultContext === 'object'
+    ? app.defaultContext
+    : null
+
+  return {
+    appId: app.appId || null,
+    name: app.name || '',
+    description: app.description || '',
+    icon: app.icon || 'sessionApp',
+    systemPrompt: typeof app.systemPrompt === 'string' ? app.systemPrompt.trim() : '',
+    startupMessageTemplate: typeof app.startupMessageTemplate === 'string'
+      ? app.startupMessageTemplate.trim()
+      : '',
+    defaultContext: defaultContext
+      ? {
+          cwd: typeof defaultContext.cwd === 'string' ? defaultContext.cwd : ''
+        }
+      : null,
+    createdFromSessionId: app.createdFromSessionId || null,
+    createdAt: app.createdAt || null,
+    updatedAt: app.updatedAt || null
+  }
+}
+
+function requireSessionAppManager(sessionAppManager) {
+  if (!sessionAppManager) {
+    throw new Error('Session App manager is not available')
+  }
+  return sessionAppManager
 }
 
 function serializeBoundImTarget(bound = {}, provider = null) {
@@ -1140,9 +1197,11 @@ async function buildDesktopCapabilityQueryOptions({
   feishuBridge,
   enterpriseWeixinBridge,
   wecomCliManager,
+  sessionAppManager,
   session
 }) {
   const includeScheduleTools = shouldAllowScheduleToolsForSession(scheduledTaskService)
+  const includeSessionAppTools = Boolean(sessionAppManager)
   const getImProviders = ({ includeDisabled = false } = {}) => collectEnabledImProviders({
     weixinNotifyService,
     weixinBridge,
@@ -1185,7 +1244,7 @@ async function buildDesktopCapabilityQueryOptions({
     weixinNotifyService
   })
 
-  if (!includeScheduleTools && !includeWeixinNotifyTools && !includeImBuiltinTools) {
+  if (!includeScheduleTools && !includeWeixinNotifyTools && !includeImBuiltinTools && !includeSessionAppTools) {
     return {}
   }
 
@@ -1706,6 +1765,121 @@ async function buildDesktopCapabilityQueryOptions({
     )
   ] : []
 
+  const sessionAppTools = includeSessionAppTools ? [
+    tool(
+      SESSION_APP_TOOL_NAMES[0],
+      '列出当前 Hydro Desktop 中的全部会话应用，便于后续定位目标应用。',
+      {},
+      async () => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const apps = manager.listApps().map(serializeSessionApp)
+        return buildToolResult({
+          action: 'session_app_list',
+          count: apps.length,
+          apps
+        })
+      }
+    ),
+    tool(
+      SESSION_APP_TOOL_NAMES[1],
+      '查看一个会话应用的完整定义。需要提供 appId。',
+      {
+        appId: buildRequiredStringSchema(z, '会话应用 ID')
+      },
+      async (args) => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const app = manager.getApp(args.appId)
+        if (!app) {
+          throw new Error('Session App not found')
+        }
+        return buildToolResult({
+          action: 'session_app_get',
+          app: serializeSessionApp(app)
+        })
+      }
+    ),
+    tool(
+      SESSION_APP_TOOL_NAMES[2],
+      '创建一个新的会话应用。',
+      {
+        name: z.string().min(1).describe('会话应用名称'),
+        description: z.string().optional().describe('会话应用说明'),
+        systemPrompt: z.string().optional().describe('会话应用系统提示词'),
+        startupMessageTemplate: z.string().optional().describe('启动后自动发送的首条消息模板'),
+        defaultContext: z.object({
+          cwd: buildClearableStringSchema(z, '默认工作目录；传 null 或空字符串表示不设置')
+        }).optional().describe('默认上下文')
+      },
+      async (args) => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const created = manager.createApp({
+          name: args.name,
+          description: args.description,
+          systemPrompt: args.systemPrompt,
+          startupMessageTemplate: args.startupMessageTemplate,
+          defaultContext: args.defaultContext
+        })
+        return buildToolResult({
+          action: 'session_app_create',
+          app: serializeSessionApp(created)
+        })
+      }
+    ),
+    tool(
+      SESSION_APP_TOOL_NAMES[3],
+      '更新一个已有会话应用。需要提供 appId。',
+      {
+        appId: buildRequiredStringSchema(z, '会话应用 ID'),
+        updates: z.object({
+          name: z.string().optional().describe('会话应用名称'),
+          description: z.string().optional().describe('会话应用说明'),
+          systemPrompt: z.string().optional().describe('会话应用系统提示词'),
+          startupMessageTemplate: z.string().optional().describe('启动后自动发送的首条消息模板'),
+          defaultContext: z.object({
+            cwd: buildClearableStringSchema(z, '默认工作目录；传 null 或空字符串表示清空')
+          }).optional().describe('默认上下文')
+        }).describe('允许更新的会话应用字段')
+      },
+      async (args) => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const updated = manager.updateApp(args.appId, args.updates || {})
+        return buildToolResult({
+          action: 'session_app_update',
+          app: serializeSessionApp(updated)
+        })
+      }
+    ),
+    tool(
+      SESSION_APP_TOOL_NAMES[4],
+      '基于一个会话应用启动一个新的应用会话。需要提供 appId。',
+      {
+        appId: buildRequiredStringSchema(z, '会话应用 ID'),
+        sessionOptions: z.object({
+          cwd: buildClearableStringSchema(z, '启动会话使用的工作目录；传 null 或空字符串表示沿用应用默认值'),
+          title: z.string().optional().describe('启动会话标题'),
+          apiProfileId: z.string().optional().describe('启动会话使用的 API Profile ID'),
+          modelId: z.string().optional().describe('启动会话使用的模型 ID')
+        }).optional().describe('启动会话的覆盖参数')
+      },
+      async (args) => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const launched = manager.launchApp({
+          appId: args.appId,
+          input: null,
+          sessionOptions: args.sessionOptions || {}
+        })
+        return buildToolResult({
+          action: 'session_app_launch',
+          session: {
+            id: launched?.id || null,
+            title: launched?.title || '',
+            sessionAppId: launched?.sessionAppId || args.appId
+          }
+        })
+      }
+    )
+  ] : []
+
   return {
     mcpServers: {
       [DESKTOP_CAPABILITY_SERVER_NAME]: createSdkMcpServer({
@@ -1714,7 +1888,8 @@ async function buildDesktopCapabilityQueryOptions({
           ...scheduleTools,
           ...weixinNotifyTools,
           ...imBuiltinTools,
-          ...sessionTools
+          ...sessionTools,
+          ...sessionAppTools
         ]
       })
     },
@@ -1723,13 +1898,15 @@ async function buildDesktopCapabilityQueryOptions({
       includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null,
       includeImBuiltinTools ? IM_BUILTIN_SYSTEM_PROMPT : null,
       session?.id ? SESSION_SYSTEM_PROMPT : null,
+      includeSessionAppTools ? SESSION_APP_SYSTEM_PROMPT : null,
       boundImPrompt
     ),
     allowedTools: [
       ...(includeScheduleTools ? DESKTOP_CAPABILITY_ALLOWED_TOOLS : []),
       ...(includeWeixinNotifyTools ? WEIXIN_NOTIFY_ALLOWED_TOOLS : []),
       ...(includeImBuiltinTools ? IM_BUILTIN_ALLOWED_TOOLS : []),
-      ...(session?.id ? SESSION_ALLOWED_TOOLS : [])
+      ...(session?.id ? SESSION_ALLOWED_TOOLS : []),
+      ...(includeSessionAppTools ? SESSION_APP_ALLOWED_TOOLS : [])
     ],
     disallowedTools: includeScheduleTools ? CONFLICTING_CRON_TOOLS : undefined
   }
@@ -1742,5 +1919,6 @@ module.exports = {
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
   WEIXIN_NOTIFY_ALLOWED_TOOLS,
   IM_BUILTIN_ALLOWED_TOOLS,
-  SESSION_ALLOWED_TOOLS
+  SESSION_ALLOWED_TOOLS,
+  SESSION_APP_ALLOWED_TOOLS
 }

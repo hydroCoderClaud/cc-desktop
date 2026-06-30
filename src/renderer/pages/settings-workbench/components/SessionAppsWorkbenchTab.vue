@@ -3,30 +3,30 @@
     <div class="tab-header">
       <div>
         <div class="tab-title-row">
-          <span class="tab-title">{{ t('sessionApps.title') }}</span>
-          <span class="tab-count">{{ t('sessionApps.appCount', { count: apps.length }) }}</span>
+          <span class="tab-title">{{ text.title }}</span>
+          <span class="tab-count">{{ text.appCount }}</span>
         </div>
-        <p class="tab-subtitle">{{ t('sessionApps.subtitle') }}</p>
+        <p class="tab-subtitle">{{ text.subtitle }}</p>
       </div>
       <div class="header-actions">
         <n-button secondary @click="createApp">
           <Icon name="add" :size="14" />
-          {{ t('sessionApps.newApp') }}
+          {{ text.newApp }}
         </n-button>
         <n-button @click="loadAll">
           <Icon name="refresh" :size="14" />
-          {{ t('common.refresh') }}
+          {{ text.refresh }}
         </n-button>
       </div>
     </div>
 
     <div v-if="loading" class="state-box">
-      <span>{{ t('common.loading') || 'Loading...' }}</span>
+      <span>{{ text.loading || 'Loading...' }}</span>
     </div>
 
     <template v-else>
       <div v-if="!apps.length" class="state-box">
-        <span>{{ t('sessionApps.emptyApps') }}</span>
+        <span>{{ text.emptyApps }}</span>
       </div>
 
       <div v-else class="app-management-layout">
@@ -40,7 +40,7 @@
             @click="selectApp(app.appId)"
           >
             <div class="app-list-title-row">
-              <span class="app-list-title">{{ app.name || t('sessionApps.untitled') }}</span>
+              <span class="app-list-title">{{ app.name || text.untitled }}</span>
             </div>
           </button>
         </aside>
@@ -49,21 +49,21 @@
           <div class="app-shell-top">
             <div>
               <div class="card-title-row">
-                <span class="card-title">{{ selectedApp.name || t('sessionApps.untitled') }}</span>
+                <span class="card-title">{{ selectedApp.name || text.untitled }}</span>
               </div>
             </div>
             <div class="action-row top-actions">
               <n-button size="small" @click="launchApp(selectedApp)">
                 <Icon name="play" :size="12" />
-                {{ t('sessionApps.launch') }}
+                {{ text.launch }}
               </n-button>
               <n-button size="small" secondary @click="duplicateApp(selectedApp)">
                 <Icon name="copy" :size="12" />
-                {{ t('sessionApps.duplicate') }}
+                {{ text.duplicate }}
               </n-button>
               <n-button size="small" tertiary @click="removeApp(selectedApp)">
                 <Icon name="delete" :size="12" />
-                {{ t('common.delete') }}
+                {{ text.delete }}
               </n-button>
             </div>
           </div>
@@ -71,7 +71,7 @@
           <div class="detail-stack">
             <section class="detail-block">
               <div class="section-head">
-                <div class="section-title">{{ t('sessionApps.definition') }}</div>
+                <div class="section-title">{{ text.definition }}</div>
               </div>
 
               <button
@@ -79,54 +79,58 @@
                 class="collapse-summary"
                 @click="definitionExpanded = !definitionExpanded"
               >
-                <span class="detail-title">{{ t('sessionApps.currentDefinition') }}</span>
+                <span class="detail-title">{{ text.currentDefinition }}</span>
                 <Icon :name="definitionExpanded ? 'chevronUp' : 'chevronDown'" :size="14" />
               </button>
 
               <div v-if="definitionExpanded" class="detail-card definition-card">
                 <n-space vertical :size="14">
-                  <n-form-item :label="t('sessionApps.form.name')">
-                    <n-input v-model:value="form.name" :placeholder="t('sessionApps.form.namePlaceholder')" />
+                  <n-form-item :label="text.formName">
+                    <n-input v-model:value="form.name" :placeholder="text.formNamePlaceholder" />
                   </n-form-item>
-                  <n-form-item :label="t('sessionApps.form.description')">
+                  <n-form-item :label="text.formDescription">
                     <n-input
                       v-model:value="form.description"
                       type="textarea"
                       :autosize="{ minRows: 2, maxRows: 4 }"
-                      :placeholder="t('sessionApps.form.descriptionPlaceholder')"
+                      :placeholder="text.formDescriptionPlaceholder"
                     />
                   </n-form-item>
-                  <n-form-item :label="t('sessionApps.form.startupMessage')">
+                  <n-form-item :label="text.formStartupMessage">
                     <n-input
                       v-model:value="form.startupMessageTemplate"
                       type="textarea"
                       :autosize="{ minRows: 3, maxRows: 6 }"
-                      :placeholder="t('sessionApps.form.startupPlaceholder')"
+                      :placeholder="text.formStartupPlaceholder"
                     />
                   </n-form-item>
-                  <n-form-item :label="t('sessionApps.form.systemPrompt')">
+                  <n-form-item :label="text.formSystemPrompt">
                     <n-input
                       v-model:value="form.systemPrompt"
                       type="textarea"
                       :autosize="{ minRows: 4, maxRows: 8 }"
-                      :placeholder="t('sessionApps.form.systemPromptPlaceholder')"
+                      :placeholder="text.formSystemPromptPlaceholder"
                     />
                   </n-form-item>
-                  <n-form-item :label="t('sessionApps.form.defaultCwd')">
+                  <n-form-item :label="text.formDefaultCwd">
                     <div class="cwd-field">
-                      <n-input v-model:value="form.defaultContext.cwd" :placeholder="t('rightPanel.scheduledTasks.defaultWorkspace')" />
-                      <n-button @click="pickFolder">{{ t('rightPanel.scheduledTasks.browse') }}</n-button>
+                      <n-input
+                        v-model:value="form.defaultContext.cwd"
+                        class="cwd-input"
+                        :placeholder="text.defaultWorkspace"
+                      />
+                      <n-button class="cwd-browse-btn" @click="pickFolder">{{ text.browse }}</n-button>
                     </div>
                   </n-form-item>
                 </n-space>
 
                 <div class="action-row">
                   <n-button size="small" type="primary" @click="saveApp">
-                    {{ t('common.save') }}
+                    {{ text.save }}
                   </n-button>
                   <n-button size="small" @click="launchApp(selectedApp)">
                     <Icon name="play" :size="12" />
-                    {{ t('sessionApps.launch') }}
+                    {{ text.launch }}
                   </n-button>
                 </div>
               </div>
@@ -134,7 +138,7 @@
 
             <section class="detail-block">
               <div class="section-head">
-                <div class="section-title">{{ t('sessionApps.sessions') }}</div>
+                <div class="section-title">{{ text.sessions }}</div>
               </div>
 
               <div v-if="selectedSessions.length" class="session-list">
@@ -146,13 +150,13 @@
                   @click="openConversation(session)"
                 >
                   <div class="session-main">
-                    <span class="detail-title">{{ session.title || t('agent.chat') }}</span>
+                    <span class="detail-title">{{ session.title || text.agentChat }}</span>
                   </div>
                   <div class="meta-row session-meta">{{ formatSessionTime(session.updatedAt || session.createdAt) }}</div>
                 </button>
               </div>
               <div v-else class="empty-inline">
-                {{ t('sessionApps.emptySessions') }}
+                {{ text.emptySessions }}
               </div>
             </section>
           </div>
@@ -167,6 +171,7 @@ import { computed, ref, watch } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
+import { getSessionAppDefaultWorkspaceRoot } from '@/utils/im-working-directory'
 
 const props = defineProps({
   currentProject: {
@@ -179,7 +184,7 @@ const props = defineProps({
   }
 })
 
-const { t } = useLocale()
+const locale = useLocale()
 const message = useMessage()
 const dialog = useDialog()
 
@@ -188,7 +193,45 @@ const apps = ref([])
 const conversations = ref([])
 const selectedAppId = ref('')
 const definitionExpanded = ref(false)
+const currentConfig = ref({})
 const form = ref(buildForm())
+
+const text = computed(() => ({
+  title: locale.t('sessionApps.title'),
+  appCount: locale.t('sessionApps.appCount', { count: apps.value.length }),
+  subtitle: locale.t('sessionApps.subtitle'),
+  newApp: locale.t('sessionApps.newApp'),
+  refresh: locale.t('common.refresh'),
+  loading: locale.t('common.loading'),
+  emptyApps: locale.t('sessionApps.emptyApps'),
+  untitled: locale.t('sessionApps.untitled'),
+  launch: locale.t('sessionApps.launch'),
+  duplicate: locale.t('sessionApps.duplicate'),
+  delete: locale.t('common.delete'),
+  definition: locale.t('sessionApps.definition'),
+  currentDefinition: locale.t('sessionApps.currentDefinition'),
+  formName: locale.t('sessionApps.form.name'),
+  formNamePlaceholder: locale.t('sessionApps.form.namePlaceholder'),
+  formDescription: locale.t('sessionApps.form.description'),
+  formDescriptionPlaceholder: locale.t('sessionApps.form.descriptionPlaceholder'),
+  formStartupMessage: locale.t('sessionApps.form.startupMessage'),
+  formStartupPlaceholder: locale.t('sessionApps.form.startupPlaceholder'),
+  formSystemPrompt: locale.t('sessionApps.form.systemPrompt'),
+  formSystemPromptPlaceholder: locale.t('sessionApps.form.systemPromptPlaceholder'),
+  formDefaultCwd: locale.t('sessionApps.form.defaultCwd'),
+  defaultWorkspace: locale.t('rightPanel.scheduledTasks.defaultWorkspace'),
+  browse: locale.t('rightPanel.scheduledTasks.browse'),
+  save: locale.t('common.save'),
+  sessions: locale.t('sessionApps.sessions'),
+  agentChat: locale.t('agent.chat'),
+  emptySessions: locale.t('sessionApps.emptySessions')
+}))
+
+function getResolvedDefaultCwd(value = '') {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  if (normalized) return normalized
+  return getSessionAppDefaultWorkspaceRoot(currentConfig.value || {})
+}
 
 function buildForm(app = {}) {
   const defaultContext = app.defaultContext && typeof app.defaultContext === 'object'
@@ -201,7 +244,7 @@ function buildForm(app = {}) {
     systemPrompt: app.systemPrompt || '',
     startupMessageTemplate: app.startupMessageTemplate || '',
     defaultContext: {
-      cwd: typeof defaultContext.cwd === 'string' ? defaultContext.cwd : ''
+      cwd: getResolvedDefaultCwd(defaultContext.cwd)
     }
   }
 }
@@ -247,10 +290,12 @@ const loadAll = async () => {
   if (!window.electronAPI) return
   loading.value = true
   try {
-    const [nextApps, sessionList] = await Promise.all([
+    const [nextApps, sessionList, config] = await Promise.all([
       window.electronAPI.listSessionApps(),
-      window.electronAPI.listAgentSessions?.()
+      window.electronAPI.listAgentSessions?.(),
+      window.electronAPI.getConfig?.().catch(() => ({}))
     ])
+    currentConfig.value = config || {}
     apps.value = Array.isArray(nextApps) ? nextApps : []
     conversations.value = Array.isArray(sessionList) ? sessionList.filter(session => session?.sessionAppId) : []
     const nextSelectedAppId = resolvePreferredAppId(apps.value)
@@ -263,7 +308,7 @@ const loadAll = async () => {
     }
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] loadAll failed:', err)
-    message.error(err?.message || t('sessionApps.loadFailed'))
+    message.error(err?.message || locale.t('sessionApps.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -274,20 +319,20 @@ const createApp = async () => {
     const app = await window.electronAPI.createSessionApp(toPlainPayload({
       name: props.currentProject?.name
         ? `${props.currentProject.name} 会话应用`
-        : t('sessionApps.defaultDraftName'),
-      defaultContext: props.currentProject?.path
-        ? { cwd: props.currentProject.path }
-        : null
+        : locale.t('sessionApps.defaultDraftName'),
+      defaultContext: {
+        cwd: getResolvedDefaultCwd()
+      }
     }))
     await loadAll()
     if (app?.appId) {
       selectApp(app.appId)
       definitionExpanded.value = true
     }
-    message.success(t('sessionApps.appCreated'))
+    message.success(locale.t('sessionApps.appCreated'))
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] createApp failed:', err)
-    message.error(err?.message || t('sessionApps.createAppFailed'))
+    message.error(err?.message || locale.t('sessionApps.createAppFailed'))
   }
 }
 
@@ -298,12 +343,15 @@ const saveApp = async () => {
       appId: selectedApp.value.appId,
       updates: {
         ...form.value,
-        name: form.value.name?.trim() || t('sessionApps.defaultDraftName'),
+        name: form.value.name?.trim() || locale.t('sessionApps.defaultDraftName'),
         description: form.value.description?.trim() || '',
         systemPrompt: form.value.systemPrompt?.trim() || '',
         startupMessageTemplate: form.value.startupMessageTemplate?.trim() || '',
         defaultContext: {
-          cwd: form.value.defaultContext?.cwd?.trim() || ''
+          ...(selectedApp.value?.defaultContext && typeof selectedApp.value.defaultContext === 'object'
+            ? selectedApp.value.defaultContext
+            : {}),
+          cwd: getResolvedDefaultCwd(form.value.defaultContext?.cwd)
         }
       }
     }))
@@ -311,10 +359,10 @@ const saveApp = async () => {
     if (updated?.appId) {
       selectApp(updated.appId)
     }
-    message.success(t('sessionApps.appSaved'))
+    message.success(locale.t('sessionApps.appSaved'))
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] saveApp failed:', err)
-    message.error(err?.message || t('sessionApps.saveAppFailed'))
+    message.error(err?.message || locale.t('sessionApps.saveAppFailed'))
   }
 }
 
@@ -323,40 +371,40 @@ const duplicateApp = async (app) => {
     const duplicate = await window.electronAPI.duplicateSessionApp(toPlainPayload({
       appId: app.appId,
       overrides: {
-        name: `${app.name || t('sessionApps.untitled')} Copy`
+        name: `${app.name || locale.t('sessionApps.untitled')} Copy`
       }
     }))
     await loadAll()
     if (duplicate?.appId) {
       selectApp(duplicate.appId)
     }
-    message.success(t('sessionApps.appDuplicated'))
+    message.success(locale.t('sessionApps.appDuplicated'))
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] duplicateApp failed:', err)
-    message.error(err?.message || t('sessionApps.duplicateAppFailed'))
+    message.error(err?.message || locale.t('sessionApps.duplicateAppFailed'))
   }
 }
 
 const removeApp = (app) => {
   const linkedCount = conversations.value.filter(conv => conv?.sessionAppId === app?.appId).length
   dialog.warning({
-    title: t('sessionApps.deleteAppTitle'),
+    title: locale.t('sessionApps.deleteAppTitle'),
     content: linkedCount > 0
-      ? t('sessionApps.deleteAppContentWithSessions', {
-          name: app?.name || t('sessionApps.untitled'),
+      ? locale.t('sessionApps.deleteAppContentWithSessions', {
+          name: app?.name || locale.t('sessionApps.untitled'),
           count: linkedCount
         })
-      : t('sessionApps.deleteAppContent', { name: app?.name || t('sessionApps.untitled') }),
-    positiveText: t('common.delete'),
-    negativeText: t('common.cancel'),
+      : locale.t('sessionApps.deleteAppContent', { name: app?.name || locale.t('sessionApps.untitled') }),
+    positiveText: locale.t('common.delete'),
+    negativeText: locale.t('common.cancel'),
     onPositiveClick: async () => {
       try {
         await window.electronAPI.deleteSessionApp(app.appId)
         await loadAll()
-        message.success(t('sessionApps.appDeleted'))
+        message.success(locale.t('sessionApps.appDeleted'))
       } catch (err) {
         console.error('[SessionAppsWorkbenchTab] removeApp failed:', err)
-        message.error(err?.message || t('sessionApps.deleteAppFailed'))
+        message.error(err?.message || locale.t('sessionApps.deleteAppFailed'))
       }
     }
   })
@@ -368,19 +416,19 @@ const launchApp = async (app) => {
       appId: app.appId,
       input: null,
       sessionOptions: {
-        cwd: props.currentProject?.path || form.value.defaultContext?.cwd || null,
+        cwd: getResolvedDefaultCwd(form.value.defaultContext?.cwd),
         title: app.name || null
       }
     }))
     if (!session?.id) {
-      throw new Error(t('sessionApps.launchFailed'))
+      throw new Error(locale.t('sessionApps.launchFailed'))
     }
     await window.electronAPI.focusMainWindow?.()
     await window.electronAPI.openSessionAppConversation?.(session.id)
-    message.success(t('sessionApps.launchSuccess'))
+    message.success(locale.t('sessionApps.launchSuccess'))
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] launchApp failed:', err)
-    message.error(err?.message || t('sessionApps.launchFailed'))
+    message.error(err?.message || locale.t('sessionApps.launchFailed'))
   }
 }
 
@@ -390,7 +438,7 @@ const openConversation = async (session) => {
     await window.electronAPI.openSessionAppConversation(session.id)
   } catch (err) {
     console.error('[SessionAppsWorkbenchTab] openConversation failed:', err)
-    message.error(err?.message || t('sessionApps.openSessionFailed'))
+    message.error(err?.message || locale.t('sessionApps.openSessionFailed'))
   }
 }
 
@@ -651,6 +699,20 @@ loadAll()
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.cwd-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cwd-field :deep(.cwd-input .n-input) {
+  width: 100%;
+}
+
+.cwd-browse-btn {
+  flex-shrink: 0;
 }
 
 .state-box,

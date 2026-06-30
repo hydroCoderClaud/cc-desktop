@@ -1,4 +1,9 @@
 const { v4: uuidv4 } = require('uuid')
+const path = require('path')
+const {
+  getSessionAppDefaultWorkspaceRoot,
+  SESSION_APP_WORKSPACE_SUBDIR
+} = require('./im-working-directory')
 
 function normalizeString(value, fallback = '') {
   if (typeof value !== 'string') return fallback
@@ -20,6 +25,18 @@ function normalizeCapabilityList(values) {
       .map(value => typeof value === 'string' ? value.trim() : '')
       .filter(Boolean)
     : []
+}
+
+function normalizeAppDefaultContext(defaultContext, config = {}) {
+  const normalizedDefaultContext = normalizeObject(defaultContext, {}) || {}
+  const cwd = typeof normalizedDefaultContext.cwd === 'string' && normalizedDefaultContext.cwd.trim()
+    ? normalizedDefaultContext.cwd.trim()
+    : getSessionAppDefaultWorkspaceRoot(config)
+
+  return {
+    ...normalizedDefaultContext,
+    cwd
+  }
 }
 
 function normalizeAppInput(input = {}) {
@@ -101,9 +118,12 @@ class SessionAppManager {
 
   createApp(input = {}) {
     const appId = `sap-${uuidv4().replace(/-/g, '').slice(0, 10)}`
+    const normalizedInput = normalizeAppInput(input)
+    const config = this.agentSessionManager?.configManager?.getConfig?.() || {}
     return this.sessionDatabase.createSessionApp({
       appId,
-      ...normalizeAppInput(input)
+      ...normalizedInput,
+      defaultContext: normalizeAppDefaultContext(normalizedInput.defaultContext, config)
     })
   }
 
@@ -112,7 +132,12 @@ class SessionAppManager {
     if (!app) {
       throw new Error('Session App not found')
     }
-    return this.sessionDatabase.updateSessionApp(appId, normalizeAppUpdates(updates))
+    const normalizedUpdates = normalizeAppUpdates(updates)
+    const config = this.agentSessionManager?.configManager?.getConfig?.() || {}
+    if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'defaultContext')) {
+      normalizedUpdates.defaultContext = normalizeAppDefaultContext(normalizedUpdates.defaultContext, config)
+    }
+    return this.sessionDatabase.updateSessionApp(appId, normalizedUpdates)
   }
 
   duplicateApp(appId, overrides = {}) {
@@ -120,6 +145,7 @@ class SessionAppManager {
     if (!app) {
       throw new Error('Session App not found')
     }
+    const config = this.agentSessionManager?.configManager?.getConfig?.() || {}
 
     const duplicateAppId = `sap-${uuidv4().replace(/-/g, '').slice(0, 10)}`
     const duplicateName = normalizeString(
@@ -132,7 +158,8 @@ class SessionAppManager {
         ...app,
         ...overrides
       }),
-      name: duplicateName
+      name: duplicateName,
+      defaultContext: normalizeAppDefaultContext(overrides.defaultContext ?? app.defaultContext, config)
     })
   }
 
@@ -180,6 +207,38 @@ class SessionAppManager {
           : ''
       }
     }
+  }
+
+  launchApp({ appId, input = null, sessionOptions = {} } = {}) {
+    if (!this.agentSessionManager) {
+      throw new Error('AgentSessionManager not available')
+    }
+
+    const { app, runtime, binding } = this.createLaunchPayload({ appId, input })
+    const config = this.agentSessionManager?.configManager?.getConfig?.() || {}
+    const baseCwd = sessionOptions.cwd || runtime.defaultContext?.cwd || getSessionAppDefaultWorkspaceRoot(config)
+    const launchCwd = baseCwd
+      ? path.join(baseCwd, `conv-${uuidv4().replace(/-/g, '').slice(0, 8)}`)
+      : null
+    const session = this.agentSessionManager.create({
+      type: 'chat',
+      title: sessionOptions.title || app.name,
+      cwd: launchCwd,
+      cwdSubDir: launchCwd ? undefined : SESSION_APP_WORKSPACE_SUBDIR,
+      apiProfileId: sessionOptions.apiProfileId || runtime.defaultContext?.apiProfileId || null,
+      modelId: sessionOptions.modelId || runtime.defaultContext?.modelId || null,
+      sessionAppBinding: binding
+    })
+
+    if (runtime.startupMessageTemplate) {
+      this.agentSessionManager.sendMessage(session.id, runtime.startupMessageTemplate, {
+        model: sessionOptions.modelId || runtime.defaultContext?.modelId || null
+      }).catch(err => {
+        console.error('[SessionAppManager] launchApp startup sendMessage error:', err)
+      })
+    }
+
+    return session
   }
 }
 

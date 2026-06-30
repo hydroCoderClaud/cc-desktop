@@ -16,7 +16,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 const {
   buildDesktopCapabilityQueryOptions,
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
-  SESSION_ALLOWED_TOOLS
+  SESSION_ALLOWED_TOOLS,
+  SESSION_APP_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
 
 describe('desktop capability query options', () => {
@@ -270,6 +271,64 @@ describe('desktop capability query options', () => {
       enterpriseWeixinBridge,
       wecomCliManager
     }
+  }
+
+  async function createOptionsWithSessionApps({
+    session = { id: 'session-app-chat-1', source: 'manual' },
+    appOverrides = {},
+    managerOverrides = {}
+  } = {}) {
+    const app = {
+      appId: 'sap-weekly',
+      name: 'Weekly Assistant',
+      description: 'Build weekly reports',
+      icon: 'sessionApp',
+      systemPrompt: 'You are the weekly report assistant.',
+      startupMessageTemplate: 'Please prepare this week report.',
+      defaultContext: {
+        cwd: 'C:/workspace/weekly'
+      },
+      createdFromSessionId: 'chat-source-1',
+      createdAt: 1710000000000,
+      updatedAt: 1710005000000,
+      ...appOverrides
+    }
+
+    const sessionAppManager = {
+      listApps: vi.fn(() => [app]),
+      getApp: vi.fn((appId) => appId === app.appId ? app : null),
+      createApp: vi.fn((input = {}) => ({
+        ...app,
+        ...input,
+        appId: 'sap-created',
+        defaultContext: input.defaultContext ?? app.defaultContext
+      })),
+      updateApp: vi.fn((appId, updates = {}) => ({
+        ...app,
+        ...updates,
+        appId,
+        defaultContext: updates.defaultContext ?? app.defaultContext
+      })),
+      launchApp: vi.fn(({ appId, input = null, sessionOptions = {} } = {}) => ({
+        id: 'session-app-launch-1',
+        title: sessionOptions.title || app.name,
+        sessionAppId: appId,
+        sessionAppInput: input
+      })),
+      ...managerOverrides
+    }
+
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: null,
+      sessionAppManager,
+      session
+    })
+
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+
+    return { options, tools, sessionAppManager, app }
   }
 
   it('exposes the extended scheduled-task toolset', async () => {
@@ -760,6 +819,151 @@ describe('desktop capability query options', () => {
       'mcp__hydrodesktop__session_match_task'
     ])
     expect(options.appendSystemPrompt).toContain('built-in IM messages')
+  })
+
+  it('injects session app tools into hydrodesktop when a session app manager is available', async () => {
+    const { options, tools } = await createOptionsWithSessionApps()
+
+    expect(Object.keys(tools)).toEqual([
+      'session_get_current',
+      'session_match_task',
+      'session_app_list',
+      'session_app_get',
+      'session_app_create',
+      'session_app_update',
+      'session_app_launch'
+    ])
+    expect(options.allowedTools).toEqual([
+      ...SESSION_ALLOWED_TOOLS,
+      ...SESSION_APP_ALLOWED_TOOLS
+    ])
+    expect(options.appendSystemPrompt).toContain('Session Apps')
+    expect(options.appendSystemPrompt).toContain('session_app_create')
+    expect(options.appendSystemPrompt).toContain('do not claim duplicate-name conflicts')
+    expect(options.appendSystemPrompt).toContain('Do not infer same-name Session Apps from conversation memory')
+  })
+
+  it('handles session app list and get responses through hydrodesktop MCP', async () => {
+    const { tools, sessionAppManager } = await createOptionsWithSessionApps()
+
+    const listPayload = parseToolPayload(await tools.session_app_list.handler())
+    expect(listPayload).toMatchObject({
+      action: 'session_app_list',
+      count: 1
+    })
+    expect(listPayload.apps[0]).toMatchObject({
+      appId: 'sap-weekly',
+      name: 'Weekly Assistant',
+      description: 'Build weekly reports',
+      systemPrompt: 'You are the weekly report assistant.',
+      startupMessageTemplate: 'Please prepare this week report.',
+      defaultContext: {
+        cwd: 'C:/workspace/weekly'
+      }
+    })
+
+    const getPayload = parseToolPayload(await tools.session_app_get.handler({ appId: 'sap-weekly' }))
+    expect(getPayload).toMatchObject({
+      action: 'session_app_get',
+      app: {
+        appId: 'sap-weekly',
+        name: 'Weekly Assistant'
+      }
+    })
+    expect(sessionAppManager.getApp).toHaveBeenCalledWith('sap-weekly')
+  })
+
+  it('handles session app create and update through hydrodesktop MCP', async () => {
+    const { tools, sessionAppManager } = await createOptionsWithSessionApps()
+
+    const createPayload = parseToolPayload(await tools.session_app_create.handler({
+      name: 'Meeting Assistant',
+      description: 'Summarize meetings',
+      systemPrompt: 'You summarize meetings.',
+      startupMessageTemplate: 'Please summarize the latest meeting.',
+      defaultContext: {
+        cwd: 'C:/workspace/meeting'
+      }
+    }))
+    expect(createPayload).toMatchObject({
+      action: 'session_app_create',
+      app: {
+        appId: 'sap-created',
+        name: 'Meeting Assistant',
+        description: 'Summarize meetings',
+        defaultContext: {
+          cwd: 'C:/workspace/meeting'
+        }
+      }
+    })
+    expect(sessionAppManager.createApp).toHaveBeenCalledWith({
+      name: 'Meeting Assistant',
+      description: 'Summarize meetings',
+      systemPrompt: 'You summarize meetings.',
+      startupMessageTemplate: 'Please summarize the latest meeting.',
+      defaultContext: {
+        cwd: 'C:/workspace/meeting'
+      }
+    })
+
+    const updatePayload = parseToolPayload(await tools.session_app_update.handler({
+      appId: 'sap-weekly',
+      updates: {
+        description: 'Build weekly reports in markdown',
+        defaultContext: {
+          cwd: 'C:/workspace/weekly-markdown'
+        }
+      }
+    }))
+    expect(updatePayload).toMatchObject({
+      action: 'session_app_update',
+      app: {
+        appId: 'sap-weekly',
+        description: 'Build weekly reports in markdown',
+        defaultContext: {
+          cwd: 'C:/workspace/weekly-markdown'
+        }
+      }
+    })
+    expect(sessionAppManager.updateApp).toHaveBeenCalledWith('sap-weekly', {
+      description: 'Build weekly reports in markdown',
+      defaultContext: {
+        cwd: 'C:/workspace/weekly-markdown'
+      }
+    })
+  })
+
+  it('launches a session app conversation through hydrodesktop MCP', async () => {
+    const { tools, sessionAppManager } = await createOptionsWithSessionApps()
+
+    const launchPayload = parseToolPayload(await tools.session_app_launch.handler({
+      appId: 'sap-weekly',
+      sessionOptions: {
+        title: 'Weekly App Run',
+        cwd: 'C:/workspace/custom-weekly',
+        apiProfileId: 'profile-2',
+        modelId: 'sonnet-4'
+      }
+    }))
+
+    expect(launchPayload).toEqual({
+      action: 'session_app_launch',
+      session: {
+        id: 'session-app-launch-1',
+        title: 'Weekly App Run',
+        sessionAppId: 'sap-weekly'
+      }
+    })
+    expect(sessionAppManager.launchApp).toHaveBeenCalledWith({
+      appId: 'sap-weekly',
+      input: null,
+      sessionOptions: {
+        title: 'Weekly App Run',
+        cwd: 'C:/workspace/custom-weekly',
+        apiProfileId: 'profile-2',
+        modelId: 'sonnet-4'
+      }
+    })
   })
 
   it('unbinds the current session from its bound builtin IM target', async () => {

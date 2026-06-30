@@ -1,0 +1,118 @@
+<svg width="1280" height="820" viewBox="0 0 1280 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #f4f6f8; }
+      .panel { fill: #ffffff; stroke: #d7dce3; stroke-width: 1.5; }
+      .slot { fill: #f8fafc; stroke: #d7dce3; stroke-width: 1; }
+      .title { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 22px; font-weight: 700; }
+      .sub { fill: #667085; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 14px; }
+      .name { fill: #111827; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 18px; font-weight: 700; }
+      .desc { fill: #475467; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .toolbar { fill: #ffffff; stroke: #d7dce3; stroke-width: 1.2; }
+      .toolbarText { fill: #6b7280; font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 13px; }
+      .icon { stroke: #111827; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .muted { stroke: #98a2b3; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1280" height="820" rx="28"/>
+  <text class="title" x="44" y="54">Session App Icon Exploration V4</text>
+  <text class="sub" x="44" y="80">这一轮只围绕一个语义来画：会话被封装成一个可重复进入的应用单元。</text>
+
+  <rect class="toolbar" x="44" y="106" width="1192" height="62" rx="18"/>
+  <text class="toolbarText" x="68" y="144">Toolbar preview</text>
+  <rect class="slot" x="930" y="121" width="34" height="32" rx="10"/>
+  <path class="muted" d="M941 137h12"/>
+  <rect class="slot" x="974" y="121" width="34" height="32" rx="10"/>
+  <path class="muted" d="M991 129a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+  <path class="muted" d="M991 133v4l2 2"/>
+  <rect class="slot" x="1018" y="121" width="34" height="32" rx="10"/>
+  <path class="muted" d="M1027 133h16"/>
+  <path class="muted" d="M1027 138h10"/>
+  <path class="muted" d="M1027 143h7"/>
+  <text class="toolbarText" x="1068" y="144">session app</text>
+
+  <g transform="translate(1074,121)">
+    <rect class="slot" x="0" y="0" width="34" height="32" rx="10"/>
+    <rect class="icon" x="7.5" y="8.5" width="15" height="12" rx="4"/>
+    <path class="icon" d="M12 14.5h6"/>
+    <path class="icon" d="M24 10h4.5v4.5"/>
+    <path class="icon" d="M28.5 10l-6 6"/>
+  </g>
+
+  <g transform="translate(78,216)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 P</text>
+    <text class="sub" x="26" y="60">会话框 + 右上应用角标</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="38" y="98" width="22" height="16" rx="5"/>
+    <path class="icon" d="M45 106h8"/>
+    <path class="icon" d="M60 95h7v7"/>
+    <path class="icon" d="M67 95l-5 5"/>
+    <text class="desc" x="26" y="178">最直接地表达：这是一个会话，</text>
+    <text class="desc" x="26" y="198">但它已经被提升成一个应用入口。</text>
+  </g>
+
+  <g transform="translate(468,216)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 Q</text>
+    <text class="sub" x="26" y="60">双气泡归一为单元</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="40" y="103" width="14" height="11" rx="4"/>
+    <rect class="icon" x="49" y="96" width="14" height="11" rx="4"/>
+    <rect class="icon" x="58" y="108" width="8" height="8" rx="2.5"/>
+    <text class="desc" x="26" y="178">从“多轮会话”提炼成“一个可复用单元”。</text>
+    <text class="desc" x="26" y="198">会话语义更强，但稍微复杂一点。</text>
+  </g>
+
+  <g transform="translate(858,216)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 R</text>
+    <text class="sub" x="26" y="60">会话装进容器</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="37" y="95" width="28" height="26" rx="7"/>
+    <rect class="icon" x="44" y="102" width="14" height="10" rx="3.5"/>
+    <path class="icon" d="M48 107h6"/>
+    <text class="desc" x="26" y="178">核心是“会话不是裸的，而是在一个产品容器里”。</text>
+    <text class="desc" x="26" y="198">比 P 更稳重，但也更像 workbench unit。</text>
+  </g>
+
+  <g transform="translate(78,500)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 S</text>
+    <text class="sub" x="26" y="60">会话书签</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="41" y="97" width="18" height="14" rx="4.5"/>
+    <path class="icon" d="M48 104h4"/>
+    <path class="icon" d="M61 94h8v23l-4-3-4 3V94z"/>
+    <text class="desc" x="26" y="178">像“把一个会话保存成可再次进入的应用”。</text>
+    <text class="desc" x="26" y="198">复用感最强，但应用感略弱一点。</text>
+  </g>
+
+  <g transform="translate(468,500)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 T</text>
+    <text class="sub" x="26" y="60">会话芯片</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="38" y="103" width="28" height="14" rx="7"/>
+    <rect class="icon" x="44" y="106" width="10" height="8" rx="3"/>
+    <path class="icon" d="M66 110h5"/>
+    <path class="icon" d="M33 110h5"/>
+    <text class="desc" x="26" y="178">表达“会话能力被做成了一个可插拔单元”。</text>
+    <text class="desc" x="26" y="198">产品味很强，但会话感需要你能接受更抽象表达。</text>
+  </g>
+
+  <g transform="translate(858,500)">
+    <rect class="panel" x="0" y="0" width="342" height="236" rx="22"/>
+    <text class="name" x="26" y="36">方案 U</text>
+    <text class="sub" x="26" y="60">会话到入口</text>
+    <rect class="slot" x="26" y="82" width="64" height="64" rx="18"/>
+    <rect class="icon" x="39" y="103" width="13" height="10" rx="3.5"/>
+    <path class="icon" d="M53 108h8"/>
+    <path class="icon" d="M61 108h8"/>
+    <path class="icon" d="M66 103l5 5-5 5"/>
+    <rect class="icon" x="71" y="103" width="1" height="10" rx="0.5"/>
+    <text class="desc" x="26" y="178">图形语义是：从一个会话，转化为一个固定入口。</text>
+    <text class="desc" x="26" y="198">如果强调“提炼保存为 Session App”，这版很贴切。</text>
+  </g>
+</svg>

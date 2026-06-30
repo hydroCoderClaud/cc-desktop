@@ -174,6 +174,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   }
   if (agentSessionManager) {
     agentSessionManager.setSessionDatabase(sessionDatabase);
+    agentSessionManager.sessionAppManager = sessionAppManager
   }
   if (capabilityManager) {
     capabilityManager.setSessionDatabase(sessionDatabase);

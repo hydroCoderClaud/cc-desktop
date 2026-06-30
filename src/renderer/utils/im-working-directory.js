@@ -1,4 +1,5 @@
 const DEFAULT_AGENT_OUTPUT_DIR_NAME = 'cc-desktop-agent-output'
+const SESSION_APP_WORKSPACE_SUBDIR = 'sessionapp'
 
 const IM_WORKSPACE_SUBDIRS = {
   dingtalk: 'dingtalk',
@@ -37,4 +38,10 @@ export function getImDefaultWorkspaceRoot(config = {}, imKey, configKey = imKey)
   const outputBaseDir = String(config?.settings?.agent?.outputBaseDir || '').trim()
     || getDefaultAgentOutputBaseDir(window.electronAPI?.getHomedir?.() || '~')
   return joinDisplayPath(outputBaseDir, getImWorkspaceSubdir(imKey))
+}
+
+export function getSessionAppDefaultWorkspaceRoot(config = {}) {
+  const outputBaseDir = String(config?.settings?.agent?.outputBaseDir || '').trim()
+    || getDefaultAgentOutputBaseDir(window.electronAPI?.getHomedir?.() || '~')
+  return joinDisplayPath(outputBaseDir, SESSION_APP_WORKSPACE_SUBDIR)
 }
