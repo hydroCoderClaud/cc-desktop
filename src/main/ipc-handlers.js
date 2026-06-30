@@ -39,6 +39,7 @@ const feishuHandlersMod = safeRequire('./ipc-handlers/feishu-handlers', 'feishu-
 const enterpriseWeixinHandlersMod = safeRequire('./ipc-handlers/enterprise-weixin-handlers', 'enterprise-weixin-handlers');
 const notebookHandlersMod = safeRequire('./ipc-handlers/notebook-handlers', 'notebook-handlers');
 const scheduledTaskHandlersMod = safeRequire('./ipc-handlers/scheduled-task-handlers', 'scheduled-task-handlers');
+const sessionAppHandlersMod = safeRequire('./ipc-handlers/session-app-handlers', 'session-app-handlers');
 const weixinNotifyHandlersMod = safeRequire('./ipc-handlers/weixin-notify-handlers', 'weixin-notify-handlers');
 const hydrologyHandlersMod = safeRequire('./ipc-handlers/hydrology-handlers', 'hydrology-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
@@ -70,6 +71,7 @@ const setupFeishuHandlers = feishuHandlersMod?.setupFeishuHandlers;
 const setupEnterpriseWeixinHandlers = enterpriseWeixinHandlersMod?.setupEnterpriseWeixinHandlers;
 const setupNotebookHandlers = notebookHandlersMod?.setupNotebookHandlers;
 const setupScheduledTaskHandlers = scheduledTaskHandlersMod?.setupScheduledTaskHandlers;
+const setupSessionAppHandlers = sessionAppHandlersMod?.setupSessionAppHandlers;
 const setupWeixinNotifyHandlers = weixinNotifyHandlersMod?.setupWeixinNotifyHandlers;
 const setupHydrologyHandlers = hydrologyHandlersMod?.setupHydrologyHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
@@ -82,6 +84,7 @@ const RealtimeService = realtimeServiceMod?.RealtimeService;
 const RealtimeDemoSeeder = realtimeDemoSeederMod?.RealtimeDemoSeeder;
 const ReviewTaskService = reviewTaskServiceMod?.ReviewTaskService;
 const QualityCheckService = qualityCheckServiceMod?.QualityCheckService;
+const { SessionAppManager } = safeRequire('./managers/session-app-manager', 'session-app-manager') || {};
 
 // Bind ipcMain to createIPCHandler for local use
 const registerHandler = (channelName, handler) => {
@@ -137,6 +140,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // 初始化共享数据库
   const sessionDatabase = new SessionDatabase();
   sessionDatabase.init();
+  const sessionAppManager = SessionAppManager ? new SessionAppManager(sessionDatabase, agentSessionManager) : null
   const hydrologyDatabase = HydrologyDatabase ? new HydrologyDatabase() : null
   hydrologyDatabase?.init()
   const stationService = hydrologyDatabase && StationService
@@ -441,6 +445,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     const params = new URLSearchParams()
     if (options.mode) params.set('mode', options.mode)
     if (options.cwd) params.set('cwd', options.cwd)
+    if (options.section) params.set('section', options.section)
     createSubWindow({
       width: 1100,
       height: 760,
@@ -1373,6 +1378,10 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     scheduledTaskService.setSessionDatabase(sessionDatabase)
     scheduledTaskService.start()
     setupScheduledTaskHandlers(ipcMain, scheduledTaskService)
+  }
+
+  if (setupSessionAppHandlers) {
+    setupSessionAppHandlers(ipcMain, sessionAppManager, agentSessionManager, mainWindow)
   }
 
   // 打开钉钉桥接设置窗口

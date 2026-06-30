@@ -597,6 +597,9 @@ export function useAgentChat(sessionId, options = {}) {
   }
 
   const {
+    triggerSessionAppDraft,
+    submitSessionAppDraft,
+    cancelSessionAppDraft,
     triggerScheduledTaskDraft,
     submitScheduledTaskDraft,
     cancelScheduledTaskDraft,
@@ -1341,6 +1344,9 @@ export function useAgentChat(sessionId, options = {}) {
     cancelInteraction,
     compactConversation,
     triggerScheduledTaskDraft,
+    triggerSessionAppDraft,
+    submitSessionAppDraft,
+    cancelSessionAppDraft,
     submitScheduledTaskDraft,
     cancelScheduledTaskDraft,
     syncActiveSessionState,

@@ -48,6 +48,10 @@ class AgentSession {
     this.lastBootstrappedRuntime = null
     this.pendingRuntimeChange = 'unknown'
     this.lastQueryOptionsSnapshot = null
+    this.sessionAppId = options.sessionAppId || null
+    this.sessionAppInput = options.sessionAppInput && typeof options.sessionAppInput === 'object' && !Array.isArray(options.sessionAppInput)
+      ? options.sessionAppInput
+      : null
   }
 
   toJSON() {
@@ -73,7 +77,9 @@ class AgentSession {
       source: this.source,
       imChannel: this.imChannel,
       taskId: this.taskId,
-      lastQueryOptionsSnapshot: this.lastQueryOptionsSnapshot
+      lastQueryOptionsSnapshot: this.lastQueryOptionsSnapshot,
+      sessionAppId: this.sessionAppId,
+      sessionAppInput: this.sessionAppInput
     }
   }
 }

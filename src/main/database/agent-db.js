@@ -48,15 +48,17 @@ function withAgentOperations(BaseClass) {
       taskId,
       ownerClientId,
       clientType,
-      clientMeta
+      clientMeta,
+      sessionAppId,
+      sessionAppInput
     }) {
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO agent_conversations (
           session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, im_channel, im_chat_type, task_id,
-          owner_client_id, client_type, client_meta, created_at, updated_at
+          owner_client_id, client_type, client_meta, session_app_id, session_app_input, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         type || 'chat',
@@ -73,6 +75,8 @@ function withAgentOperations(BaseClass) {
         ownerClientId || 'host-ui',
         clientType || 'host',
         serializeJsonObject(clientMeta),
+        sessionAppId || null,
+        serializeJsonObject(sessionAppInput),
         now,
         now
       )
@@ -93,6 +97,8 @@ function withAgentOperations(BaseClass) {
         ownerClientId: ownerClientId || 'host-ui',
         clientType: clientType || 'host',
         clientMeta: clientMeta || null,
+        sessionAppId: sessionAppId || null,
+        sessionAppInput: sessionAppInput || null,
         createdAt: now,
         updatedAt: now
       }
@@ -157,7 +163,11 @@ function withAgentOperations(BaseClass) {
         // 将 camelCase 转换为 snake_case
         const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase()
         fields.push(`${snakeKey} = ?`)
-        if (key === 'clientMeta' || key === 'lastBootstrappedRuntime') {
+        if (
+          key === 'clientMeta' ||
+          key === 'lastBootstrappedRuntime' ||
+          key === 'sessionAppInput'
+        ) {
           values.push(serializeJsonObject(value))
         } else {
           values.push(value)

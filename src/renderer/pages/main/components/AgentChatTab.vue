@@ -42,6 +42,13 @@
           @submit="handleScheduledTaskDraftSubmit"
           @cancel="handleScheduledTaskDraftCancel"
         />
+        <SessionAppDraftCard
+          v-else-if="msg.role === 'tool' && msg.toolName === 'SessionAppDraft'"
+          :message="msg"
+          :submitting="Boolean(sessionAppSubmitting[msg.id])"
+          @submit="handleSessionAppDraftSubmit"
+          @cancel="handleSessionAppDraftCancel"
+        />
         <ToolCallCard
           v-else-if="msg.role === 'tool'"
           :message="msg"
@@ -107,6 +114,7 @@
       @api-profile-selected="handleApiProfileSelected"
       @send="handleSend"
       @schedule="handleScheduleDraftCreate"
+      @session-app="handleSessionAppDraftCreate"
       @cancel="handleCancel"
       @update:queue-enabled="handleToggleQueue"
     />
@@ -125,6 +133,7 @@ import MessageBubble from './agent/MessageBubble.vue'
 import ToolCallCard from './agent/ToolCallCard.vue'
 import AskUserQuestionCard from './agent/AskUserQuestionCard.vue'
 import ScheduledTaskDraftCard from './agent/ScheduledTaskDraftCard.vue'
+import SessionAppDraftCard from './agent/SessionAppDraftCard.vue'
 import StreamingIndicator from './agent/StreamingIndicator.vue'
 import ChatInput from './agent/ChatInput.vue'
 import Icon from '@components/icons/Icon.vue'
@@ -193,7 +202,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session', 'model-selected', 'api-profile-selected'])
+const emit = defineEmits(['ready', 'preview-image', 'preview-link', 'preview-path', 'agent-done', 'request-clear-session', 'model-selected', 'api-profile-selected', 'session-app-launched'])
 const resolvedApiProfileId = ref(props.apiProfileId)
 const resolvedModelId = ref(props.modelId)
 const resolvedAgentApi = computed(() => props.agentApi || window.electronAPI)
@@ -218,9 +227,12 @@ const {
   cancelGeneration,
   submitInteractionAnswer,
   cancelInteraction,
+  submitSessionAppDraft,
+  cancelSessionAppDraft,
   submitScheduledTaskDraft,
   cancelScheduledTaskDraft,
   compactConversation,
+  triggerSessionAppDraft,
   triggerScheduledTaskDraft,
   syncActiveSessionState,
   setupStreamListeners,
@@ -283,6 +295,7 @@ const scrollAnchor = ref(null)
 const chatInputRef = ref(null)
 const interactionSubmitting = ref({})
 const scheduledTaskSubmitting = ref({})
+const sessionAppSubmitting = ref({})
 const {
   scrollToBottom,
   onContainerScroll: onMessagesScroll,
@@ -310,6 +323,11 @@ const handleCancel = async () => {
 
 const handleScheduleDraftCreate = (prompt = '') => {
   triggerScheduledTaskDraft(typeof prompt === 'string' ? prompt : '')
+  scrollToBottom(false, true)
+}
+
+const handleSessionAppDraftCreate = (prompt = '') => {
+  triggerSessionAppDraft(typeof prompt === 'string' ? prompt : '')
   scrollToBottom(false, true)
 }
 
@@ -376,6 +394,17 @@ const setScheduledTaskSubmitting = (messageId, submitting) => {
     delete next[messageId]
   }
   scheduledTaskSubmitting.value = next
+}
+
+const setSessionAppSubmitting = (messageId, submitting) => {
+  if (!messageId) return
+  const next = { ...sessionAppSubmitting.value }
+  if (submitting) {
+    next[messageId] = true
+  } else {
+    delete next[messageId]
+  }
+  sessionAppSubmitting.value = next
 }
 
 const handleInteractionSubmit = async ({ interactionId, answers, questions, annotations, updatedInput, updatedPermissions, decisionClassification, behavior }) => {
@@ -445,6 +474,40 @@ const handleScheduledTaskDraftCancel = async ({ messageId }) => {
     }
   } finally {
     setScheduledTaskSubmitting(messageId, false)
+  }
+}
+
+const handleSessionAppDraftSubmit = async ({ messageId, draft, behavior }) => {
+  if (!messageId || sessionAppSubmitting.value[messageId]) return
+
+  setSessionAppSubmitting(messageId, true)
+  try {
+    const result = await submitSessionAppDraft({ messageId, draft, behavior })
+    if (result?.error) {
+      message.error(result.error)
+      return
+    }
+
+    message.success(t('agent.sessionAppDraftCreatedToast', { name: result?.app?.name || draft?.name || '' }))
+    if (result?.launchedSession?.id) {
+      emit('session-app-launched', result.launchedSession)
+    }
+  } finally {
+    setSessionAppSubmitting(messageId, false)
+  }
+}
+
+const handleSessionAppDraftCancel = async ({ messageId }) => {
+  if (!messageId || sessionAppSubmitting.value[messageId]) return
+
+  setSessionAppSubmitting(messageId, true)
+  try {
+    const result = await cancelSessionAppDraft({ messageId })
+    if (result?.error) {
+      message.error(result.error)
+    }
+  } finally {
+    setSessionAppSubmitting(messageId, false)
   }
 }
 

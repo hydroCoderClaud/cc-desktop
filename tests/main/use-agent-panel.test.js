@@ -19,6 +19,8 @@ describe('useAgentPanel filters', () => {
           { id: 'manual-2', type: 'chat', source: 'manual', taskId: 101, cwd: 'C:/shared', updatedAt: '2026-04-22T02:00:00.000Z' },
           { id: 'manual-3', type: 'chat', source: 'manual', taskId: 102, cwd: 'C:/scheduled-a', updatedAt: '2026-04-22T03:00:00.000Z' },
           { id: 'manual-4', type: 'chat', source: 'manual', cwd: 'C:/shared', updatedAt: '2026-04-21T03:00:00.000Z' },
+          { id: 'app-1', type: 'chat', source: 'manual', sessionAppId: 'sap-weekly', cwd: 'C:/app-a', updatedAt: '2026-04-22T03:15:00.000Z' },
+          { id: 'app-restored-1', type: 'chat', source: 'manual', ownerClientId: 'embed:session-app-host', clientType: 'embedded', sessionAppId: 'sap-weekly', cwd: 'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace', updatedAt: '2026-04-22T03:20:00.000Z' },
           { id: 'ding-1', type: 'chat', source: 'im-inbound', imChannel: 'dingtalk', cwd: 'C:/dingtalk-a', updatedAt: '2026-04-20T03:00:00.000Z' },
           { id: 'feishu-1', type: 'chat', source: 'im-inbound', imChannel: 'feishu', taskId: 201, cwd: 'C:/feishu-a', updatedAt: '2026-04-20T03:30:00.000Z' },
           { id: 'notebook-1', type: 'notebook', source: 'manual', cwd: 'C:/notebook-a', updatedAt: '2026-04-22T04:00:00.000Z' },
@@ -35,6 +37,8 @@ describe('useAgentPanel filters', () => {
     await panel.loadConversations()
 
     expect(panel.availableCwds.value).toEqual([
+      'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
+      'C:/app-a',
       'C:/scheduled-a',
       'C:/shared',
       'C:/manual-a',
@@ -50,6 +54,8 @@ describe('useAgentPanel filters', () => {
     await nextTick()
 
     expect(panel.availableCwds.value).toEqual([
+      'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
+      'C:/app-a',
       'C:/scheduled-a',
       'C:/shared',
       'C:/manual-a'
@@ -67,6 +73,8 @@ describe('useAgentPanel filters', () => {
     await nextTick()
 
     expect(panel.availableCwds.value).toEqual([
+      'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
+      'C:/app-a',
       'C:/manual-a',
       'C:/shared'
     ])
@@ -78,6 +86,38 @@ describe('useAgentPanel filters', () => {
     expect(panel.availableCwds.value).toEqual([
       'C:/feishu-a'
     ])
+  })
+
+  it('filters session app conversations independently from other filters', async () => {
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(panel.appFilterOptions.value.map(option => option.key)).toContain('sap-weekly')
+
+    panel.selectedAppFilter.value = 'session-app'
+    await nextTick()
+
+    expect(panel.groupedConversations.value.today.map(conv => conv.id)).toEqual([])
+    expect(panel.groupedConversations.value.older.map(conv => conv.id)).toEqual(['app-1', 'app-restored-1'])
+
+    panel.selectedAppFilter.value = 'plain-session'
+    await nextTick()
+
+    expect(panel.groupedConversations.value.today.map(conv => conv.id)).not.toContain('app-1')
+    expect(panel.groupedConversations.value.today.map(conv => conv.id)).not.toContain('app-restored-1')
+
+    panel.selectedAppFilter.value = 'sap-weekly'
+    await nextTick()
+
+    expect(panel.availableCwds.value).toContain('C:/app-a')
+    expect(panel.groupedConversations.value).toEqual({
+      today: [],
+      yesterday: [],
+      older: expect.arrayContaining([
+        expect.objectContaining({ id: 'app-restored-1' }),
+        expect.objectContaining({ id: 'app-1' })
+      ])
+    })
   })
 
   it('clears the selected directory when it is not available for the new task filter', async () => {

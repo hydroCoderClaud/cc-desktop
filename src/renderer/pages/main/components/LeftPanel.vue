@@ -364,6 +364,7 @@ const settingsOptions = computed(() => [
       icon: renderMenuIcon(app.icon || 'panelLeft')
     }))
   },
+  { label: t('settingsMenu.sessionApps'), key: 'session-apps', icon: renderMenuIcon('sessionApp') },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   {
     key: 'app-update',
@@ -479,6 +480,13 @@ const handleSettingsSelect = async (key) => {
       window.electronAPI.openSettingsWorkbench({
         mode: isAgentMode.value ? 'agent' : 'developer',
         cwd: isAgentMode.value ? props.agentCwd : props.currentProject?.path
+      })
+      break
+    case 'session-apps':
+      window.electronAPI.openSettingsWorkbench({
+        mode: isAgentMode.value ? 'agent' : 'developer',
+        cwd: isAgentMode.value ? props.agentCwd : props.currentProject?.path,
+        section: 'session-apps'
       })
       break
     case 'appearance-settings':

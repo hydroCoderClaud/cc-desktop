@@ -170,6 +170,18 @@ function parseRuntimeSignature(value) {
   }
 }
 
+function parseSessionAppPayload(value) {
+  if (!value) return null
+  if (typeof value === 'object' && !Array.isArray(value)) return value
+  if (typeof value !== 'string') return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 function buildRuntimeSignature({ apiProfileId = null, apiBaseUrl = null, modelId = null, executablePath = null } = {}) {
   return {
     apiProfileId: apiProfileId || null,
@@ -236,6 +248,52 @@ function mergeSystemPrompts(...prompts) {
     .filter(Boolean)
 
   return normalized.length > 0 ? normalized.join(' ') : undefined
+}
+
+function normalizeSessionAppCapabilities(values) {
+  return Array.isArray(values)
+    ? values
+      .map(value => typeof value === 'string' ? value.trim() : '')
+      .filter(Boolean)
+    : []
+}
+
+function resolveSessionAppCapabilityName(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (!normalized) return ''
+  if (normalized === 'all' || normalized === '*') return 'all'
+
+  switch (normalized) {
+    case 'desktop':
+    case 'hydrodesktop':
+    case 'mcp:desktop':
+    case 'mcp:hydrodesktop':
+      return 'hydrodesktop'
+    case 'embedded':
+    case 'embeddedapp':
+    case 'embedded-app':
+    case 'mcp:embedded':
+    case 'mcp:embeddedapp':
+    case 'mcp:embedded-app':
+      return 'embeddedapp'
+    case 'hydrology':
+    case 'mcp:hydrology':
+      return 'hydrology'
+    default:
+      return normalized
+  }
+}
+
+function isSessionAppCapabilityEnabled(allowedCapabilities, capabilityName) {
+  const normalizedAllowed = uniqueStrings(
+    (Array.isArray(allowedCapabilities) ? allowedCapabilities : [])
+      .map(resolveSessionAppCapabilityName)
+      .filter(Boolean)
+  )
+  if (!normalizedAllowed.length || normalizedAllowed.includes('all')) {
+    return true
+  }
+  return normalizedAllowed.includes(resolveSessionAppCapabilityName(capabilityName))
 }
 
 class AgentSessionManager extends EventEmitter {
@@ -473,7 +531,34 @@ class AgentSessionManager extends EventEmitter {
       embeddedRuntimeAttached: Boolean(this.embeddedAppRuntimeManager && appId),
       embeddedContextAvailable: Boolean(embeddedContext),
       embeddedContextSummary: embeddedContext?.summary || embeddedContext?.title || '',
+      sessionAppId: session?.sessionAppId || null,
       ...extra
+    }
+  }
+
+  _buildSessionAppQueryOptions(session) {
+    if (!session?.sessionAppId || !this.sessionDatabase?.getSessionApp) {
+      return null
+    }
+
+    const app = this.sessionDatabase.getSessionApp(session.sessionAppId)
+    if (!app) return null
+
+    const defaultContext = app.defaultContext && typeof app.defaultContext === 'object'
+      ? app.defaultContext
+      : null
+    const allowedCapabilities = normalizeSessionAppCapabilities(app.allowedCapabilities)
+    const systemPrompt = typeof app.systemPrompt === 'string' ? app.systemPrompt.trim() : ''
+    const startupMessageTemplate = typeof app.startupMessageTemplate === 'string'
+      ? app.startupMessageTemplate.trim()
+      : ''
+
+    return {
+      app,
+      defaultContext,
+      allowedCapabilities,
+      systemPrompt,
+      startupMessageTemplate
     }
   }
 
@@ -808,6 +893,9 @@ class AgentSessionManager extends EventEmitter {
     const normalizedSource = normalizeSessionSource(options.source, normalizedImChannel)
     const initialModelId = normalizeModelIdOrNull(options.modelId || profile?.selectedModelId)
     const initialTitle = resolveInitialSessionTitle(this.configManager, options.title)
+    const sessionAppBinding = options.sessionAppBinding && typeof options.sessionAppBinding === 'object'
+      ? options.sessionAppBinding
+      : null
     const session = new AgentSession({
       type: normalizedType,
       title: initialTitle,
@@ -822,7 +910,9 @@ class AgentSessionManager extends EventEmitter {
       meta: options.meta || {},
       ownerClientId: options.ownerClientId,
       clientType: options.clientType,
-      clientMeta: options.clientMeta
+      clientMeta: options.clientMeta,
+      sessionAppId: sessionAppBinding?.sessionAppId || null,
+      sessionAppInput: sessionAppBinding?.sessionAppInput || null
     })
 
     // 自动分配工作目录
@@ -850,7 +940,9 @@ class AgentSessionManager extends EventEmitter {
           taskId: session.taskId,
           ownerClientId: session.ownerClientId,
           clientType: session.clientType,
-          clientMeta: session.clientMeta
+          clientMeta: session.clientMeta,
+          sessionAppId: session.sessionAppId,
+          sessionAppInput: session.sessionAppInput
         })
         session.dbConversationId = dbRecord.id
       } catch (err) {
@@ -1108,7 +1200,9 @@ class AgentSessionManager extends EventEmitter {
         taskId: row.task_id || null,
         ownerClientId: row.owner_client_id || 'host-ui',
         clientType: row.client_type || 'host',
-        clientMeta: parseClientMeta(row.client_meta)
+        clientMeta: parseClientMeta(row.client_meta),
+        sessionAppId: row.session_app_id || null,
+        sessionAppInput: parseSessionAppPayload(row.session_app_input)
       })
 
       // 恢复关键状态
@@ -1434,6 +1528,7 @@ class AgentSessionManager extends EventEmitter {
       const env = this.runner.buildEnv(sessionProfile, this.configManager, {
         includeModel: !shouldReuseRuntimeDefaults
       })
+      const sessionAppOptions = this._buildSessionAppQueryOptions(session)
 
       // 创建 MessageQueue
       const messageQueue = new MessageQueue()
@@ -1484,110 +1579,128 @@ class AgentSessionManager extends EventEmitter {
 
       let appendSystemPrompt = HYDRO_IDENTITY_SYSTEM_PROMPT
 
-      try {
-        const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
-          scheduledTaskService: this.scheduledTaskService,
-          weixinNotifyService: this.weixinNotifyService,
-          weixinBridge: this.weixinBridge,
-          dingtalkBridge: this.dingtalkBridge,
-          feishuBridge: this.feishuBridge,
-          enterpriseWeixinBridge: this.enterpriseWeixinBridge,
-          wecomCliManager: this.wecomCliManager,
-          session
-        })
-        if (desktopCapabilityOptions?.mcpServers) {
-          queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
-        }
-        if (desktopCapabilityOptions?.appendSystemPrompt) {
-          appendSystemPrompt = mergeSystemPrompts(
-            appendSystemPrompt,
-            desktopCapabilityOptions.appendSystemPrompt
-          )
-        }
-        if (desktopCapabilityOptions?.allowedTools?.length) {
-          queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
-        }
-        if (desktopCapabilityOptions?.disallowedTools?.length) {
-          queryOptions.disallowedTools = desktopCapabilityOptions.disallowedTools
-        }
-      } catch (err) {
-        console.warn('[AgentSession] Failed to build desktop capability query options:', err)
+      if (sessionAppOptions?.systemPrompt) {
+        appendSystemPrompt = mergeSystemPrompts(
+          appendSystemPrompt,
+          sessionAppOptions.systemPrompt
+        )
       }
 
-      try {
-        const embeddedAppCapabilityOptions = await buildEmbeddedAppCapabilityQueryOptions({
-          embeddedAppRuntimeManager: this.embeddedAppRuntimeManager,
-          session
-        })
-
-        if (embeddedAppCapabilityOptions?.mcpServers) {
-          queryOptions.mcpServers = {
-            ...(queryOptions.mcpServers || {}),
-            ...embeddedAppCapabilityOptions.mcpServers
+      if (isSessionAppCapabilityEnabled(sessionAppOptions?.allowedCapabilities, 'hydrodesktop')) {
+        try {
+          const desktopCapabilityOptions = await buildDesktopCapabilityQueryOptions({
+            scheduledTaskService: this.scheduledTaskService,
+            weixinNotifyService: this.weixinNotifyService,
+            weixinBridge: this.weixinBridge,
+            dingtalkBridge: this.dingtalkBridge,
+            feishuBridge: this.feishuBridge,
+            enterpriseWeixinBridge: this.enterpriseWeixinBridge,
+            wecomCliManager: this.wecomCliManager,
+            session
+          })
+          if (desktopCapabilityOptions?.mcpServers) {
+            queryOptions.mcpServers = desktopCapabilityOptions.mcpServers
           }
+          if (desktopCapabilityOptions?.appendSystemPrompt) {
+            appendSystemPrompt = mergeSystemPrompts(
+              appendSystemPrompt,
+              desktopCapabilityOptions.appendSystemPrompt
+            )
+          }
+          if (desktopCapabilityOptions?.allowedTools?.length) {
+            queryOptions.allowedTools = desktopCapabilityOptions.allowedTools
+          }
+          if (desktopCapabilityOptions?.disallowedTools?.length) {
+            queryOptions.disallowedTools = desktopCapabilityOptions.disallowedTools
+          }
+        } catch (err) {
+          console.warn('[AgentSession] Failed to build desktop capability query options:', err)
         }
-        if (embeddedAppCapabilityOptions?.appendSystemPrompt) {
-          appendSystemPrompt = mergeSystemPrompts(
-            appendSystemPrompt,
-            embeddedAppCapabilityOptions.appendSystemPrompt
-          )
-        }
-        if (embeddedAppCapabilityOptions?.allowedTools?.length) {
-          queryOptions.allowedTools = [
-            ...(queryOptions.allowedTools || []),
-            ...embeddedAppCapabilityOptions.allowedTools
-          ]
-        }
-        if (embeddedAppCapabilityOptions?.disallowedTools?.length) {
-          queryOptions.disallowedTools = [
-            ...(queryOptions.disallowedTools || []),
-            ...embeddedAppCapabilityOptions.disallowedTools
-          ]
-        }
-      } catch (err) {
-        console.warn('[AgentSession] Failed to build embedded app capability query options:', err)
       }
 
-      try {
-        const hydrologyCapabilityOptions = await buildHydrologyCapabilityQueryOptions({
-          stationService: this.stationService,
-          realtimeService: this.realtimeService,
-          realtimeDemoSeeder: this.realtimeDemoSeeder,
-          reviewTaskService: this.reviewTaskService,
-          qualityCheckService: this.qualityCheckService,
-          session
-        })
-        if (hydrologyCapabilityOptions?.mcpServers) {
-          queryOptions.mcpServers = {
-            ...(queryOptions.mcpServers || {}),
-            ...hydrologyCapabilityOptions.mcpServers
+      if (isSessionAppCapabilityEnabled(sessionAppOptions?.allowedCapabilities, 'embeddedapp')) {
+        try {
+          const embeddedAppCapabilityOptions = await buildEmbeddedAppCapabilityQueryOptions({
+            embeddedAppRuntimeManager: this.embeddedAppRuntimeManager,
+            session
+          })
+
+          if (embeddedAppCapabilityOptions?.mcpServers) {
+            queryOptions.mcpServers = {
+              ...(queryOptions.mcpServers || {}),
+              ...embeddedAppCapabilityOptions.mcpServers
+            }
           }
+          if (embeddedAppCapabilityOptions?.appendSystemPrompt) {
+            appendSystemPrompt = mergeSystemPrompts(
+              appendSystemPrompt,
+              embeddedAppCapabilityOptions.appendSystemPrompt
+            )
+          }
+          if (embeddedAppCapabilityOptions?.allowedTools?.length) {
+            queryOptions.allowedTools = [
+              ...(queryOptions.allowedTools || []),
+              ...embeddedAppCapabilityOptions.allowedTools
+            ]
+          }
+          if (embeddedAppCapabilityOptions?.disallowedTools?.length) {
+            queryOptions.disallowedTools = [
+              ...(queryOptions.disallowedTools || []),
+              ...embeddedAppCapabilityOptions.disallowedTools
+            ]
+          }
+        } catch (err) {
+          console.warn('[AgentSession] Failed to build embedded app capability query options:', err)
         }
-        if (hydrologyCapabilityOptions?.appendSystemPrompt) {
-          appendSystemPrompt = mergeSystemPrompts(
-            appendSystemPrompt,
-            hydrologyCapabilityOptions.appendSystemPrompt
-          )
+      }
+
+      if (isSessionAppCapabilityEnabled(sessionAppOptions?.allowedCapabilities, 'hydrology')) {
+        try {
+          const hydrologyCapabilityOptions = await buildHydrologyCapabilityQueryOptions({
+            stationService: this.stationService,
+            realtimeService: this.realtimeService,
+            realtimeDemoSeeder: this.realtimeDemoSeeder,
+            reviewTaskService: this.reviewTaskService,
+            qualityCheckService: this.qualityCheckService,
+            session
+          })
+          if (hydrologyCapabilityOptions?.mcpServers) {
+            queryOptions.mcpServers = {
+              ...(queryOptions.mcpServers || {}),
+              ...hydrologyCapabilityOptions.mcpServers
+            }
+          }
+          if (hydrologyCapabilityOptions?.appendSystemPrompt) {
+            appendSystemPrompt = mergeSystemPrompts(
+              appendSystemPrompt,
+              hydrologyCapabilityOptions.appendSystemPrompt
+            )
+          }
+          if (hydrologyCapabilityOptions?.allowedTools?.length) {
+            queryOptions.allowedTools = [
+              ...(queryOptions.allowedTools || []),
+              ...hydrologyCapabilityOptions.allowedTools
+            ]
+          }
+          if (hydrologyCapabilityOptions?.disallowedTools?.length) {
+            queryOptions.disallowedTools = [
+              ...(queryOptions.disallowedTools || []),
+              ...hydrologyCapabilityOptions.disallowedTools
+            ]
+          }
+        } catch (err) {
+          console.warn('[AgentSession] Failed to build hydrology capability query options:', err)
         }
-        if (hydrologyCapabilityOptions?.allowedTools?.length) {
-          queryOptions.allowedTools = [
-            ...(queryOptions.allowedTools || []),
-            ...hydrologyCapabilityOptions.allowedTools
-          ]
-        }
-        if (hydrologyCapabilityOptions?.disallowedTools?.length) {
-          queryOptions.disallowedTools = [
-            ...(queryOptions.disallowedTools || []),
-            ...hydrologyCapabilityOptions.disallowedTools
-          ]
-        }
-      } catch (err) {
-        console.warn('[AgentSession] Failed to build hydrology capability query options:', err)
       }
 
       if (appendSystemPrompt) {
         queryOptions.appendSystemPrompt = appendSystemPrompt
       }
+
+      if (sessionAppOptions?.defaultContext?.cwd && !queryOptions.cwd) {
+        queryOptions.cwd = sessionAppOptions.defaultContext.cwd
+      }
+
 
       // 前端明确指定模型时覆盖，否则 SDK 从 env.ANTHROPIC_MODEL 自动读取
       let resolvedRequest = null
@@ -2641,7 +2754,9 @@ class AgentSessionManager extends EventEmitter {
             modelId: normalizeModelIdOrNull(row.model_id),
             source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
             imChannel: row.im_channel || null,
-            taskId: row.task_id || null
+            taskId: row.task_id || null,
+            sessionAppId: row.session_app_id || null,
+            sessionAppInput: parseSessionAppPayload(row.session_app_input)
           })
         }
       } catch (err) {

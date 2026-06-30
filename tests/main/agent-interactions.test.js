@@ -151,6 +151,31 @@ describe('AgentSessionManager interactions', () => {
     )
   })
 
+  it('persists session app binding metadata when creating a session app conversation', () => {
+    const { manager } = createManager()
+
+    const created = manager.create({
+      type: 'chat',
+      title: 'Weekly App Session',
+      sessionAppBinding: {
+        sessionAppId: 'sap-weekly',
+        sessionAppInput: { range: 'this-week' }
+      }
+    })
+
+    expect(created).toEqual(expect.objectContaining({
+      sessionAppId: 'sap-weekly',
+      sessionAppInput: { range: 'this-week' }
+    }))
+
+    expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionAppId: 'sap-weekly',
+        sessionAppInput: { range: 'this-week' }
+      })
+    )
+  })
+
   it('normalizes legacy IM session inputs when creating a session', () => {
     const { manager } = createManager()
     const created = manager.create({ type: 'feishu', source: 'feishu', title: '旧飞书会话' })
@@ -1836,6 +1861,49 @@ describe('AgentSessionManager interactions', () => {
     expect(sessions.map(session => session.id)).toEqual(['db-row-101', 'db-row-1'])
   })
 
+  it('preserves persisted Session App metadata when listing historical conversations', () => {
+    const { manager } = createManager()
+    manager.sessionDatabase = {
+      listAllAgentConversations: vi.fn(() => ([
+        {
+          session_id: 'db-row-app-1',
+          type: 'chat',
+          status: 'closed',
+          sdk_session_id: null,
+          title: '周报助手',
+          cwd: '/tmp/weekly',
+          cwd_auto: 0,
+          message_count: 0,
+          total_cost_usd: 0,
+          api_profile_id: null,
+          api_base_url: null,
+          model_id: null,
+          source: 'manual',
+          task_id: null,
+          owner_client_id: 'host-ui',
+          client_type: 'host',
+          client_meta: null,
+          session_app_id: 'sap-weekly',
+          session_app_input: '{"range":"this-week"}',
+          created_at: 10,
+          updated_at: 20
+        }
+      ]))
+    }
+
+    const sessions = manager.list()
+
+    expect(sessions).toEqual([
+      expect.objectContaining({
+        id: 'db-row-app-1',
+        sessionAppId: 'sap-weekly',
+        sessionAppInput: {
+          range: 'this-week'
+        }
+      })
+    ])
+  })
+
   it('probeConnection labels API refusal clearly', async () => {
     const { manager } = createManager()
 
@@ -1972,6 +2040,78 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toContain('hydrology MCP server')
     expect(createQueryOptions.appendSystemPrompt).toContain('Use embeddedapp tools for current UI state')
     expect(createQueryOptions.appendSystemPrompt).toContain('Use hydrology tools for real business entities')
+  })
+
+  it('limits injected capability MCP servers by session app allowedCapabilities', async () => {
+    const { manager } = createManager()
+    const session = new AgentSession({
+      id: 'embedded-hydro-session-app-limited',
+      cwd: '/tmp',
+      apiProfileId: 'p1',
+      apiBaseUrl: 'https://example.com',
+      modelId: 'sonnet-4',
+      ownerClientId: 'embed:hydrology-workbench',
+      clientType: 'embedded',
+      clientMeta: {
+        appId: 'hydrology-workbench'
+      },
+      sessionAppId: 'sap-hydro-limited'
+    })
+    session.dbConversationId = 1
+    manager.sessions.set(session.id, session)
+    manager.sessionDatabase.getSessionApp = vi.fn(() => ({
+      appId: 'sap-hydro-limited',
+      allowedCapabilities: ['mcp:hydrology']
+    }))
+    manager.scheduledTaskService = {
+      listTasks: vi.fn(() => []),
+      getTaskRuns: vi.fn(() => []),
+      configManager: {
+        getConfig: () => ({
+          settings: {
+            locale: 'zh-CN'
+          }
+        })
+      }
+    }
+    manager.embeddedAppRuntimeManager = {
+      getContext: vi.fn(() => ({
+        title: '测试站 / 实时数据列表',
+        summary: '当前站点：测试站，当前功能：实时数据列表',
+        payload: {
+          station: { id: 'st-1', name: '测试站' },
+          function: { key: 'realtime', label: '实时数据列表' }
+        }
+      })),
+      executeCommand: vi.fn()
+    }
+
+    let createQueryOptions = null
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (_messageQueue, options) => {
+        createQueryOptions = options
+        return {
+          async *[Symbol.asyncIterator]() {},
+          close: vi.fn(async () => {})
+        }
+      }),
+      normalizeMessage: raw => raw
+    }
+
+    await manager.sendMessage(session.id, '检查当前站点的实时数据和审核任务')
+
+    expect(createQueryOptions).toBeTruthy()
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrology'])
+    expect(createQueryOptions.allowedTools).toEqual(expect.arrayContaining(HYDROLOGY_ALLOWED_TOOLS))
+    expect(createQueryOptions.allowedTools || []).not.toEqual(
+      expect.arrayContaining(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
+    )
+    expect(createQueryOptions.allowedTools || []).not.toEqual(
+      expect.arrayContaining(['mcp__embeddedapp__context_get'])
+    )
+    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).not.toContain('scheduled tasks')
   })
 
   it('injects scheduled-task MCP tools for task-linked sessions the same as normal sessions', async () => {

@@ -80,6 +80,10 @@
         <Icon name="clock" :size="13" />
       </div>
 
+      <div class="schedule-task-btn" :title="t('agent.sessionAppDraftTitle')" @click="emit('session-app')">
+        <Icon name="sessionApp" :size="13" />
+      </div>
+
       <div
         class="queue-toggle"
         :class="{ enabled: queueEnabled }"
@@ -512,6 +516,7 @@ const emit = defineEmits([
   'toggle-queue',
   'toggle-expanded',
   'schedule',
+  'session-app',
   'trigger-image-upload',
   'trigger-attachment-upload',
   'clear',

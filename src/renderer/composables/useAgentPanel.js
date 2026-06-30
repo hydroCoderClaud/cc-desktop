@@ -40,6 +40,10 @@ export function unmarkSessionClosed(sessionId) {
 }
 
 function isEmbeddedAppConversation(conv) {
+  if (conv?.sessionAppId) {
+    return false
+  }
+
   const ownerClientId = typeof conv?.ownerClientId === 'string' ? conv.ownerClientId : ''
   const clientType = typeof conv?.clientType === 'string' ? conv.clientType : ''
   const cwd = typeof conv?.cwd === 'string' ? conv.cwd.replace(/\\/g, '/') : ''
@@ -70,6 +74,13 @@ function matchesTaskFilter(conv, selectedTaskFilter) {
 
   const hasTask = Boolean(conv?.taskId)
   return selectedTaskFilter === 'with-task' ? hasTask : !hasTask
+}
+
+function matchesAppFilter(conv, selectedAppFilter) {
+  if (selectedAppFilter === 'all') return true
+  if (selectedAppFilter === 'session-app') return Boolean(conv?.sessionAppId)
+  if (selectedAppFilter === 'plain-session') return !conv?.sessionAppId
+  return conv?.sessionAppId === selectedAppFilter
 }
 
 function normalizeCwd(cwd) {
@@ -158,7 +169,9 @@ export function useAgentPanel() {
   const loading = ref(false)
   const selectedSource = ref('all')
   const selectedTaskFilter = ref('all')
+  const selectedAppFilter = ref('all')
   const recentCwds = ref(loadRecentCwds())
+  const sessionApps = ref([])
 
   /**
    * 加载对话列表（后端已合并活跃+历史）
@@ -168,13 +181,18 @@ export function useAgentPanel() {
 
     loading.value = true
     try {
-      const list = await window.electronAPI.listAgentSessions()
+      const [list, apps] = await Promise.all([
+        window.electronAPI.listAgentSessions(),
+        window.electronAPI.listSessionApps?.()
+      ])
       conversations.value = Array.isArray(list)
         ? list.filter(isListableConversation)
         : []
+      sessionApps.value = Array.isArray(apps) ? apps : []
     } catch (err) {
       console.error('[useAgentPanel] loadConversations error:', err)
       conversations.value = []
+      sessionApps.value = []
     } finally {
       loading.value = false
     }
@@ -293,6 +311,36 @@ export function useAgentPanel() {
     return sourceFilteredConversations.value.filter(conv => matchesTaskFilter(conv, selectedTaskFilter.value))
   })
 
+  const appFilterOptions = computed(() => {
+    const appMap = new Map()
+    for (const app of sessionApps.value) {
+      if (!app?.appId) continue
+      appMap.set(app.appId, {
+        id: app.appId,
+        name: app.name || app.appId
+      })
+    }
+    for (const conv of taskFilteredConversations.value) {
+      if (!conv?.sessionAppId) continue
+      if (!appMap.has(conv.sessionAppId)) {
+        appMap.set(conv.sessionAppId, {
+          id: conv.sessionAppId,
+          name: conv.sessionAppId
+        })
+      }
+    }
+
+    return [
+      { key: 'all', label: 'all' },
+      { key: 'session-app', label: 'session-app' },
+      { key: 'plain-session', label: 'plain-session' },
+      ...Array.from(appMap.values()).map(app => ({
+        key: app.id,
+        label: app.name
+      }))
+    ]
+  })
+
   /**
    * 从当前候选对话中提取最近目录，并与手动打开目录合并，最多展示 10 个
    */
@@ -327,6 +375,7 @@ export function useAgentPanel() {
    */
   const filteredConversations = computed(() => {
     return taskFilteredConversations.value.filter(conv => {
+      if (!matchesAppFilter(conv, selectedAppFilter.value)) return false
       return !selectedCwd.value || conv.cwd === selectedCwd.value
     })
   })
@@ -365,7 +414,9 @@ export function useAgentPanel() {
     selectedCwd,
     selectedSource,
     selectedTaskFilter,
+    selectedAppFilter,
     availableCwds,
+    appFilterOptions,
     selectCwd,
     groupedConversations,
     loadConversations,

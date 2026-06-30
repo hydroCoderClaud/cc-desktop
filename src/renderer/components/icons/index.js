@@ -214,7 +214,10 @@ export const iconPaths = {
   fitWindow: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M8 6H6v2M12 6h2v2M6 12v2h2M14 12v2h-2"/>',
   actualSize: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 6v8M13 6v8"/>',
   panelLeft: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M7 4v12"/>',
-  panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>'
+  panelRight: '<rect x="3" y="4" width="14" height="12" rx="1"/><path d="M13 4v12"/>',
+
+  // 会话应用
+  sessionApp: '<path d="M10 2.4 16.4 6v8L10 17.6 3.6 14V6L10 2.4Z"/><path d="M3.9 6.2 10 9.7l6.1-3.5"/><path d="M10 9.7v7"/>'
 }
 
 export const iconAssets = {

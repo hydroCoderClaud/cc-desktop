@@ -63,6 +63,24 @@
           <Icon :name="taskFilterIcon" :size="16" class="filter-trigger-icon" />
         </button>
       </n-dropdown>
+
+      <n-dropdown
+        trigger="click"
+        placement="bottom-start"
+        :options="appMenuOptions"
+        :render-label="renderAppMenuLabel"
+        @select="handleAppSelect"
+      >
+        <button
+          type="button"
+          class="filter-trigger-btn"
+          :class="{ active: selectedAppFilter !== 'all' }"
+          :title="appFilterTitle"
+          :aria-label="appFilterTitle"
+        >
+          <Icon :name="appFilterIcon" :size="16" class="filter-trigger-icon" />
+        </button>
+      </n-dropdown>
     </div>
 
     <!-- 对话列表 -->
@@ -103,6 +121,14 @@
               ref="renameInputRef"
             />
             <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+            <span
+              v-if="conv.sessionAppId"
+              class="session-app-badge"
+              :title="resolveSessionAppName(conv)"
+            >
+              <Icon name="sessionApp" :size="10" />
+              <span>{{ resolveSessionAppName(conv) }}</span>
+            </span>
             <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
               <span
                 v-if="profileName"
@@ -182,7 +208,9 @@ const {
   selectedCwd,
   selectedSource,
   selectedTaskFilter,
+  selectedAppFilter,
   availableCwds,
+  appFilterOptions,
   selectCwd,
   groupedConversations,
   loadConversations,
@@ -216,6 +244,12 @@ const taskIconMap = {
   all: 'clock',
   'with-task': 'history',
   'without-task': 'xCircle'
+}
+
+const appIconMap = {
+  all: 'sessionApp',
+  'session-app': 'sessionApp',
+  'plain-session': 'chat'
 }
 
 const resolveExternalSourceLabel = (type) => {
@@ -319,11 +353,34 @@ const taskMenuOptions = computed(() => ([
   { label: t('agent.taskFilterWithoutTask'), title: t('agent.taskFilterWithoutTask'), key: 'without-task', iconName: taskIconMap['without-task'] }
 ]))
 
+const resolveAppFilterLabel = (option) => {
+  if (!option) return ''
+  if (option.key === 'all') return t('agent.appFilterAll')
+  if (option.key === 'session-app') return t('agent.appFilterSessionApps')
+  if (option.key === 'plain-session') return t('agent.appFilterPlainSessions')
+  return option.label || option.key
+}
+
+const resolveSessionAppName = (conv) => {
+  if (!conv?.sessionAppId) return t('agent.sessionAppBadge')
+  const option = appFilterOptions.value.find(item => item.key === conv.sessionAppId)
+  return option?.label || t('agent.sessionAppBadge')
+}
+
+const appMenuOptions = computed(() => appFilterOptions.value.map(option => ({
+  label: resolveAppFilterLabel(option),
+  title: resolveAppFilterLabel(option),
+  key: option.key,
+  iconName: appIconMap[option.key] || 'robot'
+})))
+
 const renderCwdMenuLabel = (option) => createFilterOptionLabel(option, selectedCwd.value || 'all')
 
 const renderSourceMenuLabel = (option) => createFilterOptionLabel(option, selectedSource.value)
 
 const renderTaskMenuLabel = (option) => createFilterOptionLabel(option, selectedTaskFilter.value)
+
+const renderAppMenuLabel = (option) => createFilterOptionLabel(option, selectedAppFilter.value)
 
 const handleCwdSelect = async (key) => {
   if (key === 'open-directory') {
@@ -348,6 +405,10 @@ const handleTaskSelect = (key) => {
   selectedTaskFilter.value = key
 }
 
+const handleAppSelect = (key) => {
+  selectedAppFilter.value = key
+}
+
 const cwdFilterIcon = computed(() => (selectedCwd.value ? 'folderOpen' : 'folder'))
 
 const sourceFilterIcon = computed(() => {
@@ -358,11 +419,18 @@ const sourceFilterIcon = computed(() => {
 
 const taskFilterIcon = computed(() => taskIconMap[selectedTaskFilter.value] || taskIconMap.all)
 
+const appFilterIcon = computed(() => appIconMap[selectedAppFilter.value] || 'robot')
+
 const cwdFilterTitle = computed(() => `${t('agent.filterDirectory')}: ${selectedCwd.value ? getCwdDisplayName(selectedCwd.value) : t('agent.allDirectories')}`)
 
 const sourceFilterTitle = computed(() => `${t('agent.filterIm')}: ${selectedSource.value === 'all' ? t('agent.allSources') : selectedSource.value === 'no-im' ? t('agent.sourceNoIm') : resolveExternalSourceLabel(selectedSource.value)}`)
 
 const taskFilterTitle = computed(() => `${t('agent.filterTask')}: ${selectedTaskFilter.value === 'all' ? t('agent.taskFilterAll') : selectedTaskFilter.value === 'with-task' ? t('agent.taskFilterWithTask') : t('agent.taskFilterWithoutTask')}`)
+
+const appFilterTitle = computed(() => {
+  const option = appFilterOptions.value.find(item => item.key === selectedAppFilter.value) || appFilterOptions.value[0]
+  return `${t('agent.filterApp')}: ${resolveAppFilterLabel(option)}`
+})
 
 // 按时间分组的对话列表（消除模板重复）
 const conversationGroups = computed(() => {
@@ -847,6 +915,26 @@ defineExpose({
   color: var(--primary-color);
   font-size: 11px;
   line-height: 18px;
+}
+
+.session-app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 132px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary-ghost);
+  color: var(--primary-color);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.session-app-badge span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rename-input {

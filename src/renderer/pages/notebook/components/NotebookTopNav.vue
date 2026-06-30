@@ -297,6 +297,7 @@ const settingsOptions = computed(() => [
       icon: renderMenuIcon(app.icon || 'panelLeft')
     }))
   },
+  { label: t('settingsMenu.sessionApps'), key: 'session-apps', icon: renderMenuIcon('sessionApp') },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   { label: t('settingsMenu.appUpdate'), key: 'app-update', icon: renderMenuIcon('download') }
 ])
@@ -330,6 +331,13 @@ const handleSettingsSelect = (key) => {
       window.electronAPI.openSettingsWorkbench({
         mode: 'notebook',
         cwd: props.currentNotebook?.notebookPath || null
+      })
+      break
+    case 'session-apps':
+      window.electronAPI.openSettingsWorkbench({
+        mode: 'notebook',
+        cwd: props.currentNotebook?.notebookPath || null,
+        section: 'session-apps'
       })
       break
     case 'appearance-settings':

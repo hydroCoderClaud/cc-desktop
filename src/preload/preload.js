@@ -915,6 +915,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('session:fileChanged', listener);
     return () => ipcRenderer.removeListener('session:fileChanged', listener);
   },
+  onSessionAppOpenConversationRequested: (callback) => {
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('session-app:openConversationRequested', listener)
+    return () => ipcRenderer.removeListener('session-app:openConversationRequested', listener)
+  },
 
   // ========================================
   // Agent 会话管理
@@ -944,6 +949,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAgentConversation: (sessionId) => ipcRenderer.invoke('agent:deleteConversation', sessionId),
   compactAgentConversation: (sessionId) => ipcRenderer.invoke('agent:compact', sessionId),
   clearAndRecreateAgentSession: ({ sessionId, overrides }) => ipcRenderer.invoke('agent:clearAndRecreate', { sessionId, overrides }),
+  listSessionApps: () => ipcRenderer.invoke('session-app:list'),
+  getSessionApp: (appId) => ipcRenderer.invoke('session-app:get', appId),
+  createSessionApp: (input = {}) => ipcRenderer.invoke('session-app:create', input),
+  updateSessionApp: ({ appId, updates }) => ipcRenderer.invoke('session-app:update', { appId, updates }),
+  duplicateSessionApp: ({ appId, overrides }) => ipcRenderer.invoke('session-app:duplicate', { appId, overrides }),
+  deleteSessionApp: (appId) => ipcRenderer.invoke('session-app:delete', appId),
+  launchSessionApp: ({ appId, input, sessionOptions }) => ipcRenderer.invoke('session-app:launch', {
+    appId,
+    input,
+    sessionOptions
+  }),
+  openSessionAppConversation: (sessionId) => ipcRenderer.invoke('session-app:openConversation', sessionId),
 
   // 队列持久化
   saveAgentQueue: ({ sessionId, queue }) => ipcRenderer.invoke('agent:saveQueue', { sessionId, queue }),

@@ -90,6 +90,7 @@ import HooksTab from '@/pages/main/components/RightPanel/tabs/HooksTab.vue'
 import PluginsTab from '@/pages/main/components/RightPanel/tabs/PluginsTab.vue'
 import SettingsTab from '@/pages/main/components/RightPanel/tabs/SettingsTab.vue'
 import ScheduledTasksWorkbenchTab from './ScheduledTasksWorkbenchTab.vue'
+import SessionAppsWorkbenchTab from './SessionAppsWorkbenchTab.vue'
 import { getSessionImChannel } from '@shared/external-im-meta'
 
 const { cssVars } = useTheme()
@@ -152,7 +153,8 @@ const parseWindowContext = () => {
   const params = new URLSearchParams(window.location.search)
   return {
     mode: params.get('mode') || '',
-    cwd: normalizePath(params.get('cwd') || '')
+    cwd: normalizePath(params.get('cwd') || ''),
+    section: params.get('section') || ''
   }
 }
 
@@ -291,6 +293,7 @@ const tabs = computed(() => [
   { id: 'agents', icon: 'letterA', label: t('rightPanel.tabs.agents') },
   { id: 'hooks', icon: 'letterH', label: t('rightPanel.tabs.hooks') },
   { id: 'plugins', icon: 'plugin', label: t('rightPanel.tabs.plugins') },
+  { id: 'sessionApps', icon: 'sessionApp', label: t('rightPanel.tabs.sessionApps') },
   { id: 'scheduledTasks', icon: 'clock', label: t('rightPanel.tabs.scheduledTasks') },
   { id: 'settings', icon: 'wrench', label: t('rightPanel.tabs.settings') }
 ])
@@ -301,11 +304,16 @@ const tabComponents = {
   agents: markRaw(AgentsTab),
   hooks: markRaw(HooksTab),
   plugins: markRaw(PluginsTab),
+  sessionApps: markRaw(SessionAppsWorkbenchTab),
   scheduledTasks: markRaw(ScheduledTasksWorkbenchTab),
   settings: markRaw(SettingsTab)
 }
 
 const activeTab = ref('skills')
+
+const windowSectionToTab = {
+  'session-apps': 'sessionApps'
+}
 
 const currentTabComponent = computed(() => {
   return tabComponents[activeTab.value] || tabComponents.skills
@@ -536,6 +544,10 @@ onMounted(async () => {
     loadContextSources()
   ])
 
+  if (windowContext.section && windowSectionToTab[windowContext.section]) {
+    activeTab.value = windowSectionToTab[windowContext.section]
+  }
+
   if (windowContext.cwd) {
     const initialContext = resolveInitialContext()
     selectedSourceFilter.value = initialContext.filter
@@ -655,6 +667,10 @@ onMounted(async () => {
 
 .tab-btn.active .tab-icon {
   color: #fff;
+}
+
+.tab-btn.active :deep(.tab-icon.icon-image) {
+  filter: brightness(0) invert(1);
 }
 
 .panel-content {

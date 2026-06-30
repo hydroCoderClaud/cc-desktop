@@ -28,6 +28,7 @@
         @toggle-queue="$emit('update:queueEnabled', !queueEnabled)"
         @toggle-expanded="toggleExpanded"
         @schedule="handleSchedule"
+        @session-app="handleSessionApp"
         @trigger-image-upload="triggerImageUpload"
         @trigger-attachment-upload="triggerAttachmentUpload"
         @clear="handleClear"
@@ -247,7 +248,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'cancel', 'schedule', 'update:modelValue', 'api-profile-selected', 'update:queueEnabled', 'enqueue', 'input-change'])
+const emit = defineEmits(['send', 'cancel', 'schedule', 'session-app', 'update:modelValue', 'api-profile-selected', 'update:queueEnabled', 'enqueue', 'input-change'])
 
 const useCapability = (cap) => {
   if (props.isStreaming && !props.queueEnabled) return
@@ -670,6 +671,10 @@ const handleClear = () => {
 
 const handleSchedule = () => {
   emit('schedule', inputText.value.trim())
+}
+
+const handleSessionApp = () => {
+  emit('session-app', inputText.value.trim())
 }
 
 const handleSend = () => {

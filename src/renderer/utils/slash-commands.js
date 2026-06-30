@@ -134,6 +134,14 @@ export function shouldAutoSubmitSlashCommand(command) {
 export function buildBuiltinSlashCommands(t) {
   return normalizeSlashCommands([
     {
+      name: '/session-app',
+      icon: 'robot',
+      description: t('agent.cmdSessionApp'),
+      argumentHint: '[name or brief]',
+      source: 'local',
+      autoSubmit: false
+    },
+    {
       name: '/schedule',
       icon: 'clock',
       description: t('agent.cmdSchedule'),

@@ -116,6 +116,7 @@
               @preview-link="handlePreviewLink"
               @preview-path="handlePreviewPath"
               @agent-done="handleAgentDone"
+              @session-app-launched="handleSessionAppLaunched"
             />
           </div>
         </div>
@@ -740,6 +741,28 @@ const setupSessionListeners = () => {
       })
     )
   }
+
+  if (window.electronAPI.onSessionAppOpenConversationRequested) {
+    cleanupFns.push(
+      window.electronAPI.onSessionAppOpenConversationRequested(async (data) => {
+        const sessionId = typeof data?.sessionId === 'string' ? data.sessionId.trim() : ''
+        if (!sessionId) return
+
+        try {
+          await switchMode(AppMode.AGENT)
+          const session = await window.electronAPI.reopenAgentSession(sessionId)
+          if (session?.error) {
+            throw new Error(session.error)
+          }
+          if (!session?.id) return
+          handleAgentSelected(session)
+          await leftPanelRef.value?.reloadAgentConversations?.()
+        } catch (err) {
+          console.error('[MainContent] Failed to open requested Session App conversation:', err)
+        }
+      })
+    )
+  }
 }
 
 // ========================================
@@ -988,6 +1011,21 @@ const handleAgentCreated = (session) => {
   if (tab) {
     activeTabId.value = tab.id
   }
+}
+
+const handleSessionAppLaunched = async (session) => {
+  if (!session?.id) return
+
+  const tab = ensureAgentTab(session)
+  if (tab) {
+    activeTabId.value = tab.id
+  }
+
+  if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
+    leftPanelRef.value.activeAgentSessionId = session.id
+  }
+
+  await leftPanelRef.value?.reloadAgentConversations?.()
 }
 
 const handleAgentSelected = (conv) => {

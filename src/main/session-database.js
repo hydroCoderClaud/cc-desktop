@@ -28,7 +28,8 @@ const {
   withQueueOperations,
   withAgentOperations,
   withPromptMarketOperations,
-  withScheduledTaskOperations
+  withScheduledTaskOperations,
+  withSessionAppOperations
 } = require('./database')
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
@@ -216,7 +217,9 @@ class SessionDatabaseBase {
       { name: 'task_id', type: 'INTEGER' },
       { name: 'owner_client_id', type: "TEXT DEFAULT 'host-ui'" },
       { name: 'client_type', type: "TEXT DEFAULT 'host'" },
-      { name: 'client_meta', type: 'TEXT' }
+      { name: 'client_meta', type: 'TEXT' },
+      { name: 'session_app_id', type: 'TEXT' },
+      { name: 'session_app_input', type: 'TEXT' }
     ]
 
     for (const col of agentConvNewColumns) {
@@ -298,6 +301,8 @@ class SessionDatabaseBase {
             owner_client_id TEXT DEFAULT 'host-ui',
             client_type TEXT DEFAULT 'host',
             client_meta TEXT,
+            session_app_id TEXT,
+            session_app_input TEXT,
             created_at INTEGER,
             updated_at INTEGER
           )
@@ -307,13 +312,13 @@ class SessionDatabaseBase {
           INSERT INTO agent_conversations_new (
             id, session_id, type, status, sdk_session_id, title, cwd, cwd_auto, message_count, total_cost_usd,
             api_profile_id, api_base_url, model_id, last_bootstrapped_runtime, pending_runtime_change, queued_messages,
-            im_user_id, im_chat_id, im_channel, im_chat_type, source, task_id, owner_client_id, client_type, client_meta,
+            im_user_id, im_chat_id, im_channel, im_chat_type, source, task_id, owner_client_id, client_type, client_meta, session_app_id, session_app_input,
             created_at, updated_at
           )
           SELECT
             id, session_id, type, status, sdk_session_id, title, cwd, cwd_auto, message_count, total_cost_usd,
             api_profile_id, api_base_url, model_id, last_bootstrapped_runtime, pending_runtime_change, queued_messages,
-            im_user_id, im_chat_id, im_channel, im_chat_type, source, task_id, owner_client_id, client_type, client_meta,
+            im_user_id, im_chat_id, im_channel, im_chat_type, source, task_id, owner_client_id, client_type, client_meta, session_app_id, session_app_input,
             created_at, updated_at
           FROM agent_conversations
         `)
@@ -443,6 +448,103 @@ class SessionDatabaseBase {
       if (!scheduledTaskRunColumns.includes(col.name)) {
         console.log(`[SessionDB] Adding column: scheduled_task_runs.${col.name}`)
         this.db.exec(`ALTER TABLE scheduled_task_runs ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    const sessionAppsInfo = this.db.prepare("PRAGMA table_info(session_apps)").all()
+    const sessionAppsColumns = sessionAppsInfo.map(col => col.name)
+    const sessionAppsNewColumns = [
+      { name: 'system_prompt', type: "TEXT DEFAULT ''" },
+      { name: 'input_schema', type: "TEXT DEFAULT '[]'" },
+      { name: 'allowed_capabilities', type: "TEXT DEFAULT '[]'" },
+      { name: 'default_context', type: 'TEXT' },
+      { name: 'startup_message_template', type: "TEXT DEFAULT ''" },
+      { name: 'workflow_hints', type: "TEXT DEFAULT '[]'" },
+      { name: 'output_hints', type: "TEXT DEFAULT '[]'" }
+    ]
+
+    for (const col of sessionAppsNewColumns) {
+      if (!sessionAppsColumns.includes(col.name)) {
+        console.log(`[SessionDB] Adding column: session_apps.${col.name}`)
+        this.db.exec(`ALTER TABLE session_apps ADD COLUMN ${col.name} ${col.type}`)
+      }
+    }
+
+    const hasSessionAppVersions = this.db.prepare(`
+      SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'session_app_versions'
+    `).get()
+    const hasSessionAppDrafts = this.db.prepare(`
+      SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'session_app_drafts'
+    `).get()
+
+    const appsMissingDefinitionRows = this.db.prepare(`
+      SELECT app_id
+      FROM session_apps
+      WHERE COALESCE(system_prompt, '') = ''
+        AND COALESCE(startup_message_template, '') = ''
+        AND COALESCE(default_context, '') = ''
+        AND COALESCE(input_schema, '[]') = '[]'
+        AND COALESCE(allowed_capabilities, '[]') = '[]'
+        AND COALESCE(workflow_hints, '[]') = '[]'
+        AND COALESCE(output_hints, '[]') = '[]'
+    `).all()
+
+    if (appsMissingDefinitionRows.length > 0 && (hasSessionAppVersions || hasSessionAppDrafts)) {
+      const loadLatestVersion = hasSessionAppVersions
+        ? this.db.prepare(`
+          SELECT *
+          FROM session_app_versions
+          WHERE app_id = ?
+          ORDER BY version DESC, published_at DESC, created_at DESC
+          LIMIT 1
+        `)
+        : null
+      const loadLatestDraft = hasSessionAppDrafts
+        ? this.db.prepare(`
+          SELECT *
+          FROM session_app_drafts
+          WHERE app_id = ?
+          ORDER BY updated_at DESC, created_at DESC
+          LIMIT 1
+        `)
+        : null
+      const backfillSessionApp = this.db.prepare(`
+        UPDATE session_apps
+        SET
+          name = ?,
+          description = ?,
+          icon = ?,
+          system_prompt = ?,
+          input_schema = ?,
+          allowed_capabilities = ?,
+          default_context = ?,
+          startup_message_template = ?,
+          workflow_hints = ?,
+          output_hints = ?,
+          updated_at = ?
+        WHERE app_id = ?
+      `)
+
+      for (const row of appsMissingDefinitionRows) {
+        const versionRow = loadLatestVersion?.get(row.app_id) || null
+        const draftRow = loadLatestDraft?.get(row.app_id) || null
+        const sourceRow = versionRow || draftRow
+        if (!sourceRow) continue
+
+        backfillSessionApp.run(
+          sourceRow.name || 'Untitled Session App',
+          sourceRow.description || '',
+          sourceRow.icon || 'sessionApp',
+          sourceRow.system_prompt || '',
+          sourceRow.input_schema || '[]',
+          sourceRow.allowed_capabilities || '[]',
+          sourceRow.default_context || null,
+          sourceRow.startup_message_template || '',
+          sourceRow.workflow_hints || '[]',
+          sourceRow.output_hints || '[]',
+          Date.now(),
+          row.app_id
+        )
       }
     }
 
@@ -829,6 +931,73 @@ class SessionDatabaseBase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS session_apps (
+        app_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT 'sessionApp',
+        system_prompt TEXT DEFAULT '',
+        input_schema TEXT DEFAULT '[]',
+        allowed_capabilities TEXT DEFAULT '[]',
+        default_context TEXT,
+        startup_message_template TEXT DEFAULT '',
+        workflow_hints TEXT DEFAULT '[]',
+        output_hints TEXT DEFAULT '[]',
+        created_from_session_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS session_app_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT 'sessionApp',
+        system_prompt TEXT DEFAULT '',
+        input_schema TEXT DEFAULT '[]',
+        allowed_capabilities TEXT DEFAULT '[]',
+        default_context TEXT,
+        startup_message_template TEXT DEFAULT '',
+        workflow_hints TEXT DEFAULT '[]',
+        output_hints TEXT DEFAULT '[]',
+        history_policy TEXT,
+        source_draft_id TEXT,
+        published_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(app_id, version),
+        FOREIGN KEY (app_id) REFERENCES session_apps(app_id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS session_app_drafts (
+        draft_id TEXT PRIMARY KEY,
+        app_id TEXT,
+        source_session_id TEXT,
+        creation_mode TEXT NOT NULL DEFAULT 'manual',
+        status TEXT NOT NULL DEFAULT 'draft',
+        name TEXT NOT NULL DEFAULT '',
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT 'sessionApp',
+        system_prompt TEXT DEFAULT '',
+        input_schema TEXT DEFAULT '[]',
+        allowed_capabilities TEXT DEFAULT '[]',
+        default_context TEXT,
+        startup_message_template TEXT DEFAULT '',
+        workflow_hints TEXT DEFAULT '[]',
+        output_hints TEXT DEFAULT '[]',
+        history_policy TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (app_id) REFERENCES session_apps(app_id) ON DELETE CASCADE
+      )
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS agent_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         conversation_id INTEGER NOT NULL,
@@ -877,12 +1046,16 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_agent_conv_task_id ON agent_conversations(task_id);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_im_identity ON agent_conversations(im_channel, im_user_id, im_chat_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_im_user ON agent_conversations(im_channel, im_user_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_session_app_id ON agent_conversations(session_app_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_agent_msg_conv ON agent_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_agent_msg_timestamp ON agent_messages(timestamp);
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_enabled ON scheduled_tasks(enabled);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_state_next_run ON scheduled_task_state(next_run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task_id ON scheduled_task_runs(task_id);
       CREATE INDEX IF NOT EXISTS idx_im_known_chats_channel ON im_known_chats(im_channel);
+      CREATE INDEX IF NOT EXISTS idx_session_apps_updated ON session_apps(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_session_app_versions_app ON session_app_versions(app_id, version DESC);
+      CREATE INDEX IF NOT EXISTS idx_session_app_drafts_app ON session_app_drafts(app_id, updated_at DESC);
     `)
 
     console.log('[SessionDB] Indexes created')
@@ -929,15 +1102,17 @@ class SessionDatabaseBase {
 
 // 应用所有 mixin，构建完整的 SessionDatabase 类
 const SessionDatabase = withPromptMarketOperations(
-  withScheduledTaskOperations(
-    withAgentOperations(
-      withQueueOperations(
-        withPromptOperations(
-          withFavoriteOperations(
-            withTagOperations(
-              withMessageOperations(
-                withSessionOperations(
-                  withProjectOperations(SessionDatabaseBase)
+  withSessionAppOperations(
+    withScheduledTaskOperations(
+      withAgentOperations(
+        withQueueOperations(
+          withPromptOperations(
+            withFavoriteOperations(
+              withTagOperations(
+                withMessageOperations(
+                  withSessionOperations(
+                    withProjectOperations(SessionDatabaseBase)
+                  )
                 )
               )
             )
