@@ -151,6 +151,29 @@ describe('AgentSessionManager interactions', () => {
     )
   })
 
+  it('creates an explicit cwd before persisting and launching the session', () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-session-app-'))
+    const explicitCwd = path.join(tempRoot, 'sessionapp', 'conv-explicit')
+
+    expect(fs.existsSync(explicitCwd)).toBe(false)
+
+    const created = manager.create({
+      type: 'chat',
+      title: 'Explicit Cwd Session',
+      cwd: explicitCwd
+    })
+
+    expect(created.cwd).toBe(explicitCwd)
+    expect(fs.existsSync(explicitCwd)).toBe(true)
+    expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cwd: explicitCwd,
+        cwdAuto: false
+      })
+    )
+  })
+
   it('persists session app binding metadata when creating a session app conversation', () => {
     const { manager } = createManager()
 

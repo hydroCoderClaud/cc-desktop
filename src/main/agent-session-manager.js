@@ -916,8 +916,18 @@ class AgentSessionManager extends EventEmitter {
     })
 
     // 自动分配工作目录
+    // Ensure explicit cwd exists before launch.
+    // Session App startup can fail immediately if the CLI cwd is missing.
     if (!session.cwd) {
       session.cwd = this._assignCwd(session, options.cwdSubDir)
+    } else {
+      try {
+        if (!fs.existsSync(session.cwd)) {
+          fs.mkdirSync(session.cwd, { recursive: true })
+        }
+      } catch (err) {
+        throw new Error(`Failed to create working directory: ${session.cwd} (${err.message})`)
+      }
     }
 
     this.sessions.set(session.id, session)
