@@ -16,9 +16,29 @@ describe('agent sdk return rendering', () => {
     const source = fs.readFileSync(useAgentChatPath, 'utf-8')
 
     expect(source).toContain('currentTurnHasVisibleOutput')
+    expect(source).toContain('messagesLoaded')
+    expect(source).toContain('pendingResultFallback')
     expect(source).toContain('addSystemMessage')
+    expect(source).toContain('messageHasVisibleOutput')
+    expect(source).toContain('hasVisibleOutputAfterLatestUserMessage')
+    expect(source).toContain('syncCurrentTurnVisibilityFromHistory')
+    expect(source).toContain('addResultFallbackMessage')
+    expect(source).toContain('flushPendingResultFallback')
     expect(source).toContain("t('agent.commandCompleted'")
     expect(source).toContain('summarizeResultText(result?.result)')
+  })
+
+  it('defers result fallback until history is loaded to avoid duplicate system bubbles', () => {
+    const source = fs.readFileSync(useAgentChatPath, 'utf-8')
+
+    expect(source).toContain('messagesLoaded = true')
+    expect(source).toContain('flushPendingResultFallback()')
+    expect(source).toContain('if (messagesLoaded) {')
+    expect(source).toContain('addResultFallbackMessage(result, currentTurnSlashCommand)')
+    expect(source).toContain('pendingResultFallback = {')
+    expect(source).toContain('if (currentTurnHasVisibleOutput || hasVisibleOutputAfterLatestUserMessage()) {')
+    expect(source).toContain('if (message.role === MessageRole.ASSISTANT) {')
+    expect(source).toContain('syncCurrentTurnVisibilityFromHistory()')
   })
 
   it('listens to system status and passthrough sdk events', () => {

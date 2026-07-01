@@ -56,6 +56,8 @@ export function useAgentChat(sessionId, options = {}) {
   let currentTurnSlashCommand = ''
   let currentTurnHasVisibleOutput = false
   let lastSystemStatusFingerprint = ''
+  let messagesLoaded = false
+  let pendingResultFallback = null
 
   const modelOptions = ref([])
   let modelInitToken = 0
@@ -207,6 +209,41 @@ export function useAgentChat(sessionId, options = {}) {
     currentTurnHasVisibleOutput = true
   }
 
+  const messageHasVisibleOutput = (message) => {
+    if (!message || typeof message !== 'object') return false
+    if (message.role === MessageRole.ASSISTANT) {
+      return Boolean(summarizeResultText(message.content))
+    }
+    if (message.role === MessageRole.TOOL) {
+      return Boolean(message.toolName || message.output || message.inProgress || message.progressText)
+    }
+    if (message.role === MessageRole.SYSTEM) {
+      return Boolean(summarizeResultText(message.content))
+    }
+    return false
+  }
+
+  const hasVisibleOutputAfterLatestUserMessage = () => {
+    let hasUserMessage = false
+    for (let index = messages.value.length - 1; index >= 0; index -= 1) {
+      const message = messages.value[index]
+      if (message?.role === MessageRole.USER) {
+        hasUserMessage = true
+        break
+      }
+      if (messageHasVisibleOutput(message)) {
+        return true
+      }
+    }
+    return !hasUserMessage && messages.value.some(messageHasVisibleOutput)
+  }
+
+  const syncCurrentTurnVisibilityFromHistory = () => {
+    if (hasVisibleOutputAfterLatestUserMessage()) {
+      markCurrentTurnVisible()
+    }
+  }
+
   const stringifyDisplayValue = (value, preferredKeys = []) => {
     if (value == null) return ''
     if (typeof value === 'string') return value.trim()
@@ -327,7 +364,11 @@ export function useAgentChat(sessionId, options = {}) {
    * 加载历史消息
    */
   const loadMessages = async () => {
-    if (!agentApi?.getAgentMessages) return
+    if (!agentApi?.getAgentMessages) {
+      messagesLoaded = true
+      flushPendingResultFallback()
+      return
+    }
 
     try {
       const history = await agentApi.getAgentMessages(sessionId)
@@ -349,15 +390,20 @@ export function useAgentChat(sessionId, options = {}) {
           if (toInsert.length > 0) {
             messages.value = [...toInsert, ...messages.value]
             isRestored.value = !isStreaming.value
+            syncCurrentTurnVisibilityFromHistory()
           }
         } else {
           messages.value = history
           // 仍在 streaming 时不标记为历史会话
           isRestored.value = !isStreaming.value
+          syncCurrentTurnVisibilityFromHistory()
         }
       }
     } catch (err) {
       console.error('[useAgentChat] loadMessages error:', err)
+    } finally {
+      messagesLoaded = true
+      flushPendingResultFallback()
     }
   }
 
@@ -413,6 +459,28 @@ export function useAgentChat(sessionId, options = {}) {
       ...metadata
     })
     markCurrentTurnVisible()
+  }
+
+  const addResultFallbackMessage = (result, slashCommandName = '') => {
+    if (currentTurnHasVisibleOutput || hasVisibleOutputAfterLatestUserMessage()) {
+      return
+    }
+
+    const fallbackText = summarizeResultText(result?.result)
+    if (fallbackText) {
+      addSystemMessage(fallbackText, { systemKind: 'result' })
+    } else if (slashCommandName) {
+      addSystemMessage(t('agent.commandCompleted', { command: slashCommandName }), {
+        systemKind: 'result'
+      })
+    }
+  }
+
+  const flushPendingResultFallback = () => {
+    if (!pendingResultFallback) return
+    const pending = pendingResultFallback
+    pendingResultFallback = null
+    addResultFallbackMessage(pending.result, pending.slashCommandName)
   }
 
   /**
@@ -936,13 +1004,13 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     if (!currentTurnHasVisibleOutput) {
-      const fallbackText = summarizeResultText(result?.result)
-      if (fallbackText) {
-        addSystemMessage(fallbackText, { systemKind: 'result' })
-      } else if (currentTurnSlashCommand) {
-        addSystemMessage(t('agent.commandCompleted', { command: currentTurnSlashCommand }), {
-          systemKind: 'result'
-        })
+      if (messagesLoaded) {
+        addResultFallbackMessage(result, currentTurnSlashCommand)
+      } else {
+        pendingResultFallback = {
+          result,
+          slashCommandName: currentTurnSlashCommand
+        }
       }
     }
 
