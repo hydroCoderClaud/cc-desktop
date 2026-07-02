@@ -318,10 +318,16 @@ describe('desktop capability query options', () => {
       ...managerOverrides
     }
 
+    const boundSession = {
+      ...session,
+      sessionAppId: session?.sessionAppId ?? app.appId,
+      sessionAppInput: session?.sessionAppInput ?? null
+    }
+
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService: null,
       sessionAppManager,
-      session
+      session: boundSession
     })
 
     const tools = Object.fromEntries(
@@ -436,7 +442,8 @@ describe('desktop capability query options', () => {
         taskId: 77,
         ownerClientId: 'main-window',
         clientType: 'window',
-        clientMeta: { appId: 'chat' }
+        clientMeta: { appId: 'chat' },
+        sessionAppId: 'sap-current-chat'
       }
     })
 
@@ -455,6 +462,7 @@ describe('desktop capability query options', () => {
         ownerClientId: 'main-window',
         clientType: 'window',
         appId: 'chat',
+        sessionAppId: 'sap-current-chat',
         currentTaskSession: true,
         embeddedSession: false,
         boundTarget: null
@@ -829,6 +837,7 @@ describe('desktop capability query options', () => {
       'session_match_task',
       'session_app_list',
       'session_app_get',
+      'session_app_get_current',
       'session_app_create',
       'session_app_update',
       'session_app_launch'
@@ -839,11 +848,12 @@ describe('desktop capability query options', () => {
     ])
     expect(options.appendSystemPrompt).toContain('Session Apps')
     expect(options.appendSystemPrompt).toContain('session_app_create')
+    expect(options.appendSystemPrompt).toContain('session_app_get_current')
     expect(options.appendSystemPrompt).toContain('do not claim duplicate-name conflicts')
     expect(options.appendSystemPrompt).toContain('Do not infer same-name Session Apps from conversation memory')
   })
 
-  it('handles session app list and get responses through hydrodesktop MCP', async () => {
+  it('handles session app list/get/current responses through hydrodesktop MCP', async () => {
     const { tools, sessionAppManager } = await createOptionsWithSessionApps()
 
     const listPayload = parseToolPayload(await tools.session_app_list.handler())
@@ -865,6 +875,21 @@ describe('desktop capability query options', () => {
     const getPayload = parseToolPayload(await tools.session_app_get.handler({ appId: 'sap-weekly' }))
     expect(getPayload).toMatchObject({
       action: 'session_app_get',
+      app: {
+        appId: 'sap-weekly',
+        name: 'Weekly Assistant'
+      }
+    })
+    expect(sessionAppManager.getApp).toHaveBeenCalledWith('sap-weekly')
+
+    const currentPayload = parseToolPayload(await tools.session_app_get_current.handler())
+    expect(currentPayload).toMatchObject({
+      action: 'session_app_get_current',
+      session: {
+        sessionId: 'session-app-chat-1',
+        sessionAppId: 'sap-weekly',
+        sessionAppInput: null
+      },
       app: {
         appId: 'sap-weekly',
         name: 'Weekly Assistant'

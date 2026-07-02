@@ -83,6 +83,7 @@ const SESSION_ALLOWED_TOOLS = SESSION_TOOL_NAMES.map(
 const SESSION_APP_TOOL_NAMES = [
   'session_app_list',
   'session_app_get',
+  'session_app_get_current',
   'session_app_create',
   'session_app_update',
   'session_app_launch'
@@ -117,7 +118,7 @@ const IM_BUILTIN_SYSTEM_PROMPT = [
 
 const SESSION_SYSTEM_PROMPT = [
   'You can inspect the current Hydro Desktop session context through read-only session MCP tools.',
-  'Use session_get_current when the user asks which session this chat is, whether it is task-linked, or what IM target is currently bound.',
+  'Use session_get_current when the user asks which session this chat is, whether it is task-linked, what IM target is currently bound, or whether the current session is bound to a Session App.',
   'Use session_match_task when the user asks whether a scheduled task is bound to this current chat session.',
   'These session tools are read-only helpers for comparison and routing. Do not claim a task/session match without calling them when the answer depends on live session state.'
 ].join(' ')
@@ -127,6 +128,7 @@ const SESSION_APP_SYSTEM_PROMPT = [
   'When the user asks to create, inspect, update, or launch a Session App, use the session_app_* tools instead of redirecting the user to /session-app or the desktop workbench.',
   'Use session_app_list when the target app is unclear or the user asks what Session Apps already exist.',
   'Use session_app_get for one Session App details, including startup message, system prompt, and default working directory.',
+  'Use session_app_get_current when the user asks about the Session App bound to this current conversation, including requests to inspect, optimize, improve, or upgrade the current Session App.',
   'Use session_app_create to create a new Session App from natural language requirements.',
   'After session_app_create, do not claim duplicate-name conflicts, same-name counts, or "there are N apps with this name" unless you call session_app_list again and verify it from the live results.',
   'Do not infer same-name Session Apps from conversation memory, earlier turns, or deleted historical examples.',
@@ -543,6 +545,7 @@ function serializeCurrentSession(session = {}, {
     ownerClientId: session?.ownerClientId || null,
     clientType: session?.clientType || null,
     appId: session?.clientMeta?.appId || null,
+    sessionAppId: session?.sessionAppId || null,
     currentTaskSession: Boolean(session?.taskId),
     embeddedSession: session?.clientType === 'embedded',
     boundTarget
@@ -1800,6 +1803,34 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       SESSION_APP_TOOL_NAMES[2],
+      '查看当前聊天会话绑定的会话应用定义。仅当当前会话已绑定 Session App 时可用。',
+      {},
+      async () => {
+        const manager = requireSessionAppManager(sessionAppManager)
+        const currentSessionAppId = typeof session?.sessionAppId === 'string' ? session.sessionAppId.trim() : ''
+        if (!session?.id) {
+          throw new Error('Current session is not available')
+        }
+        if (!currentSessionAppId) {
+          throw new Error('Current session is not bound to a Session App')
+        }
+        const app = manager.getApp(currentSessionAppId)
+        if (!app) {
+          throw new Error('Current session Session App not found')
+        }
+        return buildToolResult({
+          action: 'session_app_get_current',
+          session: {
+            sessionId: session.id,
+            sessionAppId: currentSessionAppId,
+            sessionAppInput: session?.sessionAppInput || null
+          },
+          app: serializeSessionApp(app)
+        })
+      }
+    ),
+    tool(
+      SESSION_APP_TOOL_NAMES[3],
       '创建一个新的会话应用。',
       {
         name: z.string().min(1).describe('会话应用名称'),
@@ -1826,7 +1857,7 @@ async function buildDesktopCapabilityQueryOptions({
       }
     ),
     tool(
-      SESSION_APP_TOOL_NAMES[3],
+      SESSION_APP_TOOL_NAMES[4],
       '更新一个已有会话应用。需要提供 appId。',
       {
         appId: buildRequiredStringSchema(z, '会话应用 ID'),
@@ -1850,7 +1881,7 @@ async function buildDesktopCapabilityQueryOptions({
       }
     ),
     tool(
-      SESSION_APP_TOOL_NAMES[4],
+      SESSION_APP_TOOL_NAMES[5],
       '基于一个会话应用启动一个新的应用会话。需要提供 appId。',
       {
         appId: buildRequiredStringSchema(z, '会话应用 ID'),

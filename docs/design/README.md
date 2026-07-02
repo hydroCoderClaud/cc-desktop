@@ -12,6 +12,7 @@
 | [integrations.md](./integrations.md) | 钉钉、微信、MCP、Plugin、能力管理等系统集成 |
 | [built-in-mcp.md](./built-in-mcp.md) | 内置 MCP 能力现状 |
 | [session-app-current-design.md](./session-app-current-design.md) | 会话应用当前设计、真实行为与产品边界 |
+| [session-app-optimizer-design.md](./session-app-optimizer-design.md) | 会话应用优化提案与升级机制设计备忘 |
 | [session-app-hydrodesktop-mcp-plan.md](./session-app-hydrodesktop-mcp-plan.md) | 会话应用接入 hydrodesktop 内置 MCP 的计划 |
 | [session-management.md](./session-management.md) | 会话管理设计 |
 | [design-system.md](./design-system.md) | 设计系统 |
