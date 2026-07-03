@@ -83,7 +83,7 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 | **文档生成** | Word/PPT/PDF 模板生成、报告自动排版 | 高 |
 | **数据可视化** | CSV/Excel → 图表、数据分析报告 | 中 |
 
-**交付**：每个 Skill 编写完成后发布到 hydroSkills 市场仓库，CapabilityModal 自动可见。
+**交付**：每个 Skill 编写完成后发布到 hydroSkills 市场仓库，组件市场自动可见。
 
 ### 4. 插件市场精选
 

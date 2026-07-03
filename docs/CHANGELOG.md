@@ -2,6 +2,17 @@
 
 ---
 
+## v1.7.85 - 2026-07-03
+
+### 新增 (Feat)
+- **Skill 安装升级**：优先使用 `npx skills add` 整目录克隆，失败自动 fallback 到 HTTP 逐文件下载，多文件 skill（含子目录）可完整安装
+- **Windows npx 修复**：改用 `exec` 走 shell 解决 Electron 主进程 `spawn npx ENOENT` 问题，并通过 `buildBasicEnv` 补齐 PATH
+
+### 移除 (Remove)
+- **旧能力卡片链路**：移除 Agent 模式底部闪电按钮（`CapabilityModal`）及后端 `agent-capabilities.json` 拉取、SHA-256 缓存、更新红点检测链路；组件市场统一由左下角齿轮菜单 → 能力管理工作台进入
+
+---
+
 ## v1.7.84 - 2026-07-01
 
 ### 新增 (Feat)

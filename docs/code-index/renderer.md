@@ -54,7 +54,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
     │       ├── MessageBubble.vue (388行) — 消息气泡（Markdown/代码块）
     │       ├── ToolCallCard.vue (208行) — 工具调用卡片（可展开/预览）
     │       ├── StreamingIndicator.vue (131行) — 流式输出指示器
-    │       └── CapabilityModal.vue (513行) — 能力管理弹窗（MCP 启闭）
     ├── RightPanel/ (207行 index.vue) — Developer 模式右侧面板
     │   ├── TabBar.vue (127行) — 面板 Tab 栏
     │   ├── QuickCommands.vue (664行) — 快捷命令面板
@@ -166,13 +165,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 - Markdown 渲染（代码高亮、表格、链接）
 - 工具调用结果内联展示
 - 消息操作（复制、重试、删除）
-
-### CapabilityModal.vue (513行)
-
-- 按类型（skill/agent/plugin/mcp）分组展示
-- 安装/卸载操作（插件支持市场自动注册）
-- MCP 实时启闭（通过 `queryGenerator.toggleMcpServer`）
-- 搜索过滤、分类筛选
 
 ### ToolCallCard.vue (208行)
 

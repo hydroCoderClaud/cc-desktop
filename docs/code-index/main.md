@@ -129,10 +129,9 @@
 ## Managers
 
 ### capability-manager.js
-- **行数**：679
-- **职责**：Agent 能力管理（远程清单拉取、安装/卸载、启用/禁用、市场自动注册）
-- **关键方法**：`fetchCapabilities()`, `installCapability()`, `uninstallCapability()`, `enableCapability()`, `disableCapability()`, `checkComponentInstalled()`, `checkForCapabilityUpdates()`
-- **架构上下文**：-> [能力市场](../design/integrations.md#能力市场)
+- **职责**：组件安装检测、启用/禁用、市场安装编排（skill/agent/plugin/mcp/prompt）
+- **关键方法**：`installCapability()`, `uninstallCapability()`, `enableCapability()`, `disableCapability()`, `checkComponentInstalled()`, `checkComponentsBatch()`, `toggleComponentDisabled()`
+- **架构上下文**：-> [组件市场](../design/integrations.md#组件市场)
 
 ### dingtalk-bridge.js
 - **行数**：1159

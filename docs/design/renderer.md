@@ -161,7 +161,6 @@ const currentModeTabs = computed(() =>
 
 - **新建对话**：触发 `AgentNewConversationModal` (265 行)，支持选择项目目录、API Profile
 - **对话列表**：分"活跃/历史"两组，显示标题和时间，支持重命名/关闭/删除
-- **能力管理**：`CapabilityModal` (513 行) 按钮，管理 MCP 实时启闭
 
 由 `useAgentPanel` composable 管理对话列表状态，通过模块级 `closedSessionIds` Set 跟踪已关闭会话（防止队列误消费）。
 
@@ -501,7 +500,6 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。`ac
 | RightPanel Tab 内容 | `KeepAlive` + 动态组件 | 保持表单和滚动状态 |
 | AgentLeftContent | `v-show` | 避免模式切换时 remount |
 | Modal 弹窗 | `v-model:show` | Naive UI 自带过渡动画 |
-| CapabilityModal | `v-if="!isDeveloperMode"` | 仅 Agent 模式需要 |
 
 ### 图标系统
 
