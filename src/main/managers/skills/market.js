@@ -1,31 +1,117 @@
 /**
  * Skills Manager 市场功能
  * 提供从远端注册表浏览、安装和更新 Skills 的功能
+ *
+ * 安装策略：优先用 `npx skills add` 整目录克隆，失败时 fallback 逐文件 HTTP 下载。
+ * 版本管理（.market-meta.json）两种路径均会写入，保持 checkMarketUpdates 正常工作。
  */
 
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { exec } = require('child_process')
+const { promisify } = require('util')
+const { httpGet, httpGetWithMirror, fetchRegistryIndex, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 const { atomicWriteJson } = require('../../utils/path-utils')
+const { buildBasicEnv } = require('../../utils/env-builder')
 
 const MARKET_META_FILE = '.market-meta.json'
+const execAsync = promisify(exec)
+
+/**
+ * 从 raw 文件访问 URL 派生 git clone 地址
+ * 支持 Gitee 和 GitHub 两种格式。
+ * @param {string} registryUrl
+ * @returns {string|null} git clone URL，无法派生时返回 null
+ */
+function deriveGitCloneUrl(registryUrl) {
+  if (!registryUrl) return null
+  // Gitee: https://gitee.com/{user}/{repo}/raw/{branch}/...
+  const gitee = registryUrl.match(/^(https:\/\/gitee\.com\/[^/]+\/[^/]+)\/raw\//)
+  if (gitee) return gitee[1] + '.git'
+  // GitHub: https://raw.githubusercontent.com/{user}/{repo}/{branch}/...
+  const github = registryUrl.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\//)
+  if (github) return `https://github.com/${github[1]}.git`
+  return null
+}
 
 const skillsMarketMixin = {
   /**
    * 下载并安装单个市场 Skill
-   * @param {{ registryUrl: string, skill: Object }} params
+   * 优先用 `npx skills add` 整目录克隆；若无法派生 git URL 或克隆失败，
+   * 自动 fallback 到逐文件 HTTP 下载（保持与自定义 registry 的兼容性）。
+   * @param {{ registryUrl: string, skill: Object, mirrorUrl?: string }} params
    * @returns {{ success: boolean, skillId?: string, error?: string, conflict?: boolean }}
    */
   async installMarketSkill({ registryUrl, skill, mirrorUrl }) {
     if (!registryUrl || !skill || !skill.id) {
       return { success: false, error: '参数不完整' }
     }
-
     if (!isValidMarketId(skill.id)) {
       return { success: false, error: `非法的 Skill ID: "${skill.id}"` }
     }
 
+    // 冲突检测（两种路径均适用）
+    const targetDir = this._getSkillDir('user', skill.id)
+    if (fs.existsSync(targetDir)) {
+      return { success: false, error: `技能 "${skill.id}" 已存在`, conflict: true }
+    }
+
+    // 优先尝试 npx skills 路径
+    const gitUrl = deriveGitCloneUrl(registryUrl)
+    if (gitUrl) {
+      const npxResult = await this._installViaSkillsCli(gitUrl, skill)
+      if (npxResult.success) return npxResult
+      console.warn(`[SkillsManager] npx skills failed, falling back to HTTP: ${npxResult.error}`)
+    }
+
+    // Fallback：逐文件 HTTP 下载
+    return this._installViaHttp({ registryUrl, skill, mirrorUrl })
+  },
+
+  /**
+   * 通过 `npx skills add` 安装 Skill（整目录克隆）
+   * @param {string} gitUrl - git clone 地址
+   * @param {Object} skill  - skill 元数据（id, version）
+   * @returns {{ success: boolean, skillId?: string, error?: string }}
+   */
+  async _installViaSkillsCli(gitUrl, skill) {
+    try {
+      console.log(`[SkillsManager] Installing via npx skills: ${gitUrl} --skill ${skill.id}`)
+      const env = buildBasicEnv()
+      // 用 exec 走 shell，避免 Windows 上 execFile 不解析 .cmd 的问题
+      // gitUrl 和 skill.id 均来自注册表，已经过 isValidMarketId 校验，此处安全
+      const cmd = `npx skills add "${gitUrl}" --skill "${skill.id}" -g -a claude-code -y`
+      await execAsync(cmd, { timeout: 60000, env })
+
+      // 验证文件是否落地
+      const targetDir = this._getSkillDir('user', skill.id)
+      const validation = this.validateSkillDir(targetDir)
+      if (!validation.valid) {
+        return { success: false, error: `npx 安装后验证失败: ${validation.error}` }
+      }
+
+      // 写入版本元数据（保持 checkMarketUpdates 正常工作）
+      this._writeMarketMeta(skill.id, {
+        source: 'market',
+        registryUrl: gitUrl,
+        version: skill.version || '0.0.0',
+        installedAt: new Date().toISOString()
+      })
+
+      console.log(`[SkillsManager] Installed via npx skills: ${skill.id} v${skill.version}`)
+      return { success: true, skillId: skill.id }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  },
+
+  /**
+   * 通过逐文件 HTTP 下载安装 Skill（fallback 路径）
+   * @param {{ registryUrl: string, skill: Object, mirrorUrl?: string }} params
+   * @returns {{ success: boolean, skillId?: string, error?: string }}
+   */
+  async _installViaHttp({ registryUrl, skill, mirrorUrl }) {
     const baseUrl = registryUrl.replace(/\/+$/, '')
     const tempDir = path.join(os.tmpdir(), `skill-market-${Date.now()}`)
 
@@ -35,7 +121,7 @@ const skillsMarketMixin = {
       const skillTempDir = path.join(tempDir, skill.id)
       fs.mkdirSync(skillTempDir, { recursive: true })
 
-      // 2. 下载所有文件
+      // 2. 逐文件下载
       const files = skill.files || ['SKILL.md']
       for (const filename of files) {
         if (!isSafeFilename(filename)) {
@@ -48,7 +134,6 @@ const skillsMarketMixin = {
           : await httpGet(fileUrl)
 
         const filePath = path.join(skillTempDir, filename)
-        // 确保子目录存在
         fs.mkdirSync(path.dirname(filePath), { recursive: true })
         fs.writeFileSync(filePath, content, 'utf-8')
       }
@@ -59,17 +144,12 @@ const skillsMarketMixin = {
         return { success: false, error: `技能验证失败: ${validation.error}` }
       }
 
-      // 4. 冲突检测
+      // 4. 复制到目标目录
       const targetDir = this._getSkillDir('user', skill.id)
-      if (fs.existsSync(targetDir)) {
-        return { success: false, error: `技能 "${skill.id}" 已存在`, conflict: true }
-      }
-
-      // 5. 复制到目标目录
       fs.mkdirSync(path.dirname(targetDir), { recursive: true })
       this._copyDirRecursive(skillTempDir, targetDir)
 
-      // 6. 写入 .market-meta.json
+      // 5. 写入 .market-meta.json
       this._writeMarketMeta(skill.id, {
         source: 'market',
         registryUrl: baseUrl,
@@ -77,13 +157,12 @@ const skillsMarketMixin = {
         installedAt: new Date().toISOString()
       })
 
-      console.log(`[SkillsManager] Installed market skill: ${skill.id} v${skill.version}`)
+      console.log(`[SkillsManager] Installed via HTTP: ${skill.id} v${skill.version}`)
       return { success: true, skillId: skill.id }
     } catch (err) {
-      console.error('[SkillsManager] Install market skill failed:', err)
+      console.error('[SkillsManager] HTTP install failed:', err)
       return { success: false, error: err.message }
     } finally {
-      // 7. 清理临时目录
       try {
         if (fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true })

@@ -1,27 +1,17 @@
 /**
  * Capability Manager
- * 管理 Agent 模式的能力清单：从远程拉取、安装检测、启用/禁用
- *
- * v1.1: 一能力一组件模型 — 每个 capability 直接对应一个 skill/agent/plugin
+ * 管理组件安装检测、启用/禁用
  */
 
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const crypto = require('crypto')
-const { httpGet, httpGetWithMirror, fetchRegistryIndex, classifyHttpError } = require('../utils/http-client')
+const { fetchRegistryIndex } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 const { fetchMarketPromptContent } = require('../utils/prompt-utils')
 const { withPluginStateLock } = require('../plugin-runtime/core/state-lock')
 
 class CapabilityManager {
-  /**
-   * @param {Object} configManager - ConfigManager 实例
-   * @param {Object} pluginCli - 插件服务实例，兼容 `PluginService` 接口
-   * @param {Object} skillsManager - SkillsManager 实例
-   * @param {Object} agentsManager - AgentsManager 实例
-   * @param {Object} mcpManager - McpManager 实例
-   */
   constructor(configManager, pluginCli, skillsManager, agentsManager, mcpManager = null) {
     this.configManager = configManager
     this.pluginCli = pluginCli
@@ -29,9 +19,6 @@ class CapabilityManager {
     this.agentsManager = agentsManager
     this.mcpManager = mcpManager
     this.sessionDatabase = null
-    this._legacyCleaned = false
-    this._capabilityCachePath = null
-    this.hasCapabilityUpdate = false
 
     // 路径常量
     this.claudeDir = path.join(os.homedir(), '.claude')
@@ -55,206 +42,6 @@ class CapabilityManager {
     const result = {}
     for (const { type, id } of components) {
       result[id] = this.checkComponentInstalled(type, id)
-    }
-    return result
-  }
-
-  /**
-   * 从远程拉取能力清单，并检测每个组件的安装状态
-   * @param {string} [projectPath] - 项目路径（用于检测 MCP 的 disabled 状态）
-   * @returns {{ success: boolean, capabilities?: Array, error?: string }}
-   */
-  async fetchCapabilities(projectPath) {
-    const config = this.configManager.getConfig()
-    const registryUrl = config.market?.registryUrl
-    const mirrorUrl = config.market?.registryMirrorUrl
-
-    if (!registryUrl) {
-      return { success: false, error: '未配置市场源 URL' }
-    }
-
-    const baseUrl = registryUrl.replace(/\/+$/, '')
-    const url = baseUrl + '/agent-capabilities.json?t=' + Date.now()
-    console.log('[CapabilityManager] Fetching capabilities:', url)
-
-    try {
-      const body = mirrorUrl
-        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
-        : await httpGet(url)
-      const data = JSON.parse(body)
-
-      if (!data.capabilities || !Array.isArray(data.capabilities)) {
-        return { success: false, error: '能力清单格式无效：缺少 capabilities 数组' }
-      }
-
-      // v1.0 兼容：自动拍平旧格式
-      let rawCapabilities = data.capabilities
-      if (data.version !== '1.1') {
-        rawCapabilities = this._flattenV1Capabilities(data.capabilities)
-      }
-
-      // 检测每个组件的安装状态（一能力一组件）
-      const capabilities = rawCapabilities.map(cap => {
-        const status = this.checkComponentInstalled(cap.type, cap.componentId, projectPath)
-        return {
-          ...cap,
-          installed: status === 'installed' || status === 'disabled',
-          disabled: status === 'disabled'
-        }
-      })
-
-      // 清理 v1.0 遗留的 config.settings.agent.capabilities 数据
-      this._cleanupLegacyState()
-
-      // 更新本地缓存并清除更新标记
-      try {
-        const hash = this._computeHash(rawCapabilities)
-        this._writeCache(rawCapabilities, hash)
-        this.hasCapabilityUpdate = false
-      } catch (cacheErr) {
-        console.warn('[CapabilityManager] Failed to update cache:', cacheErr.message)
-      }
-
-      return { success: true, capabilities }
-    } catch (err) {
-      console.error('[CapabilityManager] Failed to fetch capabilities:', err.message)
-      return { success: false, error: classifyHttpError(err) }
-    }
-  }
-
-  // ========================================
-  // 能力清单缓存与更新检测
-  // ========================================
-
-  _getCachePath() {
-    if (!this._capabilityCachePath) {
-      const { app } = require('electron')
-      this._capabilityCachePath = path.join(app.getPath('userData'), 'capabilities-cache.json')
-    }
-    return this._capabilityCachePath
-  }
-
-  _computeHash(rawCapabilities) {
-    const normalized = rawCapabilities.map(cap => ({
-      id: cap.id,
-      name: cap.name,
-      type: cap.type,
-      componentId: cap.componentId,
-      category: cap.category,
-      description: cap.description,
-      icon: cap.icon,
-      marketplace: cap.marketplace
-    }))
-    normalized.sort((a, b) => (a.id || '').localeCompare(b.id || ''))
-    const json = JSON.stringify(normalized)
-    return crypto.createHash('sha256').update(json).digest('hex')
-  }
-
-  _readCache() {
-    try {
-      const cachePath = this._getCachePath()
-      if (!fs.existsSync(cachePath)) return null
-      const raw = fs.readFileSync(cachePath, 'utf-8')
-      return JSON.parse(raw)
-    } catch {
-      return null
-    }
-  }
-
-  _writeCache(rawCapabilities, hash) {
-    const cachePath = this._getCachePath()
-    atomicWriteJson(cachePath, {
-      hash,
-      capabilities: rawCapabilities,
-      updatedAt: new Date().toISOString()
-    })
-  }
-
-  async checkForCapabilityUpdates() {
-    const config = this.configManager.getConfig()
-    const registryUrl = config.market?.registryUrl
-    const mirrorUrl = config.market?.registryMirrorUrl
-    if (!registryUrl) return { hasUpdate: false }
-
-    const baseUrl = registryUrl.replace(/\/+$/, '')
-    const url = baseUrl + '/agent-capabilities.json?t=' + Date.now()
-
-    try {
-      const body = mirrorUrl
-        ? await httpGetWithMirror(url, baseUrl, mirrorUrl)
-        : await httpGet(url)
-      const data = JSON.parse(body)
-      if (!data.capabilities || !Array.isArray(data.capabilities)) return { hasUpdate: false }
-
-      let rawCapabilities = data.capabilities
-      if (data.version !== '1.1') {
-        rawCapabilities = this._flattenV1Capabilities(data.capabilities)
-      }
-
-      const remoteHash = this._computeHash(rawCapabilities)
-      const cache = this._readCache()
-      const localHash = cache?.hash
-
-      if (localHash !== remoteHash) {
-        this.hasCapabilityUpdate = true
-        console.log('[CapabilityManager] Capability update detected')
-        return { hasUpdate: true }
-      }
-
-      return { hasUpdate: false }
-    } catch (err) {
-      console.warn('[CapabilityManager] Update check failed:', err.message)
-      return { hasUpdate: false }
-    }
-  }
-
-  clearUpdateBadge() {
-    this.hasCapabilityUpdate = false
-  }
-
-  getUpdateStatus() {
-    return { hasUpdate: this.hasCapabilityUpdate }
-  }
-
-  /**
-   * 清理 v1.0 遗留的 config.settings.agent.capabilities 持久化状态
-   */
-  _cleanupLegacyState() {
-    if (this._legacyCleaned) return
-    try {
-      const config = this.configManager.getConfig()
-      if (config.settings?.agent?.capabilities && Object.keys(config.settings.agent.capabilities).length > 0) {
-        delete config.settings.agent.capabilities
-        this.configManager.save(config)
-        console.log('[CapabilityManager] Cleaned up legacy v1.0 capability state')
-      }
-      this._legacyCleaned = true
-    } catch (err) {
-      // 非关键操作，静默失败
-      console.warn('[CapabilityManager] _cleanupLegacyState error:', err.message)
-    }
-  }
-
-  /**
-   * v1.0 兼容：将旧的 components 数组拍平为独立条目
-   * @param {Array} capabilities - v1.0 格式的 capabilities
-   * @returns {Array} v1.1 格式的 capabilities
-   */
-  _flattenV1Capabilities(capabilities) {
-    const result = []
-    for (const cap of capabilities) {
-      if (!cap.components || !Array.isArray(cap.components)) continue
-      for (const comp of cap.components) {
-        result.push({
-          id: comp.id.replace(/@.*$/, ''),  // 去掉 marketplace 后缀作为 ID
-          name: comp.id,
-          description: cap.description || '',
-          icon: cap.icon || 'lightning',
-          type: comp.type,
-          componentId: comp.id,
-          category: cap.id
-        })
-      }
     }
     return result
   }

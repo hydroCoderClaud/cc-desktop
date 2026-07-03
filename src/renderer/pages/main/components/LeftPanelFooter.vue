@@ -19,15 +19,6 @@
           <Icon :name="isDark ? 'sun' : 'moon'" :size="18" />
         </button>
 
-        <button
-          v-if="isAgentMode"
-          class="capability-btn"
-          @click="$emit('open-capability')"
-          :title="t('agent.capabilities')"
-        >
-          <Icon name="lightning" :size="18" />
-          <span v-if="hasCapabilityUpdate" class="capability-update-badge"></span>
-        </button>
       </div>
     </div>
   </div>
@@ -54,10 +45,6 @@ defineProps({
     type: Boolean,
     default: false
   },
-  hasCapabilityUpdate: {
-    type: Boolean,
-    default: false
-  },
   isDark: {
     type: Boolean,
     default: false
@@ -68,7 +55,7 @@ defineProps({
   }
 })
 
-const emit = defineEmits(['settings-select', 'toggle-theme', 'open-capability'])
+const emit = defineEmits(['settings-select', 'toggle-theme'])
 
 const handleSettingsSelect = (key) => {
   emit('settings-select', key)
@@ -144,38 +131,5 @@ const handleSettingsSelect = (key) => {
   transform: none;
   border-color: var(--primary-color);
   background: var(--hover-bg);
-}
-
-.capability-btn {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 18px;
-  color: var(--primary-color);
-}
-
-.capability-btn:hover {
-  transform: none;
-  border-color: var(--primary-color);
-  background: var(--hover-bg);
-}
-
-.capability-update-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff4d4f;
-  border: 1.5px solid var(--bg-color);
 }
 </style>

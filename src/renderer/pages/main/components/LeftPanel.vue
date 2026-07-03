@@ -73,25 +73,15 @@
       @create="handleNewConvCreate"
     />
 
-    <!-- 能力管理 Modal（仅 Agent 模式） -->
-    <CapabilityModal
-      v-if="isAgentMode"
-      v-model:show="showCapabilityModal"
-      :project-path="agentCwd"
-      :session-id="agentSessionId"
-    />
-
     <LeftPanelFooter
       :t="t"
       :settings-options="settingsOptions"
       :render-settings-label="renderSettingsLabel"
       :has-update-available="hasUpdateAvailable"
-      :has-capability-update="hasCapabilityUpdate"
       :is-dark="isDark"
       :is-agent-mode="isAgentMode"
       @settings-select="handleSettingsSelect"
       @toggle-theme="$emit('toggle-theme')"
-      @open-capability="showCapabilityModal = true"
     />
   </div>
 </template>
@@ -110,7 +100,6 @@ import LeftPanelDeveloperPane from './LeftPanelDeveloperPane.vue'
 import LeftPanelFooter from './LeftPanelFooter.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
 import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
-import CapabilityModal from './agent/CapabilityModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -301,11 +290,8 @@ const isSyncing = ref(false)
 const agentLeftContentRef = ref(null)
 const activeAgentSessionId = ref(null)
 const showNewConvModal = ref(false)
-const showCapabilityModal = ref(false)
-
 // 更新红点状态
 const hasUpdateAvailable = ref(false)
-const hasCapabilityUpdate = ref(false)
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
@@ -798,20 +784,10 @@ watch(() => props.currentProject, async (newProject) => {
   }
 }, { immediate: true })
 
-// 打开 CapabilityModal 时清除能力更新红点
-watch(showCapabilityModal, (show) => {
-  if (show && hasCapabilityUpdate.value) {
-    hasCapabilityUpdate.value = false
-    window.electronAPI?.clearCapabilitiesUpdateBadge?.()
-  }
-})
-
-// Listen for session events
 let cleanupFn = null
 let fileWatcherCleanup = null
 let sessionUpdatedCleanup = null
 let updateAvailableCleanup = null
-let capUpdateCleanup = null
 
 onMounted(async () => {
   await loadConfig()
@@ -836,25 +812,6 @@ onMounted(async () => {
   if (window.electronAPI?.onUpdateAvailable) {
     updateAvailableCleanup = window.electronAPI.onUpdateAvailable(() => {
       hasUpdateAvailable.value = true
-    })
-  }
-
-  // 检查是否有能力清单更新
-  if (window.electronAPI?.getCapabilitiesUpdateStatus) {
-    try {
-      const status = await window.electronAPI.getCapabilitiesUpdateStatus()
-      if (status?.hasUpdate) {
-        hasCapabilityUpdate.value = true
-      }
-    } catch (err) {
-      console.error('[LeftPanel] Failed to get capabilities update status:', err)
-    }
-  }
-
-  // 监听能力清单更新事件
-  if (window.electronAPI?.onCapabilitiesUpdateAvailable) {
-    capUpdateCleanup = window.electronAPI.onCapabilitiesUpdateAvailable(() => {
-      hasCapabilityUpdate.value = true
     })
   }
 
@@ -895,7 +852,6 @@ onUnmounted(() => {
   if (fileWatcherCleanup) fileWatcherCleanup()
   if (sessionUpdatedCleanup) sessionUpdatedCleanup()
   if (updateAvailableCleanup) updateAvailableCleanup()
-  if (capUpdateCleanup) capUpdateCleanup()
   // Stop file watching when component unmounts
   if (window.electronAPI?.stopWatchingSessionFiles) {
     window.electronAPI.stopWatchingSessionFiles()

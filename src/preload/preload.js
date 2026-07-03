@@ -1015,22 +1015,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchAgentFiles: ({ sessionId, keyword, showHidden }) =>
     ipcRenderer.invoke('agent:searchFiles', { sessionId, keyword, showHidden }),
 
-  // 能力管理（Agent 模式）
-  fetchCapabilities: (projectPath) => ipcRenderer.invoke('capabilities:fetch', projectPath),
+  // 能力管理
   installCapability: (id, capability, options) => ipcRenderer.invoke('capabilities:install', id, capability, options),
   uninstallCapability: (id, capability) => ipcRenderer.invoke('capabilities:uninstall', id, capability),
   enableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:enable', id, capability, sessionId),
   disableCapability: (id, capability, sessionId) => ipcRenderer.invoke('capabilities:disable', id, capability, sessionId),
   toggleComponentDisabled: (type, id, disabled) => ipcRenderer.invoke('capabilities:toggleComponent', type, id, disabled),
   checkCapabilityInstalled: (type, id, projectPath) => ipcRenderer.invoke('capabilities:checkInstalled', type, id, projectPath),
-  getCapabilitiesUpdateStatus: () => ipcRenderer.invoke('capabilities:getUpdateStatus'),
-  clearCapabilitiesUpdateBadge: () => ipcRenderer.invoke('capabilities:clearUpdateBadge'),
   checkComponentsBatchStatus: (components) => ipcRenderer.invoke('capabilities:checkBatchStatus', components),
-  onCapabilitiesUpdateAvailable: (callback) => {
-    const listener = () => callback()
-    ipcRenderer.on('capabilities-update-available', listener)
-    return () => ipcRenderer.removeListener('capabilities-update-available', listener)
-  },
 
   // ========================================
   // 应用更新

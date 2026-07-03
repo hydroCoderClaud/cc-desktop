@@ -1,6 +1,6 @@
 /**
  * Capability Management IPC Handlers
- * 处理 Agent 模式能力管理相关的 IPC 通信
+ * 处理组件安装/卸载/启用/禁用相关的 IPC 通信
  */
 
 function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager) {
@@ -8,16 +8,6 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
     console.warn('[IPC] CapabilityManager not available, skipping capability handlers')
     return
   }
-
-  // 拉取远程能力清单（含组件安装状态检测）
-  ipcMain.handle('capabilities:fetch', async (event, projectPath) => {
-    try {
-      return await capabilityManager.fetchCapabilities(projectPath)
-    } catch (err) {
-      console.error('[IPC] capabilities:fetch error:', err)
-      return { success: false, error: err.message }
-    }
-  })
 
   // 安装能力（从 registry 下载组件）
   ipcMain.handle('capabilities:install', async (event, _id, capability, options) => {
@@ -82,17 +72,6 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
       console.error('[IPC] capabilities:toggleComponent error:', err)
       return { success: false, error: err.message }
     }
-  })
-
-  // 获取能力清单更新状态
-  ipcMain.handle('capabilities:getUpdateStatus', () => {
-    return capabilityManager.getUpdateStatus()
-  })
-
-  // 清除更新徽章
-  ipcMain.handle('capabilities:clearUpdateBadge', () => {
-    capabilityManager.clearUpdateBadge()
-    return { cleared: true }
   })
 
   ipcMain.handle('capabilities:checkInstalled', async (_e, type, id, projectPath) => {
