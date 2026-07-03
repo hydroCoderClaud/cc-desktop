@@ -46,36 +46,6 @@
         </div>
       </Transition>
 
-      <div class="cap-quick-access">
-        <div
-          class="cap-trigger"
-          :class="{ active: showCapDropdown }"
-          :title="t('agent.capabilityManagement')"
-          @click="toggleCapDropdown"
-        >
-          <Icon name="zap" :size="13" class="cap-zap-icon" />
-        </div>
-        <Transition name="dropdown">
-          <div v-if="showCapDropdown" class="cap-dropdown">
-            <div v-if="capLoading" class="cap-loading">{{ t('common.loading') }}...</div>
-            <template v-else>
-              <div
-                v-for="cap in capList"
-                :key="cap.id"
-                class="cap-item"
-                @click="emit('use-capability', cap)"
-              >
-                <span class="cap-type-dot" :class="'dot-' + cap.type"></span>
-                <span class="cap-type-label" :class="'label-' + cap.type">{{ cap.type === 'agent' ? t('agent.capTypeAgent') : t('agent.capTypeSkill') }}</span>
-                <span class="cap-item-name">{{ cap.name }}</span>
-                <span class="cap-item-desc">{{ cap.description }}</span>
-              </div>
-              <div v-if="capList.length === 0" class="cap-empty">{{ t('agent.noCapabilities') }}</div>
-            </template>
-          </div>
-        </Transition>
-      </div>
-
       <div class="schedule-task-btn" :title="t('agent.scheduleDraftTitle')" @click="emit('schedule')">
         <Icon name="clock" :size="13" />
       </div>
@@ -519,8 +489,7 @@ const emit = defineEmits([
   'session-app',
   'trigger-image-upload',
   'trigger-attachment-upload',
-  'clear',
-  'use-capability'
+  'clear'
 ])
 
 const { t } = useLocale()
@@ -529,9 +498,6 @@ const message = useMessage()
 const toolbarRootRef = ref(null)
 const showDropdown = ref(false)
 const showApiDropdown = ref(false)
-const showCapDropdown = ref(false)
-const capList = ref([])
-const capLoading = ref(false)
 
 const showDingTalkDropdown = ref(false)
 const dingtalkTargets = ref([])
@@ -1130,7 +1096,6 @@ const toggleDingTalkDropdown = () => {
   showDingTalkDropdown.value = !showDingTalkDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
-  showCapDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
   showEnterpriseWeixinDropdown.value = false
@@ -1148,7 +1113,6 @@ const toggleWeixinDropdown = () => {
   showWeixinDropdown.value = !showWeixinDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
-  showCapDropdown.value = false
   showDingTalkDropdown.value = false
   showFeishuDropdown.value = false
   showEnterpriseWeixinDropdown.value = false
@@ -1166,7 +1130,6 @@ const toggleFeishuDropdown = () => {
   showFeishuDropdown.value = !showFeishuDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
-  showCapDropdown.value = false
   showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showEnterpriseWeixinDropdown.value = false
@@ -1184,7 +1147,6 @@ const toggleEnterpriseWeixinDropdown = () => {
   showEnterpriseWeixinDropdown.value = !showEnterpriseWeixinDropdown.value
   showDropdown.value = false
   showApiDropdown.value = false
-  showCapDropdown.value = false
   showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
@@ -1573,7 +1535,6 @@ const toggleApiDropdown = () => {
   if (!props.showApiProfileSwitcher || props.apiProfileDisabled) return
   showApiDropdown.value = !showApiDropdown.value
   showDropdown.value = false
-  showCapDropdown.value = false
   showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
@@ -1583,93 +1544,16 @@ const toggleApiDropdown = () => {
 const toggleModelDropdown = () => {
   showDropdown.value = !showDropdown.value
   showApiDropdown.value = false
-  showCapDropdown.value = false
   showDingTalkDropdown.value = false
   showWeixinDropdown.value = false
   showFeishuDropdown.value = false
   showEnterpriseWeixinDropdown.value = false
-}
-
-const loadCapabilities = async () => {
-  if (!window.electronAPI?.fetchCapabilities) return
-  capLoading.value = true
-  try {
-    const result = await window.electronAPI.fetchCapabilities()
-    if (!result.success) return
-
-    const items = []
-    const pluginsToExpand = []
-
-    for (const cap of result.capabilities) {
-      if (!cap.installed || cap.disabled) continue
-
-      if (cap.type === 'skill' || cap.type === 'agent') {
-        items.push({
-          id: cap.componentId || cap.id,
-          name: cap.name,
-          description: cap.description || '',
-          type: cap.type
-        })
-      } else if (cap.type === 'plugin') {
-        pluginsToExpand.push(cap)
-      }
-    }
-
-    if (pluginsToExpand.length > 0 && window.electronAPI.getPluginDetails) {
-      const details = await Promise.all(
-        pluginsToExpand.map(cap =>
-          window.electronAPI.getPluginDetails(cap.componentId).catch(() => null)
-        )
-      )
-      for (let index = 0; index < details.length; index += 1) {
-        const detail = details[index]
-        if (!detail?.components) continue
-        const pluginShort = pluginsToExpand[index].componentId.split('@')[0]
-        for (const skill of (detail.components.skills || [])) {
-          items.push({
-            id: `${pluginShort}:${skill.id}`,
-            name: skill.name || skill.id,
-            description: skill.description || '',
-            type: 'skill'
-          })
-        }
-        for (const agent of (detail.components.agents || [])) {
-          items.push({
-            id: `${pluginShort}:${agent.name}`,
-            name: agent.name,
-            description: agent.description || '',
-            type: 'agent'
-          })
-        }
-      }
-    }
-
-    capList.value = items
-  } catch (err) {
-    console.error('[ChatInputToolbar] loadCapabilities error:', err)
-  } finally {
-    capLoading.value = false
-  }
-}
-
-const toggleCapDropdown = () => {
-  showCapDropdown.value = !showCapDropdown.value
-  showDropdown.value = false
-  showApiDropdown.value = false
-  showDingTalkDropdown.value = false
-  showWeixinDropdown.value = false
-  showFeishuDropdown.value = false
-  showEnterpriseWeixinDropdown.value = false
-  if (showCapDropdown.value) {
-    loadCapabilities()
-  }
 }
 
 const handleDocumentClick = (event) => {
   if (!toolbarRootRef.value?.contains(event.target)) {
     showDropdown.value = false
     showApiDropdown.value = false
-    showCapDropdown.value = false
     showDingTalkDropdown.value = false
     showWeixinDropdown.value = false
     showFeishuDropdown.value = false
@@ -1715,7 +1599,6 @@ onUnmounted(() => {
 
 .model-selector,
 .api-profile-selector,
-.cap-trigger,
 .schedule-task-btn,
 .queue-toggle,
 .image-upload-btn,
@@ -1756,7 +1639,6 @@ onUnmounted(() => {
 
 .model-selector:hover,
 .api-profile-selector:hover,
-.cap-trigger:hover,
 .schedule-task-btn:hover,
 .queue-toggle:hover,
 .image-upload-btn:hover,
@@ -1765,7 +1647,6 @@ onUnmounted(() => {
 .expand-input-btn:hover,
 .dingtalk-btn:hover,
 .weixin-btn:hover,
-.cap-trigger.active,
 .queue-toggle.enabled,
 .dingtalk-btn.sending,
 .weixin-btn.sending,
@@ -1797,15 +1678,12 @@ onUnmounted(() => {
 .api-profile-label,
 .active-model,
 .token-count,
-.option-name,
-.cap-item-name,
-.cap-item-desc {
+.option-name {
   white-space: nowrap;
 }
 
 .model-dropdown,
-.api-profile-dropdown,
-.cap-dropdown {
+.api-profile-dropdown {
   position: absolute;
   top: auto;
   bottom: calc(100% + 8px);
@@ -1830,15 +1708,8 @@ onUnmounted(() => {
   overflow: auto;
 }
 
-.cap-dropdown {
-  min-width: 260px;
-  max-height: 280px;
-  overflow: auto;
-}
-
 .model-option,
-.api-profile-option,
-.cap-item {
+.api-profile-option {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1858,60 +1729,11 @@ onUnmounted(() => {
 .model-option:hover,
 .model-option.active,
 .api-profile-option:hover,
-.api-profile-option.active,
-.cap-item:hover {
+.api-profile-option.active {
   background: var(--hover-bg);
 }
 
 .api-profile-empty {
-  padding: 10px;
-  color: var(--text-color-3);
-  font-size: 12px;
-}
-
-.cap-item {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 8px;
-}
-
-.cap-type-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  grid-row: 1 / span 2;
-}
-
-.dot-skill {
-  background: #0ea5e9;
-}
-
-.dot-agent {
-  background: #10b981;
-}
-
-.cap-type-label {
-  font-size: 11px;
-  color: var(--text-color-3);
-}
-
-.cap-item-name {
-  font-size: 13px;
-  color: var(--text-color);
-}
-
-.cap-item-desc {
-  grid-column: 3;
-  font-size: 12px;
-  color: var(--text-color-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cap-loading,
-.cap-empty {
   padding: 10px;
   color: var(--text-color-3);
   font-size: 12px;

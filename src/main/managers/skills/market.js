@@ -9,14 +9,60 @@
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
-const { exec } = require('child_process')
-const { promisify } = require('util')
+const { spawn } = require('child_process')
 const { httpGet, httpGetWithMirror, fetchRegistryIndex, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 const { atomicWriteJson } = require('../../utils/path-utils')
 const { buildBasicEnv } = require('../../utils/env-builder')
 
 const MARKET_META_FILE = '.market-meta.json'
-const execAsync = promisify(exec)
+const NPX_TIMEOUT_MS = 60000
+
+function runNpxSkillsAdd(args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+    const child = spawn(executable, args, {
+      env: options.env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill()
+      reject(new Error(`npx skills add timed out after ${NPX_TIMEOUT_MS}ms`))
+    }, NPX_TIMEOUT_MS)
+
+    child.stdout?.on('data', chunk => {
+      stdout += chunk.toString()
+    })
+    child.stderr?.on('data', chunk => {
+      stderr += chunk.toString()
+    })
+
+    child.on('error', err => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(err)
+    })
+
+    child.on('close', code => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (code === 0) {
+        resolve({ stdout, stderr })
+      } else {
+        reject(new Error((stderr || stdout || `npx skills add exited with code ${code}`).trim()))
+      }
+    })
+  })
+}
 
 /**
  * 从 raw 文件访问 URL 派生 git clone 地址
@@ -62,6 +108,9 @@ const skillsMarketMixin = {
     if (gitUrl) {
       const npxResult = await this._installViaSkillsCli(gitUrl, skill)
       if (npxResult.success) return npxResult
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true })
+      }
       console.warn(`[SkillsManager] npx skills failed, falling back to HTTP: ${npxResult.error}`)
     }
 
@@ -79,10 +128,7 @@ const skillsMarketMixin = {
     try {
       console.log(`[SkillsManager] Installing via npx skills: ${gitUrl} --skill ${skill.id}`)
       const env = buildBasicEnv()
-      // 用 exec 走 shell，避免 Windows 上 execFile 不解析 .cmd 的问题
-      // gitUrl 和 skill.id 均来自注册表，已经过 isValidMarketId 校验，此处安全
-      const cmd = `npx skills add "${gitUrl}" --skill "${skill.id}" -g -a claude-code -y`
-      await execAsync(cmd, { timeout: 60000, env })
+      await runNpxSkillsAdd(['-y', 'skills', 'add', gitUrl, '--skill', skill.id, '-g', '-a', 'claude-code'], { env })
 
       // 验证文件是否落地
       const targetDir = this._getSkillDir('user', skill.id)

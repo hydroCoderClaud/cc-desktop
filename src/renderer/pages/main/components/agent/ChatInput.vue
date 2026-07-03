@@ -32,7 +32,6 @@
         @trigger-image-upload="triggerImageUpload"
         @trigger-attachment-upload="triggerAttachmentUpload"
         @clear="handleClear"
-        @use-capability="useCapability"
       />
     </div>
     <input
@@ -249,19 +248,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['send', 'cancel', 'schedule', 'session-app', 'update:modelValue', 'api-profile-selected', 'update:queueEnabled', 'enqueue', 'input-change'])
-
-const useCapability = (cap) => {
-  if (props.isStreaming && !props.queueEnabled) return
-  const prefix = cap.type === 'agent' ? '@' : '/'
-  const text = `${prefix}${cap.id}`
-  if (props.isStreaming) {
-    if (messageQueue.value.length >= MAX_QUEUE_SIZE) return
-    messageQueue.value.push({ id: ++queueIdCounter, text })
-    emit('enqueue', text)
-  } else {
-    emit('send', text)
-  }
-}
 
 // ============================
 // Slash 命令面板
