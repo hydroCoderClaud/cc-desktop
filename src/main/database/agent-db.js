@@ -215,6 +215,24 @@ function withAgentOperations(BaseClass) {
     }
 
     /**
+     * 历史数据迁移：修正 notebook 会话的 type（从 'chat' 纠正为 'notebook'）
+     * 针对 AgentType.NOTEBOOK 常量缺失导致的历史错误数据
+     * @param {string[]} sessionIds - notebook 会话的 session_id 列表
+     * @returns {number} 修正的记录数
+     */
+    fixNotebookSessionTypes(sessionIds) {
+      if (!sessionIds || sessionIds.length === 0) return 0
+      const placeholders = sessionIds.map(() => '?').join(', ')
+      const result = this.db.prepare(`
+        UPDATE agent_conversations
+        SET type = 'notebook', updated_at = ?
+        WHERE session_id IN (${placeholders})
+          AND type = 'chat'
+      `).run(Date.now(), ...sessionIds)
+      return result.changes
+    }
+
+    /**
      * 保存队列消息（持久化）
      * @param {string} sessionId - 会话 ID
      * @param {Array} queue - 队列消息数组 [{ id, text }, ...]

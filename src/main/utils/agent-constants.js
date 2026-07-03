@@ -18,7 +18,8 @@ const AgentStatus = {
 const AgentType = {
   CHAT: 'chat',               // 通用对话
   SPECIALIZED: 'specialized', // 专用 Agent
-  LIGHTAPP: 'lightapp'        // 轻应用 Agent
+  LIGHTAPP: 'lightapp',       // 轻应用 Agent
+  NOTEBOOK: 'notebook'        // Notebook 模式会话（与 Agent 模式隔离）
 }
 
 /**

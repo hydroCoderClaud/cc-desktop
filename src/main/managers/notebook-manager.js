@@ -42,6 +42,44 @@ class NotebookManager {
   /** 延迟注入 SessionDatabase（在 setupIPCHandlers 中调用） */
   setSessionDatabase(db) {
     this.sessionDatabase = db
+    this._migrateNotebookSessionTypes()
+  }
+
+  /**
+   * 历史数据迁移：修正因 AgentType.NOTEBOOK 常量缺失导致的错误 type
+   * 遍历 notebook registry，将所有关联的 agent_conversations 记录的 type 从 'chat' 改为 'notebook'
+   */
+  _migrateNotebookSessionTypes() {
+    if (!this.sessionDatabase || typeof this.sessionDatabase.fixNotebookSessionTypes !== 'function') return
+
+    try {
+      const registry = this._getRegistry()
+      const notebookSessionIds = []
+
+      for (const entry of registry) {
+        try {
+          const notebookPath = this._resolveNotebookPath(null, entry)
+          const metaFile = path.join(notebookPath, 'notebook.json')
+          if (fs.existsSync(metaFile)) {
+            const meta = this._readJson(metaFile)
+            if (meta.sessionId) {
+              notebookSessionIds.push(meta.sessionId)
+            }
+          }
+        } catch {
+          // 目录缺失或 JSON 损坏时跳过
+        }
+      }
+
+      if (notebookSessionIds.length > 0) {
+        const fixed = this.sessionDatabase.fixNotebookSessionTypes(notebookSessionIds)
+        if (fixed > 0) {
+          console.log(`[NotebookManager] Migrated ${fixed} notebook session types (chat → notebook)`)
+        }
+      }
+    } catch (err) {
+      console.warn('[NotebookManager] Notebook session type migration failed:', err.message)
+    }
   }
 
   /** 延迟注入 CapabilityManager（在 setupIPCHandlers 中调用） */
