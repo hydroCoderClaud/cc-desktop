@@ -93,8 +93,8 @@
       :placeholder="queueEnabled ? t('agent.inputPlaceholder') : t('agent.inputPlaceholderDisabled')"
       :context-tokens="contextTokens"
       :slash-commands="slashCommands"
-      :slash-commands-supported="!isExternalObserveSession"
-      :enable-slash-commands="!isExternalObserveSession && hasActiveSession"
+      :slash-commands-supported="true"
+      :enable-slash-commands="hasActiveSession"
       :model-options="modelOptions"
       :api-profile-id="resolvedApiProfileId"
       :api-profiles="apiProfiles"
@@ -243,7 +243,6 @@ const {
   initDefaultModel,
   cleanup
 } = useAgentChat(props.sessionId, {
-  enableSlashCommands: !isExternalImChannel(props.sessionImChannel),
   sessionCwd: props.sessionCwd,
   apiProfileId: props.apiProfileId,
   agentApi: props.agentApi,

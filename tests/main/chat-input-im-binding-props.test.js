@@ -39,6 +39,14 @@ describe('chat input IM binding props', () => {
     expect(toolbarSource).toContain('return !resolvedImBindingSource.value || resolvedImBindingSource.value === \'feishu\'')
   })
 
+  it('keeps desktop slash commands enabled for IM-bound sessions', () => {
+    const agentChatTabSource = fs.readFileSync(agentChatTabPath, 'utf-8')
+
+    expect(agentChatTabSource).toContain(':slash-commands-supported="true"')
+    expect(agentChatTabSource).toContain(':enable-slash-commands="hasActiveSession"')
+    expect(agentChatTabSource).not.toContain('enableSlashCommands: !isExternalImChannel(props.sessionImChannel)')
+  })
+
   it('preserves IM channel when opening persisted agent sessions as tabs', () => {
     const tabManagementSource = fs.readFileSync(tabManagementPath, 'utf-8')
 
