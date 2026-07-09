@@ -190,7 +190,7 @@ const loadInstalledAgents = async () => {
 
 const loadInstalledMcps = async () => {
   try {
-    // 获取 user scope 中已安装的 MCP（从 ~/.claude.json 读取）
+    // 获取 user scope 中已安装的 MCP（从隔离 Claude profile JSON 读取）
     const allMcp = await window.electronAPI.listMcpAll()
     const map = new Map()
     // 将 user scope 中的 MCP name 标记为已安装

@@ -171,7 +171,8 @@ class PluginCli {
   async _exec(args) {
     // 构建基础环境变量（增强 PATH，不包含 API 配置）
     const { buildBasicEnv } = require('../utils/env-builder')
-    const env = buildBasicEnv({})
+    const { buildClaudeConfigEnv } = require('../utils/claude-config-paths')
+    const env = buildBasicEnv(buildClaudeConfigEnv())
 
     // 注入系统代理，让 claude CLI 子进程也能走代理
     if (!env.HTTPS_PROXY && !env.https_proxy) {

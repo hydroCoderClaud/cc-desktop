@@ -5,11 +5,17 @@
 
 const fs = require('fs')
 const path = require('path')
-const os = require('os')
 const { fetchRegistryIndex } = require('../utils/http-client')
 const { atomicWriteJson } = require('../utils/path-utils')
 const { fetchMarketPromptContent } = require('../utils/prompt-utils')
 const { withPluginStateLock } = require('../plugin-runtime/core/state-lock')
+const {
+  getClaudeAgentsDir,
+  getClaudeConfigDir,
+  getClaudePluginsDir,
+  getClaudeSettingsPath,
+  getClaudeSkillsDir
+} = require('../utils/claude-config-paths')
 
 class CapabilityManager {
   constructor(configManager, pluginCli, skillsManager, agentsManager, mcpManager = null) {
@@ -19,14 +25,30 @@ class CapabilityManager {
     this.agentsManager = agentsManager
     this.mcpManager = mcpManager
     this.sessionDatabase = null
+  }
 
-    // 路径常量
-    this.claudeDir = path.join(os.homedir(), '.claude')
-    this.skillsDir = path.join(this.claudeDir, 'skills')
-    this.agentsDir = path.join(this.claudeDir, 'agents')
-    this.pluginsDir = path.join(this.claudeDir, 'plugins')
-    this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
-    this.settingsPath = path.join(this.claudeDir, 'settings.json')
+  get claudeDir() {
+    return getClaudeConfigDir(this.configManager)
+  }
+
+  get skillsDir() {
+    return getClaudeSkillsDir(this.configManager)
+  }
+
+  get agentsDir() {
+    return getClaudeAgentsDir(this.configManager)
+  }
+
+  get pluginsDir() {
+    return getClaudePluginsDir(this.configManager)
+  }
+
+  get installedPluginsPath() {
+    return path.join(this.pluginsDir, 'installed_plugins.json')
+  }
+
+  get settingsPath() {
+    return getClaudeSettingsPath(this.configManager)
   }
 
   setSessionDatabase(db) {
@@ -167,6 +189,7 @@ class CapabilityManager {
         settings.enabledPlugins = {}
       }
       settings.enabledPlugins[pluginId] = enabled
+      fs.mkdirSync(path.dirname(this.settingsPath), { recursive: true })
       atomicWriteJson(this.settingsPath, settings)
       console.log(`[CapabilityManager] Set plugin ${pluginId} enabled: ${enabled}`)
     })

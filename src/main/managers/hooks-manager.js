@@ -3,7 +3,7 @@
  *
  * 调用方式: 自动执行 (事件触发: PreToolUse, PostToolUse, Stop, Notification 等)
  * 全局来源:
- *   - ~/.claude/settings.json 的 hooks 字段
+ *   - 隔离 Claude 配置目录 settings.json 的 hooks 字段
  *   - 插件 hooks/hooks.json
  * 项目级别: .claude/settings.local.json 的 hooks 字段
  *

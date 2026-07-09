@@ -1,7 +1,7 @@
 /**
  * Settings Manager - Claude Code 基本设置管理
  *
- * 管理 ~/.claude/settings.json 中的 permissions 和 env 字段
+ * 管理隔离 Claude 配置目录 settings.json 中的 permissions 和 env 字段
  * 以及项目级 .claude/settings.local.json 中对应的字段
  *
  * 注意: hooks 由 HooksManager 管理，enabledPlugins 由 PluginManager 管理

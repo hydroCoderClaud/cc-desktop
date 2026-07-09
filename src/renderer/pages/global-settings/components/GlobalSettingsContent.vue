@@ -127,6 +127,19 @@
           </div>
           <template #feedback>{{ t('globalSettings.outputBaseDirHint') }}</template>
         </n-form-item>
+
+        <n-form-item :label="t('globalSettings.claudeConfigDir')">
+          <div style="display: flex; gap: 8px; width: 100%">
+            <n-input
+              v-model:value="formData.claudeConfigDir"
+              :placeholder="defaultClaudeConfigDir"
+              clearable
+              style="flex: 1"
+            />
+            <n-button @click="handleSelectClaudeConfigDir">{{ t('common.browse') }}</n-button>
+          </div>
+          <template #feedback>{{ t('globalSettings.claudeConfigDirHint') }}</template>
+        </n-form-item>
       </div>
     </n-card>
 
@@ -162,7 +175,8 @@ const DEFAULTS = {
   messageQueue: true,
   enableDeveloperMode: true,
   developerClaudeSource: 'bundled',
-  outputBaseDir: ''              // 空字符串 = 使用默认 ~/cc-desktop-agent-output
+  outputBaseDir: '',             // 空字符串 = 使用默认 ~/cc-desktop-agent-output
+  claudeConfigDir: ''
 }
 
 const formData = ref({
@@ -174,7 +188,8 @@ const formData = ref({
   messageQueue: DEFAULTS.messageQueue,
   enableDeveloperMode: DEFAULTS.enableDeveloperMode,
   developerClaudeSource: DEFAULTS.developerClaudeSource,
-  outputBaseDir: DEFAULTS.outputBaseDir
+  outputBaseDir: DEFAULTS.outputBaseDir,
+  claudeConfigDir: DEFAULTS.claudeConfigDir
 })
 
 onMounted(async () => {
@@ -212,6 +227,7 @@ const loadSettings = async () => {
     formData.value.enableDeveloperMode = config?.settings?.enableDeveloperMode !== false
     formData.value.developerClaudeSource = config?.settings?.developerClaudeSource || DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
+    formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || defaultClaudeConfigDir.value
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -224,6 +240,11 @@ const defaultOutputBaseDir = computed(() => {
   return `${home}/cc-desktop-agent-output`
 })
 
+const defaultClaudeConfigDir = computed(() => {
+  const home = window.electronAPI?.getHomedir?.() || '~'
+  return `${home}/.hydrocoder/agent`
+})
+
 const developerClaudeSourceOptions = computed(() => [
   { label: t('globalSettings.developerClaudeSourceBundled'), value: 'bundled' },
   { label: t('globalSettings.developerClaudeSourceSystem'), value: 'system' }
@@ -233,6 +254,11 @@ const developerClaudeSourceOptions = computed(() => [
 const handleSelectOutputDir = async () => {
   const dir = await window.electronAPI?.selectDirectory({ title: t('globalSettings.outputBaseDir') })
   if (dir) formData.value.outputBaseDir = dir
+}
+
+const handleSelectClaudeConfigDir = async () => {
+  const dir = await window.electronAPI?.selectDirectory({ title: t('globalSettings.claudeConfigDir') })
+  if (dir) formData.value.claudeConfigDir = dir
 }
 
 const persistMessageQueueSetting = async (enabled) => {
@@ -285,13 +311,14 @@ const handleSave = async () => {
 
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
 
-    // 保存 outputBaseDir
+    // 保存 Agent 路径配置
     const config = await invoke('getConfig')
     if (config?.settings?.agent !== undefined) {
       // 若填的就是默认路径，存空字符串（等价于使用默认值）
       const outputDir = formData.value.outputBaseDir === defaultOutputBaseDir.value
         ? '' : (formData.value.outputBaseDir || '')
       config.settings.agent.outputBaseDir = outputDir
+      config.settings.agent.claudeConfigDir = formData.value.claudeConfigDir || defaultClaudeConfigDir.value
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 
@@ -315,6 +342,7 @@ const handleReset = async () => {
     formData.value.enableDeveloperMode = DEFAULTS.enableDeveloperMode
     formData.value.developerClaudeSource = DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = defaultOutputBaseDir.value
+    formData.value.claudeConfigDir = defaultClaudeConfigDir.value
 
     // Save to backend
     await invoke('updateTimeout', {
@@ -333,10 +361,11 @@ const handleReset = async () => {
       developerClaudeSource: DEFAULTS.developerClaudeSource
     })
 
-    // 重置 outputBaseDir
+    // 重置 Agent 路径配置
     const config = await invoke('getConfig')
     if (config?.settings?.agent !== undefined) {
       config.settings.agent.outputBaseDir = ''
+      config.settings.agent.claudeConfigDir = defaultClaudeConfigDir.value
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 

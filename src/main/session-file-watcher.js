@@ -1,6 +1,6 @@
 /**
  * Session File Watcher
- * 监控 ~/.claude/projects/{encodedPath}/ 目录的文件变化
+ * 监控隔离 Claude 配置目录下 projects/{encodedPath}/ 的文件变化
  * 当检测到新的 .jsonl 会话文件时：
  * 1. 解析文件获取 session uuid
  * 2. 关联到数据库中的待定会话
@@ -9,9 +9,9 @@
 
 const fs = require('fs')
 const path = require('path')
-const os = require('os')
 const readline = require('readline')
 const { encodePath } = require('./utils/path-utils')
+const { getClaudeProjectsDir } = require('./utils/claude-config-paths')
 
 class SessionFileWatcher {
   constructor(mainWindow, options = {}) {
@@ -41,7 +41,7 @@ class SessionFileWatcher {
    * 获取项目对应的 Claude 会话目录
    */
   getSessionDir(projectPath) {
-    const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects')
+    const claudeProjectsDir = getClaudeProjectsDir()
     const encoded = encodePath(projectPath)
     return path.join(claudeProjectsDir, encoded)
   }

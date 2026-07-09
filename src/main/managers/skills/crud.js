@@ -36,7 +36,7 @@ const skillsCrudMixin = {
   },
 
   /**
-   * 获取自定义全局 Skills (来自 ~/.claude/skills/ 目录，可编辑)
+   * 获取自定义全局 Skills (来自隔离 Claude 配置目录 skills/，可编辑)
    */
   async getUserSkills() {
     const skills = this.scanSkillDirectories(this.userSkillsDir)

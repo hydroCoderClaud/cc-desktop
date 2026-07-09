@@ -1,22 +1,32 @@
 /**
  * Session History Service
  *
- * Reads Claude Code session data from ~/.claude/ directory
+ * Reads Claude Code session data from the isolated Claude config directory.
  * Provides read-only access to conversation history
  */
 
 const fs = require('fs').promises
 const path = require('path')
-const os = require('os')
 const readline = require('readline')
 const { createReadStream, existsSync } = require('fs')
 const { encodePath, decodePath, smartDecodePath } = require('./utils/path-utils')
+const {
+  getClaudeConfigDir,
+  getClaudeHistoryPath,
+  getClaudeProjectsDir
+} = require('./utils/claude-config-paths')
 
 class SessionHistoryService {
-  constructor() {
-    this.claudeDir = path.join(os.homedir(), '.claude')
-    this.projectsDir = path.join(this.claudeDir, 'projects')
-    this.historyFile = path.join(this.claudeDir, 'history.jsonl')
+  get claudeDir() {
+    return getClaudeConfigDir()
+  }
+
+  get projectsDir() {
+    return getClaudeProjectsDir()
+  }
+
+  get historyFile() {
+    return getClaudeHistoryPath()
   }
 
   /**

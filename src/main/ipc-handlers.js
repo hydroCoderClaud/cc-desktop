@@ -6,6 +6,10 @@
 const { app, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const {
+  getClaudeProjectsDir,
+  getClaudeSettingsPath
+} = require('./utils/claude-config-paths');
 
 // 安全加载模块，捕获错误
 function safeRequire(modulePath, moduleName) {
@@ -159,7 +163,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     ? new RealtimeDemoSeeder(realtimeService)
     : null
 
-  // 初始化文件读取服务（实时读取 ~/.claude 目录）
+  // 初始化文件读取服务（实时读取隔离 Claude 配置目录）
   const sessionHistoryService = new SessionHistoryService();
 
   // 初始化会话文件监听器
@@ -779,9 +783,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 获取 Claude 配置文件路径
   ipcMain.handle('claude:getSettingsPath', async () => {
-    const homedir = require('os').homedir();
-    const settingsPath = require('path').join(homedir, '.claude', 'settings.json');
-    return settingsPath;
+    return getClaudeSettingsPath(configManager);
   });
 
   // 获取项目 Claude 配置文件路径（settings.local.json），不存在则创建
@@ -908,10 +910,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     // 删除文件
     if (sessionUuid && projectPath) {
       const path = require('path');
-      const os = require('os');
       const { encodePath } = require('./utils/path-utils');
 
-      const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+      const claudeProjectsDir = getClaudeProjectsDir(configManager);
       const encodedPath = encodePath(projectPath);
       const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionUuid}.jsonl`);
 
@@ -931,10 +932,9 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   registerHandler('session:deleteFile', async ({ projectPath, sessionId }) => {
     const fs = require('fs');
     const path = require('path');
-    const os = require('os');
     const { encodePath } = require('./utils/path-utils');
 
-    const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+    const claudeProjectsDir = getClaudeProjectsDir(configManager);
     const encodedPath = encodePath(projectPath);
     const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionId}.jsonl`);
 

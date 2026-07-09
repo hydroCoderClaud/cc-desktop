@@ -12,7 +12,7 @@ const agentsCrudMixin = {
   // ========== 获取 Agents ==========
 
   /**
-   * 获取用户全局 Agents (来自 ~/.claude/agents/，可编辑)
+   * 获取用户全局 Agents (来自隔离 Claude 配置目录 agents/，可编辑)
    */
   async getUserAgents() {
     const agents = this.scanMarkdownFiles(this.userAgentsDir)

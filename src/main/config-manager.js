@@ -6,7 +6,6 @@
 const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { TIMEOUTS } = require('./utils/constants');
 const { providerConfigMixin, getDefaultProviders } = require('./config/provider-config');
@@ -16,6 +15,11 @@ const {
   normalizeDeveloperClaudeSource,
   resolveClaudeCodeExecutablePath
 } = require('./utils/claude-executable-path');
+const {
+  DEFAULT_CLAUDE_CONFIG_DIR,
+  buildClaudeConfigEnv,
+  getClaudeProxySupportDir
+} = require('./utils/claude-config-paths');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
 const MARKET_REGISTRY_GITEE = 'https://gitee.com/reistlin/hydroskills/raw/main';
@@ -151,6 +155,7 @@ class ConfigManager {
         // Agent 模式配置
         agent: {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
+          claudeConfigDir: DEFAULT_CLAUDE_CONFIG_DIR, // Claude Code 配置目录，默认 ~/.hydrocoder/agent/
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
           defaultAgentType: 'chat',    // 默认 Agent 类型
           messageQueue: true           // 消息队列：流式输出期间允许排队发送
@@ -285,6 +290,17 @@ class ConfigManager {
         if (migratedConfig.settings?.aiAssistant !== undefined) {
           delete migratedConfig.settings.aiAssistant;
           console.log('[ConfigManager] Removed legacy aiAssistant settings');
+          needsSave = true;
+        }
+
+        const originalClaudeConfigDir = config.settings?.agent?.claudeConfigDir;
+        const migratedClaudeConfigDir = migratedConfig.settings?.agent?.claudeConfigDir;
+        if (
+          originalClaudeConfigDir === undefined ||
+          (typeof migratedClaudeConfigDir === 'string' && migratedClaudeConfigDir.trim() === '')
+        ) {
+          migratedConfig.settings.agent.claudeConfigDir = DEFAULT_CLAUDE_CONFIG_DIR;
+          console.log('[ConfigManager] Added missing Claude config dir setting');
           needsSave = true;
         }
 
@@ -876,7 +892,10 @@ class ConfigManager {
     const ClaudeCodeRunner = require('./runners/claude-code-runner')
 
     const claudeEnv = buildClaudeEnvVars(apiConfig, this)
-    const env = buildBasicEnv(claudeEnv)
+    const env = buildBasicEnv({
+      ...buildClaudeConfigEnv(this),
+      ...claudeEnv
+    })
 
     const runner = new ClaudeCodeRunner()
 
@@ -1207,7 +1226,7 @@ class ConfigManager {
     const config = this.getConfig();
     const proxy = config.mcp?.proxy || { enabled: false, url: '' };
     // 检测 proxy-support 环境是否已就绪
-    const proxySupportDir = path.join(os.homedir(), '.claude', 'proxy-support');
+    const proxySupportDir = getClaudeProxySupportDir(this);
     proxy.proxySupportReady = fs.existsSync(path.join(proxySupportDir, 'node_modules', 'undici'));
     proxy.proxySupportPath = proxySupportDir;
     return proxy;
@@ -1245,7 +1264,7 @@ class ConfigManager {
    * 确保代理支持环境就绪（从 app 资源复制 undici + 生成 preload 脚本）
    */
   async ensureProxySupport(proxyUrl) {
-    const proxySupportDir = path.join(os.homedir(), '.claude', 'proxy-support');
+    const proxySupportDir = getClaudeProxySupportDir(this);
     const scriptPath = path.join(proxySupportDir, 'proxy-setup.cjs');
     const undiciDir = path.join(proxySupportDir, 'node_modules', 'undici');
 

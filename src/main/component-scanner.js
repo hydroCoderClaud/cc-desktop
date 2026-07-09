@@ -5,16 +5,29 @@
 
 const fs = require('fs')
 const path = require('path')
-const os = require('os')
 const yaml = require('js-yaml')
 const { getPrimaryInstallation } = require('./plugin-runtime/core/installed-registry')
+const {
+  getClaudeConfigDir,
+  getClaudePluginsDir,
+  getClaudeSettingsPath
+} = require('./utils/claude-config-paths')
 
 class ComponentScanner {
-  constructor() {
-    this.claudeDir = path.join(os.homedir(), '.claude')
-    this.pluginsDir = path.join(this.claudeDir, 'plugins')
-    this.installedPluginsPath = path.join(this.pluginsDir, 'installed_plugins.json')
-    this.settingsPath = path.join(this.claudeDir, 'settings.json')
+  get claudeDir() {
+    return getClaudeConfigDir()
+  }
+
+  get pluginsDir() {
+    return getClaudePluginsDir()
+  }
+
+  get installedPluginsPath() {
+    return path.join(this.pluginsDir, 'installed_plugins.json')
+  }
+
+  get settingsPath() {
+    return getClaudeSettingsPath()
   }
 
   // ========================================

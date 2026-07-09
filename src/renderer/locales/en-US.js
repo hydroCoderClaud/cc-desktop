@@ -163,7 +163,7 @@ export default {
     // Plugins
     plugins: {
       empty: 'No plugins found',
-      emptyHint: 'Plugin directory: ~/.claude/plugins/',
+      emptyHint: 'Plugin directory: isolated Claude config directory/plugins/',
       search: 'Search plugins...',
       openFolder: 'Open plugins folder',
       openInstalledJson: 'Open installed_plugins.json',
@@ -1137,6 +1137,8 @@ export default {
     outputBaseDir: 'Agent Output Directory',
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',
+    claudeConfigDir: 'HydroAgent Config Directory',
+    claudeConfigDirHint: 'Isolated config directory used when this app launches Claude Code CLI. Skills, Agents, MCP, history, and proxy-support are stored here',
     terminalSettings: 'Terminal Settings',
     terminalFontSize: 'Font Size',
     terminalFontSizeHint: 'Terminal font size (10-24)',
@@ -1165,7 +1167,7 @@ export default {
       urlPlaceholder: 'e.g. http://127.0.0.1:7890',
       hint: 'Node.js native fetch does not support system proxy. This setting injects proxy env vars into MCP processes to access external APIs.',
       detailConfig: 'Toggle and URL are saved in the app config file, used as injection reference during installation',
-      detailRuntime: 'On install, proxy env vars are written to ~/.claude.json for each MCP server, read directly by CLI at runtime',
+      detailRuntime: 'On install, proxy env vars are written to the isolated Claude profile JSON for each MCP server, read directly by CLI at runtime',
       detailApplyAll: '"Apply to All" syncs proxy config to all installed MCPs; when disabled, it can batch-remove proxy vars',
       applyAll: 'Apply to All Installed MCPs',
       applyAllSuccess: 'Applied to {count} MCPs',

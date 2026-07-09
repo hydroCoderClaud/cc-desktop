@@ -2,8 +2,8 @@
  * MCP Manager - MCP 服务器管理
  *
  * 四级来源:
- * - User: ~/.claude.json → mcpServers (跨项目共享)
- * - Local: ~/.claude.json → projects.<path>.mcpServers (项目私有)
+ * - User: <CLAUDE_CONFIG_DIR>/.claude.json → mcpServers (跨项目共享)
+ * - Local: <CLAUDE_CONFIG_DIR>/.claude.json → projects.<path>.mcpServers (项目私有)
  * - Project: <project>/.mcp.json → mcpServers (团队共享)
  * - Plugin: <plugin>/.mcp.json → mcpServers (插件自带，只读)
  *
@@ -12,13 +12,13 @@
 
 const path = require('path')
 const fs = require('fs')
-const os = require('os')
 const { ComponentScanner } = require('../component-scanner')
 const { atomicWriteJson } = require('../utils/path-utils')
 const { mcpMarketMixin } = require('./mcp/market')
-
-// ~/.claude.json 路径
-const CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
+const {
+  getClaudeJsonPath,
+  getClaudeProxySetupPath
+} = require('../utils/claude-config-paths')
 
 class McpManager extends ComponentScanner {
   constructor() {
@@ -27,34 +27,41 @@ class McpManager extends ComponentScanner {
     Object.assign(this, mcpMarketMixin)
   }
 
+  getClaudeJsonPath() {
+    return getClaudeJsonPath(this.configManager)
+  }
+
   // ========================================
   // 文件操作
   // ========================================
 
   /**
-   * 读取 ~/.claude.json
+   * 读取隔离 Claude profile JSON
    * @returns {Object} 配置对象
    */
   readClaudeJson() {
+    const claudeJsonPath = this.getClaudeJsonPath()
     try {
-      if (fs.existsSync(CLAUDE_JSON_PATH)) {
-        return JSON.parse(fs.readFileSync(CLAUDE_JSON_PATH, 'utf-8'))
+      if (fs.existsSync(claudeJsonPath)) {
+        return JSON.parse(fs.readFileSync(claudeJsonPath, 'utf-8'))
       }
     } catch (err) {
-      console.error('[McpManager] Failed to read ~/.claude.json:', err)
+      console.error('[McpManager] Failed to read Claude profile JSON:', err)
     }
     return {}
   }
 
   /**
-   * 写入 ~/.claude.json
+   * 写入隔离 Claude profile JSON
    * @param {Object} config - 配置对象
    */
   writeClaudeJson(config) {
+    const claudeJsonPath = this.getClaudeJsonPath()
     try {
-      atomicWriteJson(CLAUDE_JSON_PATH, config)
+      fs.mkdirSync(path.dirname(claudeJsonPath), { recursive: true })
+      atomicWriteJson(claudeJsonPath, config)
     } catch (err) {
-      console.error('[McpManager] Failed to write ~/.claude.json:', err)
+      console.error('[McpManager] Failed to write Claude profile JSON:', err)
       throw err
     }
   }
@@ -78,6 +85,7 @@ class McpManager extends ComponentScanner {
    */
   listMcpUser() {
     const claudeJson = this.readClaudeJson()
+    const claudeJsonPath = this.getClaudeJsonPath()
     const mcpServers = claudeJson.mcpServers || {}
 
     return Object.entries(mcpServers).map(([name, config]) => ({
@@ -85,7 +93,7 @@ class McpManager extends ComponentScanner {
       config,
       source: 'user',
       category: 'User',
-      filePath: CLAUDE_JSON_PATH
+      filePath: claudeJsonPath
     }))
   }
 
@@ -98,6 +106,7 @@ class McpManager extends ComponentScanner {
     if (!projectPath) return []
 
     const claudeJson = this.readClaudeJson()
+    const claudeJsonPath = this.getClaudeJsonPath()
     const normalizedPath = this.normalizePath(projectPath)
     const projectConfig = claudeJson.projects?.[normalizedPath] || {}
     const mcpServers = projectConfig.mcpServers || {}
@@ -107,7 +116,7 @@ class McpManager extends ComponentScanner {
       config,
       source: 'local',
       category: 'Local',
-      filePath: CLAUDE_JSON_PATH
+      filePath: claudeJsonPath
     }))
   }
 
@@ -505,7 +514,7 @@ class McpManager extends ComponentScanner {
     try {
       const claudeJson = this.readClaudeJson()
       const mcpServers = claudeJson.mcpServers || {}
-      const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs').replace(/\\/g, '/')
+      const proxyScriptPath = getClaudeProxySetupPath(this.configManager).replace(/\\/g, '/')
 
       let count = 0
       for (const [name, serverConfig] of Object.entries(mcpServers)) {

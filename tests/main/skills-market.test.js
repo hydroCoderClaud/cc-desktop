@@ -29,6 +29,8 @@ describe('skills market install', () => {
     expect(marketSource).not.toContain('const { exec } = require')
     expect(marketSource).not.toContain('execAsync')
     expect(marketSource).toContain("runNpxSkillsAdd(['-y', 'skills', 'add', gitUrl, '--skill', skill.id, '-g', '-a', 'claude-code']")
+    expect(marketSource).toContain("const { buildClaudeConfigEnv } = require('../../utils/claude-config-paths')")
+    expect(marketSource).toContain('buildBasicEnv(buildClaudeConfigEnv())')
     expect(marketSource).toContain('windowsHide: true')
   })
 

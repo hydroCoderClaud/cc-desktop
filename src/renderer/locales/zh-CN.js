@@ -163,7 +163,7 @@ export default {
     // 插件
     plugins: {
       empty: '未找到插件',
-      emptyHint: '插件目录: ~/.claude/plugins/',
+      emptyHint: '插件目录: 隔离 Claude 配置目录/plugins/',
       search: '搜索插件...',
       openFolder: '打开插件目录',
       openInstalledJson: '打开 installed_plugins.json',
@@ -1140,6 +1140,8 @@ export default {
     outputBaseDir: 'Agent 输出根目录',
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',
+    claudeConfigDir: 'HydroAgent 配置目录',
+    claudeConfigDirHint: '本程序发起 Claude Code CLI 时使用的隔离配置目录，Skills、Agents、MCP、历史记录和 proxy-support 均写入这里',
     terminalSettings: '终端设置',
     terminalFontSize: '字体大小',
     terminalFontSizeHint: '终端显示的字体大小（10-24）',
@@ -1168,7 +1170,7 @@ export default {
       urlPlaceholder: '如 http://127.0.0.1:7890',
       hint: 'Node.js 原生 fetch 不支持系统代理，需要通过此配置让 MCP 进程走代理访问外部 API。',
       detailConfig: '开关和地址保存在应用配置文件中，仅作为安装时的注入依据',
-      detailRuntime: '安装时会将代理环境变量写入 ~/.claude.json 中对应 MCP 的 env，运行时由 CLI 直接读取',
+      detailRuntime: '安装时会将代理环境变量写入隔离 Claude profile JSON 中对应 MCP 的 env，运行时由 CLI 直接读取',
       detailApplyAll: '"应用到所有"可将代理配置同步到已安装的全部 MCP，关闭时同理可批量移除',
       applyAll: '应用到所有已安装的 MCP',
       applyAllSuccess: '已应用到 {count} 个 MCP',

@@ -4,6 +4,7 @@
  */
 
 const { buildRuntimeProfile } = require('./runtime-profile')
+const { buildClaudeConfigEnv } = require('./claude-config-paths')
 
 function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -274,11 +275,14 @@ function buildProcessEnv(profile, extraVars = {}, configManager = null, options 
   // 先构建基础环境（PATH 增强）
   const baseEnv = buildBasicEnv({})
 
+  // 隔离 Claude Code 用户配置目录，避免读写用户自己的 ~/.claude
+  const claudeConfigEnv = buildClaudeConfigEnv(configManager)
+
   // 添加 Claude API 配置
   const claudeEnvVars = buildClaudeEnvVars(profile, configManager, options)
 
   // 合并所有环境变量
-  const env = { ...baseEnv, ...claudeEnvVars, ...extraVars }
+  const env = { ...baseEnv, ...claudeConfigEnv, ...claudeEnvVars, ...extraVars }
 
   // 清理空值
   for (const key of Object.keys(env)) {

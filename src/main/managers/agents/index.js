@@ -2,9 +2,9 @@
  * Agents Manager - 代理管理
  *
  * 三级 Agents 架构:
- * 1. 插件级 (只读): 来自已安装插件 ~/.claude/plugins/{plugin}/agents/
+ * 1. 插件级 (只读): 来自隔离 Claude 配置目录 plugins/{plugin}/agents/
  *    自动触发，Claude 根据 description 自动选择
- * 2. 用户全局 (可编辑): 来自用户目录 ~/.claude/agents/
+ * 2. 用户全局 (可编辑): 来自隔离 Claude 配置目录 agents/
  *    自动触发，Claude 根据 description 自动选择
  * 3. 工程级别 (可编辑): 来自项目目录 {project}/.claude/agents/
  *    自动触发，Claude 根据 description 自动选择
@@ -23,10 +23,8 @@ const { agentsExportMixin } = require('./export')
 const { agentsMarketMixin } = require('./market')
 
 class AgentsManager extends ComponentScanner {
-  constructor() {
-    super()
-    // 用户全局 agents 目录
-    this.userAgentsDir = path.join(this.claudeDir, 'agents')
+  get userAgentsDir() {
+    return path.join(this.claudeDir, 'agents')
   }
 }
 

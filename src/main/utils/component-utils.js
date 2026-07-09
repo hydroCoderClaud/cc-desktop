@@ -2,10 +2,10 @@
  * 组件管理通用工具函数
  */
 
-const os = require('os')
 const path = require('path')
 const fs = require('fs')
 const { shell } = require('electron')
+const { getClaudeConfigDir } = require('./claude-config-paths')
 
 /**
  * 打开组件文件夹
@@ -18,7 +18,7 @@ async function openComponentFolder(source, projectPath, subdir) {
   let folderPath
 
   if (source === 'user') {
-    folderPath = path.join(os.homedir(), '.claude', subdir)
+    folderPath = path.join(getClaudeConfigDir(), subdir)
   } else if (source === 'project' && projectPath) {
     folderPath = path.join(projectPath, '.claude', subdir)
   } else {

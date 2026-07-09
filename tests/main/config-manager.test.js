@@ -84,6 +84,7 @@ describe('ConfigManager', () => {
       expect(config.settings.appMode).toBe('agent')
       expect(config.settings.enableDeveloperMode).toBe(true)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
+      expect(config.settings.agent.claudeConfigDir).toBe(path.join(os.homedir(), '.hydrocoder', 'agent'))
     })
 
     it('应该初始化内置服务商及其默认模型 ID 列表', () => {
@@ -414,6 +415,28 @@ describe('ConfigManager', () => {
       expect(savedConfig.market.registryUrl).toBe('https://gitee.com/reistlin/hydroskills/raw/main')
       expect(savedConfig.market.registryMirrorUrl).toBe('')
       expect(savedConfig.market.registryFallbackUrls).toBeUndefined()
+    })
+
+    it('应该把空的 Claude 配置目录迁移为默认目录并写回磁盘', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        settings: {
+          agent: {
+            claudeConfigDir: ''
+          }
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      const expectedDir = path.join(os.homedir(), '.hydrocoder', 'agent')
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe(expectedDir)
+      expect(savedConfig.settings.agent.claudeConfigDir).toBe(expectedDir)
     })
 
     it('应该把旧的 GitHub 主更新源 + 阿里镜像迁移为阿里主源 + GitHub 备用并写回磁盘', async () => {

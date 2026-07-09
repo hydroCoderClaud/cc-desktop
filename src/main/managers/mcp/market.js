@@ -2,13 +2,14 @@
  * MCP Manager 市场功能
  * 提供从远端注册表浏览、安装和更新 MCP 配置模板的功能
  *
- * MCP 配置直接注册到 ~/.claude.json 的 mcpServers 中
+ * MCP 配置直接注册到隔离 Claude profile JSON 的 mcpServers 中
  */
 
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const { httpGet, httpGetWithMirror, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
+const { getClaudeProxySetupPath } = require('../../utils/claude-config-paths')
 
 const mcpMarketMixin = {
   /**
@@ -229,7 +230,7 @@ const mcpMarketMixin = {
   },
 
   /**
-   * 预览市场 MCP 配置（不写入 ~/.claude.json）
+   * 预览市场 MCP 配置（不写入 Claude profile JSON）
    * 下载 mcp.json 模板并返回解析后的 config 对象
    * @param {{ registryUrl: string, mcp: Object }} params
    * @returns {{ success: boolean, config?: Object, error?: string }}
@@ -353,7 +354,7 @@ const mcpMarketMixin = {
   _injectNodeOptionsToServers(mcpServers, useNodeOptions) {
     if (!useNodeOptions) return
 
-    const proxyScriptPath = path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs')
+    const proxyScriptPath = getClaudeProxySetupPath(this.configManager)
     const requireFlag = `-r "${proxyScriptPath.replace(/\\/g, '/')}"`
     for (const [, serverConfig] of Object.entries(mcpServers)) {
       if (!serverConfig.env) serverConfig.env = {}

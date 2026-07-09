@@ -1,23 +1,33 @@
 /**
  * Session Sync Service
  *
- * Handles incremental synchronization from ~/.claude/ to the local database
+ * Handles incremental synchronization from the isolated Claude config directory
+ * to the local database.
  */
 
 const fs = require('fs').promises
 const { existsSync, createReadStream, statSync } = require('fs')
 const path = require('path')
-const os = require('os')
 const readline = require('readline')
 const { encodePath, decodePath, smartDecodePath, getProjectName } = require('./utils/path-utils')
+const {
+  getClaudeConfigDir,
+  getClaudeProjectsDir
+} = require('./utils/claude-config-paths')
 
 class SessionSyncService {
   constructor(sessionDatabase) {
     this.db = sessionDatabase
-    this.claudeDir = path.join(os.homedir(), '.claude')
-    this.projectsDir = path.join(this.claudeDir, 'projects')
     this.syncing = false
     this.lastSyncStats = null
+  }
+
+  get claudeDir() {
+    return getClaudeConfigDir()
+  }
+
+  get projectsDir() {
+    return getClaudeProjectsDir()
   }
 
   /**

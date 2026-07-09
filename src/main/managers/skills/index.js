@@ -2,9 +2,9 @@
  * Skills Manager - 技能管理
  *
  * 三级 Skills 架构:
- * 1. 官方全局 (只读): 来自已安装插件 ~/.claude/plugins/{plugin}/skills/
+ * 1. 官方全局 (只读): 来自隔离 Claude 配置目录 plugins/{plugin}/skills/
  *    调用方式: /plugin-name:skill-id
- * 2. 自定义全局 (可编辑): 来自用户目录 ~/.claude/skills/
+ * 2. 自定义全局 (可编辑): 来自隔离 Claude 配置目录 skills/
  *    调用方式: /skill-id
  * 3. 工程级别 (可编辑): 来自项目目录 {project}/.claude/skills/
  *    调用方式: /skill-id
@@ -21,10 +21,8 @@ const { skillsExportMixin } = require('./export')
 const { skillsMarketMixin } = require('./market')
 
 class SkillsManager extends ComponentScanner {
-  constructor() {
-    super()
-    // 自定义全局 skills 目录
-    this.userSkillsDir = path.join(this.claudeDir, 'skills')
+  get userSkillsDir() {
+    return path.join(this.claudeDir, 'skills')
   }
 }
 

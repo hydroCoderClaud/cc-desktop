@@ -13,6 +13,7 @@ const { spawn } = require('child_process')
 const { httpGet, httpGetWithMirror, fetchRegistryIndex, isNewerVersion, isValidMarketId, isSafeFilename } = require('../../utils/http-client')
 const { atomicWriteJson } = require('../../utils/path-utils')
 const { buildBasicEnv } = require('../../utils/env-builder')
+const { buildClaudeConfigEnv } = require('../../utils/claude-config-paths')
 
 const MARKET_META_FILE = '.market-meta.json'
 const NPX_TIMEOUT_MS = 60000
@@ -127,7 +128,7 @@ const skillsMarketMixin = {
   async _installViaSkillsCli(gitUrl, skill) {
     try {
       console.log(`[SkillsManager] Installing via npx skills: ${gitUrl} --skill ${skill.id}`)
-      const env = buildBasicEnv()
+      const env = buildBasicEnv(buildClaudeConfigEnv())
       await runNpxSkillsAdd(['-y', 'skills', 'add', gitUrl, '--skill', skill.id, '-g', '-a', 'claude-code'], { env })
 
       // 验证文件是否落地

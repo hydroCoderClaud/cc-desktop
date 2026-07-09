@@ -1,10 +1,10 @@
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 const { atomicWriteJson } = require('../../utils/path-utils')
+const { getClaudeConfigDir } = require('../../utils/claude-config-paths')
 
 function getClaudeDir() {
-  return path.join(os.homedir(), '.claude')
+  return getClaudeConfigDir()
 }
 
 function getPluginsDir() {

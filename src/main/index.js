@@ -25,6 +25,10 @@ const { createTrayController } = require('./tray-controller');
 const { restoreOrCreateMainWindow, setupSingleInstanceLock } = require('./single-instance');
 const { tMain } = require('./utils/app-i18n');
 const { getStableUserDataPath } = require('./utils/user-data-path');
+const {
+  configureClaudeConfigPaths,
+  ensureClaudeConfigDir
+} = require('./utils/claude-config-paths');
 
 const stableUserDataPath = getStableUserDataPath()
 app.setPath('userData', stableUserDataPath)
@@ -431,6 +435,13 @@ if (hasSingleInstanceLock) {
 
     // 初始化管理器
     configManager = new ConfigManager();
+    configureClaudeConfigPaths({ configManager });
+    try {
+      const claudeConfigDir = ensureClaudeConfigDir(configManager);
+      console.log('[Main] HydroAgent config directory ready:', claudeConfigDir);
+    } catch (error) {
+      console.error('[Main] Failed to initialize HydroAgent config directory:', error);
+    }
     trayController = createTrayController({
       appInstance: app,
       configManager,
