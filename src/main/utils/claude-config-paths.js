@@ -2,15 +2,18 @@
  * Claude Code profile/config paths used by cc-desktop.
  *
  * Project-local `.claude` folders intentionally remain under the project root.
- * These helpers only cover the user/global Claude Code profile that should be
- * isolated from the user's own Claude Code installation.
+ * These helpers only cover the user/global Claude Code profile. An empty app
+ * setting preserves Claude Code defaults; a non-empty setting isolates it.
  */
 
 const os = require('os')
 const path = require('path')
 const fs = require('fs')
 
-const DEFAULT_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.hydrocoder', 'agent')
+const DEFAULT_CLAUDE_CONFIG_DIR = ''
+const LEGACY_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.claude')
+const LEGACY_CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
+const SUGGESTED_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.hydrocoder', 'agent')
 
 let configuredConfigManager = null
 
@@ -37,19 +40,29 @@ function getConfiguredDirValue(configManager = configuredConfigManager) {
   }
 }
 
-function getClaudeConfigDir(configManager = configuredConfigManager) {
+function getConfiguredClaudeConfigDir(configManager = configuredConfigManager) {
   const configuredValue = expandHome(getConfiguredDirValue(configManager))
-  return path.resolve(configuredValue || DEFAULT_CLAUDE_CONFIG_DIR)
+  return configuredValue ? path.resolve(configuredValue) : ''
+}
+
+function isClaudeConfigIsolated(configManager = configuredConfigManager) {
+  return Boolean(getConfiguredClaudeConfigDir(configManager))
+}
+
+function getClaudeConfigDir(configManager = configuredConfigManager) {
+  return getConfiguredClaudeConfigDir(configManager) || LEGACY_CLAUDE_CONFIG_DIR
 }
 
 function buildClaudeConfigEnv(configManager = configuredConfigManager) {
-  return {
-    CLAUDE_CONFIG_DIR: getClaudeConfigDir(configManager)
-  }
+  const configuredDir = getConfiguredClaudeConfigDir(configManager)
+  return configuredDir ? { CLAUDE_CONFIG_DIR: configuredDir } : {}
 }
 
 function ensureClaudeConfigDir(configManager = configuredConfigManager) {
-  const claudeConfigDir = getClaudeConfigDir(configManager)
+  const claudeConfigDir = getConfiguredClaudeConfigDir(configManager)
+  if (!claudeConfigDir) {
+    return null
+  }
 
   if (fs.existsSync(claudeConfigDir)) {
     const stat = fs.statSync(claudeConfigDir)
@@ -64,7 +77,8 @@ function ensureClaudeConfigDir(configManager = configuredConfigManager) {
 }
 
 function getClaudeJsonPath(configManager = configuredConfigManager) {
-  return path.join(getClaudeConfigDir(configManager), '.claude.json')
+  const configuredDir = getConfiguredClaudeConfigDir(configManager)
+  return configuredDir ? path.join(configuredDir, '.claude.json') : LEGACY_CLAUDE_JSON_PATH
 }
 
 function getClaudeSettingsPath(configManager = configuredConfigManager) {
@@ -101,11 +115,15 @@ function getClaudeProxySetupPath(configManager = configuredConfigManager) {
 
 module.exports = {
   DEFAULT_CLAUDE_CONFIG_DIR,
+  LEGACY_CLAUDE_CONFIG_DIR,
+  LEGACY_CLAUDE_JSON_PATH,
+  SUGGESTED_CLAUDE_CONFIG_DIR,
   buildClaudeConfigEnv,
   configureClaudeConfigPaths,
   ensureClaudeConfigDir,
   getClaudeAgentsDir,
   getClaudeConfigDir,
+  getConfiguredClaudeConfigDir,
   getClaudeHistoryPath,
   getClaudeJsonPath,
   getClaudePluginsDir,
@@ -113,5 +131,6 @@ module.exports = {
   getClaudeProxySetupPath,
   getClaudeProxySupportDir,
   getClaudeSettingsPath,
-  getClaudeSkillsDir
+  getClaudeSkillsDir,
+  isClaudeConfigIsolated
 }

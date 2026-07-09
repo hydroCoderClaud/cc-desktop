@@ -1141,7 +1141,7 @@ export default {
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',
     claudeConfigDir: 'HydroAgent 配置目录',
-    claudeConfigDirHint: '本程序发起 Claude Code CLI 时使用的隔离配置目录，Skills、Agents、MCP、历史记录和 proxy-support 均写入这里',
+    claudeConfigDirHint: '留空则使用 Claude Code 默认配置；填写路径后，本程序发起 Claude Code CLI 时使用该 HydroAgent 隔离配置目录，Skills、Agents、MCP、历史记录和 proxy-support 均写入这里',
     terminalSettings: '终端设置',
     terminalFontSize: '字体大小',
     terminalFontSizeHint: '终端显示的字体大小（10-24）',

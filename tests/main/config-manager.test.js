@@ -84,7 +84,7 @@ describe('ConfigManager', () => {
       expect(config.settings.appMode).toBe('agent')
       expect(config.settings.enableDeveloperMode).toBe(true)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
-      expect(config.settings.agent.claudeConfigDir).toBe(path.join(os.homedir(), '.hydrocoder', 'agent'))
+      expect(config.settings.agent.claudeConfigDir).toBe('')
     })
 
     it('应该初始化内置服务商及其默认模型 ID 列表', () => {
@@ -417,7 +417,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.market.registryFallbackUrls).toBeUndefined()
     })
 
-    it('应该把空的 Claude 配置目录迁移为默认目录并写回磁盘', async () => {
+    it('应该保留空的 Claude 配置目录以兼容默认 Claude Code 配置', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         settings: {
@@ -433,10 +433,30 @@ describe('ConfigManager', () => {
       const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
       await newConfigManager.saveQueue
 
-      const expectedDir = path.join(os.homedir(), '.hydrocoder', 'agent')
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe(expectedDir)
-      expect(savedConfig.settings.agent.claudeConfigDir).toBe(expectedDir)
+      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe('')
+      expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
+    })
+
+    it('应该为缺失的 Claude 配置目录补空值并写回磁盘', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        settings: {
+          agent: {
+            outputBaseDir: ''
+          }
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe('')
+      expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
     })
 
     it('应该把旧的 GitHub 主更新源 + 阿里镜像迁移为阿里主源 + GitHub 备用并写回磁盘', async () => {

@@ -138,6 +138,11 @@ function buildBasicEnv(extraVars = {}) {
   // 清除可能存在的认证变量（避免干扰）
   delete baseEnv.ANTHROPIC_API_KEY
   delete baseEnv.ANTHROPIC_AUTH_TOKEN
+  for (const key of Object.keys(baseEnv)) {
+    if (key.toUpperCase() === 'CLAUDE_CONFIG_DIR') {
+      delete baseEnv[key]
+    }
+  }
 
   // 增强 PATH：添加常见的 bin 目录
   const isWindows = process.platform === 'win32'
@@ -275,7 +280,7 @@ function buildProcessEnv(profile, extraVars = {}, configManager = null, options 
   // 先构建基础环境（PATH 增强）
   const baseEnv = buildBasicEnv({})
 
-  // 隔离 Claude Code 用户配置目录，避免读写用户自己的 ~/.claude
+  // 可选隔离 Claude Code 用户配置目录；空配置保持 CLI 默认行为
   const claudeConfigEnv = buildClaudeConfigEnv(configManager)
 
   // 添加 Claude API 配置

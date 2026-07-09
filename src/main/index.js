@@ -438,7 +438,11 @@ if (hasSingleInstanceLock) {
     configureClaudeConfigPaths({ configManager });
     try {
       const claudeConfigDir = ensureClaudeConfigDir(configManager);
-      console.log('[Main] HydroAgent config directory ready:', claudeConfigDir);
+      if (claudeConfigDir) {
+        console.log('[Main] HydroAgent config directory ready:', claudeConfigDir);
+      } else {
+        console.log('[Main] HydroAgent config directory not configured; using Claude Code default profile');
+      }
     } catch (error) {
       console.error('[Main] Failed to initialize HydroAgent config directory:', error);
     }

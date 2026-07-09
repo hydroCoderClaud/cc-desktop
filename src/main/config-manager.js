@@ -155,7 +155,7 @@ class ConfigManager {
         // Agent 模式配置
         agent: {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
-          claudeConfigDir: DEFAULT_CLAUDE_CONFIG_DIR, // Claude Code 配置目录，默认 ~/.hydrocoder/agent/
+          claudeConfigDir: DEFAULT_CLAUDE_CONFIG_DIR, // 空字符串 = 兼容 Claude Code 默认配置目录
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
           defaultAgentType: 'chat',    // 默认 Agent 类型
           messageQueue: true           // 消息队列：流式输出期间允许排队发送
@@ -294,11 +294,7 @@ class ConfigManager {
         }
 
         const originalClaudeConfigDir = config.settings?.agent?.claudeConfigDir;
-        const migratedClaudeConfigDir = migratedConfig.settings?.agent?.claudeConfigDir;
-        if (
-          originalClaudeConfigDir === undefined ||
-          (typeof migratedClaudeConfigDir === 'string' && migratedClaudeConfigDir.trim() === '')
-        ) {
+        if (originalClaudeConfigDir === undefined) {
           migratedConfig.settings.agent.claudeConfigDir = DEFAULT_CLAUDE_CONFIG_DIR;
           console.log('[ConfigManager] Added missing Claude config dir setting');
           needsSave = true;

@@ -34,9 +34,29 @@ describe('Claude config paths', () => {
     paths.configureClaudeConfigPaths({ configManager: null })
   })
 
-  it('defaults Claude Code profile state to the HydroCoder agent directory', () => {
-    expect(paths.getClaudeConfigDir()).toBe(path.join(os.homedir(), '.hydrocoder', 'agent'))
-    expect(buildProcessEnv(null).CLAUDE_CONFIG_DIR).toBe(path.join(os.homedir(), '.hydrocoder', 'agent'))
+  it('defaults to Claude Code profile state without setting CLAUDE_CONFIG_DIR', () => {
+    expect(paths.getClaudeConfigDir()).toBe(path.join(os.homedir(), '.claude'))
+    expect(paths.getClaudeSettingsPath()).toBe(path.join(os.homedir(), '.claude', 'settings.json'))
+    expect(paths.getClaudeProjectsDir()).toBe(path.join(os.homedir(), '.claude', 'projects'))
+    expect(paths.getClaudeProxySetupPath()).toBe(path.join(os.homedir(), '.claude', 'proxy-support', 'proxy-setup.cjs'))
+    expect(paths.getClaudeJsonPath()).toBe(path.join(os.homedir(), '.claude.json'))
+    expect(paths.buildClaudeConfigEnv()).toEqual({})
+    expect(buildProcessEnv(null).CLAUDE_CONFIG_DIR).toBeUndefined()
+  })
+
+  it('does not inherit CLAUDE_CONFIG_DIR in legacy mode', () => {
+    const originalValue = process.env.CLAUDE_CONFIG_DIR
+    process.env.CLAUDE_CONFIG_DIR = path.join(os.tmpdir(), 'external-claude-config')
+
+    try {
+      expect(buildProcessEnv(null).CLAUDE_CONFIG_DIR).toBeUndefined()
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.CLAUDE_CONFIG_DIR
+      } else {
+        process.env.CLAUDE_CONFIG_DIR = originalValue
+      }
+    }
   })
 
   it('uses the configured Claude config directory for process env and profile files', () => {
@@ -56,8 +76,8 @@ describe('Claude config paths', () => {
     }
   })
 
-  it('updates manager paths immediately when the configured directory changes', () => {
-    let configuredDir = path.join(os.tmpdir(), 'cc-claude-config-a')
+  it('updates manager paths immediately when switching between legacy and isolated modes', () => {
+    let configuredDir = ''
     const configManager = {
       getConfig() {
         return {
@@ -79,6 +99,15 @@ describe('Claude config paths', () => {
     const historyService = new SessionHistoryService()
     const syncService = new SessionSyncService({})
 
+    expect(scanner.settingsPath).toBe(path.join(os.homedir(), '.claude', 'settings.json'))
+    expect(skillsManager.userSkillsDir).toBe(path.join(os.homedir(), '.claude', 'skills'))
+    expect(agentsManager.userAgentsDir).toBe(path.join(os.homedir(), '.claude', 'agents'))
+    expect(capabilityManager.installedPluginsPath).toBe(path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json'))
+    expect(historyService.historyFile).toBe(path.join(os.homedir(), '.claude', 'history.jsonl'))
+    expect(syncService.projectsDir).toBe(path.join(os.homedir(), '.claude', 'projects'))
+
+    configuredDir = path.join(os.tmpdir(), 'cc-claude-config-a')
+
     expect(scanner.settingsPath).toBe(path.join(configuredDir, 'settings.json'))
     expect(skillsManager.userSkillsDir).toBe(path.join(configuredDir, 'skills'))
     expect(agentsManager.userAgentsDir).toBe(path.join(configuredDir, 'agents'))
@@ -86,14 +115,18 @@ describe('Claude config paths', () => {
     expect(historyService.historyFile).toBe(path.join(configuredDir, 'history.jsonl'))
     expect(syncService.projectsDir).toBe(path.join(configuredDir, 'projects'))
 
-    configuredDir = path.join(os.tmpdir(), 'cc-claude-config-b')
+    configuredDir = ''
 
-    expect(scanner.settingsPath).toBe(path.join(configuredDir, 'settings.json'))
-    expect(skillsManager.userSkillsDir).toBe(path.join(configuredDir, 'skills'))
-    expect(agentsManager.userAgentsDir).toBe(path.join(configuredDir, 'agents'))
-    expect(capabilityManager.installedPluginsPath).toBe(path.join(configuredDir, 'plugins', 'installed_plugins.json'))
-    expect(historyService.historyFile).toBe(path.join(configuredDir, 'history.jsonl'))
-    expect(syncService.projectsDir).toBe(path.join(configuredDir, 'projects'))
+    expect(scanner.settingsPath).toBe(path.join(os.homedir(), '.claude', 'settings.json'))
+    expect(skillsManager.userSkillsDir).toBe(path.join(os.homedir(), '.claude', 'skills'))
+    expect(agentsManager.userAgentsDir).toBe(path.join(os.homedir(), '.claude', 'agents'))
+    expect(capabilityManager.installedPluginsPath).toBe(path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json'))
+    expect(historyService.historyFile).toBe(path.join(os.homedir(), '.claude', 'history.jsonl'))
+    expect(syncService.projectsDir).toBe(path.join(os.homedir(), '.claude', 'projects'))
+  })
+
+  it('does not create a custom root directory on startup in legacy mode', () => {
+    expect(paths.ensureClaudeConfigDir(fakeConfigManager(''))).toBeNull()
   })
 
   it('creates only the configured Claude config root directory on startup', () => {
@@ -125,7 +158,7 @@ describe('Claude config paths', () => {
     }
   })
 
-  it('writes MCP user/local config inside the isolated Claude profile', () => {
+  it('writes MCP user/local config inside the configured Claude profile', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-mcp-config-test-'))
     const configManager = fakeConfigManager(tempDir)
     const manager = new McpManager()

@@ -227,7 +227,7 @@ const loadSettings = async () => {
     formData.value.enableDeveloperMode = config?.settings?.enableDeveloperMode !== false
     formData.value.developerClaudeSource = config?.settings?.developerClaudeSource || DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
-    formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || defaultClaudeConfigDir.value
+    formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || DEFAULTS.claudeConfigDir
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
@@ -318,7 +318,7 @@ const handleSave = async () => {
       const outputDir = formData.value.outputBaseDir === defaultOutputBaseDir.value
         ? '' : (formData.value.outputBaseDir || '')
       config.settings.agent.outputBaseDir = outputDir
-      config.settings.agent.claudeConfigDir = formData.value.claudeConfigDir || defaultClaudeConfigDir.value
+      config.settings.agent.claudeConfigDir = formData.value.claudeConfigDir || DEFAULTS.claudeConfigDir
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 
@@ -342,7 +342,7 @@ const handleReset = async () => {
     formData.value.enableDeveloperMode = DEFAULTS.enableDeveloperMode
     formData.value.developerClaudeSource = DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = defaultOutputBaseDir.value
-    formData.value.claudeConfigDir = defaultClaudeConfigDir.value
+    formData.value.claudeConfigDir = DEFAULTS.claudeConfigDir
 
     // Save to backend
     await invoke('updateTimeout', {
@@ -365,7 +365,7 @@ const handleReset = async () => {
     const config = await invoke('getConfig')
     if (config?.settings?.agent !== undefined) {
       config.settings.agent.outputBaseDir = ''
-      config.settings.agent.claudeConfigDir = defaultClaudeConfigDir.value
+      config.settings.agent.claudeConfigDir = DEFAULTS.claudeConfigDir
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 
