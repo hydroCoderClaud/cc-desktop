@@ -13,6 +13,7 @@
 | [code-index/ipc-channels.md](./code-index/ipc-channels.md) | IPC 通道索引 |
 | [QUICKSTART.md](./QUICKSTART.md) | 快速开始 |
 | [BUILD.md](./BUILD.md) | 构建与打包说明 |
+| [ALIYUN-CDN-CERT-RENEWAL.zh.md](./ALIYUN-CDN-CERT-RENEWAL.zh.md) | `hdupdate.myseek.fun` 阿里云 CDN 证书到期续期操作记录 |
 | [ROADMAP.md](./ROADMAP.md) | 路线图与中长期规划 |
 | [CHANGELOG.md](./CHANGELOG.md) | 版本变更记录 |
 | [user-guide/SESSION-APPS-GUIDE.zh.md](./user-guide/SESSION-APPS-GUIDE.zh.md) | 会话应用使用指南 |
