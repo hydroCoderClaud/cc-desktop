@@ -132,7 +132,7 @@
           <div style="display: flex; gap: 8px; width: 100%">
             <n-input
               v-model:value="formData.claudeConfigDir"
-              :placeholder="defaultClaudeConfigDir"
+              :placeholder="t('globalSettings.claudeConfigDirPlaceholder')"
               clearable
               style="flex: 1"
             />
@@ -238,11 +238,6 @@ const loadSettings = async () => {
 const defaultOutputBaseDir = computed(() => {
   const home = window.electronAPI?.getHomedir?.() || '~'
   return `${home}/cc-desktop-agent-output`
-})
-
-const defaultClaudeConfigDir = computed(() => {
-  const home = window.electronAPI?.getHomedir?.() || '~'
-  return `${home}/.hydrocoder/agent`
 })
 
 const developerClaudeSourceOptions = computed(() => [

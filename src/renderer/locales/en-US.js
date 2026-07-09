@@ -1138,6 +1138,7 @@ export default {
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',
     claudeConfigDir: 'HydroAgent Config Directory',
+    claudeConfigDirPlaceholder: 'Leave empty to use Claude Code defaults',
     claudeConfigDirHint: 'Leave empty to use Claude Code defaults. When set, this app launches Claude Code CLI with the HydroAgent isolated config directory; Skills, Agents, MCP, history, and proxy-support are stored there',
     terminalSettings: 'Terminal Settings',
     terminalFontSize: 'Font Size',
