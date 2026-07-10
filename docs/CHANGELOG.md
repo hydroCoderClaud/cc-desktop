@@ -2,6 +2,22 @@
 
 ---
 
+## v1.7.87 - 2026-07-10
+
+### 新增 (Feat)
+- **HydroAgent 配置目录隔离**：支持为本程序发起的 Claude Code CLI 单独指定配置目录，Skills、Agents、MCP、历史记录和 proxy-support 可与用户原生 Claude Code 配置隔离
+- **原生配置兼容模式**：HydroAgent 配置目录留空时不注入 `CLAUDE_CONFIG_DIR`，继续使用 Claude Code 默认的 `~/.claude` 与 `~/.claude.json`
+
+### 修复 (Fix)
+- **配置目录安全校验**：保存自定义 HydroAgent 配置目录时创建并验证根目录可写，拒绝文件路径等无效配置，避免静默污染原生 Claude Code 配置
+- **模型默认值残留**：移除 Agent 输入组件中固定的 `claude-sonnet-4-6` 默认值，并补充发送链路诊断日志，便于排查历史会话模型切换问题
+
+### 文档 (Docs)
+- **配置目录说明**：明确配置页留空兼容原生 Claude Code 默认配置，自定义路径仅作用于本程序启动的 CLI 进程
+- **阿里云 CDN 证书续签**：补充 CDN 证书续签记录与相关说明
+
+---
+
 ## v1.7.86 - 2026-07-08
 
 ### 修复 (Fix)
