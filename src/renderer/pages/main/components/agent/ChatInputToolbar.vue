@@ -445,7 +445,7 @@ import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
 const props = defineProps({
-  modelValue: { type: String, default: 'claude-sonnet-4-6' },
+  modelValue: { type: String, default: '' },
   modelOptions: { type: Array, default: () => [] },
   apiProfileId: { type: String, default: null },
   apiProfiles: { type: Array, default: () => [] },

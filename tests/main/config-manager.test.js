@@ -459,6 +459,28 @@ describe('ConfigManager', () => {
       expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
     })
 
+    it('保存自定义 Claude 配置目录时应创建并保留可写根目录', () => {
+      const customDir = path.join(testTempDir, 'hydro-agent-config')
+      const config = configManager.getConfig()
+      config.settings.agent.claudeConfigDir = `  ${customDir}  `
+
+      configManager.updateConfig(config)
+
+      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe(customDir)
+      expect(fs.statSync(customDir).isDirectory()).toBe(true)
+      expect(fs.readdirSync(customDir)).toEqual([])
+    })
+
+    it('保存自定义 Claude 配置目录为文件路径时应拒绝且不更新内存配置', () => {
+      const filePath = path.join(testTempDir, 'not-a-directory')
+      fs.writeFileSync(filePath, 'not a directory', 'utf-8')
+      const config = JSON.parse(JSON.stringify(configManager.getConfig()))
+      config.settings.agent.claudeConfigDir = filePath
+
+      expect(() => configManager.updateConfig(config)).toThrow(/not a directory/)
+      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe('')
+    })
+
     it('应该把旧的 GitHub 主更新源 + 阿里镜像迁移为阿里主源 + GitHub 备用并写回磁盘', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({

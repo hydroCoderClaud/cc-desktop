@@ -1284,6 +1284,9 @@ class AgentSessionManager extends EventEmitter {
     console.log('[AgentSession] sendMessage entry:', {
       sessionId,
       requestedModel: requestedModel || null,
+      sessionModelId: session.modelId || null,
+      lastBootstrappedRuntimeModelId: session.lastBootstrappedRuntime?.modelId || null,
+      pendingRuntimeChange: session.pendingRuntimeChange || 'unknown',
       status: session.status,
       hasQueryGenerator: !!session.queryGenerator,
       hasMessageQueue: !!session.messageQueue,
@@ -1464,10 +1467,19 @@ class AgentSessionManager extends EventEmitter {
       session.pendingRuntimeChange = 'hard'
     }
 
+    const diagnosticProfile = session.apiProfileId
+      ? this.configManager.getAPIProfile(session.apiProfileId) || this.configManager.getDefaultProfile()
+      : this.configManager.getDefaultProfile()
+
     if (session.queryGenerator && session.messageQueue && !session.messageQueue.isDone) {
       console.log('[AgentSession] sendMessage path: existing queue', {
         sessionId,
         requestedModel: requestedModel || null,
+        sessionModelId: session.modelId || null,
+        profileSelectedModelId: diagnosticProfile?.selectedModelId || null,
+        lastBootstrappedRuntimeModelId: session.lastBootstrappedRuntime?.modelId || null,
+        pendingRuntimeChange: session.pendingRuntimeChange || 'unknown',
+        willSetModelBeforePush: !!requestedModel,
         apiProfileId: session.apiProfileId || null,
         sdkSessionId: session.sdkSessionId || null
       })
@@ -1751,6 +1763,11 @@ class AgentSessionManager extends EventEmitter {
         profileBaseUrl: sessionProfile?.baseUrl || null,
         claudeCodeExecutablePath,
         requestedModel: requestedModel || null,
+        sessionModelId: session.modelId || null,
+        profileSelectedModelId: sessionProfile?.selectedModelId || null,
+        targetModelId: targetModelId || null,
+        lastBootstrappedRuntimeModelId: currentSignature?.modelId || null,
+        shouldReuseRuntimeDefaults,
         queryModel: queryOptions.model || null,
         resume: queryOptions.resume || null,
         envBaseUrl: env.ANTHROPIC_BASE_URL || env.ANTHROPIC_API_URL || null,

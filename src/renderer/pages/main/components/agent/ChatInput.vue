@@ -151,7 +151,7 @@ const props = defineProps({
   },
   modelValue: {
     type: String,
-    default: 'claude-sonnet-4-6'
+    default: ''
   },
   contextTokens: {
     type: Number,

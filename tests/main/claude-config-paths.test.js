@@ -146,6 +146,22 @@ describe('Claude config paths', () => {
     }
   })
 
+  it('validates and creates a writable configured Claude config root directory', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-claude-config-validate-'))
+    const configDir = path.join(tempRoot, 'hydro-agent')
+
+    try {
+      const result = paths.validateClaudeConfigDirValue(`  ${configDir}  `)
+
+      expect(result.configuredValue).toBe(configDir)
+      expect(result.resolvedDir).toBe(configDir)
+      expect(fs.statSync(configDir).isDirectory()).toBe(true)
+      expect(fs.readdirSync(configDir)).toEqual([])
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
   it('rejects a configured Claude config root path that already exists as a file', () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-claude-config-file-'))
     const configDir = path.join(tempRoot, 'hydro-agent')

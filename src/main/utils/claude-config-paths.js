@@ -45,6 +45,48 @@ function getConfiguredClaudeConfigDir(configManager = configuredConfigManager) {
   return configuredValue ? path.resolve(configuredValue) : ''
 }
 
+function validateClaudeConfigDirValue(inputPath, options = {}) {
+  const configuredValue = typeof inputPath === 'string' ? inputPath.trim() : ''
+  const resolvedDir = configuredValue ? path.resolve(expandHome(configuredValue)) : ''
+  if (!resolvedDir) {
+    return { configuredValue: '', resolvedDir: '' }
+  }
+
+  const create = options.create !== false
+  const checkWritable = options.checkWritable !== false
+
+  if (fs.existsSync(resolvedDir)) {
+    const stat = fs.statSync(resolvedDir)
+    if (!stat.isDirectory()) {
+      throw new Error(`HydroAgent config path exists but is not a directory: ${resolvedDir}`)
+    }
+  } else if (create) {
+    fs.mkdirSync(resolvedDir, { recursive: true })
+  }
+
+  if (checkWritable) {
+    const probePath = path.join(
+      resolvedDir,
+      `.hydro-agent-write-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    )
+    try {
+      fs.writeFileSync(probePath, 'ok', { flag: 'wx' })
+    } catch (error) {
+      throw new Error(`HydroAgent config directory is not writable: ${resolvedDir} (${error.message})`)
+    } finally {
+      try {
+        if (fs.existsSync(probePath)) {
+          fs.unlinkSync(probePath)
+        }
+      } catch {
+        // Best effort cleanup for the write probe.
+      }
+    }
+  }
+
+  return { configuredValue, resolvedDir }
+}
+
 function isClaudeConfigIsolated(configManager = configuredConfigManager) {
   return Boolean(getConfiguredClaudeConfigDir(configManager))
 }
@@ -59,21 +101,14 @@ function buildClaudeConfigEnv(configManager = configuredConfigManager) {
 }
 
 function ensureClaudeConfigDir(configManager = configuredConfigManager) {
-  const claudeConfigDir = getConfiguredClaudeConfigDir(configManager)
-  if (!claudeConfigDir) {
+  const { resolvedDir } = validateClaudeConfigDirValue(getConfiguredDirValue(configManager), {
+    create: true,
+    checkWritable: false
+  })
+  if (!resolvedDir) {
     return null
   }
-
-  if (fs.existsSync(claudeConfigDir)) {
-    const stat = fs.statSync(claudeConfigDir)
-    if (!stat.isDirectory()) {
-      throw new Error(`HydroAgent config path exists but is not a directory: ${claudeConfigDir}`)
-    }
-    return claudeConfigDir
-  }
-
-  fs.mkdirSync(claudeConfigDir, { recursive: true })
-  return claudeConfigDir
+  return resolvedDir
 }
 
 function getClaudeJsonPath(configManager = configuredConfigManager) {
@@ -132,5 +167,6 @@ module.exports = {
   getClaudeProxySupportDir,
   getClaudeSettingsPath,
   getClaudeSkillsDir,
-  isClaudeConfigIsolated
+  isClaudeConfigIsolated,
+  validateClaudeConfigDirValue
 }

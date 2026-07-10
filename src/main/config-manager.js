@@ -18,7 +18,8 @@ const {
 const {
   DEFAULT_CLAUDE_CONFIG_DIR,
   buildClaudeConfigEnv,
-  getClaudeProxySupportDir
+  getClaudeProxySupportDir,
+  validateClaudeConfigDirValue
 } = require('./utils/claude-config-paths');
 
 const MARKET_REGISTRY_GITHUB = 'https://raw.githubusercontent.com/hydroCoderClaud/hydroSkills/main';
@@ -33,6 +34,17 @@ function resolveConfiguredModelId(_source, profile) {
   const selectedModelId = normalizeModelValue(profile?.selectedModelId);
   if (selectedModelId) return selectedModelId;
   return '';
+}
+
+function normalizeClaudeConfigDirForSave(config) {
+  if (!config?.settings?.agent) return;
+  if (!Object.prototype.hasOwnProperty.call(config.settings.agent, 'claudeConfigDir')) return;
+
+  const { configuredValue } = validateClaudeConfigDirValue(config.settings.agent.claudeConfigDir, {
+    create: true,
+    checkWritable: true
+  });
+  config.settings.agent.claudeConfigDir = configuredValue;
 }
 
 class ConfigManager {
@@ -545,10 +557,12 @@ class ConfigManager {
    * 更新配置
    */
   updateConfig(updates) {
-    this.config = {
+    const nextConfig = {
       ...this.config,
       ...updates
     };
+    normalizeClaudeConfigDirForSave(nextConfig);
+    this.config = nextConfig;
     return this.save();
   }
 
@@ -560,6 +574,7 @@ class ConfigManager {
     if (Object.prototype.hasOwnProperty.call(nextSettings, 'developerClaudeSource')) {
       nextSettings.developerClaudeSource = normalizeDeveloperClaudeSource(nextSettings.developerClaudeSource);
     }
+    normalizeClaudeConfigDirForSave({ settings: nextSettings });
     this.config.settings = {
       ...this.config.settings,
       ...nextSettings
