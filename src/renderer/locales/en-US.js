@@ -657,7 +657,7 @@ export default {
         ruleExists: 'Rule already exists'
       },
       env: {
-        globalTitle: 'Global Environment',
+        globalTitle: 'Global Environment (changes apply after restarting the session)',
         projectTitle: 'Project Environment',
         addVar: 'Add environment variable',
         editVar: 'Edit environment variable',

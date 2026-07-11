@@ -659,7 +659,7 @@ export default {
       },
       // 环境变量
       env: {
-        globalTitle: '全局环境变量',
+        globalTitle: '全局环境变量（修改后重启会话生效）',
         projectTitle: '项目环境变量',
         addVar: '添加环境变量',
         editVar: '编辑环境变量',

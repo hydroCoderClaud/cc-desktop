@@ -296,6 +296,12 @@ function isSessionAppCapabilityEnabled(allowedCapabilities, capabilityName) {
   return normalizedAllowed.includes(resolveSessionAppCapabilityName(capabilityName))
 }
 
+const HIDDEN_SDK_SYSTEM_EVENT_SUBTYPES = new Set(['thinking_tokens'])
+
+function isHiddenSdkSystemEvent(rawMsg) {
+  return rawMsg?.type === 'system' && HIDDEN_SDK_SYSTEM_EVENT_SUBTYPES.has(rawMsg.subtype)
+}
+
 class AgentSessionManager extends EventEmitter {
   constructor(mainWindow, configManager) {
     super()
@@ -2382,6 +2388,9 @@ class AgentSessionManager extends EventEmitter {
         break
 
       default:
+        if (isHiddenSdkSystemEvent(rawMsg)) {
+          break
+        }
         this._safeSend('agent:otherMessage', {
           sessionId: session.id,
           message: rawMsg

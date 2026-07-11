@@ -1314,6 +1314,29 @@ describe('AgentSessionManager interactions', () => {
     expect(sent.some(item => item.channel === 'agent:message' && item.data.message.type === 'tool_result')).toBe(true)
   })
 
+  it('does not surface SDK thinking token telemetry as a chat message', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-thinking-telemetry', cwd: '/tmp' })
+    manager.sessions.set('s-thinking-telemetry', session)
+
+    const telemetryEvent = {
+      type: 'system',
+      subtype: 'thinking_tokens',
+      estimated_tokens: 1,
+      estimated_tokens_delta: 1,
+      uuid: 'telemetry-uuid',
+      session_id: 'sdk-session'
+    }
+    manager.runner = {
+      normalizeMessage: raw => ({ type: 'unknown', raw })
+    }
+
+    await manager._processMessage(session, telemetryEvent)
+
+    expect(sent.some(item => item.channel === 'agent:otherMessage')).toBe(false)
+    expect(sent.some(item => item.channel === 'agent:message')).toBe(false)
+  })
+
   it('emits bridge-friendly image paths for tool_result file resources', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 's-tool-bridge', cwd: '/tmp' })
