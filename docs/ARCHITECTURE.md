@@ -225,19 +225,21 @@ IM 用户发消息 → 平台 Stream/WS → DingTalk / Feishu / EnterpriseWeixin
 
 ## 数据存储
 
+Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空时保持 Claude Code 默认行为，使用 `~/.claude` 与 `~/.claude.json`；填写 HydroAgent 配置目录时，CLI 进程会注入 `CLAUDE_CONFIG_DIR`，下表中的 `<Claude profile>` 指向该目录，`<Claude profile json>` 指向该目录下的 `.claude.json`。
+
 | 数据 | 位置 | 格式 |
 |------|------|------|
 | 应用配置 | `{userData}/config.json` | JSON |
 | 会话数据库 | `{userData}/sessions.db` | SQLite（11 张表 + FTS5） |
 | 更新状态 | `{userData}/update-state.json` | JSON |
-| CLI 会话历史 | `~/.claude/projects/{encodedPath}/*.jsonl` | JSONL（只读） |
-| Skills | `~/.claude/skills/{id}/SKILL.md` | Markdown + YAML |
-| Agents | `~/.claude/agents/{id}.md` | Markdown + YAML |
-| Hooks | `~/.claude/hooks.json` | JSON |
-| MCP 配置 | `~/.claude.json` | JSON |
-| Settings | `~/.claude/settings.json` | JSON |
-| Plugin 市场源 | `~/.claude/plugins/known_marketplaces.json` | JSON |
-| Plugins | `~/.claude/plugins/installed_plugins.json` | JSON |
+| CLI 会话历史 | `<Claude profile>/projects/{encodedPath}/*.jsonl` | JSONL（只读） |
+| Skills | `<Claude profile>/skills/{id}/SKILL.md` | Markdown + YAML |
+| Agents | `<Claude profile>/agents/{id}.md` | Markdown + YAML |
+| Hooks | `<Claude profile>/hooks.json` | JSON |
+| MCP 配置 | `<Claude profile json>` | JSON |
+| Settings | `<Claude profile>/settings.json` | JSON |
+| Plugin 市场源 | `<Claude profile>/plugins/known_marketplaces.json` | JSON |
+| Plugins | `<Claude profile>/plugins/installed_plugins.json` | JSON |
 
 `{userData}` = `%APPDATA%/cc-desktop`（Windows）或 `~/Library/Application Support/cc-desktop`（macOS）
 

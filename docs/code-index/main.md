@@ -82,17 +82,17 @@
 
 ### session-history-service.js
 - **行数**：482
-- **职责**：从 `~/.claude/` 目录读取 CLI 会话历史（只读），提供搜索和导出
+- **职责**：从当前 Claude profile 的 `projects/` 目录读取 CLI 会话历史（只读），提供搜索和导出
 - **关键方法**：`getProjects()`, `getProjectSessions()`, `getSessionMessages()`, `searchSessions()`, `exportSession()`, `getGlobalHistory()`
 
 ### session-sync-service.js
 - **行数**：529
-- **职责**：增量同步 `~/.claude/` 会话数据到本地 SQLite 数据库
+- **职责**：增量同步当前 Claude profile 的会话数据到本地 SQLite 数据库
 - **关键方法**：`sync()`, `syncProjectSessions()`, `syncSessionMessages()`, `forceFullSync()`, `clearInvalidSessions()`
 
 ### session-file-watcher.js
 - **行数**：423
-- **职责**：监控 `~/.claude/projects/{encodedPath}/` 目录，检测新 `.jsonl` 文件并关联待定会话
+- **职责**：监控当前 Claude profile 的 `projects/{encodedPath}/` 目录，检测新 `.jsonl` 文件并关联待定会话
 - **关键方法**：`watch()`, `stop()`, `switchProject()`, `handleNewSessionFile()`, `parseSessionFile()`
 
 ### ipc-handlers.js

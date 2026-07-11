@@ -215,12 +215,11 @@ const currentModeTabs = computed(() =>
 
 ### 外部 IM 会话表现
 
-当前 Agent 聊天界面已同时承载普通桌面对话、钉钉观察会话、微信观察会话：
+当前 Agent 聊天界面已同时承载普通桌面对话，以及通过 `sessionImChannel` 标记的外部 IM 观察/绑定会话：
 
-- `sessionType === 'dingtalk'` 时显示钉钉观察提示条
-- `sessionType === 'weixin'` 时显示微信观察提示条
-- 外部 IM 会话默认关闭 slash command 入口，避免把 IM 桥接会话误当作普通桌面会话
-- 来自钉钉/微信的用户消息会带来源标记；微信消息与图片也会实时注入聊天区
+- `isExternalImChannel(sessionImChannel)` 为真时显示对应 IM 观察提示条
+- 桌面端已激活的 IM 绑定会话保持 slash command 可用；`enableSlashCommands` 只受 `hasActiveSession` 控制
+- 来自外部 IM 的用户消息会带来源标记；微信消息与图片也会实时注入聊天区
 
 ### Notebook 对话面板
 

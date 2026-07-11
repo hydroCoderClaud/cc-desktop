@@ -83,8 +83,8 @@ npm run rebuild:sqlite
 - capability 一能力一组件（skill / agent / plugin）
 - 组件市场清单：`{registryUrl}/index.json`（skill/agent/prompt/mcp 四类）
 - skill 安装：优先 `npx skills add`（整目录克隆），失败自动 fallback HTTP 逐文件下载
-- 插件唯一数据源：`~/.claude/plugins/installed_plugins.json`
-- 插件启用/禁用状态：`~/.claude/settings.json` 的 `enabledPlugins`
+- 插件唯一数据源：Claude profile 的 `plugins/installed_plugins.json`（默认兼容模式为 `~/.claude/plugins/installed_plugins.json`；配置 HydroAgent 隔离目录后随该目录切换）
+- 插件启用/禁用状态：Claude profile 的 `settings.json` 的 `enabledPlugins`
 - plugin 安装失败且市场未注册时，会根据 `marketplace` 自动注册后重试
 - 相关核心文件：
   - `src/main/managers/capability-manager.js`
@@ -144,7 +144,7 @@ npm run rebuild:sqlite
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cc-desktop** (6206 symbols, 16456 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cc-desktop** (6205 symbols, 16458 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

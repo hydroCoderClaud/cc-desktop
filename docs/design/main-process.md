@@ -540,8 +540,10 @@ SessionDatabaseBase (session-database.js)
 
 ### 会话同步管道
 
+`<Claude profile>` 由 `settings.agent.claudeConfigDir` 决定：留空时为 Claude Code 默认 `~/.claude`；配置 HydroAgent 隔离目录后随该目录切换。
+
 ```
-~/.claude/projects/{encodedPath}/*.jsonl
+<Claude profile>/projects/{encodedPath}/*.jsonl
   ↓ (SessionHistoryService: 只读扫描)
   ↓ (SessionSyncService: 增量同步到 SQLite)
   ↓ (SessionFileWatcher: 实时监控新文件，关联 pending session)
@@ -549,7 +551,7 @@ SessionDatabaseBase (session-database.js)
 sessions.db
 ```
 
-- `SessionHistoryService`（482行）：从 `~/.claude/` 目录读取 CLI 会话历史（JSONL 格式），提供搜索和导出
+- `SessionHistoryService`（482行）：从当前 Claude profile 目录读取 CLI 会话历史（JSONL 格式），提供搜索和导出
 - `SessionSyncService`（529行）：增量同步，通过 `file_mtime` 和 `last_synced_uuid` 避免重复处理
 - `SessionFileWatcher`（423行）：使用 `chokidar` 监控项目目录，检测新 `.jsonl` 文件后调用 `fillPendingSession()` 关联活动会话
 
@@ -744,14 +746,16 @@ Object.assign(SkillsManager.prototype, crud, importMixin, exportMixin, marketMix
 
 ### 文件存储位置
 
+下表里的 `<Claude profile>` 默认是 `~/.claude`；配置 HydroAgent 隔离目录后指向该目录。`<Claude profile json>` 默认是 `~/.claude.json`，隔离模式下是 `<Claude profile>/.claude.json`。
+
 | 组件 | 位置 | 格式 |
 |------|------|------|
-| Skills | `~/.claude/skills/{id}/SKILL.md` | Markdown + YAML frontmatter |
-| Agents | `~/.claude/agents/{id}.md` | Markdown + YAML frontmatter |
-| Hooks | `~/.claude/hooks.json` (全局) / `.claude/hooks.json` (项目) | JSON |
-| MCP | `~/.claude.json` (user) / `.claude/settings.local.json` (local/project) | JSON |
-| Plugins | `~/.claude/plugins/installed_plugins.json` | JSON |
-| Settings | `~/.claude/settings.json` | JSON |
+| Skills | `<Claude profile>/skills/{id}/SKILL.md` | Markdown + YAML frontmatter |
+| Agents | `<Claude profile>/agents/{id}.md` | Markdown + YAML frontmatter |
+| Hooks | `<Claude profile>/hooks.json` (全局) / `.claude/hooks.json` (项目) | JSON |
+| MCP | `<Claude profile json>` (user/local) / `.mcp.json` (project) | JSON |
+| Plugins | `<Claude profile>/plugins/installed_plugins.json` | JSON |
+| Settings | `<Claude profile>/settings.json` | JSON |
 
 ### 禁用状态
 

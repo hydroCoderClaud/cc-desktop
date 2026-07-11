@@ -2,6 +2,13 @@
 
 ---
 
+## 未发布 - 当前 master
+
+### 其他 (Chore)
+- **Claude Agent SDK 依赖升级**：将内置 `@anthropic-ai/claude-agent-sdk` 固定升级到 `0.3.206`，并显式声明其运行所需的 `@anthropic-ai/sdk`、`@modelcontextprotocol/sdk` 与 `zod` 依赖，降低后续安装解析差异
+
+---
+
 ## v1.7.87 - 2026-07-10
 
 ### 新增 (Feat)
