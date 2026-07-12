@@ -90,15 +90,6 @@
           >
             <Icon name="agent" :size="14" />
           </button>
-          <button
-            class="sync-btn"
-            :class="{ syncing: isSyncing }"
-            @click.stop="$emit('sync-sessions')"
-            :disabled="isSyncing"
-            :title="t('session.sync') || '同步会话'"
-          >
-            <Icon name="refresh" :size="12" />
-          </button>
           <span v-if="historySessions.length > displayedHistorySessions.length" class="view-more" @click.stop="$emit('view-more')">
             {{ t('session.viewMore') }}
           </span>
@@ -131,7 +122,7 @@
           </div>
         </template>
         <div v-else class="empty-hint small">
-          {{ t('session.noHistorySessions') || '点击同步历史会话' }}
+          {{ t('session.noHistorySessions') || '暂无历史会话' }}
         </div>
       </div>
 
@@ -273,10 +264,6 @@ defineProps({
     type: Boolean,
     default: false
   },
-  isSyncing: {
-    type: Boolean,
-    default: false
-  },
   showNewSessionDialog: {
     type: Boolean,
     default: false
@@ -321,7 +308,6 @@ const emit = defineEmits([
   'rename-session',
   'close-session',
   'toggle-subagent-sessions',
-  'sync-sessions',
   'view-more',
   'open-history-session',
   'rename-history-session',

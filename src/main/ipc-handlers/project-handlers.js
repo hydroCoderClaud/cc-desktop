@@ -7,16 +7,15 @@ const { dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { createIPCHandler } = require('../utils/ipc-utils')
-const { smartDecodePath } = require('../utils/path-utils')
 
 /**
- * 检测路径中是否包含可能导致会话同步问题的字符
+ * 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
  * - 非 ASCII 字符（中文等）：encodePath 后信息丢失，不可逆
- * - 连字符(-)和下划线(_)：encodePath 统一转 -，反向解码有歧义
+ * - 连字符(-)、下划线(_)和空白：编码后都可能与路径分隔符混淆
  */
 function hasProblematicPath(filePath) {
   const segments = filePath.replace(/\\/g, '/').split('/').filter(s => s && !s.endsWith(':'))
-  return segments.some(seg => /[-_]|[^\x00-\x7F]/.test(seg))
+  return segments.some(seg => /[-_\s]|[^\x00-\x7F]/.test(seg))
 }
 
 /**
@@ -33,38 +32,10 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   // 获取所有工程（不含隐藏）
   createIPCHandler(ipcMain, 'project:getAll', (includeHidden = false) => {
     const projects = sessionDatabase.getAllProjects(includeHidden)
-    const validProjects = []
-    const removedNames = []
-
-    for (const project of projects) {
-      // 首先检查存储的路径是否有效
-      if (fs.existsSync(project.path)) {
-        validProjects.push({ ...project, pathValid: true })
-        continue
-      }
-
-      // 路径无效，且有 encoded_path，尝试智能解码找到正确路径
-      // 这处理了 decodePath 对包含 '-' 的路径解码错误的情况
-      if (project.encoded_path) {
-        const correctPath = smartDecodePath(project.encoded_path)
-        if (correctPath) {
-          // 找到正确路径，更新数据库
-          sessionDatabase.updateProject(project.id, { path: correctPath })
-          validProjects.push({ ...project, path: correctPath, pathValid: true })
-          continue
-        }
-      }
-
-      // 路径不存在且无法恢复，自动从列表移除
-      removedNames.push(project.name || project.path)
-      sessionDatabase.deleteProject(project.id, false)
-    }
-
-    if (removedNames.length > 0) {
-      console.log(`[Project] Auto-removed ${removedNames.length} invalid project(s): ${removedNames.join(', ')}`)
-    }
-
-    return validProjects
+    return projects.map(project => ({
+      ...project,
+      pathValid: fs.existsSync(project.path)
+    }))
   })
 
   // 获取隐藏的工程
@@ -102,7 +73,8 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       throw new Error('目录不存在')
     }
 
-    // 检测路径中是否包含可能导致会话同步问题的字符（skipPathCheck 用于用户已确认风险后的创建）
+    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
+    // skipPathCheck 用于用户已确认风险后的创建
     if (!projectData.skipPathCheck) {
       const pathWarning = hasProblematicPath(projectData.path)
       if (pathWarning) {
@@ -146,7 +118,7 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
     const projectPath = result.filePaths[0]
 
-    // 检测路径中是否包含可能导致会话同步问题的字符
+    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
     const pathWarning = hasProblematicPath(projectPath)
 
     // pathWarning 时不创建记录，只返回路径信息，由前端确认后再创建
@@ -168,11 +140,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       // 如果已隐藏，恢复显示
       if (existing.is_hidden) {
         sessionDatabase.unhideProject(existing.id)
-      }
-      // 如果是同步导入的项目，用户主动打开后升级为用户项目
-      if (existing.source === 'sync') {
-        sessionDatabase.updateProject(existing.id, { source: 'user' })
-        existing.source = 'user'
       }
       // Update last_opened_at and return
       sessionDatabase.touchProject(existing.id)
@@ -210,7 +177,7 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     const newPath = result.filePaths[0]
     const newName = path.basename(newPath)
 
-    // 检测路径中是否包含可能导致会话同步问题的字符
+    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
     const pathWarning = hasProblematicPath(newPath)
     if (pathWarning) {
       return {

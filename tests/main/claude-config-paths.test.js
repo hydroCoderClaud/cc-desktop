@@ -12,8 +12,6 @@ const { ComponentScanner } = requireCjs('../../src/main/component-scanner.js')
 const { SkillsManager } = requireCjs('../../src/main/managers/skills/index.js')
 const { AgentsManager } = requireCjs('../../src/main/managers/agents/index.js')
 const { CapabilityManager } = requireCjs('../../src/main/managers/capability-manager.js')
-const { SessionHistoryService } = requireCjs('../../src/main/session-history-service.js')
-const { SessionSyncService } = requireCjs('../../src/main/session-sync-service.js')
 
 function fakeConfigManager(claudeConfigDir) {
   return {
@@ -96,15 +94,11 @@ describe('Claude config paths', () => {
     const skillsManager = new SkillsManager()
     const agentsManager = new AgentsManager()
     const capabilityManager = new CapabilityManager(configManager)
-    const historyService = new SessionHistoryService()
-    const syncService = new SessionSyncService({})
 
     expect(scanner.settingsPath).toBe(path.join(os.homedir(), '.claude', 'settings.json'))
     expect(skillsManager.userSkillsDir).toBe(path.join(os.homedir(), '.claude', 'skills'))
     expect(agentsManager.userAgentsDir).toBe(path.join(os.homedir(), '.claude', 'agents'))
     expect(capabilityManager.installedPluginsPath).toBe(path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json'))
-    expect(historyService.historyFile).toBe(path.join(os.homedir(), '.claude', 'history.jsonl'))
-    expect(syncService.projectsDir).toBe(path.join(os.homedir(), '.claude', 'projects'))
 
     configuredDir = path.join(os.tmpdir(), 'cc-claude-config-a')
 
@@ -112,8 +106,6 @@ describe('Claude config paths', () => {
     expect(skillsManager.userSkillsDir).toBe(path.join(configuredDir, 'skills'))
     expect(agentsManager.userAgentsDir).toBe(path.join(configuredDir, 'agents'))
     expect(capabilityManager.installedPluginsPath).toBe(path.join(configuredDir, 'plugins', 'installed_plugins.json'))
-    expect(historyService.historyFile).toBe(path.join(configuredDir, 'history.jsonl'))
-    expect(syncService.projectsDir).toBe(path.join(configuredDir, 'projects'))
 
     configuredDir = ''
 
@@ -121,8 +113,6 @@ describe('Claude config paths', () => {
     expect(skillsManager.userSkillsDir).toBe(path.join(os.homedir(), '.claude', 'skills'))
     expect(agentsManager.userAgentsDir).toBe(path.join(os.homedir(), '.claude', 'agents'))
     expect(capabilityManager.installedPluginsPath).toBe(path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json'))
-    expect(historyService.historyFile).toBe(path.join(os.homedir(), '.claude', 'history.jsonl'))
-    expect(syncService.projectsDir).toBe(path.join(os.homedir(), '.claude', 'projects'))
   })
 
   it('does not create a custom root directory on startup in legacy mode', () => {

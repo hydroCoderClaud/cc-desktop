@@ -1,51 +1,19 @@
 /**
- * 会话历史相关 IPC 处理器
- * 包含会话管理、标签管理、收藏管理等功能
+ * Legacy session database IPC handlers.
+ * Keeps database browsing, tags, and favorites until Developer mode is removed.
  */
 
-const { SessionDatabase } = require('../session-database');
-const { SessionSyncService } = require('../session-sync-service');
 const { createIPCHandler } = require('../utils/ipc-utils');
 
 /**
  * 设置会话相关的 IPC 处理器
  * @param {Object} ipcMain - Electron ipcMain module
  * @param {SessionDatabase} sessionDatabase - Shared database instance
- * @returns {Object} - { sessionSyncService }
  */
 function setupSessionHandlers(ipcMain, sessionDatabase) {
-  const sessionSyncService = new SessionSyncService(sessionDatabase);
-
-  // ========================================
-  // 会话历史管理（数据库版）
-  // ========================================
-
-  // 同步会话数据
-  createIPCHandler(ipcMain, 'session:sync', async () => {
-    return await sessionSyncService.sync();
-  });
-
-  // 强制全量同步（清空数据库后重新同步）
-  createIPCHandler(ipcMain, 'session:forceFullSync', async () => {
-    return await sessionSyncService.forceFullSync();
-  });
-
-  // 获取同步状态
-  createIPCHandler(ipcMain, 'session:getSyncStatus', () => {
-    return {
-      syncing: sessionSyncService.isSyncing(),
-      lastSync: sessionSyncService.getLastSyncStats()
-    };
-  });
-
-  // 清除无效会话（warmup 和 消息少于 2 条的会话）
-  createIPCHandler(ipcMain, 'session:clearInvalid', async () => {
-    return await sessionSyncService.clearInvalidSessions();
-  });
-
-  // 获取所有项目（从数据库，包括同步导入的项目）
+  // 获取所有项目（仅数据库）
   createIPCHandler(ipcMain, 'session:getProjects', () => {
-    return sessionDatabase.getAllProjects(false, false);  // includeHidden=false, userOnly=false
+    return sessionDatabase.getAllProjects(false);
   });
 
   // 获取项目的会话列表（从数据库）
@@ -215,16 +183,6 @@ function setupSessionHandlers(ipcMain, sessionDatabase) {
     return { success: true };
   });
 
-  // 启动时异步执行一次同步（不阻塞启动）
-  setImmediate(async () => {
-    try {
-      await sessionSyncService.sync();
-    } catch (err) {
-      console.error('[Sync] Initial sync failed:', err.message);
-    }
-  });
-
-  return { sessionSyncService };
 }
 
 module.exports = { setupSessionHandlers };

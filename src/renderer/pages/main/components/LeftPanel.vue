@@ -20,7 +20,6 @@
       :history-sessions="historySessions"
       :displayed-history-sessions="displayedHistorySessions"
       :show-subagent-sessions="showSubagentSessions"
-      :is-syncing="isSyncing"
       :show-new-session-dialog="showNewSessionDialog"
       :new-session-title="newSessionTitle"
       :show-rename-dialog="showRenameDialog"
@@ -38,7 +37,6 @@
       @rename-session="openRenameDialog"
       @close-session="handleCloseSession"
       @toggle-subagent-sessions="toggleSubagentSessions"
-      @sync-sessions="handleSyncSessions"
       @view-more="handleViewMore"
       @open-history-session="handleOpenHistorySession"
       @rename-history-session="handleEditHistorySession"
@@ -286,7 +284,6 @@ const {
 
 // Local state
 const selectedProjectId = ref(null)
-const isSyncing = ref(false)
 const agentLeftContentRef = ref(null)
 const activeAgentSessionId = ref(null)
 const showNewConvModal = ref(false)
@@ -325,7 +322,6 @@ const projectMenuOptions = computed(() => [
   { label: t('project.openFolder'), key: 'openFolder', icon: renderMenuIcon('folderOpen') },
   { label: t('terminal.openTerminal'), key: 'openTerminal', icon: renderMenuIcon('terminal') },
   { label: t('project.edit'), key: 'edit', icon: renderMenuIcon('edit') },
-  { label: t('session.sync'), key: 'syncSessions', icon: renderMenuIcon('sync') },
   { type: 'divider', key: 'd1' },
   { label: t('project.openClaudeConfig'), key: 'openProjectConfig', icon: renderMenuIcon('fileText') },
   { label: t('settingsMenu.claudeSettings'), key: 'openClaudeSettings', icon: renderMenuIcon('settings') },
@@ -393,12 +389,6 @@ const handleProjectChange = async (projectId) => {
 // Handle project menu actions
 const handleProjectMenuSelect = async (key) => {
   if (!props.currentProject) return
-
-  // 同步会话直接在本组件处理
-  if (key === 'syncSessions') {
-    handleSyncSessions()
-    return
-  }
 
   // 打开终端直接在本组件处理
   if (key === 'openTerminal') {
@@ -506,36 +496,6 @@ const handleOpenClaudeSettings = async () => {
 const handleViewMore = () => {
   if (window.electronAPI && props.currentProject) {
     window.electronAPI.openSessionManager({ projectPath: props.currentProject.path })
-  }
-}
-
-// 手动同步会话
-const handleSyncSessions = async () => {
-  if (!props.currentProject || isSyncing.value) return
-
-  isSyncing.value = true
-  try {
-    const result = await window.electronAPI.syncProjectSessions({
-      projectPath: props.currentProject.path,
-      projectName: props.currentProject.name
-    })
-
-    if (result.success) {
-      await loadHistorySessions(props.currentProject)
-      const synced = result.synced || 0
-      if (synced > 0) {
-        message.success(t('session.syncSuccess', { added: synced, updated: 0 }) || `同步完成：新增 ${synced}`)
-      } else {
-        message.info(t('session.syncNoChanges') || '已是最新，无需同步')
-      }
-    } else {
-      message.warning(result.error || t('session.syncFailed') || '同步失败')
-    }
-  } catch (err) {
-    console.error('Sync sessions failed:', err)
-    message.error(t('session.syncFailed') || '同步失败')
-  } finally {
-    isSyncing.value = false
   }
 }
 

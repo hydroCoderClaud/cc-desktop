@@ -20,9 +20,9 @@ agent_conversations
 = 通过 sdk_session_id 对应 Claude 生成的 jsonl 文件名
 
 sessions
-= Claude jsonl 历史索引/缓存
-= 不是 Agent 会话主表
-= 未来可弱化、重命名或替换
+= Developer 模式运行时兼容表
+= 不再扫描或索引 Claude jsonl 历史
+= 随 Developer 模式清除后删除
 ```
 
 推荐关系：
@@ -30,8 +30,7 @@ sessions
 ```text
 projects.id 1 -> N agent_conversations.project_id
 
-projects.id 1 -> N sessions.project_id
-agent_conversations.sdk_session_id ~= sessions.session_uuid
+projects.id 1 -> N sessions.project_id  // 仅过渡期
 ```
 
 其中 `sdk_session_id` 和 `session_uuid` 可以在值上匹配，但不应作为 Agent 主链路的强关系。
@@ -91,54 +90,38 @@ projects 表中的有效 path
 
 理想状态是：Agent 会话全部有 `project_id` 后，能力管理主要读取 `projects`，Agent 历史只作为补漏来源。
 
-## 第四阶段：sessions 表先保留，但降级为历史索引
+## 第四阶段：清除 Claude 历史扫描
 
-短期不删除 `sessions`。它仍有价值：
+历史扫描已确认属于应清除的遗留功能：
 
-1. 支撑 Claude jsonl 历史搜索。
-2. 支撑收藏、标签、历史导出。
-3. 支撑已有数据兼容。
-4. 作为 jsonl 文件索引缓存，避免每次全量读取文件。
+1. 删除 `SessionHistoryService` 与 `SessionSyncService`。
+2. 删除启动自动扫描、手动同步、强制全量同步和清理 JSONL 的入口。
+3. 删除所有 `source='sync'` 项目；其旧 `sessions/messages` 通过外键级联清理，项目级提示词先转为全局提示词保留。
+4. 新项目只允许使用 `source='user'`。
+5. 删除从 `encoded_path` 反向猜测真实 cwd 的逻辑；`projects.path` 是现阶段唯一可信的真实路径。
 
-但语义必须明确：
+`sessions` 暂时保留只为兼容尚未清除的 Developer 当前会话：
 
 - `sessions` 不代表 Agent 会话。
 - `sessions` 不参与 Agent 消息主显示。
 - `sessions` 不参与 Agent 删除。
-- `sessions` 只表示 Claude jsonl 历史索引。
-
-未来可以考虑重命名：
-
-```text
-sessions -> claude_history_sessions
-messages -> claude_history_messages
-```
+- `SessionFileWatcher` 只补齐当前 Developer pending session 的 UUID，不导入外部历史。
 
 ## 第五阶段：sessions 的未来处置
 
-### 推荐方案：保留为历史索引
+清除 Developer Mode 后删除：
 
-- `sessions` 继续索引 jsonl。
-- 通过 `project_id + session_uuid` 关联到 project。
-- Agent 主链路仍然只用 `agent_conversations/agent_messages`。
-- 需要显示底层 Claude 历史时再使用 `sessions`。
+- `sessions`
+- `messages` / `messages_fts`
+- `session_tags` / `message_tags` / `favorites`
+- `SessionFileWatcher`
+- Developer 历史查询窗口及相关 IPC
 
-### 可选方案：合并进 Agent 会话
-
-- 把 `session_uuid`、jsonl 索引、消息索引都挂到 `agent_conversations`。
-- 可以减少表，但迁移复杂。
-- 历史、收藏、搜索都需要重写。
-- 不建议第一阶段执行。
-
-### 可选方案：废弃 sessions，按需读 jsonl
-
-- 适合完全不要历史搜索、收藏、标签的极简 Agent 产品。
-- 代价是搜索和历史加载变慢。
-- 对 encoded path 碰撞场景更难解释。
+Agent 主链路始终只使用 `agent_conversations/agent_messages`。
 
 ## 第一刀建议
 
-不要先动 `sessions`，先做最小语义对齐：
+第一阶段先清除历史扫描数据，再做 Agent 项目语义对齐：
 
 ```text
 projects.path_key 唯一化
@@ -152,6 +135,5 @@ Agent 创建/列表/恢复统一走 project
 ```text
 project 是目录身份
 agent_conversation 是业务会话
-session 是 Claude 历史索引
+session 是待清除的 Developer 兼容数据
 ```
-

@@ -1249,11 +1249,7 @@ export default {
     newSessionHint: '请先打开项目工程目录<br>然后点击"新建会话"或恢复历史会话',
     cannotDeleteRunning: '该会话正在运行中，请先关闭会话再删除',
     viewMore: '查看更多',
-    sync: '同步会话',
-    syncSuccess: '同步完成：新增 {added}，更新 {updated}',
-    syncNoChanges: '已是最新，无需同步',
-    syncFailed: '同步失败',
-    noHistorySessions: '点击 🔄 同步历史会话',
+    noHistorySessions: '暂无历史会话',
     showSubagent: '显示子代理会话',
     hideSubagent: '隐藏子代理会话'
   },
@@ -1305,15 +1301,6 @@ export default {
     exportFailed: '导出失败',
     selectHint: '点击选中消息，Ctrl+C 复制（优先复制划选文字）',
     copyShortcut: '',
-    // 同步相关
-    sync: '同步',
-    syncNow: '立即同步',
-    syncing: '同步中...',
-    syncSuccess: '同步完成',
-    syncFailed: '同步失败',
-    newMessages: '条新消息',
-    lastSync: '上次同步',
-    neverSynced: '从未同步',
     // 收藏相关
     favorite: '收藏',
     unfavorite: '取消收藏',
@@ -1356,12 +1343,7 @@ export default {
     totalSessions: '会话总数',
     totalMessages: '消息总数',
     tokensUsed: '已用 Token',
-    totalMessages: '总消息数',
-    // 清除无效会话
-    clearInvalid: '清除无效会话',
-    clearInvalidConfirm: '将删除 warmup 预热会话和消息少于 2 条的会话，此操作不可恢复，确定继续吗？',
-    clearInvalidSuccess: '清除完成',
-    filesDeleted: '个文件已删除'
+    totalMessages: '总消息数'
   },
 
   // 工程管理
@@ -1397,10 +1379,10 @@ export default {
     deleteConfirm: '确认删除项目',
     deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
     deleteWithSessions: '同时删除关联的会话记录',
-    unsupportedPathError: '项目路径 "{name}" 包含中文或特殊字符，Claude Code CLI 无法正确处理此类路径，会导致会话监控和历史同步失效。请使用纯英文路径。',
-    nonAsciiPathWarning: '项目 "{name}" 的路径包含中文、连字符(-)或下划线(_)，可能导致会话同步时路径解析异常。建议使用纯英文且不含特殊符号的路径。',
+    unsupportedPathError: '项目路径 "{name}" 包含中文或特殊字符，可能与其他真实路径映射到同一个 Claude projects 目录。请使用纯英文路径。',
+    nonAsciiPathWarning: '项目 "{name}" 的路径包含中文、连字符(-)、下划线(_)或空白，可能与其他真实路径映射到同一个 Claude projects 目录。建议使用纯英文且不含特殊符号的路径。',
     pathWarningTitle: '路径存在兼容性问题',
-    pathWarningContent: '路径 "{path}" 包含中文、连字符(-)或下划线(_)。这会导致 Claude Code CLI 无法正确编码路径，造成以下严重后果：\n\n• 会话文件监控完全失效\n• 历史会话记录无法关联\n• 会话同步数据丢失或错乱\n\n强烈建议使用纯英文、不含特殊符号的目录路径。如果你清楚上述风险并接受后果，可以选择继续。',
+    pathWarningContent: '路径 "{path}" 包含中文、连字符(-)、下划线(_)或空白。Claude Code 会把这些字符和路径分隔符折叠为连字符，不同真实路径可能因此共用一个 projects 子目录，导致 JSONL 混放且无法可靠判断所属 cwd。\n\n强烈建议使用纯英文、不含特殊符号的目录路径。如果你清楚上述风险并接受后果，可以选择继续。',
     pathWarningContinue: '我已知晓风险，继续添加',
     pathWarningCancel: '取消，我去改路径',
     apiProfileChangedTitle: 'API 配置已更改',

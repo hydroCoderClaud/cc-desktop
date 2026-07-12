@@ -107,19 +107,13 @@
 
 | 通道名 | 类型 | Handler | 简述 |
 |--------|------|---------|------|
-| session:sync | handle | session | 同步会话数据 |
-| session:forceFullSync | handle | session | 强制全量同步 |
-| session:getSyncStatus | handle | session | 获取同步状态 |
-| session:clearInvalid | handle | session | 清除无效会话 |
 | session:getProjects | handle | session | 获取所有项目 |
 | session:getProjectSessions | handle | session | 获取项目会话列表 |
 | session:getMessages | handle | session | 获取会话消息 |
 | session:search | handle | session | 搜索会话（FTS5） |
 | session:export | handle | session | 导出会话 |
 | session:getStats | handle | session | 获取数据库统计 |
-| session:getFileBasedSessions | handle | ipc | 实时读取文件会话 |
 | session:getProjectSessionsFromDb | handle | ipc | 从数据库获取项目会话 |
-| session:syncProjectSessions | handle | ipc | 文件→数据库增量同步 |
 | session:updateTitle | handle | ipc | 更新会话标题 |
 | session:deleteWithFile | handle | ipc | 删除会话（DB+文件） |
 | session:deleteFile | handle | ipc | 删除会话文件 |

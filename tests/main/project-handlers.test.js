@@ -107,4 +107,37 @@ describe('project-handlers openProject path warning', () => {
     expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
     expect(sessionDatabase.touchProject).not.toHaveBeenCalled()
   })
+
+  it('reports the stored path status without decoding or deleting the project', async () => {
+    const project = {
+      id: 7,
+      path: 'C:/missing/real-path',
+      encoded_path: 'C--some-colliding-path',
+      name: 'real-path'
+    }
+    sessionDatabase.getAllProjects.mockReturnValueOnce([project])
+
+    const getAllHandler = handlers.get('project:getAll')
+    const result = await getAllHandler(false)
+
+    expect(result).toEqual([{ ...project, pathValid: false }])
+    expect(sessionDatabase.updateProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.deleteProject).not.toHaveBeenCalled()
+  })
+
+  it('warns for whitespace because Claude folds it into the projects directory name', async () => {
+    showOpenDialogMock.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: ['C:/workspace/develop/project name']
+    })
+
+    const openHandler = handlers.get('project:open')
+    const result = await openHandler(null)
+
+    expect(result).toMatchObject({
+      pathWarning: true,
+      path: 'C:/workspace/develop/project name'
+    })
+    expect(sessionDatabase.createProject).not.toHaveBeenCalled()
+  })
 })

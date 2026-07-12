@@ -43,39 +43,7 @@
           <n-button size="small" quaternary :disabled="searchIndex >= searchResults.length - 1" @click="nextResult"><Icon name="chevronRight" :size="14" /></n-button>
           <n-button size="small" quaternary @click="clearSearchResults"><Icon name="close" :size="14" /></n-button>
         </n-space>
-        <!-- Sync Button -->
-        <n-button :loading="syncing" @click="handleSync">
-          <Icon name="sync" :size="14" style="margin-right: 4px" />
-          {{ t('sessionManager.sync') }}
-        </n-button>
-        <!-- Force Full Sync Button -->
-        <n-popconfirm @positive-click="handleForceFullSync">
-          <template #trigger>
-            <n-button :loading="syncing" type="warning">
-              <Icon name="zap" :size="14" style="margin-right: 4px" />
-              强制全量同步
-            </n-button>
-          </template>
-          此操作将清空数据库并重新同步所有数据，确定继续？
-        </n-popconfirm>
-        <!-- Clear Invalid Sessions Button -->
-        <n-popconfirm @positive-click="handleClearInvalid">
-          <template #trigger>
-            <n-button :loading="clearing" type="warning">
-              <Icon name="broom" :size="14" style="margin-right: 4px" />
-              {{ t('sessionManager.clearInvalid') }}
-            </n-button>
-          </template>
-          {{ t('sessionManager.clearInvalidConfirm') }}
-        </n-popconfirm>
       </n-space>
-    </div>
-
-    <!-- Sync Status -->
-    <div v-if="syncStats" class="sync-status">
-      <span>{{ t('sessionManager.lastSync') }}: {{ formatDate(syncStats.timestamp) }}</span>
-      <span>{{ syncStats.messagesAdded }} {{ t('sessionManager.newMessages') }}</span>
-      <span>{{ t('sessionManager.totalMessages') }}: {{ syncStats.totalMessages }}</span>
     </div>
 
     <!-- Main Content -->
@@ -87,7 +55,6 @@
         :selected-project="selectedProject"
         :loading-projects="loadingProjects"
         @select="selectProject"
-        @sync="handleSync"
       />
 
       <!-- Center: Session List -->
@@ -145,7 +112,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage, NPopconfirm } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -179,9 +146,6 @@ const selectedMessages = ref([])
 const loadingProjects = ref(false)
 const loadingSessions = ref(false)
 const loadingMessages = ref(false)
-const syncing = ref(false)
-const clearing = ref(false)
-const syncStats = ref(null)
 
 // Tags
 const allTags = ref([])
@@ -301,7 +265,7 @@ const handleKeyDown = async (e) => {
 onMounted(async () => {
   await initTheme()
   await initLocale()
-  await handleSync()
+  await loadProjects()
   await loadTags()
   window.addEventListener('keydown', handleKeyDown)
 
@@ -400,88 +364,6 @@ const loadMessageTags = async () => {
   } catch (err) {
     console.error('Failed to load message tags:', err)
     messageTagsMap.value = {}
-  }
-}
-
-// ========================================
-// Sync
-// ========================================
-const handleSync = async () => {
-  syncing.value = true
-  try {
-    const result = await invoke('syncSessions')
-    console.log('[Sync] Result:', result)  // 诊断日志
-    if (result.status === 'success') {
-      const stats = await invoke('getSessionStats')
-      syncStats.value = {
-        timestamp: Date.now(),
-        projectsScanned: result.projectsScanned || 0,
-        projectsAdded: result.projectsAdded || 0,
-        messagesAdded: result.messagesAdded,
-        sessionsAdded: result.sessionsAdded,
-        totalMessages: stats?.messages || 0
-      }
-      // 显示更详细的同步结果
-      const syncInfo = `${t('sessionManager.syncSuccess')}: ${result.projectsScanned} 项目, ${result.sessionsAdded} 会话, ${result.messagesAdded} 消息`
-      message.success(syncInfo)
-    } else if (result.status === 'error') {
-      message.error(result.message)
-    }
-    await loadProjects()
-  } catch (err) {
-    console.error('Sync failed:', err)
-    message.error(t('messages.operationFailed'))
-  } finally {
-    syncing.value = false
-  }
-}
-
-const handleForceFullSync = async () => {
-  syncing.value = true
-  try {
-    const result = await invoke('forceFullSync')
-    console.log('[ForceFullSync] Result:', result)
-    if (result.status === 'success') {
-      const stats = await invoke('getSessionStats')
-      syncStats.value = {
-        timestamp: Date.now(),
-        projectsScanned: result.projectsScanned || 0,
-        projectsAdded: result.projectsAdded || 0,
-        messagesAdded: result.messagesAdded,
-        sessionsAdded: result.sessionsAdded,
-        totalMessages: stats?.messages || 0
-      }
-      const syncInfo = `强制同步完成: ${result.projectsScanned} 项目, ${result.sessionsAdded} 会话, ${result.messagesAdded} 消息`
-      message.success(syncInfo)
-    } else if (result.status === 'error') {
-      message.error(result.message)
-    }
-    await loadProjects()
-  } catch (err) {
-    console.error('Force full sync failed:', err)
-    message.error(t('messages.operationFailed'))
-  } finally {
-    syncing.value = false
-  }
-}
-
-const handleClearInvalid = async () => {
-  clearing.value = true
-  try {
-    const result = await invoke('clearInvalidSessions')
-    if (result.status === 'success') {
-      const totalDeleted = result.filesDeleted + result.dbSessionsDeleted
-      message.success(`${t('sessionManager.clearInvalidSuccess')}: ${result.filesDeleted} ${t('sessionManager.filesDeleted')}`)
-      // 清除后重新同步
-      await handleSync()
-    } else if (result.status === 'error') {
-      message.error(result.message)
-    }
-  } catch (err) {
-    console.error('Clear invalid sessions failed:', err)
-    message.error(t('messages.operationFailed'))
-  } finally {
-    clearing.value = false
   }
 }
 

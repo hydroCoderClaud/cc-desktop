@@ -15,7 +15,6 @@
 | [session-app-optimizer-design.md](./session-app-optimizer-design.md) | 会话应用优化提案与升级机制设计备忘 |
 | [session-app-hydrodesktop-mcp-plan.md](./session-app-hydrodesktop-mcp-plan.md) | 会话应用接入 hydrodesktop 内置 MCP 的计划 |
 | [hydroskill-market-installation-improvement-design.md](./hydroskill-market-installation-improvement-design.md) | HydroSkill 市场协议与 Skill 下载安装技术改进方案 |
-| [session-management.md](./session-management.md) | 会话管理设计 |
 | [design-system.md](./design-system.md) | 设计系统 |
 | [image-recognition.md](./image-recognition.md) | 图片识别链路 |
 | [im-attachment-unified-design.md](./im-attachment-unified-design.md) | IM 统一附件抽象设计 |

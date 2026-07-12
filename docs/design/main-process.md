@@ -538,22 +538,9 @@ SessionDatabaseBase (session-database.js)
 
 `runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表唯一约束从 `path` 改为 `encoded_path`），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。
 
-### 会话同步管道
+### Developer 会话文件监听
 
-`<Claude profile>` 由 `settings.agent.claudeConfigDir` 决定：留空时为 Claude Code 默认 `~/.claude`；配置 HydroAgent 隔离目录后随该目录切换。
-
-```
-<Claude profile>/projects/{encodedPath}/*.jsonl
-  ↓ (SessionHistoryService: 只读扫描)
-  ↓ (SessionSyncService: 增量同步到 SQLite)
-  ↓ (SessionFileWatcher: 实时监控新文件，关联 pending session)
-  ↓
-sessions.db
-```
-
-- `SessionHistoryService`（482行）：从当前 Claude profile 目录读取 CLI 会话历史（JSONL 格式），提供搜索和导出
-- `SessionSyncService`（529行）：增量同步，通过 `file_mtime` 和 `last_synced_uuid` 避免重复处理
-- `SessionFileWatcher`（423行）：使用 `chokidar` 监控项目目录，检测新 `.jsonl` 文件后调用 `fillPendingSession()` 关联活动会话
+Claude 历史目录的全量扫描和导入已移除。`SessionFileWatcher` 仅监控当前 Developer 工程中新生成的 `.jsonl`，用于调用 `fillPendingSession()` 补齐 pending session 的 UUID；外部历史会话不会导入数据库。
 
 ---
 
@@ -608,7 +595,7 @@ downloadUpdate()
 `setupIPCHandlers()` 是 IPC 系统的唯一入口，负责：
 
 1. 创建 `SessionDatabase` 并初始化
-2. 创建 `SessionHistoryService` 和 `SessionFileWatcher`
+2. 创建 `SessionFileWatcher`
 3. 通过 `setSessionDatabase()` 注入 DB 到 Manager
 4. 调用 12 个 `setupXxxHandlers()` 注册模块化处理器
 5. 直接注册顶层通道（dialog、shell、window、terminal、session watcher 等）

@@ -701,19 +701,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 会话历史管理（数据库版）
   // ========================================
-  // 同步
-  syncSessions: () => ipcRenderer.invoke('session:sync'),
-  forceFullSync: () => ipcRenderer.invoke('session:forceFullSync'),
-  getSyncStatus: () => ipcRenderer.invoke('session:getSyncStatus'),
-  clearInvalidSessions: () => ipcRenderer.invoke('session:clearInvalid'),
-
   // 项目和会话
   getSessionProjects: () => ipcRenderer.invoke('session:getProjects'),
   getProjectSessions: (projectId) => ipcRenderer.invoke('session:getProjectSessions', projectId),
   getSessionMessages: ({ sessionId, limit, offset }) => ipcRenderer.invoke('session:getMessages', { sessionId, limit, offset }),
-
-  // 实时会话读取（文件版，用于主页面）
-  getFileBasedSessions: (projectPath) => ipcRenderer.invoke('session:getFileBasedSessions', projectPath),
 
   // 删除历史会话文件（硬删除）
   deleteSessionFile: ({ projectPath, sessionId }) => ipcRenderer.invoke('session:deleteFile', { projectPath, sessionId }),
@@ -723,9 +714,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 从数据库获取项目会话（用于左侧面板）- 通过 projectPath 查询
   getProjectSessionsFromDb: (projectPath) => ipcRenderer.invoke('session:getProjectSessionsFromDb', projectPath),
-
-  // 同步项目会话到数据库（从文件系统增量同步）
-  syncProjectSessions: ({ projectPath, projectName }) => ipcRenderer.invoke('session:syncProjectSessions', { projectPath, projectName }),
 
   // 更新会话标题（支持通过 sessionId 或 sessionUuid 更新）
   updateSessionTitle: ({ sessionId, sessionUuid, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, sessionUuid, title }),

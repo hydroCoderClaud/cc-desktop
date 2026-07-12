@@ -171,7 +171,7 @@ class SessionDatabaseBase {
       { name: 'is_pinned', type: 'INTEGER DEFAULT 0' },
       { name: 'is_hidden', type: 'INTEGER DEFAULT 0' },
       { name: 'last_opened_at', type: 'INTEGER' },
-      { name: 'source', type: "TEXT DEFAULT 'sync'" }  // 'user' = 用户添加, 'sync' = 同步导入
+      { name: 'source', type: "TEXT DEFAULT 'user'" }
     ]
 
     for (const col of projectNewColumns) {
@@ -572,7 +572,7 @@ class SessionDatabaseBase {
             api_profile_id TEXT,
             is_pinned INTEGER DEFAULT 0,
             is_hidden INTEGER DEFAULT 0,
-            source TEXT DEFAULT 'sync',
+            source TEXT DEFAULT 'user',
             created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
             updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
             last_opened_at INTEGER
@@ -604,6 +604,40 @@ class SessionDatabaseBase {
         this.db.pragma('foreign_keys = ON')
       }
     }
+
+    this._removeLegacySyncedProjects()
+  }
+
+  /**
+   * Remove project rows created by the retired Claude history scanner.
+   * Project-scoped prompts are preserved as global prompts before cascading
+   * foreign keys remove legacy sessions and messages.
+   */
+  _removeLegacySyncedProjects() {
+    this.db.exec('BEGIN TRANSACTION')
+    try {
+      const promptResult = this.db.prepare(`
+        UPDATE prompts
+        SET scope = 'global', project_id = NULL, updated_at = ?
+        WHERE project_id IN (
+          SELECT id FROM projects WHERE source = 'sync'
+        )
+      `).run(Date.now())
+
+      const projectResult = this.db.prepare("DELETE FROM projects WHERE source = 'sync'").run()
+      this.db.exec('COMMIT')
+
+      if (projectResult.changes > 0) {
+        console.log(`[SessionDB] Removed ${projectResult.changes} legacy synced project(s)`)
+      }
+      if (promptResult.changes > 0) {
+        console.log(`[SessionDB] Preserved ${promptResult.changes} project prompt(s) as global prompts`)
+      }
+      return projectResult.changes
+    } catch (err) {
+      this.db.exec('ROLLBACK')
+      throw err
+    }
   }
 
   /**
@@ -629,6 +663,7 @@ class SessionDatabaseBase {
         api_profile_id TEXT,
         is_pinned INTEGER DEFAULT 0,
         is_hidden INTEGER DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'user' CHECK(source = 'user'),
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
         last_opened_at INTEGER

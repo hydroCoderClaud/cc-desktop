@@ -18,9 +18,7 @@ function withProjectOperations(BaseClass) {
     // ========================================
 
     /**
-     * Get or create a project (用于同步服务，source='sync')
-     * 注意：使用 encoded_path 进行匹配，避免 decodePath 的 '-' 分隔符歧义
-     * projectPath 参数来自 decodePath，可能不准确，但仍存储用于显示
+     * Get or create a project for a real working directory.
      */
     getOrCreateProject(projectPath, encodedPath, name) {
       // 使用 encoded_path 查找，避免路径中包含 '-' 导致的歧义
@@ -32,10 +30,8 @@ function withProjectOperations(BaseClass) {
         return existing
       }
 
-      // 同步导入的项目，source='sync'
-      // 注意：projectPath 可能因 decodePath 歧义而不准确
       const result = this.db.prepare(
-        "INSERT INTO projects (path, encoded_path, name, source) VALUES (?, ?, ?, 'sync')"
+        "INSERT INTO projects (path, encoded_path, name, source) VALUES (?, ?, ?, 'user')"
       ).run(projectPath, encodedPath, name)
 
       return {
@@ -43,24 +39,19 @@ function withProjectOperations(BaseClass) {
         path: projectPath,
         encoded_path: encodedPath,
         name,
-        source: 'sync'
+        source: 'user'
       }
     }
 
     /**
      * Get all projects (excluding hidden by default)
      * @param {boolean} includeHidden - 是否包含隐藏项目
-     * @param {boolean} userOnly - 是否只返回用户添加的项目（主面板用）
      */
-    getAllProjects(includeHidden = false, userOnly = true) {
+    getAllProjects(includeHidden = false) {
       const conditions = []
 
       if (!includeHidden) {
         conditions.push("p.is_hidden = 0")
-      }
-
-      if (userOnly) {
-        conditions.push("p.source = 'user'")
       }
 
       let sql = `
@@ -106,7 +97,7 @@ function withProjectOperations(BaseClass) {
 
     /**
      * Get project by path
-     * 使用 encoded_path 匹配，避免 decodePath 的 '-' 分隔符歧义问题
+     * encoded_path remains a compatibility key until path_key is introduced.
      */
     getProjectByPath(projectPath) {
       const encoded = encodePath(projectPath)
@@ -116,7 +107,6 @@ function withProjectOperations(BaseClass) {
     /**
      * Create a new project
      * @param {Object} projectData - 项目数据
-     * @param {string} projectData.source - 来源: 'user' (用户添加) 或 'sync' (同步导入)
      */
     createProject(projectData) {
       const {
@@ -125,18 +115,17 @@ function withProjectOperations(BaseClass) {
         description = '',
         icon = '📁',
         color = '#1890ff',
-        api_profile_id = null,
-        source = 'user'  // 默认为用户添加
+        api_profile_id = null
       } = projectData
 
-      // 使用 Claude CLI 的目录命名格式作为 encoded_path（与同步导入一致）
+      // Keep Claude's directory encoding as a derived compatibility field.
       const encoded = encodePath(projectPath)
 
       const now = Date.now()
       const result = this.db.prepare(`
         INSERT INTO projects (path, encoded_path, name, description, icon, color, api_profile_id, source, created_at, updated_at, last_opened_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(projectPath, encoded, name, description, icon, color, api_profile_id, source, now, now, now)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'user', ?, ?, ?)
+      `).run(projectPath, encoded, name, description, icon, color, api_profile_id, now, now, now)
 
       return {
         id: result.lastInsertRowid,
@@ -147,7 +136,7 @@ function withProjectOperations(BaseClass) {
         icon,
         color,
         api_profile_id,
-        source,
+        source: 'user',
         is_pinned: 0,
         is_hidden: 0,
         created_at: now,
@@ -160,8 +149,7 @@ function withProjectOperations(BaseClass) {
      * Update project
      */
     updateProject(projectId, updates) {
-      // path 可更新：用于修正 decodePath 解码错误的路径
-      const allowedFields = ['path', 'name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at', 'source']
+      const allowedFields = ['path', 'name', 'description', 'icon', 'color', 'api_profile_id', 'is_pinned', 'is_hidden', 'last_opened_at']
       const fields = []
       const values = []
 

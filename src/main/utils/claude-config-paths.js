@@ -136,10 +136,6 @@ function getClaudeProjectsDir(configManager = configuredConfigManager) {
   return path.join(getClaudeConfigDir(configManager), 'projects')
 }
 
-function getClaudeHistoryPath(configManager = configuredConfigManager) {
-  return path.join(getClaudeConfigDir(configManager), 'history.jsonl')
-}
-
 function getClaudeProxySupportDir(configManager = configuredConfigManager) {
   return path.join(getClaudeConfigDir(configManager), 'proxy-support')
 }
@@ -159,7 +155,6 @@ module.exports = {
   getClaudeAgentsDir,
   getClaudeConfigDir,
   getConfiguredClaudeConfigDir,
-  getClaudeHistoryPath,
   getClaudeJsonPath,
   getClaudePluginsDir,
   getClaudeProjectsDir,

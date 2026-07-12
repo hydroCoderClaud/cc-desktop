@@ -8,9 +8,6 @@
       <n-spin :show="loadingProjects">
         <div v-if="projects.length === 0 && !loadingProjects" class="empty-state">
           <n-empty :description="t('sessionManager.noProjects')" />
-          <n-button size="small" @click="$emit('sync')" style="margin-top: 12px">
-            {{ t('sessionManager.syncNow') }}
-          </n-button>
         </div>
         <div
           v-for="project in projects"
@@ -51,7 +48,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['select', 'sync'])
+defineEmits(['select'])
 
 const scrollbarRef = ref(null)
 

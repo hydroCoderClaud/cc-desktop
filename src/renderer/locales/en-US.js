@@ -1244,11 +1244,7 @@ export default {
     newSessionHint: 'Please open a project directory first<br>Then click "New Session" or restore a history session',
     cannotDeleteRunning: 'This session is currently running. Please close it first before deleting.',
     viewMore: 'View More',
-    sync: 'Sync Sessions',
-    syncSuccess: 'Sync completed: {added} added, {updated} updated',
-    syncNoChanges: 'Already up to date',
-    syncFailed: 'Sync failed',
-    noHistorySessions: 'Click 🔄 to sync history sessions',
+    noHistorySessions: 'No history sessions',
     showSubagent: 'Show subagent sessions',
     hideSubagent: 'Hide subagent sessions'
   },
@@ -1300,15 +1296,6 @@ export default {
     exportFailed: 'Export failed',
     selectHint: 'Click to select message, Ctrl+C to copy (text selection takes priority)',
     copyShortcut: '',
-    // Sync related
-    sync: 'Sync',
-    syncNow: 'Sync Now',
-    syncing: 'Syncing...',
-    syncSuccess: 'Sync completed',
-    syncFailed: 'Sync failed',
-    newMessages: 'new messages',
-    lastSync: 'Last sync',
-    neverSynced: 'Never synced',
     // Favorites related
     favorite: 'Favorite',
     unfavorite: 'Unfavorite',
@@ -1351,12 +1338,7 @@ export default {
     totalSessions: 'Total Sessions',
     totalMessages: 'Total Messages',
     tokensUsed: 'Tokens Used',
-    totalMessages: 'Total messages',
-    // Clear invalid sessions
-    clearInvalid: 'Clear Invalid',
-    clearInvalidConfirm: 'This will delete warmup sessions and sessions with less than 2 messages. This action cannot be undone. Continue?',
-    clearInvalidSuccess: 'Cleanup completed',
-    filesDeleted: 'files deleted'
+    totalMessages: 'Total messages'
   },
 
   // Project Management
@@ -1392,10 +1374,10 @@ export default {
     deleteConfirm: 'Confirm Delete Project',
     deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
     deleteWithSessions: 'Also delete associated session records',
-    unsupportedPathError: 'Project path "{name}" contains non-ASCII characters (e.g. Chinese). Claude Code CLI cannot handle such paths correctly, causing session monitoring and history sync to fail. Please use an ASCII-only path.',
-    nonAsciiPathWarning: 'Project "{name}" path contains non-ASCII characters, hyphens(-), or underscores(_), which may cause session sync path resolution issues. Paths without special characters are recommended.',
+    unsupportedPathError: 'Project path "{name}" contains non-ASCII or special characters and may map to the same Claude projects directory as another real path. Use an ASCII-only path.',
+    nonAsciiPathWarning: 'Project "{name}" contains non-ASCII characters, hyphens (-), underscores (_), or whitespace and may map to the same Claude projects directory as another real path. An ASCII-only path without special characters is recommended.',
     pathWarningTitle: 'Path Compatibility Issue',
-    pathWarningContent: 'Path "{path}" contains non-ASCII characters, hyphens(-), or underscores(_). This prevents Claude Code CLI from encoding the path correctly, causing:\n\n• Session file monitoring completely broken\n• History sessions cannot be associated\n• Session sync data lost or corrupted\n\nIt is strongly recommended to use ASCII-only paths without special characters. If you understand these risks and accept the consequences, you may continue.',
+    pathWarningContent: 'Path "{path}" contains non-ASCII characters, hyphens (-), underscores (_), or whitespace. Claude Code folds these characters and path separators into hyphens, so different real paths can share one projects subdirectory. Their JSONL files are then mixed and cannot be reliably attributed to a cwd.\n\nAn ASCII-only path without special characters is strongly recommended. You may continue if you understand and accept this risk.',
     pathWarningContinue: 'I understand the risks, continue',
     pathWarningCancel: 'Cancel, I will fix the path',
     apiProfileChangedTitle: 'API Config Changed',

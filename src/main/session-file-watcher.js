@@ -214,7 +214,7 @@ class SessionFileWatcher {
         return
       }
 
-      // 检查这个 uuid 是否已存在于数据库（可能被 SyncService 抢先创建）
+      // 检查这个 uuid 是否已存在于数据库
       const existingSession = this.sessionDatabase.getSessionByUuid(sessionInfo.sessionId)
 
       // 通过 projectPath 获取数据库项目 ID
@@ -229,8 +229,7 @@ class SessionFileWatcher {
       const pendingSession = this.sessionDatabase.getLatestPendingSession(dbProject.id)
 
       if (existingSession && pendingSession) {
-        // 竞态修复：SyncService 已创建了 session 记录，但还有一个 pending session 未关联
-        // 需要把 pending session 的 title 和 active_session_id 合并到已存在的记录，然后删除 pending
+        // 合并遗留的重复记录：保留 pending session 的标题和活动会话关联
         console.log('[FileWatcher] Race condition detected: merging pending session', pendingSession.id, 'into existing session', existingSession.id)
 
         this.sessionDatabase.mergePendingIntoExisting(existingSession.id, pendingSession)
@@ -272,8 +271,7 @@ class SessionFileWatcher {
         }
       } else {
         console.log('[FileWatcher] No pending session found, this might be an external session')
-        // 没有待定会话，可能是外部创建的会话，不处理
-        // 让 syncProjectSessions 在下次同步时处理
+        // External sessions are not imported into the legacy session database.
       }
     } catch (err) {
       console.error('[FileWatcher] Error handling new session file:', err)

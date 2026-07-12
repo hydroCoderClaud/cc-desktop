@@ -22,7 +22,6 @@ function safeRequire(modulePath, moduleName) {
 }
 
 const { SessionDatabase } = safeRequire('./session-database', 'SessionDatabase') || {};
-const { SessionHistoryService } = safeRequire('./session-history-service', 'SessionHistoryService') || {};
 const { SessionFileWatcher } = safeRequire('./session-file-watcher', 'SessionFileWatcher') || {};
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
 const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
@@ -162,9 +161,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   const realtimeDemoSeeder = realtimeService && RealtimeDemoSeeder
     ? new RealtimeDemoSeeder(realtimeService)
     : null
-
-  // 初始化文件读取服务（实时读取隔离 Claude 配置目录）
-  const sessionHistoryService = new SessionHistoryService();
 
   // 初始化会话文件监听器
   const sessionFileWatcher = SessionFileWatcher ? new SessionFileWatcher(mainWindow) : null;
@@ -837,18 +833,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     setupPluginHandlers(ipcMain, configManager);
   }
 
-  // ========================================
-  // 实时会话读取（文件版）
-  // ========================================
-
-  registerHandler('session:getFileBasedSessions', async (projectPath) => {
-    return sessionHistoryService.getProjectSessions(projectPath);
-  });
-
-  // ========================================
-  // 会话面板管理（数据库 + 文件同步）
-  // ========================================
-
   // 获取项目会话列表（从数据库）
   // 参数改为 projectPath，通过路径查找数据库中的项目
   registerHandler('session:getProjectSessionsFromDb', async (projectPath) => {
@@ -857,41 +841,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       return [];
     }
     return sessionDatabase.getProjectSessionsForPanel(dbProject.id);
-  });
-
-  // 同步项目会话到数据库（从文件系统增量同步）
-  registerHandler('session:syncProjectSessions', async ({ projectPath, projectName }) => {
-    // 获取文件系统中的会话
-    const fileSessions = await sessionHistoryService.getProjectSessions(projectPath);
-    if (!fileSessions || fileSessions.length === 0) {
-      return { success: true, synced: 0 };
-    }
-
-    // 获取或创建数据库中的项目（使用路径作为关联键）
-    const { encodePath } = require('./utils/path-utils');
-    const encodedPath = encodePath(projectPath);
-    const dbProject = sessionDatabase.getOrCreateProject(
-      projectPath,
-      encodedPath,
-      projectName || require('path').basename(projectPath)
-    );
-
-    let syncedCount = 0;
-    for (const fileSession of fileSessions) {
-      // 跳过 warmup 会话
-      if (fileSession.firstUserMessage?.toLowerCase().includes('warmup')) {
-        continue;
-      }
-      // 跳过 0 条消息的会话
-      if (!fileSession.messageCount || fileSession.messageCount === 0) {
-        continue;
-      }
-      // 同步到数据库（使用数据库项目的 INTEGER id）
-      sessionDatabase.syncSessionFromFile(dbProject.id, fileSession);
-      syncedCount++;
-    }
-
-    return { success: true, synced: syncedCount };
   });
 
   // 更新会话标题

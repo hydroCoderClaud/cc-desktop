@@ -80,16 +80,6 @@
 - **Mixin 链**：project -> session -> message -> tag -> favorite -> prompt -> queue -> agent -> prompt-market
 - **架构上下文**：-> [数据存储](../design/main-process.md#数据存储)
 
-### session-history-service.js
-- **行数**：482
-- **职责**：从当前 Claude profile 的 `projects/` 目录读取 CLI 会话历史（只读），提供搜索和导出
-- **关键方法**：`getProjects()`, `getProjectSessions()`, `getSessionMessages()`, `searchSessions()`, `exportSession()`, `getGlobalHistory()`
-
-### session-sync-service.js
-- **行数**：529
-- **职责**：增量同步当前 Claude profile 的会话数据到本地 SQLite 数据库
-- **关键方法**：`sync()`, `syncProjectSessions()`, `syncSessionMessages()`, `forceFullSync()`, `clearInvalidSessions()`
-
 ### session-file-watcher.js
 - **行数**：423
 - **职责**：监控当前 Claude profile 的 `projects/{encodedPath}/` 目录，检测新 `.jsonl` 文件并关联待定会话
@@ -97,7 +87,7 @@
 
 ### ipc-handlers.js
 - **行数**：662
-- **职责**：IPC 注册入口，初始化 SessionDatabase/SyncService/FileWatcher，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
+- **职责**：IPC 注册入口，初始化 SessionDatabase/FileWatcher，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
 - **关键导出**：`setupIPCHandlers()`
 - **架构上下文**：-> [IPC 通信](../design/main-process.md#ipc-通信)
 
@@ -114,7 +104,7 @@
 | config-handlers.js | config: / providers: | 259 | getConfig, updateSettings, testAPI, getProfiles, addProfile |
 | prompt-handlers.js | prompt: | 248 | getPrompts, createPrompt, updatePrompt, deletePrompt, getPromptTags |
 | project-handlers.js | project: | 290 | listProjects, createProject, updateProject, deleteProject, hasProblematicPath |
-| session-handlers.js | session: | 230 | getSessions, getMessages, searchSessions, syncSessions, getTags |
+| session-handlers.js | session: | -- | getSessions, getMessages, searchSessions, getTags |
 | active-session-handlers.js | activeSession: | 136 | create, start, close, write, resize, rename |
 | capability-handlers.js | capabilities: | 120 | fetch, install, uninstall, enable, disable, toggleMcp |
 | notebook-handlers.js | notebook: | 521 | list, create, bindSession, listSources, listAchievements, listTools, prepareGeneration, previewGeneration |
@@ -263,7 +253,7 @@
 |------|------|---------|
 | env-builder.js | 271 | `buildProcessEnv`, `buildClaudeEnvVars`, `buildBasicEnv`, `buildStandardExtraVars`, `isPackagedApp` |
 | http-client.js | 264 | `httpGet`, `httpGetWithMirror`, `fetchRegistryIndex`, `classifyHttpError`, `isNewerVersion`, `isValidMarketId`, `isSafeFilename` |
-| path-utils.js | 156 | `encodePath`, `decodePath`, `smartDecodePath`, `getProjectName`, `atomicWriteJson` |
+| path-utils.js | -- | `encodePath`, `getProjectName`, `atomicWriteJson` |
 | agent-constants.js | 115 | `AgentStatus`, `AgentType`, `HIDDEN_DIRS`, `HIDDEN_FILES`, `TEXT_EXTS`, `IMAGE_EXTS`, `LANG_MAP` |
 | constants.js | 101 | `TIMEOUTS`, `LATEST_MODEL_ALIASES`, `BUILT_IN_SERVICE_PROVIDERS` |
 | message-queue.js | 84 | `MessageQueue`（类：enqueue, drain, cancel, isDone） |

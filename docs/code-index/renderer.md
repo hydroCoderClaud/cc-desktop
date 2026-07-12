@@ -190,7 +190,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `MessageViewer.vue` | 493 | 消息详情查看器 |
 | `ProjectList.vue` | 158 | 项目选择列表 |
 | `TagManager.vue` | 122 | 标签管理弹窗 |
-| `composables/useSessionManager.js` | 533 | 单例状态管理（项目/会话/消息/标签/同步） |
 | `styles/tag-dropdown.css` | 150 | 标签下拉样式 |
 
 ### dingtalk-settings（钉钉配置）
@@ -304,7 +303,7 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 
 ### 全局单例 Composable
 
-`useAppMode`、`useLocale`、`useTheme` 使用模块级 `ref`（非函数内），实现跨组件状态共享。`useSessionManager`（session-manager 页面）也采用此模式。
+`useAppMode`、`useLocale`、`useTheme` 使用模块级 `ref`（非函数内），实现跨组件状态共享。
 
 ### IPC 调用封装
 
