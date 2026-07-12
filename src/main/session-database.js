@@ -16,6 +16,12 @@
 const path = require('path')
 const fs = require('fs')
 const { app } = require('electron')
+const {
+  encodePath,
+  normalizeProjectPath,
+  buildProjectPathKey,
+  getProjectName
+} = require('./utils/path-utils')
 
 // 导入所有 mixin
 const {
@@ -42,6 +48,36 @@ function getDefaultDatabase() {
 }
 
 const LEGACY_IM_CHANNEL_TYPES = ['dingtalk', 'weixin', 'feishu', 'enterprise-weixin']
+const PROJECT_KIND_PRIORITY = {
+  workspace: 0,
+  'agent-output': 1,
+  embedded: 2,
+  notebook: 3
+}
+
+function hasColumn(columns, name) {
+  return columns.includes(name)
+}
+
+function normalizeProjectKind(projectKind) {
+  return Object.prototype.hasOwnProperty.call(PROJECT_KIND_PRIORITY, projectKind)
+    ? projectKind
+    : 'workspace'
+}
+
+function promoteProjectKind(currentKind, nextKind) {
+  return PROJECT_KIND_PRIORITY[normalizeProjectKind(nextKind)] > PROJECT_KIND_PRIORITY[normalizeProjectKind(currentKind)]
+    ? normalizeProjectKind(nextKind)
+    : normalizeProjectKind(currentKind)
+}
+
+function isInternalProjectKind(projectKind) {
+  return projectKind === 'agent-output' || projectKind === 'embedded'
+}
+
+function getRowValue(row, columns, name, fallback = null) {
+  return hasColumn(columns, name) ? row[name] : fallback
+}
 
 /**
  * 基础数据库类
@@ -170,8 +206,7 @@ class SessionDatabaseBase {
       { name: 'api_profile_id', type: 'TEXT' },
       { name: 'is_pinned', type: 'INTEGER DEFAULT 0' },
       { name: 'is_hidden', type: 'INTEGER DEFAULT 0' },
-      { name: 'last_opened_at', type: 'INTEGER' },
-      { name: 'source', type: "TEXT DEFAULT 'user'" }
+      { name: 'last_opened_at', type: 'INTEGER' }
     ]
 
     for (const col of projectNewColumns) {
@@ -548,64 +583,362 @@ class SessionDatabaseBase {
       }
     }
 
-    // 迁移：将唯一约束从 path 改为 encoded_path
-    // 检查 projects 表的 SQL 定义，判断是否需要重建
-    const tableInfo = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='projects'").get()
-    const needsRebuild = tableInfo?.sql?.includes('path TEXT UNIQUE')
+    this._removeLegacySyncedProjects()
+    this._migrateProjectIdentitySchema()
+    this._migrateAgentConversationProjectBindings()
+  }
 
-    if (needsRebuild) {
-      console.log('[SessionDB] Migrating: rebuilding projects table (unique constraint from path to encoded_path)')
-      // Temporarily disable foreign keys to allow DROP TABLE with references
-      this.db.pragma('foreign_keys = OFF')
-      this.db.exec('BEGIN TRANSACTION')
+  _getTableColumns(tableName) {
+    return this.db.prepare(`PRAGMA table_info(${tableName})`).all().map(col => col.name)
+  }
+
+  _setForeignKeys(enabled) {
+    const value = enabled ? 'ON' : 'OFF'
+    if (typeof this.db.pragma === 'function') {
+      this.db.pragma(`foreign_keys = ${value}`)
+      return
+    }
+    this.db.exec(`PRAGMA foreign_keys = ${value}`)
+  }
+
+  _selectAllRows(tableName) {
+    const rows = this.db.prepare(`SELECT * FROM ${tableName} ORDER BY id ASC`).all()
+    if (rows.length === 0 && this.db.tables instanceof Map) {
+      const fakeTable = this.db.tables.get(tableName)
+      if (fakeTable?.rows?.length) {
+        return fakeTable.rows.map(row => ({ ...row })).sort((a, b) => (a.id || 0) - (b.id || 0))
+      }
+    }
+    return rows
+  }
+
+  _createProjectsTargetTable(tableName) {
+    this.db.exec(`
+      CREATE TABLE ${tableName} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL,
+        path_key TEXT NOT NULL,
+        encoded_path TEXT NOT NULL,
+        project_kind TEXT NOT NULL DEFAULT 'workspace'
+          CHECK(project_kind IN ('workspace', 'agent-output', 'notebook', 'embedded')),
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT '📁',
+        color TEXT DEFAULT '#1890ff',
+        api_profile_id TEXT,
+        is_pinned INTEGER NOT NULL DEFAULT 0,
+        is_hidden INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        last_opened_at INTEGER
+      )
+    `)
+  }
+
+  _projectIdentitySchemaIsCurrent(columns) {
+    return hasColumn(columns, 'path_key') &&
+      hasColumn(columns, 'project_kind') &&
+      !hasColumn(columns, 'source')
+  }
+
+  _classifyConversationProjectKind(row, columns) {
+    if (getRowValue(row, columns, 'type') === 'notebook') return 'notebook'
+    if (getRowValue(row, columns, 'client_type') === 'embedded' && Number(getRowValue(row, columns, 'cwd_auto', 0)) === 1) return 'embedded'
+    if (getRowValue(row, columns, 'session_app_id')) return 'agent-output'
+    if (Number(getRowValue(row, columns, 'cwd_auto', 0)) === 1) return 'agent-output'
+    return 'workspace'
+  }
+
+  _migrateProjectIdentitySchema() {
+    const projectColumns = this._getTableColumns('projects')
+    if (this._projectIdentitySchemaIsCurrent(projectColumns)) {
+      return
+    }
+
+    console.log('[SessionDB] Migrating: rebuilding projects table with path_key identity')
+    const agentColumns = this._getTableColumns('agent_conversations')
+    const projectRows = this._selectAllRows('projects')
+    const conversationRows = this._selectAllRows('agent_conversations')
+    const groups = new Map()
+
+    const ensureGroup = (normalizedPath, kind) => {
+      const pathKey = buildProjectPathKey(normalizedPath)
+      if (!groups.has(pathKey)) {
+        groups.set(pathKey, {
+          pathKey,
+          path: normalizedPath,
+          encodedPath: encodePath(normalizedPath),
+          kind: normalizeProjectKind(kind),
+          projectRows: [],
+          conversationIds: []
+        })
+      }
+      const group = groups.get(pathKey)
+      group.kind = promoteProjectKind(group.kind, kind)
+      return group
+    }
+
+    for (const row of projectRows) {
+      const normalizedPath = normalizeProjectPath(row.path)
+      const group = ensureGroup(normalizedPath, normalizeProjectKind(getRowValue(row, projectColumns, 'project_kind', 'workspace')))
+      group.projectRows.push(row)
+    }
+
+    for (const row of conversationRows) {
+      const cwd = getRowValue(row, agentColumns, 'cwd')
+      if (!cwd) continue
       try {
-        // 1. 创建新表（唯一约束在 encoded_path）
-        this.db.exec(`
-          CREATE TABLE projects_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            path TEXT NOT NULL,
-            encoded_path TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            description TEXT DEFAULT '',
-            icon TEXT DEFAULT '📁',
-            color TEXT DEFAULT '#1890ff',
-            api_profile_id TEXT,
-            is_pinned INTEGER DEFAULT 0,
-            is_hidden INTEGER DEFAULT 0,
-            source TEXT DEFAULT 'user',
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-            last_opened_at INTEGER
-          )
-        `)
-
-        // 2. 复制数据（去重，保留最新的）
-        // 注意：明确指定列名，避免列顺序不同导致数据错位
-        // 注意：source 列需要特殊处理，旧表可能没有这列，用 COALESCE 设置默认值 'user'
-        this.db.exec(`
-          INSERT OR IGNORE INTO projects_new (id, path, encoded_path, name, description, icon, color, api_profile_id, is_pinned, is_hidden, source, created_at, updated_at, last_opened_at)
-          SELECT id, path, encoded_path, name, description, icon, color, api_profile_id, is_pinned, is_hidden, COALESCE(source, 'user'), created_at, updated_at, last_opened_at
-          FROM projects WHERE id IN (
-            SELECT MAX(id) FROM projects GROUP BY encoded_path
-          )
-        `)
-
-        // 3. 删除旧表，重命名新表
-        this.db.exec('DROP TABLE projects')
-        this.db.exec('ALTER TABLE projects_new RENAME TO projects')
-
-        this.db.exec('COMMIT')
-        console.log('[SessionDB] Migration completed: projects table rebuilt')
+        const normalizedPath = normalizeProjectPath(cwd)
+        const group = ensureGroup(normalizedPath, this._classifyConversationProjectKind(row, agentColumns))
+        group.conversationIds.push(row.id)
       } catch (err) {
-        this.db.exec('ROLLBACK')
-        console.error('[SessionDB] Migration failed:', err)
-      } finally {
-        // Re-enable foreign keys after migration
-        this.db.pragma('foreign_keys = ON')
+        console.warn(`[SessionDB] Skipping invalid Agent cwd during project backfill: ${cwd} (${err.message})`)
       }
     }
 
-    this._removeLegacySyncedProjects()
+    this._setForeignKeys(false)
+    this.db.exec('BEGIN TRANSACTION')
+    try {
+      this._createProjectsTargetTable('projects_new')
+
+      const insertProject = this.db.prepare(`
+        INSERT INTO projects_new (
+          id, path, path_key, encoded_path, project_kind, name, description, icon, color, api_profile_id,
+          is_pinned, is_hidden, created_at, updated_at, last_opened_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      const insertGeneratedProject = this.db.prepare(`
+        INSERT INTO projects_new (
+          path, path_key, encoded_path, project_kind, name, description, icon, color, api_profile_id,
+          is_pinned, is_hidden, created_at, updated_at, last_opened_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      const projectIdMap = new Map()
+      const now = Date.now()
+      const projectGroups = Array.from(groups.values())
+        .filter(group => group.projectRows.length > 0)
+        .sort((a, b) => Math.min(...a.projectRows.map(row => row.id)) - Math.min(...b.projectRows.map(row => row.id)))
+      const generatedGroups = Array.from(groups.values())
+        .filter(group => group.projectRows.length === 0)
+        .sort((a, b) => a.pathKey.localeCompare(b.pathKey))
+
+      for (const group of projectGroups) {
+        const sortedRows = [...group.projectRows].sort((a, b) => a.id - b.id)
+        const survivor = sortedRows[0]
+        const projectKind = normalizeProjectKind(group.kind)
+        const isHidden = isInternalProjectKind(projectKind)
+          ? 1
+          : (sortedRows.some(row => Number(getRowValue(row, projectColumns, 'is_hidden', 0)) === 0) ? 0 : 1)
+        const createdAt = Math.min(...sortedRows.map(row => Number(getRowValue(row, projectColumns, 'created_at', now)) || now))
+        const updatedAt = Math.max(...sortedRows.map(row => Number(getRowValue(row, projectColumns, 'updated_at', now)) || now))
+        const lastOpenedValues = sortedRows
+          .map(row => Number(getRowValue(row, projectColumns, 'last_opened_at', 0)) || 0)
+          .filter(Boolean)
+
+        insertProject.run(
+          survivor.id,
+          group.path,
+          group.pathKey,
+          group.encodedPath,
+          projectKind,
+          getRowValue(survivor, projectColumns, 'name') || getProjectName(group.path),
+          getRowValue(survivor, projectColumns, 'description', '') || '',
+          getRowValue(survivor, projectColumns, 'icon', '📁') || '📁',
+          getRowValue(survivor, projectColumns, 'color', '#1890ff') || '#1890ff',
+          getRowValue(survivor, projectColumns, 'api_profile_id'),
+          sortedRows.some(row => Number(getRowValue(row, projectColumns, 'is_pinned', 0)) === 1) ? 1 : 0,
+          isHidden,
+          createdAt,
+          updatedAt,
+          lastOpenedValues.length ? Math.max(...lastOpenedValues) : null
+        )
+
+        for (const row of sortedRows) {
+          projectIdMap.set(row.id, survivor.id)
+        }
+      }
+
+      for (const group of generatedGroups) {
+        const projectKind = normalizeProjectKind(group.kind)
+        insertGeneratedProject.run(
+          group.path,
+          group.pathKey,
+          group.encodedPath,
+          projectKind,
+          getProjectName(group.path),
+          '',
+          '📁',
+          '#1890ff',
+          null,
+          0,
+          1,
+          now,
+          now,
+          null
+        )
+      }
+
+      const updateSessionProject = this.db.prepare('UPDATE sessions SET project_id = ? WHERE project_id = ?')
+      const updatePromptProject = this.db.prepare('UPDATE prompts SET project_id = ?, updated_at = ? WHERE project_id = ?')
+      for (const [oldId, newId] of projectIdMap) {
+        if (oldId === newId) continue
+        updateSessionProject.run(newId, oldId)
+        updatePromptProject.run(newId, Date.now(), oldId)
+      }
+
+      this.db.exec('DROP TABLE projects')
+      this.db.exec('ALTER TABLE projects_new RENAME TO projects')
+      this.db.exec('COMMIT')
+      console.log('[SessionDB] Migration completed: projects path_key identity rebuilt')
+    } catch (err) {
+      this.db.exec('ROLLBACK')
+      throw err
+    } finally {
+      this._setForeignKeys(true)
+    }
+  }
+
+  _createAgentConversationsTargetTable(tableName) {
+    this.db.exec(`
+      CREATE TABLE ${tableName} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT UNIQUE NOT NULL,
+        type TEXT NOT NULL DEFAULT 'chat',
+        status TEXT NOT NULL DEFAULT 'idle',
+        sdk_session_id TEXT,
+        title TEXT DEFAULT '',
+        cwd TEXT,
+        cwd_auto INTEGER DEFAULT 1,
+        project_id INTEGER,
+        message_count INTEGER DEFAULT 0,
+        total_cost_usd REAL DEFAULT 0,
+        api_profile_id TEXT,
+        api_base_url TEXT,
+        model_id TEXT,
+        last_bootstrapped_runtime TEXT,
+        pending_runtime_change TEXT DEFAULT 'unknown',
+        queued_messages TEXT DEFAULT '[]',
+        im_user_id TEXT,
+        im_chat_id TEXT,
+        im_channel TEXT,
+        im_chat_type TEXT,
+        source TEXT DEFAULT 'manual',
+        task_id INTEGER,
+        owner_client_id TEXT DEFAULT 'host-ui',
+        client_type TEXT DEFAULT 'host',
+        client_meta TEXT,
+        session_app_id TEXT,
+        session_app_input TEXT,
+        created_at INTEGER,
+        updated_at INTEGER,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+      )
+    `)
+  }
+
+  _resolveProjectForCwd(cwd) {
+    if (!cwd) return null
+    try {
+      const normalizedPath = normalizeProjectPath(cwd)
+      const pathKey = buildProjectPathKey(normalizedPath)
+      return this.db.prepare('SELECT id, path FROM projects WHERE path_key = ?').get(pathKey) || null
+    } catch (err) {
+      console.warn(`[SessionDB] Skipping invalid Agent cwd during conversation binding: ${cwd} (${err.message})`)
+      return null
+    }
+  }
+
+  _agentConversationProjectSchemaIsCurrent(columns) {
+    if (!hasColumn(columns, 'project_id')) return false
+    const fks = this.db.prepare('PRAGMA foreign_key_list(agent_conversations)').all()
+    return fks.some(fk => fk.from === 'project_id' && fk.table === 'projects' && fk.on_delete === 'RESTRICT')
+  }
+
+  _migrateAgentConversationProjectBindings() {
+    const columns = this._getTableColumns('agent_conversations')
+    if (this._agentConversationProjectSchemaIsCurrent(columns)) {
+      const rows = this.db.prepare(`
+        SELECT id, cwd, project_id
+        FROM agent_conversations
+        WHERE COALESCE(cwd, '') <> ''
+      `).all()
+      const update = this.db.prepare('UPDATE agent_conversations SET project_id = ?, cwd = ? WHERE id = ?')
+      for (const row of rows) {
+        const project = this._resolveProjectForCwd(row.cwd)
+        if (project && (row.project_id !== project.id || row.cwd !== project.path)) {
+          update.run(project.id, project.path, row.id)
+        }
+      }
+      return
+    }
+
+    console.log('[SessionDB] Migrating: rebuilding agent_conversations with project_id')
+    const rows = this._selectAllRows('agent_conversations')
+
+    this._setForeignKeys(false)
+    this.db.exec('BEGIN TRANSACTION')
+    try {
+      this._createAgentConversationsTargetTable('agent_conversations_new')
+      const insert = this.db.prepare(`
+        INSERT INTO agent_conversations_new (
+          id, session_id, type, status, sdk_session_id, title, cwd, cwd_auto, project_id,
+          message_count, total_cost_usd, api_profile_id, api_base_url, model_id,
+          last_bootstrapped_runtime, pending_runtime_change, queued_messages,
+          im_user_id, im_chat_id, im_channel, im_chat_type, source, task_id,
+          owner_client_id, client_type, client_meta, session_app_id, session_app_input,
+          created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      for (const row of rows) {
+        const project = this._resolveProjectForCwd(getRowValue(row, columns, 'cwd'))
+        insert.run(
+          row.id,
+          row.session_id,
+          getRowValue(row, columns, 'type', 'chat') || 'chat',
+          getRowValue(row, columns, 'status', 'idle') || 'idle',
+          getRowValue(row, columns, 'sdk_session_id'),
+          getRowValue(row, columns, 'title', '') || '',
+          project?.path || getRowValue(row, columns, 'cwd'),
+          Number(getRowValue(row, columns, 'cwd_auto', 1)) ? 1 : 0,
+          project?.id || null,
+          Number(getRowValue(row, columns, 'message_count', 0)) || 0,
+          Number(getRowValue(row, columns, 'total_cost_usd', 0)) || 0,
+          getRowValue(row, columns, 'api_profile_id'),
+          getRowValue(row, columns, 'api_base_url'),
+          getRowValue(row, columns, 'model_id'),
+          getRowValue(row, columns, 'last_bootstrapped_runtime'),
+          getRowValue(row, columns, 'pending_runtime_change', 'unknown') || 'unknown',
+          getRowValue(row, columns, 'queued_messages', '[]') || '[]',
+          getRowValue(row, columns, 'im_user_id'),
+          getRowValue(row, columns, 'im_chat_id'),
+          getRowValue(row, columns, 'im_channel'),
+          getRowValue(row, columns, 'im_chat_type'),
+          getRowValue(row, columns, 'source', 'manual') || 'manual',
+          getRowValue(row, columns, 'task_id'),
+          getRowValue(row, columns, 'owner_client_id', 'host-ui') || 'host-ui',
+          getRowValue(row, columns, 'client_type', 'host') || 'host',
+          getRowValue(row, columns, 'client_meta'),
+          getRowValue(row, columns, 'session_app_id'),
+          getRowValue(row, columns, 'session_app_input'),
+          getRowValue(row, columns, 'created_at'),
+          getRowValue(row, columns, 'updated_at')
+        )
+      }
+
+      this.db.exec('DROP TABLE agent_conversations')
+      this.db.exec('ALTER TABLE agent_conversations_new RENAME TO agent_conversations')
+      this.db.exec('COMMIT')
+      console.log('[SessionDB] Migration completed: agent_conversations project_id rebuilt')
+    } catch (err) {
+      this.db.exec('ROLLBACK')
+      throw err
+    } finally {
+      this._setForeignKeys(true)
+    }
   }
 
   /**
@@ -614,6 +947,11 @@ class SessionDatabaseBase {
    * foreign keys remove legacy sessions and messages.
    */
   _removeLegacySyncedProjects() {
+    const projectColumns = this._getTableColumns('projects')
+    if (!hasColumn(projectColumns, 'source')) {
+      return 0
+    }
+
     this.db.exec('BEGIN TRANSACTION')
     try {
       const promptResult = this.db.prepare(`
@@ -649,21 +987,21 @@ class SessionDatabaseBase {
     // ========================================
 
     // Projects table
-    // 注意：唯一约束在 encoded_path 上，而不是 path
-    // 因为 decodePath 对包含 '-' 的路径可能产生歧义
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         path TEXT NOT NULL,
-        encoded_path TEXT UNIQUE NOT NULL,
+        path_key TEXT NOT NULL,
+        encoded_path TEXT NOT NULL,
+        project_kind TEXT NOT NULL DEFAULT 'workspace'
+          CHECK(project_kind IN ('workspace', 'agent-output', 'notebook', 'embedded')),
         name TEXT NOT NULL,
         description TEXT DEFAULT '',
         icon TEXT DEFAULT '📁',
         color TEXT DEFAULT '#1890ff',
         api_profile_id TEXT,
-        is_pinned INTEGER DEFAULT 0,
-        is_hidden INTEGER DEFAULT 0,
-        source TEXT NOT NULL DEFAULT 'user' CHECK(source = 'user'),
+        is_pinned INTEGER NOT NULL DEFAULT 0,
+        is_hidden INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
         last_opened_at INTEGER
@@ -884,6 +1222,7 @@ class SessionDatabaseBase {
         title TEXT DEFAULT '',
         cwd TEXT,
         cwd_auto INTEGER DEFAULT 1,
+        project_id INTEGER,
         message_count INTEGER DEFAULT 0,
         total_cost_usd REAL DEFAULT 0,
         api_profile_id TEXT,
@@ -901,8 +1240,11 @@ class SessionDatabaseBase {
         owner_client_id TEXT DEFAULT 'host-ui',
         client_type TEXT DEFAULT 'host',
         client_meta TEXT,
+        session_app_id TEXT,
+        session_app_input TEXT,
         created_at INTEGER,
-        updated_at INTEGER
+        updated_at INTEGER,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
       )
     `)
 
@@ -1071,12 +1413,16 @@ class SessionDatabaseBase {
       CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
       CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
       CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path_key ON projects(path_key);
+      CREATE INDEX IF NOT EXISTS idx_projects_encoded_path ON projects(encoded_path);
+      CREATE INDEX IF NOT EXISTS idx_projects_kind_visibility ON projects(project_kind, is_hidden, last_opened_at);
       CREATE INDEX IF NOT EXISTS idx_prompts_scope ON prompts(scope);
       CREATE INDEX IF NOT EXISTS idx_prompts_project ON prompts(project_id);
       CREATE INDEX IF NOT EXISTS idx_queue_session ON session_message_queue(session_uuid);
       CREATE INDEX IF NOT EXISTS idx_queue_pending ON session_message_queue(session_uuid, is_executed);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_status ON agent_conversations(status);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_updated ON agent_conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_agent_conv_project ON agent_conversations(project_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_source ON agent_conversations(source);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_task_id ON agent_conversations(task_id);
       CREATE INDEX IF NOT EXISTS idx_agent_conv_im_identity ON agent_conversations(im_channel, im_user_id, im_chat_id, updated_at DESC);

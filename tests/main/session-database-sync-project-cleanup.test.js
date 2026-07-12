@@ -119,14 +119,19 @@ describe('legacy synced project cleanup', () => {
     expect(sqlite.prepare('SELECT COUNT(*) AS count FROM projects').get().count).toBe(1)
   })
 
-  it('creates automatically ensured projects as user projects', () => {
+  it('creates automatically ensured projects with path identity after migration', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
     const project = database.getOrCreateProject(
       'C:/workspace/new-project',
       'C--workspace-new-project',
       'new-project'
     )
 
-    expect(project.source).toBe('user')
-    expect(sqlite.prepare('SELECT source FROM projects WHERE id = ?').get(project.id).source).toBe('user')
+    expect(project.path_key).toBe('win32:c:/workspace/new-project')
+    expect(project.project_kind).toBe('workspace')
+    expect(sqlite.prepare('SELECT path_key FROM projects WHERE id = ?').get(project.id).path_key).toBe('win32:c:/workspace/new-project')
   })
 })

@@ -17,6 +17,8 @@
  * Note: : _ \ / all become -, so C:\ becomes C-- and _ becomes -
  * This matches Claude CLI's actual encoding behavior.
  */
+const path = require('path')
+
 function encodePath(projectPath) {
   return projectPath
     .replace(/:/g, '-')
@@ -25,6 +27,68 @@ function encodePath(projectPath) {
     .replace(/_/g, '-')
     .replace(/ /g, '-')             // 空格 → -，匹配 CLI 行为
     .replace(/[^\x20-\x7E]/g, '-')  // 非 ASCII 字符 → -，匹配 CLI 行为
+}
+
+function normalizeProjectPath(projectPath, platform = process.platform) {
+  if (typeof projectPath !== 'string' || projectPath.length === 0) {
+    throw new Error('Project path must be a non-empty string')
+  }
+  if (projectPath.includes('\0')) {
+    throw new Error('Project path must not contain NUL bytes')
+  }
+
+  if (platform === 'win32') {
+    return normalizeWin32ProjectPath(projectPath)
+  }
+
+  return normalizePosixProjectPath(projectPath)
+}
+
+function normalizeWin32ProjectPath(projectPath) {
+  let candidate = projectPath.replace(/\//g, '\\')
+
+  if (candidate.startsWith('\\\\?\\UNC\\')) {
+    candidate = `\\\\${candidate.slice('\\\\?\\UNC\\'.length)}`
+  } else if (candidate.startsWith('\\\\?\\')) {
+    candidate = candidate.slice('\\\\?\\'.length)
+  }
+
+  if (candidate.startsWith('\\\\.\\') || candidate.startsWith('\\\\?\\')) {
+    throw new Error(`Unsupported Windows project path namespace: ${projectPath}`)
+  }
+
+  const isDriveAbsolute = /^[A-Za-z]:\\/.test(candidate)
+  const isUncAbsolute = /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(candidate)
+  if (!isDriveAbsolute && !isUncAbsolute) {
+    throw new Error(`Project path must be an absolute Windows path: ${projectPath}`)
+  }
+
+  return stripTrailingSeparators(path.win32.normalize(candidate), path.win32)
+}
+
+function normalizePosixProjectPath(projectPath) {
+  if (!path.posix.isAbsolute(projectPath)) {
+    throw new Error(`Project path must be an absolute POSIX path: ${projectPath}`)
+  }
+
+  return stripTrailingSeparators(path.posix.normalize(projectPath), path.posix)
+}
+
+function stripTrailingSeparators(projectPath, pathModule) {
+  const root = pathModule.parse(projectPath).root
+  let normalized = projectPath
+  while (normalized.length > root.length && /[\\/]$/.test(normalized)) {
+    normalized = normalized.slice(0, -1)
+  }
+  return normalized
+}
+
+function buildProjectPathKey(projectPath, platform = process.platform) {
+  const normalizedPath = normalizeProjectPath(projectPath, platform)
+  if (platform === 'win32') {
+    return `win32:${normalizedPath.replace(/\\/g, '/').toLowerCase()}`
+  }
+  return `posix:${normalizedPath}`
 }
 
 /**
@@ -49,6 +113,8 @@ function atomicWriteJson(filePath, data) {
 
 module.exports = {
   encodePath,
+  normalizeProjectPath,
+  buildProjectPathKey,
   getProjectName,
   atomicWriteJson
 }

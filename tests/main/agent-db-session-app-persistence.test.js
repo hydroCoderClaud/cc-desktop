@@ -12,7 +12,7 @@ describe('agent db session app persistence wiring', () => {
     const valuesMatch = source.match(/VALUES \(([^)]*)\)/)
 
     expect(valuesMatch).toBeTruthy()
-    expect(valuesMatch[1].match(/\?/g)?.length || 0).toBe(19)
+    expect(valuesMatch[1].match(/\?/g)?.length || 0).toBe(20)
     expect(source).toContain('session_app_id, session_app_input, created_at, updated_at')
   })
 })

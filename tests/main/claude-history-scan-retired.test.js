@@ -29,13 +29,14 @@ describe('retired Claude history scanning', () => {
     }
   })
 
-  it('keeps new project writes fixed to the user source', () => {
+  it('does not write project source values for new projects', () => {
     const projectDb = read('src/main/database/project-db.js')
 
     expect(projectDb).not.toContain("source = 'sync'")
     expect(projectDb).not.toContain("source: 'sync'")
-    expect(projectDb).toContain("VALUES (?, ?, ?, 'user')")
-    expect(projectDb).toContain("source: 'user'")
+    expect(projectDb).not.toContain("source = 'user'")
+    expect(projectDb).not.toContain("source: 'user'")
+    expect(projectDb).toContain('path_key')
   })
 
   it('does not reverse an encoded Claude directory into a cwd', () => {

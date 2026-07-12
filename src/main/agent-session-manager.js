@@ -103,6 +103,21 @@ function normalizeSessionImChannel(imChannel, type, source) {
   return null
 }
 
+function normalizeProjectKindHint(value) {
+  if (value === 'workspace' || value === 'agent-output' || value === 'notebook' || value === 'embedded') {
+    return value
+  }
+  return null
+}
+
+function resolveProjectKindHint(options, session, normalizedType) {
+  const explicit = normalizeProjectKindHint(options.projectKindHint || options.projectKind)
+  if (explicit) return explicit
+  if (normalizedType === AgentType.NOTEBOOK) return 'notebook'
+  if (session.sessionAppId && session.cwdAuto) return 'agent-output'
+  return session.cwdAuto ? 'agent-output' : 'workspace'
+}
+
 function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -938,17 +953,17 @@ class AgentSessionManager extends EventEmitter {
       }
     }
 
-    this.sessions.set(session.id, session)
-
     // 写入数据库
     if (this.sessionDatabase) {
       try {
+        const projectKindHint = resolveProjectKindHint(options, session, normalizedType)
         const dbRecord = this.sessionDatabase.createAgentConversation({
           sessionId: session.id,
           type: session.type,
           title: session.title,
           cwd: session.cwd,
           cwdAuto: session.cwdAuto,
+          projectKindHint,
           apiProfileId: profile?.id || null,
           apiBaseUrl: profile?.baseUrl || null,
           modelId: session.modelId,
@@ -963,10 +978,17 @@ class AgentSessionManager extends EventEmitter {
           sessionAppInput: session.sessionAppInput
         })
         session.dbConversationId = dbRecord.id
+        session.projectId = dbRecord.projectId || null
+        if (dbRecord.cwd) {
+          session.cwd = dbRecord.cwd
+        }
       } catch (err) {
         console.error('[AgentSession] Failed to create DB record:', err)
+        throw err
       }
     }
+
+    this.sessions.set(session.id, session)
 
     console.log(`[AgentSession] Created session ${session.id}, type: ${session.type}, cwd: ${session.cwd}`)
     return this._serializeSession(session)
@@ -2572,6 +2594,11 @@ class AgentSessionManager extends EventEmitter {
       apiProfileId: newApiProfileId,
       modelId: newModelId,
       cwdSubDir: overrides.cwdSubDir,
+      projectKindHint: overrides.projectKindHint || (
+        overrides.cwd
+          ? undefined
+          : resolveProjectKindHint({}, oldSession, newType)
+      ),
       ownerClientId: oldSession.ownerClientId,
       clientType: oldSession.clientType,
       clientMeta: oldSession.clientMeta

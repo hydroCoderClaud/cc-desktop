@@ -50,21 +50,45 @@ function withAgentOperations(BaseClass) {
       clientType,
       clientMeta,
       sessionAppId,
-      sessionAppInput
+      sessionAppInput,
+      projectId,
+      projectKindHint
     }) {
       const now = Date.now()
+      let resolvedProjectId = projectId || null
+      let resolvedCwd = cwd || null
+
+      if (!resolvedProjectId) {
+        if (!resolvedCwd) {
+          throw new Error('Agent conversation cwd is required')
+        }
+        const project = this.getOrCreateProject(resolvedCwd, {
+          name: title || undefined,
+          projectKindHint: projectKindHint || (cwdAuto ? 'agent-output' : 'workspace')
+        })
+        resolvedProjectId = project.id
+        resolvedCwd = project.path
+      } else {
+        const project = this.getProjectById(resolvedProjectId)
+        if (!project) {
+          throw new Error(`Project not found: ${resolvedProjectId}`)
+        }
+        resolvedCwd = project.path
+      }
+
       const result = this.db.prepare(`
         INSERT INTO agent_conversations (
-          session_id, type, title, cwd, cwd_auto, api_profile_id, api_base_url, model_id, source, im_channel, im_chat_type, task_id,
+          session_id, type, title, cwd, cwd_auto, project_id, api_profile_id, api_base_url, model_id, source, im_channel, im_chat_type, task_id,
           owner_client_id, client_type, client_meta, session_app_id, session_app_input, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         sessionId,
         type || 'chat',
         title || '',
-        cwd || null,
+        resolvedCwd,
         cwdAuto ? 1 : 0,
+        resolvedProjectId,
         apiProfileId || null,
         apiBaseUrl || null,
         normalizeModelId(modelId),
@@ -87,8 +111,9 @@ function withAgentOperations(BaseClass) {
         type: type || 'chat',
         status: 'idle',
         title: title || '',
-        cwd,
+        cwd: resolvedCwd,
         cwdAuto: !!cwdAuto,
+        projectId: resolvedProjectId,
         apiProfileId: apiProfileId || null,
         apiBaseUrl: apiBaseUrl || null,
         modelId: normalizeModelId(modelId),
