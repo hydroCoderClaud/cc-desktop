@@ -72,7 +72,6 @@ import { ref, computed, watch } from 'vue'
 import { NModal, NInput, NButton, NSelect } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
-import { getSessionImChannel } from '@shared/external-im-meta'
 
 const { t } = useLocale()
 
@@ -126,19 +125,19 @@ const loadApiProfiles = async () => {
 }
 
 const loadRecentDirectories = async () => {
-  if (!window.electronAPI?.listAgentSessions) {
+  if (!window.electronAPI?.getProjects) {
     recentDirectories.value = []
     return
   }
 
   try {
-    const sessions = await window.electronAPI.listAgentSessions()
+    const projects = await window.electronAPI.getProjects(false)
     const seen = new Set()
     const directories = []
 
-    for (const session of Array.isArray(sessions) ? sessions : []) {
-      const cwd = session?.cwd
-      if (!cwd || seen.has(cwd) || getSessionImChannel(session) === 'dingtalk') continue
+    for (const project of Array.isArray(projects) ? projects : []) {
+      const cwd = project?.path
+      if (!cwd || seen.has(cwd) || project.pathValid === false) continue
 
       if (window.electronAPI?.checkPath) {
         try {
@@ -151,8 +150,8 @@ const loadRecentDirectories = async () => {
 
       seen.add(cwd)
       directories.push({
-        id: cwd,
-        name: cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd,
+        id: project.id || cwd,
+        name: project.name || cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd,
         path: cwd
       })
 

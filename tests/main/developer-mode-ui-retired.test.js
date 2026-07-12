@@ -21,11 +21,34 @@ describe('Developer mode UI retirement', () => {
 
     expect(source).not.toContain("import RightPanel from './RightPanel/index.vue'")
     expect(source).not.toContain("import TerminalTab from './TerminalTab.vue'")
+    expect(source).not.toContain("import ProjectEditModal from './ProjectEditModal.vue'")
     expect(source).not.toContain('<RightPanel')
     expect(source).not.toContain('<TerminalTab')
+    expect(source).not.toContain('<ProjectEditModal')
+    expect(source).not.toContain('handleProjectSave')
+    expect(source).not.toContain('handleContextAction')
     expect(source).not.toContain('main.developerWelcome')
     expect(source).toContain('openAgentNewConversation')
     expect(source).not.toContain('handleNewSession?.()')
+  })
+
+  it('does not expose retired project management APIs in preload', () => {
+    const source = read('src/preload/preload.js')
+
+    expect(source).not.toContain('createProject:')
+    expect(source).not.toContain('updateProject:')
+    expect(source).not.toContain('duplicateProject:')
+    expect(source).not.toContain('hideProject:')
+    expect(source).not.toContain('unhideProject:')
+    expect(source).not.toContain('deleteProject:')
+    expect(source).not.toContain('toggleProjectPinned:')
+    expect(source).not.toContain('touchProject:')
+    expect(source).not.toContain('newProjectSession:')
+    expect(source).not.toContain('openProjectSession:')
+    expect(source).toContain('getProjects:')
+    expect(source).toContain('getCapabilityProjects:')
+    expect(source).toContain('ensureWorkspaceProject:')
+    expect(source).toContain('openProject:')
   })
 
   it('does not offer Developer mode from Notebook navigation', () => {

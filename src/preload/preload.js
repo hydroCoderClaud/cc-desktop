@@ -422,39 +422,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchOfficialModels: (apiConfig) => ipcRenderer.invoke('api:fetchOfficialModels', apiConfig),
 
   // ========================================
-  // 工程管理（数据库版）
+  // 项目目录身份（数据库版）
   // ========================================
   // 列表
   getProjects: (includeHidden = false) => ipcRenderer.invoke('project:getAll', includeHidden),
   getCapabilityProjects: () => ipcRenderer.invoke('project:getCapabilityContexts'),
-  getHiddenProjects: () => ipcRenderer.invoke('project:getHidden'),
-  getProjectById: (projectId) => ipcRenderer.invoke('project:getById', projectId),
 
-  // 创建
-  createProject: (projectData) => ipcRenderer.invoke('project:create', projectData),
   ensureWorkspaceProject: (projectData) => ipcRenderer.invoke('project:ensureWorkspace', projectData),
   openProject: () => ipcRenderer.invoke('project:open'),
-
-  // 修改
-  updateProject: ({ projectId, updates }) => ipcRenderer.invoke('project:update', { projectId, updates }),
-  duplicateProject: (projectId) => ipcRenderer.invoke('project:duplicate', { projectId }),
-
-  // 删除/隐藏
-  hideProject: (projectId) => ipcRenderer.invoke('project:hide', projectId),
-  unhideProject: (projectId) => ipcRenderer.invoke('project:unhide', projectId),
-  deleteProject: ({ projectId, deleteSessions }) => ipcRenderer.invoke('project:delete', { projectId, deleteSessions }),
-
-  // 状态
-  toggleProjectPinned: (projectId) => ipcRenderer.invoke('project:togglePinned', projectId),
-  touchProject: (projectId) => ipcRenderer.invoke('project:touch', projectId),
 
   // 工具
   openFolder: (folderPath) => ipcRenderer.invoke('project:openFolder', folderPath),
   checkPath: (folderPath) => ipcRenderer.invoke('project:checkPath', folderPath),
-
-  // 会话（占位）
-  newProjectSession: (projectId) => ipcRenderer.invoke('project:newSession', projectId),
-  openProjectSession: ({ projectId, sessionId }) => ipcRenderer.invoke('project:openSession', { projectId, sessionId }),
 
   // ========================================
   // Dialog 相关

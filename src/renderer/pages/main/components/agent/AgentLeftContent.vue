@@ -280,6 +280,9 @@ const getCwdDisplayName = (cwd) => {
 
 const getDirectoryDisplayName = (directory) => {
   if (!directory) return t('agent.allDirectories')
+  if (directory.projectName === t('agent.chat') || directory.projectName === 'Chat') {
+    return getCwdDisplayName(directory.cwd)
+  }
   return directory.projectName || getCwdDisplayName(directory.cwd)
 }
 

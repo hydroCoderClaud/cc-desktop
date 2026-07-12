@@ -1,22 +1,12 @@
 /**
- * 工程管理 IPC 处理器
- * 包含工程的增删改查、置顶、隐藏等功能
+ * 项目目录身份 IPC 处理器
+ * 保留 Agent/能力管理需要的目录身份、打开目录和路径检查能力。
  */
 
 const { dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { createIPCHandler } = require('../utils/ipc-utils')
-
-/**
- * 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
- * - 非 ASCII 字符（中文等）：encodePath 后信息丢失，不可逆
- * - 连字符(-)、下划线(_)和空白：编码后都可能与路径分隔符混淆
- */
-function hasProblematicPath(filePath) {
-  const segments = filePath.replace(/\\/g, '/').split('/').filter(s => s && !s.endsWith(':'))
-  return segments.some(seg => /[-_\s]|[^\x00-\x7F]/.test(seg))
-}
 
 /**
  * 设置工程管理的 IPC 处理器
@@ -45,69 +35,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
       ...project,
       pathValid: fs.existsSync(project.path)
     }))
-  })
-
-  // 获取隐藏的工程
-  createIPCHandler(ipcMain, 'project:getHidden', () => {
-    return sessionDatabase.getHiddenProjects()
-  })
-
-  // 获取单个工程
-  createIPCHandler(ipcMain, 'project:getById', (projectId) => {
-    return sessionDatabase.getProjectById(projectId)
-  })
-
-  // ========================================
-  // 工程创建
-  // ========================================
-
-  // 新建工程（选择目录）
-  createIPCHandler(ipcMain, 'project:create', async (projectData) => {
-    // If path not provided, open directory picker
-    if (!projectData.path) {
-      const result = await dialog.showOpenDialog(mainWindow, {
-        title: '选择工程目录',
-        properties: ['openDirectory', 'createDirectory']
-      })
-
-      if (result.canceled || !result.filePaths[0]) {
-        return { canceled: true }
-      }
-
-      projectData.path = result.filePaths[0]
-    }
-
-    // Check if path exists
-    if (!fs.existsSync(projectData.path)) {
-      throw new Error('目录不存在')
-    }
-
-    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
-    // skipPathCheck 用于用户已确认风险后的创建
-    if (!projectData.skipPathCheck) {
-      const pathWarning = hasProblematicPath(projectData.path)
-      if (pathWarning) {
-        return {
-          pathWarning: true,
-          path: projectData.path,
-          name: projectData.name || path.basename(projectData.path)
-        }
-      }
-    }
-
-    // Check if project already exists
-    const existing = sessionDatabase.getProjectByPath(projectData.path)
-    if (existing) {
-      throw new Error('工程已存在')
-    }
-
-    // Default name to directory name if not provided
-    if (!projectData.name) {
-      projectData.name = path.basename(projectData.path)
-    }
-
-    const project = sessionDatabase.createProject(projectData)
-    return { ...project }
   })
 
   // 确保手动选择的能力管理目录有 workspace project 身份
@@ -159,22 +86,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
     const projectPath = result.filePaths[0]
 
-    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
-    const pathWarning = hasProblematicPath(projectPath)
-
-    // pathWarning 时不创建记录，只返回路径信息，由前端确认后再创建
-    if (pathWarning) {
-      // 已存在的项目也只返回信息，不做任何修改
-      const existing = sessionDatabase.getProjectByPath(projectPath)
-      return {
-        pathWarning: true,
-        path: projectPath,
-        name: path.basename(projectPath),
-        alreadyExists: !!existing,
-        existingId: existing?.id
-      }
-    }
-
     // Check if project already exists
     const existing = sessionDatabase.getProjectByPath(projectPath)
     if (existing) {
@@ -195,77 +106,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     return { ...project }
   })
 
-  // ========================================
-  // 工程修改
-  // ========================================
-
-  // 更新工程
-  createIPCHandler(ipcMain, 'project:update', ({ projectId, updates }) => {
-    return sessionDatabase.updateProject(projectId, updates)
-  })
-
-  // 复制工程配置
-  createIPCHandler(ipcMain, 'project:duplicate', async ({ projectId }) => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: '选择新工程目录',
-      properties: ['openDirectory', 'createDirectory']
-    })
-
-    if (result.canceled || !result.filePaths[0]) {
-      return { canceled: true }
-    }
-
-    const newPath = result.filePaths[0]
-    const newName = path.basename(newPath)
-
-    // 检测路径中是否包含可能导致 Claude projects 目录碰撞的字符
-    const pathWarning = hasProblematicPath(newPath)
-    if (pathWarning) {
-      return {
-        pathWarning: true,
-        path: newPath,
-        name: newName
-      }
-    }
-
-    const project = sessionDatabase.duplicateProject(projectId, newPath, newName)
-    return { ...project }
-  })
-
-  // ========================================
-  // 工程删除/隐藏
-  // ========================================
-
-  // 从面板移除（隐藏）
-  createIPCHandler(ipcMain, 'project:hide', (projectId) => {
-    return sessionDatabase.hideProject(projectId)
-  })
-
-  // 恢复隐藏的工程
-  createIPCHandler(ipcMain, 'project:unhide', (projectId) => {
-    return sessionDatabase.unhideProject(projectId)
-  })
-
-  // 删除工程
-  createIPCHandler(ipcMain, 'project:delete', ({ projectId, deleteSessions = false }) => {
-    return sessionDatabase.deleteProject(projectId, deleteSessions)
-  })
-
-  // ========================================
-  // 工程状态
-  // ========================================
-
-  // 切换置顶
-  createIPCHandler(ipcMain, 'project:togglePinned', (projectId) => {
-    return sessionDatabase.toggleProjectPinned(projectId)
-  })
-
-  // 更新最后打开时间
-  createIPCHandler(ipcMain, 'project:touch', (projectId) => {
-    sessionDatabase.touchProject(projectId)
-    return { success: true }
-  })
-
   // 打开文件夹
   createIPCHandler(ipcMain, 'project:openFolder', async (folderPath) => {
     if (!fs.existsSync(folderPath)) {
@@ -278,20 +118,6 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   // 检查路径是否存在
   createIPCHandler(ipcMain, 'project:checkPath', (folderPath) => {
     return { valid: fs.existsSync(folderPath) }
-  })
-
-  // ========================================
-  // 会话相关（占位）
-  // ========================================
-
-  // 新建会话（占位）
-  createIPCHandler(ipcMain, 'project:newSession', (projectId) => {
-    return { placeholder: true, message: '会话功能待实现' }
-  })
-
-  // 打开历史会话（占位）
-  createIPCHandler(ipcMain, 'project:openSession', ({ projectId, sessionId }) => {
-    return { placeholder: true, message: '会话功能待实现' }
   })
 }
 

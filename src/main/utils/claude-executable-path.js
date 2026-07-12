@@ -3,6 +3,8 @@ const os = require('os')
 const path = require('path')
 
 function normalizeDeveloperClaudeSource(_value) {
+  // Legacy runtime-source compatibility: the old setting name remains in persisted
+  // configs, while the product always launches the bundled Claude runtime.
   return 'bundled'
 }
 

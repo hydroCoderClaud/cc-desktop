@@ -141,7 +141,6 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useAppMode } from '@composables/useAppMode'
 import { NInput, NModal, NButton, NButtonGroup, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { AGENT_COLORS, getAgentColor } from '@composables/constants'
@@ -341,15 +340,8 @@ const loadAgents = async () => {
   } finally { loading.value = false }
 }
 
-const { isDeveloperMode } = useAppMode()
-
 watch(() => props.currentProject, loadAgents)
 onMounted(loadAgents)
-
-// 从 Agent 模式切回开发者模式时刷新列表
-watch(isDeveloperMode, (val) => {
-  if (val) loadAgents()
-})
 </script>
 
 <style scoped>

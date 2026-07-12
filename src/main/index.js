@@ -288,7 +288,7 @@ function createWindow() {
     mainWindow.loadFile(filePath);
   }
 
-  // 开发模式下打开开发者工具（默认关闭，使用 F12 手动打开）
+  // 开发模式下打开调试工具（默认关闭，使用 F12 手动打开）
   // if (process.env.NODE_ENV === 'development') {
   //   mainWindow.webContents.openDevTools();
   // }
@@ -313,7 +313,7 @@ function createWindow() {
   });
 
   // 全局快捷键：
-  //   F12    — 切换开发者工具
+  //   F12    — 切换调试工具
   //   Ctrl+F — 切换全屏
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'F12') {

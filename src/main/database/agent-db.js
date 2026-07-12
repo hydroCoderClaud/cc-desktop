@@ -72,7 +72,6 @@ function withAgentOperations(BaseClass) {
           throw new Error('Agent conversation cwd is required')
         }
         resolvedProject = this.getOrCreateProject(resolvedCwd, {
-          name: title || undefined,
           projectKindHint: projectKindHint || (cwdAuto ? 'agent-output' : 'workspace')
         })
         resolvedProjectId = resolvedProject.id

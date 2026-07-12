@@ -63,7 +63,7 @@ function setupCapabilityHandlers(ipcMain, capabilityManager, agentSessionManager
     }
   })
 
-  // 切换单个组件的禁用状态（Developer 模式）
+  // 切换单个组件的禁用状态（能力管理面板）
   ipcMain.handle('capabilities:toggleComponent', async (event, type, id, disabled) => {
     try {
       if (!type || !id) return { success: false, error: 'Invalid parameters' }

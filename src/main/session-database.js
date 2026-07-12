@@ -30,6 +30,8 @@ const {
   withSessionAppOperations
 } = require('./database')
 
+const DEFAULT_AGENT_PROJECT_NAMES = new Set(['对话', 'Chat'])
+
 // 延迟加载 better-sqlite3，允许测试时注入 mock
 let DefaultDatabase = null
 function getDefaultDatabase() {
@@ -563,6 +565,7 @@ class SessionDatabaseBase {
     this._removeLegacySyncedProjects()
     this._migrateProjectIdentitySchema()
     this._migrateAgentConversationProjectBindings()
+    this._repairDefaultAgentProjectNames()
   }
 
   _getTableColumns(tableName) {
@@ -976,6 +979,44 @@ class SessionDatabaseBase {
       this.db.exec('ROLLBACK')
       throw err
     }
+  }
+
+  _repairDefaultAgentProjectNames() {
+    if (!this._tableExists('projects') || !this._tableExists('agent_conversations')) {
+      return 0
+    }
+
+    const projectColumns = this._getTableColumns('projects')
+    if (!hasColumn(projectColumns, 'name') || !hasColumn(projectColumns, 'path')) {
+      return 0
+    }
+
+    const placeholders = Array.from(DEFAULT_AGENT_PROJECT_NAMES).map(() => '?').join(', ')
+    const rows = this.db.prepare(`
+      SELECT DISTINCT p.id, p.path, p.name
+      FROM projects p
+      JOIN agent_conversations ac ON ac.project_id = p.id
+      WHERE p.name IN (${placeholders})
+        AND ac.cwd = p.path
+    `).all(...DEFAULT_AGENT_PROJECT_NAMES)
+
+    if (!rows.length) return 0
+
+    const update = this.db.prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?')
+    const now = Date.now()
+    let repaired = 0
+
+    for (const row of rows) {
+      const baseName = path.basename(row.path || '')
+      if (!baseName || baseName === row.name) continue
+      update.run(baseName, now, row.id)
+      repaired += 1
+    }
+
+    if (repaired > 0) {
+      console.log(`[SessionDB] Repaired ${repaired} default Agent project name(s)`)
+    }
+    return repaired
   }
 
   /**

@@ -4,7 +4,7 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const electronModulePath = require.resolve('electron')
 
-describe('project-handlers openProject path warning', () => {
+describe('project-handlers project directory identity', () => {
   let handlers
   let setupProjectHandlers
   let showOpenDialogMock
@@ -25,17 +25,11 @@ describe('project-handlers openProject path warning', () => {
     sessionDatabase = {
       getAllProjects: vi.fn(() => []),
       getCapabilityContextProjects: vi.fn(() => []),
-      getHiddenProjects: vi.fn(() => []),
       getProjectById: vi.fn(() => null),
       getProjectByPath: vi.fn(() => null),
       getOrCreateProject: vi.fn(() => ({ id: 101 })),
       createProject: vi.fn(() => ({ id: 100 })),
-      updateProject: vi.fn(),
-      deleteProject: vi.fn(),
-      duplicateProject: vi.fn(),
-      hideProject: vi.fn(),
       unhideProject: vi.fn(),
-      toggleProjectPinned: vi.fn(),
       touchProject: vi.fn()
     }
 
@@ -67,29 +61,40 @@ describe('project-handlers openProject path warning', () => {
     }
   })
 
-  it('returns pathWarning payload for non-ASCII or hyphen path and does not create project', async () => {
+  it('opens non-ASCII and hyphenated project directories without warning', async () => {
     showOpenDialogMock.mockResolvedValueOnce({
       canceled: false,
       filePaths: ['C:/workspace/develop/项目-abc']
+    })
+    sessionDatabase.createProject.mockReturnValueOnce({
+      id: 100,
+      path: 'C:/workspace/develop/项目-abc',
+      name: '项目-abc'
     })
 
     const openHandler = handlers.get('project:open')
     const result = await openHandler(null)
 
-    expect(result).toEqual({
-      pathWarning: true,
+    expect(result).toEqual(expect.objectContaining({
+      id: 100,
       path: 'C:/workspace/develop/项目-abc',
-      name: '项目-abc',
-      alreadyExists: false,
-      existingId: undefined
-    })
+      name: '项目-abc'
+    }))
     expect(sessionDatabase.getProjectByPath).toHaveBeenCalledWith('C:/workspace/develop/项目-abc')
-    expect(sessionDatabase.createProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.createProject).toHaveBeenCalledWith({
+      path: 'C:/workspace/develop/项目-abc',
+      name: '项目-abc'
+    })
     expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
   })
 
-  it('returns existing project metadata in pathWarning payload when project already exists', async () => {
-    sessionDatabase.getProjectByPath.mockReturnValueOnce({ id: 42, is_hidden: 1 })
+  it('restores existing non-ASCII or underscored project directories without warning', async () => {
+    sessionDatabase.getProjectByPath.mockReturnValueOnce({
+      id: 42,
+      path: 'C:/workspace/develop/项目_abc',
+      name: '项目_abc',
+      is_hidden: 1
+    })
     showOpenDialogMock.mockResolvedValueOnce({
       canceled: false,
       filePaths: ['C:/workspace/develop/项目_abc']
@@ -98,16 +103,16 @@ describe('project-handlers openProject path warning', () => {
     const openHandler = handlers.get('project:open')
     const result = await openHandler(null)
 
-    expect(result).toEqual({
-      pathWarning: true,
+    expect(result).toEqual(expect.objectContaining({
+      id: 42,
       path: 'C:/workspace/develop/项目_abc',
       name: '项目_abc',
       alreadyExists: true,
-      existingId: 42
-    })
+      restored: true
+    }))
     expect(sessionDatabase.createProject).not.toHaveBeenCalled()
-    expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
-    expect(sessionDatabase.touchProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.unhideProject).toHaveBeenCalledWith(42)
+    expect(sessionDatabase.touchProject).toHaveBeenCalledWith(42)
   })
 
   it('reports the stored path status without decoding or deleting the project', async () => {
@@ -123,24 +128,47 @@ describe('project-handlers openProject path warning', () => {
     const result = await getAllHandler(false)
 
     expect(result).toEqual([{ ...project, pathValid: false }])
-    expect(sessionDatabase.updateProject).not.toHaveBeenCalled()
-    expect(sessionDatabase.deleteProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.createProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
   })
 
-  it('warns for whitespace because Claude folds it into the projects directory name', async () => {
+  it('does not register retired project management IPC channels', () => {
+    expect([...handlers.keys()]).not.toEqual(expect.arrayContaining([
+      'project:create',
+      'project:update',
+      'project:duplicate',
+      'project:hide',
+      'project:unhide',
+      'project:delete',
+      'project:togglePinned',
+      'project:touch',
+      'project:newSession',
+      'project:openSession'
+    ]))
+  })
+
+  it('opens whitespace project directories without warning', async () => {
     showOpenDialogMock.mockResolvedValueOnce({
       canceled: false,
       filePaths: ['C:/workspace/develop/project name']
+    })
+    sessionDatabase.createProject.mockReturnValueOnce({
+      id: 101,
+      path: 'C:/workspace/develop/project name',
+      name: 'project name'
     })
 
     const openHandler = handlers.get('project:open')
     const result = await openHandler(null)
 
     expect(result).toMatchObject({
-      pathWarning: true,
+      id: 101,
       path: 'C:/workspace/develop/project name'
     })
-    expect(sessionDatabase.createProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.createProject).toHaveBeenCalledWith({
+      path: 'C:/workspace/develop/project name',
+      name: 'project name'
+    })
   })
 
   it('returns capability context projects with real path validity', async () => {

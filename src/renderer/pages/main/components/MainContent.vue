@@ -12,7 +12,6 @@
       @open-project="handleOpenProject"
       @select-project="selectProject"
       @toggle-theme="handleToggleTheme"
-      @context-action="handleContextAction"
       @session-created="onSessionCreated"
       @session-selected="handleSessionSelected"
       @session-closed="onSessionClosed"
@@ -109,60 +108,38 @@
       />
     </template>
 
-    <!-- Project Edit Modal -->
-    <ProjectEditModal
-      v-model:show="showProjectModal"
-      :project="editingProject"
-      :api-profiles="apiProfiles"
-      @save="handleProjectSave"
-      @open-profile-manager="openApiProfileManager"
-    />
-
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
 import { useAppMode, AppMode } from '@composables/useAppMode'
-import { useIPC } from '@composables/useIPC'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import AgentRightPanel from './AgentRightPanel/index.vue'
 import TabBar from './TabBar.vue'
 import AgentChatTab from './AgentChatTab.vue'
-import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
 import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
 import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
 
 const message = useMessage()
-const dialog = useDialog()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
-const { invoke } = useIPC()
 const { isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
 
 // Use composables
 const {
   projects,
   currentProject,
-  showProjectModal,
-  editingProject,
-  apiProfiles,
   loadProjects,
   selectProject: doSelectProject,
   openProject,
-  openFolder,
-  togglePin,
-  hideProject,
-  openEditModal,
-  closeEditModal,
-  saveProject,
   selectFirstProject
 } = useProjects()
 
@@ -718,34 +695,6 @@ const handleOpenProject = async () => {
     const result = await openProject()
     if (result.canceled) return
 
-    // 路径包含可能导致同步问题的字符时，弹确认对话框（后端未创建记录）
-    if (result.pathWarning) {
-      dialog.warning({
-        title: t('project.pathWarningTitle'),
-        content: t('project.pathWarningContent', { path: result.path }),
-        positiveText: t('project.pathWarningContinue'),
-        negativeText: t('project.pathWarningCancel'),
-        onPositiveClick: async () => {
-          // 用户确认风险
-          try {
-            if (result.alreadyExists && result.existingId) {
-              // 已存在的项目（可能是隐藏的）：恢复显示
-              await invoke('unhideProject', result.existingId)
-            } else {
-              // 新项目：创建记录（skipPathCheck 绕过二次检测）
-              await invoke('createProject', { path: result.path, name: result.name, skipPathCheck: true })
-            }
-            await loadProjects()
-            message.success(t('messages.projectAdded') + ': ' + result.name)
-          } catch (err) {
-            message.error(err.message || t('messages.operationFailed'))
-          }
-        }
-        // 取消：无需处理，后端本来就没创建记录
-      })
-      return
-    }
-
     if (result.restored) {
       message.success(t('messages.projectRestored') + ': ' + result.name)
     } else if (result.alreadyExists) {
@@ -755,54 +704,6 @@ const handleOpenProject = async () => {
     }
   } catch (err) {
     message.error(err.message || t('messages.operationFailed'))
-  }
-}
-
-const handleContextAction = async ({ action, project }) => {
-  try {
-    switch (action) {
-      case 'openFolder':
-        await openFolder(project)
-        break
-      case 'pin':
-        const { wasPinned } = await togglePin(project)
-        message.success(wasPinned ? t('messages.projectUnpinned') : t('messages.projectPinned'))
-        break
-      case 'edit':
-        await openEditModal(project)
-        break
-      case 'hide':
-        await hideProject(project)
-        message.success(t('messages.projectHidden'))
-        break
-    }
-  } catch (err) {
-    message.error(t('messages.operationFailed'))
-  }
-}
-
-// ========================================
-// Project edit modal wrapper
-// ========================================
-
-const handleProjectSave = async (updates) => {
-  try {
-    const result = await saveProject(updates)
-
-    if (result.success) {
-      // 如果 API 配置变更被阻止（有运行中的会话），弹出提示
-      if (result.apiProfileBlocked) {
-        dialog.warning({
-          title: t('project.apiProfileBlockedTitle') || 'API 配置未修改',
-          content: t('project.apiProfileBlockedContent') || '运行中的历史会话，不能修改 API 配置，可能会导致签名错误，无法持续！如需修改，请在启动新会话之前修改 API 配置！',
-          positiveText: t('common.ok') || '知道了'
-        })
-      } else {
-        message.success(t('messages.projectUpdated'))
-      }
-    }
-  } catch (err) {
-    message.error(t('messages.operationFailed'))
   }
 }
 

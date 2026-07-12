@@ -501,7 +501,7 @@ class CapabilityManager {
   }
 
   /**
-   * 切换单个组件的禁用状态（供 Developer 模式调用）
+   * 切换单个组件的禁用状态（供能力管理面板调用）
    * @param {string} type - 组件类型: 'skill' | 'agent'
    * @param {string} id - 组件 ID
    * @param {boolean} disabled - true=禁用, false=启用

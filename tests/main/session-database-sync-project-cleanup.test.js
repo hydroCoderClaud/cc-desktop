@@ -164,6 +164,75 @@ describe('legacy synced project cleanup', () => {
     expect(sqlite.prepare('SELECT path_key FROM projects WHERE id = ?').get(project.id).path_key).toBe('win32:c:/workspace/new-project')
   })
 
+  it('uses the real directory basename when Agent conversations create projects', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const conversation = database.createAgentConversation({
+      sessionId: 'agent-title-default',
+      title: '对话',
+      cwd: 'C:/workspace/中文 测试_a-b'
+    })
+
+    expect(conversation.projectName).toBe('中文 测试_a-b')
+    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(conversation.projectId).name).toBe('中文 测试_a-b')
+  })
+
+  it('repairs legacy Agent-created projects named with the default conversation title', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const defaultNamed = database.getOrCreateProject('C:/workspace/中文 目录-a_b', {
+      projectKind: 'workspace',
+      name: '对话'
+    })
+    const customNamed = database.getOrCreateProject('C:/workspace/custom', {
+      projectKind: 'workspace',
+      name: 'Custom Name'
+    })
+
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-default-name', defaultNamed.path, defaultNamed.id, 100)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-custom-name', customNamed.path, customNamed.id, 100)
+
+    expect(database._repairDefaultAgentProjectNames()).toBe(1)
+
+    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(defaultNamed.id).name).toBe('中文 目录-a_b')
+    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(customNamed.id).name).toBe('Custom Name')
+    expect(database._repairDefaultAgentProjectNames()).toBe(0)
+  })
+
+  it('does not repair default-named projects without a matching Agent cwd binding', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const orphanProject = database.getOrCreateProject('C:/workspace/orphan-default', {
+      projectKind: 'workspace',
+      name: '对话'
+    })
+    const mismatchedProject = database.getOrCreateProject('C:/workspace/mismatched-default', {
+      projectKind: 'workspace',
+      name: 'Chat'
+    })
+
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-mismatched-default', 'C:/workspace/other-default', mismatchedProject.id, 100)
+
+    expect(database._repairDefaultAgentProjectNames()).toBe(0)
+    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(orphanProject.id).name).toBe('对话')
+    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(mismatchedProject.id).name).toBe('Chat')
+  })
+
   it('lists capability context projects from project identity and agent activity', () => {
     database._migrateProjectIdentitySchema()
     database._migrateAgentConversationProjectBindings()
@@ -264,10 +333,8 @@ describe('legacy synced project cleanup', () => {
 
     const allRows = database.getAllProjects(true)
     expect(allRows.map(row => row.name).sort()).toEqual(['Hidden List', 'Visible List'])
-
-    const hiddenRows = database.getHiddenProjects()
-    expect(hiddenRows).toEqual([
-      expect.objectContaining({ name: 'Hidden List', session_count: 1, last_activity: 500 })
-    ])
+    expect(allRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Hidden List', session_count: 1, last_activity: 500, is_hidden: 1 })
+    ]))
   })
 })

@@ -97,7 +97,7 @@ function withPromptOperations(BaseClass) {
       } else if (scope === 'notebook') {
         conditions.push("p.scope = 'notebook'")
       } else if (scope === 'all') {
-        // 'all' 默认只显示全局和项目的，排除 notebook 专用模板以防干扰开发者模式
+        // 'all' 默认只显示全局和项目的，排除 notebook 专用模板以防干扰通用能力面板
         conditions.push("p.scope IN ('global', 'project')")
       }
 

@@ -161,6 +161,8 @@ class ConfigManager {
 
         // 应用模式
         appMode: 'agent',  // 启动固定为 'agent'
+        // Legacy runtime-source compatibility: normalize old configs while the
+        // application always uses the bundled Claude runtime.
         enableDeveloperMode: false,
         developerClaudeSource: 'bundled',
 

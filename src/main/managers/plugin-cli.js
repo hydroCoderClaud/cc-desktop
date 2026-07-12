@@ -262,7 +262,7 @@ class PluginCli {
 
   /**
    * 对 install 的 "not found" 错误做精确归因
-   * - 市场未注册 → 提示去开发者模式注册
+   * - 市场未注册 → 提示先在插件市场配置中注册
    * - 市场已注册但插件不存在 → 提示检查名称
    * - 非 not found 错误 → 原样返回
    * @param {string} pluginId - 插件 ID（格式: name@marketplace）
@@ -287,7 +287,7 @@ class PluginCli {
       const registered = names.some(n => n === marketplaceName)
 
       if (!registered) {
-        return `市场 "${marketplaceName}" 未注册，请先在开发者模式的 Plugins 标签页中添加该插件市场`
+        return `市场 "${marketplaceName}" 未注册，请先在插件市场配置中添加该插件市场`
       }
       return `市场 "${marketplaceName}" 中未找到插件 "${pluginName}"，请检查插件名称是否正确`
     } catch {

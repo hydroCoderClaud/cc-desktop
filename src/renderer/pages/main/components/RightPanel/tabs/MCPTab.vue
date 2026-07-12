@@ -126,7 +126,6 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useAppMode } from '@composables/useAppMode'
 import { NInput, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -321,16 +320,9 @@ const handleAllowGlobal = async (server) => {
   }
 }
 
-const { isDeveloperMode } = useAppMode()
-
 // Watch project change
 watch(() => props.currentProject, () => {
   loadServers()
-})
-
-// 从 Agent 模式切回开发者模式时刷新列表
-watch(isDeveloperMode, (val) => {
-  if (val) loadServers()
 })
 
 onMounted(() => {

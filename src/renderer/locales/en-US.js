@@ -85,7 +85,6 @@ export default {
     noProjectsHint: 'Click "+ Add Project" to start',
     selectProject: 'Select project',
     welcome: 'Welcome',
-    developerWelcome: 'Developer Mode',
     pleaseSelectProject: 'Please select a project',
     localMode: 'Local Mode',
     desktopUser: 'Desktop User',
@@ -1084,7 +1083,7 @@ export default {
     defaultBaseUrl: 'Default Base URL',
     defaultModelIds: 'Default Model ID List',
     defaultModelIdsPlaceholder: 'One model ID per line, for example\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    defaultModelMapping: 'Default Tier Mapping (Developer Mode Only)',
+    defaultModelMapping: 'Default Tier Mapping',
     defaultModelMappingHint: 'Optional. Filled values are injected as the default opus / sonnet / haiku environment variables.',
     deleteConfirm: 'Are you sure you want to delete this provider?',
     deleteSuccess: 'Provider deleted',
@@ -1128,8 +1127,6 @@ export default {
     autocompactDefault: 'Empty = CLI default (~95%)',
     messageQueue: 'Message Queue',
     messageQueueHint: 'When enabled, you can queue messages while AI is responding. They auto-send when output finishes.',
-    enableDeveloperMode: 'Enable Developer Mode',
-    enableDeveloperModeHint: 'When disabled, the Developer mode entry is hidden. If a window is currently in Developer mode, it switches back to Agent mode.',
     outputBaseDir: 'Agent Output Directory',
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',
@@ -1337,51 +1334,12 @@ export default {
     totalMessages: 'Total messages'
   },
 
-  // Project Management
+  // Project directory identity
   project: {
-    createTitle: 'Create Project',
-    editTitle: 'Edit Project',
-    name: 'Name',
-    namePlaceholder: 'Enter project name',
-    nameHint: 'Name can be changed freely, for display only',
     path: 'Path',
-    pathHint: 'Path is the unique identifier, cannot be modified',
     pathNotExist: 'Project directory does not exist',
-    description: 'Description',
-    descriptionPlaceholder: 'Enter project description (optional)',
-    icon: 'Icon',
-    color: 'Color',
-    borderColor: 'Border Color',
-    borderColorHint: 'Reserved for future project card visual distinction',
-    resetColor: 'Reset',
-    apiProfile: 'API Config',
-    apiProfilePlaceholder: 'Select API config (optional)',
-    apiProfileHint: 'Uses global default if not selected',
-    editApiProfile: 'Edit Config',
-    pin: 'Pin',
-    unpin: 'Unpin',
-    edit: 'Edit',
     openFolder: 'Open in Explorer',
-    openClaudeConfig: 'Project Config File',
-    claudeConfigNotFound: 'Project .claude directory not found',
-    hide: 'Remove from panel',
-    delete: 'Delete',
-    openExisting: 'Open existing project',
-    deleteConfirm: 'Confirm Delete Project',
-    deleteWarning: 'Are you sure you want to delete project "{name}"? This action cannot be undone.',
-    deleteWithSessions: 'Also delete associated session records',
-    unsupportedPathError: 'Project path "{name}" contains non-ASCII or special characters and may map to the same Claude projects directory as another real path. Use an ASCII-only path.',
-    nonAsciiPathWarning: 'Project "{name}" contains non-ASCII characters, hyphens (-), underscores (_), or whitespace and may map to the same Claude projects directory as another real path. An ASCII-only path without special characters is recommended.',
-    pathWarningTitle: 'Path Compatibility Issue',
-    pathWarningContent: 'Path "{path}" contains non-ASCII characters, hyphens (-), underscores (_), or whitespace. Claude Code folds these characters and path separators into hyphens, so different real paths can share one projects subdirectory. Their JSONL files are then mixed and cannot be reliably attributed to a cwd.\n\nAn ASCII-only path without special characters is strongly recommended. You may continue if you understand and accept this risk.',
-    pathWarningContinue: 'I understand the risks, continue',
-    pathWarningCancel: 'Cancel, I will fix the path',
-    apiProfileChangedTitle: 'API Config Changed',
-    apiProfileChangedContent: 'The new API config requires restarting sessions to take effect. Restart running sessions now?',
-    restartSessions: 'Restart Sessions',
-    sessionsRestarted: 'Sessions restarted with new config',
-    apiProfileBlockedTitle: 'API Config Not Modified',
-    apiProfileBlockedContent: 'Cannot modify API config for running sessions, as it may cause signature errors! Please modify API config before starting a new session.'
+    openExisting: 'Open existing directory'
   },
 
   // Messages
@@ -1414,10 +1372,8 @@ export default {
   // Mode switching
   mode: {
     mode: 'Switch mode',
-    developerMode: 'Developer Mode',
     agentMode: 'Agent Mode',
     switchToAgent: 'Switch to Agent Mode',
-    switchToDeveloper: 'Switch to Developer Mode',
     switchToNotebook: 'Switch to Notebook Mode',
     notebook: 'Notebook Mode',
     hydroNotebook: 'Notebook',
@@ -1747,7 +1703,6 @@ export default {
       'code-intelligence': 'Code Intelligence',
       'code-quality': 'Code Quality',
       'documentation': 'Documentation',
-      'developer-tools': 'Developer Tools',
       'other': 'Other'
     }
   },

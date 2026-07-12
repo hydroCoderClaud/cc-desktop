@@ -84,7 +84,7 @@ export function useAppMode() {
   }
 
   /**
-   * 兼容旧调用：Developer 模式已移除，切换操作固定回到 Agent。
+   * 兼容旧调用：旧模式入口已移除，切换操作固定回到 Agent。
    */
   const toggleMode = async () => {
     await switchMode(AppMode.AGENT)

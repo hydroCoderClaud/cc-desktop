@@ -86,7 +86,6 @@ export default {
     noProjectsHint: '点击 "+ 添加工程" 开始',
     selectProject: '选择项目',
     welcome: '欢迎',
-    developerWelcome: '开发者模式',
     pleaseSelectProject: '请选择项目',
     localMode: '本地模式',
     desktopUser: '桌面用户',
@@ -1087,7 +1086,7 @@ export default {
     defaultBaseUrl: '默认接口地址',
     defaultModelIds: '默认模型 ID 列表',
     defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    defaultModelMapping: '默认层级映射（仅用于开发者模式）',
+    defaultModelMapping: '默认层级映射',
     defaultModelMappingHint: '可选。填写后会注入 opus / sonnet / haiku 对应的默认环境变量。',
     deleteConfirm: '确定要删除此服务商吗？',
     deleteSuccess: '服务商已删除',
@@ -1131,8 +1130,6 @@ export default {
     autocompactDefault: '留空使用 CLI 默认值 (~95%)',
     messageQueue: '消息队列',
     messageQueueHint: '开启后，AI 输出期间可继续输入消息排队，输出结束后自动依次发送',
-    enableDeveloperMode: '启用开发者模式',
-    enableDeveloperModeHint: '关闭后将隐藏开发者模式入口；如当前正在开发者模式，会自动切回智能体模式',
     outputBaseDir: 'Agent 输出根目录',
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',
@@ -1342,51 +1339,12 @@ export default {
     totalMessages: '总消息数'
   },
 
-  // 工程管理
+  // 项目目录身份
   project: {
-    createTitle: '新建项目',
-    editTitle: '编辑项目',
-    name: '名称',
-    namePlaceholder: '输入项目名称',
-    nameHint: '名称可随意修改，仅用于显示',
     path: '路径',
-    pathHint: '路径是项目的唯一标识，不可修改',
     pathNotExist: '项目目录不存在',
-    description: '描述',
-    descriptionPlaceholder: '输入项目描述（可选）',
-    icon: '图标',
-    color: '颜色',
-    borderColor: '边框颜色',
-    borderColorHint: '保留属性，将来可用于项目卡片视觉区分',
-    resetColor: '恢复默认',
-    apiProfile: 'API 配置',
-    apiProfilePlaceholder: '选择 API 配置（可选）',
-    apiProfileHint: '不选择则使用全局默认配置',
-    editApiProfile: '编辑配置',
-    pin: '置顶',
-    unpin: '取消置顶',
-    edit: '编辑',
     openFolder: '打开所在目录',
-    openClaudeConfig: '项目配置文件',
-    claudeConfigNotFound: '项目 .claude 目录不存在',
-    hide: '从面板移除',
-    delete: '删除',
-    openExisting: '打开已有项目',
-    deleteConfirm: '确认删除项目',
-    deleteWarning: '确定要删除项目 "{name}" 吗？此操作不可恢复。',
-    deleteWithSessions: '同时删除关联的会话记录',
-    unsupportedPathError: '项目路径 "{name}" 包含中文或特殊字符，可能与其他真实路径映射到同一个 Claude projects 目录。请使用纯英文路径。',
-    nonAsciiPathWarning: '项目 "{name}" 的路径包含中文、连字符(-)、下划线(_)或空白，可能与其他真实路径映射到同一个 Claude projects 目录。建议使用纯英文且不含特殊符号的路径。',
-    pathWarningTitle: '路径存在兼容性问题',
-    pathWarningContent: '路径 "{path}" 包含中文、连字符(-)、下划线(_)或空白。Claude Code 会把这些字符和路径分隔符折叠为连字符，不同真实路径可能因此共用一个 projects 子目录，导致 JSONL 混放且无法可靠判断所属 cwd。\n\n强烈建议使用纯英文、不含特殊符号的目录路径。如果你清楚上述风险并接受后果，可以选择继续。',
-    pathWarningContinue: '我已知晓风险，继续添加',
-    pathWarningCancel: '取消，我去改路径',
-    apiProfileChangedTitle: 'API 配置已更改',
-    apiProfileChangedContent: '新的 API 配置需要重启会话才能生效。是否立即重启运行中的会话？',
-    restartSessions: '重启会话',
-    sessionsRestarted: '会话已重启，新配置已生效',
-    apiProfileBlockedTitle: 'API 配置未修改',
-    apiProfileBlockedContent: '运行中的历史会话，不能修改 API 配置，可能会导致签名错误，无法持续！如需修改，请在启动新会话之前修改 API 配置！'
+    openExisting: '打开已有目录'
   },
 
   // 消息提示
@@ -1419,10 +1377,8 @@ export default {
   // 模式切换
   mode: {
     mode: '模式切换',
-    developerMode: '开发者模式',
     agentMode: '智能体模式',
     switchToAgent: '切换到智能体模式',
-    switchToDeveloper: '切换到开发者模式',
     switchToNotebook: '切换到笔记本模式',
     notebook: '笔记本模式',
     hydroNotebook: 'Hydro 笔记本',
@@ -1752,7 +1708,6 @@ export default {
       'code-intelligence': '代码智能',
       'code-quality': '代码质量',
       'documentation': '文档技能',
-      'developer-tools': '开发者工具',
       'other': '其他'
     }
   },
