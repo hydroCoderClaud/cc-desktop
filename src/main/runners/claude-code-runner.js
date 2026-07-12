@@ -13,6 +13,36 @@
 
 const { spawn: cpSpawn } = require('child_process')
 
+const BENIGN_CLI_STDERR_PATTERNS = [
+  /claude\.ai connectors are disabled because .*auth source is set and takes precedence over your claude\.ai login/i
+]
+
+function isBenignCliStderr(text) {
+  if (typeof text !== 'string' || !text.trim()) return true
+  return BENIGN_CLI_STDERR_PATTERNS.some(pattern => pattern.test(text))
+}
+
+function splitCliStderr(text) {
+  const result = { visible: '', suppressed: '' }
+  if (typeof text !== 'string' || text.length === 0) return result
+
+  const parts = text.split(/(\r?\n)/)
+  for (let i = 0; i < parts.length; i += 2) {
+    const line = parts[i] || ''
+    const newline = parts[i + 1] || ''
+    const value = line + newline
+    if (!value) continue
+
+    if (isBenignCliStderr(line)) {
+      result.suppressed += value
+    } else {
+      result.visible += value
+    }
+  }
+
+  return result
+}
+
 class ClaudeCodeRunner {
   constructor() {
     this._queryFn = null
@@ -64,6 +94,7 @@ class ClaudeCodeRunner {
   async createQuery(messageQueue, options, sessionRef) {
     const queryFn = await this._loadSDK()
     const env = options.env
+    const spawnProcess = options.spawn || cpSpawn
 
     const queryOptions = {
       cwd: options.cwd,
@@ -82,7 +113,7 @@ class ClaudeCodeRunner {
           console.log(`[ClaudeCodeRunner] Fixed CLI path: ${cliPath}`)
         }
 
-        const proc = cpSpawn(spawnOpts.command, spawnOpts.args, {
+        const proc = spawnProcess(spawnOpts.command, spawnOpts.args, {
           cwd: spawnOpts.cwd,
           env,
           stdio: ['pipe', 'pipe', 'pipe'],
@@ -93,11 +124,16 @@ class ClaudeCodeRunner {
         console.log(`[ClaudeCodeRunner] CLI spawned: command=${spawnOpts.command}, args[0]=${spawnOpts.args[0]?.substring(0, 80)}`)
 
         let stderrData = ''
+        let suppressedStderrData = ''
         if (proc.stderr) {
           proc.stderr.on('data', (data) => {
             const text = data.toString()
-            stderrData += text
-            console.error(`[ClaudeCodeRunner] CLI stderr: ${text}`)
+            const filtered = splitCliStderr(text)
+            suppressedStderrData += filtered.suppressed
+            if (!filtered.visible) return
+
+            stderrData += filtered.visible
+            console.error(`[ClaudeCodeRunner] CLI stderr: ${filtered.visible}`)
           })
         }
 
@@ -110,6 +146,7 @@ class ClaudeCodeRunner {
           if (sessionRef) {
             sessionRef._lastCliExitCode = code
             sessionRef._lastCliStderr = stderrData
+            sessionRef._lastSuppressedCliStderr = suppressedStderrData
           }
         })
 
@@ -278,5 +315,8 @@ class ClaudeCodeRunner {
     }
   }
 }
+
+ClaudeCodeRunner.isBenignCliStderr = isBenignCliStderr
+ClaudeCodeRunner.splitCliStderr = splitCliStderr
 
 module.exports = ClaudeCodeRunner
