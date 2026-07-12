@@ -82,7 +82,7 @@ describe('ConfigManager', () => {
       expect(config.settings).toBeDefined()
       expect(config.settings.theme).toBe('light')
       expect(config.settings.appMode).toBe('agent')
-      expect(config.settings.enableDeveloperMode).toBe(true)
+      expect(config.settings.enableDeveloperMode).toBe(false)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
       expect(config.settings.agent.claudeConfigDir).toBe('')
     })

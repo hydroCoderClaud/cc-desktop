@@ -45,46 +45,8 @@
 
       <!-- Main Area -->
       <div class="main-area" :class="{ 'notebook-main-area': isNotebookMode }">
-        <!-- Developer Mode Content (v-show 保持组件活跃，避免终端 buffer 丢失) -->
-        <div v-show="isDeveloperMode" class="mode-content">
-          <!-- Welcome Page -->
-          <div v-show="activeTabId === 'welcome'" class="empty-state">
-            <div class="pixel-mascot"><Icon name="robot" :size="72" /></div>
-
-            <div class="welcome-message">
-              <h2>{{ t('main.developerWelcome') }}</h2>
-              <p v-if="!currentProject">{{ t('main.pleaseSelectProject') }}</p>
-              <p v-else-if="!currentProject.pathValid">{{ t('project.pathNotExist') }}</p>
-              <p v-else v-html="t('session.newSessionHint')"></p>
-            </div>
-
-            <div class="warning-box">
-              <div class="warning-icon"><Icon name="warning" :size="20" /></div>
-              <div class="warning-text">
-                {{ t('main.warningText') }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Terminal Tabs Container -->
-          <div v-show="activeTabId !== 'welcome'" class="terminal-container">
-            <TerminalTab
-              v-for="tab in developerTabs"
-              :key="tab.id"
-              :ref="el => setTerminalRef(tab.id, el)"
-              :session-id="tab.sessionId"
-              :visible="activeTabId === tab.id"
-              :font-size="terminalFontSize"
-              :font-family="terminalFontFamily"
-              :cursor-color="currentColors.primary"
-              :dark-background="terminalDarkBackground"
-              @ready="handleTerminalReady"
-            />
-          </div>
-        </div>
-
         <!-- Agent Mode Content (v-show 保持组件活跃，避免 IPC 监听丢失和重复加载) -->
-        <div v-show="!isDeveloperMode && !isNotebookMode" class="mode-content">
+        <div v-show="!isNotebookMode" class="mode-content">
           <!-- Agent Welcome -->
           <div v-show="!hasAgentTabs || activeTabId === 'welcome'" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="72" /></div>
@@ -136,20 +98,9 @@
       :title="t('panel.dragToResize')"
     />
 
-    <!-- Right Panel: Developer 模式用配置面板，Agent 模式用文件浏览面板 -->
+    <!-- Right Panel: Agent 文件浏览面板 -->
     <template v-if="showRightPanel && !isNotebookMode">
-      <RightPanel
-        v-show="isDeveloperMode"
-        ref="rightPanelRef"
-        :style="{ width: rightPanelWidth }"
-        :current-project="currentProject"
-        :terminal-busy="terminalBusy"
-        :current-session-uuid="currentSessionUuid"
-        @collapse="showRightPanel = false"
-        @send-to-terminal="handleSendToTerminal"
-      />
       <AgentRightPanel
-        v-show="!isDeveloperMode"
         ref="agentRightPanelRef"
         :style="{ width: rightPanelWidth }"
         :session-id="activeAgentSessionId"
@@ -181,10 +132,8 @@ import { useAppMode, AppMode } from '@composables/useAppMode'
 import { useIPC } from '@composables/useIPC'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
-import RightPanel from './RightPanel/index.vue'
 import AgentRightPanel from './AgentRightPanel/index.vue'
 import TabBar from './TabBar.vue'
-import TerminalTab from './TerminalTab.vue'
 import AgentChatTab from './AgentChatTab.vue'
 import ProjectEditModal from './ProjectEditModal.vue'
 import Icon from '@components/icons/Icon.vue'
@@ -193,10 +142,10 @@ import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
 
 const message = useMessage()
 const dialog = useDialog()
-const { isDark, cssVars, toggleTheme, currentColors } = useTheme()
+const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 const { invoke } = useIPC()
-const { isDeveloperMode, isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
+const { isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
 
 // Use composables
 const {
@@ -236,15 +185,11 @@ const {
 } = useTabManagement()
 
 // Computed: 按模式过滤
-const developerTabs = computed(() => allTabs.value.filter(t => t.type !== 'agent-chat'))
 const agentTabs = computed(() => allTabs.value.filter(t => t.type === 'agent-chat'))
 const hasAgentTabs = computed(() => agentTabs.value.length > 0)
 
 // TabBar 只显示当前模式的 tabs（隔离三种模式，防止跨模式误操作）
 const currentModeTabs = computed(() => {
-  if (isDeveloperMode.value) {
-    return tabs.value.filter(t => t.type !== 'agent-chat')
-  }
   if (isAgentMode.value) {
     return tabs.value.filter(t => t.type === 'agent-chat')
   }
@@ -274,9 +219,8 @@ const activeTabCwd = computed(() => {
 })
 
 // 各模式最后的 activeTabId，切换模式时保存/恢复
-let lastDeveloperTabId = 'welcome'
 let lastAgentTabId = 'welcome'
-let lastMode = AppMode.DEVELOPER
+let lastMode = AppMode.AGENT
 
 /**
  * 确保 activeTabId 指向当前模式内的 tab
@@ -290,10 +234,7 @@ const ensureActiveTabInCurrentMode = () => {
     return
   }
   const isAgentTab = tab.type === 'agent-chat'
-  if (isDeveloperMode.value && isAgentTab) {
-    const devTabs = tabs.value.filter(t => t.type !== 'agent-chat')
-    activeTabId.value = devTabs.length > 0 ? devTabs[devTabs.length - 1].id : 'welcome'
-  } else if (isAgentMode.value && !isAgentTab) {
+  if (isAgentMode.value && !isAgentTab) {
     const agTabs = tabs.value.filter(t => t.type === 'agent-chat')
     activeTabId.value = agTabs.length > 0 ? agTabs[agTabs.length - 1].id : 'welcome'
   } else if (isNotebookMode.value) {
@@ -527,7 +468,7 @@ const openImRestoredSession = async (imType, data, meta) => {
     if (restored) return
   }
 
-  if (isDeveloperMode.value) {
+  if (!isAgentMode.value) {
     await switchMode(AppMode.AGENT)
   }
 
@@ -581,13 +522,10 @@ let cleanupFns = []
 
 // Keyboard shortcuts handler
 const handleKeyDown = (event) => {
-  // Ctrl+N: New session
+  // Ctrl+N: New Agent conversation
   if (event.ctrlKey && event.key.toLowerCase() === 'n') {
     event.preventDefault()
-    if (leftPanelRef.value && currentProject.value?.pathValid) {
-      // 触发左侧面板的新建会话
-      leftPanelRef.value.handleNewSession?.()
-    }
+    leftPanelRef.value?.openAgentNewConversation?.()
     return
   }
 }
@@ -978,17 +916,11 @@ const handleSendToTerminal = (command) => {
 watch(appMode, (mode) => {
   if (mode === lastMode) return
 
-  if (lastMode === AppMode.DEVELOPER) {
-    lastDeveloperTabId = activeTabId.value
-  } else if (lastMode === AppMode.AGENT) {
+  if (lastMode === AppMode.AGENT) {
     lastAgentTabId = activeTabId.value
   }
 
-  if (mode === AppMode.DEVELOPER) {
-    activeTabId.value = lastDeveloperTabId
-    showLeftPanel.value = true
-    showRightPanel.value = true
-  } else if (mode === AppMode.AGENT) {
+  if (mode === AppMode.AGENT) {
     activeTabId.value = lastAgentTabId
     showLeftPanel.value = true
     showRightPanel.value = true
@@ -1094,11 +1026,7 @@ const handleAgentClearSession = async (sessionId) => {
 const handleInsertPath = (relativePath) => {
   if (!activeTabId.value) return
 
-  if (isDeveloperMode.value) {
-    if (rightPanelRef.value && rightPanelRef.value.insertToInput) {
-      rightPanelRef.value.insertToInput(relativePath)
-    }
-  } else if (isAgentMode.value) {
+  if (isAgentMode.value) {
     const activeTabRef = agentChatTabRefs.value[activeTabId.value]
     if (activeTabRef && activeTabRef.insertText) {
       activeTabRef.insertText(relativePath + '\n')

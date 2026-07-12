@@ -161,7 +161,7 @@ class ConfigManager {
 
         // 应用模式
         appMode: 'agent',  // 启动固定为 'agent'
-        enableDeveloperMode: true,
+        enableDeveloperMode: false,
         developerClaudeSource: 'bundled',
 
         // Agent 模式配置

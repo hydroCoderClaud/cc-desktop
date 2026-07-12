@@ -7,51 +7,6 @@
       @mode-select="handleModeSelect"
     />
 
-    <LeftPanelDeveloperPane
-      :t="t"
-      :is-developer-mode="isDeveloperMode"
-      :current-project="currentProject"
-      :selected-project-id="selectedProjectId"
-      :project-options="projectOptions"
-      :render-project-label="renderProjectLabel"
-      :project-menu-options="projectMenuOptions"
-      :active-sessions="activeSessions"
-      :focused-session-id="focusedSessionId"
-      :history-sessions="historySessions"
-      :displayed-history-sessions="displayedHistorySessions"
-      :show-subagent-sessions="showSubagentSessions"
-      :show-new-session-dialog="showNewSessionDialog"
-      :new-session-title="newSessionTitle"
-      :show-rename-dialog="showRenameDialog"
-      :rename-title="renameTitle"
-      :show-history-rename-dialog="showHistoryRenameDialog"
-      :history-rename-title="historyRenameTitle"
-      :format-session-name="formatSessionName"
-      :format-date="formatDate"
-      @open-project="$emit('open-project')"
-      @update:selected-project-id="handleProjectChange"
-      @project-menu-select="handleProjectMenuSelect"
-      @new-session="handleNewSession"
-      @open-terminal="handleOpenTerminal"
-      @select-session="handleSelectSession"
-      @rename-session="openRenameDialog"
-      @close-session="handleCloseSession"
-      @toggle-subagent-sessions="toggleSubagentSessions"
-      @view-more="handleViewMore"
-      @open-history-session="handleOpenHistorySession"
-      @rename-history-session="handleEditHistorySession"
-      @delete-history-session="handleDeleteHistorySession"
-      @update:show-new-session-dialog="showNewSessionDialog = $event"
-      @update:new-session-title="newSessionTitle = $event"
-      @confirm-new-session="confirmNewSession"
-      @update:show-rename-dialog="showRenameDialog = $event"
-      @update:rename-title="renameTitle = $event"
-      @confirm-rename="confirmRename"
-      @update:show-history-rename-dialog="showHistoryRenameDialog = $event"
-      @update:history-rename-title="historyRenameTitle = $event"
-      @confirm-history-rename="confirmHistoryRename"
-    />
-
     <!-- ========== Agent Mode Content (v-show 避免切换模式时 remount) ========== -->
     <AgentLeftContent
       v-show="isAgentMode"
@@ -94,7 +49,6 @@ import { useAppMode, AppMode } from '@composables/useAppMode'
 import { useEmbeddedApps } from '@composables/useEmbeddedApps'
 import Icon from '@components/icons/Icon.vue'
 import LeftPanelHeader from './LeftPanelHeader.vue'
-import LeftPanelDeveloperPane from './LeftPanelDeveloperPane.vue'
 import LeftPanelFooter from './LeftPanelFooter.vue'
 import AgentLeftContent from './agent/AgentLeftContent.vue'
 import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
@@ -103,16 +57,13 @@ const message = useMessage()
 const dialog = useDialog()
 const { invoke } = useIPC()
 const { t, locale } = useLocale()
-const { isDeveloperMode, isAgentMode, isNotebookMode, developerModeEnabled, switchMode, appMode } = useAppMode()
+const { isAgentMode, isNotebookMode, switchMode, appMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
 const modeOptions = computed(() => {
   const options = []
-  if (developerModeEnabled.value && !isDeveloperMode.value) {
-    options.push({ label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') })
-  }
   if (!isAgentMode.value) {
     options.push({ label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') })
   }
@@ -127,7 +78,7 @@ const handleModeSelect = (key) => {
     handleOpenNotebook()
     return
   }
-  if (key === 'developer' || key === 'agent') {
+  if (key === 'agent') {
     handleSwitchMode(key)
   }
 }
@@ -135,7 +86,7 @@ const handleModeSelect = (key) => {
 const panelTitle = computed(() => {
   if (isAgentMode.value) return t('app.modes.agent')
   if (isNotebookMode.value) return t('app.modes.notebook')
-  return t('app.modes.developer')
+  return t('app.modes.agent')
 })
 
 // 切换到指定模式
@@ -289,6 +240,10 @@ const activeAgentSessionId = ref(null)
 const showNewConvModal = ref(false)
 // 更新红点状态
 const hasUpdateAvailable = ref(false)
+
+const openAgentNewConversation = () => {
+  showNewConvModal.value = true
+}
 
 // History session rename (仅内存，不持久化)
 const showHistoryRenameDialog = ref(false)
@@ -454,14 +409,14 @@ const handleSettingsSelect = async (key) => {
       break
     case 'capability-workbench':
       window.electronAPI.openSettingsWorkbench({
-        mode: isAgentMode.value ? 'agent' : 'developer',
-        cwd: isAgentMode.value ? props.agentCwd : props.currentProject?.path
+        mode: 'agent',
+        cwd: props.agentCwd || props.currentProject?.path || null
       })
       break
     case 'session-apps':
       window.electronAPI.openSettingsWorkbench({
-        mode: isAgentMode.value ? 'agent' : 'developer',
-        cwd: isAgentMode.value ? props.agentCwd : props.currentProject?.path,
+        mode: 'agent',
+        cwd: props.agentCwd || props.currentProject?.path || null,
         section: 'session-apps'
       })
       break
@@ -824,6 +779,7 @@ defineExpose({
   loadHistorySessions: () => loadHistorySessions(props.currentProject),
   reloadAgentConversations: () => agentLeftContentRef.value?.loadConversations?.(),
   updateAgentConversationRuntime,
+  openAgentNewConversation,
   focusedSessionId,
   activeAgentSessionId,
   handleNewSession

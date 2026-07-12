@@ -94,13 +94,6 @@
         <div class="settings-subsection-title">{{ t('globalSettings.developerRuntimeGroup') }}</div>
         <n-grid :cols="2" :x-gap="24">
           <n-grid-item>
-            <n-form-item :label="t('globalSettings.enableDeveloperMode')">
-              <n-switch v-model:value="formData.enableDeveloperMode" />
-              <template #feedback>{{ t('globalSettings.enableDeveloperModeHint') }}</template>
-            </n-form-item>
-          </n-grid-item>
-
-          <n-grid-item>
             <n-form-item :label="t('globalSettings.developerClaudeSource')">
               <n-select
                 v-model:value="formData.developerClaudeSource"
@@ -173,7 +166,6 @@ const DEFAULTS = {
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   messageQueue: true,
-  enableDeveloperMode: true,
   developerClaudeSource: 'bundled',
   outputBaseDir: '',             // 空字符串 = 使用默认 ~/cc-desktop-agent-output
   claudeConfigDir: ''
@@ -186,7 +178,6 @@ const formData = ref({
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   messageQueue: DEFAULTS.messageQueue,
-  enableDeveloperMode: DEFAULTS.enableDeveloperMode,
   developerClaudeSource: DEFAULTS.developerClaudeSource,
   outputBaseDir: DEFAULTS.outputBaseDir,
   claudeConfigDir: DEFAULTS.claudeConfigDir
@@ -224,7 +215,6 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
-    formData.value.enableDeveloperMode = config?.settings?.enableDeveloperMode !== false
     formData.value.developerClaudeSource = config?.settings?.developerClaudeSource || DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
     formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || DEFAULTS.claudeConfigDir
@@ -293,13 +283,9 @@ const handleSave = async () => {
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
-    const nextMode = formData.value.enableDeveloperMode ? undefined : 'agent'
     const settingsPayload = {
-      enableDeveloperMode: formData.value.enableDeveloperMode,
+      appMode: 'agent',
       developerClaudeSource: formData.value.developerClaudeSource
-    }
-    if (nextMode) {
-      settingsPayload.appMode = nextMode
     }
     await window.electronAPI.updateSettings(settingsPayload)
     window.electronAPI.broadcastSettings(settingsPayload)
@@ -334,7 +320,6 @@ const handleReset = async () => {
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.messageQueue = DEFAULTS.messageQueue
-    formData.value.enableDeveloperMode = DEFAULTS.enableDeveloperMode
     formData.value.developerClaudeSource = DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = defaultOutputBaseDir.value
     formData.value.claudeConfigDir = DEFAULTS.claudeConfigDir
@@ -348,11 +333,11 @@ const handleReset = async () => {
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
     await window.electronAPI.updateSettings({
-      enableDeveloperMode: DEFAULTS.enableDeveloperMode,
+      appMode: 'agent',
       developerClaudeSource: DEFAULTS.developerClaudeSource
     })
     window.electronAPI.broadcastSettings({
-      enableDeveloperMode: DEFAULTS.enableDeveloperMode,
+      appMode: 'agent',
       developerClaudeSource: DEFAULTS.developerClaudeSource
     })
 

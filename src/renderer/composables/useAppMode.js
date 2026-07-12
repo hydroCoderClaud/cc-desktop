@@ -1,6 +1,6 @@
 /**
  * 应用模式管理组合式函数
- * 管理开发者模式和 Agent 模式的切换
+ * 管理 Agent 和 Notebook 模式的切换
  */
 import { ref, computed, readonly } from 'vue'
 
@@ -15,14 +15,12 @@ export const AppMode = {
 
 // 全局共享状态（模块级单例）
 const appMode = ref(AppMode.AGENT)
-const developerModeEnabled = ref(true)
+const developerModeEnabled = ref(false)
 const initialized = ref(false)
 let _settingsCleanup = null
 
-const getDeveloperModeEnabled = (config) => config?.settings?.enableDeveloperMode !== false
-
 const normalizeMode = (mode) => {
-  if (mode === AppMode.DEVELOPER && !developerModeEnabled.value) {
+  if (mode === AppMode.DEVELOPER) {
     return AppMode.AGENT
   }
   return Object.values(AppMode).includes(mode) ? mode : AppMode.AGENT
@@ -42,7 +40,7 @@ export function useAppMode() {
     try {
       if (window.electronAPI) {
         const config = await window.electronAPI.getConfig()
-        developerModeEnabled.value = getDeveloperModeEnabled(config)
+        developerModeEnabled.value = false
 
         const startupMode = AppMode.AGENT
         appMode.value = startupMode
@@ -86,15 +84,10 @@ export function useAppMode() {
   }
 
   /**
-   * 切换模式（在开发者模式和 Agent 模式之间切换）
+   * 兼容旧调用：Developer 模式已移除，切换操作固定回到 Agent。
    */
   const toggleMode = async () => {
-    const nextMode = appMode.value === AppMode.DEVELOPER
-      ? AppMode.AGENT
-      : developerModeEnabled.value
-        ? AppMode.DEVELOPER
-        : AppMode.AGENT
-    await switchMode(nextMode)
+    await switchMode(AppMode.AGENT)
   }
 
   const listenForChanges = () => {
@@ -102,10 +95,11 @@ export function useAppMode() {
     if (window.electronAPI?.onSettingsChanged) {
       _settingsCleanup = window.electronAPI.onSettingsChanged(async (settings) => {
         if (settings.enableDeveloperMode !== undefined) {
-          developerModeEnabled.value = settings.enableDeveloperMode !== false
-          if (!developerModeEnabled.value && appMode.value === AppMode.DEVELOPER) {
-            appMode.value = AppMode.AGENT
-            await window.electronAPI.setMainWindowTitleByMode(AppMode.AGENT)
+          developerModeEnabled.value = false
+          const nextMode = normalizeMode(appMode.value)
+          if (appMode.value !== nextMode) {
+            appMode.value = nextMode
+            await window.electronAPI.setMainWindowTitleByMode(nextMode)
           }
         }
 

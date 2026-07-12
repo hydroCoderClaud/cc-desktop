@@ -16,7 +16,7 @@ describe('useAppMode', () => {
     }
   })
 
-  it('固定以 Agent 模式启动，并在缺省配置下允许开发者模式', async () => {
+  it('固定以 Agent 模式启动，并在缺省配置下禁用开发者模式', async () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
     const setMainWindowTitleByMode = vi.fn().mockResolvedValue(undefined)
 
@@ -38,12 +38,12 @@ describe('useAppMode', () => {
     await initMode()
 
     expect(appMode.value).toBe(AppMode.AGENT)
-    expect(developerModeEnabled.value).toBe(true)
+    expect(developerModeEnabled.value).toBe(false)
     expect(setMainWindowTitleByMode).toHaveBeenCalledWith(AppMode.AGENT)
     expect(updateSettings).toHaveBeenCalledWith({ appMode: AppMode.AGENT })
   })
 
-  it('禁用开发者模式时阻止切换到开发者模式', async () => {
+  it('始终阻止切换到开发者模式', async () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
     const setMainWindowTitleByMode = vi.fn().mockResolvedValue(undefined)
 
@@ -75,7 +75,7 @@ describe('useAppMode', () => {
     expect(setMainWindowTitleByMode).not.toHaveBeenCalled()
   })
 
-  it('收到设置广播禁用开发者模式时，会从开发者模式切回 Agent', async () => {
+  it('收到设置广播启用开发者模式时也不会重新开放 Developer', async () => {
     const updateSettings = vi.fn().mockResolvedValue(undefined)
     const setMainWindowTitleByMode = vi.fn().mockResolvedValue(undefined)
     let settingsChangedHandler = null
@@ -105,12 +105,12 @@ describe('useAppMode', () => {
     setMainWindowTitleByMode.mockClear()
 
     await settingsChangedHandler?.({
-      enableDeveloperMode: false,
-      appMode: 'agent'
+      enableDeveloperMode: true,
+      appMode: 'developer'
     })
 
     expect(developerModeEnabled.value).toBe(false)
     expect(appMode.value).toBe(AppMode.AGENT)
-    expect(setMainWindowTitleByMode).toHaveBeenCalledWith(AppMode.AGENT)
+    expect(setMainWindowTitleByMode).not.toHaveBeenCalled()
   })
 })

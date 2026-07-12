@@ -152,28 +152,22 @@ const emit = defineEmits(['create', 'switch', 'close', 'cleanup', 'renamed', 'de
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
-const { developerModeEnabled, switchMode } = useAppMode()
+const { switchMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
 const modeOptions = computed(() => {
-  const options = [
+  return [
     { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
   ]
-
-  if (developerModeEnabled.value) {
-    options.unshift({ label: t('mode.switchToDeveloper'), key: 'developer', icon: renderModeIcon('terminal') })
-  }
-
-  return options
 })
 
 const hasUpdateAvailable = ref(false)
 let updateAvailableCleanup = null
 
 const handleModeSelect = (key) => {
-  if (key === 'developer' || key === 'agent') {
+  if (key === 'agent') {
     switchMode(key)
   }
 }
