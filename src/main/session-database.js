@@ -6,10 +6,6 @@
  *
  * 使用 Mixin 模式组织代码，各模块功能：
  * - project-db.js: 项目操作
- * - session-db.js: 会话操作
- * - message-db.js: 消息操作
- * - tag-db.js: 标签操作（会话标签和消息标签）
- * - favorite-db.js: 收藏操作
  * - prompt-db.js: 提示词操作
  */
 
@@ -26,10 +22,6 @@ const {
 // 导入所有 mixin
 const {
   withProjectOperations,
-  withSessionOperations,
-  withMessageOperations,
-  withTagOperations,
-  withFavoriteOperations,
   withPromptOperations,
   withQueueOperations,
   withAgentOperations,
@@ -216,22 +208,7 @@ class SessionDatabaseBase {
       }
     }
 
-    // Migrate sessions table
-    const sessionColumns = this.db.prepare("PRAGMA table_info(sessions)").all()
-    const sessionColumnNames = sessionColumns.map(c => c.name)
-
-    const sessionNewColumns = [
-      { name: 'title', type: 'TEXT' },                    // 用户自定义标题
-      { name: 'active_session_id', type: 'TEXT' },        // 关联的活动会话 ID（临时）
-      { name: 'first_user_message', type: 'TEXT' }        // 第一条用户消息（用于显示）
-    ]
-
-    for (const col of sessionNewColumns) {
-      if (!sessionColumnNames.includes(col.name)) {
-        console.log(`[SessionDB] Adding column: sessions.${col.name}`)
-        this.db.exec(`ALTER TABLE sessions ADD COLUMN ${col.name} ${col.type}`)
-      }
-    }
+    this._dropDeveloperLegacyTables()
 
     // agent_conversations 表迁移：添加 API Profile 追踪字段
     const agentConvInfo = this.db.prepare("PRAGMA table_info(agent_conversations)").all()
@@ -592,6 +569,31 @@ class SessionDatabaseBase {
     return this.db.prepare(`PRAGMA table_info(${tableName})`).all().map(col => col.name)
   }
 
+  _tableExists(tableName) {
+    const row = this.db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?").get(tableName)
+    return Boolean(row)
+  }
+
+  _dropDeveloperLegacyTables() {
+    this._setForeignKeys(false)
+    try {
+      this.db.exec(`
+        DROP TRIGGER IF EXISTS messages_ai;
+        DROP TRIGGER IF EXISTS messages_ad;
+        DROP TRIGGER IF EXISTS messages_au;
+        DROP TABLE IF EXISTS message_tags;
+        DROP TABLE IF EXISTS session_tags;
+        DROP TABLE IF EXISTS favorites;
+        DROP TABLE IF EXISTS tags;
+        DROP TABLE IF EXISTS messages_fts;
+        DROP TABLE IF EXISTS messages;
+        DROP TABLE IF EXISTS sessions;
+      `)
+    } finally {
+      this._setForeignKeys(true)
+    }
+  }
+
   _setForeignKeys(enabled) {
     const value = enabled ? 'ON' : 'OFF'
     if (typeof this.db.pragma === 'function') {
@@ -780,11 +782,9 @@ class SessionDatabaseBase {
         )
       }
 
-      const updateSessionProject = this.db.prepare('UPDATE sessions SET project_id = ? WHERE project_id = ?')
       const updatePromptProject = this.db.prepare('UPDATE prompts SET project_id = ?, updated_at = ? WHERE project_id = ?')
       for (const [oldId, newId] of projectIdMap) {
         if (oldId === newId) continue
-        updateSessionProject.run(newId, oldId)
         updatePromptProject.run(newId, Date.now(), oldId)
       }
 
@@ -1006,132 +1006,6 @@ class SessionDatabaseBase {
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
         last_opened_at INTEGER
       )
-    `)
-
-    // Sessions table
-    // Note: session_uuid can be NULL for pending sessions (created before Claude CLI generates the file)
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        session_uuid TEXT UNIQUE,
-        title TEXT,
-        active_session_id TEXT,
-        first_user_message TEXT,
-        model TEXT,
-        started_at INTEGER,
-        last_message_at INTEGER,
-        message_count INTEGER DEFAULT 0,
-        file_mtime INTEGER,
-        last_synced_uuid TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-      )
-    `)
-
-    // Messages table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id INTEGER NOT NULL,
-        uuid TEXT UNIQUE NOT NULL,
-        parent_uuid TEXT,
-        role TEXT NOT NULL,
-        content TEXT,
-        timestamp INTEGER,
-        tokens_in INTEGER,
-        tokens_out INTEGER,
-        is_meta INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-      )
-    `)
-
-    // ========================================
-    // Tag Tables
-    // ========================================
-
-    // Tags table (for sessions/messages)
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        color TEXT DEFAULT '#1890ff',
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
-      )
-    `)
-
-    // Session-Tags relation table (many-to-many)
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS session_tags (
-        session_id INTEGER NOT NULL,
-        tag_id INTEGER NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        PRIMARY KEY (session_id, tag_id),
-        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-      )
-    `)
-
-    // Message-Tags relation table (many-to-many)
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS message_tags (
-        message_id INTEGER NOT NULL,
-        tag_id INTEGER NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        PRIMARY KEY (message_id, tag_id),
-        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
-        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-      )
-    `)
-
-    // ========================================
-    // Favorites Table
-    // ========================================
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS favorites (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id INTEGER UNIQUE NOT NULL,
-        note TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-      )
-    `)
-
-    // ========================================
-    // Full-Text Search
-    // ========================================
-
-    // Create FTS5 virtual table for full-text search
-    this.db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-        content,
-        content='messages',
-        content_rowid='id',
-        tokenize='unicode61'
-      )
-    `)
-
-    // Create triggers to keep FTS index in sync
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
-        INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-      END
-    `)
-
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-        INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-      END
-    `)
-
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
-        INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-        INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-      END
     `)
 
     // ========================================
@@ -1409,10 +1283,6 @@ class SessionDatabaseBase {
    */
   createIndexes() {
     this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
-      CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path_key ON projects(path_key);
       CREATE INDEX IF NOT EXISTS idx_projects_encoded_path ON projects(encoded_path);
       CREATE INDEX IF NOT EXISTS idx_projects_kind_visibility ON projects(project_kind, is_hidden, last_opened_at);
@@ -1462,19 +1332,11 @@ class SessionDatabaseBase {
    */
   getStats() {
     const projectCount = this.db.prepare('SELECT COUNT(*) as count FROM projects').get()
-    const sessionCount = this.db.prepare('SELECT COUNT(*) as count FROM sessions').get()
-    const messageCount = this.db.prepare('SELECT COUNT(*) as count FROM messages').get()
-    const favoriteCount = this.db.prepare('SELECT COUNT(*) as count FROM favorites').get()
-    const tagCount = this.db.prepare('SELECT COUNT(*) as count FROM tags').get()
     const agentConvCount = this.db.prepare('SELECT COUNT(*) as count FROM agent_conversations').get()
     const agentMsgCount = this.db.prepare('SELECT COUNT(*) as count FROM agent_messages').get()
 
     return {
       projects: projectCount?.count || 0,
-      sessions: sessionCount?.count || 0,
-      messages: messageCount?.count || 0,
-      favorites: favoriteCount?.count || 0,
-      tags: tagCount?.count || 0,
       agentConversations: agentConvCount?.count || 0,
       agentMessages: agentMsgCount?.count || 0
     }
@@ -1488,15 +1350,7 @@ const SessionDatabase = withPromptMarketOperations(
       withAgentOperations(
         withQueueOperations(
           withPromptOperations(
-            withFavoriteOperations(
-              withTagOperations(
-                withMessageOperations(
-                  withSessionOperations(
-                    withProjectOperations(SessionDatabaseBase)
-                  )
-                )
-              )
-            )
+            withProjectOperations(SessionDatabaseBase)
           )
         )
       )

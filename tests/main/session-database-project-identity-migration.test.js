@@ -44,6 +44,11 @@ describe('project identity migration', () => {
         project_id INTEGER NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
       );
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY,
+        session_id INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+      );
       CREATE TABLE prompts (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
@@ -91,6 +96,7 @@ describe('project identity migration', () => {
         (1, 'C:/Work/Demo', 'C--Work-Demo', 'Demo', 'user', 0),
         (2, 'C:/Work/LegacySync', 'C--Work-LegacySync', 'Legacy Sync', 'sync', 0);
       INSERT INTO sessions (id, project_id) VALUES (10, 1), (20, 2);
+      INSERT INTO messages (id, session_id) VALUES (100, 10), (200, 20);
       INSERT INTO prompts (id, name, content, scope, project_id)
       VALUES (30, 'sync prompt', 'content', 'project', 2);
       INSERT INTO agent_conversations (id, session_id, type, cwd, cwd_auto, session_app_id, created_at, updated_at)
@@ -104,6 +110,7 @@ describe('project identity migration', () => {
       VALUES (1000, 100, 'm1', 'user', 1);
     `)
 
+    database._dropDeveloperLegacyTables()
     expect(database._removeLegacySyncedProjects()).toBe(1)
     database._migrateProjectIdentitySchema()
     database._migrateAgentConversationProjectBindings()
@@ -132,7 +139,8 @@ describe('project identity migration', () => {
     expect(demoConversation.cwd).toBe('C:\\Work\\Demo')
     expect(demoConversation.path).toBe('C:\\Work\\Demo')
 
-    expect(sqlite.prepare('SELECT COUNT(*) AS count FROM sessions').get().count).toBe(1)
+    expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get()).toBeUndefined()
+    expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'messages'").get()).toBeUndefined()
     expect(sqlite.prepare('SELECT scope, project_id FROM prompts WHERE id = 30').get()).toEqual(
       expect.objectContaining({ scope: 'global', project_id: null })
     )

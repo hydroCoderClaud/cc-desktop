@@ -7,7 +7,6 @@ const { app, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const {
-  getClaudeProjectsDir,
   getClaudeSettingsPath
 } = require('./utils/claude-config-paths');
 
@@ -22,9 +21,7 @@ function safeRequire(modulePath, moduleName) {
 }
 
 const { SessionDatabase } = safeRequire('./session-database', 'SessionDatabase') || {};
-const { SessionFileWatcher } = safeRequire('./session-file-watcher', 'SessionFileWatcher') || {};
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
-const sessionHandlersMod = safeRequire('./ipc-handlers/session-handlers', 'session-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
 const projectFilesHandlersMod = safeRequire('./ipc-handlers/project-files-handlers', 'project-files-handlers');
 const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
@@ -56,7 +53,6 @@ const reviewTaskServiceMod = safeRequire('./hydrology/review-task-service', 'rev
 const qualityCheckServiceMod = safeRequire('./hydrology/quality-check-service', 'quality-check-service');
 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
-const setupSessionHandlers = sessionHandlersMod?.setupSessionHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
 const setupProjectFilesHandlers = projectFilesHandlersMod?.setupProjectFilesHandlers;
 const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
@@ -162,12 +158,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     ? new RealtimeDemoSeeder(realtimeService)
     : null
 
-  // 初始化会话文件监听器
-  const sessionFileWatcher = SessionFileWatcher ? new SessionFileWatcher(mainWindow) : null;
-  if (!sessionFileWatcher) {
-    console.warn('[IPC] SessionFileWatcher not available');
-  }
-
   // 设置依赖关系
   if (activeSessionManager) {
     activeSessionManager.setSessionDatabase(sessionDatabase);
@@ -204,13 +194,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     agentSessionManager.reviewTaskService = reviewTaskService
     agentSessionManager.qualityCheckService = qualityCheckService
   }
-  if (sessionFileWatcher) {
-    sessionFileWatcher.setDependencies({
-      sessionDatabase,
-      activeSessionManager
-    });
-  }
-
   // ========================================
   // 配置相关处理器（提取到独立模块）
   // ========================================
@@ -472,19 +455,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true };
   });
 
-  // 打开会话查询窗口
-  ipcMain.handle('window:openSessionManager', async (event, options = {}) => {
-    const query = options.projectPath ? `?projectPath=${encodeURIComponent(options.projectPath)}` : ''
-    createSubWindow({
-      width: 1200,
-      height: 700,
-      title: translate('app.windows.sessionManager'),
-      page: 'session-manager',
-      query
-    });
-    return { success: true };
-  });
-
   // 聚焦主窗口
   ipcMain.handle('window:focusMainWindow', async () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -528,28 +498,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       updateManagerWindow = null
     })
     return { success: true };
-  });
-
-  // ========================================
-  // 会话文件监控
-  // ========================================
-
-  // 开始监控项目的会话文件变化
-  ipcMain.handle('sessionWatcher:watch', async (event, { projectPath, projectId }) => {
-    if (sessionFileWatcher) {
-      sessionFileWatcher.watch(projectPath, projectId);
-      return { success: true };
-    }
-    return { success: false, error: 'SessionFileWatcher not available' };
-  });
-
-  // 停止文件监控
-  ipcMain.handle('sessionWatcher:stop', async () => {
-    if (sessionFileWatcher) {
-      sessionFileWatcher.stop();
-      return { success: true };
-    }
-    return { success: false, error: 'SessionFileWatcher not available' };
   });
 
   // ========================================
@@ -808,11 +756,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   });
 
   // ========================================
-  // 会话历史管理（数据库版）
-  // ========================================
-  setupSessionHandlers(ipcMain, sessionDatabase);
-
-  // ========================================
   // 提示词管理
   // ========================================
   if (registerPromptHandlers) {
@@ -832,73 +775,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   if (setupPluginHandlers) {
     setupPluginHandlers(ipcMain, configManager);
   }
-
-  // 获取项目会话列表（从数据库）
-  // 参数改为 projectPath，通过路径查找数据库中的项目
-  registerHandler('session:getProjectSessionsFromDb', async (projectPath) => {
-    const dbProject = sessionDatabase.getProjectByPath(projectPath);
-    if (!dbProject) {
-      return [];
-    }
-    return sessionDatabase.getProjectSessionsForPanel(dbProject.id);
-  });
-
-  // 更新会话标题
-  // 支持两种方式：1. sessionId（数据库ID）2. sessionUuid（Claude Code UUID）
-  registerHandler('session:updateTitle', async ({ sessionId, sessionUuid, title }) => {
-    if (sessionId) {
-      return sessionDatabase.updateSessionTitle(sessionId, title);
-    } else if (sessionUuid) {
-      return sessionDatabase.updateSessionTitleByUuid(sessionUuid, title);
-    }
-    return { success: false, error: 'Missing sessionId or sessionUuid' };
-  });
-
-  // 删除会话（数据库 + 文件）
-  registerHandler('session:deleteWithFile', async ({ sessionId, projectPath, sessionUuid }) => {
-    // 删除文件
-    if (sessionUuid && projectPath) {
-      const path = require('path');
-      const { encodePath } = require('./utils/path-utils');
-
-      const claudeProjectsDir = getClaudeProjectsDir(configManager);
-      const encodedPath = encodePath(projectPath);
-      const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionUuid}.jsonl`);
-
-      if (fs.existsSync(sessionFile)) {
-        try {
-          fs.unlinkSync(sessionFile);
-        } catch (err) {
-          console.error('[IPC] Failed to delete session file:', err);
-        }
-      }
-    }
-
-    // 删除数据库记录
-    return sessionDatabase.deleteSession(sessionId);
-  });
-
-  registerHandler('session:deleteFile', async ({ projectPath, sessionId }) => {
-    const fs = require('fs');
-    const path = require('path');
-    const { encodePath } = require('./utils/path-utils');
-
-    const claudeProjectsDir = getClaudeProjectsDir(configManager);
-    const encodedPath = encodePath(projectPath);
-    const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionId}.jsonl`);
-
-    if (!fs.existsSync(sessionFile)) {
-      return { success: false, error: '会话文件不存在' };
-    }
-
-    try {
-      fs.unlinkSync(sessionFile);
-      return { success: true };
-    } catch (err) {
-      console.error('[IPC] Failed to delete session file:', err);
-      return { success: false, error: err.message };
-    }
-  });
 
   // ========================================
   // 工程管理（数据库版）

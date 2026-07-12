@@ -40,6 +40,11 @@ describe('legacy synced project cleanup', () => {
         session_id INTEGER NOT NULL,
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
       );
+      CREATE TABLE messages_fts (id INTEGER PRIMARY KEY);
+      CREATE TABLE tags (id INTEGER PRIMARY KEY);
+      CREATE TABLE session_tags (session_id INTEGER NOT NULL, tag_id INTEGER NOT NULL);
+      CREATE TABLE message_tags (message_id INTEGER NOT NULL, tag_id INTEGER NOT NULL);
+      CREATE TABLE favorites (id INTEGER PRIMARY KEY);
       CREATE TABLE prompts (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
@@ -59,11 +64,29 @@ describe('legacy synced project cleanup', () => {
     database.db = sqlite
   })
 
+  const legacyTableNames = [
+    'sessions',
+    'messages',
+    'messages_fts',
+    'tags',
+    'session_tags',
+    'message_tags',
+    'favorites'
+  ]
+
+  const existingLegacyTables = () => sqlite.prepare(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name IN (${legacyTableNames.map(() => '?').join(', ')})
+    ORDER BY name
+  `).all(...legacyTableNames).map(row => row.name)
+
   afterEach(() => {
     sqlite?.close()
   })
 
-  it('removes only sync projects and their legacy session rows', () => {
+  it('drops developer legacy tables and removes only sync projects', () => {
     sqlite.exec(`
       INSERT INTO projects (id, path, encoded_path, name, source)
       VALUES
@@ -74,17 +97,23 @@ describe('legacy synced project cleanup', () => {
       INSERT INTO agent_conversations (id, session_id) VALUES (1000, 'agent-1');
     `)
 
+    expect(existingLegacyTables()).toEqual([
+      'favorites',
+      'message_tags',
+      'messages',
+      'messages_fts',
+      'session_tags',
+      'sessions',
+      'tags'
+    ])
+
+    database._dropDeveloperLegacyTables()
     expect(database._removeLegacySyncedProjects()).toBe(1)
 
     expect(sqlite.prepare('SELECT id, source FROM projects ORDER BY id').all()).toEqual([
       expect.objectContaining({ id: 1, source: 'user' })
     ])
-    expect(sqlite.prepare('SELECT id FROM sessions ORDER BY id').all()).toEqual([
-      expect.objectContaining({ id: 10 })
-    ])
-    expect(sqlite.prepare('SELECT id FROM messages ORDER BY id').all()).toEqual([
-      expect.objectContaining({ id: 100 })
-    ])
+    expect(existingLegacyTables()).toEqual([])
     expect(sqlite.prepare('SELECT id FROM agent_conversations').all()).toEqual([
       expect.objectContaining({ id: 1000 })
     ])

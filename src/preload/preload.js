@@ -539,7 +539,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getHydrologyLatestReviewRunSummary: (filters) => ipcRenderer.invoke('hydrology:review:getLatestRunSummary', filters),
   resolveHydrologyReviewTask: ({ taskId, payload }) => ipcRenderer.invoke('hydrology:review:resolveTask', { taskId, payload }),
   openProviderManager: () => ipcRenderer.invoke('window:openProviderManager'),
-  openSessionManager: (options) => ipcRenderer.invoke('window:openSessionManager', options),
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
   openFeishuSettings: () => ipcRenderer.invoke('window:openFeishuSettings'),
@@ -701,59 +700,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (filePath, content) => ipcRenderer.invoke('file:write', filePath, content),
 
   // ========================================
-  // 会话历史管理（数据库版）
-  // ========================================
-  // 项目和会话
-  getSessionProjects: () => ipcRenderer.invoke('session:getProjects'),
-  getProjectSessions: (projectId) => ipcRenderer.invoke('session:getProjectSessions', projectId),
-  getSessionMessages: ({ sessionId, limit, offset }) => ipcRenderer.invoke('session:getMessages', { sessionId, limit, offset }),
-
-  // 删除历史会话文件（硬删除）
-  deleteSessionFile: ({ projectPath, sessionId }) => ipcRenderer.invoke('session:deleteFile', { projectPath, sessionId }),
-
-  // ========================================
-  // 会话面板管理（数据库 + 文件同步）
-  // ========================================
-  // 从数据库获取项目会话（用于左侧面板）- 通过 projectPath 查询
-  getProjectSessionsFromDb: (projectPath) => ipcRenderer.invoke('session:getProjectSessionsFromDb', projectPath),
-
-  // 更新会话标题（支持通过 sessionId 或 sessionUuid 更新）
-  updateSessionTitle: ({ sessionId, sessionUuid, title }) => ipcRenderer.invoke('session:updateTitle', { sessionId, sessionUuid, title }),
-
-  // 删除会话（数据库 + 文件）
-  deleteSessionWithFile: ({ sessionId, projectPath, sessionUuid }) =>
-    ipcRenderer.invoke('session:deleteWithFile', { sessionId, projectPath, sessionUuid }),
-
-  // 搜索
-  searchSessions: ({ query, projectId, sessionId, limit }) => ipcRenderer.invoke('session:search', { query, projectId, sessionId, limit }),
-
-  // 导出
-  exportSession: ({ sessionId, format }) => ipcRenderer.invoke('session:export', { sessionId, format }),
-
-  // 统计
-  getSessionStats: () => ipcRenderer.invoke('session:getStats'),
-
-  // ========================================
-  // 标签管理（会话级别）
-  // ========================================
-  createTag: ({ name, color }) => ipcRenderer.invoke('tag:create', { name, color }),
-  getAllTags: () => ipcRenderer.invoke('tag:getAll'),
-  deleteTag: (tagId) => ipcRenderer.invoke('tag:delete', tagId),
-  addTagToSession: ({ sessionId, tagId }) => ipcRenderer.invoke('tag:addToSession', { sessionId, tagId }),
-  removeTagFromSession: ({ sessionId, tagId }) => ipcRenderer.invoke('tag:removeFromSession', { sessionId, tagId }),
-  getSessionTags: (sessionId) => ipcRenderer.invoke('tag:getSessionTags', sessionId),
-  getSessionsByTag: (tagId) => ipcRenderer.invoke('tag:getSessions', tagId),
-
-  // ========================================
-  // 标签管理（消息级别）
-  // ========================================
-  addTagToMessage: ({ messageId, tagId }) => ipcRenderer.invoke('tag:addToMessage', { messageId, tagId }),
-  removeTagFromMessage: ({ messageId, tagId }) => ipcRenderer.invoke('tag:removeFromMessage', { messageId, tagId }),
-  getMessageTags: (messageId) => ipcRenderer.invoke('tag:getMessageTags', messageId),
-  getMessagesByTag: (tagId) => ipcRenderer.invoke('tag:getMessages', tagId),
-  getSessionTaggedMessages: (sessionId) => ipcRenderer.invoke('tag:getSessionTaggedMessages', sessionId),
-
-  // ========================================
   // 提示词管理
   // ========================================
   listPrompts: (options) => ipcRenderer.invoke('prompts:list', options),
@@ -778,15 +724,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePromptTag: (tagId) => ipcRenderer.invoke('promptTags:delete', tagId),
   addTagToPrompt: ({ promptId, tagId }) => ipcRenderer.invoke('prompts:addTag', promptId, tagId),
   removeTagFromPrompt: ({ promptId, tagId }) => ipcRenderer.invoke('prompts:removeTag', promptId, tagId),
-
-  // ========================================
-  // 收藏管理
-  // ========================================
-  addFavorite: ({ sessionId, note }) => ipcRenderer.invoke('favorite:add', { sessionId, note }),
-  removeFavorite: (sessionId) => ipcRenderer.invoke('favorite:remove', sessionId),
-  checkFavorite: (sessionId) => ipcRenderer.invoke('favorite:check', sessionId),
-  getAllFavorites: () => ipcRenderer.invoke('favorite:getAll'),
-  updateFavoriteNote: ({ sessionId, note }) => ipcRenderer.invoke('favorite:updateNote', { sessionId, note }),
 
   // ========================================
   // 消息队列管理
@@ -894,17 +831,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('settings:changed', listener);
   },
 
-  // ========================================
-  // 会话文件监控
-  // ========================================
-  watchSessionFiles: ({ projectPath, projectId }) => ipcRenderer.invoke('sessionWatcher:watch', { projectPath, projectId }),
-  stopWatchingSessionFiles: () => ipcRenderer.invoke('sessionWatcher:stop'),
-
-  onSessionFileChanged: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('session:fileChanged', listener);
-    return () => ipcRenderer.removeListener('session:fileChanged', listener);
-  },
   onSessionAppOpenConversationRequested: (callback) => {
     const listener = (event, data) => callback(data)
     ipcRenderer.on('session-app:openConversationRequested', listener)

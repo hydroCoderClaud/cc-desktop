@@ -13,9 +13,10 @@ describe('retired Claude history scanning', () => {
 
   it('does not expose history scan or sync IPC channels', () => {
     const mainIpc = read('src/main/ipc-handlers.js')
-    const sessionIpc = read('src/main/ipc-handlers/session-handlers.js')
     const preload = read('src/preload/preload.js')
-    const combined = `${mainIpc}\n${sessionIpc}\n${preload}`
+    const combined = `${mainIpc}\n${preload}`
+
+    expect(fs.existsSync(path.join(root, 'src/main/ipc-handlers/session-handlers.js'))).toBe(false)
 
     for (const retiredChannel of [
       'session:sync',
@@ -27,6 +28,14 @@ describe('retired Claude history scanning', () => {
     ]) {
       expect(combined).not.toContain(retiredChannel)
     }
+  })
+
+  it('does not ship the Developer session manager page', () => {
+    const viteConfig = read('vite.config.mjs')
+
+    expect(fs.existsSync(path.join(root, 'src/renderer/pages/session-manager'))).toBe(false)
+    expect(viteConfig).not.toContain('sessionManager')
+    expect(viteConfig).not.toContain('src/renderer/pages/session-manager/index.html')
   })
 
   it('does not write project source values for new projects', () => {
