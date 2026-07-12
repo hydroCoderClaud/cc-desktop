@@ -2,10 +2,10 @@
 
 ## 文档状态
 
-- 当前阶段：Stage 1，目录身份模型详细设计
+- 当前阶段：Stage 6 已完成，等待人工验收
 - 当前版本：1.7.87
 - 前置基线：Claude 历史扫描与 `source='sync'` 数据已在 Stage 0 清除
-- 本阶段只冻结设计，不修改数据库和运行时代码
+- 实施状态：Stage 1-6 已按本文边界完成；Claude 配置目录与 JSONL 定位仍按第 12 节延期处理
 
 ## 1. 目标与边界
 
@@ -469,12 +469,12 @@ Stage 6 删除 `sessions/messages` 时不得顺手删除 `agent_conversations.cw
 - 删除 `source='sync'` 项目及其 Developer 历史数据。
 - 保留当前 Developer session watcher 的最小兼容能力。
 
-### Stage 1：冻结目录身份设计，本文件
+### Stage 1：冻结目录身份设计，已完成
 
 - 确认 schema、分类、path_key、可见性、删除和迁移规则。
 - 只提交设计文档，不修改运行时。
 
-### Stage 2：数据库迁移与最小写入链路
+### Stage 2：数据库迁移与最小写入链路，已完成
 
 - 增加统一的路径规范化、path_key 和 project resolver。
 - 重建 `projects`，增加 `path_key/project_kind`，去掉 `source` 和 `encoded_path UNIQUE`。
@@ -484,25 +484,25 @@ Stage 6 删除 `sessions/messages` 时不得顺手删除 `agent_conversations.cw
 - Agent 新建与重建会话在同一提交中 resolve project，并双写非空 `project_id + cwd`；不能只落 DDL/backfill 后继续产生空绑定。
 - 在数据库副本和真实数据库备份上验证幂等性与完整性。
 
-### Stage 3：Agent 读取链路收敛
+### Stage 3：Agent 读取链路收敛，已完成
 
 - 列表、恢复、消息显示 join project。
 - Agent 最近目录和项目活动统计改读 projects + agent_conversations。
 - 保留 cwd fallback 和双写。
 
-### Stage 4：能力管理目录源收敛
+### Stage 4：能力管理目录源收敛，已完成
 
 - 只从 projects 读取 workspace/notebook 身份。
 - 删除 Agent cwd、Notebook path 和 renderer recent paths 的拼接补漏。
 - 明确 internal context 的临时展示边界。
 
-### Stage 5：清除 Developer Mode
+### Stage 5：清除 Developer Mode，已完成
 
 - 删除模式切换和 Developer 项目/session UI。
 - 将仍有价值的工作区管理收敛到 Agent 模式。
 - 保留 projects 作为基础设施。
 
-### Stage 6：删除 Developer 数据链路
+### Stage 6：删除 Developer 数据链路，已完成
 
 - 删除 `sessions`、`messages/messages_fts`、session/message tags、favorites。
 - 删除 `SessionFileWatcher`、Developer 历史 IPC 和查询组件。
