@@ -116,10 +116,10 @@ function withProjectOperations(BaseClass) {
 
       let sql = `
         SELECT p.*,
-               COUNT(DISTINCT s.id) as session_count,
-               MAX(s.last_message_at) as last_activity
+               COUNT(DISTINCT ac.id) as session_count,
+               MAX(ac.updated_at) as last_activity
         FROM projects p
-        LEFT JOIN sessions s ON p.id = s.project_id
+        LEFT JOIN agent_conversations ac ON p.id = ac.project_id
       `
 
       conditions.push("p.project_kind = 'workspace'")
@@ -168,9 +168,10 @@ function withProjectOperations(BaseClass) {
     getHiddenProjects() {
       return this.db.prepare(`
         SELECT p.*,
-               COUNT(DISTINCT s.id) as session_count
+               COUNT(DISTINCT ac.id) as session_count,
+               MAX(ac.updated_at) as last_activity
         FROM projects p
-        LEFT JOIN sessions s ON p.id = s.project_id
+        LEFT JOIN agent_conversations ac ON p.id = ac.project_id
         WHERE p.project_kind = 'workspace' AND p.is_hidden = 1
         GROUP BY p.id
         ORDER BY p.name ASC

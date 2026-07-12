@@ -219,4 +219,55 @@ describe('legacy synced project cleanup', () => {
       expect.objectContaining({ project_kind: 'notebook', session_count: 1, last_activity: 200 })
     )
   })
+
+  it('lists visible and hidden workspace projects without developer sessions table', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const visibleWorkspace = database.getOrCreateProject('C:/workspace/visible-list', {
+      projectKind: 'workspace',
+      name: 'Visible List'
+    })
+    const hiddenWorkspace = database.getOrCreateProject('C:/workspace/hidden-list', {
+      projectKind: 'workspace',
+      name: 'Hidden List',
+      isHidden: true
+    })
+    const notebook = database.getOrCreateProject('C:/workspace/notebook-list', {
+      projectKind: 'notebook',
+      name: 'Notebook List'
+    })
+
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-visible-list-1', visibleWorkspace.path, visibleWorkspace.id, 100)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-visible-list-2', visibleWorkspace.path, visibleWorkspace.id, 300)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-hidden-list', hiddenWorkspace.path, hiddenWorkspace.id, 500)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-notebook-list', notebook.path, notebook.id, 700)
+
+    const visibleRows = database.getAllProjects(false)
+    expect(visibleRows.map(row => row.name)).toEqual(['Visible List'])
+    expect(visibleRows[0]).toEqual(
+      expect.objectContaining({ session_count: 2, last_activity: 300 })
+    )
+
+    const allRows = database.getAllProjects(true)
+    expect(allRows.map(row => row.name).sort()).toEqual(['Hidden List', 'Visible List'])
+
+    const hiddenRows = database.getHiddenProjects()
+    expect(hiddenRows).toEqual([
+      expect.objectContaining({ name: 'Hidden List', session_count: 1, last_activity: 500 })
+    ])
+  })
 })
