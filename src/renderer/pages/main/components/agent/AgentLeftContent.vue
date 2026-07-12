@@ -211,7 +211,7 @@ const {
   selectedSource,
   selectedTaskFilter,
   selectedAppFilter,
-  availableCwds,
+  availableDirectories,
   appFilterOptions,
   selectCwd,
   groupedConversations,
@@ -278,6 +278,16 @@ const getCwdDisplayName = (cwd) => {
   return cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd
 }
 
+const getDirectoryDisplayName = (directory) => {
+  if (!directory) return t('agent.allDirectories')
+  return directory.projectName || getCwdDisplayName(directory.cwd)
+}
+
+const getSelectedDirectory = () => {
+  if (!selectedCwd.value) return null
+  return availableDirectories.value.find(directory => directory.key === selectedCwd.value) || null
+}
+
 const createFilterOptionLabel = (option, selectedValue) => {
   const isSelected = option.key === selectedValue
   return h('div', {
@@ -315,10 +325,10 @@ const createFilterOptionLabel = (option, selectedValue) => {
 }
 
 const cwdMenuOptions = computed(() => {
-  const dirs = availableCwds.value.map(cwd => ({
-    label: getCwdDisplayName(cwd),
-    title: cwd,
-    key: cwd,
+  const dirs = availableDirectories.value.map(directory => ({
+    label: getDirectoryDisplayName(directory),
+    title: directory.cwd || directory.projectName || directory.key,
+    key: directory.key,
     iconName: 'folder'
   }))
   return [{
@@ -423,7 +433,10 @@ const taskFilterIcon = computed(() => taskIconMap[selectedTaskFilter.value] || t
 
 const appFilterIcon = computed(() => appIconMap[selectedAppFilter.value] || 'sessionApp')
 
-const cwdFilterTitle = computed(() => `${t('agent.filterDirectory')}: ${selectedCwd.value ? getCwdDisplayName(selectedCwd.value) : t('agent.allDirectories')}`)
+const cwdFilterTitle = computed(() => {
+  const selectedDirectory = getSelectedDirectory()
+  return `${t('agent.filterDirectory')}: ${selectedDirectory ? getDirectoryDisplayName(selectedDirectory) : t('agent.allDirectories')}`
+})
 
 const sourceFilterTitle = computed(() => `${t('agent.filterIm')}: ${selectedSource.value === 'all' ? t('agent.allSources') : selectedSource.value === 'no-im' ? t('agent.sourceNoIm') : resolveExternalSourceLabel(selectedSource.value)}`)
 

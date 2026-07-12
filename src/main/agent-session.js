@@ -25,6 +25,10 @@ class AgentSession {
     this.title = options.title || ''
     this.cwd = options.cwd || null  // 工作目录
     this.cwdAuto = !options.cwd     // 是否自动分配
+    this.projectId = options.projectId || null
+    this.projectPath = options.projectPath || this.cwd || null
+    this.projectName = options.projectName || null
+    this.projectKind = options.projectKind || null
     this.createdAt = new Date()
     this.updatedAt = new Date()
     this.messageQueue = null        // MessageQueue 实例（streaming input 模式）
@@ -66,6 +70,10 @@ class AgentSession {
       title: this.title,
       cwd: this.cwd,
       cwdAuto: this.cwdAuto,
+      projectId: this.projectId,
+      projectPath: this.projectPath,
+      projectName: this.projectName,
+      projectKind: this.projectKind,
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
       messageCount: this.messageCount,

@@ -87,6 +87,35 @@ function normalizeCwd(cwd) {
   return typeof cwd === 'string' ? cwd.trim() : ''
 }
 
+function normalizeProjectId(projectId) {
+  if (projectId === null || projectId === undefined || projectId === '') return ''
+  return String(projectId)
+}
+
+function buildCwdDirectoryKey(cwd) {
+  const normalized = normalizeCwd(cwd)
+  return normalized ? `cwd:${normalized}` : ''
+}
+
+function getConversationDirectoryKey(conv) {
+  const projectId = normalizeProjectId(conv?.projectId)
+  if (projectId) return `project:${projectId}`
+  return buildCwdDirectoryKey(conv?.cwd)
+}
+
+function getConversationDirectoryEntry(conv) {
+  const key = getConversationDirectoryKey(conv)
+  if (!key) return null
+
+  return {
+    key,
+    cwd: normalizeCwd(conv?.projectPath || conv?.cwd),
+    projectId: normalizeProjectId(conv?.projectId) || null,
+    projectName: conv?.projectName || null,
+    projectKind: conv?.projectKind || null
+  }
+}
+
 function getLocalStorage() {
   try {
     return typeof window !== 'undefined' ? window.localStorage : null
@@ -142,26 +171,64 @@ function getConversationTimestamp(conv) {
   return Number.isFinite(ts) ? ts : 0
 }
 
-function getConversationCwdsByRecency(conversations) {
-  const latestByCwd = new Map()
+function getConversationDirectoriesByRecency(conversations) {
+  const latestByKey = new Map()
   for (const conv of conversations) {
-    const cwd = normalizeCwd(conv?.cwd)
-    if (!cwd) continue
+    const entry = getConversationDirectoryEntry(conv)
+    if (!entry) continue
 
     const timestamp = getConversationTimestamp(conv)
-    const previous = latestByCwd.get(cwd)
+    const previous = latestByKey.get(entry.key)
     if (!previous || timestamp > previous.timestamp) {
-      latestByCwd.set(cwd, { cwd, timestamp })
+      latestByKey.set(entry.key, { ...entry, timestamp })
     }
   }
 
-  return Array.from(latestByCwd.values())
-    .sort((a, b) => b.timestamp - a.timestamp || a.cwd.localeCompare(b.cwd))
-    .map(item => item.cwd)
+  return Array.from(latestByKey.values())
+    .sort((a, b) => b.timestamp - a.timestamp || (a.cwd || a.key).localeCompare(b.cwd || b.key))
+    .map(({ timestamp, ...entry }) => entry)
 }
 
-function mergeRecentCwds(recentCwds, conversationCwds) {
-  return uniqueCwds([...recentCwds, ...conversationCwds]).slice(0, RECENT_CWD_LIMIT)
+function mergeDirectoryEntries(recentCwds, conversationDirectories) {
+  const entries = []
+  const seen = new Set()
+  const projectDirectoryByCwd = new Map()
+
+  for (const directory of conversationDirectories) {
+    const normalized = normalizeCwd(directory?.cwd)
+    if (normalized && directory?.projectId) {
+      projectDirectoryByCwd.set(normalized, directory)
+    }
+  }
+
+  const addEntry = (entry) => {
+    if (!entry?.key || seen.has(entry.key)) return
+    seen.add(entry.key)
+    entries.push(entry)
+  }
+
+  for (const cwd of recentCwds) {
+    const normalized = normalizeCwd(cwd)
+    if (!normalized) continue
+    const projectDirectory = projectDirectoryByCwd.get(normalized)
+    if (projectDirectory) {
+      addEntry(projectDirectory)
+      continue
+    }
+    addEntry({
+      key: buildCwdDirectoryKey(normalized),
+      cwd: normalized,
+      projectId: null,
+      projectName: null,
+      projectKind: null
+    })
+  }
+
+  for (const directory of conversationDirectories) {
+    addEntry(directory)
+  }
+
+  return entries.slice(0, RECENT_CWD_LIMIT)
 }
 
 export function useAgentPanel() {
@@ -300,7 +367,7 @@ export function useAgentPanel() {
     }
   }
 
-  // 当前选中的目录筛选（null = 全部）
+  // 当前选中的目录筛选 key（null = 全部；project:<id> 优先，cwd:<path> 兜底）
   const selectedCwd = ref(null)
 
   const sourceFilteredConversations = computed(() => {
@@ -344,28 +411,34 @@ export function useAgentPanel() {
   /**
    * 从当前候选对话中提取最近目录，并与手动打开目录合并，最多展示 10 个
    */
-  const availableCwds = computed(() => {
-    return mergeRecentCwds(
+  const availableDirectories = computed(() => {
+    return mergeDirectoryEntries(
       recentCwds.value,
-      getConversationCwdsByRecency(taskFilteredConversations.value)
+      getConversationDirectoriesByRecency(taskFilteredConversations.value)
     )
   })
 
   const selectCwd = (cwd) => {
-    const normalized = normalizeCwd(cwd)
-    if (!normalized) {
+    const value = normalizeCwd(cwd)
+    if (!value) {
       selectedCwd.value = null
       return
     }
 
+    if (value.startsWith('project:')) {
+      selectedCwd.value = value
+      return
+    }
+
+    const normalized = value.startsWith('cwd:') ? value.slice(4) : value
     const nextRecentCwds = uniqueCwds([normalized, ...recentCwds.value]).slice(0, RECENT_CWD_LIMIT)
     recentCwds.value = nextRecentCwds
     saveRecentCwds(nextRecentCwds)
-    selectedCwd.value = normalized
+    selectedCwd.value = buildCwdDirectoryKey(normalized)
   }
 
-  watch(availableCwds, (nextCwds) => {
-    if (selectedCwd.value && !nextCwds.includes(selectedCwd.value)) {
+  watch(availableDirectories, (nextDirectories) => {
+    if (selectedCwd.value && !nextDirectories.some(directory => directory.key === selectedCwd.value)) {
       selectedCwd.value = null
     }
   }, { immediate: true })
@@ -376,7 +449,7 @@ export function useAgentPanel() {
   const filteredConversations = computed(() => {
     return taskFilteredConversations.value.filter(conv => {
       if (!matchesAppFilter(conv, selectedAppFilter.value)) return false
-      return !selectedCwd.value || conv.cwd === selectedCwd.value
+      return !selectedCwd.value || getConversationDirectoryKey(conv) === selectedCwd.value
     })
   })
 
@@ -415,7 +488,7 @@ export function useAgentPanel() {
     selectedSource,
     selectedTaskFilter,
     selectedAppFilter,
-    availableCwds,
+    availableDirectories,
     appFilterOptions,
     selectCwd,
     groupedConversations,

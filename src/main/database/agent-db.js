@@ -24,6 +24,14 @@ function serializeJsonObject(value) {
   }
 }
 
+const AGENT_CONVERSATION_SELECT = `
+  ac.*,
+  p.path AS project_path,
+  p.path_key AS project_path_key,
+  p.name AS project_name,
+  p.project_kind AS project_kind
+`
+
 function withAgentOperations(BaseClass) {
   return class extends BaseClass {
     // ========================================
@@ -57,23 +65,24 @@ function withAgentOperations(BaseClass) {
       const now = Date.now()
       let resolvedProjectId = projectId || null
       let resolvedCwd = cwd || null
+      let resolvedProject = null
 
       if (!resolvedProjectId) {
         if (!resolvedCwd) {
           throw new Error('Agent conversation cwd is required')
         }
-        const project = this.getOrCreateProject(resolvedCwd, {
+        resolvedProject = this.getOrCreateProject(resolvedCwd, {
           name: title || undefined,
           projectKindHint: projectKindHint || (cwdAuto ? 'agent-output' : 'workspace')
         })
-        resolvedProjectId = project.id
-        resolvedCwd = project.path
+        resolvedProjectId = resolvedProject.id
+        resolvedCwd = resolvedProject.path
       } else {
-        const project = this.getProjectById(resolvedProjectId)
-        if (!project) {
+        resolvedProject = this.getProjectById(resolvedProjectId)
+        if (!resolvedProject) {
           throw new Error(`Project not found: ${resolvedProjectId}`)
         }
-        resolvedCwd = project.path
+        resolvedCwd = resolvedProject.path
       }
 
       const result = this.db.prepare(`
@@ -114,6 +123,9 @@ function withAgentOperations(BaseClass) {
         cwd: resolvedCwd,
         cwdAuto: !!cwdAuto,
         projectId: resolvedProjectId,
+        projectPath: resolvedProject?.path || resolvedCwd,
+        projectName: resolvedProject?.name || null,
+        projectKind: resolvedProject?.project_kind || null,
         apiProfileId: apiProfileId || null,
         apiBaseUrl: apiBaseUrl || null,
         modelId: normalizeModelId(modelId),
@@ -133,9 +145,12 @@ function withAgentOperations(BaseClass) {
      * 按 sessionId (UUID) 查询对话
      */
     getAgentConversation(sessionId) {
-      return this.db.prepare(
-        'SELECT * FROM agent_conversations WHERE session_id = ?'
-      ).get(sessionId)
+      return this.db.prepare(`
+        SELECT ${AGENT_CONVERSATION_SELECT}
+        FROM agent_conversations ac
+        LEFT JOIN projects p ON p.id = ac.project_id
+        WHERE ac.session_id = ?
+      `).get(sessionId)
     }
 
     /**
@@ -143,9 +158,11 @@ function withAgentOperations(BaseClass) {
      */
     listAgentConversations({ limit = 50 } = {}) {
       return this.db.prepare(`
-        SELECT * FROM agent_conversations
-        WHERE status != 'closed'
-        ORDER BY updated_at DESC
+        SELECT ${AGENT_CONVERSATION_SELECT}
+        FROM agent_conversations ac
+        LEFT JOIN projects p ON p.id = ac.project_id
+        WHERE ac.status != 'closed'
+        ORDER BY ac.updated_at DESC
         LIMIT ?
       `).all(limit)
     }
@@ -156,14 +173,18 @@ function withAgentOperations(BaseClass) {
     listAllAgentConversations({ limit = 100 } = {}) {
       if (limit == null) {
         return this.db.prepare(`
-          SELECT * FROM agent_conversations
-          ORDER BY updated_at DESC
+          SELECT ${AGENT_CONVERSATION_SELECT}
+          FROM agent_conversations ac
+          LEFT JOIN projects p ON p.id = ac.project_id
+          ORDER BY ac.updated_at DESC
         `).all()
       }
 
       return this.db.prepare(`
-        SELECT * FROM agent_conversations
-        ORDER BY updated_at DESC
+        SELECT ${AGENT_CONVERSATION_SELECT}
+        FROM agent_conversations ac
+        LEFT JOIN projects p ON p.id = ac.project_id
+        ORDER BY ac.updated_at DESC
         LIMIT ?
       `).all(limit)
     }

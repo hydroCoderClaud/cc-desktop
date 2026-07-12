@@ -59,8 +59,9 @@ describe('Agent DB IM field queries', () => {
 
     expect(calls).toHaveLength(1)
     expect(calls[0].kind).toBe('all')
-    expect(calls[0].sql).toContain('SELECT * FROM agent_conversations')
-    expect(calls[0].sql).toContain('ORDER BY updated_at DESC')
+    expect(calls[0].sql).toContain('FROM agent_conversations ac')
+    expect(calls[0].sql).toContain('LEFT JOIN projects p ON p.id = ac.project_id')
+    expect(calls[0].sql).toContain('ORDER BY ac.updated_at DESC')
     expect(calls[0].sql).not.toContain('LIMIT ?')
     expect(calls[0].params).toEqual([])
   })

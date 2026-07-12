@@ -1841,6 +1841,10 @@ describe('AgentSessionManager interactions', () => {
         title: '历史会话',
         cwd: '/tmp',
         cwd_auto: 1,
+        project_id: 42,
+        project_path: '/tmp',
+        project_name: 'tmp project',
+        project_kind: 'workspace',
         message_count: 2,
         total_cost_usd: 0,
         api_profile_id: 'p1',
@@ -1857,6 +1861,12 @@ describe('AgentSessionManager interactions', () => {
 
     expect(sessions).toHaveLength(1)
     expect(sessions[0].modelId).toBe('glm-4.5')
+    expect(sessions[0]).toEqual(expect.objectContaining({
+      projectId: 42,
+      projectPath: '/tmp',
+      projectName: 'tmp project',
+      projectKind: 'workspace'
+    }))
   })
 
   it('loads the full persisted history for the agent left panel instead of truncating to 100 rows', () => {

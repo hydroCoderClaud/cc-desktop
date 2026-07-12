@@ -193,8 +193,8 @@ const loadContextSources = async () => {
   const notebookList = Array.isArray(notebooksRaw) ? notebooksRaw : []
 
   const cwdCandidates = sessionList
-    .filter(session => session?.cwd && getSessionImChannel(session) !== 'dingtalk')
-    .map(session => normalizePath(session.cwd))
+    .filter(session => (session?.projectPath || session?.cwd) && getSessionImChannel(session) !== 'dingtalk')
+    .map(session => normalizePath(session.projectPath || session.cwd))
 
   const notebookCandidates = notebookList
     .map(notebook => normalizePath(notebook?.notebookPath))

@@ -3,6 +3,8 @@ import { nextTick } from 'vue'
 
 import { useAgentPanel } from '../../src/renderer/composables/useAgentPanel.js'
 
+const directoryCwds = (panel) => panel.availableDirectories.value.map(directory => directory.cwd)
+
 describe('useAgentPanel filters', () => {
   beforeEach(() => {
     const localStorageValues = new Map()
@@ -36,7 +38,7 @@ describe('useAgentPanel filters', () => {
     const panel = useAgentPanel()
     await panel.loadConversations()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
       'C:/app-a',
       'C:/scheduled-a',
@@ -53,7 +55,7 @@ describe('useAgentPanel filters', () => {
     panel.selectedSource.value = 'no-im'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
       'C:/app-a',
       'C:/scheduled-a',
@@ -64,7 +66,7 @@ describe('useAgentPanel filters', () => {
     panel.selectedTaskFilter.value = 'with-task'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/scheduled-a',
       'C:/shared'
     ])
@@ -72,7 +74,7 @@ describe('useAgentPanel filters', () => {
     panel.selectedTaskFilter.value = 'without-task'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/session-apps/workspace',
       'C:/app-a',
       'C:/manual-a',
@@ -83,7 +85,7 @@ describe('useAgentPanel filters', () => {
     panel.selectedTaskFilter.value = 'with-task'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/feishu-a'
     ])
   })
@@ -109,7 +111,7 @@ describe('useAgentPanel filters', () => {
     panel.selectedAppFilter.value = 'sap-weekly'
     await nextTick()
 
-    expect(panel.availableCwds.value).toContain('C:/app-a')
+    expect(directoryCwds(panel)).toContain('C:/app-a')
     expect(panel.groupedConversations.value).toEqual({
       today: [],
       yesterday: [],
@@ -120,16 +122,92 @@ describe('useAgentPanel filters', () => {
     })
   })
 
+  it('uses project identity before cwd for directory filters', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'project-session-a',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'project-session-b',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T02:00:00.000Z'
+      },
+      {
+        id: 'cwd-session',
+        type: 'chat',
+        source: 'manual',
+        cwd: 'C:/cwd-only',
+        updatedAt: '2026-04-22T01:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(panel.availableDirectories.value).toEqual([
+      expect.objectContaining({ key: 'project:7', projectId: '7', projectName: 'Shared Project', cwd: 'C:/shared-project' }),
+      expect.objectContaining({ key: 'cwd:C:/cwd-only', projectId: null, cwd: 'C:/cwd-only' })
+    ])
+
+    panel.selectCwd('project:7')
+    await nextTick()
+
+    expect(panel.groupedConversations.value.older.map(conv => conv.id)).toEqual([
+      'project-session-a',
+      'project-session-b'
+    ])
+  })
+
+  it('upgrades recent cwd entries to project directory keys when paths match', async () => {
+    window.localStorage.setItem('agent:recent-cwds', JSON.stringify(['C:/shared-project']))
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'project-session',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(panel.availableDirectories.value).toEqual([
+      expect.objectContaining({ key: 'project:7', projectId: '7', cwd: 'C:/shared-project' })
+    ])
+
+    panel.selectCwd('project:7')
+    await nextTick()
+
+    expect(panel.groupedConversations.value.older.map(conv => conv.id)).toEqual(['project-session'])
+  })
+
   it('clears the selected directory when it is not available for the new task filter', async () => {
     const panel = useAgentPanel()
     await panel.loadConversations()
 
-    panel.selectedCwd.value = 'C:/scheduled-a'
+    panel.selectedCwd.value = 'cwd:C:/scheduled-a'
     panel.selectedSource.value = 'no-im'
     panel.selectedTaskFilter.value = 'with-task'
     await nextTick()
 
-    expect(panel.selectedCwd.value).toBe('C:/scheduled-a')
+    expect(panel.selectedCwd.value).toBe('cwd:C:/scheduled-a')
 
     panel.selectedTaskFilter.value = 'without-task'
     await nextTick()
@@ -145,14 +223,14 @@ describe('useAgentPanel filters', () => {
     panel.selectedTaskFilter.value = 'all'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/dingtalk-a'
     ])
 
     panel.selectedTaskFilter.value = 'with-task'
     await nextTick()
 
-    expect(panel.availableCwds.value).toEqual([])
+    expect(panel.availableDirectories.value).toEqual([])
   })
 
   it('shows at most ten recent directories from matching conversations', async () => {
@@ -169,7 +247,7 @@ describe('useAgentPanel filters', () => {
     const panel = useAgentPanel()
     await panel.loadConversations()
 
-    expect(panel.availableCwds.value).toEqual([
+    expect(directoryCwds(panel)).toEqual([
       'C:/dir-0',
       'C:/dir-1',
       'C:/dir-2',
@@ -200,8 +278,8 @@ describe('useAgentPanel filters', () => {
     panel.selectCwd('C:/manual-picked')
     await nextTick()
 
-    expect(panel.selectedCwd.value).toBe('C:/manual-picked')
-    expect(panel.availableCwds.value).toEqual([
+    expect(panel.selectedCwd.value).toBe('cwd:C:/manual-picked')
+    expect(directoryCwds(panel)).toEqual([
       'C:/manual-picked',
       'C:/dir-0',
       'C:/dir-1',

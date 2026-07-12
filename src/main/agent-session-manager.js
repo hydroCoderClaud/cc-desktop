@@ -979,6 +979,9 @@ class AgentSessionManager extends EventEmitter {
         })
         session.dbConversationId = dbRecord.id
         session.projectId = dbRecord.projectId || null
+        session.projectPath = dbRecord.projectPath || dbRecord.cwd || null
+        session.projectName = dbRecord.projectName || null
+        session.projectKind = dbRecord.projectKind || null
         if (dbRecord.cwd) {
           session.cwd = dbRecord.cwd
         }
@@ -1235,6 +1238,10 @@ class AgentSessionManager extends EventEmitter {
         type: row.type,
         title: row.title || '',
         cwd: row.cwd,
+        projectId: row.project_id || null,
+        projectPath: row.project_path || row.cwd || null,
+        projectName: row.project_name || null,
+        projectKind: row.project_kind || null,
         source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
         imChannel: row.im_channel || null,
         taskId: row.task_id || null,
@@ -1248,6 +1255,10 @@ class AgentSessionManager extends EventEmitter {
       // 恢复关键状态
       session.sdkSessionId = row.sdk_session_id || null
       session.cwdAuto = !!row.cwd_auto
+      session.projectId = row.project_id || null
+      session.projectPath = row.project_path || session.cwd || null
+      session.projectName = row.project_name || null
+      session.projectKind = row.project_kind || null
       session.dbConversationId = row.id
       session.messageCount = row.message_count || 0
       session.totalCostUsd = row.total_cost_usd || 0
@@ -2085,6 +2096,10 @@ class AgentSessionManager extends EventEmitter {
             title: row.title || '',
             cwd: row.cwd,
             cwdAuto: !!row.cwd_auto,
+            projectId: row.project_id || null,
+            projectPath: row.project_path || row.cwd || null,
+            projectName: row.project_name || null,
+            projectKind: row.project_kind || null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
             messageCount: row.message_count || 0,
@@ -2749,6 +2764,10 @@ class AgentSessionManager extends EventEmitter {
       type: serialized.type || null,
       title: serialized.title || '',
       cwd: serialized.cwd || null,
+      projectId: serialized.projectId || null,
+      projectPath: serialized.projectPath || serialized.cwd || null,
+      projectName: serialized.projectName || null,
+      projectKind: serialized.projectKind || null,
       clientType: serialized.clientType || null,
       clientMeta: serialized.clientMeta || null,
       appId: serialized.clientMeta?.appId || serialized.clientMeta?.embeddedAppId || null,
@@ -2811,6 +2830,10 @@ class AgentSessionManager extends EventEmitter {
             title: row.title || '',
             cwd: row.cwd,
             cwdAuto: !!row.cwd_auto,
+            projectId: row.project_id || null,
+            projectPath: row.project_path || row.cwd || null,
+            projectName: row.project_name || null,
+            projectKind: row.project_kind || null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
             messageCount: row.message_count || 0,
