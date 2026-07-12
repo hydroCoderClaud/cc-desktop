@@ -456,7 +456,6 @@
 必须回归：
 
 - Agent 模式
-- Developer 模式
 - Notebook
 - 微信
 - 钉钉

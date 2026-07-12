@@ -25,6 +25,8 @@ function normalizeProjectKind(projectKind) {
 }
 
 function shouldPromoteProjectKind(currentKind, nextKind) {
+  // Non-workspace kinds keep generated/notebook directories out of the active
+  // workspace list when the same real path is seen through multiple surfaces.
   return PROJECT_KIND_PRIORITY[normalizeProjectKind(nextKind)] > PROJECT_KIND_PRIORITY[normalizeProjectKind(currentKind)]
 }
 

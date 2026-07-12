@@ -8,7 +8,7 @@
 
 ## 页面架构
 
-当前渲染进程共有 **11 个 BrowserWindow 页面入口**，均采用独立的 `index.html` → `main.js` 入口链；其中传统桌面页面与内嵌 app 页面分层管理。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
+当前渲染进程共有 **15 个 BrowserWindow 页面入口**，均采用独立的 `index.html` → `main.js` 入口链；其中传统桌面页面、管理/设置页面与内嵌 app 页面分层管理。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
 
 ### 主窗口
 
@@ -16,33 +16,37 @@
 |------|------|
 | **main** | 主窗口，承载 Agent 工作台核心交互 |
 
-### 10 个传统桌面页面
+### 13 个传统桌面与管理页面
 
 | 页面类型 | 数量 | 说明 |
 |------|------|------|
 | 主窗口 | 1 | `main`，承载 Agent 工作台核心交互 |
-| 独立管理窗口 | 9 | notebook、各类 settings/manager 页面，主进程单例管理 |
+| 独立管理窗口 | 12 | notebook、各类 settings/manager 页面，主进程单例管理 |
 
-### 9 个独立管理窗口
+### 12 个独立管理窗口
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
 | notebook | 独立 Notebook 工作台（三栏：资料源 / 成果 / 对话） | 主窗口菜单 / Notebook 入口 |
+| channel-settings | IM 渠道总览与配置入口 | 主窗口菜单 |
 | dingtalk-settings | 钉钉机器人配置（AppKey/Secret/RobotCode） | 主窗口菜单 |
-| session-manager | 会话管理器（三列：项目/会话/消息，支持搜索/标签） | 主窗口菜单 |
+| feishu-settings | 飞书机器人配置 | 主窗口菜单 |
+| enterprise-weixin-settings | 企业微信机器人配置 | 主窗口菜单 |
+| model-settings | 模型设置 | 主窗口菜单 |
 | provider-manager | 服务商 CRUD | 设置 / Profile 表单 |
 | profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
-| global-settings | 全局设置（语言/路径/Agent runtime 配置） | 主窗口菜单 |
+| global-settings | 全局设置（语言、路径等基础配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
 | settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） | 主窗口与 Notebook 工具入口 |
 | update-manager | 更新管理（下载进度/安装控制） | 发现新版本时自动打开 |
 
 窗口通过 `window.electronAPI.openXxxManager()` → IPC `window:openXxxManager` 打开，主进程保证单例（同一窗口不重复创建）。独立窗口间通过 **设置广播机制** 同步状态（详见 [跨窗口广播](#跨窗口广播机制)）。
 
-### 1 个内嵌 App 页面
+### 2 个内嵌 App 页面
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
+| embedded-app-demo | 内嵌 app 示例页面 | `embedded-app:list` / `embedded-app:open` |
 | hydrology-workbench | 水文站工作台，内嵌右侧 Agent 与工作目录 | `embedded-app:list` / `embedded-app:open` |
 
 内嵌 app 也运行在独立 `BrowserWindow` 中，但与 notebook、settings 这一类管理窗口不同，它们遵循统一的内嵌 app 注册表、运行态桥接和 Agent 能力注入约定。详细标准见 [内嵌 App 设计与实现标准](./embedded-app/embedded-app-development-standard.md)。

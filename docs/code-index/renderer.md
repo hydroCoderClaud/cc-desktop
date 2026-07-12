@@ -21,20 +21,25 @@
 
 ## 页面目录
 
-10 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
+15 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
 
 | 页面 | 路径 | 用途 |
 |------|------|------|
 | main | `pages/main/` | 主窗口（Agent 对话） |
 | notebook | `pages/notebook/` | Notebook 工作台（资料源 / 成果 / 对话） |
+| channel-settings | `pages/channel-settings/` | IM 渠道总览与配置入口 |
 | dingtalk-settings | `pages/dingtalk-settings/` | 钉钉机器人配置 |
-| session-manager | `pages/session-manager/` | 会话管理器（浏览/搜索/标签） |
+| feishu-settings | `pages/feishu-settings/` | 飞书机器人配置 |
+| enterprise-weixin-settings | `pages/enterprise-weixin-settings/` | 企业微信机器人配置 |
+| model-settings | `pages/model-settings/` | 模型设置 |
 | provider-manager | `pages/provider-manager/` | 服务商管理 |
 | profile-manager | `pages/profile-manager/` | API Profile 管理 |
 | global-settings | `pages/global-settings/` | 全局设置 |
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
 | settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） |
 | update-manager | `pages/update-manager/` | 更新管理器 |
+| embedded-app-demo | `pages/embedded-app-demo/` | 内嵌 app 示例 |
+| hydrology-workbench | `pages/hydrology-workbench/` | 水文站内嵌工作台 |
 
 ---
 
@@ -173,17 +178,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 ---
 
 ## 独立页面组件
-
-### session-manager（会话管理器）
-
-| 文件 | 行数 | 职责 |
-|------|------|------|
-| `SessionManagerContent.vue` | 893 | 主布局（三列：项目/会话/消息） |
-| `SessionList.vue` | 325 | 会话列表（过滤/排序/标签） |
-| `MessageViewer.vue` | 493 | 消息详情查看器 |
-| `ProjectList.vue` | 158 | 项目选择列表 |
-| `TagManager.vue` | 122 | 标签管理弹窗 |
-| `styles/tag-dropdown.css` | 150 | 标签下拉样式 |
 
 ### dingtalk-settings（钉钉配置）
 

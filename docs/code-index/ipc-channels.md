@@ -505,7 +505,6 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | session:exit | active-session-manager.js | 会话退出 |
 | session:error | active-session-manager.js | 会话错误 |
 | session:updated | active-session-manager.js | 会话状态更新 |
-| session:fileChanged | session-file-watcher.js | 会话文件变化 |
 
 ### Agent 事件（agent-session-manager.js）
 

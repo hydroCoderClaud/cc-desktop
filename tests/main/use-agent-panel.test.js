@@ -220,7 +220,7 @@ describe('useAgentPanel filters', () => {
   })
 
   it('upgrades recent cwd entries to project directory keys when paths match', async () => {
-    window.localStorage.setItem('agent:recent-cwds', JSON.stringify(['C:/shared-project']))
+    window.localStorage.setItem('agent.leftPanel.recentCwds', JSON.stringify(['C:/shared-project']))
     global.window.electronAPI.listAgentSessions.mockResolvedValue([
       {
         id: 'project-session',

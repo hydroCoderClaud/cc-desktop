@@ -357,4 +357,31 @@ describe('legacy synced project cleanup', () => {
       expect.objectContaining({ name: 'Hidden List', session_count: 1, last_activity: 500, is_hidden: 1 })
     ]))
   })
+
+  it('keeps notebook identity when the same real path is later opened as workspace', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const notebook = database.getOrCreateProject('C:/workspace/shared-context', {
+      projectKind: 'notebook',
+      name: 'Shared Notebook'
+    })
+    const reopened = database.getOrCreateProject('C:/workspace/shared-context', {
+      projectKind: 'workspace',
+      name: 'Shared Workspace'
+    })
+
+    expect(reopened.id).toBe(notebook.id)
+    expect(reopened.project_kind).toBe('notebook')
+    expect(reopened.is_hidden).toBe(1)
+    expect(database.getAllProjects(true).map(row => row.id)).not.toContain(notebook.id)
+    expect(database.getCapabilityContextProjects()).toEqual([
+      expect.objectContaining({
+        id: notebook.id,
+        path: notebook.path,
+        project_kind: 'notebook'
+      })
+    ])
+  })
 })
