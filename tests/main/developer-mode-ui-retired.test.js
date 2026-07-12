@@ -41,4 +41,16 @@ describe('Developer mode UI retirement', () => {
     expect(source).not.toContain("t('globalSettings.enableDeveloperMode')")
     expect(source).not.toContain('formData.enableDeveloperMode')
   })
+
+  it('does not offer a system Claude runtime option in global settings', () => {
+    const source = read('src/renderer/pages/global-settings/components/GlobalSettingsContent.vue')
+    const zhLocale = read('src/renderer/locales/zh-CN.js')
+    const enLocale = read('src/renderer/locales/en-US.js')
+
+    expect(source).not.toContain('developerClaudeSourceOptions')
+    expect(source).not.toContain("value: 'system'")
+    expect(source).not.toContain('formData.developerClaudeSource')
+    expect(zhLocale).not.toContain('系统 Claude')
+    expect(enLocale).not.toContain('System Claude')
+  })
 })

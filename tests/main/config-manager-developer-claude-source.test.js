@@ -36,6 +36,16 @@ describe('ConfigManager developer Claude source', () => {
     expect(manager.getConfig().settings.developerClaudeSource).toBe('bundled')
   })
 
+  it('normalizes explicit system developer Claude source to bundled', async () => {
+    const manager = new ConfigManager({
+      userDataPath: 'C:\\temp\\cc-desktop-test-config-defaults'
+    })
+
+    await manager.updateSettings({ developerClaudeSource: 'system' })
+
+    expect(manager.getConfig().settings.developerClaudeSource).toBe('bundled')
+  })
+
   it('normalizes dirty persisted developer Claude source on load', () => {
     const userDataPath = 'C:\\temp\\cc-desktop-test-config-dirty-load'
     fs.mkdirSync(userDataPath, { recursive: true })

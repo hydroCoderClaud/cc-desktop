@@ -90,22 +90,6 @@
         </n-grid>
       </div>
 
-      <div class="settings-subsection">
-        <div class="settings-subsection-title">{{ t('globalSettings.developerRuntimeGroup') }}</div>
-        <n-grid :cols="2" :x-gap="24">
-          <n-grid-item>
-            <n-form-item :label="t('globalSettings.developerClaudeSource')">
-              <n-select
-                v-model:value="formData.developerClaudeSource"
-                :options="developerClaudeSourceOptions"
-                style="width: 100%"
-              />
-              <template #feedback>{{ t('globalSettings.developerClaudeSourceHint') }}</template>
-            </n-form-item>
-          </n-grid-item>
-        </n-grid>
-      </div>
-
       <div class="settings-subsection settings-subsection-last">
         <div class="settings-subsection-title">{{ t('globalSettings.agentOutputGroup') }}</div>
         <n-form-item :label="t('globalSettings.outputBaseDir')">
@@ -166,7 +150,6 @@ const DEFAULTS = {
   maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   messageQueue: true,
-  developerClaudeSource: 'bundled',
   outputBaseDir: '',             // 空字符串 = 使用默认 ~/cc-desktop-agent-output
   claudeConfigDir: ''
 }
@@ -178,7 +161,6 @@ const formData = ref({
   maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   messageQueue: DEFAULTS.messageQueue,
-  developerClaudeSource: DEFAULTS.developerClaudeSource,
   outputBaseDir: DEFAULTS.outputBaseDir,
   claudeConfigDir: DEFAULTS.claudeConfigDir
 })
@@ -215,7 +197,6 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
-    formData.value.developerClaudeSource = config?.settings?.developerClaudeSource || DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
     formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || DEFAULTS.claudeConfigDir
   } catch (err) {
@@ -229,11 +210,6 @@ const defaultOutputBaseDir = computed(() => {
   const home = window.electronAPI?.getHomedir?.() || '~'
   return `${home}/cc-desktop-agent-output`
 })
-
-const developerClaudeSourceOptions = computed(() => [
-  { label: t('globalSettings.developerClaudeSourceBundled'), value: 'bundled' },
-  { label: t('globalSettings.developerClaudeSourceSystem'), value: 'system' }
-])
 
 // 选择输出目录
 const handleSelectOutputDir = async () => {
@@ -283,10 +259,7 @@ const handleSave = async () => {
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
-    const settingsPayload = {
-      appMode: 'agent',
-      developerClaudeSource: formData.value.developerClaudeSource
-    }
+    const settingsPayload = { appMode: 'agent' }
     await window.electronAPI.updateSettings(settingsPayload)
     window.electronAPI.broadcastSettings(settingsPayload)
 
@@ -320,7 +293,6 @@ const handleReset = async () => {
     formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.messageQueue = DEFAULTS.messageQueue
-    formData.value.developerClaudeSource = DEFAULTS.developerClaudeSource
     formData.value.outputBaseDir = defaultOutputBaseDir.value
     formData.value.claudeConfigDir = DEFAULTS.claudeConfigDir
 
@@ -332,14 +304,8 @@ const handleReset = async () => {
     await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
     await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
-    await window.electronAPI.updateSettings({
-      appMode: 'agent',
-      developerClaudeSource: DEFAULTS.developerClaudeSource
-    })
-    window.electronAPI.broadcastSettings({
-      appMode: 'agent',
-      developerClaudeSource: DEFAULTS.developerClaudeSource
-    })
+    await window.electronAPI.updateSettings({ appMode: 'agent' })
+    window.electronAPI.broadcastSettings({ appMode: 'agent' })
 
     // 重置 Agent 路径配置
     const config = await invoke('getConfig')

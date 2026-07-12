@@ -29,10 +29,7 @@ const { buildEmbeddedAppCapabilityQueryOptions } = require('./managers/embedded-
 const { buildHydrologyCapabilityQueryOptions } = require('./managers/hydrology-capability-query-options')
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
-const {
-  normalizeDeveloperClaudeSource,
-  resolveClaudeCodeExecutablePath
-} = require('./utils/claude-executable-path')
+const { resolveClaudeCodeExecutablePath } = require('./utils/claude-executable-path')
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|tiff|svg)$/i
 const IMAGE_PATH_HINT_HEADER = '图片已保存到以下路径，可使用 Read 或其他文件工具查看：'
@@ -466,12 +463,7 @@ class AgentSessionManager extends EventEmitter {
   }
 
   _getDeveloperClaudeExecutablePath() {
-    const developerClaudeSource = normalizeDeveloperClaudeSource(
-      this.configManager?.getConfig?.()?.settings?.developerClaudeSource
-    )
-    return resolveClaudeCodeExecutablePath({
-      source: developerClaudeSource
-    })
+    return resolveClaudeCodeExecutablePath()
   }
 
   isWeixinNotifyRuntimeEnabled() {
@@ -1071,12 +1063,7 @@ class AgentSessionManager extends EventEmitter {
       const env = this.runner.buildEnv(apiConfig, this.configManager)
       const messageQueue = new MessageQueue()
       session.messageQueue = messageQueue
-      const developerClaudeSource = normalizeDeveloperClaudeSource(
-        this.configManager?.getConfig?.()?.settings?.developerClaudeSource
-      )
-      const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
-        source: developerClaudeSource
-      })
+      const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath()
       if (!claudeCodeExecutablePath) {
         throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
       }

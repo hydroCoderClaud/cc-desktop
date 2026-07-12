@@ -919,12 +919,7 @@ class ConfigManager {
     const testPromise = (async () => {
       try {
         const queryFn = await runner._loadSDK()
-        const developerClaudeSource = normalizeDeveloperClaudeSource(
-          this.getConfig()?.settings?.developerClaudeSource
-        )
-        const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath({
-          source: developerClaudeSource
-        })
+        const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath()
         if (!claudeCodeExecutablePath) {
           throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
         }

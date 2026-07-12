@@ -16,7 +16,6 @@ const { buildProcessEnv, buildStandardExtraVars } = require('./utils/env-builder
 const { safeSend } = require('./utils/safe-send')
 const { killProcessTree } = require('./utils/process-tree-kill')
 const {
-  normalizeDeveloperClaudeSource,
   resolveBundledClaudeBinaryPath
 } = require('./utils/claude-executable-path')
 
@@ -55,22 +54,15 @@ function buildClaudeLaunchCommand({
   shell,
   isWin,
   resumeSessionId = null,
-  bundledClaudePath = null,
-  source = 'bundled'
+  bundledClaudePath = null
 }) {
-  let executable
-
-  if (source === 'bundled') {
-    if (!bundledClaudePath) {
-      throw new Error('Bundled Claude binary not found')
-    }
-    const quotedPath = quoteShellPath(bundledClaudePath, isWin)
-    executable = isWin && isPowerShellShell(shell)
-      ? `& ${quotedPath}`
-      : quotedPath
-  } else {
-    executable = 'claude'
+  if (!bundledClaudePath) {
+    throw new Error('Bundled Claude binary not found')
   }
+  const quotedPath = quoteShellPath(bundledClaudePath, isWin)
+  const executable = isWin && isPowerShellShell(shell)
+    ? `& ${quotedPath}`
+    : quotedPath
 
   return resumeSessionId
     ? `${executable} --resume ${resumeSessionId}`
@@ -251,19 +243,13 @@ class ActiveSessionManager {
     // 构建子进程环境变量（使用标准 extraVars：TERM、SHELL、AUTOCOMPACT）
     const extraVars = buildStandardExtraVars(this.configManager)
     const envVars = buildProcessEnv(profile, extraVars, this.configManager)
-    const developerClaudeSource = normalizeDeveloperClaudeSource(
-      this.configManager?.getConfig?.()?.settings?.developerClaudeSource
-    )
     try {
-      const bundledClaudePath = developerClaudeSource === 'bundled'
-        ? this.resolveBundledClaudeBinaryPath()
-        : null
+      const bundledClaudePath = this.resolveBundledClaudeBinaryPath()
       const claudeCmd = this.buildClaudeLaunchCommand({
         shell,
         isWin,
         resumeSessionId: session.resumeSessionId,
-        bundledClaudePath,
-        source: developerClaudeSource
+        bundledClaudePath
       })
 
       // 调试日志
@@ -320,7 +306,7 @@ class ActiveSessionManager {
           // 纯终端：设置代码页、清屏，不启动 claude
           this.write(sessionId, `${chcpCmd}${clearCmd}\r`)
         } else {
-          console.log(`[ActiveSession] Launching Claude via ${developerClaudeSource === 'bundled' ? 'bundled binary' : 'system command'}: ${bundledClaudePath || 'claude'}`)
+          console.log(`[ActiveSession] Launching Claude via bundled binary: ${bundledClaudePath}`)
           this.write(sessionId, `${chcpCmd}${clearCmd} ${cmdSep} ${claudeCmd}\r`)
         }
       }, 100)

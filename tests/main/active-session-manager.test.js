@@ -57,24 +57,26 @@ describe('ActiveSessionManager Claude launch helpers', () => {
     expect(resolved).toBe('/Applications/CC Desktop.app/Contents/Resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude')
   })
 
-  it('returns system claude command when developer source is system', () => {
+  it('ignores system source and resolves the bundled Claude binary', () => {
     const resolved = resolveClaudeCodeExecutablePath({
-      source: 'system'
+      source: 'system',
+      platform: 'win32',
+      arch: 'x64',
+      resolvePackage: vi.fn(() => 'C:\\app\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\package.json'),
+      fileExists: vi.fn((candidate) => candidate.endsWith('claude.exe'))
     })
 
-    expect(resolved).toBe('claude')
+    expect(resolved).toBe('C:\\app\\node_modules\\@anthropic-ai\\claude-agent-sdk-win32-x64\\claude.exe')
   })
 
-  it('falls back to plain claude when bundled binary is unavailable', () => {
-    const command = buildClaudeLaunchCommand({
+  it('throws instead of falling back to system claude when bundled binary is unavailable', () => {
+    expect(() => buildClaudeLaunchCommand({
       shell: 'cmd.exe',
       isWin: true,
       resumeSessionId: null,
       bundledClaudePath: null,
       source: 'system'
-    })
-
-    expect(command).toBe('claude')
+    })).toThrow('Bundled Claude binary not found')
   })
 
   it('uses PowerShell invocation syntax for bundled binary resume command', () => {

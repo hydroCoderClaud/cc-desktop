@@ -2,8 +2,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-function normalizeDeveloperClaudeSource(value) {
-  return value === 'system' ? 'system' : 'bundled'
+function normalizeDeveloperClaudeSource(_value) {
+  return 'bundled'
 }
 
 function resolveBundledClaudeBinaryPath(
@@ -48,11 +48,6 @@ function resolveBundledClaudeBinaryPath(
 }
 
 function resolveClaudeCodeExecutablePath(options = {}) {
-  const source = normalizeDeveloperClaudeSource(options.source)
-  if (source === 'system') {
-    return 'claude'
-  }
-
   return resolveBundledClaudeBinaryPath(
     options.platform,
     options.arch,
