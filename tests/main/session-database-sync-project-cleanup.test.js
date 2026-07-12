@@ -247,6 +247,15 @@ describe('legacy synced project cleanup', () => {
       name: 'Hidden Workspace',
       isHidden: true
     })
+    database.getOrCreateProject('C:/workspace/hidden-empty', {
+      projectKind: 'workspace',
+      name: 'Hidden Empty Workspace',
+      isHidden: true
+    })
+    const autoOutputWorkspace = database.getOrCreateProject('C:/Users/demo/cc-desktop-agent-output/feishu/conv-a348ec18', {
+      projectKind: 'workspace',
+      name: 'conv-a348ec18'
+    })
     const notebook = database.getOrCreateProject('C:/workspace/notebook', {
       projectKind: 'notebook',
       name: 'Notebook Scope'
@@ -271,6 +280,10 @@ describe('legacy synced project cleanup', () => {
     sqlite.prepare(`
       INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
       VALUES (?, ?, ?, ?)
+    `).run('agent-auto-output', autoOutputWorkspace.path, autoOutputWorkspace.id, 700)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
     `).run('agent-notebook', notebook.path, notebook.id, 200)
     sqlite.prepare(`
       INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
@@ -280,7 +293,14 @@ describe('legacy synced project cleanup', () => {
     const rows = database.getCapabilityContextProjects()
     const names = rows.map(row => row.name)
 
-    expect(names).toEqual(['Visible Workspace', 'Notebook Scope'])
+    expect(names).toEqual(['conv-a348ec18', 'Hidden Workspace', 'Visible Workspace', 'Notebook Scope'])
+    expect(names).not.toContain('Hidden Empty Workspace')
+    expect(rows.find(row => row.id === autoOutputWorkspace.id)).toEqual(
+      expect.objectContaining({ project_kind: 'workspace', session_count: 1, last_activity: 700 })
+    )
+    expect(rows.find(row => row.id === hiddenWorkspace.id)).toEqual(
+      expect.objectContaining({ project_kind: 'workspace', session_count: 1, last_activity: 500, is_hidden: 1 })
+    )
     expect(rows.find(row => row.id === visibleWorkspace.id)).toEqual(
       expect.objectContaining({ session_count: 2, last_activity: 300 })
     )

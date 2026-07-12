@@ -296,6 +296,11 @@ export function useTabManagement() {
       existingTab.apiProfileId = agentSession.apiProfileId || null
       existingTab.modelId = agentSession.modelId || null
       existingTab.cwd = agentSession.cwd || existingTab.cwd || null
+      existingTab.cwdAuto = agentSession.cwdAuto === true
+      existingTab.projectId = agentSession.projectId || existingTab.projectId || null
+      existingTab.projectPath = agentSession.projectPath || existingTab.projectPath || null
+      existingTab.projectName = agentSession.projectName || existingTab.projectName || null
+      existingTab.projectKind = agentSession.projectKind || existingTab.projectKind || null
       activeTabId.value = existingTab.id
 
       // 如果不在 tabs 中，添加回去
@@ -318,7 +323,12 @@ export function useTabManagement() {
       imChannel: agentSession.imChannel || null,
       apiProfileId: agentSession.apiProfileId || null,
       modelId: agentSession.modelId || null,
-      cwd: agentSession.cwd || null
+      cwd: agentSession.cwd || null,
+      cwdAuto: agentSession.cwdAuto === true,
+      projectId: agentSession.projectId || null,
+      projectPath: agentSession.projectPath || null,
+      projectName: agentSession.projectName || null,
+      projectKind: agentSession.projectKind || null
     }
 
     tabs.value.push(newTab)

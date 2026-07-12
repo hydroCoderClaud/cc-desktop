@@ -164,22 +164,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
     return configManager.updateTimeout(timeout)
   })
 
-  registerHandler('config:getMaxActiveSessions', () => {
-    return configManager.getMaxActiveSessions()
-  })
-
-  registerHandler('config:updateMaxActiveSessions', (maxActiveSessions) => {
-    return configManager.updateMaxActiveSessions(maxActiveSessions)
-  })
-
-  registerHandler('config:getMaxHistorySessions', () => {
-    return configManager.getMaxHistorySessions()
-  })
-
-  registerHandler('config:updateMaxHistorySessions', (maxHistorySessions) => {
-    return configManager.updateMaxHistorySessions(maxHistorySessions)
-  })
-
   // 自动压缩阈值 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE)
   registerHandler('config:getAutocompactPctOverride', () => {
     return configManager.getAutocompactPctOverride()

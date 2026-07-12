@@ -47,6 +47,19 @@ function normalizeClaudeConfigDirForSave(config) {
   config.settings.agent.claudeConfigDir = configuredValue;
 }
 
+function removeRetiredSessionLimitSettings(config) {
+  if (!config?.settings) return false;
+
+  let changed = false;
+  for (const key of ['maxActiveSessions', 'maxHistorySessions']) {
+    if (Object.prototype.hasOwnProperty.call(config.settings, key)) {
+      delete config.settings[key];
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 class ConfigManager {
   /**
    * @param {Object} options - 可选配置
@@ -156,8 +169,6 @@ class ConfigManager {
         },
 
         maxRecentProjects: 10,
-        maxActiveSessions: 5,  // 最大同时运行的会话数
-        maxHistorySessions: 10,  // 左侧面板历史会话最大显示条数
 
         // 应用模式
         appMode: 'agent',  // 启动固定为 'agent'
@@ -208,6 +219,11 @@ class ConfigManager {
         // 深度合并配置（处理新增的配置项和嵌套对象）
         const mergedConfig = this.deepMerge(this.defaultConfig, config);
         let needsSave = false;
+
+        if (removeRetiredSessionLimitSettings(mergedConfig)) {
+          console.log('[ConfigManager] Removed retired global session limit settings');
+          needsSave = true;
+        }
 
         // 迁移旧的单 API 配置到 apiProfiles
         let migratedConfig = this.migrateToProfiles(mergedConfig);
@@ -419,42 +435,6 @@ class ConfigManager {
   }
 
   /**
-   * 获取最大活动会话数
-   */
-  getMaxActiveSessions() {
-    return this.config.settings?.maxActiveSessions || 5;
-  }
-
-  /**
-   * 更新最大活动会话数
-   */
-  updateMaxActiveSessions(maxActiveSessions) {
-    if (!this.config.settings) {
-      this.config.settings = {};
-    }
-    this.config.settings.maxActiveSessions = maxActiveSessions;
-    return this.save();
-  }
-
-  /**
-   * 获取历史会话最大显示条数
-   */
-  getMaxHistorySessions() {
-    return this.config.settings?.maxHistorySessions || 10;
-  }
-
-  /**
-   * 更新历史会话最大显示条数
-   */
-  updateMaxHistorySessions(maxHistorySessions) {
-    if (!this.config.settings) {
-      this.config.settings = {};
-    }
-    this.config.settings.maxHistorySessions = maxHistorySessions;
-    return this.save();
-  }
-
-  /**
    * 获取自动压缩阈值百分比 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE)
    * @returns {number|null} 阈值百分比 (0-100)，null 表示使用默认值
    */
@@ -564,6 +544,7 @@ class ConfigManager {
       ...updates
     };
     normalizeClaudeConfigDirForSave(nextConfig);
+    removeRetiredSessionLimitSettings(nextConfig);
     this.config = nextConfig;
     return this.save();
   }
@@ -573,6 +554,7 @@ class ConfigManager {
    */
   updateSettings(settings) {
     const nextSettings = { ...settings };
+    removeRetiredSessionLimitSettings({ settings: nextSettings });
     if (Object.prototype.hasOwnProperty.call(nextSettings, 'developerClaudeSource')) {
       nextSettings.developerClaudeSource = normalizeDeveloperClaudeSource(nextSettings.developerClaudeSource);
     }

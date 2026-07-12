@@ -323,28 +323,6 @@ describe('ConfigManager', () => {
     })
   })
 
-  describe('会话限制配置', () => {
-    it('应该有默认的最大活动会话数', () => {
-      const max = configManager.getMaxActiveSessions()
-      expect(max).toBe(5)
-    })
-
-    it('应该能更新最大活动会话数', () => {
-      configManager.updateMaxActiveSessions(10)
-      expect(configManager.getMaxActiveSessions()).toBe(10)
-    })
-
-    it('应该有默认的最大历史会话数', () => {
-      const max = configManager.getMaxHistorySessions()
-      expect(max).toBe(10)
-    })
-
-    it('应该能更新最大历史会话数', () => {
-      configManager.updateMaxHistorySessions(20)
-      expect(configManager.getMaxHistorySessions()).toBe(20)
-    })
-  })
-
   describe('终端设置', () => {
     it('应该有默认的终端设置', () => {
       const settings = configManager.getTerminalSettings()
@@ -379,7 +357,6 @@ describe('ConfigManager', () => {
     it('应该能从文件加载配置', async () => {
       // 先保存一个配置
       await configManager.updateSettings({ theme: 'dark' })
-      await configManager.updateMaxActiveSessions(15)
 
       // 重新导入模块获得新实例
       vi.resetModules()
@@ -388,7 +365,6 @@ describe('ConfigManager', () => {
       const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
 
       expect(newConfigManager.getConfig().settings.theme).toBe('dark')
-      expect(newConfigManager.getMaxActiveSessions()).toBe(15)
     })
 
     it('应该把旧的市场主备顺序迁移为仅保留 Gitee 主源并写回磁盘', async () => {
@@ -436,6 +412,44 @@ describe('ConfigManager', () => {
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe('')
       expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
+    })
+
+    it('应该从旧配置中清理全局会话限制字段', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        settings: {
+          maxActiveSessions: 8,
+          maxHistorySessions: 30
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
+      await newConfigManager.saveQueue
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(newConfigManager.getConfig().settings).not.toHaveProperty('maxActiveSessions')
+      expect(newConfigManager.getConfig().settings).not.toHaveProperty('maxHistorySessions')
+      expect(savedConfig.settings).not.toHaveProperty('maxActiveSessions')
+      expect(savedConfig.settings).not.toHaveProperty('maxHistorySessions')
+    })
+
+    it('updateSettings 不应重新写入全局会话限制字段', async () => {
+      await configManager.updateSettings({
+        maxActiveSessions: 9,
+        maxHistorySessions: 40,
+        theme: 'dark'
+      })
+
+      const configPath = path.join(testTempDir, 'config.json')
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(configManager.getConfig().settings.theme).toBe('dark')
+      expect(configManager.getConfig().settings).not.toHaveProperty('maxActiveSessions')
+      expect(configManager.getConfig().settings).not.toHaveProperty('maxHistorySessions')
+      expect(savedConfig.settings).not.toHaveProperty('maxActiveSessions')
+      expect(savedConfig.settings).not.toHaveProperty('maxHistorySessions')
     })
 
     it('应该为缺失的 Claude 配置目录补空值并写回磁盘', async () => {

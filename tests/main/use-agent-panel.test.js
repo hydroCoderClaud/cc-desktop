@@ -170,6 +170,55 @@ describe('useAgentPanel filters', () => {
     ])
   })
 
+  it('keeps generated chat conversations visible and selectable by directory', async () => {
+    window.localStorage.setItem('agent.leftPanel.recentCwds', JSON.stringify([
+      'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old'
+    ]))
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'feishu-auto',
+        type: 'chat',
+        source: 'im-inbound',
+        imChannel: 'feishu',
+        cwdAuto: true,
+        projectKind: 'agent-output',
+        projectPath: 'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200',
+        cwd: 'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'manual-project',
+        type: 'chat',
+        source: 'manual',
+        projectId: 9,
+        projectKind: 'workspace',
+        projectName: 'Manual Project',
+        projectPath: 'C:/workspace/manual',
+        cwd: 'C:/workspace/manual',
+        updatedAt: '2026-04-22T02:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(panel.conversations.value.map(conv => conv.id)).toContain('feishu-auto')
+    expect(directoryCwds(panel)).toEqual([
+      'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old',
+      'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200',
+      'C:/workspace/manual'
+    ])
+
+    panel.selectedSource.value = 'feishu'
+    await nextTick()
+
+    expect(panel.groupedConversations.value.older.map(conv => conv.id)).toEqual(['feishu-auto'])
+    expect(directoryCwds(panel)).toEqual([
+      'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old',
+      'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200'
+    ])
+  })
+
   it('upgrades recent cwd entries to project directory keys when paths match', async () => {
     window.localStorage.setItem('agent:recent-cwds', JSON.stringify(['C:/shared-project']))
     global.window.electronAPI.listAgentSessions.mockResolvedValue([

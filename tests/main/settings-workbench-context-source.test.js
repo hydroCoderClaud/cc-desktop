@@ -18,4 +18,12 @@ describe('settings workbench context sources', () => {
     expect(source).not.toContain("value: 'agent'")
     expect(source).not.toContain("value: 'recent'")
   })
+
+  it('shows temporary context names without using the full path as the label', () => {
+    const source = fs.readFileSync(workbenchPath, 'utf-8')
+
+    expect(source).toContain('label: getBaseName(temporaryContextPath.value)')
+    expect(source).toContain('path: temporaryContextPath.value')
+    expect(source).not.toContain('label: temporaryContextPath.value')
+  })
 })

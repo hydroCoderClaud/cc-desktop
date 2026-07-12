@@ -41,32 +41,7 @@
     <!-- Session Settings Section -->
     <n-card :title="t('globalSettings.sessionSettings')" class="settings-section">
       <div class="settings-subsection">
-        <div class="settings-subsection-title">{{ t('globalSettings.sessionLimitsGroup') }}</div>
         <n-grid :cols="2" :x-gap="24">
-          <n-grid-item>
-            <n-form-item :label="t('globalSettings.maxActiveSessions')">
-              <n-input-number
-                v-model:value="formData.maxActiveSessions"
-                :min="1"
-                :max="20"
-                placeholder="5"
-              />
-              <template #feedback>{{ t('globalSettings.maxActiveSessionsHint') }}</template>
-            </n-form-item>
-          </n-grid-item>
-
-          <n-grid-item>
-            <n-form-item :label="t('globalSettings.maxHistorySessions')">
-              <n-input-number
-                v-model:value="formData.maxHistorySessions"
-                :min="1"
-                :max="50"
-                placeholder="10"
-              />
-              <template #feedback>{{ t('globalSettings.maxHistorySessionsHint') }}</template>
-            </n-form-item>
-          </n-grid-item>
-
           <n-grid-item>
             <n-form-item :label="t('globalSettings.autocompactPctOverride')">
               <n-input-number
@@ -146,8 +121,6 @@ const { t, initLocale } = useLocale()
 const DEFAULTS = {
   testTimeout: 30,
   requestTimeout: 120,
-  maxActiveSessions: 5,
-  maxHistorySessions: 10,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   messageQueue: true,
   outputBaseDir: '',             // 空字符串 = 使用默认 ~/cc-desktop-agent-output
@@ -157,8 +130,6 @@ const DEFAULTS = {
 const formData = ref({
   testTimeout: DEFAULTS.testTimeout,
   requestTimeout: DEFAULTS.requestTimeout,
-  maxActiveSessions: DEFAULTS.maxActiveSessions,
-  maxHistorySessions: DEFAULTS.maxHistorySessions,
   autocompactPctOverride: DEFAULTS.autocompactPctOverride,
   messageQueue: DEFAULTS.messageQueue,
   outputBaseDir: DEFAULTS.outputBaseDir,
@@ -179,14 +150,6 @@ const loadSettings = async () => {
       formData.value.testTimeout = timeout.test ? timeout.test / 1000 : DEFAULTS.testTimeout
       formData.value.requestTimeout = timeout.request ? timeout.request / 1000 : DEFAULTS.requestTimeout
     }
-
-    // Get max active sessions
-    const maxActiveSessions = await invoke('getMaxActiveSessions')
-    formData.value.maxActiveSessions = maxActiveSessions || DEFAULTS.maxActiveSessions
-
-    // Get max history sessions
-    const maxHistorySessions = await invoke('getMaxHistorySessions')
-    formData.value.maxHistorySessions = maxHistorySessions || DEFAULTS.maxHistorySessions
 
     // Get autocompact pct override
     const autocompactPct = await invoke('getAutocompactPctOverride')
@@ -250,12 +213,6 @@ const handleSave = async () => {
     }
     await invoke('updateTimeout', timeout)
 
-    // Save max active sessions
-    await invoke('updateMaxActiveSessions', formData.value.maxActiveSessions)
-
-    // Save max history sessions
-    await invoke('updateMaxHistorySessions', formData.value.maxHistorySessions)
-
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
@@ -289,8 +246,6 @@ const handleReset = async () => {
     // Reset form to defaults
     formData.value.testTimeout = DEFAULTS.testTimeout
     formData.value.requestTimeout = DEFAULTS.requestTimeout
-    formData.value.maxActiveSessions = DEFAULTS.maxActiveSessions
-    formData.value.maxHistorySessions = DEFAULTS.maxHistorySessions
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.messageQueue = DEFAULTS.messageQueue
     formData.value.outputBaseDir = defaultOutputBaseDir.value
@@ -301,8 +256,6 @@ const handleReset = async () => {
       test: DEFAULTS.testTimeout * 1000,
       request: DEFAULTS.requestTimeout * 1000
     })
-    await invoke('updateMaxActiveSessions', DEFAULTS.maxActiveSessions)
-    await invoke('updateMaxHistorySessions', DEFAULTS.maxHistorySessions)
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
     await window.electronAPI.updateSettings({ appMode: 'agent' })
     window.electronAPI.broadcastSettings({ appMode: 'agent' })

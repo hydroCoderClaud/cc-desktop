@@ -514,7 +514,7 @@ const openSessionAppDetails = async (conv) => {
   try {
     await window.electronAPI.openSettingsWorkbench({
       mode: 'agent',
-      cwd: conv?.cwd || props.currentProject?.path || null,
+      cwd: conv?.projectPath || conv?.cwd || props.currentProject?.path || null,
       section: 'session-apps',
       sessionAppId: appId
     })

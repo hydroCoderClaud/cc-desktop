@@ -137,8 +137,10 @@ function withProjectOperations(BaseClass) {
 
     /**
      * Projects that can act as capability-management context identities.
-     * Workspace rows must be visible; notebook rows are intentionally hidden
-     * from the normal project list but still valid capability scopes.
+     * Agent conversations make a workspace project a valid context even when
+     * older data still marks it hidden. Generated conversation directories are
+     * still valid directory identities; the Agent conversation list performs
+     * its own notebook/embedded filtering.
      */
     getCapabilityContextProjects() {
       return this.db.prepare(`
@@ -147,7 +149,15 @@ function withProjectOperations(BaseClass) {
                MAX(ac.updated_at) as last_activity
         FROM projects p
         LEFT JOIN agent_conversations ac ON p.id = ac.project_id
-        WHERE (p.project_kind = 'workspace' AND p.is_hidden = 0)
+        WHERE (p.project_kind = 'workspace' AND (
+             p.is_hidden = 0
+             OR EXISTS (
+               SELECT 1
+               FROM agent_conversations ac_scope
+               WHERE ac_scope.project_id = p.id
+               LIMIT 1
+             )
+        ))
            OR p.project_kind = 'notebook'
         GROUP BY p.id
         ORDER BY

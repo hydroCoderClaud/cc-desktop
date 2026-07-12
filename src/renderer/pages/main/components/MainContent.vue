@@ -180,18 +180,18 @@ const activeAgentSessionId = computed(() => {
   return (tab?.type === 'agent-chat') ? tab.sessionId : null
 })
 
-// Agent 模式下当前活动会话的工作目录（用于 MCP 启闭）
+// Agent 模式下当前活动会话的目录上下文（项目路径优先，cwd 兜底）
 const activeAgentCwd = computed(() => {
   if (!isAgentMode.value || activeTabId.value === 'welcome') return null
   const tab = allTabs.value.find(t => t.id === activeTabId.value)
-  return (tab?.type === 'agent-chat') ? (tab.cwd || null) : null
+  return (tab?.type === 'agent-chat') ? (tab.projectPath || tab.cwd || null) : null
 })
 
-// 计算当前活动的目录（Agent会话优先使用cwd，否则使用当前项目路径）
+// 计算当前活动的目录上下文（Agent 会话优先使用项目路径，否则使用 cwd/当前项目路径）
 const activeTabCwd = computed(() => {
   if (activeTabId.value === 'welcome') return currentProject.value?.path || null
   const tab = allTabs.value.find(t => t.id === activeTabId.value)
-  if (tab?.type === 'agent-chat' && tab.cwd) return tab.cwd
+  if (tab?.type === 'agent-chat') return tab.projectPath || tab.cwd || currentProject.value?.path || null
   return currentProject.value?.path || null
 })
 
@@ -274,10 +274,13 @@ watch(activeTabId, (newTabId) => {
     if (targetProject) {
       currentProject.value = targetProject
     }
-  } else if (tab.type === 'agent-chat' && tab.cwd && tab.cwd !== currentProject.value?.path) {
-    const targetProject = projects.value.find(p => p.path === tab.cwd)
-    if (targetProject) {
-      currentProject.value = targetProject
+  } else if (tab.type === 'agent-chat') {
+    const tabProjectPath = tab.projectPath || tab.cwd || null
+    if (tabProjectPath && tabProjectPath !== currentProject.value?.path) {
+      const targetProject = projects.value.find(p => p.path === tabProjectPath)
+      if (targetProject) {
+        currentProject.value = targetProject
+      }
     }
   }
 

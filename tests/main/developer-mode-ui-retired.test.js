@@ -65,6 +65,35 @@ describe('Developer mode UI retirement', () => {
     expect(source).not.toContain('formData.enableDeveloperMode')
   })
 
+  it('does not expose retired global session limit settings', () => {
+    const globalSettings = read('src/renderer/pages/global-settings/components/GlobalSettingsContent.vue')
+    const preload = read('src/preload/preload.js')
+    const configHandlers = read('src/main/ipc-handlers/config-handlers.js')
+    const activeSessionHandlers = read('src/main/ipc-handlers/active-session-handlers.js')
+    const configManager = read('src/main/config-manager.js')
+    const zhLocale = read('src/renderer/locales/zh-CN.js')
+    const enLocale = read('src/renderer/locales/en-US.js')
+
+    for (const source of [globalSettings, preload, configHandlers, activeSessionHandlers, zhLocale, enLocale]) {
+      expect(source).not.toContain('maxActiveSessions')
+      expect(source).not.toContain('getMaxActiveSessions')
+      expect(source).not.toContain('updateMaxActiveSessions')
+      expect(source).not.toContain('getMaxHistorySessions')
+      expect(source).not.toContain('updateMaxHistorySessions')
+      expect(source).not.toContain('sessionLimitsGroup')
+      expect(source).not.toContain('maxSessionsReached')
+    }
+
+    expect(preload).not.toContain('getSessionLimits')
+    expect(activeSessionHandlers).not.toContain('activeSession:getSessionLimits')
+    expect(configManager).not.toContain('getMaxActiveSessions()')
+    expect(configManager).not.toContain('updateMaxActiveSessions(')
+    expect(configManager).not.toContain('getMaxHistorySessions()')
+    expect(configManager).not.toContain('updateMaxHistorySessions(')
+    expect(configManager).not.toContain('maxActiveSessions: 5')
+    expect(configManager).not.toContain('maxHistorySessions: 10')
+  })
+
   it('does not offer a system Claude runtime option in global settings', () => {
     const source = read('src/renderer/pages/global-settings/components/GlobalSettingsContent.vue')
     const zhLocale = read('src/renderer/locales/zh-CN.js')
@@ -75,5 +104,11 @@ describe('Developer mode UI retirement', () => {
     expect(source).not.toContain('formData.developerClaudeSource')
     expect(zhLocale).not.toContain('系统 Claude')
     expect(enLocale).not.toContain('System Claude')
+  })
+
+  it('opens capability management with projectPath before cwd for Agent conversations', () => {
+    const source = read('src/renderer/pages/main/components/agent/AgentLeftContent.vue')
+
+    expect(source).toContain('cwd: conv?.projectPath || conv?.cwd || props.currentProject?.path || null')
   })
 })

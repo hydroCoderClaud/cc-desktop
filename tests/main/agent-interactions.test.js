@@ -1869,6 +1869,54 @@ describe('AgentSessionManager interactions', () => {
     }))
   })
 
+  it('uses project_path as the directory identity while preserving cwd snapshots', () => {
+    const { manager } = createManager()
+    const row = {
+      id: 7,
+      session_id: 'db-row-project-path',
+      type: 'chat',
+      status: 'closed',
+      sdk_session_id: 'sdk-1',
+      title: '历史会话',
+      cwd: '/legacy/cwd-snapshot',
+      cwd_auto: 0,
+      project_id: 42,
+      project_path: '/projects/real-root',
+      project_name: 'real-root',
+      project_kind: 'workspace',
+      message_count: 2,
+      total_cost_usd: 0,
+      api_profile_id: 'p1',
+      api_base_url: 'https://example.com',
+      model_id: 'glm-4.5',
+      source: 'manual',
+      task_id: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    manager.sessionDatabase = {
+      getAgentConversation: vi.fn(() => row),
+      listAllAgentConversations: vi.fn(() => [row]),
+      updateAgentConversation: vi.fn()
+    }
+
+    const sessions = manager.list()
+    const reopened = manager.reopen('db-row-project-path')
+
+    expect(sessions[0]).toEqual(expect.objectContaining({
+      cwd: '/legacy/cwd-snapshot',
+      projectPath: '/projects/real-root'
+    }))
+    expect(reopened).toEqual(expect.objectContaining({
+      cwd: '/legacy/cwd-snapshot',
+      projectPath: '/projects/real-root'
+    }))
+    expect(manager.getSessionRouting('db-row-project-path')).toEqual(expect.objectContaining({
+      cwd: '/legacy/cwd-snapshot',
+      projectPath: '/projects/real-root'
+    }))
+  })
+
   it('loads the full persisted history for the agent left panel instead of truncating to 100 rows', () => {
     const { manager } = createManager()
     manager.sessionDatabase = {

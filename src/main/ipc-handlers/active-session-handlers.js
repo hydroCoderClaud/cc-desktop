@@ -12,9 +12,6 @@ const path = require('path')
  * @param {ActiveSessionManager} activeSessionManager - ActiveSessionManager instance
  */
 function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
-  // 获取 configManager 实例（通过 activeSessionManager）
-  const configManager = activeSessionManager.configManager
-
   // ========================================
   // 会话生命周期
   // ========================================
@@ -29,20 +26,6 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
       return {
         success: false,
         error: 'SESSION_IN_USE_BY_AGENT'
-      }
-    }
-
-    // 纯终端不受会话数量限制；Claude 会话需要检查限制
-    if (options.type !== 'terminal') {
-      const runningCount = activeSessionManager.getRunningCount()
-      const maxSessions = configManager.getMaxActiveSessions()
-      if (runningCount >= maxSessions) {
-        return {
-          success: false,
-          error: 'maxSessionsReached',
-          maxSessions,
-          runningCount
-        }
       }
     }
 
@@ -117,14 +100,6 @@ function setupActiveSessionHandlers(ipcMain, activeSessionManager) {
   // 获取运行中的会话数量
   createIPCHandler(ipcMain, 'activeSession:getRunningCount', () => {
     return activeSessionManager.getRunningCount()
-  })
-
-  // 获取会话限制信息（合并调用，减少 IPC 开销）
-  createIPCHandler(ipcMain, 'activeSession:getSessionLimits', () => {
-    return {
-      runningCount: activeSessionManager.getRunningCount(),
-      maxSessions: configManager.getMaxActiveSessions()
-    }
   })
 
   // 重命名会话

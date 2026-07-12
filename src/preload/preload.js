@@ -384,14 +384,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
   updateTimeout: (timeout) => ipcRenderer.invoke('config:updateTimeout', timeout),
 
-  // Max Active Sessions
-  getMaxActiveSessions: () => ipcRenderer.invoke('config:getMaxActiveSessions'),
-  updateMaxActiveSessions: (max) => ipcRenderer.invoke('config:updateMaxActiveSessions', max),
-
-  // Max History Sessions (左侧面板历史会话显示条数)
-  getMaxHistorySessions: () => ipcRenderer.invoke('config:getMaxHistorySessions'),
-  updateMaxHistorySessions: (max) => ipcRenderer.invoke('config:updateMaxHistorySessions', max),
-
   // Autocompact Pct Override (自动压缩阈值百分比)
   getAutocompactPctOverride: () => ipcRenderer.invoke('config:getAutocompactPctOverride'),
   updateAutocompactPctOverride: (value) => ipcRenderer.invoke('config:updateAutocompactPctOverride', value),
@@ -743,7 +735,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFocusedActiveSession: () => ipcRenderer.invoke('activeSession:getFocused'),
   setActiveSessionVisible: ({ sessionId, visible }) => ipcRenderer.invoke('activeSession:setVisible', { sessionId, visible }),
   getRunningSessionCount: () => ipcRenderer.invoke('activeSession:getRunningCount'),
-  getSessionLimits: () => ipcRenderer.invoke('activeSession:getSessionLimits'),
   renameActiveSession: ({ sessionId, newTitle }) => ipcRenderer.invoke('activeSession:rename', { sessionId, newTitle }),
 
   // ========================================

@@ -528,6 +528,11 @@ class AgentSessionManager extends EventEmitter {
     }
   }
 
+  _resolveConversationProjectPath(row) {
+    // Project identity comes from projects.path; cwd stays as the runtime snapshot/fallback.
+    return row?.project_path || row?.cwd || null
+  }
+
   _buildQueryOptionsSnapshot(session, queryOptions, extra = {}) {
     const appId = session?.clientMeta?.appId || session?.clientMeta?.embeddedAppId || null
     const embeddedContext = appId && this.embeddedAppRuntimeManager?.getContext
@@ -1219,6 +1224,7 @@ class AgentSessionManager extends EventEmitter {
 
       const row = this.sessionDatabase.getAgentConversation(sessionId)
       if (!row) return null
+      const projectPath = this._resolveConversationProjectPath(row)
 
       session = new AgentSession({
         id: row.session_id,
@@ -1226,7 +1232,7 @@ class AgentSessionManager extends EventEmitter {
         title: row.title || '',
         cwd: row.cwd,
         projectId: row.project_id || null,
-        projectPath: row.project_path || row.cwd || null,
+        projectPath,
         projectName: row.project_name || null,
         projectKind: row.project_kind || null,
         source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
@@ -1243,7 +1249,7 @@ class AgentSessionManager extends EventEmitter {
       session.sdkSessionId = row.sdk_session_id || null
       session.cwdAuto = !!row.cwd_auto
       session.projectId = row.project_id || null
-      session.projectPath = row.project_path || session.cwd || null
+      session.projectPath = projectPath
       session.projectName = row.project_name || null
       session.projectKind = row.project_kind || null
       session.dbConversationId = row.id
@@ -2072,6 +2078,7 @@ class AgentSessionManager extends EventEmitter {
       try {
         const row = this.sessionDatabase.getAgentConversation(sessionId)
         if (row) {
+          const projectPath = this._resolveConversationProjectPath(row)
           session = {
             id: row.session_id,
             type: row.type,
@@ -2084,7 +2091,7 @@ class AgentSessionManager extends EventEmitter {
             cwd: row.cwd,
             cwdAuto: !!row.cwd_auto,
             projectId: row.project_id || null,
-            projectPath: row.project_path || row.cwd || null,
+            projectPath,
             projectName: row.project_name || null,
             projectKind: row.project_kind || null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
@@ -2746,13 +2753,14 @@ class AgentSessionManager extends EventEmitter {
     if (!session) return null
 
     const serialized = this._serializeSession(session)
+    const projectPath = serialized.projectPath || serialized.cwd || null
     return {
       id: serialized.id,
       type: serialized.type || null,
       title: serialized.title || '',
       cwd: serialized.cwd || null,
       projectId: serialized.projectId || null,
-      projectPath: serialized.projectPath || serialized.cwd || null,
+      projectPath,
       projectName: serialized.projectName || null,
       projectKind: serialized.projectKind || null,
       clientType: serialized.clientType || null,
@@ -2806,6 +2814,7 @@ class AgentSessionManager extends EventEmitter {
         for (const row of dbConversations) {
           if (row.type === 'notebook') continue  // 排除 notebook 类型
           if (activeIds.has(row.session_id)) continue  // 去重
+          const projectPath = this._resolveConversationProjectPath(row)
           result.push({
             id: row.session_id,
             type: row.type,
@@ -2818,7 +2827,7 @@ class AgentSessionManager extends EventEmitter {
             cwd: row.cwd,
             cwdAuto: !!row.cwd_auto,
             projectId: row.project_id || null,
-            projectPath: row.project_path || row.cwd || null,
+            projectPath,
             projectName: row.project_name || null,
             projectKind: row.project_kind || null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,

@@ -54,6 +54,17 @@ describe('chat input IM binding props', () => {
     expect(tabManagementSource).toContain('imChannel: agentSession.imChannel || null')
   })
 
+  it('preserves project identity metadata when opening persisted agent sessions as tabs', () => {
+    const tabManagementSource = fs.readFileSync(tabManagementPath, 'utf-8')
+
+    expect(tabManagementSource).toContain('existingTab.cwdAuto = agentSession.cwdAuto === true')
+    expect(tabManagementSource).toContain('existingTab.projectPath = agentSession.projectPath || existingTab.projectPath || null')
+    expect(tabManagementSource).toContain('existingTab.projectKind = agentSession.projectKind || existingTab.projectKind || null')
+    expect(tabManagementSource).toContain('cwdAuto: agentSession.cwdAuto === true')
+    expect(tabManagementSource).toContain('projectPath: agentSession.projectPath || null')
+    expect(tabManagementSource).toContain('projectKind: agentSession.projectKind || null')
+  })
+
   it('passes IM channel when opening a tab from external IM session-created events', () => {
     const mainContentSource = fs.readFileSync(mainContentPath, 'utf-8')
 

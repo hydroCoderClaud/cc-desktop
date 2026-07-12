@@ -321,7 +321,7 @@ const directoryOptions = computed(() => {
 
   const temporary = (isTemporaryContextKey(selectedContextKey.value) && temporaryContextPath.value)
     ? [{
-      label: temporaryContextPath.value,
+      label: getBaseName(temporaryContextPath.value),
       value: buildTemporaryContextKey(temporaryContextPath.value),
       path: temporaryContextPath.value,
       source: 'context'
