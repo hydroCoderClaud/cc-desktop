@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 项目概述
 
-Hydro Desktop（仓库名仍为 `cc-desktop`）是独立的 Electron 桌面应用，作为 Claude Code CLI 的本地桌面宿主，当前包含：
-- **Developer 模式**：项目/终端/配置管理
-- **Agent 模式**：对话式 Agent 工作流
-- **Notebook 模式**：专业工作台（实验性，默认开放）
+Hydro Desktop（仓库名仍为 `cc-desktop`）是独立的 Electron 桌面应用，作为 Claude Code 的本地 Agent 工作台，当前包含：
+- **Agent 工作台**：项目化对话式 Agent 工作流
+- **Notebook 工作台**：资料源 / 成果 / 对话工作台（默认开放）
+- **能力设置工作台**：按项目目录管理 MCP / Skills / Agents / Hooks / Prompts 等能力
 - **DingTalk Bridge**：钉钉桥接与远程命令/图片能力
 
 **当前版本**：`1.7.87`
@@ -42,7 +42,7 @@ npm run rebuild:sqlite
 
 ### 设计原则
 1. **单用户无认证**：无 JWT、无用户管理
-2. **多会话并发**：终端/Agent 会话可并行运行
+2. **多会话并发**：Agent 会话可并行运行
 3. **直接 IPC 通信**：主进程与渲染进程通过 preload/contextBridge 通信
 4. **纯本地优先**：数据主要存储在本地 AppData
 
@@ -60,8 +60,7 @@ npm run rebuild:sqlite
 - `src/renderer/pages/notebook/`：Notebook 页面与组件
 
 ### 关键数据流（短版）
-- **Terminal 模式**：Renderer → `terminal:start` → `TerminalManager` → PTY → xterm
-- **Agent 模式**：Renderer → `agent:*` IPC → `AgentSessionManager` / `ClaudeCodeRunner` → CLI/SDK → 流式渲染
+- **Agent 工作流**：Renderer → `agent:*` IPC → `AgentSessionManager` / `ClaudeCodeRunner` → bundled Claude runtime / SDK → 流式渲染
 - **DingTalk 模式**：DingTalk Stream → `DingTalkBridge` → Agent 会话能力复用 → 文本/webhook + 图片 API 发送
 
 ## Repo-specific 核心机制
@@ -73,9 +72,9 @@ npm run rebuild:sqlite
 3. 渲染进程通过 `window.electronAPI.*` 调用
 
 ### Tab 双数组模式
-为保留终端缓冲区，使用双数组：
+主窗口为保留后台会话状态，使用双数组：
 - `tabs`：TabBar 中当前显示的 tabs
-- `allTabs`：所有 TerminalTab 组件（含后台保留项）
+- `allTabs`：所有已创建 Tab（含后台保留项）
 
 关闭 tab 时仅从 `tabs` 移除；重新打开时从 `allTabs` 恢复。
 

@@ -24,9 +24,9 @@
 ```
 1. ConfigManager            ← 加载 config.json（含迁移）
 2. createWindow()           ← BrowserWindow + preload
-3. TerminalManager          ← 单 PTY 管理（旧版兼容）
-4. ActiveSessionManager     ← 多终端会话（Developer 模式）
-5. AgentSessionManager      ← Agent 会话（Agent 模式）
+3. TerminalManager          ← 单 PTY 管理（遗留内部兼容）
+4. ActiveSessionManager     ← 活动运行时会话（遗留 PTY / 内部兼容）
+5. AgentSessionManager      ← Agent 会话（主工作流）
 6. 互注入 setPeerManager()  ← 跨模式会话占用检查
 7. PluginService + Managers ← 插件运行时 + Skills/Agents/MCP/Settings
 8. CapabilityManager        ← 能力市场
@@ -52,7 +52,7 @@
 
 ### Manager 初始化顺序约束
 
-- `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于 CLI 会话 UUID 的跨模式占用检查
+- `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于历史运行时会话 UUID 的占用检查
 - `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `ActiveSessionManager` 和 `AgentSessionManager`
 - `ScheduledTaskService` 在创建后先挂到 `agentSessionManager.scheduledTaskService`，再在 `setupIPCHandlers()` 内注入 `SessionDatabase` 并启动轮询
 - `WeixinNotifyService` 在主进程启动时先创建并注入到 `agentSessionManager.weixinNotifyService`，供 Agent 会话构建内置微信 MCP；是否真正启动后台轮询由 `weixinBridge.start()` 和 `weixin.enabled` 决定
@@ -147,15 +147,15 @@ Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()`
 
 ---
 
-## Terminal 模式
+## 遗留 PTY 兼容层
 
 ### 单终端（旧版）
 
 `TerminalManager` 管理单个 PTY 进程，保留用于向后兼容。
 
-### 多终端（Developer 模式）
+### 活动运行时会话
 
-`ActiveSessionManager` 支持多个并发终端会话：
+`ActiveSessionManager` 仍保留在主进程中，用于历史 PTY 会话和内部兼容路径。面向用户的 Developer/Terminal 工作流已经退役，不再作为产品入口提供。
 
 ```
 ActiveSessionManager
@@ -169,7 +169,6 @@ ActiveSessionManager
 ```
 create(options)
   → new ActiveSession({ projectId, projectPath, apiProfileId, resumeSessionId })
-  → 写入 DB：createPendingSession()（仅非 resume 的 session 类型）
   → sessions.set(id, session)
 
 start(sessionId)
@@ -184,13 +183,7 @@ close(sessionId)
   → sessions.delete(id)
 ```
 
-**会话类型**：
-- `session`：Claude 会话（启动 shell 后可调用 `claude` CLI）
-- `terminal`：纯终端（不关联 Claude CLI）
-
-**后台运行**：关闭 Tab 仅设置 `visible = false`，PTY 进程继续运行。重新打开时从 `allTabs` 恢复，xterm buffer 不丢失（配合前端的[双数组架构](renderer.md#tab-管理)）。
-
-**跨模式占用检查**：`isCliSessionActive(cliSessionUuid)` 检查指定 CLI 会话 UUID 是否在 ActiveSessionManager 中活跃（RUNNING 或 STARTING），防止同一 CLI 会话被 Terminal 和 Agent 模式同时使用。
+**兼容边界**：不再创建 Developer 历史数据库链路，也不再参与 Agent 项目列表、消息显示、删除或恢复。
 
 ---
 
@@ -501,14 +494,12 @@ new WeixinNotifyService(configManager)
 ```
 SessionDatabaseBase (session-database.js)
   → withProjectOperations      (project-db.js)
-  → withSessionOperations      (session-db.js)
-  → withMessageOperations      (message-db.js)
-  → withTagOperations          (tag-db.js)
-  → withFavoriteOperations     (favorite-db.js)
   → withPromptOperations       (prompt-db.js)
   → withQueueOperations        (queue-db.js)
   → withAgentOperations        (agent-db.js)
   → withPromptMarketOperations (prompt-market-db.js)
+  → withScheduledTaskOperations(scheduled-task-db.js)
+  → withSessionAppOperations   (session-app-db.js)
   = SessionDatabase
 ```
 
@@ -522,25 +513,16 @@ SessionDatabaseBase (session-database.js)
 
 | 表名 | 用途 | 关键字段 |
 |------|------|---------|
-| `projects` | 项目记录 | `path`, `encoded_path`(UNIQUE), `is_pinned`, `is_hidden`, `source`, `api_profile_id` |
-| `sessions` | Terminal 模式会话 | `project_id`(FK), `session_uuid`(UNIQUE), `title`, `first_user_message`, `model` |
-| `messages` | 会话消息 | `session_id`(FK), `uuid`(UNIQUE), `role`, `content`, `tokens_in/out` |
-| `messages_fts` | 全文检索（FTS5） | 虚拟表，索引 `content` 字段 |
-| `agent_conversations` | Agent 模式对话 | `session_id`, `sdk_session_id`, `type`, `source`, `cwd`, `api_profile_id`, `im_channel`, `im_user_id`, `im_chat_id`, `im_chat_type` |
+| `projects` | 项目 / cwd 身份 | `path`, `path_key`(UNIQUE), `encoded_path`, `project_kind`, `is_pinned`, `is_hidden`, `api_profile_id` |
+| `agent_conversations` | Agent 模式对话 | `project_id`, `session_id`, `sdk_session_id`, `type`, `source`, `cwd`, `api_profile_id`, `im_channel`, `im_user_id`, `im_chat_id`, `im_chat_type` |
 | `agent_messages` | Agent 消息 | `conversation_id`(FK), `role`, `tool_name`, `tool_input`, `tool_output` |
-| `tags` / `session_tags` / `message_tags` | 标签系统 | 多对多关联 |
 | `prompts` / `prompt_tags` / `prompt_tag_relations` | 提示词管理 | 多对多关联 |
 | `market_installed_prompts` | 市场提示词追踪 | `market_id`(UNIQUE), `version` |
-| `favorites` | 消息收藏 | `message_id`, `note` |
 | `session_message_queue` | 消息队列 | `session_id`, `content`, `sort_order` |
 
 ### 迁移策略
 
-`runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表唯一约束从 `path` 改为 `encoded_path`），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。
-
-### Developer 会话文件监听
-
-Claude 历史目录的全量扫描和导入已移除。`SessionFileWatcher` 仅监控当前 Developer 工程中新生成的 `.jsonl`，用于调用 `fillPendingSession()` 补齐 pending session 的 UUID；外部历史会话不会导入数据库。
+`runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表按 `path_key` 建立真实 cwd 身份），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。Claude 历史目录扫描和 Developer 历史数据链路已移除。
 
 ---
 
@@ -595,10 +577,9 @@ downloadUpdate()
 `setupIPCHandlers()` 是 IPC 系统的唯一入口，负责：
 
 1. 创建 `SessionDatabase` 并初始化
-2. 创建 `SessionFileWatcher`
-3. 通过 `setSessionDatabase()` 注入 DB 到 Manager
-4. 调用 12 个 `setupXxxHandlers()` 注册模块化处理器
-5. 直接注册顶层通道（dialog、shell、window、terminal、session watcher 等）
+2. 通过 `setSessionDatabase()` 注入 DB 到 Manager
+3. 调用各 `setupXxxHandlers()` 注册模块化处理器
+4. 直接注册顶层通道（dialog、shell、window、Agent/Notebook/设置工作台等）
 
 当前还承担两组内嵌 app 相关职责：
 

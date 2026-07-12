@@ -2,7 +2,7 @@
 
 > Hydro Desktop v1.7.69+ | [← 架构总览](../ARCHITECTURE.md) | [代码索引 →](../code-index/renderer.md)
 
-技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
+技术栈：Vue 3 (Composition API) + Naive UI
 
 ---
 
@@ -14,13 +14,13 @@
 
 | 页面 | 用途 |
 |------|------|
-| **main** | 主窗口，承载 Developer、Agent、Notebook 三种模式的核心交互 |
+| **main** | 主窗口，承载 Agent 工作台核心交互 |
 
 ### 10 个传统桌面页面
 
 | 页面类型 | 数量 | 说明 |
 |------|------|------|
-| 主窗口 | 1 | `main`，承载 Developer、Agent、Notebook 三种模式 |
+| 主窗口 | 1 | `main`，承载 Agent 工作台核心交互 |
 | 独立管理窗口 | 9 | notebook、各类 settings/manager 页面，主进程单例管理 |
 
 ### 9 个独立管理窗口
@@ -32,7 +32,7 @@
 | session-manager | 会话管理器（三列：项目/会话/消息，支持搜索/标签） | 主窗口菜单 |
 | provider-manager | 服务商 CRUD | 设置 / Profile 表单 |
 | profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
-| global-settings | 全局设置（语言/路径/CLI 配置） | 主窗口菜单 |
+| global-settings | 全局设置（语言/路径/Agent runtime 配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
 | settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） | 主窗口与 Notebook 工具入口 |
 | update-manager | 更新管理（下载进度/安装控制） | 发现新版本时自动打开 |
@@ -59,7 +59,7 @@
 │  Left    ├─────────────────────┤    Right     │
 │  Panel   │                     │    Panel     │
 │          │   Center Content    │              │
-│          │  (Terminal / Chat)  │              │
+│          │    (Agent Chat)     │              │
 │          │                     │              │
 └──────────┴─────────────────────┴──────────────┘
 ```
@@ -68,88 +68,20 @@
 
 | 区域 | 组件 | 职责 |
 |------|------|------|
-| 左栏 | `LeftPanel` (905 行) | Developer: 项目选择 + 会话列表；Agent: 对话列表 |
-| 中栏 | `TabBar` + 内容区 | Tab 切换 + 终端/对话渲染 |
-| 右栏 | `RightPanel` / `AgentRightPanel` | Developer: 9 Tab 配置面板；Agent: 文件浏览器 |
+| 左栏 | `LeftPanel` + `AgentLeftContent` | 项目化 Agent 对话列表 |
+| 中栏 | `TabBar` + 内容区 | Tab 切换 + Agent 对话渲染 |
+| 右栏 | `AgentRightPanel` | 当前会话工作目录文件浏览器 |
 
 三栏均可折叠：左/右栏折叠后显示窄条（collapsed strip），点击展开。右栏宽度支持鼠标拖拽调整（`startResize` mousedown）。双面板一键折叠/展开按钮（`toggleBothPanels`）。
 
-### 模式隔离
+### 工作台隔离
 
-MainContent 当前承载 **Developer / Agent / Notebook** 三种模式。Developer 与 Agent 区域继续使用 **`v-show`（非 `v-if`）** 避免切换时 remount；Notebook 作为独立工作台区域纳入主窗口模式切换。
-
-```html
-<div v-show="isDeveloperMode" class="mode-content">  <!-- 终端区 -->
-<div v-show="isAgentMode" class="mode-content">      <!-- Agent 对话区 -->
-<div v-show="isNotebookMode" class="mode-content">   <!-- Notebook 工作台 -->
-```
+MainContent 当前以 **Agent 工作台** 为主。Notebook 作为独立工作台窗口保留，能力设置通过 settings-workbench 独立窗口承载。Agent 区域继续使用 **`v-show`（非 `v-if`）** 避免会话切换时 remount。
 
 **设计原因**：`v-if` 会销毁组件，导致：
-1. xterm.js 终端 buffer（屏幕内容 + 历史滚动）丢失
-2. Agent 模式的 IPC 流式事件监听器断开
-3. 两种模式的滚动位置、输入状态无法保留
-
-Notebook 模式已纳入正式工作模式，由主窗口模式切换与独立 Notebook 工作台共同承载。
-
-TabBar 按模式过滤只显示当前模式的 Tab：
-
-```javascript
-const currentModeTabs = computed(() =>
-  isDeveloperMode.value
-    ? tabs.value.filter(t => t.type !== 'agent-chat')
-    : tabs.value.filter(t => t.type === 'agent-chat')
-)
-```
-
----
-
-## Developer 模式 UI
-
-### 项目列表
-
-左栏顶部（`LeftPanel` Developer 部分）：
-
-1. **下拉选择**：`n-select` 组件，支持搜索过滤，显示所有已添加项目
-2. **项目操作菜单**：齿轮按钮触发 `n-dropdown`（编辑/置顶/隐藏/打开文件夹）
-3. **新建会话**：项目有效时显示 `+ 新建会话` 按钮 + 打开终端按钮
-4. **打开项目**：文件夹图标调用系统文件选择器添加新项目
-
-### 会话列表
-
-项目选择器下方，分两组显示：
-
-- **运行中会话**（`activeSessions`）：绿色状态点，显示 `项目名：标题`，支持重命名/关闭
-- **历史会话**（`historySessions`）：按当前项目过滤，限制显示数量（默认 10），可切换显示子代理会话（`showSubagentSessions`）
-
-由 `useSessionPanel` composable 提供状态管理。
-
-### 终端 Tab
-
-`TerminalTab` (431 行) 封装 xterm.js 终端：
-
-- 通过 IPC `terminal:data` 接收 PTY 数据 → `xterm.write()`
-- 可配置字体大小、字体族、光标颜色（跟随主题主色）、深色背景
-- `v-show="activeTabId === tab.id"` 控制可见性：非激活 Tab 隐藏但不销毁
-
-### 右侧配置面板
-
-`RightPanel` (207 行) 使用 **KeepAlive + 动态组件** 切换 9 个 Tab：
-
-| Tab | 组件 | 职责 |
-|-----|------|------|
-| Skills | SkillsTab (400 行) | Skill 分组列表/安装/启禁/编辑/导入导出 |
-| Agents | AgentsTab (409 行) | Agent 分组列表/安装/启禁/编辑/导入导出 |
-| Hooks | HooksTab (569 行) | Hook 分组列表/编辑（含 ANSI 转义解析） |
-| MCP | MCPTab (398 行) | MCP 服务器管理（兼容 Claude Desktop 格式） |
-| Files | FilesTab (—) | 文件浏览与内容预览 |
-| Plugins | PluginsTab (824 行) | 插件管理/市场安装 |
-| Scheduled Tasks | ScheduledTasksTab (—) | 定时任务管理（列表/创建/编辑/历史） |
-| Settings | SettingsTab (505 行) | CLI 权限/环境变量配置 |
-| Prompts | PromptsTab (925 行) | 提示词管理/标签/搜索 |
-
-面板底部固定 `QuickInput` (203 行)，提供快捷输入 → 发送到终端 / 添加到队列 / 保存为 Prompt。快捷命令通过 `QuickCommands` (664 行) 在独立的 `commands/` 子目录中以组件形式组织，不占用独立 Tab 入口。
-
-`MessageQueue` (807 行) 作为特殊 Tab 单独处理（不参与 KeepAlive），管理消息队列的编排与发送。
+1. Agent 的 IPC 流式事件监听器断开
+2. 对话滚动位置、输入状态无法保留
+3. 文件树和预览状态在会话切换时丢失
 
 ---
 
@@ -371,7 +303,7 @@ export function useAppMode() {
 **应用级状态**：
 | Composable | 行数 | 职责 |
 |------------|------|------|
-| `useAppMode` | 86 | Developer/Agent 模式切换，持久化到配置 |
+| `useAppMode` | 86 | 固定 Agent 工作台模式并兼容旧配置 |
 | `useTheme` | 444 | 深浅模式 + 6 套配色，CSS 变量注入 |
 | `useLocale` | 151 | i18n 翻译函数 `t()`，zh-CN / en-US |
 
@@ -380,7 +312,6 @@ export function useAppMode() {
 |------------|------|------|
 | `useAgentChat` | 660 | 单个 Agent 对话的消息/流式/模型切换 |
 | `useAgentPanel` | 225 | Agent 对话列表 + 会话关闭标记 |
-| `useSessionPanel` | 493 | Developer 活动/历史会话管理 |
 | `useSessionUtils` | 134 | 会话状态枚举、Tab 创建辅助 |
 
 **Tab 与文件**：
@@ -495,8 +426,7 @@ macOS 关闭窗口不退出应用，重新激活时 `mainWindow` 已销毁。`ac
 
 | 场景 | 选择 | 原因 |
 |------|------|------|
-| Developer/Agent 模式切换 | `v-show` | 保持终端 buffer + IPC 监听 |
-| RightPanel Tab 内容 | `KeepAlive` + 动态组件 | 保持表单和滚动状态 |
+| Agent 会话内容切换 | `v-show` | 保持 IPC 监听与输入状态 |
 | AgentLeftContent | `v-show` | 避免模式切换时 remount |
 | Modal 弹窗 | `v-model:show` | Naive UI 自带过渡动画 |
 

@@ -9,7 +9,7 @@
 
 ## 1. 目标与边界
 
-产品后续将清除面向用户的 Developer Mode，但 `projects` 不随 Developer Mode 删除。它从“开发者模式工程列表”收敛为 Agent 模式的 cwd 身份表，并成为项目级能力配置的稳定挂载点。
+面向用户的 Developer Mode 已清除，但 `projects` 不随 Developer Mode 删除。它已从“开发者模式工程列表”收敛为 Agent 模式的 cwd 身份表，并成为项目级能力配置的稳定挂载点。
 
 目标语义：
 
@@ -25,9 +25,9 @@ agent_conversations
 = 通过 sdk_session_id 让 Claude Agent SDK 恢复 Claude 会话
 
 sessions
-= Developer Mode 的过渡兼容表
+= 已删除的 Developer Mode 历史链路
 = 不参与 Agent 会话的创建、列表、消息显示、删除或恢复
-= 在 Developer Mode 清除后独立删除
+= 旧数据在 Stage 6 随 `messages/messages_fts/tags/favorites` 一并清除
 ```
 
 目标关系：
@@ -403,7 +403,7 @@ Global context
 2. 不再把 NotebookManager 列表作为第二套 cwd 身份；NotebookManager 只负责业务元数据，目录身份由 `projects` 提供。
 3. 用户在能力管理手工选择新目录时，立即 resolve/create 一个 `workspace` project，而不是只写 renderer localStorage。
 4. internal project 不进入普通选择器；从内部上下文打开能力面板时，可以把当前 cwd 作为临时上下文显示，但不能加入推荐列表。
-5. `session_count/last_activity` 改为统计 `agent_conversations`；Developer `sessions` 统计仅在兼容接口中保留，不能继续定义项目活跃度。
+5. `session_count/last_activity` 改为统计 `agent_conversations`；Developer `sessions` 不再定义项目活跃度。
 
 完成后，能力管理、Agent 新建会话和工作区管理共享同一套 cwd identity，不再互相补漏。
 
@@ -414,7 +414,7 @@ Global context
 | 关系 | 删除行为 | 原因 |
 | --- | --- | --- |
 | `agent_conversations.project_id -> projects.id` | `ON DELETE RESTRICT` | 删除目录身份绝不能级联删除 Agent 会话 |
-| `sessions.project_id -> projects.id` | 暂时保持 `ON DELETE CASCADE` | Developer Mode 兼容，Stage 6 整体删除 |
+| `sessions.project_id -> projects.id` | 已删除 | Developer Mode 历史链路已在 Stage 6 整体删除 |
 | `prompts.project_id -> projects.id` | 暂时保持 `ON DELETE CASCADE` | 现有项目级提示词语义，物理删 project 前需明确确认 |
 | `agent_messages.conversation_id -> agent_conversations.id` | 保持 `ON DELETE CASCADE` | 删除 Agent 会话时删除其业务消息 |
 
@@ -423,21 +423,23 @@ Global context
 - 删除 Agent conversation：只删除 `agent_conversations/agent_messages`；不删 project、不动 `sessions`、不删 Claude JSONL。
 - 隐藏 workspace：只更新 `is_hidden`；会话和项目配置全部保留。
 - 普通 UI 的“移除工作区”只执行隐藏，不物理删除 project。
-- 物理删除 project：只作为受保护的内部操作；存在 Agent conversation 或 Developer session 时拒绝，存在项目级 prompt 时必须先显式迁移为全局 prompt 或确认删除，不能依赖级联悄悄清理。
+- 物理删除 project：只作为受保护的内部操作；存在 Agent conversation 时拒绝，存在项目级 prompt 时必须先显式迁移为全局 prompt 或确认删除，不能依赖级联悄悄清理。
 - internal project：普通用户界面不提供隐藏、取消隐藏或物理删除动作。
 - 删除 project 后不删除磁盘目录，也不删除 Claude JSONL。
 - 删除最后一个 conversation 后不自动删除 project。无引用 internal project 的清理策略以后单独设计。
 
-## 11. agent_conversations.cwd 兼容期限
+## 11. agent_conversations.cwd 保留原则
 
-`cwd` 的退出分四步，不和 Stage 2 一次完成：
+`cwd` 不再作为当前退场计划的一部分。它长期保留为 Agent 会话创建时的运行目录快照和兼容字段；业务身份仍以 `project_id -> projects.path` 为准。后续优化目标是降低读取链路对 `cwd` 的依赖，而不是删除字段。
+
+已完成的收敛步骤：
 
 1. Stage 2：增加 nullable `project_id`，回填并双写 `project_id + cwd`。
 2. Stage 3：创建、列表、恢复、消息显示以 join 后的 `projects.path` 为主，旧 cwd 只作 fallback。
 3. Stage 4/5：能力管理和 UI 不再把 conversation.cwd 当作目录数据源；Developer Mode 清除不影响这个字段。
-4. Stage 6 之后：至少经过一个已发布版本且满足下列门槛，再用独立迁移将 `project_id` 改为 `NOT NULL` 并考虑删除 cwd。
+4. Stage 6 之后：不删除 `agent_conversations.cwd`；如果未来要调整 nullable 约束或 fallback 行为，必须作为独立迁移重新评估。
 
-删除 cwd 的门槛：
+继续维护的健康门槛：
 
 ```text
 project_id IS NULL                           = 0
@@ -446,7 +448,7 @@ conversation.cwd != project.path             = 0
 至少一个稳定发布周期没有 fallback 命中
 ```
 
-Stage 6 删除 `sessions/messages` 时不得顺手删除 `agent_conversations.cwd`；二者风险和回滚边界不同。
+Stage 6 删除 `sessions/messages` 时不得顺手删除或重定义 `agent_conversations.cwd`；二者风险和回滚边界不同。
 
 ## 12. 明确延期：Claude 配置目录与 JSONL 定位
 
@@ -467,7 +469,7 @@ Stage 6 删除 `sessions/messages` 时不得顺手删除 `agent_conversations.cw
 
 - 删除 Claude 历史扫描、同步和反向 cwd 推导。
 - 删除 `source='sync'` 项目及其 Developer 历史数据。
-- 保留当前 Developer session watcher 的最小兼容能力。
+- 删除 Developer session watcher 和历史导入链路。
 
 ### Stage 1：冻结目录身份设计，已完成
 

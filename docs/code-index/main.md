@@ -34,13 +34,13 @@
 
 ### terminal-manager.js
 - **行数**：212
-- **职责**：PTY 管理（Terminal 模式），管理单个 PTY 进程的生命周期
+- **职责**：遗留 PTY 兼容层，管理单个 PTY 进程的生命周期
 - **关键方法**：`start(projectPath)`, `write(data)`, `writeLine(text)`, `resize(cols, rows)`, `kill()`, `getStatus()`
-- **架构上下文**：-> [Terminal 模式](../design/main-process.md#terminal-模式)
+- **架构上下文**：-> [遗留 PTY 兼容层](../design/main-process.md#遗留-pty-兼容层)
 
 ### agent-session-manager.js
 - **行数**：2322
-- **职责**：Agent 会话管理，通过 Claude Code CLI SDK 的 Streaming HTTP API 实现多轮 AI 对话
+- **职责**：Agent 会话管理，通过 bundled Claude runtime 与 Claude Agent SDK 实现多轮 AI 对话
 - **关键方法**：`create()`, `sendMessage()`, `cancel()`, `close()`, `closeAll()`, `reopen()`, `toggleMcp()`, `list()`, `rename()`
 - **关键类**：`AgentSession`（单个会话）、`AgentSessionManager`（管理器）
 - **委托模块**：`AgentFileManager`（文件操作）、`AgentQueryManager`（查询控制）
@@ -48,10 +48,10 @@
 
 ### active-session-manager.js
 - **行数**：630
-- **职责**：多终端会话管理（Developer 模式），支持并发终端、后台运行、会话恢复
+- **职责**：遗留活动会话运行时，保留 PTY / 内部兼容路径；面向用户的 Developer 入口已退役
 - **关键方法**：`create()`, `start()`, `write()`, `resize()`, `close()`, `closeAll()`, `renameSession()`, `linkSessionUuid()`, `setVisible()`, `focus()`
 - **关键类**：`ActiveSession`、`ActiveSessionManager`、`SessionStatus`
-- **架构上下文**：-> [Terminal 模式](../design/main-process.md#terminal-模式)
+- **架构上下文**：-> [遗留 PTY 兼容层](../design/main-process.md#遗留-pty-兼容层)
 
 ### update-manager.js
 - **行数**：679
@@ -77,17 +77,12 @@
 - **行数**：565
 - **职责**：SQLite 数据库入口，建表、迁移、应用所有 Mixin 构建完整 `SessionDatabase` 类
 - **关键方法**：`init()`, `createTables()`, `runMigrations()`, `close()`, `getStats()`
-- **Mixin 链**：project -> session -> message -> tag -> favorite -> prompt -> queue -> agent -> prompt-market
+- **Mixin 链**：project -> prompt -> queue -> agent -> prompt-market -> scheduled-task -> session-app
 - **架构上下文**：-> [数据存储](../design/main-process.md#数据存储)
-
-### session-file-watcher.js
-- **行数**：423
-- **职责**：监控当前 Claude profile 的 `projects/{encodedPath}/` 目录，检测新 `.jsonl` 文件并关联待定会话
-- **关键方法**：`watch()`, `stop()`, `switchProject()`, `handleNewSessionFile()`, `parseSessionFile()`
 
 ### ipc-handlers.js
 - **行数**：662
-- **职责**：IPC 注册入口，初始化 SessionDatabase/FileWatcher，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
+- **职责**：IPC 注册入口，初始化 SessionDatabase，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
 - **关键导出**：`setupIPCHandlers()`
 - **架构上下文**：-> [IPC 通信](../design/main-process.md#ipc-通信)
 
@@ -235,15 +230,13 @@
 | 文件 | 表名 | 行数 | 关键方法 |
 |------|------|------|---------|
 | index.js | -- | 27 | 统一导出所有 Mixin |
-| project-db.js | projects | 257 | getOrCreateProject, getAllProjects, createProject, updateProject, deleteProject, getProjectByPath |
-| session-db.js | sessions | 395 | getOrCreateSession, getSessionByUuid, updateSession, deleteSession, createPendingSession, fillPendingSession, mergePendingIntoExisting |
-| message-db.js | messages, messages_fts | 148 | insertMessages, messageExists, getMessagesBySession, searchMessages |
-| agent-db.js | agent_conversations, agent_messages | 249 | createAgentConversation, getAgentConversation, listAgentConversations, updateAgentConversation, insertAgentMessage, getDingTalkSession, saveAgentQueue |
-| tag-db.js | tags, session_tags, message_tags | 154 | createTag, getAllTags, addTagToSession, removeTagFromSession, getSessionTags |
+| project-db.js | projects | -- | getOrCreateProject, getAllProjects, createProject, updateProject, deleteProject, getProjectByPath |
+| agent-db.js | agent_conversations, agent_messages | -- | createAgentConversation, getAgentConversation, listAgentConversations, updateAgentConversation, insertAgentMessage, getDingTalkSession, saveAgentQueue |
 | prompt-db.js | prompts, prompt_tags, prompt_tag_relations | 287 | createPrompt, getPrompts, updatePrompt, deletePrompt, createPromptTag, getAllPromptTags |
 | prompt-market-db.js | market_installed_prompts | 107 | recordMarketInstall, getMarketInstallByMarketId, removeMarketInstall, listMarketInstalls |
-| favorite-db.js | favorites | 69 | addFavorite, removeFavorite, isFavorite, getAllFavorites |
 | queue-db.js | session_message_queue | 115 | addToQueue, getQueue, updateQueueItem, deleteQueueItem, clearQueue, swapQueueOrder |
+| scheduled-task-db.js | scheduled_tasks 等 | -- | 定时任务定义、运行记录与会话绑定 |
+| session-app-db.js | session_apps 等 | -- | 会话应用定义与运行会话绑定 |
 
 ---
 

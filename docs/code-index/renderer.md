@@ -15,7 +15,7 @@
 | 国际化 | 3 | 2,798 |
 | **合计** | **126** | **~39,100** |
 
-技术栈：Vue 3 (Composition API) + Naive UI + xterm.js
+技术栈：Vue 3 (Composition API) + Naive UI
 
 ---
 
@@ -25,7 +25,7 @@
 
 | 页面 | 路径 | 用途 |
 |------|------|------|
-| main | `pages/main/` | 主窗口（终端 + Agent 对话） |
+| main | `pages/main/` | 主窗口（Agent 对话） |
 | notebook | `pages/notebook/` | Notebook 工作台（资料源 / 成果 / 对话） |
 | dingtalk-settings | `pages/dingtalk-settings/` | 钉钉机器人配置 |
 | session-manager | `pages/session-manager/` | 会话管理器（浏览/搜索/标签） |
@@ -42,37 +42,29 @@
 
 ```
 App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
-└── MainContent.vue (1147行) — 布局容器、Tab/面板/模式切换
-    ├── LeftPanel.vue (1646行) — 项目列表 + 会话列表 + 模式切换
+└── MainContent.vue — 布局容器、Tab/面板/Agent 工作台
+    ├── LeftPanel.vue — 左侧容器
     │   └── AgentLeftContent.vue (483行) — Agent 对话列表/历史
     │       └── AgentNewConversationModal.vue (265行) — 新建对话弹窗
     ├── TabBar.vue (279行) — 顶部 Tab 栏
     ├── Center（内容区）
-    │   ├── TerminalTab.vue (431行) — xterm.js 终端
-    │   └── AgentChatTab.vue (590行) — Agent 对话主视图
-    │       ├── ChatInput.vue (1610行) — 聊天输入（能力快捷/图片粘贴/文件拖放）
-    │       ├── MessageBubble.vue (388行) — 消息气泡（Markdown/代码块）
-    │       ├── ToolCallCard.vue (208行) — 工具调用卡片（可展开/预览）
-    │       ├── StreamingIndicator.vue (131行) — 流式输出指示器
-    ├── RightPanel/ (207行 index.vue) — Developer 模式右侧面板
-    │   ├── TabBar.vue (127行) — 面板 Tab 栏
-    │   ├── QuickCommands.vue (664行) — 快捷命令面板
-    │   ├── QuickInput.vue (203行) — 快捷输入框
-    │   ├── MessageQueue.vue (807行) — 消息队列管理
-    │   └── tabs/ — 9 个功能 Tab（见下文）
+    │   └── AgentChatTab.vue — Agent 对话主视图
+    │       ├── ChatInput.vue — 聊天输入（能力快捷/图片粘贴/文件拖放）
+    │       ├── MessageBubble.vue — 消息气泡（Markdown/代码块）
+    │       ├── ToolCallCard.vue — 工具调用卡片（可展开/预览）
+    │       ├── StreamingIndicator.vue — 流式输出指示器
     ├── AgentRightPanel/ (584行 index.vue) — Agent 模式右侧面板
     │   ├── FileTreeHeader.vue (127行) — 目录头部
     │   ├── FileTree.vue (69行) — 文件树容器
     │   ├── FileTreeNode.vue (185行) — 文件节点（递归）
     │   ├── FileTreeContextMenu.vue (144行) — 右键菜单
     │   └── FilePreview.vue (767行) — 文件预览（代码/图片/文本）
-    ├── UpdateModal.vue (268行) — 更新提示弹窗
-    └── ProjectEditModal.vue (270行) — 项目编辑弹窗
+    └── UpdateModal.vue (268行) — 更新提示弹窗
 ```
 
 ---
 
-## RightPanel 9 个 Tab
+## 能力设置工作台 Tab
 
 | Tab | 文件 | 行数 | 职责 |
 |-----|------|------|------|
@@ -83,7 +75,8 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | Plugins | `tabs/PluginsTab.vue` | 824 | 插件管理/市场 |
 | Settings | `tabs/SettingsTab.vue` | 505 | CLI 设置（权限/环境变量） |
 | Prompts | `tabs/PromptsTab.vue` | 925 | 提示词管理/标签 |
-| Commands | — | — | 通过 QuickCommands 实现 |
+| Session Apps | — | — | 会话应用管理 |
+| Scheduled Tasks | — | — | 定时任务管理 |
 
 ### Tab 子组件
 
@@ -209,7 +202,7 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 
 ### global-settings（全局设置）
 
-`GlobalSettingsContent.vue` (295行) — 语言/路径/CLI 配置
+`GlobalSettingsContent.vue` — 语言、路径、Agent runtime 相关配置
 
 ### appearance-settings（外观设置）
 
@@ -242,14 +235,13 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | 文件 | 行数 | 关键导出 | 使用者 |
 |------|------|---------|--------|
 | `useAgentChat.js` | 660 | `useAgentChat`, `MessageRole` | AgentChatTab |
-| `useSessionPanel.js` | 493 | `useSessionPanel` | AgentLeftContent, LeftPanel |
 | `useTheme.js` | 444 | `useTheme`, 6 套配色 | App.vue (全局) |
 | `useTabManagement.js` | 415 | `useTabManagement`, 双数组模式 | MainContent |
 | `useProjects.js` | 332 | `useProjects` | MainContent, LeftPanel |
 | `useMessageQueue.js` | 331 | `useMessageQueue` | MessageQueue |
 | `usePrompts.js` | 327 | `usePrompts` | PromptsTab |
 | `useAgentFiles.js` | 260 | `useAgentFiles`, `formatFileSize` | AgentRightPanel |
-| `useAgentPanel.js` | 225 | `useAgentPanel`, `isSessionClosed` | LeftPanel, MainContent |
+| `useAgentPanel.js` | 225 | `useAgentPanel`, `isSessionClosed` | AgentLeftContent, MainContent |
 | `useLocale.js` | 151 | `useLocale` (t 函数) | 全局 |
 | `useProfiles.js` | 144 | `useProfiles` | ProfileManager, LeftPanel |
 | `useSessionUtils.js` | 134 | `SessionStatus`, `SessionType`, `createTabFromSession` | Tab 管理 |
