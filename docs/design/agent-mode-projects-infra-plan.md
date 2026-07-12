@@ -161,7 +161,21 @@ agent_conversations.cwd = projects.path
 
 因此迁移后 `projects` 的总行数会接近“历史上使用过的不同 cwd 数”，并可能随自动会话目录增长。这是有意的身份数据增长，不等于 Stage 0 已清除的历史扫描膨胀；产品统计和普通列表必须分别报告“全部目录身份”和“可见 workspace”，避免再次混淆。
 
-### 4.2 新会话分类必须使用创建意图
+### 4.2 is_hidden 可见性边界
+
+`projects.is_hidden` 只表达普通 `workspace` 在用户工作区列表中的显示偏好。它不是目录身份字段，也不是自动目录、Notebook 或 Embedded App 的类型标记。
+
+必须遵守以下边界：
+
+1. Agent 会话归属始终由 `agent_conversations.project_id -> projects.id -> projects.path` 决定，不因 `is_hidden` 改变。
+2. `is_hidden = 1` 的 `workspace` 仍可被历史会话、当前会话上下文和项目级能力配置引用；隐藏只影响主动展示，不删除、不迁移、不失效。
+3. `agent-output`、`embedded` 等内部目录不靠 `is_hidden` 隐藏，而靠 `project_kind` 从普通列表和推荐选择器中过滤。当前实现会把非 `workspace` 新建为 `is_hidden = 1`，但这只是防御性默认值，不能作为内部目录判断依据。
+4. 能力管理的推荐项目列表应以 `project_kind` 为第一过滤条件：主动列表只展示 `workspace` 和 `notebook` 的有效目录；从当前会话上下文进入时可以临时使用当前 cwd，即使它来自内部目录。
+5. 取消隐藏只适用于用户明确管理的 `workspace`。普通 UI 不提供对 `agent-output`、`embedded` 的隐藏/取消隐藏操作。
+
+一句话原则：`project_kind` 决定目录类型，`is_hidden` 只决定普通 workspace 是否主动显示。
+
+### 4.3 新会话分类必须使用创建意图
 
 以后不能只根据路径名或 `cwd_auto` 猜分类。各创建入口必须向统一的 project resolver 提供明确 `projectKindHint`：
 
@@ -180,7 +194,7 @@ agent_conversations.cwd = projects.path
 
 IM 的默认目录需要区分“用户明确配置”与“产品从 `outputBaseDir` 推导”。仅看最终是否以显式 `cwd` 参数传入会误判，因为当前内部默认目录也可能以显式绝对路径传入。
 
-### 4.3 历史回填分类优先级
+### 4.4 历史回填分类优先级
 
 迁移时对同一 `path_key` 汇总全部证据，并按以下优先级选出一个稳定种类：
 

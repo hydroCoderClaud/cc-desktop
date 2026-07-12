@@ -520,6 +520,8 @@ SessionDatabaseBase (session-database.js)
 | `market_installed_prompts` | 市场提示词追踪 | `market_id`(UNIQUE), `version` |
 | `session_message_queue` | 消息队列 | `session_id`, `content`, `sort_order` |
 
+`projects.project_kind` 表达目录类型，`projects.is_hidden` 只表达普通 `workspace` 在用户工作区列表中的可见性偏好；Agent 会话归属仍以 `agent_conversations.project_id -> projects.path` 为准，内部目录过滤不得依赖 `is_hidden`。
+
 ### 迁移策略
 
 `runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表按 `path_key` 建立真实 cwd 身份），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。Claude 历史目录扫描和 Developer 历史数据链路已移除。
