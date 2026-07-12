@@ -426,11 +426,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // 列表
   getProjects: (includeHidden = false) => ipcRenderer.invoke('project:getAll', includeHidden),
+  getCapabilityProjects: () => ipcRenderer.invoke('project:getCapabilityContexts'),
   getHiddenProjects: () => ipcRenderer.invoke('project:getHidden'),
   getProjectById: (projectId) => ipcRenderer.invoke('project:getById', projectId),
 
   // 创建
   createProject: (projectData) => ipcRenderer.invoke('project:create', projectData),
+  ensureWorkspaceProject: (projectData) => ipcRenderer.invoke('project:ensureWorkspace', projectData),
   openProject: () => ipcRenderer.invoke('project:open'),
 
   // 修改

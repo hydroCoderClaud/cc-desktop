@@ -871,6 +871,7 @@ export default {
     sourceAgent: 'Agent',
     sourceNotebook: 'Notebook',
     sourceRecent: 'Other',
+    sourceCurrent: 'Current Context',
     projectTipNone: 'No project selected. Only global scopes are shown and editable; select a project to manage project scopes.',
     projectTipSelected: 'Current project: {name}. Global and project scopes are both available.'
   },

@@ -24,9 +24,11 @@ describe('project-handlers openProject path warning', () => {
 
     sessionDatabase = {
       getAllProjects: vi.fn(() => []),
+      getCapabilityContextProjects: vi.fn(() => []),
       getHiddenProjects: vi.fn(() => []),
       getProjectById: vi.fn(() => null),
       getProjectByPath: vi.fn(() => null),
+      getOrCreateProject: vi.fn(() => ({ id: 101 })),
       createProject: vi.fn(() => ({ id: 100 })),
       updateProject: vi.fn(),
       deleteProject: vi.fn(),
@@ -139,5 +141,81 @@ describe('project-handlers openProject path warning', () => {
       path: 'C:/workspace/develop/project name'
     })
     expect(sessionDatabase.createProject).not.toHaveBeenCalled()
+  })
+
+  it('returns capability context projects with real path validity', async () => {
+    sessionDatabase.getCapabilityContextProjects.mockReturnValueOnce([
+      {
+        id: 1,
+        path: process.cwd(),
+        name: 'Current Checkout',
+        project_kind: 'workspace',
+        is_hidden: 0
+      },
+      {
+        id: 2,
+        path: 'C:/definitely/missing/path',
+        name: 'Missing Notebook',
+        project_kind: 'notebook',
+        is_hidden: 1
+      }
+    ])
+
+    const getCapabilityContexts = handlers.get('project:getCapabilityContexts')
+    const result = await getCapabilityContexts(null)
+
+    expect(result).toEqual([
+      expect.objectContaining({ id: 1, pathValid: true }),
+      expect.objectContaining({ id: 2, pathValid: false })
+    ])
+  })
+
+  it('ensures a selected capability directory as a workspace project', async () => {
+    sessionDatabase.getOrCreateProject.mockReturnValueOnce({
+      id: 101,
+      path: process.cwd(),
+      name: 'cc-desktop',
+      project_kind: 'workspace',
+      is_hidden: 0
+    })
+
+    const ensureWorkspace = handlers.get('project:ensureWorkspace')
+    const result = await ensureWorkspace(null, { path: process.cwd(), name: 'cc-desktop' })
+
+    expect(result).toEqual(expect.objectContaining({
+      id: 101,
+      path: process.cwd(),
+      pathValid: true,
+      alreadyExists: false
+    }))
+    expect(sessionDatabase.getOrCreateProject).toHaveBeenCalledWith(process.cwd(), {
+      name: 'cc-desktop',
+      projectKind: 'workspace'
+    })
+  })
+
+  it('unhides and touches an existing workspace project selected in capability management', async () => {
+    const existing = {
+      id: 5,
+      path: process.cwd(),
+      name: 'Hidden Checkout',
+      project_kind: 'workspace',
+      is_hidden: 1
+    }
+    sessionDatabase.getProjectByPath.mockReturnValueOnce(existing)
+    sessionDatabase.getProjectById.mockReturnValueOnce({ ...existing, is_hidden: 0 })
+
+    const ensureWorkspace = handlers.get('project:ensureWorkspace')
+    const result = await ensureWorkspace(null, { path: process.cwd() })
+
+    expect(sessionDatabase.unhideProject).toHaveBeenCalledWith(5)
+    expect(sessionDatabase.touchProject).toHaveBeenCalledWith(5)
+    expect(result).toEqual(expect.objectContaining({
+      id: 5,
+      is_hidden: 0,
+      pathValid: true,
+      alreadyExists: true
+    }))
+    expect(sessionDatabase.getOrCreateProject).not.toHaveBeenCalled()
   })
 })

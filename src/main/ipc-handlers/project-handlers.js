@@ -38,6 +38,15 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     }))
   })
 
+  // 获取能力管理可选目录上下文
+  createIPCHandler(ipcMain, 'project:getCapabilityContexts', () => {
+    const projects = sessionDatabase.getCapabilityContextProjects()
+    return projects.map(project => ({
+      ...project,
+      pathValid: fs.existsSync(project.path)
+    }))
+  })
+
   // 获取隐藏的工程
   createIPCHandler(ipcMain, 'project:getHidden', () => {
     return sessionDatabase.getHiddenProjects()
@@ -99,6 +108,38 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
 
     const project = sessionDatabase.createProject(projectData)
     return { ...project }
+  })
+
+  // 确保手动选择的能力管理目录有 workspace project 身份
+  createIPCHandler(ipcMain, 'project:ensureWorkspace', (projectData = {}) => {
+    const projectPath = projectData.path
+    if (!projectPath) {
+      throw new Error('目录不能为空')
+    }
+
+    if (!fs.existsSync(projectPath)) {
+      throw new Error('目录不存在')
+    }
+
+    const existing = sessionDatabase.getProjectByPath(projectPath)
+    if (existing) {
+      if (existing.project_kind === 'workspace') {
+        if (existing.is_hidden) {
+          sessionDatabase.unhideProject(existing.id)
+        }
+        sessionDatabase.touchProject(existing.id)
+        const project = sessionDatabase.getProjectById(existing.id) || existing
+        return { ...project, pathValid: true, alreadyExists: true }
+      }
+
+      return { ...existing, pathValid: true, alreadyExists: true }
+    }
+
+    const project = sessionDatabase.getOrCreateProject(projectPath, {
+      name: projectData.name || path.basename(projectPath),
+      projectKind: 'workspace'
+    })
+    return { ...project, pathValid: true, alreadyExists: false }
   })
 
   // 打开工程（选择已有目录）

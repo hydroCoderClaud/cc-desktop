@@ -874,6 +874,7 @@ export default {
     sourceAgent: 'Agent',
     sourceNotebook: 'Notebook',
     sourceRecent: '其他',
+    sourceCurrent: '当前上下文',
     projectTipNone: '当前未选择目录，仅显示和编辑全局能力；选择目录后可管理项目级能力。',
     projectTipSelected: '当前目录：{name}，可同时管理全局与项目级能力。'
   },

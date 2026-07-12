@@ -134,4 +134,60 @@ describe('legacy synced project cleanup', () => {
     expect(project.project_kind).toBe('workspace')
     expect(sqlite.prepare('SELECT path_key FROM projects WHERE id = ?').get(project.id).path_key).toBe('win32:c:/workspace/new-project')
   })
+
+  it('lists capability context projects from project identity and agent activity', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const visibleWorkspace = database.getOrCreateProject('C:/workspace/visible', {
+      projectKind: 'workspace',
+      name: 'Visible Workspace'
+    })
+    const hiddenWorkspace = database.getOrCreateProject('C:/workspace/hidden', {
+      projectKind: 'workspace',
+      name: 'Hidden Workspace',
+      isHidden: true
+    })
+    const notebook = database.getOrCreateProject('C:/workspace/notebook', {
+      projectKind: 'notebook',
+      name: 'Notebook Scope'
+    })
+    const embedded = database.getOrCreateProject('C:/workspace/embedded', {
+      projectKind: 'embedded',
+      name: 'Embedded Scope'
+    })
+
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-visible-1', visibleWorkspace.path, visibleWorkspace.id, 100)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-visible-2', visibleWorkspace.path, visibleWorkspace.id, 300)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-hidden', hiddenWorkspace.path, hiddenWorkspace.id, 500)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-notebook', notebook.path, notebook.id, 200)
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-embedded', embedded.path, embedded.id, 600)
+
+    const rows = database.getCapabilityContextProjects()
+    const names = rows.map(row => row.name)
+
+    expect(names).toEqual(['Visible Workspace', 'Notebook Scope'])
+    expect(rows.find(row => row.id === visibleWorkspace.id)).toEqual(
+      expect.objectContaining({ session_count: 2, last_activity: 300 })
+    )
+    expect(rows.find(row => row.id === notebook.id)).toEqual(
+      expect.objectContaining({ project_kind: 'notebook', session_count: 1, last_activity: 200 })
+    )
+  })
 })

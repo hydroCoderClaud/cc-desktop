@@ -136,6 +136,33 @@ function withProjectOperations(BaseClass) {
     }
 
     /**
+     * Projects that can act as capability-management context identities.
+     * Workspace rows must be visible; notebook rows are intentionally hidden
+     * from the normal project list but still valid capability scopes.
+     */
+    getCapabilityContextProjects() {
+      return this.db.prepare(`
+        SELECT p.*,
+               COUNT(DISTINCT ac.id) as session_count,
+               MAX(ac.updated_at) as last_activity
+        FROM projects p
+        LEFT JOIN agent_conversations ac ON p.id = ac.project_id
+        WHERE (p.project_kind = 'workspace' AND p.is_hidden = 0)
+           OR p.project_kind = 'notebook'
+        GROUP BY p.id
+        ORDER BY
+          CASE p.project_kind
+            WHEN 'workspace' THEN 0
+            WHEN 'notebook' THEN 1
+            ELSE 2
+          END,
+          p.is_pinned DESC,
+          COALESCE(MAX(ac.updated_at), p.last_opened_at, p.updated_at, p.created_at) DESC,
+          p.name ASC
+      `).all()
+    }
+
+    /**
      * Get hidden projects
      */
     getHiddenProjects() {

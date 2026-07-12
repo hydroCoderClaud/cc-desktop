@@ -80,7 +80,6 @@
 import { ref, computed, markRaw, onMounted, watch } from 'vue'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
-import { useProjects } from '@composables/useProjects'
 import Icon from '@components/icons/Icon.vue'
 
 import SkillsTab from '@/pages/main/components/RightPanel/tabs/SkillsTab.vue'
@@ -91,21 +90,15 @@ import PluginsTab from '@/pages/main/components/RightPanel/tabs/PluginsTab.vue'
 import SettingsTab from '@/pages/main/components/RightPanel/tabs/SettingsTab.vue'
 import ScheduledTasksWorkbenchTab from './ScheduledTasksWorkbenchTab.vue'
 import SessionAppsWorkbenchTab from './SessionAppsWorkbenchTab.vue'
-import { getSessionImChannel } from '@shared/external-im-meta'
 
 const { cssVars } = useTheme()
 const { t, initLocale } = useLocale()
-const { projects, loadProjects } = useProjects()
 
 const selectedContextKey = ref('__GLOBAL__')
 const selectedSourceFilter = ref('all')
-const customProjectPath = ref('')
-const manualRecentPaths = ref([])
-const agentCwdPaths = ref([])
-const notebookPaths = ref([])
+const temporaryContextPath = ref('')
+const projects = ref([])
 const refreshTick = ref(0)
-
-const MAX_RECENT_MANUAL_PATHS = 12
 
 const normalizePath = (path) => {
   if (!path || typeof path !== 'string') return ''
@@ -117,8 +110,18 @@ const buildContextKey = (source, path) => {
   return `${source}:${normalizePath(path)}`
 }
 
+const buildTemporaryContextKey = (path) => {
+  const normalized = normalizePath(path)
+  return normalized ? `__CTX__:${normalized}` : '__GLOBAL__'
+}
+
+const isTemporaryContextKey = (key) => typeof key === 'string' && key.startsWith('__CTX__:')
+
 const parseContextKey = (key) => {
   if (!key || key === '__GLOBAL__') return { source: 'global', path: '' }
+  if (isTemporaryContextKey(key)) {
+    return { source: 'context', path: normalizePath(key.slice('__CTX__:'.length)) }
+  }
   const index = key.indexOf(':')
   if (index === -1) return { source: 'custom', path: normalizePath(key) }
   return {
@@ -129,24 +132,19 @@ const parseContextKey = (key) => {
 
 const sourcePriority = {
   project: 0,
-  agent: 1,
-  notebook: 2,
-  recent: 3
+  notebook: 1
 }
 
 const sourceTextMap = computed(() => ({
   project: t('settingsWorkbench.sourceProject'),
-  agent: t('settingsWorkbench.sourceAgent'),
   notebook: t('settingsWorkbench.sourceNotebook'),
-  recent: t('settingsWorkbench.sourceRecent')
+  context: t('settingsWorkbench.sourceCurrent')
 }))
 
 const sourceFilterOptions = computed(() => [
   { label: t('settingsWorkbench.sourceAll'), value: 'all' },
   { label: sourceTextMap.value.project, value: 'project' },
-  { label: sourceTextMap.value.agent, value: 'agent' },
-  { label: sourceTextMap.value.notebook, value: 'notebook' },
-  { label: sourceTextMap.value.recent, value: 'recent' }
+  { label: sourceTextMap.value.notebook, value: 'notebook' }
 ])
 
 const parseWindowContext = () => {
@@ -182,51 +180,14 @@ const isPathValid = async (path) => {
   }
 }
 
-const loadContextSources = async () => {
-  const [sessionsRaw, notebooksRaw, config] = await Promise.all([
-    window.electronAPI.listAgentSessions?.(),
-    window.electronAPI.notebookList?.(),
-    window.electronAPI.getConfig?.()
-  ])
-
-  const sessionList = Array.isArray(sessionsRaw) ? sessionsRaw : []
-  const notebookList = Array.isArray(notebooksRaw) ? notebooksRaw : []
-
-  const cwdCandidates = sessionList
-    .filter(session => (session?.projectPath || session?.cwd) && getSessionImChannel(session) !== 'dingtalk')
-    .map(session => normalizePath(session.projectPath || session.cwd))
-
-  const notebookCandidates = notebookList
-    .map(notebook => normalizePath(notebook?.notebookPath))
-    .filter(Boolean)
-
-  agentCwdPaths.value = Array.from(new Set(cwdCandidates))
-  notebookPaths.value = Array.from(new Set(notebookCandidates))
-
-  const stored = config?.settings?.workbench?.recentContextPaths
-  manualRecentPaths.value = Array.isArray(stored)
-    ? stored.map(item => normalizePath(item)).filter(Boolean)
-    : []
-}
-
-const saveManualRecentPaths = async () => {
+const loadCapabilityProjects = async () => {
   try {
-    const config = await window.electronAPI.getConfig()
-    if (!config?.settings) config.settings = {}
-    if (!config.settings.workbench) config.settings.workbench = {}
-    config.settings.workbench.recentContextPaths = manualRecentPaths.value.slice(0, MAX_RECENT_MANUAL_PATHS)
-    await window.electronAPI.saveConfig(JSON.parse(JSON.stringify(config)))
+    const result = await window.electronAPI.getCapabilityProjects?.()
+    projects.value = Array.isArray(result) ? result : []
   } catch (err) {
-    console.error('[SettingsWorkbench] Failed to persist recent context paths:', err)
+    console.error('[SettingsWorkbench] Failed to load capability projects:', err)
+    projects.value = []
   }
-}
-
-const pushManualRecentPath = async (path) => {
-  const normalized = normalizePath(path)
-  if (!normalized) return
-  manualRecentPaths.value = [normalized, ...manualRecentPaths.value.filter(item => item !== normalized)]
-    .slice(0, MAX_RECENT_MANUAL_PATHS)
-  await saveManualRecentPaths()
 }
 
 const mergeDirectoryEntries = (entries) => {
@@ -273,9 +234,7 @@ const flattenDirectoryOptions = (options) => options.flatMap(option => {
 const groupDirectoryEntries = (entries) => {
   const grouped = {
     project: [],
-    agent: [],
-    notebook: [],
-    recent: []
+    notebook: []
   }
 
   entries.forEach(entry => {
@@ -287,6 +246,7 @@ const groupDirectoryEntries = (entries) => {
   return grouped
 }
 
+const getProjectContextSource = (project) => project?.project_kind === 'notebook' ? 'notebook' : 'project'
 
 const tabs = computed(() => [
   { id: 'skills', icon: 'letterS', label: t('rightPanel.tabs.skills') },
@@ -337,42 +297,19 @@ const groupedDirectoryOptions = computed(() => {
     .filter(project => project?.pathValid)
     .map(project => ({
       label: project.name,
-      value: buildContextKey('project', project.path),
+      value: buildContextKey(getProjectContextSource(project), project.path),
       path: project.path,
-      source: 'project',
+      source: getProjectContextSource(project),
       project
     }))
 
-  const agentEntries = agentCwdPaths.value.map(path => ({
-    label: getBaseName(path),
-    value: buildContextKey('agent', path),
-    path,
-    source: 'agent'
-  }))
-
-  const notebookEntries = notebookPaths.value.map(path => ({
-    label: getBaseName(path),
-    value: buildContextKey('notebook', path),
-    path,
-    source: 'notebook'
-  }))
-
-  const recentEntries = manualRecentPaths.value.map(path => ({
-    label: getBaseName(path),
-    value: buildContextKey('recent', path),
-    path,
-    source: 'recent'
-  }))
-
-  const merged = mergeDirectoryEntries([...projectEntries, ...agentEntries, ...notebookEntries, ...recentEntries])
+  const merged = mergeDirectoryEntries(projectEntries)
   return groupDirectoryEntries(merged)
 })
 
 const allDirectoryOptions = computed(() => ([
   ...groupedDirectoryOptions.value.project,
-  ...groupedDirectoryOptions.value.agent,
-  ...groupedDirectoryOptions.value.notebook,
-  ...groupedDirectoryOptions.value.recent
+  ...groupedDirectoryOptions.value.notebook
 ]))
 
 const directoryOptions = computed(() => {
@@ -382,31 +319,29 @@ const directoryOptions = computed(() => {
     source: 'global'
   }]
 
-  const custom = (selectedContextKey.value === '__CUSTOM__' && customProjectPath.value)
+  const temporary = (isTemporaryContextKey(selectedContextKey.value) && temporaryContextPath.value)
     ? [{
-      label: customProjectPath.value,
-      value: '__CUSTOM__',
-      path: customProjectPath.value,
-      source: 'recent'
+      label: temporaryContextPath.value,
+      value: buildTemporaryContextKey(temporaryContextPath.value),
+      path: temporaryContextPath.value,
+      source: 'context'
     }]
     : []
 
   const shouldIncludeGroup = (groupKey) => selectedSourceFilter.value === 'all' || selectedSourceFilter.value === groupKey
 
-  if (custom.length && shouldIncludeGroup('recent')) {
+  if (temporary.length) {
     options.push({
       type: 'group',
-      label: sourceTextMap.value.recent,
-      key: 'group-recent-custom',
-      children: custom
+      label: sourceTextMap.value.context,
+      key: 'group-current-context',
+      children: temporary
     })
   }
 
   const groups = [
     { key: 'project', label: sourceTextMap.value.project },
-    { key: 'agent', label: sourceTextMap.value.agent },
-    { key: 'notebook', label: sourceTextMap.value.notebook },
-    { key: 'recent', label: sourceTextMap.value.recent }
+    { key: 'notebook', label: sourceTextMap.value.notebook }
   ]
 
   groups.forEach(group => {
@@ -446,29 +381,13 @@ const resolveInitialContext = () => {
     }
   }
 
-  if (windowContext.mode && sourcePriority[windowContext.mode] !== undefined) {
-    return {
-      filter: windowContext.mode,
-      key: buildContextKey(windowContext.mode, windowContext.cwd)
-    }
-  }
-
   return {
-    filter: 'recent',
-    key: buildContextKey('recent', windowContext.cwd)
+    filter: 'all',
+    key: buildTemporaryContextKey(windowContext.cwd)
   }
 }
 
 const currentProject = computed(() => {
-  if (selectedContextKey.value === '__CUSTOM__' && customProjectPath.value) {
-    return {
-      id: '__CUSTOM__',
-      name: getBaseName(customProjectPath.value),
-      path: customProjectPath.value,
-      pathValid: true
-    }
-  }
-
   const { path } = parseContextKey(selectedContextKey.value)
   if (!path) return null
 
@@ -497,9 +416,10 @@ const pickDirectoryAndSelect = async () => {
 
     const matchedProject = projects.value.find(project => normalizePath(project.path) === normalizedPath)
     if (matchedProject) {
-      selectedSourceFilter.value = 'project'
-      selectedContextKey.value = buildContextKey('project', matchedProject.path)
-      customProjectPath.value = ''
+      const source = getProjectContextSource(matchedProject)
+      selectedSourceFilter.value = source
+      selectedContextKey.value = buildContextKey(source, matchedProject.path)
+      temporaryContextPath.value = ''
       return
     }
 
@@ -507,21 +427,35 @@ const pickDirectoryAndSelect = async () => {
     if (existingOption) {
       selectedSourceFilter.value = existingOption.source || 'all'
       selectedContextKey.value = existingOption.value
-      customProjectPath.value = ''
+      temporaryContextPath.value = ''
       return
     }
 
-    selectedSourceFilter.value = 'recent'
-    selectedContextKey.value = '__CUSTOM__'
-    customProjectPath.value = normalizedPath
-    await pushManualRecentPath(normalizedPath)
+    const ensuredProject = await window.electronAPI.ensureWorkspaceProject?.({
+      path: normalizedPath,
+      name: getBaseName(normalizedPath)
+    })
+    await loadCapabilityProjects()
+
+    const ensuredPath = normalizePath(ensuredProject?.path || normalizedPath)
+    const ensuredOption = findDirectoryOptionByPath(ensuredPath)
+    if (ensuredOption) {
+      selectedSourceFilter.value = ensuredOption.source || 'all'
+      selectedContextKey.value = ensuredOption.value
+      temporaryContextPath.value = ''
+      return
+    }
+
+    selectedSourceFilter.value = 'all'
+    selectedContextKey.value = buildTemporaryContextKey(ensuredPath)
+    temporaryContextPath.value = ensuredPath
   } catch (err) {
     console.error('[SettingsWorkbench] Failed to select directory:', err)
   }
 }
 
 watch(selectedSourceFilter, () => {
-  if (selectedContextKey.value === '__GLOBAL__' || selectedContextKey.value === '__CUSTOM__') return
+  if (selectedContextKey.value === '__GLOBAL__' || isTemporaryContextKey(selectedContextKey.value)) return
 
   const flatOptions = flattenDirectoryOptions(directoryOptions.value)
   const exists = flatOptions.some(option => option.value === selectedContextKey.value)
@@ -531,14 +465,9 @@ watch(selectedSourceFilter, () => {
 })
 
 watch(selectedContextKey, async (newValue) => {
-  if (newValue === '__CUSTOM__') {
-    refreshTick.value += 1
-    return
-  }
-
-  customProjectPath.value = ''
-
   const { path } = parseContextKey(newValue)
+  temporaryContextPath.value = isTemporaryContextKey(newValue) ? path : ''
+
   if (path) {
     const valid = await isPathValid(path)
     if (!valid) {
@@ -552,10 +481,7 @@ watch(selectedContextKey, async (newValue) => {
 
 onMounted(async () => {
   await initLocale()
-  await Promise.all([
-    loadProjects(),
-    loadContextSources()
-  ])
+  await loadCapabilityProjects()
 
   if (windowContext.section && windowSectionToTab[windowContext.section]) {
     activeTab.value = windowSectionToTab[windowContext.section]
