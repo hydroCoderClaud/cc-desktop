@@ -1,10 +1,11 @@
 <template>
   <div class="settings-page" :class="{ 'workspace-embedded': props.embedded }" :style="cssVars">
     <!-- Header -->
-    <div class="settings-header">
+    <div class="settings-header global-settings-header">
       <h1>{{ t('globalSettings.title') }}</h1>
-      <n-space>
+      <n-space class="global-settings-header-actions" :wrap="true">
         <n-button @click="handleReset">{{ t('common.reset') }}</n-button>
+        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
       </n-space>
     </div>
@@ -95,13 +96,6 @@
       </div>
     </n-card>
 
-    <!-- Footer Buttons -->
-    <div class="settings-footer">
-      <n-space>
-        <n-button @click="handleClose">{{ t('common.close') }}</n-button>
-        <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
-      </n-space>
-    </div>
   </div>
 </template>
 
@@ -295,6 +289,17 @@ const handleClose = () => {
 
 <style scoped>
 /* 组件特有样式 - 公共样式由 settings-common.css 提供 */
+.global-settings-header {
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 0 0 20px;
+  border-radius: 0;
+}
+
+.global-settings-header-actions {
+  justify-content: flex-end;
+}
+
 .settings-subsection {
   padding-bottom: 20px;
   margin-bottom: 20px;
@@ -312,6 +317,18 @@ const handleClose = () => {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-color-1, #222);
+}
+
+@media (max-width: 640px) {
+  .global-settings-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .global-settings-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 </style>
