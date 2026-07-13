@@ -1253,15 +1253,19 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return { success: true, reused: result.reused };
   });
 
-  // 打开 Notebook 工作台
+  // Notebook 是主窗口内模式，不再创建独立工作台窗口。
   ipcMain.handle('window:openNotebookWorkspace', async () => {
-    createSubWindow({
-      width: 1400,
-      height: 900,
-      title: translate('app.windows.notebookWorkspace'),
-      page: 'notebook'
-    });
-    return { success: true };
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents?.isDestroyed()) {
+      return { success: false, error: 'Main window not available' }
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.show()
+    mainWindow.focus()
+    mainWindow.webContents.send('navigation:openNotebook')
+    return { success: true }
   });
 
   ipcMain.handle('embedded-app:list', async () => {

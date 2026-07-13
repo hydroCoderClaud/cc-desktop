@@ -287,6 +287,7 @@ import { ref, computed, h, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
+import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 import Icon from '@components/icons/Icon.vue'
 import ContextMenu from '@components/ContextMenu.vue'
 import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
@@ -297,6 +298,7 @@ import {
 
 const { t } = useLocale()
 const dialog = useDialog()
+const { openSettings } = useSettingsNavigation()
 const props = defineProps({
   activeSessionId: {
     type: String,
@@ -625,20 +627,18 @@ const handleNewConversationInProject = async (group) => {
   }
 }
 
-const openSessionAppDetails = async (conv) => {
+const openSessionAppDetails = (conv) => {
   const appId = typeof conv?.sessionAppId === 'string' ? conv.sessionAppId.trim() : ''
-  if (!appId || !window.electronAPI?.openSettingsWorkbench) return
+  if (!appId) return
 
-  try {
-    await window.electronAPI.openSettingsWorkbench({
+  openSettings({
+    section: SettingsSection.SESSION_APPS,
+    context: {
       mode: 'agent',
       cwd: conv?.projectPath || conv?.cwd || props.currentProject?.path || null,
-      section: 'session-apps',
       sessionAppId: appId
-    })
-  } catch (err) {
-    console.error('[AgentLeftContent] Failed to open Session App details:', err)
-  }
+    }
+  })
 }
 
 const isProjectGroupActive = (group) => {

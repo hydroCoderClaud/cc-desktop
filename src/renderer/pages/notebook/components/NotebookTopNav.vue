@@ -313,7 +313,10 @@ const handleSettingsSelect = (key) => {
     'model-settings': SettingsSection.MODELS,
     'channel-settings': SettingsSection.CHANNELS,
     'global-settings': SettingsSection.GENERAL,
-    'appearance-settings': SettingsSection.APPEARANCE
+    'appearance-settings': SettingsSection.APPEARANCE,
+    'capability-workbench': SettingsSection.CAPABILITIES,
+    'session-apps': SettingsSection.SESSION_APPS,
+    'app-update': SettingsSection.UPDATES
   }[key]
 
   if (settingsSection) {
@@ -334,25 +337,6 @@ const handleSettingsSelect = (key) => {
     return
   }
 
-  switch (key) {
-    case 'capability-workbench':
-      window.electronAPI.openSettingsWorkbench({
-        mode: 'notebook',
-        cwd: props.currentNotebook?.notebookPath || null
-      })
-      break
-    case 'session-apps':
-      window.electronAPI.openSettingsWorkbench({
-        mode: 'notebook',
-        cwd: props.currentNotebook?.notebookPath || null,
-        section: 'session-apps'
-      })
-      break
-    // `session-history` 菜单入口暂时不用，保留窗口能力供其他路径复用。
-    case 'app-update':
-      window.electronAPI.openUpdateManager()
-      break
-  }
 }
 
 const handleCloseNotebook = () => {

@@ -240,7 +240,10 @@ const handleSettingsSelect = async (key) => {
     'model-settings': SettingsSection.MODELS,
     'channel-settings': SettingsSection.CHANNELS,
     'global-settings': SettingsSection.GENERAL,
-    'appearance-settings': SettingsSection.APPEARANCE
+    'appearance-settings': SettingsSection.APPEARANCE,
+    'capability-workbench': SettingsSection.CAPABILITIES,
+    'session-apps': SettingsSection.SESSION_APPS,
+    'app-update': SettingsSection.UPDATES
   }[key]
 
   if (settingsSection) {
@@ -264,24 +267,6 @@ const handleSettingsSelect = async (key) => {
     return
   }
 
-  switch (key) {
-    case 'capability-workbench':
-      window.electronAPI.openSettingsWorkbench({
-        mode: 'agent',
-        cwd: props.agentCwd || props.currentProject?.path || null
-      })
-      break
-    case 'session-apps':
-      window.electronAPI.openSettingsWorkbench({
-        mode: 'agent',
-        cwd: props.agentCwd || props.currentProject?.path || null,
-        section: 'session-apps'
-      })
-      break
-    case 'app-update':
-      window.electronAPI.openUpdateManager()
-      break
-  }
 }
 
 onMounted(async () => {

@@ -28,7 +28,7 @@
           <component
             :is="currentSectionComponent"
             :key="activeSection"
-            embedded
+            v-bind="currentSectionProps"
             @close="closeSettings"
           />
         </KeepAlive>
@@ -46,6 +46,8 @@ import ModelSettingsContent from '@/pages/model-settings/components/ModelSetting
 import ChannelSettingsContent from '@/pages/channel-settings/components/ChannelSettingsContent.vue'
 import GlobalSettingsContent from '@/pages/global-settings/components/GlobalSettingsContent.vue'
 import AppearanceSettingsContent from '@/pages/appearance-settings/components/AppearanceSettingsContent.vue'
+import SettingsWorkbenchContent from '@/pages/settings-workbench/components/SettingsWorkbenchContent.vue'
+import UpdateManagerContent from '@/pages/update-manager/components/UpdateManagerContent.vue'
 import '@/styles/settings-common.css'
 
 const { t } = useLocale()
@@ -55,18 +57,41 @@ const sections = computed(() => ([
   { id: SettingsSection.MODELS, icon: 'key', label: t('settingsMenu.modelSettings') },
   { id: SettingsSection.CHANNELS, icon: 'chat', label: t('settingsMenu.channelSettings') },
   { id: SettingsSection.GENERAL, icon: 'settings', label: t('settingsMenu.globalSettings') },
-  { id: SettingsSection.APPEARANCE, icon: 'sliders', label: t('settingsMenu.appearanceSettings') }
+  { id: SettingsSection.APPEARANCE, icon: 'sliders', label: t('settingsMenu.appearanceSettings') },
+  { id: SettingsSection.CAPABILITIES, icon: 'wrench', label: t('settingsMenu.capabilityWorkbench') },
+  { id: SettingsSection.SESSION_APPS, icon: 'sessionApp', label: t('settingsMenu.sessionApps') },
+  { id: SettingsSection.UPDATES, icon: 'download', label: t('settingsMenu.appUpdate') }
 ]))
 
 const sectionComponents = {
   [SettingsSection.MODELS]: markRaw(ModelSettingsContent),
   [SettingsSection.CHANNELS]: markRaw(ChannelSettingsContent),
   [SettingsSection.GENERAL]: markRaw(GlobalSettingsContent),
-  [SettingsSection.APPEARANCE]: markRaw(AppearanceSettingsContent)
+  [SettingsSection.APPEARANCE]: markRaw(AppearanceSettingsContent),
+  [SettingsSection.CAPABILITIES]: markRaw(SettingsWorkbenchContent),
+  [SettingsSection.SESSION_APPS]: markRaw(SettingsWorkbenchContent),
+  [SettingsSection.UPDATES]: markRaw(UpdateManagerContent)
 }
 
 const activeSection = computed(() => settingsRequest.value?.section || SettingsSection.MODELS)
 const currentSectionComponent = computed(() => sectionComponents[activeSection.value] || sectionComponents[SettingsSection.MODELS])
+const currentSectionProps = computed(() => {
+  const context = settingsRequest.value?.context || {}
+  const isWorkbench = activeSection.value === SettingsSection.CAPABILITIES
+    || activeSection.value === SettingsSection.SESSION_APPS
+
+  if (isWorkbench) {
+    return {
+      embedded: true,
+      context: {
+        ...context,
+        section: activeSection.value === SettingsSection.SESSION_APPS ? 'session-apps' : ''
+      }
+    }
+  }
+
+  return { embedded: true }
+})
 
 const selectSection = (section) => {
   openSettings({

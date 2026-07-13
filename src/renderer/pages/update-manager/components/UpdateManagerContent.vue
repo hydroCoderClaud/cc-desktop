@@ -1,5 +1,5 @@
 <template>
-  <div class="update-page" :style="cssVars">
+  <div class="update-page" :class="{ embedded: props.embedded }" :style="cssVars">
 
     <!-- Header -->
     <div class="update-header">
@@ -108,6 +108,13 @@ import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
+const emit = defineEmits(['close'])
 const message = useMessage()
 const { invoke } = useIPC()
 const { cssVars, initTheme } = useTheme()
@@ -305,6 +312,10 @@ const handleInstall = async () => {
 }
 
 const handleClose = () => {
+  if (props.embedded) {
+    emit('close')
+    return
+  }
   window.close()
 }
 
@@ -327,6 +338,11 @@ const formatSpeed = (bytesPerSecond) => {
   height: 100vh;
   background: var(--bg-color, #f5f5f5);
   overflow: hidden;
+}
+
+.update-page.embedded {
+  height: 100%;
+  min-height: 100%;
 }
 
 /* ── 标题 ── */

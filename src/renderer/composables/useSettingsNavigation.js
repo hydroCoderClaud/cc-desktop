@@ -4,7 +4,10 @@ export const SettingsSection = Object.freeze({
   MODELS: 'models',
   CHANNELS: 'channels',
   GENERAL: 'general',
-  APPEARANCE: 'appearance'
+  APPEARANCE: 'appearance',
+  CAPABILITIES: 'capabilities',
+  SESSION_APPS: 'session-apps',
+  UPDATES: 'updates'
 })
 
 const knownSections = new Set(Object.values(SettingsSection))

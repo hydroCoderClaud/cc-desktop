@@ -90,7 +90,7 @@
           <NotebookWorkspace ref="notebookWorkspaceRef" />
         </div>
 
-        <div v-show="isSettingsOpen" class="mode-content settings-mode-content">
+        <div v-if="hasOpenedSettings" v-show="isSettingsOpen" class="mode-content settings-mode-content">
           <SettingsWorkspace />
         </div>
       </div>
@@ -128,7 +128,7 @@ import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
 import { useAppMode, AppMode } from '@composables/useAppMode'
-import { useSettingsNavigation } from '@composables/useSettingsNavigation'
+import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import AgentRightPanel from './AgentRightPanel/index.vue'
@@ -143,7 +143,12 @@ const message = useMessage()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 const { isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
-const { isSettingsOpen } = useSettingsNavigation()
+const { isSettingsOpen, openSettings, closeSettings } = useSettingsNavigation()
+const hasOpenedSettings = ref(false)
+
+watch(isSettingsOpen, (isOpen) => {
+  if (isOpen) hasOpenedSettings.value = true
+}, { immediate: true })
 
 // Use composables
 const {
@@ -672,6 +677,15 @@ const setupSessionListeners = () => {
     )
   }
 
+  if (window.electronAPI.onOpenNotebookWorkspace) {
+    cleanupFns.push(
+      window.electronAPI.onOpenNotebookWorkspace(async () => {
+        closeSettings()
+        await switchMode(AppMode.NOTEBOOK)
+      })
+    )
+  }
+
   if (window.electronAPI.onSessionAppOpenConversationRequested) {
     cleanupFns.push(
       window.electronAPI.onSessionAppOpenConversationRequested(async (data) => {
@@ -1064,10 +1078,8 @@ const handleToggleTheme = async () => {
 }
 
 // Open API Profile Manager
-const openApiProfileManager = async () => {
-  if (window.electronAPI) {
-    await window.electronAPI.openProfileManager()
-  }
+const openApiProfileManager = () => {
+  openSettings({ section: SettingsSection.MODELS })
 }
 </script>
 

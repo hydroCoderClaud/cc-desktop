@@ -999,6 +999,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setEnterpriseWeixinEnabled: (enabled) => ipcRenderer.invoke('enterprise-weixin:setEnabled', enabled),
   updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
   openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
+  onOpenNotebookWorkspace: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('navigation:openNotebook', listener)
+    return () => ipcRenderer.removeListener('navigation:openNotebook', listener)
+  },
   listEnterpriseWeixinTargets: () => ipcRenderer.invoke('enterprise-weixin:listTargets'),
   bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindTarget', payload),
   unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindTarget', payload),

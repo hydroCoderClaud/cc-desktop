@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page full" :style="cssVars">
+  <div class="settings-page full" :class="{ embedded: props.embedded }" :style="cssVars">
     <div class="settings-header">
       <div class="header-left">
         <h1>{{ t('settingsWorkbench.title') }}</h1>
@@ -64,7 +64,7 @@
         <KeepAlive>
           <component
             :is="currentTabComponent"
-            :key="`${activeTab}-${selectedContextKey || 'global'}-${refreshTick}`"
+            :key="`${activeTab}-${selectedContextKey || 'global'}-${windowContext.sessionAppId || ''}-${refreshTick}`"
             v-bind="currentTabProps"
             @send-command="handleWorkbenchCommandAction"
             @insert-to-input="handleWorkbenchCommandAction"
@@ -91,6 +91,16 @@ import SettingsTab from '@/pages/main/components/RightPanel/tabs/SettingsTab.vue
 import ScheduledTasksWorkbenchTab from './ScheduledTasksWorkbenchTab.vue'
 import SessionAppsWorkbenchTab from './SessionAppsWorkbenchTab.vue'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  },
+  context: {
+    type: Object,
+    default: null
+  }
+})
 const { cssVars } = useTheme()
 const { t, initLocale } = useLocale()
 
@@ -157,7 +167,17 @@ const parseWindowContext = () => {
   }
 }
 
-const windowContext = parseWindowContext()
+const standaloneWindowContext = parseWindowContext()
+const windowContext = computed(() => {
+  if (!props.context) return standaloneWindowContext
+
+  return {
+    mode: typeof props.context.mode === 'string' ? props.context.mode : '',
+    cwd: normalizePath(props.context.cwd || ''),
+    section: typeof props.context.section === 'string' ? props.context.section : '',
+    sessionAppId: typeof props.context.sessionAppId === 'string' ? props.context.sessionAppId : ''
+  }
+})
 
 const getBaseName = (path) => {
   const normalized = normalizePath(path)
@@ -285,8 +305,8 @@ const currentTabProps = computed(() => {
     currentProject: currentProject.value
   }
 
-  if (activeTab.value === 'sessionApps' && windowContext.sessionAppId) {
-    base.initialSessionAppId = windowContext.sessionAppId
+  if (activeTab.value === 'sessionApps' && windowContext.value.sessionAppId) {
+    base.initialSessionAppId = windowContext.value.sessionAppId
   }
 
   return base
@@ -366,14 +386,15 @@ const findDirectoryOptionByPath = (path) => {
 }
 
 const resolveInitialContext = () => {
-  if (!windowContext.cwd) {
+  const context = windowContext.value
+  if (!context.cwd) {
     return {
       filter: 'all',
       key: '__GLOBAL__'
     }
   }
 
-  const exactOption = findDirectoryOptionByPath(windowContext.cwd)
+  const exactOption = findDirectoryOptionByPath(context.cwd)
   if (exactOption) {
     return {
       filter: exactOption.source || 'all',
@@ -383,7 +404,7 @@ const resolveInitialContext = () => {
 
   return {
     filter: 'all',
-    key: buildTemporaryContextKey(windowContext.cwd)
+    key: buildTemporaryContextKey(context.cwd)
   }
 }
 
@@ -479,25 +500,44 @@ watch(selectedContextKey, async (newValue) => {
   refreshTick.value += 1
 })
 
+const applyWindowContext = () => {
+  const context = windowContext.value
+  activeTab.value = windowSectionToTab[context.section] || 'skills'
+
+  if (!context.cwd) {
+    selectedSourceFilter.value = 'all'
+    selectedContextKey.value = '__GLOBAL__'
+    temporaryContextPath.value = ''
+    return
+  }
+
+  const initialContext = resolveInitialContext()
+  selectedSourceFilter.value = initialContext.filter
+  selectedContextKey.value = initialContext.key
+}
+
 onMounted(async () => {
   await initLocale()
   await loadCapabilityProjects()
+  applyWindowContext()
+})
 
-  if (windowContext.section && windowSectionToTab[windowContext.section]) {
-    activeTab.value = windowSectionToTab[windowContext.section]
-  }
-
-  if (windowContext.cwd) {
-    const initialContext = resolveInitialContext()
-    selectedSourceFilter.value = initialContext.filter
-    selectedContextKey.value = initialContext.key
-  }
+watch(windowContext, () => {
+  applyWindowContext()
 })
 </script>
 
 <style scoped>
 .settings-page {
   padding-bottom: 16px;
+}
+
+.settings-page.embedded {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+  padding: 20px;
 }
 
 .header-left {
@@ -566,6 +606,11 @@ onMounted(async () => {
   overflow: hidden;
   background: var(--bg-color-secondary);
   min-height: calc(100vh - 230px);
+}
+
+.settings-page.embedded .workbench-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .tab-bar {
