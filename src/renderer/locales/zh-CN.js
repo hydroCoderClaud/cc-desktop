@@ -1395,6 +1395,7 @@ export default {
     openConversation: '打开对话',
     openScheduledTask: '打开定时任务',
     openSessionApp: '打开会话应用',
+    externalConversations: 'IM会话',
     allSources: '全部来源',
     sourceNoIm: '无 IM',
     sourceManual: '常规',

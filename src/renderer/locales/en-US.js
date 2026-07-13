@@ -1390,6 +1390,7 @@ export default {
     openConversation: 'Open Conversation',
     openScheduledTask: 'Open Scheduled Task',
     openSessionApp: 'Open Session App',
+    externalConversations: 'IM Conversations',
     allSources: 'All sources',
     sourceNoIm: 'No IM',
     sourceManual: 'Regular',

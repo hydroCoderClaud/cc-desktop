@@ -88,9 +88,22 @@
       <template v-for="group in projectConversationGroups" :key="group.key">
         <div
           class="project-group-header"
-          :class="{ active: isProjectGroupActive(group), pinned: group.pinned }"
-          @click="toggleProjectExpanded(group.key)"
+          :class="{
+            active: isProjectGroupActive(group),
+            pinned: group.pinned,
+            'has-open-conversation': group.hasOpenConversation,
+            dragging: draggingProjectKey === group.key,
+            'drop-before': dropProjectKey === group.key && dropProjectPlacement === 'before',
+            'drop-after': dropProjectKey === group.key && dropProjectPlacement === 'after'
+          }"
+          :draggable="projectConversationGroups.length > 1"
+          @click="handleProjectHeaderClick(group)"
           @contextmenu.prevent.stop="showProjectContextMenu($event, group)"
+          @dragstart="handleProjectDragStart($event, group)"
+          @dragover="handleProjectDragOver($event, group)"
+          @dragleave="handleProjectDragLeave($event, group)"
+          @drop="handleProjectDrop($event, group)"
+          @dragend="handleProjectDragEnd"
         >
           <Icon :name="group.expanded ? 'chevronDown' : 'chevronRight'" :size="12" class="project-toggle-icon" />
           <Icon :name="group.expanded ? 'folderOpen' : 'folder'" :size="14" class="project-folder-icon" />
@@ -115,9 +128,6 @@
             @contextmenu.prevent.stop="showConversationContextMenu($event, conv)"
           >
             <div class="conv-info">
-              <div class="conv-icon-group">
-                <Icon :name="getConversationBaseIcon(conv)" :size="12" class="conv-icon" />
-              </div>
               <input
                 v-if="editingId === conv.id"
                 class="rename-input"
@@ -132,6 +142,13 @@
               <span v-if="editingId === conv.id" class="conv-title conv-title-placeholder" />
               <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
               <div class="conv-marker-group">
+                <span
+                  v-if="getConversationImChannel(conv)"
+                  class="conv-marker im-source-marker"
+                  :title="resolveExternalSourceLabel(getConversationImChannel(conv))"
+                >
+                  <Icon :name="getConversationImIcon(conv)" :size="11" />
+                </span>
                 <span
                   v-if="conv.sessionAppId"
                   class="conv-marker"
@@ -161,8 +178,79 @@
         </template>
       </template>
 
+      <div v-if="externalImConversations.length" class="external-im-section">
+        <div
+          class="external-im-header"
+          :class="{ active: isExternalImGroupActive }"
+          @click="toggleExternalImExpanded"
+        >
+          <Icon :name="externalImExpanded ? 'chevronDown' : 'chevronRight'" :size="12" class="project-toggle-icon" />
+          <span class="external-im-title">{{ t('agent.externalConversations') }}</span>
+          <span class="project-count">{{ externalImConversations.length }}</span>
+        </div>
+        <template v-if="externalImExpanded">
+          <div
+            v-for="conv in externalImConversations"
+            :key="conv.id"
+            class="conversation-item external-im-conversation-item"
+            :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
+            @click="$emit('select', conv)"
+            @dblclick="startRename(conv)"
+            @contextmenu.prevent.stop="showConversationContextMenu($event, conv)"
+          >
+            <div class="conv-info">
+              <input
+                v-if="editingId === conv.id"
+                class="rename-input"
+                :value="editTitle"
+                @input="editTitle = $event.target.value"
+                @keydown.enter="saveRename"
+                @keydown.escape="cancelRename"
+                @blur="saveRename"
+                @click.stop
+                ref="renameInputRef"
+              />
+              <span v-if="editingId === conv.id" class="conv-title conv-title-placeholder" />
+              <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+              <div class="conv-marker-group">
+                <span
+                  v-if="getConversationImChannel(conv)"
+                  class="conv-marker im-source-marker"
+                  :title="resolveExternalSourceLabel(getConversationImChannel(conv))"
+                >
+                  <Icon :name="getConversationImIcon(conv)" :size="11" />
+                </span>
+                <span
+                  v-if="conv.sessionAppId"
+                  class="conv-marker"
+                  :title="resolveSessionAppName(conv)"
+                >
+                  <Icon name="sessionApp" :size="11" />
+                </span>
+                <span
+                  v-if="hasConversationTask(conv)"
+                  class="conv-marker"
+                  :title="t('rightPanel.tabs.scheduledTasks')"
+                >
+                  <Icon name="clock" :size="11" />
+                </span>
+                <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
+                  <span
+                    v-if="profileName"
+                    class="profile-badge"
+                    :title="profileName"
+                  >
+                    <Icon name="api" :size="10" />
+                  </span>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
       <!-- 空状态 -->
-      <div v-if="projectConversationGroups.length === 0 && !loading" class="empty-hint">
+      <div v-if="projectConversationGroups.length === 0 && externalImConversations.length === 0 && !loading" class="empty-hint">
         <Icon name="robot" :size="32" style="margin-bottom: 8px; opacity: 0.5;" />
         <div>{{ t('agent.noConversations') }}</div>
       </div>
@@ -233,9 +321,14 @@ const {
   appFilterOptions,
   selectCwd,
   projectConversationGroups,
+  externalImConversations,
+  externalImExpanded,
   toggleProjectPinned,
+  moveProject,
   toggleProjectExpanded,
   expandProject,
+  toggleExternalImExpanded,
+  expandExternalImGroup,
   collapseOtherProjects,
   loadConversations,
   createConversation,
@@ -285,12 +378,11 @@ const resolveExternalSourceLabel = (type) => {
   return getExternalImMeta(type)?.label?.['zh-CN'] || type
 }
 
-const getConversationBaseIcon = (conv) => {
-  const imChannel = getSessionImChannel(conv)
-  if (imChannel) {
-    return getExternalImMeta(imChannel)?.icon || imChannel
-  }
-  return 'chat'
+const getConversationImChannel = (conv) => getSessionImChannel(conv)
+
+const getConversationImIcon = (conv) => {
+  const imChannel = getConversationImChannel(conv)
+  return sourceIconMap[imChannel] || getExternalImMeta(imChannel)?.icon || 'chat'
 }
 
 const hasConversationTask = (conv) => Boolean(conv?.taskId)
@@ -482,6 +574,11 @@ const projectContextMenuRef = ref(null)
 const conversationContextMenuRef = ref(null)
 const contextProject = ref(null)
 const contextConversation = ref(null)
+const pendingActiveProjectExpansionId = ref(null)
+const draggingProjectKey = ref(null)
+const dropProjectKey = ref(null)
+const dropProjectPlacement = ref(null)
+const suppressProjectToggle = ref(false)
 
 // API profiles（用于显示 profile 标记）
 const apiProfiles = ref([])
@@ -547,6 +644,71 @@ const openSessionAppDetails = async (conv) => {
 const isProjectGroupActive = (group) => {
   if (!props.activeSessionId) return false
   return group.items.some(item => item.id === props.activeSessionId)
+}
+
+const isExternalImGroupActive = computed(() => {
+  if (!props.activeSessionId) return false
+  return externalImConversations.value.some(item => item.id === props.activeSessionId)
+})
+
+const clearProjectDragState = () => {
+  draggingProjectKey.value = null
+  dropProjectKey.value = null
+  dropProjectPlacement.value = null
+}
+
+const canMoveProjectTo = (targetGroup) => {
+  const draggingKey = draggingProjectKey.value
+  if (!draggingKey || draggingKey === targetGroup?.key) return false
+  const draggingGroup = projectConversationGroups.value.find(group => group.key === draggingKey)
+  return Boolean(draggingGroup && targetGroup && draggingGroup.pinned === targetGroup.pinned)
+}
+
+const handleProjectHeaderClick = (group) => {
+  if (suppressProjectToggle.value) {
+    suppressProjectToggle.value = false
+    return
+  }
+  toggleProjectExpanded(group.key)
+}
+
+const handleProjectDragStart = (event, group) => {
+  draggingProjectKey.value = group.key
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', group.key)
+  }
+}
+
+const handleProjectDragOver = (event, group) => {
+  if (!canMoveProjectTo(group)) return
+  event.preventDefault()
+  const bounds = event.currentTarget.getBoundingClientRect()
+  dropProjectKey.value = group.key
+  dropProjectPlacement.value = event.clientY >= bounds.top + bounds.height / 2 ? 'after' : 'before'
+}
+
+const handleProjectDragLeave = (event, group) => {
+  if (event.currentTarget.contains(event.relatedTarget)) return
+  if (dropProjectKey.value === group.key) {
+    dropProjectKey.value = null
+    dropProjectPlacement.value = null
+  }
+}
+
+const handleProjectDrop = (event, group) => {
+  if (!canMoveProjectTo(group)) return
+  event.preventDefault()
+  moveProject(draggingProjectKey.value, group.key, dropProjectPlacement.value || 'before')
+  suppressProjectToggle.value = true
+  clearProjectDragState()
+}
+
+const handleProjectDragEnd = () => {
+  clearProjectDragState()
+  window.setTimeout(() => {
+    suppressProjectToggle.value = false
+  }, 0)
 }
 
 const showProjectContextMenu = (event, group) => {
@@ -663,16 +825,32 @@ const handleConversationContextSelect = (key) => {
   }
 }
 
-const ensureActiveProjectExpanded = () => {
-  if (!props.activeSessionId) return
-  const group = projectConversationGroups.value.find(item => item.items.some(conv => conv.id === props.activeSessionId))
-  if (group && !group.expanded) {
-    expandProject(group.key)
+const ensurePendingActiveProjectExpanded = () => {
+  const sessionId = pendingActiveProjectExpansionId.value
+  if (!sessionId) return
+
+  if (externalImConversations.value.some(conv => conv.id === sessionId)) {
+    pendingActiveProjectExpansionId.value = null
+    if (!externalImExpanded.value) {
+      expandExternalImGroup()
+    }
+    return
+  }
+
+  const group = projectConversationGroups.value.find(item => item.items.some(conv => conv.id === sessionId))
+  if (group) {
+    pendingActiveProjectExpansionId.value = null
+    if (!group.expanded) {
+      expandProject(group.key)
+    }
   }
 }
 
-watch(() => props.activeSessionId, ensureActiveProjectExpanded, { immediate: true })
-watch(projectConversationGroups, ensureActiveProjectExpanded)
+watch(() => props.activeSessionId, (sessionId) => {
+  pendingActiveProjectExpansionId.value = sessionId || null
+  ensurePendingActiveProjectExpanded()
+}, { immediate: true })
+watch([projectConversationGroups, externalImConversations], ensurePendingActiveProjectExpanded)
 
 const startRename = (conv) => {
   editingId.value = conv.id
@@ -985,7 +1163,7 @@ defineExpose({
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text-color);
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   transition: background-color 0.16s ease, border-color 0.16s ease;
 }
@@ -995,8 +1173,24 @@ defineExpose({
 }
 
 .project-group-header.active {
-  border-color: var(--selected-border);
   background: var(--selected-bg);
+}
+
+.project-group-header[draggable='true'] {
+  cursor: default;
+}
+
+.project-group-header.dragging {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.project-group-header.drop-before {
+  box-shadow: inset 0 2px 0 var(--primary-color);
+}
+
+.project-group-header.drop-after {
+  box-shadow: inset 0 -2px 0 var(--primary-color);
 }
 
 .project-toggle-icon,
@@ -1028,6 +1222,10 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+  font-weight: 400;
+}
+
+.project-group-header.has-open-conversation .project-title {
   font-weight: 650;
 }
 
@@ -1044,11 +1242,46 @@ defineExpose({
   flex-shrink: 0;
 }
 
+.external-im-section {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.external-im-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 8px;
+  margin-bottom: 3px;
+  border-radius: 8px;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.16s ease;
+}
+
+.external-im-header:hover,
+.external-im-header.active {
+  background: var(--selected-bg);
+}
+
+.external-im-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .conversation-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px 8px 28px;
+  padding: 8px 10px 8px 46px;
   margin-bottom: 2px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1062,15 +1295,14 @@ defineExpose({
 
 .conversation-item.active {
   background: var(--selected-bg);
-  border-color: var(--selected-border);
 }
 
 .conversation-item.closed {
   opacity: 0.55;
 }
 
-.conversation-item.closed .conv-icon {
-  color: var(--text-color-muted);
+.external-im-conversation-item {
+  padding-left: 28px;
 }
 
 .conv-info {
@@ -1079,19 +1311,6 @@ defineExpose({
   gap: 8px;
   flex: 1;
   min-width: 0;
-}
-
-.conv-icon-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 14px;
-  flex-shrink: 0;
-}
-
-.conv-icon {
-  color: var(--primary-color);
-  flex-shrink: 0;
 }
 
 .conv-marker-group {
@@ -1109,6 +1328,11 @@ defineExpose({
   height: 16px;
   color: var(--text-color-secondary);
   opacity: 0.78;
+}
+
+.im-source-marker {
+  color: var(--primary-color);
+  opacity: 0.9;
 }
 
 .conv-title {

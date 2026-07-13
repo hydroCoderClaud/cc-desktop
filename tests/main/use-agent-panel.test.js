@@ -5,6 +5,7 @@ import { useAgentPanel } from '../../src/renderer/composables/useAgentPanel.js'
 
 const directoryCwds = (panel) => panel.availableDirectories.value.map(directory => directory.cwd)
 const projectGroupKeys = (panel) => panel.projectConversationGroups.value.map(group => group.key)
+const externalConversationIds = (panel) => panel.externalImConversations.value.map(conv => conv.id)
 
 describe('useAgentPanel filters', () => {
   beforeEach(() => {
@@ -30,7 +31,8 @@ describe('useAgentPanel filters', () => {
           { id: 'embed-owner', type: 'chat', ownerClientId: 'embed:hydrology-workbench', source: 'manual', cwd: 'C:/embed-owner', updatedAt: '2026-04-22T04:00:00.000Z' },
           { id: 'embed-type', type: 'chat', clientType: 'embedded', source: 'manual', cwd: 'C:/embed-type', updatedAt: '2026-04-22T05:00:00.000Z' },
           { id: 'embed-workspace', type: 'chat', source: 'manual', cwd: 'C:/Users/demo/AppData/Roaming/Hydro/embedded-apps/hydrology-workbench/workspace', updatedAt: '2026-04-22T06:00:00.000Z' }
-        ])
+        ]),
+        createAgentSession: vi.fn()
       }
     }
   })
@@ -177,6 +179,7 @@ describe('useAgentPanel filters', () => {
         id: 'project-session-a',
         type: 'chat',
         source: 'manual',
+        status: 'closed',
         projectId: 7,
         projectName: 'Shared Project',
         projectPath: 'C:/shared-project',
@@ -187,6 +190,7 @@ describe('useAgentPanel filters', () => {
         id: 'project-session-b',
         type: 'chat',
         source: 'manual',
+        status: 'closed',
         projectId: 7,
         projectName: 'Shared Project',
         projectPath: 'C:/shared-project',
@@ -223,7 +227,8 @@ describe('useAgentPanel filters', () => {
       projectName: 'Shared Project',
       cwd: 'C:/shared-project',
       count: 2,
-      expanded: true
+      hasOpenConversation: false,
+      expanded: false
     }))
     expect(panel.projectConversationGroups.value[1].items.map(conv => conv.id)).toEqual([
       'project-session-a',
@@ -279,6 +284,138 @@ describe('useAgentPanel filters', () => {
     )
   })
 
+  it('persists manual project order within pinned and unpinned projects', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'project-a',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Project A',
+        projectPath: 'C:/project-a',
+        cwd: 'C:/project-a',
+        updatedAt: '2026-04-22T01:00:00.000Z'
+      },
+      {
+        id: 'project-b',
+        type: 'chat',
+        source: 'manual',
+        projectId: 8,
+        projectName: 'Project B',
+        projectPath: 'C:/project-b',
+        cwd: 'C:/project-b',
+        updatedAt: '2026-04-22T02:00:00.000Z'
+      },
+      {
+        id: 'project-c',
+        type: 'chat',
+        source: 'manual',
+        projectId: 9,
+        projectName: 'Project C',
+        projectPath: 'C:/project-c',
+        cwd: 'C:/project-c',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(projectGroupKeys(panel)).toEqual(['project:9', 'project:8', 'project:7'])
+
+    panel.moveProject('project:7', 'project:9', 'before')
+    await nextTick()
+
+    expect(projectGroupKeys(panel)).toEqual(['project:7', 'project:9', 'project:8'])
+    expect(panel.projectOrderKeys.value).toEqual(['project:7', 'project:9', 'project:8'])
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      'agent.leftPanel.projectOrderKeys',
+      JSON.stringify(['project:7', 'project:9', 'project:8'])
+    )
+
+    panel.toggleProjectPinned('project:8')
+    panel.toggleProjectPinned('project:7')
+    await nextTick()
+
+    expect(projectGroupKeys(panel)).toEqual(['project:7', 'project:8', 'project:9'])
+
+    panel.moveProject('project:8', 'project:7', 'before')
+    await nextTick()
+
+    expect(projectGroupKeys(panel)).toEqual(['project:8', 'project:7', 'project:9'])
+    expect(panel.pinnedProjectKeys.value).toEqual(['project:8', 'project:7'])
+  })
+
+  it('clears filters that would hide a newly created conversation', async () => {
+    const createdSession = {
+      id: 'created-session',
+      type: 'chat',
+      source: 'manual',
+      projectId: 17,
+      projectName: 'Created Project',
+      projectPath: 'C:/created-project',
+      cwd: 'C:/created-project',
+      updatedAt: '2026-04-22T05:00:00.000Z'
+    }
+    global.window.electronAPI.createAgentSession.mockResolvedValue(createdSession)
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+    panel.selectedSource.value = 'feishu'
+    panel.selectedTaskFilter.value = 'with-task'
+    panel.selectedAppFilter.value = 'session-app'
+    panel.selectedCwd.value = 'cwd:C:/manual-a'
+
+    await panel.createConversation({ cwd: createdSession.cwd })
+    await nextTick()
+
+    expect(panel.selectedSource.value).toBe('all')
+    expect(panel.selectedTaskFilter.value).toBe('all')
+    expect(panel.selectedAppFilter.value).toBe('all')
+    expect(panel.selectedCwd.value).toBeNull()
+    expect(projectGroupKeys(panel)).toContain('project:17')
+  })
+
+  it('keeps compatible filters after creating a conversation', async () => {
+    const createdSession = {
+      id: 'created-session-compatible',
+      type: 'chat',
+      source: 'manual',
+      projectId: 17,
+      projectName: 'Created Project',
+      projectPath: 'C:/created-project',
+      cwd: 'C:/created-project',
+      updatedAt: '2026-04-22T05:00:00.000Z'
+    }
+    global.window.electronAPI.createAgentSession.mockResolvedValue(createdSession)
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([{
+      id: 'existing-created-project-session',
+      type: 'chat',
+      source: 'manual',
+      projectId: 17,
+      projectName: 'Created Project',
+      projectPath: 'C:/created-project',
+      cwd: 'C:/created-project',
+      updatedAt: '2026-04-22T04:00:00.000Z'
+    }])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+    panel.selectedSource.value = 'no-im'
+    panel.selectedTaskFilter.value = 'without-task'
+    panel.selectedAppFilter.value = 'plain-session'
+    panel.selectedCwd.value = 'project:17'
+
+    await panel.createConversation({ cwd: createdSession.cwd })
+    await nextTick()
+
+    expect(panel.selectedSource.value).toBe('no-im')
+    expect(panel.selectedTaskFilter.value).toBe('without-task')
+    expect(panel.selectedAppFilter.value).toBe('plain-session')
+    expect(panel.selectedCwd.value).toBe('project:17')
+    expect(projectGroupKeys(panel)).toEqual(['project:17'])
+  })
+
   it('keeps generated chat conversations visible and selectable by directory', async () => {
     window.localStorage.setItem('agent.leftPanel.recentCwds', JSON.stringify([
       'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old'
@@ -312,6 +449,8 @@ describe('useAgentPanel filters', () => {
     await panel.loadConversations()
 
     expect(panel.conversations.value.map(conv => conv.id)).toContain('feishu-auto')
+    expect(projectGroupKeys(panel)).toEqual(['project:9'])
+    expect(externalConversationIds(panel)).toEqual(['feishu-auto'])
     expect(directoryCwds(panel)).toEqual([
       'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old',
       'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200',
@@ -326,6 +465,89 @@ describe('useAgentPanel filters', () => {
       'C:/Users/demo/cc-desktop-agent-output/feishu/conv-cache-old',
       'C:/Users/demo/cc-desktop-agent-output/feishu/conv-07f0f200'
     ])
+  })
+
+  it('groups only IM-created automatic directories as external conversations', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'feishu-auto-new',
+        type: 'chat',
+        imChannel: 'feishu',
+        cwdAuto: true,
+        projectKind: 'agent-output',
+        cwd: 'C:/agent-output/feishu/new',
+        updatedAt: '2026-04-22T04:00:00.000Z'
+      },
+      {
+        id: 'dingtalk-auto-old',
+        type: 'chat',
+        imChannel: 'dingtalk',
+        projectKind: 'agent-output',
+        cwd: 'C:/agent-output/dingtalk/old',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'session-app-auto',
+        type: 'chat',
+        sessionAppId: 'session-app-1',
+        cwdAuto: true,
+        projectKind: 'agent-output',
+        cwd: 'C:/agent-output/session-app/workspace',
+        updatedAt: '2026-04-22T02:00:00.000Z'
+      },
+      {
+        id: 'scheduled-auto',
+        type: 'chat',
+        source: 'scheduled',
+        cwdAuto: true,
+        projectKind: 'agent-output',
+        cwd: 'C:/agent-output/scheduled/workspace',
+        updatedAt: '2026-04-22T01:00:00.000Z'
+      },
+      {
+        id: 'manual-im-workspace',
+        type: 'chat',
+        imChannel: 'feishu',
+        projectKind: 'workspace',
+        cwd: 'C:/workspace/feishu',
+        updatedAt: '2026-04-22T00:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+
+    expect(externalConversationIds(panel)).toEqual(['feishu-auto-new', 'dingtalk-auto-old'])
+    expect(projectGroupKeys(panel)).toEqual([
+      'cwd:C:/agent-output/session-app/workspace',
+      'cwd:C:/agent-output/scheduled/workspace',
+      'cwd:C:/workspace/feishu'
+    ])
+    expect(panel.externalImExpanded.value).toBe(false)
+
+    panel.toggleExternalImExpanded()
+    await nextTick()
+
+    expect(panel.externalImExpanded.value).toBe(true)
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      'agent.leftPanel.expandedProjectKeys',
+      JSON.stringify(['external-im'])
+    )
+
+    panel.selectedSource.value = 'feishu'
+    await nextTick()
+
+    expect(externalConversationIds(panel)).toEqual(['feishu-auto-new'])
+
+    panel.selectCwd('C:/agent-output/dingtalk/old')
+    await nextTick()
+
+    expect(externalConversationIds(panel)).toEqual([])
+
+    panel.selectedSource.value = 'all'
+    await nextTick()
+
+    expect(externalConversationIds(panel)).toEqual(['dingtalk-auto-old'])
   })
 
   it('upgrades recent cwd entries to project directory keys when paths match', async () => {
