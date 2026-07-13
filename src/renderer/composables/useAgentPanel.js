@@ -7,6 +7,9 @@ import { getSessionImChannel } from '@shared/external-im-meta'
 
 const RECENT_CWD_LIMIT = 10
 const RECENT_CWD_STORAGE_KEY = 'agent.leftPanel.recentCwds'
+const PINNED_PROJECTS_STORAGE_KEY = 'agent.leftPanel.pinnedProjectKeys'
+const EXPANDED_PROJECTS_STORAGE_KEY = 'agent.leftPanel.expandedProjectKeys'
+const UNCATEGORIZED_PROJECT_KEY = 'uncategorized'
 
 // 模块级别的已关闭会话集合（跨组件共享）
 // 用于在队列自动消费前检查会话是否已关闭
@@ -116,6 +119,16 @@ function getConversationDirectoryEntry(conv) {
   }
 }
 
+function getFallbackDirectoryEntry() {
+  return {
+    key: UNCATEGORIZED_PROJECT_KEY,
+    cwd: '',
+    projectId: null,
+    projectName: null,
+    projectKind: 'uncategorized'
+  }
+}
+
 function getLocalStorage() {
   try {
     return typeof window !== 'undefined' ? window.localStorage : null
@@ -135,6 +148,47 @@ function uniqueCwds(cwds) {
     }
   }
   return result
+}
+
+function uniqueStrings(values) {
+  const seen = new Set()
+  const result = []
+  for (const value of values || []) {
+    const normalized = typeof value === 'string' ? value.trim() : ''
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized)
+      result.push(normalized)
+    }
+  }
+  return result
+}
+
+function loadStringList(storageKey) {
+  const storage = getLocalStorage()
+  if (!storage) return { found: false, values: [] }
+
+  try {
+    const raw = storage.getItem(storageKey)
+    if (raw === null || raw === undefined) return { found: false, values: [] }
+    const parsed = JSON.parse(raw)
+    return {
+      found: true,
+      values: Array.isArray(parsed) ? uniqueStrings(parsed) : []
+    }
+  } catch {
+    return { found: false, values: [] }
+  }
+}
+
+function saveStringList(storageKey, values) {
+  const storage = getLocalStorage()
+  if (!storage) return
+
+  try {
+    storage.setItem(storageKey, JSON.stringify(uniqueStrings(values)))
+  } catch {
+    // 本地 UI 状态不可写时，不影响会话列表本身。
+  }
 }
 
 function loadRecentCwds() {
@@ -169,6 +223,11 @@ function saveRecentCwds(cwds) {
 function getConversationTimestamp(conv) {
   const ts = Date.parse(conv?.updatedAt || conv?.createdAt || '')
   return Number.isFinite(ts) ? ts : 0
+}
+
+function getDirectorySortName(entry) {
+  const name = entry?.projectName || entry?.cwd || entry?.key || ''
+  return String(name).toLocaleLowerCase()
 }
 
 function getConversationDirectoriesByRecency(conversations) {
@@ -239,6 +298,10 @@ export function useAgentPanel() {
   const selectedAppFilter = ref('all')
   const recentCwds = ref(loadRecentCwds())
   const sessionApps = ref([])
+  const pinnedProjectKeys = ref(loadStringList(PINNED_PROJECTS_STORAGE_KEY).values)
+  const expandedProjectStorage = loadStringList(EXPANDED_PROJECTS_STORAGE_KEY)
+  const expandedProjectKeys = ref(expandedProjectStorage.values)
+  const hasInitializedExpandedProjectKeys = ref(expandedProjectStorage.found)
 
   /**
    * 加载对话列表（后端已合并活跃+历史）
@@ -453,6 +516,90 @@ export function useAgentPanel() {
     })
   })
 
+  const isProjectPinned = (projectKey) => pinnedProjectKeys.value.includes(projectKey)
+
+  const projectConversationGroups = computed(() => {
+    const groupsByKey = new Map()
+
+    for (const conv of filteredConversations.value) {
+      const entry = getConversationDirectoryEntry(conv) || getFallbackDirectoryEntry()
+      if (!groupsByKey.has(entry.key)) {
+        groupsByKey.set(entry.key, {
+          ...entry,
+          items: [],
+          count: 0,
+          latestTimestamp: 0
+        })
+      }
+
+      const group = groupsByKey.get(entry.key)
+      const timestamp = getConversationTimestamp(conv)
+      group.items.push(conv)
+      group.count += 1
+      group.latestTimestamp = Math.max(group.latestTimestamp, timestamp)
+    }
+
+    const pinnedOrder = new Map(pinnedProjectKeys.value.map((key, index) => [key, index]))
+
+    return Array.from(groupsByKey.values())
+      .map(group => ({
+        ...group,
+        items: group.items.sort((a, b) => getConversationTimestamp(b) - getConversationTimestamp(a)),
+        pinned: pinnedOrder.has(group.key),
+        expanded: expandedProjectKeys.value.includes(group.key)
+      }))
+      .sort((a, b) => {
+        const aPinnedIndex = pinnedOrder.has(a.key) ? pinnedOrder.get(a.key) : Number.POSITIVE_INFINITY
+        const bPinnedIndex = pinnedOrder.has(b.key) ? pinnedOrder.get(b.key) : Number.POSITIVE_INFINITY
+        if (aPinnedIndex !== bPinnedIndex) return aPinnedIndex - bPinnedIndex
+        if (a.latestTimestamp !== b.latestTimestamp) return b.latestTimestamp - a.latestTimestamp
+        return getDirectorySortName(a).localeCompare(getDirectorySortName(b))
+      })
+  })
+
+  watch(projectConversationGroups, (groups) => {
+    if (hasInitializedExpandedProjectKeys.value || groups.length === 0) return
+    expandedProjectKeys.value = groups.map(group => group.key)
+    hasInitializedExpandedProjectKeys.value = true
+  }, { immediate: true })
+
+  const setProjectExpanded = (projectKey, expanded) => {
+    if (!projectKey) return
+    const current = new Set(expandedProjectKeys.value)
+    if (expanded) {
+      current.add(projectKey)
+    } else {
+      current.delete(projectKey)
+    }
+    expandedProjectKeys.value = Array.from(current)
+    hasInitializedExpandedProjectKeys.value = true
+    saveStringList(EXPANDED_PROJECTS_STORAGE_KEY, expandedProjectKeys.value)
+  }
+
+  const toggleProjectExpanded = (projectKey) => {
+    setProjectExpanded(projectKey, !expandedProjectKeys.value.includes(projectKey))
+  }
+
+  const expandProject = (projectKey) => {
+    setProjectExpanded(projectKey, true)
+  }
+
+  const collapseOtherProjects = (projectKey) => {
+    if (!projectKey) return
+    expandedProjectKeys.value = [projectKey]
+    hasInitializedExpandedProjectKeys.value = true
+    saveStringList(EXPANDED_PROJECTS_STORAGE_KEY, expandedProjectKeys.value)
+  }
+
+  const toggleProjectPinned = (projectKey) => {
+    if (!projectKey) return
+    const current = pinnedProjectKeys.value.filter(key => key !== projectKey)
+    pinnedProjectKeys.value = isProjectPinned(projectKey)
+      ? current
+      : [projectKey, ...current]
+    saveStringList(PINNED_PROJECTS_STORAGE_KEY, pinnedProjectKeys.value)
+  }
+
   /**
    * 按时间分组（今天、昨天、更早）
    */
@@ -490,7 +637,14 @@ export function useAgentPanel() {
     selectedAppFilter,
     availableDirectories,
     appFilterOptions,
+    pinnedProjectKeys,
+    expandedProjectKeys,
     selectCwd,
+    projectConversationGroups,
+    toggleProjectPinned,
+    toggleProjectExpanded,
+    expandProject,
+    collapseOtherProjects,
     groupedConversations,
     loadConversations,
     createConversation,

@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 import { useAgentPanel } from '../../src/renderer/composables/useAgentPanel.js'
 
 const directoryCwds = (panel) => panel.availableDirectories.value.map(directory => directory.cwd)
+const projectGroupKeys = (panel) => panel.projectConversationGroups.value.map(group => group.key)
 
 describe('useAgentPanel filters', () => {
   beforeEach(() => {
@@ -168,6 +169,114 @@ describe('useAgentPanel filters', () => {
       'project-session-a',
       'project-session-b'
     ])
+  })
+
+  it('builds a project tree from filtered conversations without database changes', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'project-session-a',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'project-session-b',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T02:00:00.000Z'
+      },
+      {
+        id: 'cwd-session',
+        type: 'chat',
+        source: 'manual',
+        cwd: 'C:/cwd-only',
+        updatedAt: '2026-04-22T04:00:00.000Z'
+      },
+      {
+        id: 'uncategorized-session',
+        type: 'chat',
+        source: 'manual',
+        updatedAt: '2026-04-22T01:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+    await nextTick()
+
+    expect(projectGroupKeys(panel)).toEqual([
+      'cwd:C:/cwd-only',
+      'project:7',
+      'uncategorized'
+    ])
+    expect(panel.projectConversationGroups.value[1]).toEqual(expect.objectContaining({
+      key: 'project:7',
+      projectId: '7',
+      projectName: 'Shared Project',
+      cwd: 'C:/shared-project',
+      count: 2,
+      expanded: true
+    }))
+    expect(panel.projectConversationGroups.value[1].items.map(conv => conv.id)).toEqual([
+      'project-session-a',
+      'project-session-b'
+    ])
+  })
+
+  it('keeps project pinning and expansion state in localStorage only', async () => {
+    window.localStorage.setItem('agent.leftPanel.pinnedProjectKeys', JSON.stringify(['project:7']))
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'project-session',
+        type: 'chat',
+        source: 'manual',
+        projectId: 7,
+        projectName: 'Shared Project',
+        projectPath: 'C:/shared-project',
+        cwd: 'C:/shared-project',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'cwd-session',
+        type: 'chat',
+        source: 'manual',
+        cwd: 'C:/cwd-only',
+        updatedAt: '2026-04-22T04:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+    await nextTick()
+
+    expect(projectGroupKeys(panel)).toEqual(['project:7', 'cwd:C:/cwd-only'])
+    expect(panel.projectConversationGroups.value[0].pinned).toBe(true)
+
+    panel.toggleProjectPinned('cwd:C:/cwd-only')
+    await nextTick()
+
+    expect(panel.pinnedProjectKeys.value).toEqual(['cwd:C:/cwd-only', 'project:7'])
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      'agent.leftPanel.pinnedProjectKeys',
+      JSON.stringify(['cwd:C:/cwd-only', 'project:7'])
+    )
+
+    panel.collapseOtherProjects('project:7')
+    await nextTick()
+
+    expect(panel.expandedProjectKeys.value).toEqual(['project:7'])
+    expect(window.localStorage.setItem).toHaveBeenCalledWith(
+      'agent.leftPanel.expandedProjectKeys',
+      JSON.stringify(['project:7'])
+    )
   })
 
   it('keeps generated chat conversations visible and selectable by directory', async () => {

@@ -85,82 +85,99 @@
 
     <!-- 对话列表 -->
     <div class="conversation-list">
-      <template v-for="group in conversationGroups" :key="group.key">
-        <div class="group-header">
-          <span>{{ group.label }}</span>
-        </div>
+      <template v-for="group in projectConversationGroups" :key="group.key">
         <div
-          v-for="conv in group.items"
-          :key="conv.id"
-          class="conversation-item"
-          :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
-          @click="$emit('select', conv)"
-          @dblclick="startRename(conv)"
+          class="project-group-header"
+          :class="{ active: isProjectGroupActive(group), pinned: group.pinned }"
+          @click="toggleProjectExpanded(group.key)"
+          @contextmenu.prevent.stop="showProjectContextMenu($event, group)"
         >
-          <div class="conv-info">
-            <div class="conv-icon-group">
-              <Icon :name="getConversationBaseIcon(conv)" :size="12" class="conv-icon" />
-              <button
-                v-if="conv.sessionAppId"
-                type="button"
-                class="session-app-icon-btn"
-                :title="resolveSessionAppName(conv)"
-                @click.stop="openSessionAppDetails(conv)"
-              >
-                <Icon name="sessionApp" :size="12" class="session-app-inline-icon" />
-              </button>
-              <button
-                v-if="hasConversationTask(conv)"
-                class="conv-icon-btn"
-                :title="t('rightPanel.tabs.scheduledTasks')"
-                @click.stop="openScheduledTaskManager({ taskId: conv.taskId })"
-              >
-                <Icon name="clock" :size="12" class="conv-icon interactive task-icon" />
-              </button>
-            </div>
-            <input
-              v-if="editingId === conv.id"
-              class="rename-input"
-              :value="editTitle"
-              @input="editTitle = $event.target.value"
-              @keydown.enter="saveRename"
-              @keydown.escape="cancelRename"
-              @blur="saveRename"
-              @click.stop
-              ref="renameInputRef"
-            />
-            <span v-if="editingId === conv.id" class="conv-title conv-title-placeholder" />
-            <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
-            <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
-              <span
-                v-if="profileName"
-                class="profile-badge"
-                :title="profileName"
-              >
-                <Icon name="api" :size="10" />
+          <Icon :name="group.expanded ? 'chevronDown' : 'chevronRight'" :size="12" class="project-toggle-icon" />
+          <Icon :name="group.expanded ? 'folderOpen' : 'folder'" :size="14" class="project-folder-icon" />
+          <div class="project-title-wrap">
+            <div class="project-title-row">
+              <span class="project-title" :title="group.cwd || getDirectoryDisplayName(group)">
+                {{ getDirectoryDisplayName(group) }}
               </span>
-            </template>
+              <Icon v-if="group.pinned" name="starFilled" :size="11" class="project-pin-icon" />
+            </div>
           </div>
-          <div class="conv-actions">
-            <button class="action-btn rename-btn" :title="t('common.rename')" @click.stop="startRename(conv)">
-              <Icon name="edit" :size="12" />
-            </button>
-            <button v-if="conv.status !== 'closed'" class="action-btn close-btn" :title="t('common.close')" @click.stop="$emit('close', conv)">
-              <Icon name="close" :size="12" />
-            </button>
-            <button class="action-btn delete-btn" :title="t('common.delete')" @click.stop="handleDelete(conv)">
-              <Icon name="delete" :size="12" />
-            </button>
-          </div>
+          <span class="project-count">{{ group.count }}</span>
         </div>
+        <template v-if="group.expanded">
+          <div
+            v-for="conv in group.items"
+            :key="conv.id"
+            class="conversation-item"
+            :class="{ active: activeSessionId === conv.id, closed: conv.status === 'closed' }"
+            @click="$emit('select', conv)"
+            @dblclick="startRename(conv)"
+            @contextmenu.prevent.stop="showConversationContextMenu($event, conv)"
+          >
+            <div class="conv-info">
+              <div class="conv-icon-group">
+                <Icon :name="getConversationBaseIcon(conv)" :size="12" class="conv-icon" />
+              </div>
+              <input
+                v-if="editingId === conv.id"
+                class="rename-input"
+                :value="editTitle"
+                @input="editTitle = $event.target.value"
+                @keydown.enter="saveRename"
+                @keydown.escape="cancelRename"
+                @blur="saveRename"
+                @click.stop
+                ref="renameInputRef"
+              />
+              <span v-if="editingId === conv.id" class="conv-title conv-title-placeholder" />
+              <span v-else class="conv-title">{{ conv.title || t('agent.chat') }}</span>
+              <div class="conv-marker-group">
+                <span
+                  v-if="conv.sessionAppId"
+                  class="conv-marker"
+                  :title="resolveSessionAppName(conv)"
+                >
+                  <Icon name="sessionApp" :size="11" />
+                </span>
+                <span
+                  v-if="hasConversationTask(conv)"
+                  class="conv-marker"
+                  :title="t('rightPanel.tabs.scheduledTasks')"
+                >
+                  <Icon name="clock" :size="11" />
+                </span>
+                <template v-for="profileName in [getProfileName(conv.apiProfileId)]" :key="'p'">
+                  <span
+                    v-if="profileName"
+                    class="profile-badge"
+                    :title="profileName"
+                  >
+                    <Icon name="api" :size="10" />
+                  </span>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
       </template>
 
       <!-- 空状态 -->
-      <div v-if="conversationGroups.length === 0 && !loading" class="empty-hint">
+      <div v-if="projectConversationGroups.length === 0 && !loading" class="empty-hint">
         <Icon name="robot" :size="32" style="margin-bottom: 8px; opacity: 0.5;" />
         <div>{{ t('agent.noConversations') }}</div>
       </div>
     </div>
+
+    <ContextMenu
+      ref="projectContextMenuRef"
+      :items="projectContextMenuItems"
+      @select="handleProjectContextSelect"
+    />
+    <ContextMenu
+      ref="conversationContextMenuRef"
+      :items="conversationContextMenuItems"
+      @select="handleConversationContextSelect"
+    />
 
     <n-modal v-model:show="showScheduledTaskManager" @after-leave="scheduledTaskId = null">
       <div class="scheduled-task-manager-modal">
@@ -178,11 +195,12 @@
 </template>
 
 <script setup>
-import { ref, computed, h, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, h, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useDialog } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import Icon from '@components/icons/Icon.vue'
+import ContextMenu from '@components/ContextMenu.vue'
 import ScheduledTaskDetailPanel from './ScheduledTaskDetailPanel.vue'
 import {
   getSessionImChannel,
@@ -214,7 +232,11 @@ const {
   availableDirectories,
   appFilterOptions,
   selectCwd,
-  groupedConversations,
+  projectConversationGroups,
+  toggleProjectPinned,
+  toggleProjectExpanded,
+  expandProject,
+  collapseOtherProjects,
   loadConversations,
   createConversation,
   closeConversation,
@@ -450,28 +472,16 @@ const appFilterTitle = computed(() => {
   return `${t('agent.filterApp')}: ${resolveAppFilterLabel(option)}`
 })
 
-// 按时间分组的对话列表（消除模板重复）
-const conversationGroups = computed(() => {
-  const groups = []
-  const g = groupedConversations.value
-  if (g.today.length > 0) {
-    groups.push({ key: 'today', label: t('common.today'), items: g.today })
-  }
-  if (g.yesterday.length > 0) {
-    groups.push({ key: 'yesterday', label: t('common.yesterday'), items: g.yesterday })
-  }
-  if (g.older.length > 0) {
-    groups.push({ key: 'older', label: t('common.older'), items: g.older })
-  }
-  return groups
-})
-
 // 重命名状态
 const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
 const showScheduledTaskManager = ref(false)
 const scheduledTaskId = ref(null)
+const projectContextMenuRef = ref(null)
+const conversationContextMenuRef = ref(null)
+const contextProject = ref(null)
+const contextConversation = ref(null)
 
 // API profiles（用于显示 profile 标记）
 const apiProfiles = ref([])
@@ -507,6 +517,17 @@ const handleNewConversation = () => {
   emit('new-conversation-request')
 }
 
+const handleNewConversationInProject = async (group) => {
+  const session = await createConversation({
+    type: 'chat',
+    cwd: group?.cwd || null
+  })
+  if (session) {
+    emit('created', session)
+    expandProject(group.key)
+  }
+}
+
 const openSessionAppDetails = async (conv) => {
   const appId = typeof conv?.sessionAppId === 'string' ? conv.sessionAppId.trim() : ''
   if (!appId || !window.electronAPI?.openSettingsWorkbench) return
@@ -522,6 +543,136 @@ const openSessionAppDetails = async (conv) => {
     console.error('[AgentLeftContent] Failed to open Session App details:', err)
   }
 }
+
+const isProjectGroupActive = (group) => {
+  if (!props.activeSessionId) return false
+  return group.items.some(item => item.id === props.activeSessionId)
+}
+
+const showProjectContextMenu = (event, group) => {
+  contextProject.value = group
+  contextConversation.value = null
+  conversationContextMenuRef.value?.hide()
+  projectContextMenuRef.value?.show(event.clientX, event.clientY)
+}
+
+const showConversationContextMenu = (event, conv) => {
+  contextConversation.value = conv
+  contextProject.value = null
+  projectContextMenuRef.value?.hide()
+  conversationContextMenuRef.value?.show(event.clientX, event.clientY)
+}
+
+const projectContextMenuItems = computed(() => {
+  const group = contextProject.value
+  return [
+    {
+      key: 'toggle-pin',
+      label: group?.pinned ? t('agent.unpinProject') : t('agent.pinProject')
+    },
+    {
+      key: 'new-conversation',
+      label: t('agent.newConversationInProject'),
+      disabled: !group?.cwd
+    },
+    {
+      key: 'open-directory',
+      label: t('agent.openDirectory'),
+      disabled: !group?.cwd
+    },
+    { divider: true, key: 'project-divider' },
+    {
+      key: 'collapse-others',
+      label: t('agent.collapseOtherProjects')
+    }
+  ]
+})
+
+const conversationContextMenuItems = computed(() => {
+  const conv = contextConversation.value
+  return [
+    { key: 'open', label: t('agent.openConversation') },
+    { key: 'rename', label: t('common.rename') },
+    {
+      key: 'close',
+      label: t('common.close'),
+      disabled: !conv || conv.status === 'closed'
+    },
+    { key: 'delete', label: t('common.delete') },
+    { divider: true, key: 'conversation-divider' },
+    {
+      key: 'open-task',
+      label: t('agent.openScheduledTask'),
+      disabled: !hasConversationTask(conv)
+    },
+    {
+      key: 'open-session-app',
+      label: t('agent.openSessionApp'),
+      disabled: !conv?.sessionAppId
+    }
+  ]
+})
+
+const handleProjectContextSelect = async (key) => {
+  const group = contextProject.value
+  if (!group) return
+
+  if (key === 'toggle-pin') {
+    toggleProjectPinned(group.key)
+    return
+  }
+  if (key === 'new-conversation') {
+    await handleNewConversationInProject(group)
+    return
+  }
+  if (key === 'open-directory') {
+    await window.electronAPI?.openPath?.(group.cwd)
+    return
+  }
+  if (key === 'collapse-others') {
+    collapseOtherProjects(group.key)
+  }
+}
+
+const handleConversationContextSelect = (key) => {
+  const conv = contextConversation.value
+  if (!conv) return
+
+  if (key === 'open') {
+    emit('select', conv)
+    return
+  }
+  if (key === 'rename') {
+    startRename(conv)
+    return
+  }
+  if (key === 'close') {
+    emit('close', conv)
+    return
+  }
+  if (key === 'delete') {
+    handleDelete(conv)
+    return
+  }
+  if (key === 'open-task') {
+    openScheduledTaskManager({ taskId: conv.taskId })
+    return
+  }
+  if (key === 'open-session-app') {
+    openSessionAppDetails(conv)
+  }
+}
+
+const ensureActiveProjectExpanded = () => {
+  if (!props.activeSessionId) return
+  const group = projectConversationGroups.value.find(item => item.items.some(conv => conv.id === props.activeSessionId))
+  if (group && !group.expanded) {
+    expandProject(group.key)
+  }
+}
+
+watch(() => props.activeSessionId, ensureActiveProjectExpanded, { immediate: true })
+watch(projectConversationGroups, ensureActiveProjectExpanded)
 
 const startRename = (conv) => {
   editingId.value = conv.id
@@ -824,25 +975,83 @@ defineExpose({
   padding: 4px 16px 16px;
 }
 
-.group-header {
+.project-group-header {
   display: flex;
   align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 8px;
+  margin: 4px 0 3px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-color);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.project-group-header:hover {
+  background: var(--panel-bg-subtle);
+}
+
+.project-group-header.active {
+  border-color: var(--selected-border);
+  background: var(--selected-bg);
+}
+
+.project-toggle-icon,
+.project-folder-icon {
+  flex-shrink: 0;
+  color: var(--text-color-secondary);
+}
+
+.project-folder-icon,
+.project-pin-icon {
+  color: var(--primary-color);
+}
+
+.project-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.project-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.project-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.project-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--hover-bg);
+  color: var(--text-color-secondary);
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 12px 2px 8px;
+  line-height: 18px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .conversation-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  margin-bottom: 6px;
+  padding: 8px 10px 8px 28px;
+  margin-bottom: 2px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -876,7 +1085,7 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 4px;
-  min-width: 28px;
+  min-width: 14px;
   flex-shrink: 0;
 }
 
@@ -885,30 +1094,21 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.conv-icon.interactive {
-  transition: color 0.2s, transform 0.2s;
+.conv-marker-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-.conv-icon-btn {
-  display: flex;
+.conv-marker {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.conv-icon-btn:hover .conv-icon.interactive {
-  color: var(--primary-color-hover);
-  transform: scale(1.08);
-}
-
-.task-icon {
   color: var(--text-color-secondary);
+  opacity: 0.78;
 }
 
 .conv-title {
@@ -937,15 +1137,9 @@ defineExpose({
   border-radius: 0;
   background: transparent;
   color: var(--text-color-secondary);
-  cursor: pointer;
+  cursor: default;
   transition: color 0.2s, opacity 0.2s;
   opacity: 0.72;
-}
-
-.profile-badge:hover {
-  color: var(--primary-color);
-  background: transparent;
-  opacity: 1;
 }
 
 .source-badge {
@@ -955,32 +1149,6 @@ defineExpose({
   color: var(--primary-color);
   font-size: 11px;
   line-height: 18px;
-}
-
-.session-app-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--primary-color);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
-}
-
-.session-app-icon-btn:hover {
-  background: var(--primary-ghost);
-  color: var(--primary-color-hover);
-  transform: translateY(-1px);
-}
-
-.session-app-inline-icon {
-  flex-shrink: 0;
 }
 
 .rename-input {
@@ -993,42 +1161,6 @@ defineExpose({
   background: var(--bg-color);
   color: var(--text-color);
   outline: none;
-}
-
-.conv-actions {
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.conversation-item:hover .conv-actions {
-  opacity: 1;
-}
-
-.action-btn {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text-color-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover {
-  background: var(--primary-ghost-hover);
-  color: var(--primary-color);
-}
-
-.action-btn.delete-btn:hover {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--danger-color);
 }
 
 .profile-badge {
