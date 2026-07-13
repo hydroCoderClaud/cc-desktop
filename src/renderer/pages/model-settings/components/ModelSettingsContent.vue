@@ -1,5 +1,5 @@
 <template>
-  <div class="model-page" :style="cssVars">
+  <div class="model-page" :class="{ embedded: props.embedded }" :style="cssVars">
     <div class="model-header">
       <div>
         <h1>{{ t('modelSettings.title') }}</h1>
@@ -43,6 +43,12 @@ import EmbeddedProviderManager from './EmbeddedProviderManager.vue'
 
 const { cssVars } = useTheme()
 const { t } = useLocale()
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const sections = computed(() => ([
   {
@@ -73,6 +79,14 @@ const currentSectionComponent = computed(() => sectionComponents[activeSection.v
   padding: 24px;
 }
 
+.model-page.embedded {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+  padding: 20px;
+}
+
 .model-header {
   margin-bottom: 20px;
 }
@@ -95,6 +109,15 @@ const currentSectionComponent = computed(() => sectionComponents[activeSection.v
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 20px;
   min-height: calc(100vh - 120px);
+}
+
+.model-page.embedded .model-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+.model-page.embedded .model-content {
+  overflow: auto;
 }
 
 .model-sidebar {

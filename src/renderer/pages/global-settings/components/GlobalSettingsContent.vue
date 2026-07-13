@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page" :style="cssVars">
+  <div class="settings-page" :class="{ 'workspace-embedded': props.embedded }" :style="cssVars">
     <!-- Header -->
     <div class="settings-header">
       <h1>{{ t('globalSettings.title') }}</h1>
@@ -112,6 +112,13 @@ import { useIPC } from '@composables/useIPC'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
+const emit = defineEmits(['close'])
 const message = useMessage()
 const { invoke } = useIPC()
 const { cssVars, initTheme } = useTheme()
@@ -278,6 +285,10 @@ const handleReset = async () => {
 }
 
 const handleClose = () => {
+  if (props.embedded) {
+    emit('close')
+    return
+  }
   window.close()
 }
 </script>

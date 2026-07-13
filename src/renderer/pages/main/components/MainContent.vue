@@ -3,6 +3,7 @@
     <!-- Left Panel (Project Selector + Sessions) -->
     <LeftPanel
       v-if="showLeftPanel && !isNotebookMode"
+      v-show="!isSettingsOpen"
       ref="leftPanelRef"
       :projects="projects"
       :current-project="currentProject"
@@ -24,14 +25,16 @@
     <!-- Main Content Area -->
     <div
       class="main-content"
-      :class="{
-        'notebook-main-content': isNotebookMode,
-        'right-panel-collapsed': !showRightPanel && !isNotebookMode
-      }"
+        :class="{
+          'notebook-main-content': isNotebookMode,
+          'settings-main-content': isSettingsOpen,
+          'right-panel-collapsed': !showRightPanel && !isNotebookMode
+        }"
     >
       <!-- Tab Bar -->
       <TabBar
         v-if="!isNotebookMode"
+        v-show="!isSettingsOpen"
         :tabs="currentModeTabs"
         :active-tab-id="activeTabId"
         :current-project="currentProject"
@@ -43,9 +46,9 @@
       />
 
       <!-- Main Area -->
-      <div class="main-area" :class="{ 'notebook-main-area': isNotebookMode }">
+      <div class="main-area" :class="{ 'notebook-main-area': isNotebookMode, 'settings-main-area': isSettingsOpen }">
         <!-- Agent Mode Content (v-show 保持组件活跃，避免 IPC 监听丢失和重复加载) -->
-        <div v-show="!isNotebookMode" class="mode-content">
+        <div v-show="!isNotebookMode && !isSettingsOpen" class="mode-content">
           <!-- Agent Welcome -->
           <div v-show="!hasAgentTabs || activeTabId === 'welcome'" class="empty-state">
             <div class="pixel-mascot"><Icon name="robot" :size="72" /></div>
@@ -83,8 +86,12 @@
         </div>
 
         <!-- Notebook Mode Content -->
-        <div v-show="isNotebookMode" class="mode-content notebook-mode-content">
+        <div v-show="isNotebookMode && !isSettingsOpen" class="mode-content notebook-mode-content">
           <NotebookWorkspace ref="notebookWorkspaceRef" />
+        </div>
+
+        <div v-show="isSettingsOpen" class="mode-content settings-mode-content">
+          <SettingsWorkspace />
         </div>
       </div>
     </div>
@@ -92,6 +99,7 @@
     <!-- Resize Handle -->
     <div
       v-if="showRightPanel && !isNotebookMode"
+      v-show="!isSettingsOpen"
       class="resize-handle"
       @mousedown="startResize"
       :title="t('panel.dragToResize')"
@@ -100,6 +108,7 @@
     <!-- Right Panel: Agent 文件浏览面板 -->
     <template v-if="showRightPanel && !isNotebookMode">
       <AgentRightPanel
+        v-show="!isSettingsOpen"
         ref="agentRightPanelRef"
         :style="{ width: rightPanelWidth }"
         :session-id="activeAgentSessionId"
@@ -119,6 +128,7 @@ import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
 import { useTabManagement } from '@composables/useTabManagement'
 import { useAppMode, AppMode } from '@composables/useAppMode'
+import { useSettingsNavigation } from '@composables/useSettingsNavigation'
 import { isValidSessionEvent } from '@composables/useValidation'
 import LeftPanel from './LeftPanel.vue'
 import AgentRightPanel from './AgentRightPanel/index.vue'
@@ -126,12 +136,14 @@ import TabBar from './TabBar.vue'
 import AgentChatTab from './AgentChatTab.vue'
 import Icon from '@components/icons/Icon.vue'
 import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
+import SettingsWorkspace from './SettingsWorkspace.vue'
 import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
 
 const message = useMessage()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 const { isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
+const { isSettingsOpen } = useSettingsNavigation()
 
 // Use composables
 const {
@@ -1093,6 +1105,10 @@ const openApiProfileManager = async () => {
   margin: 0;
 }
 
+.main-content.settings-main-content {
+  margin: 0;
+}
+
 .main-area {
   flex: 1;
   overflow: hidden;
@@ -1110,6 +1126,11 @@ const openApiProfileManager = async () => {
   border: none;
   border-radius: 0;
   margin-bottom: 0;
+}
+
+.settings-main-area {
+  border-top: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
 }
 
 /* Empty State */
@@ -1189,6 +1210,10 @@ const openApiProfileManager = async () => {
 }
 
 .notebook-mode-content {
+  background: var(--bg-color);
+}
+
+.settings-mode-content {
   background: var(--bg-color);
 }
 

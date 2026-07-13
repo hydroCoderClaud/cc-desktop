@@ -1,5 +1,5 @@
 <template>
-  <div class="channel-page" :style="cssVars">
+  <div class="channel-page" :class="{ embedded: props.embedded }" :style="cssVars">
     <div class="channel-header">
       <div>
         <h1>{{ t('channelSettings.title') }}</h1>
@@ -47,6 +47,12 @@ const PERSONAL_WEIXIN_ENABLED = false
 
 const { cssVars } = useTheme()
 const { t } = useLocale()
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const channels = computed(() => ([
   {
@@ -89,6 +95,14 @@ const currentChannelComponent = computed(() => channelComponents[activeChannel.v
   padding: 24px;
 }
 
+.channel-page.embedded {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+  padding: 20px;
+}
+
 .channel-header {
   margin-bottom: 20px;
 }
@@ -111,6 +125,15 @@ const currentChannelComponent = computed(() => channelComponents[activeChannel.v
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 20px;
   min-height: calc(100vh - 120px);
+}
+
+.channel-page.embedded .channel-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+.channel-page.embedded .channel-content {
+  overflow: auto;
 }
 
 .channel-sidebar {

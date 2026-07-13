@@ -4,6 +4,7 @@ import {
   NConfigProvider,
   NMessageProvider,
   NDialogProvider,
+  NNotificationProvider,
   NButton,
   NSpace,
   NDropdown,
@@ -14,9 +15,21 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NInputNumber,
   NColorPicker,
   NCheckbox,
-  NSelect
+  NSelect,
+  NSwitch,
+  NAlert,
+  NCard,
+  NTag,
+  NSpin,
+  NEmpty,
+  NGrid,
+  NGridItem,
+  NRadioGroup,
+  NRadio,
+  NPopconfirm
 } from 'naive-ui'
 import App from './App.vue'
 import { renderBootstrapError, setPageTitle } from '@/utils/page-bootstrap'
@@ -34,6 +47,7 @@ const naive = create({
     NConfigProvider,
     NMessageProvider,
     NDialogProvider,
+    NNotificationProvider,
     NButton,
     NSpace,
     NDropdown,
@@ -44,9 +58,21 @@ const naive = create({
     NForm,
     NFormItem,
     NInput,
+    NInputNumber,
     NColorPicker,
     NCheckbox,
-    NSelect
+    NSelect,
+    NSwitch,
+    NAlert,
+    NCard,
+    NTag,
+    NSpin,
+    NEmpty,
+    NGrid,
+    NGridItem,
+    NRadioGroup,
+    NRadio,
+    NPopconfirm
   ]
 })
 

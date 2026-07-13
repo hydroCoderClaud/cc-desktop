@@ -43,6 +43,7 @@ import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAppMode, AppMode } from '@composables/useAppMode'
 import { useEmbeddedApps } from '@composables/useEmbeddedApps'
+import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 import Icon from '@components/icons/Icon.vue'
 import LeftPanelHeader from './LeftPanelHeader.vue'
 import LeftPanelFooter from './LeftPanelFooter.vue'
@@ -53,6 +54,7 @@ const message = useMessage()
 const { t } = useLocale()
 const { isAgentMode, isNotebookMode, switchMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
+const { openSettings } = useSettingsNavigation()
 
 const props = defineProps({
   projects: {
@@ -234,6 +236,24 @@ const updateAgentConversationRuntime = (payload) => {
 }
 
 const handleSettingsSelect = async (key) => {
+  const settingsSection = {
+    'model-settings': SettingsSection.MODELS,
+    'channel-settings': SettingsSection.CHANNELS,
+    'global-settings': SettingsSection.GENERAL,
+    'appearance-settings': SettingsSection.APPEARANCE
+  }[key]
+
+  if (settingsSection) {
+    openSettings({
+      section: settingsSection,
+      context: {
+        mode: 'agent',
+        cwd: props.agentCwd || props.currentProject?.path || null
+      }
+    })
+    return
+  }
+
   if (!window.electronAPI) {
     console.error('Electron API not available')
     return
@@ -245,12 +265,6 @@ const handleSettingsSelect = async (key) => {
   }
 
   switch (key) {
-    case 'model-settings':
-      window.electronAPI.openModelSettings()
-      break
-    case 'global-settings':
-      window.electronAPI.openGlobalSettings()
-      break
     case 'capability-workbench':
       window.electronAPI.openSettingsWorkbench({
         mode: 'agent',
@@ -263,12 +277,6 @@ const handleSettingsSelect = async (key) => {
         cwd: props.agentCwd || props.currentProject?.path || null,
         section: 'session-apps'
       })
-      break
-    case 'appearance-settings':
-      window.electronAPI.openAppearanceSettings()
-      break
-    case 'channel-settings':
-      window.electronAPI.openChannelSettings()
       break
     case 'app-update':
       window.electronAPI.openUpdateManager()

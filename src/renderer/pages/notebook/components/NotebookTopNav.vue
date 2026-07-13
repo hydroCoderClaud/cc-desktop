@@ -140,6 +140,7 @@ import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
 import { useAppMode } from '@composables/useAppMode'
 import { useEmbeddedApps } from '@composables/useEmbeddedApps'
+import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 
 const props = defineProps({
   currentNotebook: { type: Object, default: null },
@@ -154,6 +155,7 @@ const dialog = useDialog()
 const { t } = useLocale()
 const { switchMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
+const { openSettings } = useSettingsNavigation()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
@@ -307,6 +309,24 @@ const renderSettingsLabel = (option) => {
 }
 
 const handleSettingsSelect = (key) => {
+  const settingsSection = {
+    'model-settings': SettingsSection.MODELS,
+    'channel-settings': SettingsSection.CHANNELS,
+    'global-settings': SettingsSection.GENERAL,
+    'appearance-settings': SettingsSection.APPEARANCE
+  }[key]
+
+  if (settingsSection) {
+    openSettings({
+      section: settingsSection,
+      context: {
+        mode: 'notebook',
+        cwd: props.currentNotebook?.notebookPath || null
+      }
+    })
+    return
+  }
+
   if (!window.electronAPI) return
 
   if (embeddedApps.value.some((app) => app.menuKey === key)) {
@@ -315,12 +335,6 @@ const handleSettingsSelect = (key) => {
   }
 
   switch (key) {
-    case 'model-settings':
-      window.electronAPI.openModelSettings()
-      break
-    case 'global-settings':
-      window.electronAPI.openGlobalSettings()
-      break
     case 'capability-workbench':
       window.electronAPI.openSettingsWorkbench({
         mode: 'notebook',
@@ -334,13 +348,7 @@ const handleSettingsSelect = (key) => {
         section: 'session-apps'
       })
       break
-    case 'appearance-settings':
-      window.electronAPI.openAppearanceSettings()
-      break
     // `session-history` 菜单入口暂时不用，保留窗口能力供其他路径复用。
-    case 'channel-settings':
-      window.electronAPI.openChannelSettings()
-      break
     case 'app-update':
       window.electronAPI.openUpdateManager()
       break
