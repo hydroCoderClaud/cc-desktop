@@ -2,7 +2,7 @@
  * Agent IPC 处理器
  * 处理 Agent 模式下的所有 IPC 通信
  *
- * 参照 active-session-handlers.js 的模式
+ * 使用统一 IPC handler 模式
  */
 
 const { shell } = require('electron')

@@ -1027,11 +1027,6 @@ export function useAgentChat(sessionId, options = {}) {
   /**
    * 处理错误事件
    */
-  // 错误码 → 友好提示映射
-  const ERROR_MESSAGES = {
-    'SESSION_IN_USE_BY_TERMINAL': () => t('session.sessionInUseByTerminal')
-  }
-
   const handleError = (data) => {
     if (data.sessionId !== sessionId) return
     isStreaming.value = false
@@ -1039,8 +1034,7 @@ export function useAgentChat(sessionId, options = {}) {
     streamTextReceived = false
     resetCurrentTurn()
     const rawError = data.error || t('agent.unknownError')
-    const resolver = ERROR_MESSAGES[rawError]
-    error.value = typeof resolver === 'function' ? resolver() : (resolver || rawError)
+    error.value = rawError
   }
 
   const handleCliError = (data) => {

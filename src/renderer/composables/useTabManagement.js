@@ -1,21 +1,17 @@
 /**
  * Tab 管理组合式函数
- * 管理终端 Tab 的创建、切换、关闭等操作
+ * 管理 Agent 对话 Tab 的创建、切换、关闭等操作
  */
 import { ref, computed } from 'vue'
-import { useIPC } from './useIPC'
 import { useLocale } from './useLocale'
-import { createTabFromSession, findTabBySessionId } from './useSessionUtils'
-import { isValidSession } from './useValidation'
 import { unmarkSessionClosed } from './useAgentPanel'
 
 export function useTabManagement() {
-  const { invoke } = useIPC()
   const { t } = useLocale()
 
   // State
   const tabs = ref([])  // TabBar 中显示的 tabs（用户可见的）
-  const allTabs = ref([])  // 所有 TerminalTab 组件（包括后台的，保持缓冲区数据）
+  const allTabs = ref([])  // 所有 Agent 对话 Tab（包括后台保留的组件）
   const activeTabId = ref('welcome')  // 默认显示欢迎页
 
   /**
@@ -27,85 +23,15 @@ export function useTabManagement() {
   })
 
   /**
-   * 终端 Tab 数量（不含欢迎页）
-   */
-  const terminalTabCount = computed(() => tabs.value.length)
-
-  /**
    * 是否在欢迎页
    */
   const isWelcomePage = computed(() => activeTabId.value === 'welcome')
-
-  /**
-   * 添加会话 Tab
-   * @param {Object} session - 会话对象
-   * @param {Object} project - 项目对象
-   * @returns {Object} 新创建的 Tab
-   */
-  const addSessionTab = (session, project) => {
-    const newTab = createTabFromSession(session, project)
-    tabs.value.push(newTab)
-    activeTabId.value = newTab.id
-    return newTab
-  }
-
-  /**
-   * 确保会话有对应的 Tab（如果没有则创建）
-   * @param {Object} session - 会话对象
-   * @returns {Object} Tab 对象
-   */
-  const ensureSessionTab = (session) => {
-    // CRITICAL: 重新打开会话时，清除关闭标记（恢复队列自动消费）
-    unmarkSessionClosed(session.id)
-
-    // 先在 allTabs 中查找（保持终端缓冲区的 tabs）
-    const existingTab = findTabBySessionId(allTabs.value, session.id)
-    if (existingTab) {
-      activeTabId.value = existingTab.id
-
-      // 如果不在 tabs 中（TabBar 显示），添加回去
-      if (!tabs.value.find(t => t.id === existingTab.id)) {
-        tabs.value.push(existingTab)
-      }
-
-      // 重要：通知后端该会话被聚焦（设置 visible=true）
-      if (window.electronAPI) {
-        window.electronAPI.focusActiveSession(session.id)
-      }
-
-      return existingTab
-    }
-
-    // 创建新 tab（使用 session 自带的 project 信息）
-    const newTab = {
-      id: `tab-${session.id}`,
-      sessionId: session.id,
-      projectId: session.projectId,
-      projectName: session.projectName,
-      projectPath: session.projectPath,
-      title: session.title || '',
-      status: session.status
-    }
-
-    // 同时添加到两个数组
-    tabs.value.push(newTab)
-    allTabs.value.push(newTab)
-    activeTabId.value = newTab.id
-
-    // 通知后端聚焦该会话
-    if (window.electronAPI) {
-      window.electronAPI.focusActiveSession(session.id)
-    }
-
-    return newTab
-  }
 
   /**
    * 选择 Tab
    * @param {Object} tab - Tab 对象
    * @param {Object} options - 选项
    * @param {Function} options.onProjectSwitch - 项目切换时的回调
-   * @param {Function} options.onTerminalFocus - 终端聚焦时的回调
    */
   const selectTab = (tab, options = {}) => {
     activeTabId.value = tab.id
@@ -120,130 +46,6 @@ export function useTabManagement() {
       options.onProjectSwitch(tab.projectId)
     }
 
-    // 通知后端聚焦该会话
-    if (window.electronAPI) {
-      window.electronAPI.focusActiveSession(tab.sessionId)
-    }
-
-    // 终端聚焦回调
-    if (options.onTerminalFocus) {
-      options.onTerminalFocus(tab)
-    }
-  }
-
-  /**
-   * 关闭 Tab
-   * @param {Object} tab - Tab 对象
-   */
-  const closeTab = async (tab) => {
-    // 断开连接（会话在后台继续运行）
-    try {
-      await invoke('disconnectActiveSession', tab.sessionId)
-    } catch (err) {
-      console.error('Failed to disconnect session:', err)
-    }
-
-    // 从 TabBar 的 tabs 数组中删除（UI 上移除 Tab）
-    const index = tabs.value.findIndex(t => t.id === tab.id)
-    if (index !== -1) {
-      tabs.value.splice(index, 1)
-    }
-
-    // 但保留在 allTabs 中，这样 TerminalTab 组件和缓冲区数据不会丢失
-
-    // 如果关闭的是当前活动 tab，切换到其他 tab
-    if (activeTabId.value === tab.id) {
-      if (tabs.value.length > 0) {
-        // 切换到剩余 tabs 中的最后一个
-        activeTabId.value = tabs.value[tabs.value.length - 1].id
-      } else {
-        // 没有其他 tabs 了，显示欢迎页
-        activeTabId.value = 'welcome'
-      }
-    }
-  }
-
-  /**
-   * 关闭会话的 Tab（通过 sessionId）
-   * @param {string} sessionId - 会话 ID
-   */
-  const closeTabBySessionId = async (sessionId) => {
-    const tab = findTabBySessionId(tabs.value, sessionId)
-    if (tab) {
-      await closeTab(tab)
-    }
-  }
-
-  /**
-   * 处理会话创建事件
-   * @param {Object} session - 会话对象
-   */
-  const handleSessionCreated = (session) => {
-    if (!isValidSession(session)) return
-    ensureSessionTab(session)
-  }
-
-  /**
-   * 处理会话选中事件
-   * @param {Object} session - 会话对象
-   * @param {Object} options - 选项
-   * @param {Function} options.onProjectSwitch - 项目切换时的回调
-   */
-  const handleSessionSelected = (session, options = {}) => {
-    if (!isValidSession(session)) return
-
-    // 如果需要切换项目
-    if (options.onProjectSwitch) {
-      options.onProjectSwitch(session.projectId)
-    }
-
-    ensureSessionTab(session)
-  }
-
-  /**
-   * 处理会话关闭事件（左侧面板点击关闭按钮）
-   * 与 closeTab 不同：这里是真正关闭会话，需要同时清理 tabs 和 allTabs
-   * @param {Object} session - 会话对象
-   */
-  const handleSessionClosed = (session) => {
-    if (!isValidSession(session)) return
-
-    // 从 allTabs 中查找（因为可能在后台）
-    const tab = findTabBySessionId(allTabs.value, session.id)
-    if (!tab) return
-
-    // 从 tabs 中移除（UI 显示）
-    const tabsIndex = tabs.value.findIndex(t => t.id === tab.id)
-    if (tabsIndex !== -1) {
-      tabs.value.splice(tabsIndex, 1)
-    }
-
-    // 从 allTabs 中移除（组件销毁）
-    const allTabsIndex = allTabs.value.findIndex(t => t.id === tab.id)
-    if (allTabsIndex !== -1) {
-      allTabs.value.splice(allTabsIndex, 1)
-    }
-
-    // 如果关闭的是当前活动 tab，切换到其他 tab
-    if (activeTabId.value === tab.id) {
-      if (tabs.value.length > 0) {
-        activeTabId.value = tabs.value[tabs.value.length - 1].id
-      } else {
-        activeTabId.value = 'welcome'
-      }
-    }
-  }
-
-  /**
-   * 更新 Tab 状态
-   * @param {string} sessionId - 会话 ID
-   * @param {string} status - 新状态
-   */
-  const updateTabStatus = (sessionId, status) => {
-    const tab = allTabs.value.find(t => t.sessionId === sessionId)
-    if (tab) {
-      tab.status = status
-    }
   }
 
   /**
@@ -343,13 +145,11 @@ export function useTabManagement() {
    * @param {Object} tab - Agent Tab 对象
    */
   const closeAgentTab = async (tab) => {
-    // 从 tabs 中移除（隐藏 tab，与 Terminal tab 保持一致）
+    // 从 tabs 中移除，但保留组件以便重新打开时直接复用
     const index = tabs.value.findIndex(t => t.id === tab.id)
     if (index !== -1) {
       tabs.value.splice(index, 1)
     }
-
-    // 保留在 allTabs 中，组件不销毁，重开时直接复用，避免误显示"历史会话"分隔线
 
     // 如果关闭的是当前活动 tab，切换到其他 tab
     if (activeTabId.value === tab.id) {
@@ -405,31 +205,20 @@ export function useTabManagement() {
   return {
     // State
     tabs,  // TabBar 显示的 tabs
-    allTabs,  // 所有 TerminalTab 组件（包括后台的）
+    allTabs,
     activeTabId,
 
     // Computed
     activeTab,
-    terminalTabCount,
     isWelcomePage,
 
     // Methods
-    addSessionTab,
-    ensureSessionTab,
     ensureAgentTab,
     closeAgentTab,
     closeAgentTabFully,
     selectTab,
-    closeTab,
-    closeTabBySessionId,
-    handleSessionCreated,
-    handleSessionSelected,
-    handleSessionClosed,
-    updateTabStatus,
     updateTabTitle,
-    getTabsByProjectId,
     goToWelcome,
-    findTabById,
-    findTabBySessionId: (sessionId) => findTabBySessionId(allTabs.value, sessionId)  // 使用 allTabs 查找
+    findTabById
   }
 }

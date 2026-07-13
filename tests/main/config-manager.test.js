@@ -106,6 +106,31 @@ describe('ConfigManager', () => {
       expect(proxy).not.toHaveProperty('needsMapping')
     })
 
+    it('启动时应清除已退役的终端设置', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        quickCommands: [
+          { id: 'legacy-quick-command', name: 'Compact', command: '/compact' }
+        ],
+        settings: {
+          terminal: {
+            fontSize: 16,
+            fontFamily: 'Consolas',
+            darkBackground: false
+          }
+        }
+      }))
+
+      const migratedManager = new ConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      expect(migratedManager.getConfig()).not.toHaveProperty('quickCommands')
+      expect(migratedManager.getConfig().settings).not.toHaveProperty('terminal')
+      const persistedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(persistedConfig).not.toHaveProperty('quickCommands')
+      expect(persistedConfig.settings).not.toHaveProperty('terminal')
+    })
+
     it('新增 profile 不应写入已废弃的 selectedModelTier', async () => {
       const profile = configManager.addAPIProfile({
         name: 'Test Profile',
@@ -320,26 +345,6 @@ describe('ConfigManager', () => {
       const timeout = configManager.getTimeout()
       expect(timeout.test).toBe(60000)
       expect(timeout.request).toBe(300000)
-    })
-  })
-
-  describe('终端设置', () => {
-    it('应该有默认的终端设置', () => {
-      const settings = configManager.getTerminalSettings()
-      expect(settings).toBeDefined()
-      expect(settings.fontSize).toBe(14)
-      expect(settings.fontFamily).toBeDefined()
-    })
-
-    it('应该能更新终端设置', () => {
-      configManager.updateTerminalSettings({
-        fontSize: 16,
-        fontFamily: 'Consolas'
-      })
-
-      const settings = configManager.getTerminalSettings()
-      expect(settings.fontSize).toBe(16)
-      expect(settings.fontFamily).toBe('Consolas')
     })
   })
 

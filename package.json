@@ -6,7 +6,7 @@
   "author": "HydroCoder",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
-    "postinstall": "electron-rebuild -f -w better-sqlite3,node-pty",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
@@ -48,7 +48,6 @@
     "mammoth": "^1.12.0",
     "marked": "^15.0.12",
     "naive-ui": "^2.43.2",
-    "node-pty": "^1.1.0",
     "qrcode": "^1.5.4",
     "undici": "^7.22.0",
     "uuid": "^9.0.0",
@@ -97,7 +96,6 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/node-pty/**/*",
       "node_modules/better-sqlite3/**/*",
       "node_modules/@anthropic-ai/claude-agent-sdk/**/*",
       "node_modules/@anthropic-ai/claude-agent-sdk-*/*",

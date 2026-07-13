@@ -901,12 +901,7 @@
              "PingFang SC", "Microsoft YaHei", "Noto Sans SC",
              sans-serif;
 
-  /* 等宽字体 - 终端 + 代码块统一使用（用户可配置）
-   *
-   * 设计决策：终端字体 = 代码块字体，用户只需设置一次
-   * 来源：config.settings.terminal.fontFamily
-   * 默认值：见下方 fallback
-   */
+  /* 等宽字体 - 代码块和技术内容统一使用 */
   --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono",
                "Consolas", "Monaco", "Ubuntu Mono", monospace;
 
@@ -918,9 +913,6 @@
   --text-xl: 16px;     /* 小标题 */
   --text-2xl: 18px;    /* 大标题 */
   --text-3xl: 24px;    /* 页面标题 */
-
-  /* 终端专用字号（可由用户设置覆盖） */
-  --terminal-font-size: 14px;
 
   /* ========== 行高 ========== */
   --leading-none: 1;
@@ -958,31 +950,9 @@ code, kbd, pre, samp, .mono {
   font-family: var(--font-mono);
 }
 
-/* 终端组件 - 同样使用 --font-mono */
-.terminal, .xterm {
-  font-family: var(--font-mono);
-  font-size: var(--terminal-font-size);
-}
 ```
 
-### 5.3 实现方案
-
-```javascript
-// 在 Vue 组件中动态设置 --font-mono
-// 当用户更改终端字体设置时，同步更新 CSS 变量
-
-const updateMonoFont = (fontFamily) => {
-  document.documentElement.style.setProperty('--font-mono', fontFamily)
-}
-
-// 初始化时从配置读取
-const terminalSettings = await window.electronAPI.getTerminalSettings()
-if (terminalSettings?.fontFamily) {
-  updateMonoFont(terminalSettings.fontFamily)
-}
-```
-
-### 5.4 平台特定优化
+### 5.3 平台特定优化
 
 ```css
 /* macOS 特定优化 */
@@ -1001,16 +971,13 @@ if (terminalSettings?.fontFamily) {
 }
 ```
 
-### 5.5 迁移检查清单
+### 5.4 迁移检查清单
 
 需要统一替换的位置：
 
 - [ ] `src/renderer/pages/main/components/LeftPanel.vue` - 移除 `Crimson Pro`
-- [ ] `src/renderer/pages/main/components/TerminalTab.vue` - 使用 `var(--font-mono)`
 - [ ] `src/renderer/components/ProviderCard.vue:123` - 改用 `var(--font-mono)`
-- [ ] `src/renderer/pages/main/components/MainContent.vue:536` - 改用 `var(--font-mono)`
 - [ ] 所有 `font-family: monospace` → `var(--font-mono)`
-- [ ] 初始化时从用户设置同步 `--font-mono` CSS 变量
 
 ---
 

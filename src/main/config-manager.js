@@ -60,6 +60,18 @@ function removeRetiredSessionLimitSettings(config) {
   return changed;
 }
 
+function removeRetiredTerminalSettings(config) {
+  if (!config?.settings || !Object.prototype.hasOwnProperty.call(config.settings, 'terminal')) return false;
+  delete config.settings.terminal;
+  return true;
+}
+
+function removeRetiredQuickCommands(config) {
+  if (!config || !Object.prototype.hasOwnProperty.call(config, 'quickCommands')) return false;
+  delete config.quickCommands;
+  return true;
+}
+
 class ConfigManager {
   /**
    * @param {Object} options - 可选配置
@@ -83,9 +95,6 @@ class ConfigManager {
 
       // 服务商定义（首次初始化写入默认列表，之后以持久化配置为准）
       serviceProviderDefinitions: getDefaultProviders(),
-
-      // 快捷命令（右侧面板）
-      quickCommands: [],
 
       // 超时配置
       timeout: {
@@ -161,13 +170,6 @@ class ConfigManager {
       settings: {
         theme: 'light',
 
-        // 终端设置
-        terminal: {
-          fontSize: 14,
-          fontFamily: '"Ubuntu Mono", monospace',
-          darkBackground: true
-        },
-
         maxRecentProjects: 10,
 
         // 应用模式
@@ -222,6 +224,16 @@ class ConfigManager {
 
         if (removeRetiredSessionLimitSettings(mergedConfig)) {
           console.log('[ConfigManager] Removed retired global session limit settings');
+          needsSave = true;
+        }
+
+        if (removeRetiredTerminalSettings(mergedConfig)) {
+          console.log('[ConfigManager] Removed retired terminal settings');
+          needsSave = true;
+        }
+
+        if (removeRetiredQuickCommands(mergedConfig)) {
+          console.log('[ConfigManager] Removed retired quick commands');
           needsSave = true;
         }
 
@@ -454,87 +466,6 @@ class ConfigManager {
     return this.save();
   }
 
-  // ========================================
-  // 快捷命令管理
-  // ========================================
-
-  /**
-   * 获取快捷命令列表
-   */
-  getQuickCommands() {
-    return this.config.quickCommands || [];
-  }
-
-  /**
-   * 添加快捷命令
-   */
-  addQuickCommand(command) {
-    if (!this.config.quickCommands) {
-      this.config.quickCommands = [];
-    }
-    const newCommand = {
-      id: uuidv4(),
-      name: command.name,
-      command: command.command,
-      color: command.color || null,
-      createdAt: new Date().toISOString()
-    };
-    this.config.quickCommands.push(newCommand);
-    this.save();
-    return newCommand;
-  }
-
-  /**
-   * 更新快捷命令
-   */
-  updateQuickCommand(id, updates) {
-    if (!this.config.quickCommands) return null;
-    const index = this.config.quickCommands.findIndex(c => c.id === id);
-    if (index === -1) return null;
-
-    this.config.quickCommands[index] = {
-      ...this.config.quickCommands[index],
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-    this.save();
-    return this.config.quickCommands[index];
-  }
-
-  /**
-   * 删除快捷命令
-   */
-  deleteQuickCommand(id) {
-    if (!this.config.quickCommands) return false;
-    const index = this.config.quickCommands.findIndex(c => c.id === id);
-    if (index === -1) return false;
-
-    this.config.quickCommands.splice(index, 1);
-    this.save();
-    return true;
-  }
-
-  /**
-   * 获取终端设置
-   */
-  getTerminalSettings() {
-    return this.config.settings?.terminal || { fontSize: 14, fontFamily: '"Ubuntu Mono", monospace', darkBackground: true };
-  }
-
-  /**
-   * 更新终端设置
-   */
-  updateTerminalSettings(terminalSettings) {
-    if (!this.config.settings) {
-      this.config.settings = {};
-    }
-    this.config.settings.terminal = {
-      ...this.config.settings.terminal,
-      ...terminalSettings
-    };
-    return this.save();
-  }
-
   /**
    * 更新配置
    */
@@ -545,6 +476,8 @@ class ConfigManager {
     };
     normalizeClaudeConfigDirForSave(nextConfig);
     removeRetiredSessionLimitSettings(nextConfig);
+    removeRetiredTerminalSettings(nextConfig);
+    removeRetiredQuickCommands(nextConfig);
     this.config = nextConfig;
     return this.save();
   }
@@ -555,6 +488,7 @@ class ConfigManager {
   updateSettings(settings) {
     const nextSettings = { ...settings };
     removeRetiredSessionLimitSettings({ settings: nextSettings });
+    removeRetiredTerminalSettings({ settings: nextSettings });
     if (Object.prototype.hasOwnProperty.call(nextSettings, 'developerClaudeSource')) {
       nextSettings.developerClaudeSource = normalizeDeveloperClaudeSource(nextSettings.developerClaudeSource);
     }

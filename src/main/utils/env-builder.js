@@ -227,7 +227,7 @@ function buildBasicEnv(extraVars = {}) {
 
 /**
  * 构建标准额外环境变量（TERM、SHELL、AUTOCOMPACT）
- * 统一 AgentSessionManager 和 ActiveSessionManager 的 extraVars 逻辑
+ * 统一 Agent 会话的 extraVars 逻辑
  *
  * @param {Object} configManager - ConfigManager 实例
  * @returns {Object} extraVars 对象
@@ -267,7 +267,7 @@ function buildStandardExtraVars(configManager) {
 
 /**
  * 构建完整的子进程环境变量
- * 统一 AgentSessionManager 和 ActiveSessionManager 的环境构建逻辑：
+ * 统一 Agent 会话的环境构建逻辑：
  *   基础环境（PATH增强）→ 合并 Claude 环境变量 → 合并额外变量
  *
  * @param {Object} profile - API Profile 对象

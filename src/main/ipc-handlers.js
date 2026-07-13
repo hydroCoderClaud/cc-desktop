@@ -24,7 +24,6 @@ const { SessionDatabase } = safeRequire('./session-database', 'SessionDatabase')
 const configHandlersMod = safeRequire('./ipc-handlers/config-handlers', 'config-handlers');
 const projectHandlersMod = safeRequire('./ipc-handlers/project-handlers', 'project-handlers');
 const projectFilesHandlersMod = safeRequire('./ipc-handlers/project-files-handlers', 'project-files-handlers');
-const activeSessionHandlersMod = safeRequire('./ipc-handlers/active-session-handlers', 'active-session-handlers');
 const promptHandlersMod = safeRequire('./ipc-handlers/prompt-handlers', 'prompt-handlers');
 const queueHandlersMod = safeRequire('./ipc-handlers/queue-handlers', 'queue-handlers');
 const pluginHandlersMod = safeRequire('./ipc-handlers/plugin-handlers', 'plugin-handlers');
@@ -56,7 +55,6 @@ const qualityCheckServiceMod = safeRequire('./hydrology/quality-check-service', 
 const setupConfigHandlers = configHandlersMod?.setupConfigHandlers;
 const setupProjectHandlers = projectHandlersMod?.setupProjectHandlers;
 const setupProjectFilesHandlers = projectFilesHandlersMod?.setupProjectFilesHandlers;
-const setupActiveSessionHandlers = activeSessionHandlersMod?.setupActiveSessionHandlers;
 const registerPromptHandlers = promptHandlersMod?.registerPromptHandlers;
 const setupQueueHandlers = queueHandlersMod?.setupQueueHandlers;
 const setupPluginHandlers = pluginHandlersMod?.setupPluginHandlers;
@@ -119,7 +117,7 @@ function getEmbeddedAppWorkspaceDir(appId) {
   return workspaceDir
 }
 
-function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSessionManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, enterpriseWeixinBridge = null, localAgentApiServer = null, wecomCliManager = null) {
+function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabilityManager, updateManager, dingtalkBridge, notebookManager, embeddedAppPreferencesManager, scheduledTaskService, weixinNotifyService, weixinBridge, feishuBridge = null, enterpriseWeixinBridge = null, localAgentApiServer = null, wecomCliManager = null) {
   const translate = (key, params = {}) => typeof tMain === 'function'
     ? tMain(configManager, key, params)
     : key
@@ -162,9 +160,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     : null
 
   // 设置依赖关系
-  if (activeSessionManager) {
-    activeSessionManager.setSessionDatabase(sessionDatabase);
-  }
   if (agentSessionManager) {
     agentSessionManager.setSessionDatabase(sessionDatabase);
     agentSessionManager.sessionAppManager = sessionAppManager
@@ -813,38 +808,6 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
   // ========================================
   if (setupProjectFilesHandlers) {
     setupProjectFilesHandlers(ipcMain);
-  }
-
-  // ========================================
-  // Terminal 相关
-  // ========================================
-
-  ipcMain.handle('terminal:start', async (event, projectPath) => {
-    return terminalManager.start(projectPath);
-  });
-
-  ipcMain.on('terminal:write', (event, data) => {
-    terminalManager.write(data);
-  });
-
-  ipcMain.on('terminal:resize', (event, { cols, rows }) => {
-    terminalManager.resize(cols, rows);
-  });
-
-  ipcMain.handle('terminal:kill', async () => {
-    terminalManager.kill();
-    return { success: true };
-  });
-
-  ipcMain.handle('terminal:status', async () => {
-    return terminalManager.getStatus();
-  });
-
-  // ========================================
-  // 活动会话管理（多终端支持）
-  // ========================================
-  if (activeSessionManager) {
-    setupActiveSessionHandlers(ipcMain, activeSessionManager);
   }
 
   // ========================================

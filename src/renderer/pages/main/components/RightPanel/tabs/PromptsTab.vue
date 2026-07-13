@@ -172,7 +172,7 @@
             </button>
             <button
               class="icon-btn small"
-              :title="t('rightPanel.quickInput.addToQueue')"
+              :title="t('rightPanel.prompts.addToQueue')"
               @click="handleAddToQueue(prompt)"
             >
               <Icon name="add" :size="12" />

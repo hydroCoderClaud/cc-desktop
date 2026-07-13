@@ -123,42 +123,6 @@ export default {
       prompts: '提示词',
       settings: '设置'
     },
-    // 快捷命令
-    quickCommands: {
-      label: '快捷命令',
-      empty: '点击 + 添加常用命令',
-      add: '添加快捷命令',
-      edit: '编辑快捷命令',
-      name: '名称',
-      namePlaceholder: '如：压缩',
-      command: '命令',
-      commandPlaceholder: '如：/compact',
-      color: '颜色',
-      noColor: '无颜色'
-    },
-    // 快速输入
-    quickInput: {
-      label: '快速输入',
-      hint: '回车输入，再回车执行',
-      placeholder: '输入命令或提示词...',
-      send: '发送到终端',
-      addToQueue: '加入队列',
-      createPrompt: '创建提示词'
-    },
-    // 命令队列
-    queue: {
-      empty: '队列为空',
-      emptyHint: '使用下方输入框添加命令',
-      mode: '模式',
-      modeManual: '手动',
-      modeSemiAuto: '半自动',
-      modeAuto: '全自动',
-      import: '导入',
-      settings: '设置',
-      send: '发送',
-      remove: '移除',
-      history: '执行历史'
-    },
     // 插件
     plugins: {
       empty: '未找到插件',
@@ -706,28 +670,9 @@ export default {
       categoryPlaceholder: '分类（可选）',
       deleteConfirm: '确定删除提示词 "{name}" 吗？',
       insertToInput: '填入输入框',
+      addToQueue: '加入队列',
       // 市场
       marketBadge: '市场'
-    },
-    // 消息队列
-    messageQueue: {
-      label: '消息队列',
-      empty: '队列为空',
-      noResults: '无搜索结果',
-      clickHint: '点击发送到终端',
-      editTitle: '编辑消息',
-      send: '发送',
-      execute: '执行',
-      searchPlaceholder: '搜索消息...',
-      moveUp: '上移',
-      moveDown: '下移',
-      firstPage: '首页',
-      prevPage: '上一页',
-      nextPage: '下一页',
-      lastPage: '末页',
-      history: '发送历史',
-      reuseHint: '点击重新发送',
-      clearHistory: '清空历史'
     },
     scheduledTasks: {
       refresh: '刷新任务',
@@ -1131,14 +1076,6 @@ export default {
     claudeConfigDir: 'HydroAgent 配置目录',
     claudeConfigDirPlaceholder: '留空使用 Claude Code 默认配置',
     claudeConfigDirHint: '留空则使用 Claude Code 默认配置；填写路径后，本程序发起 Claude Code CLI 时使用该 HydroAgent 隔离配置目录，Skills、Agents、MCP、历史记录和 proxy-support 均写入这里',
-    terminalSettings: '终端设置',
-    terminalFontSize: '字体大小',
-    terminalFontSizeHint: '终端显示的字体大小（10-24）',
-    terminalFontFamily: '字体类型',
-    terminalFontFamilyHint: '终端显示的字体（需系统已安装）',
-    terminalBackground: '终端背景',
-    terminalBackgroundDark: '深色',
-    terminalBackgroundLight: '浅色',
     appUpdate: '应用更新',
     currentVersion: '当前版本',
     checkUpdate: '检查更新',
@@ -1218,7 +1155,6 @@ export default {
     sessionTitle: '会话标题',
     sessionTitlePlaceholder: '输入会话标题（可选）',
     sessionInUseByAgent: '该会话正在智能体模式中使用，请先关闭对应智能体会话',
-    sessionInUseByTerminal: '该会话正在终端模式中使用，请先关闭对应终端',
     resumeSuccess: '历史会话已恢复',
     running: '运行中',
     history: '历史会话',
@@ -1242,11 +1178,6 @@ export default {
   },
 
   // 终端相关
-  terminal: {
-    terminal: '终端',
-    openTerminal: '打开终端',
-    createFailed: '创建终端失败'
-  },
 
   // 会话查询管理
   sessionManager: {
@@ -1363,9 +1294,6 @@ export default {
     projectRemoved: '项目已移除',
     projectPinned: '项目已置顶',
     projectUnpinned: '项目已取消置顶',
-    terminalExited: '终端进程已退出',
-    terminalError: '终端错误',
-    noActiveTerminal: '请先打开一个终端会话'
   },
 
   // 模式切换

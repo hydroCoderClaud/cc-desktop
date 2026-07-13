@@ -388,10 +388,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAutocompactPctOverride: () => ipcRenderer.invoke('config:getAutocompactPctOverride'),
   updateAutocompactPctOverride: (value) => ipcRenderer.invoke('config:updateAutocompactPctOverride', value),
 
-  // Terminal Settings (终端字体大小等)
-  getTerminalSettings: () => ipcRenderer.invoke('config:getTerminalSettings'),
-  updateTerminalSettings: (settings) => ipcRenderer.invoke('config:updateTerminalSettings', settings),
-
   // ========================================
   // API 配置相关
   // ========================================
@@ -525,14 +521,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addProvider: (definition) => ipcRenderer.invoke('provider:add', definition),
   updateProvider: ({ id, updates }) => ipcRenderer.invoke('provider:update', { id, updates }),
   deleteProvider: (id) => ipcRenderer.invoke('provider:delete', id),
-
-  // ========================================
-  // 快捷命令管理
-  // ========================================
-  getQuickCommands: () => ipcRenderer.invoke('quickCommands:list'),
-  addQuickCommand: (command) => ipcRenderer.invoke('quickCommands:add', command),
-  updateQuickCommand: ({ id, name, command, color }) => ipcRenderer.invoke('quickCommands:update', { id, name, command, color }),
-  deleteQuickCommand: (id) => ipcRenderer.invoke('quickCommands:delete', id),
 
   // ========================================
   // Plugin 管理 (Claude Code Plugins)
@@ -706,84 +694,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearQueue: (sessionUuid) => ipcRenderer.invoke('queue:clear', sessionUuid),
   swapQueueOrder: ({ id1, id2 }) => ipcRenderer.invoke('queue:swap', { id1, id2 }),
 
-  // ========================================
-  // Terminal 相关（旧版单终端，保留兼容）
-  // ========================================
-  startTerminal: (projectPath) => ipcRenderer.invoke('terminal:start', projectPath),
-  writeTerminal: (data) => ipcRenderer.send('terminal:write', data),
-  resizeTerminal: ({ cols, rows }) => ipcRenderer.send('terminal:resize', { cols, rows }),
-  killTerminal: () => ipcRenderer.invoke('terminal:kill'),
-  getTerminalStatus: () => ipcRenderer.invoke('terminal:status'),
-
-  // ========================================
-  // 活动会话管理（新版多终端支持）
-  // ========================================
-  // 会话生命周期
-  createActiveSession: (options) => ipcRenderer.invoke('activeSession:create', options),
-  closeActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:close', sessionId),
-  disconnectActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:disconnect', sessionId),
-  listActiveSessions: (includeHidden = true) => ipcRenderer.invoke('activeSession:list', includeHidden),
-  getActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:get', sessionId),
-  getActiveSessionsByProject: (projectId) => ipcRenderer.invoke('activeSession:getByProject', projectId),
-
-  // 终端交互
-  writeActiveSession: ({ sessionId, data }) => ipcRenderer.send('activeSession:write', { sessionId, data }),
-  resizeActiveSession: ({ sessionId, cols, rows }) => ipcRenderer.send('activeSession:resize', { sessionId, cols, rows }),
-
-  // 会话状态
-  focusActiveSession: (sessionId) => ipcRenderer.invoke('activeSession:focus', sessionId),
-  getFocusedActiveSession: () => ipcRenderer.invoke('activeSession:getFocused'),
-  setActiveSessionVisible: ({ sessionId, visible }) => ipcRenderer.invoke('activeSession:setVisible', { sessionId, visible }),
-  getRunningSessionCount: () => ipcRenderer.invoke('activeSession:getRunningCount'),
-  renameActiveSession: ({ sessionId, newTitle }) => ipcRenderer.invoke('activeSession:rename', { sessionId, newTitle }),
-
-  // ========================================
-  // 事件监听
-  // ========================================
-  onTerminalData: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('terminal:data', listener);
-    // 返回取消监听函数
-    return () => ipcRenderer.removeListener('terminal:data', listener);
-  },
-
-  onTerminalExit: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('terminal:exit', listener);
-    return () => ipcRenderer.removeListener('terminal:exit', listener);
-  },
-
-  onTerminalError: (callback) => {
-    const listener = (event, error) => callback(error);
-    ipcRenderer.on('terminal:error', listener);
-    return () => ipcRenderer.removeListener('terminal:error', listener);
-  },
-
-  // 活动会话事件
-  onSessionData: (callback) => {
-    const listener = (event, { sessionId, data }) => callback({ sessionId, data });
-    ipcRenderer.on('session:data', listener);
-    return () => ipcRenderer.removeListener('session:data', listener);
-  },
-
-  onSessionStarted: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('session:started', listener);
-    return () => ipcRenderer.removeListener('session:started', listener);
-  },
-
-  onSessionExit: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('session:exit', listener);
-    return () => ipcRenderer.removeListener('session:exit', listener);
-  },
-
-  onSessionError: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('session:error', listener);
-    return () => ipcRenderer.removeListener('session:error', listener);
-  },
-
+  // 会话元数据变更（Agent 会话与 IM 桥接共用）
   onSessionUpdated: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('session:updated', listener);

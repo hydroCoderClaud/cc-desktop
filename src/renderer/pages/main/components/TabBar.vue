@@ -20,7 +20,7 @@
         @click="selectTab(tab)"
       >
         <span class="tab-icon" :class="[tab.status, tab.type]">
-          <Icon :name="getStatusIconName(tab.status, tab.type, tab.sessionType, tab.sessionSource, tab.imChannel)" :size="12" />
+          <Icon :name="getStatusIconName(tab.status, tab.imChannel)" :size="12" />
         </span>
         <span class="tab-name" :title="tab.title || tab.projectPath">
           {{ tab.title || tab.projectName || 'Session' }}
@@ -57,7 +57,7 @@
 
 <script setup>
 import Icon from '@components/icons/Icon.vue'
-import { SessionStatus, SessionType } from '@composables/useSessionUtils'
+import { SessionStatus } from '@composables/useSessionUtils'
 import { useLocale } from '@composables/useLocale'
 import { isExternalImChannel, getExternalImMeta } from '@shared/external-im-meta'
 
@@ -107,44 +107,11 @@ const closeTab = (tab) => {
 }
 
 // 根据状态获取图标名称
-const getStatusIconName = (status, type = SessionType.SESSION, _sessionType = '', _sessionSource = '', imChannel = '') => {
-  // 纯终端使用终端图标
-  if (type === SessionType.TERMINAL) {
-    switch (status) {
-      case SessionStatus.RUNNING:
-        return 'terminal'
-      case SessionStatus.STARTING:
-        return 'clock'
-      case SessionStatus.EXITED:
-        return 'stop'
-      case SessionStatus.ERROR:
-        return 'xCircle'
-      default:
-        return 'terminal'
-    }
+const getStatusIconName = (status, imChannel = '') => {
+  if (imChannel && isExternalImChannel(imChannel)) {
+    return status === SessionStatus.ERROR ? 'xCircle' : getExternalImMeta(imChannel)?.icon || imChannel
   }
 
-  // Agent 对话图标
-  if (type === SessionType.AGENT_CHAT) {
-    // 外部 IM 会话使用各渠道图标
-    if (imChannel && isExternalImChannel(imChannel)) {
-      return status === SessionStatus.ERROR ? 'xCircle' : getExternalImMeta(imChannel)?.icon || imChannel
-    }
-    switch (status) {
-      case SessionStatus.RUNNING:
-        return 'robot'
-      case SessionStatus.STARTING:
-        return 'clock'
-      case SessionStatus.EXITED:
-        return 'stop'
-      case SessionStatus.ERROR:
-        return 'xCircle'
-      default:
-        return 'robot'
-    }
-  }
-
-  // Claude 会话图标
   switch (status) {
     case SessionStatus.RUNNING:
       return 'play'
@@ -155,7 +122,7 @@ const getStatusIconName = (status, type = SessionType.SESSION, _sessionType = ''
     case SessionStatus.ERROR:
       return 'xCircle'
     default:
-      return 'chat'
+      return 'robot'
   }
 }
 </script>

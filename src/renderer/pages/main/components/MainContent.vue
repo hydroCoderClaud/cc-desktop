@@ -13,10 +13,6 @@
       @open-project="handleOpenProject"
       @select-project="selectProject"
       @toggle-theme="handleToggleTheme"
-      @session-created="onSessionCreated"
-      @session-selected="handleSessionSelected"
-      @session-closed="onSessionClosed"
-      @terminal-created="onTerminalCreated"
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
@@ -121,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
@@ -162,17 +158,10 @@ const {
 
 const {
   tabs,
-  allTabs,  // 所有 TerminalTab 组件（包括后台的）
+  allTabs,
   activeTabId,
-  ensureSessionTab,
   selectTab,
-  closeTab,
-  handleSessionCreated,
-  handleSessionSelected: doHandleSessionSelected,
-  handleSessionClosed,
-  updateTabStatus,
   updateTabTitle,
-  findTabBySessionId,
   ensureAgentTab,
   closeAgentTab,
   closeAgentTabFully
@@ -249,35 +238,6 @@ const rightPanelRef = ref(null)
 const agentRightPanelRef = ref(null)
 const notebookWorkspaceRef = ref(null)
 const agentChatTabRefs = ref({})
-const terminalRefs = ref({})
-const terminalFontSize = ref(14)
-const terminalFontFamily = ref('"Ubuntu Mono", monospace')
-const terminalDarkBackground = ref(true)
-const terminalBusy = ref(false)
-const currentSessionUuid = ref('')
-
-// 当前活动会话的 sessionUuid（用于消息队列等功能）
-const updateCurrentSessionUuid = async () => {
-  if (activeTabId.value === 'welcome') {
-    currentSessionUuid.value = ''
-    return
-  }
-  const activeTab = tabs.value.find(t => t.id === activeTabId.value)
-  if (!activeTab) {
-    currentSessionUuid.value = ''
-    return
-  }
-  try {
-    const session = await window.electronAPI.getActiveSession(activeTab.sessionId)
-    currentSessionUuid.value = session?.resumeSessionId || ''
-  } catch (err) {
-    console.error('Failed to get session uuid:', err)
-    currentSessionUuid.value = ''
-  }
-}
-
-// 监听 activeTabId 变化
-watch(activeTabId, updateCurrentSessionUuid, { immediate: true })
 
 // 监听 activeTabId 变化，同步左侧列表焦点
 watch(activeTabId, (newTabId) => {
@@ -484,15 +444,6 @@ const openImRestoredSession = async (imType, data, meta) => {
   }
 }
 
-// Set terminal ref
-const setTerminalRef = (tabId, el) => {
-  if (el) {
-    terminalRefs.value[tabId] = el
-  } else {
-    delete terminalRefs.value[tabId]
-  }
-}
-
 // Initialize
 onMounted(async () => {
   await initLocale()
@@ -502,16 +453,6 @@ onMounted(async () => {
   setupSessionListeners()
   loadRightPanelWidth()  // 加载右侧面板宽度配置
   window.addEventListener('keydown', handleKeyDown)
-
-  // Load terminal settings
-  try {
-    const terminalSettings = await window.electronAPI.getTerminalSettings()
-    terminalFontSize.value = terminalSettings?.fontSize || 14
-    terminalFontFamily.value = terminalSettings?.fontFamily || 'Consolas, monospace'
-    terminalDarkBackground.value = terminalSettings?.darkBackground !== false
-  } catch (err) {
-    console.error('Failed to load terminal settings:', err)
-  }
 })
 
 // Cleanup listeners
@@ -536,40 +477,10 @@ onUnmounted(() => {
 const setupSessionListeners = () => {
   if (!window.electronAPI) return
 
-  // 监听会话数据
-  cleanupFns.push(
-    window.electronAPI.onSessionData((eventData) => {
-      if (!isValidSessionEvent(eventData)) return
-      const { sessionId, data } = eventData
-      const tab = findTabBySessionId(sessionId)
-      if (tab && terminalRefs.value[tab.id]) {
-        terminalRefs.value[tab.id].write(data)
-      }
-    })
-  )
-
-  // 监听会话退出
-  cleanupFns.push(
-    window.electronAPI.onSessionExit((eventData) => {
-      if (!isValidSessionEvent(eventData)) return
-      const { sessionId } = eventData
-      updateTabStatus(sessionId, 'exited')
-    })
-  )
-
-  // 监听会话错误
-  cleanupFns.push(
-    window.electronAPI.onSessionError((eventData) => {
-      if (!isValidSessionEvent(eventData)) return
-      const { sessionId, error } = eventData
-      updateTabStatus(sessionId, 'error')
-      message.error(t('messages.terminalError') + ': ' + (error || 'Unknown error'))
-    })
-  )
-
-  // 监听会话更新（如重命名、UUID关联）
-  cleanupFns.push(
-    window.electronAPI.onSessionUpdated((eventData) => {
+  // 监听会话元数据更新（例如 IM 绑定）
+  if (window.electronAPI.onSessionUpdated) {
+    cleanupFns.push(
+      window.electronAPI.onSessionUpdated((eventData) => {
       if (!isValidSessionEvent(eventData)) return
       const { sessionId, session } = eventData
       if (session) {
@@ -584,14 +495,10 @@ const setupSessionListeners = () => {
           }
           tab.imChannel = session.imChannel || null
         }
-        // 如果当前活动会话的 UUID 被更新，刷新 currentSessionUuid
-        const activeTab = tabs.value.find(t => t.id === activeTabId.value)
-        if (activeTab && activeTab.sessionId === sessionId && session.resumeSessionId) {
-          currentSessionUuid.value = session.resumeSessionId
-        }
       }
-    })
-  )
+      })
+    )
+  }
 
   // 监听 Agent 会话重命名 → 同步更新 Tab 标题
   if (window.electronAPI.onAgentRenamed) {
@@ -615,8 +522,11 @@ const setupSessionListeners = () => {
       cleanupFns.push(
         api[closeHandlerName]((data) => {
           if (data?.sessionId) {
-            handleSessionClosed({ id: data.sessionId })
-            ensureActiveTabInCurrentMode()
+            const tab = allTabs.value.find(item => item.sessionId === data.sessionId && item.type === 'agent-chat')
+            if (tab) {
+              closeAgentTabFully(tab)
+              ensureActiveTabInCurrentMode()
+            }
           }
         })
       )
@@ -655,23 +565,6 @@ const setupSessionListeners = () => {
             closeAgentTabFully(tab)
             ensureActiveTabInCurrentMode()
           }
-        }
-      })
-    )
-  }
-
-  // 监听设置变化（终端字体大小、字体类型等）
-  if (window.electronAPI.onSettingsChanged) {
-    cleanupFns.push(
-      window.electronAPI.onSettingsChanged((settings) => {
-        if (settings.terminalFontSize !== undefined) {
-          terminalFontSize.value = settings.terminalFontSize
-        }
-        if (settings.terminalFontFamily !== undefined) {
-          terminalFontFamily.value = settings.terminalFontFamily
-        }
-        if (settings.terminalDarkBackground !== undefined) {
-          terminalDarkBackground.value = settings.terminalDarkBackground
         }
       })
     )
@@ -749,13 +642,6 @@ const handleSelectTab = (tab) => {
           currentProject.value = targetProject
         }
       }
-    },
-    onTerminalFocus: (focusedTab) => {
-      nextTick(() => {
-        if (terminalRefs.value[focusedTab.id]) {
-          terminalRefs.value[focusedTab.id].fit()
-        }
-      })
     }
   })
 
@@ -765,81 +651,12 @@ const handleSelectTab = (tab) => {
     if (leftPanelRef.value?.activeAgentSessionId !== undefined) {
       leftPanelRef.value.activeAgentSessionId = tab.sessionId
     }
-  } else {
-    if (leftPanelRef.value?.focusedSessionId !== undefined) {
-      leftPanelRef.value.focusedSessionId = tab.sessionId
-    }
   }
 }
 
 const handleCloseTab = async (tab) => {
-  if (tab.type === 'agent-chat') {
-    closeAgentTab(tab)
-  } else {
-    await closeTab(tab)
-  }
-  // closeTab/closeAgentTab 的 fallback 从混合 tabs 选，可能选到跨模式 tab
+  closeAgentTab(tab)
   ensureActiveTabInCurrentMode()
-}
-
-// ========================================
-// Session events wrapper functions
-// ========================================
-
-const onSessionCreated = (session) => {
-  handleSessionCreated(session)
-}
-
-const handleSessionSelected = (session) => {
-  doHandleSessionSelected(session, {
-    onProjectSwitch: (projectId) => {
-      if (projectId !== currentProject.value?.id) {
-        const targetProject = projects.value.find(p => p.id === projectId)
-        if (targetProject) {
-          currentProject.value = targetProject
-        }
-      }
-    }
-  })
-}
-
-const onSessionClosed = (session) => {
-  handleSessionClosed(session)
-  ensureActiveTabInCurrentMode()
-}
-
-// 终端创建事件（纯终端，不启动 claude）
-const onTerminalCreated = (session) => {
-  // 复用会话创建逻辑，终端也是一种会话（type='terminal'）
-  handleSessionCreated(session)
-}
-
-// Terminal ready event
-const handleTerminalReady = ({ sessionId }) => {
-  // 终端就绪，无需额外处理
-}
-
-// Send to terminal without executing, then focus terminal
-const handleSendToTerminal = (command) => {
-  const activeTab = tabs.value.find(t => t.id === activeTabId.value)
-  if (!activeTab || activeTab.id === 'welcome') {
-    message.warning(t('messages.noActiveTerminal'))
-    return
-  }
-
-  if (window.electronAPI) {
-    window.electronAPI.writeActiveSession({
-      sessionId: activeTab.sessionId,
-      data: command
-    })
-  }
-
-  // 聚焦终端
-  nextTick(() => {
-    if (terminalRefs.value[activeTab.id]) {
-      terminalRefs.value[activeTab.id].focus()
-    }
-  })
 }
 
 // 模式切换：保存当前模式 tab 并恢复目标模式 tab
@@ -1232,16 +1049,6 @@ const openApiProfileManager = () => {
 .notebook-mode-content :deep(.notebook-workspace) {
   height: 100%;
   background: var(--bg-color);
-}
-
-/* Terminal Container */
-.terminal-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden !important;
 }
 
 /* Agent Container */

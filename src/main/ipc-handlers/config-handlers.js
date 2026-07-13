@@ -173,14 +173,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
     return configManager.updateAutocompactPctOverride(value)
   })
 
-  registerHandler('config:getTerminalSettings', () => {
-    return configManager.getTerminalSettings()
-  })
-
-  registerHandler('config:updateTerminalSettings', (terminalSettings) => {
-    return configManager.updateTerminalSettings(terminalSettings)
-  })
-
   registerHandler('config:getLocalAgentApi', () => {
     return configManager.getConfig()?.settings?.localAgentApi || { enabled: false }
   })
@@ -222,26 +214,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
 
   registerHandler('provider:delete', (id) => {
     return configManager.deleteServiceProviderDefinition(id)
-  })
-
-  // ========================================
-  // 快捷命令管理
-  // ========================================
-
-  registerHandler('quickCommands:list', () => {
-    return configManager.getQuickCommands()
-  })
-
-  registerHandler('quickCommands:add', (command) => {
-    return configManager.addQuickCommand(command)
-  })
-
-  registerHandler('quickCommands:update', ({ id, name, command, color }) => {
-    return configManager.updateQuickCommand(id, { name, command, color })
-  })
-
-  registerHandler('quickCommands:delete', (id) => {
-    return configManager.deleteQuickCommand(id)
   })
 
   // ========================================

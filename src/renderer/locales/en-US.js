@@ -123,42 +123,6 @@ export default {
       prompts: 'Prompts',
       settings: 'Settings'
     },
-    // Quick Commands
-    quickCommands: {
-      label: 'Quick Commands',
-      empty: 'Click + to add commands',
-      add: 'Add Quick Command',
-      edit: 'Edit Quick Command',
-      name: 'Name',
-      namePlaceholder: 'e.g., Compact',
-      command: 'Command',
-      commandPlaceholder: 'e.g., /compact',
-      color: 'Color',
-      noColor: 'No color'
-    },
-    // Quick Input
-    quickInput: {
-      label: 'Quick Input',
-      hint: 'Enter to input, Enter again to run',
-      placeholder: 'Enter command or prompt...',
-      send: 'Send to Terminal',
-      addToQueue: 'Add to Queue',
-      createPrompt: 'Create Prompt'
-    },
-    // Command Queue
-    queue: {
-      empty: 'Queue is empty',
-      emptyHint: 'Use the input below to add commands',
-      mode: 'Mode',
-      modeManual: 'Manual',
-      modeSemiAuto: 'Semi-Auto',
-      modeAuto: 'Auto',
-      import: 'Import',
-      settings: 'Settings',
-      send: 'Send',
-      remove: 'Remove',
-      history: 'History'
-    },
     // Plugins
     plugins: {
       empty: 'No plugins found',
@@ -703,28 +667,9 @@ export default {
       categoryPlaceholder: 'Category (optional)',
       deleteConfirm: 'Delete prompt "{name}"?',
       insertToInput: 'Insert to input',
+      addToQueue: 'Add to Queue',
       // Market
       marketBadge: 'Market'
-    },
-    // Message Queue
-    messageQueue: {
-      label: 'Message Queue',
-      empty: 'Queue is empty',
-      noResults: 'No results found',
-      clickHint: 'Click to send to terminal',
-      editTitle: 'Edit Message',
-      send: 'Send',
-      execute: 'Execute',
-      searchPlaceholder: 'Search messages...',
-      moveUp: 'Move up',
-      moveDown: 'Move down',
-      firstPage: 'First page',
-      prevPage: 'Previous page',
-      nextPage: 'Next page',
-      lastPage: 'Last page',
-      history: 'Send History',
-      reuseHint: 'Click to resend',
-      clearHistory: 'Clear History'
     },
     scheduledTasks: {
       refresh: 'Refresh tasks',
@@ -1128,14 +1073,6 @@ export default {
     claudeConfigDir: 'HydroAgent Config Directory',
     claudeConfigDirPlaceholder: 'Leave empty to use Claude Code defaults',
     claudeConfigDirHint: 'Leave empty to use Claude Code defaults. When set, this app launches Claude Code CLI with the HydroAgent isolated config directory; Skills, Agents, MCP, history, and proxy-support are stored there',
-    terminalSettings: 'Terminal Settings',
-    terminalFontSize: 'Font Size',
-    terminalFontSizeHint: 'Terminal font size (10-24)',
-    terminalFontFamily: 'Font Family',
-    terminalFontFamilyHint: 'Terminal font (must be installed)',
-    terminalBackground: 'Terminal Background',
-    terminalBackgroundDark: 'Dark',
-    terminalBackgroundLight: 'Light',
     appUpdate: 'App Updates',
     currentVersion: 'Current Version',
     checkUpdate: 'Check for Updates',
@@ -1213,7 +1150,6 @@ export default {
     sessionTitle: 'Session Title',
     sessionTitlePlaceholder: 'Enter session title (optional)',
     sessionInUseByAgent: 'This session is in use by Agent mode. Please close the Agent session first',
-    sessionInUseByTerminal: 'This session is in use by Terminal mode. Please close the terminal first',
     resumeSuccess: 'Session resumed',
     running: 'Running',
     history: 'History',
@@ -1236,12 +1172,6 @@ export default {
     hideSubagent: 'Hide subagent sessions'
   },
 
-  // Terminal
-  terminal: {
-    terminal: 'Terminal',
-    openTerminal: 'Open Terminal',
-    createFailed: 'Failed to create terminal'
-  },
 
   // Session Browser
   sessionManager: {
@@ -1358,9 +1288,6 @@ export default {
     projectRemoved: 'Project removed',
     projectPinned: 'Project pinned',
     projectUnpinned: 'Project unpinned',
-    terminalExited: 'Terminal process exited',
-    terminalError: 'Terminal error',
-    noActiveTerminal: 'Please open a terminal session first'
   },
 
   // Mode switching

@@ -6,8 +6,6 @@
 const { app, BrowserWindow, Menu, powerSaveBlocker, powerMonitor } = require('electron');
 const path = require('path');
 const ConfigManager = require('./config-manager');
-const TerminalManager = require('./terminal-manager');
-const { ActiveSessionManager } = require('./active-session-manager');
 const { AgentSessionManager } = require('./agent-session-manager');
 const { CapabilityManager } = require('./managers/capability-manager');
 const UpdateManager = require('./update-manager');
@@ -40,8 +38,6 @@ const PERSONAL_WEIXIN_ENABLED = false
 // 保持窗口引用
 let mainWindow = null;
 let configManager = null;
-let terminalManager = null;
-let activeSessionManager = null;
 let agentSessionManager = null;
 let capabilityManager = null;
 let updateManager = null;
@@ -87,8 +83,6 @@ function cleanupAllSessions() {
     if (localAgentApiServer) {
       localAgentApiServer.stop().catch(() => {})
     }
-    if (terminalManager) terminalManager.kill();
-    if (activeSessionManager) activeSessionManager.closeAll(false);
     if (agentSessionManager) agentSessionManager.closeAllSync();
     console.log('[Main] All sessions cleaned up');
   } catch (e) {
@@ -192,12 +186,6 @@ function setWindowFullScreen(window, enabled) {
 }
 
 function rebindMainWindowReferences({ notifyAgentSessionsClosed = false, restartDingtalk = false } = {}) {
-  if (terminalManager) {
-    terminalManager.mainWindow = mainWindow;
-  }
-  if (activeSessionManager) {
-    activeSessionManager.mainWindow = mainWindow;
-  }
   if (agentSessionManager) {
     agentSessionManager.mainWindow = mainWindow;
     if (notifyAgentSessionsClosed) {
@@ -413,18 +401,8 @@ if (hasSingleInstanceLock) {
       console.error('[Main] Failed to initialize tray:', error)
     }
 
-    // 初始化终端管理器（需要窗口实例）- 保留兼容旧代码
-    terminalManager = new TerminalManager(mainWindow, configManager);
-
-    // 初始化活动会话管理器（新的多会话管理）
-    activeSessionManager = new ActiveSessionManager(mainWindow, configManager);
-
     // 初始化 Agent 会话管理器
     agentSessionManager = new AgentSessionManager(mainWindow, configManager);
-
-    // 互相注入引用（跨模式会话占用检查）
-    activeSessionManager.setPeerManager(agentSessionManager)
-    agentSessionManager.setPeerManager(activeSessionManager)
 
     // 初始化能力管理器（Agent 模式）
     const { PluginService } = require('./plugin-runtime')
@@ -484,8 +462,6 @@ if (hasSingleInstanceLock) {
     const { agentSessionBroker, agentEventRouter } = setupIPCHandlers(
       mainWindow,
       configManager,
-      terminalManager,
-      activeSessionManager,
       agentSessionManager,
       capabilityManager,
       updateManager,

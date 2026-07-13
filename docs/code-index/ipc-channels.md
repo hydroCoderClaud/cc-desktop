@@ -21,14 +21,8 @@
 | config:updateMarketConfig | handle | 更新组件市场配置 |
 | config:getTimeout | handle | 获取超时设置 |
 | config:updateTimeout | handle | 更新超时设置 |
-| config:getMaxActiveSessions | handle | 获取最大活动会话数 |
-| config:updateMaxActiveSessions | handle | 更新最大活动会话数 |
-| config:getMaxHistorySessions | handle | 获取历史会话显示条数 |
-| config:updateMaxHistorySessions | handle | 更新历史会话显示条数 |
 | config:getAutocompactPctOverride | handle | 获取自动压缩阈值 |
 | config:updateAutocompactPctOverride | handle | 更新自动压缩阈值 |
-| config:getTerminalSettings | handle | 获取终端设置（字体等） |
-| config:updateTerminalSettings | handle | 更新终端设置 |
 | config:getMcpProxy | handle | 获取 MCP 代理配置 |
 | config:updateMcpProxy | handle | 更新 MCP 代理配置 |
 | config:ensureProxySupport | handle | 确保代理支持 |
@@ -69,7 +63,7 @@
 | api:getCurrentProfile | handle | 获取默认 Profile |
 | api:fetchOfficialModels | handle | 拉取官方模型列表 |
 
-### provider / quickCommands 域（config-handlers.js）
+### provider 域（config-handlers.js）
 
 | 通道名 | 类型 | 简述 |
 |--------|------|------|
@@ -78,10 +72,6 @@
 | provider:add | handle | 添加服务商定义 |
 | provider:update | handle | 更新服务商定义 |
 | provider:delete | handle | 删除服务商定义 |
-| quickCommands:list | handle | 列出快捷命令 |
-| quickCommands:add | handle | 添加快捷命令 |
-| quickCommands:update | handle | 更新快捷命令 |
-| quickCommands:delete | handle | 删除快捷命令 |
 ### project 域（project-handlers.js）
 
 | 通道名 | 类型 | 简述 |
@@ -177,35 +167,6 @@
 | weixin-notify:bindSessionToTarget | handle | 绑定桌面会话到微信目标 |
 | weixin-notify:unbindSessionTarget | handle | 解除桌面会话与微信目标绑定 |
 | weixin-notify:getSessionBinding | handle | 查询会话当前绑定的微信目标 |
-
-### terminal 域（ipc-handlers.js，旧版单终端）
-
-| 通道名 | 类型 | 简述 |
-|--------|------|------|
-| terminal:start | handle | 启动终端 |
-| terminal:write | on | 写入终端数据 |
-| terminal:resize | on | 调整终端大小 |
-| terminal:kill | handle | 终止终端 |
-| terminal:status | handle | 获取终端状态 |
-
-### activeSession 域（active-session-handlers.js）
-
-| 通道名 | 类型 | 简述 |
-|--------|------|------|
-| activeSession:create | handle | 创建并启动会话 |
-| activeSession:close | handle | 关闭会话（安全退出） |
-| activeSession:disconnect | handle | 断开连接（保持后台） |
-| activeSession:list | handle | 获取会话列表 |
-| activeSession:get | handle | 获取单个会话 |
-| activeSession:getByProject | handle | 获取项目的活动会话 |
-| activeSession:write | on | 写入数据到会话 |
-| activeSession:resize | on | 调整终端大小 |
-| activeSession:focus | handle | 设置聚焦会话 |
-| activeSession:getFocused | handle | 获取聚焦会话 ID |
-| activeSession:setVisible | handle | 设置会话可见性 |
-| activeSession:getRunningCount | handle | 获取运行中会话数 |
-| activeSession:getSessionLimits | handle | 获取会话限制信息 |
-| activeSession:rename | handle | 重命名会话 |
 
 ### agent 域（agent-handlers.js）
 
@@ -493,19 +454,6 @@
 
 main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 
-### Terminal / 活动会话事件
-
-| 事件名 | 发送位置 | 简述 |
-|--------|---------|------|
-| terminal:data | terminal-manager.js | 终端输出数据 |
-| terminal:exit | terminal-manager.js | 终端退出 |
-| terminal:error | terminal-manager.js | 终端错误 |
-| session:data | active-session-manager.js | 会话输出数据 |
-| session:started | active-session-manager.js | 会话启动 |
-| session:exit | active-session-manager.js | 会话退出 |
-| session:error | active-session-manager.js | 会话错误 |
-| session:updated | active-session-manager.js | 会话状态更新 |
-
 ### Agent 事件（agent-session-manager.js）
 
 | 事件名 | 简述 |
@@ -522,6 +470,7 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | agent:compacted | 上下文已压缩 |
 | agent:usage | Token 用量 |
 | agent:allSessionsClosed | 所有会话已关闭 |
+| session:updated | Agent 会话或 IM 绑定元数据更新 |
 
 ### 设置 / 更新 / 钉钉事件
 

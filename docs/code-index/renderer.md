@@ -232,7 +232,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `useTheme.js` | 444 | `useTheme`, 6 套配色 | App.vue (全局) |
 | `useTabManagement.js` | 415 | `useTabManagement`, 双数组模式 | MainContent |
 | `useProjects.js` | 332 | `useProjects` | MainContent, LeftPanel |
-| `useMessageQueue.js` | 331 | `useMessageQueue` | MessageQueue |
 | `usePrompts.js` | 327 | `usePrompts` | PromptsTab |
 | `useAgentFiles.js` | 260 | `useAgentFiles`, `formatFileSize` | AgentRightPanel |
 | `useAgentPanel.js` | 225 | `useAgentPanel`, `isSessionClosed` | AgentLeftContent, MainContent |
@@ -285,7 +284,7 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 
 ### 双数组 Tab 管理
 
-`useTabManagement.js` 使用 `tabs[]` + `allTabs[]` 双数组：关闭 Tab 只从 `tabs` 移除（UI 隐藏），组件保留在 `allTabs` 中（xterm buffer 不丢失），重新打开时恢复终端内容。
+`useTabManagement.js` 使用 `tabs[]` + `allTabs[]` 双数组：关闭 Agent 对话 Tab 时只从 `tabs` 移除（UI 隐藏），组件保留在 `allTabs` 中，重新打开时可恢复既有对话状态。
 
 ### 全局单例 Composable
 

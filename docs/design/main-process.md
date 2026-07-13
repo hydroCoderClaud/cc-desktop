@@ -24,36 +24,32 @@
 ```
 1. ConfigManager            ← 加载 config.json（含迁移）
 2. createWindow()           ← BrowserWindow + preload
-3. TerminalManager          ← 单 PTY 管理（遗留内部兼容）
-4. ActiveSessionManager     ← 活动运行时会话（遗留 PTY / 内部兼容）
-5. AgentSessionManager      ← Agent 会话（主工作流）
-6. 互注入 setPeerManager()  ← 跨模式会话占用检查
-7. PluginService + Managers ← 插件运行时 + Skills/Agents/MCP/Settings
-8. CapabilityManager        ← 能力市场
-9. UpdateManager            ← 自动更新
-10. DingTalkBridge          ← 钉钉桥接（Stream WebSocket）
-11. FeishuBridge             ← 飞书桥接（SDK WebSocket）
-12. EnterpriseWeixinBridge   ← 企业微信桥接（aibot SDK WS）
-13. NotebookManager          ← Notebook 工作台后端能力
-14. EmbeddedAppPreferencesManager ← 内嵌 app API Profile / 模型偏好
-15. ScheduledTaskService     ← 桌面端定时任务调度
-16. WeixinNotifyService      ← 微信 iLink 授权 / 轮询 / 发送
-17. WeixinBridge             ← 微信会话桥接
-18. WecomCliManager          ← 企业微信 CLI 联系人管理
-19. setupIPCHandlers()       ← IPC 注册 + SessionDatabase 初始化 + scheduledTaskService.start()
-19. powerSaveBlocker.start   ← 防止系统挂起
-20. scheduleUpdateCheck(5s)  ← 延迟检查更新
-21. DingTalk.start (3s)      ← 延迟启动钉钉
-22. Feishu.start (3s)        ← 延迟启动飞书
-23. EnterpriseWeixin.start   ← 延迟启动企业微信
+3. AgentSessionManager      ← Agent 会话（主工作流）
+4. PluginService + Managers ← 插件运行时 + Skills/Agents/MCP/Settings
+5. CapabilityManager        ← 能力市场
+6. UpdateManager            ← 自动更新
+7. DingTalkBridge           ← 钉钉桥接（Stream WebSocket）
+8. FeishuBridge             ← 飞书桥接（SDK WebSocket）
+9. EnterpriseWeixinBridge   ← 企业微信桥接（aibot SDK WS）
+10. NotebookManager         ← Notebook 工作台后端能力
+11. EmbeddedAppPreferencesManager ← 内嵌 app API Profile / 模型偏好
+12. ScheduledTaskService    ← 桌面端定时任务调度
+13. WeixinNotifyService     ← 微信 iLink 授权 / 轮询 / 发送
+14. WeixinBridge            ← 微信会话桥接
+15. WecomCliManager         ← 企业微信 CLI 联系人管理
+16. setupIPCHandlers()      ← IPC 注册 + SessionDatabase 初始化 + scheduledTaskService.start()
+17. powerSaveBlocker.start  ← 防止系统挂起
+18. scheduleUpdateCheck(5s) ← 延迟检查更新
+19. DingTalk.start (3s)     ← 延迟启动钉钉
+20. Feishu.start (3s)       ← 延迟启动飞书
+21. EnterpriseWeixin.start  ← 延迟启动企业微信
 ```
 
 **关键文件**: `src/main/index.js`
 
 ### Manager 初始化顺序约束
 
-- `ActiveSessionManager` 和 `AgentSessionManager` 互相持有对方引用（`setPeerManager`），用于历史运行时会话 UUID 的占用检查
-- `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `ActiveSessionManager` 和 `AgentSessionManager`
+- `SessionDatabase` 在 `setupIPCHandlers()` 中创建，然后通过 `setSessionDatabase()` 注入到 `AgentSessionManager`
 - `ScheduledTaskService` 在创建后先挂到 `agentSessionManager.scheduledTaskService`，再在 `setupIPCHandlers()` 内注入 `SessionDatabase` 并启动轮询
 - `WeixinNotifyService` 在主进程启动时先创建并注入到 `agentSessionManager.weixinNotifyService`，供 Agent 会话构建内置微信 MCP；是否真正启动后台轮询由 `weixinBridge.start()` 和 `weixin.enabled` 决定
 - `WeixinBridge` 依赖 `AgentSessionManager` 和 `WeixinNotifyService`，负责会话绑定、入站微信路由和回复回推
@@ -72,7 +68,7 @@
 | `process.on('SIGTERM/SIGINT')` | 外部终止信号 |
 | `process.on('uncaughtException')` | 未捕获异常 |
 
-清理内容：停止 powerSaveBlocker、停止钉钉桥接、停止微信桥接与微信后台轮询、kill 终端进程、关闭所有 Active/Agent 会话。
+清理内容：停止 powerSaveBlocker、停止钉钉桥接、停止微信桥接与微信后台轮询、关闭所有 Agent 会话并清理其子进程。
 
 ### macOS 特殊处理
 
@@ -147,46 +143,6 @@ Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()`
 
 ---
 
-## 遗留 PTY 兼容层
-
-### 单终端（旧版）
-
-`TerminalManager` 管理单个 PTY 进程，保留用于向后兼容。
-
-### 活动运行时会话
-
-`ActiveSessionManager` 仍保留在主进程中，用于历史 PTY 会话和内部兼容路径。面向用户的 Developer/Terminal 工作流已经退役，不再作为产品入口提供。
-
-```
-ActiveSessionManager
-├── sessions: Map<sessionId, ActiveSession>
-├── focusedSessionId: string
-└── peerManager: AgentSessionManager（跨模式检查）
-```
-
-**会话生命周期**：
-
-```
-create(options)
-  → new ActiveSession({ projectId, projectPath, apiProfileId, resumeSessionId })
-  → sessions.set(id, session)
-
-start(sessionId)
-  → 选择 shell：Windows=COMSPEC, macOS/Linux=SHELL
-  → 构建环境变量：buildProcessEnv(profile, standardExtraVars)
-  → pty.spawn(shell, args, { cwd, env })
-  → 监听 onData → IPC session:data
-  → 监听 onExit → 更新状态 + IPC session:exit
-
-close(sessionId)
-  → killProcessTree(session.pid)
-  → sessions.delete(id)
-```
-
-**兼容边界**：不再创建 Developer 历史数据库链路，也不再参与 Agent 项目列表、消息显示、删除或恢复。
-
----
-
 ## Agent 模式
 
 ### 整体架构
@@ -198,7 +154,6 @@ AgentSessionManager (1373行)
 ├── fileManager: AgentFileManager（文件操作委托）
 ├── queryManager: AgentQueryManager（模型/命令/MCP 控制委托）
 ├── messageListener: 外部桥接监听（钉钉/微信）
-└── peerManager: ActiveSessionManager（跨模式检查）
 ```
 
 ### SDK 加载

@@ -159,10 +159,10 @@ class PluginCli {
   /**
    * 执行 CLI 命令
    *
-   * 与终端模式（pty.spawn）保持一致的进程启动方式：
+   * 使用显式 shell 启动方式：
    * - 使用 spawn 而非 execFile，避免 Node.js 自动添加 /d 标志
    *   （/d 会禁用 cmd.exe AutoRun，可能导致 PATH 环境差异）
-   * - Windows 下通过 cmd.exe /s /c 启动（与终端模式相同）
+   * - Windows 下通过 cmd.exe /s /c 启动
    * - 注入系统代理，确保 CLI 子进程能通过代理访问网络
    *
    * @param {string[]} args - 命令参数
@@ -202,9 +202,9 @@ class PluginCli {
       const isWindows = process.platform === 'win32'
 
       if (isWindows) {
-        // Windows: 通过 cmd.exe 启动（与终端模式一致，不加 /d 标志）
+        // Windows: 通过 cmd.exe 启动（不加 /d 标志）
         // execFile({ shell: true }) 会使用 cmd.exe /d /s /c，/d 禁用 AutoRun
-        // 这里手动调用 cmd.exe /s /c，保留 AutoRun 处理，与 pty.spawn 行为一致
+        // 这里手动调用 cmd.exe /s /c，保留 AutoRun 处理。
         const cmdLine = ['claude', ...args].map(a => {
           // 参数含空格或特殊字符时加引号
           return /[\s"&|<>^]/.test(a) ? `"${a}"` : a

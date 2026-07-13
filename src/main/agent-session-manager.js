@@ -5,7 +5,7 @@
  * 通过 ClaudeCodeRunner 与 SDK 交互，不直接依赖 SDK。
  *
  * 设计原则：
- * - 参照 ActiveSessionManager 的模式（_safeSend、Map 管理、生命周期）
+ * - 使用 _safeSend、Map 管理和明确的会话生命周期
  * - 支持多个并发 Agent 对话
  * - 流式输出通过 IPC 推送到渲染进程
  * - 多轮对话通过 SDK 的 resume 机制实现
@@ -339,13 +339,6 @@ class AgentSessionManager extends EventEmitter {
 
     // 会话应用业务入口（由外部注入）
     this.sessionAppManager = null
-  }
-
-  /**
-   * 注入对端 Manager 引用（用于跨模式会话占用检查）
-   */
-  setPeerManager(activeSessionManager) {
-    this.peerManager = activeSessionManager
   }
 
   setEventRouter(eventRouter) {
@@ -1781,10 +1774,6 @@ class AgentSessionManager extends EventEmitter {
 
       // resume：恢复历史对话上下文（应用重启、会话重新打开等场景必需）
       if (session.sdkSessionId) {
-        // 跨模式占用检查：该 CLI 会话是否正在 Terminal 模式中使用
-        if (this.peerManager?.isCliSessionActive(session.sdkSessionId)) {
-          throw new Error('SESSION_IN_USE_BY_TERMINAL')
-        }
         queryOptions.resume = session.sdkSessionId
       }
 

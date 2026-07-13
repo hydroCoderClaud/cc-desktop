@@ -180,7 +180,7 @@ Web 版：
 
 | 模块 | 原因 |
 |------|------|
-| PTY 终端 | Web 端无意义，用 SSH |
+| 交互式 Shell | Web 端无意义，用 SSH |
 | 外观/主题 | Web 端可简化 |
 | 桌面通知 | 浏览器通知替代 |
 
@@ -252,7 +252,7 @@ xvfb-run electron . --no-sandbox
 ## 九、风险与注意事项
 
 1. **claude-agent-sdk 依赖**：SDK 内部 spawn CLI 子进程，需确认 Linux 上路径和权限正常
-2. **node-pty**：Web 版不做 PTY，但桌面端共享代码时需条件加载，避免 Linux 编译问题
+2. **Agent runtime 子进程**：Web 端需确认 CLI 路径、权限和进程清理策略
 3. **better-sqlite3**：需要在 Linux 上重新编译 native addon
 4. **安全**：Web 端暴露端口后需加认证（至少 token 认证），防止未授权访问
 5. **并发**：多个 Web 用户同时操作同一实例，需考虑配置写入冲突

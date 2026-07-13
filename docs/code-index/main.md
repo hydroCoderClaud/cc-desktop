@@ -6,13 +6,13 @@
 
 | 类别 | 文件数 | 总行数 |
 |------|--------|--------|
-| 顶层模块 | 15 | ~8300 |
-| IPC Handlers | 22 | ~3800 |
+| 顶层模块 | 13 | ~7400 |
+| IPC Handlers | 21 | ~3650 |
 | Managers | 23 | ~9700 |
 | Database | 11 | ~2000 |
 | Utils | 16 | ~1400 |
 | Config | 2 | 438 |
-| **合计** | **89** | **~25600** |
+| **合计** | **86** | **~24500** |
 
 ---
 
@@ -32,12 +32,6 @@
 - **Mixin**：`providerConfigMixin`（服务商 CRUD）、`apiConfigMixin`（API Profile CRUD）
 - **架构上下文**：-> [配置管理](../design/main-process.md#配置管理)
 
-### terminal-manager.js
-- **行数**：212
-- **职责**：遗留 PTY 兼容层，管理单个 PTY 进程的生命周期
-- **关键方法**：`start(projectPath)`, `write(data)`, `writeLine(text)`, `resize(cols, rows)`, `kill()`, `getStatus()`
-- **架构上下文**：-> [遗留 PTY 兼容层](../design/main-process.md#遗留-pty-兼容层)
-
 ### agent-session-manager.js
 - **行数**：2322
 - **职责**：Agent 会话管理，通过 bundled Claude runtime 与 Claude Agent SDK 实现多轮 AI 对话
@@ -45,13 +39,6 @@
 - **关键类**：`AgentSession`（单个会话）、`AgentSessionManager`（管理器）
 - **委托模块**：`AgentFileManager`（文件操作）、`AgentQueryManager`（查询控制）
 - **架构上下文**：-> [Agent 模式](../design/main-process.md#agent-模式)
-
-### active-session-manager.js
-- **行数**：630
-- **职责**：遗留活动会话运行时，保留 PTY / 内部兼容路径；面向用户的 Developer 入口已退役
-- **关键方法**：`create()`, `start()`, `write()`, `resize()`, `close()`, `closeAll()`, `renameSession()`, `linkSessionUuid()`, `setVisible()`, `focus()`
-- **关键类**：`ActiveSession`、`ActiveSessionManager`、`SessionStatus`
-- **架构上下文**：-> [遗留 PTY 兼容层](../design/main-process.md#遗留-pty-兼容层)
 
 ### update-manager.js
 - **行数**：679
@@ -100,7 +87,6 @@
 | prompt-handlers.js | prompt: | 248 | getPrompts, createPrompt, updatePrompt, deletePrompt, getPromptTags |
 | project-handlers.js | project: | 290 | listProjects, createProject, updateProject, deleteProject, hasProblematicPath |
 | session-handlers.js | session: | -- | getSessions, getMessages, searchSessions, getTags |
-| active-session-handlers.js | activeSession: | 136 | create, start, close, write, resize, rename |
 | capability-handlers.js | capabilities: | 120 | fetch, install, uninstall, enable, disable, toggleMcp |
 | notebook-handlers.js | notebook: | 521 | list, create, bindSession, listSources, listAchievements, listTools, prepareGeneration, previewGeneration |
 | update-handlers.js | update: | 59 | checkForUpdates, downloadUpdate, quitAndInstall, getStatus |

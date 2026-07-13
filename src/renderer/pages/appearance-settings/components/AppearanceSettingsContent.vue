@@ -1,9 +1,9 @@
 <template>
   <div class="settings-page narrow" :class="{ 'workspace-embedded': props.embedded }" :style="cssVars">
     <!-- Header -->
-    <div class="settings-header">
+    <div class="settings-header appearance-settings-header">
       <h1>{{ t('globalSettings.appearance') }}</h1>
-      <n-space>
+      <n-space class="appearance-settings-header-actions" :wrap="true">
         <n-button @click="handleClose">{{ t('common.close') }}</n-button>
         <n-button type="primary" @click="handleSave">{{ t('common.save') }}</n-button>
       </n-space>
@@ -56,48 +56,12 @@
       </n-form-item>
     </n-card>
 
-    <!-- Terminal Font Section -->
-    <n-card :title="t('globalSettings.terminalSettings')" class="settings-section">
-      <n-grid :cols="2" :x-gap="24">
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.terminalFontSize')">
-            <n-input-number
-              v-model:value="formData.terminalFontSize"
-              :min="10"
-              :max="24"
-              placeholder="14"
-            />
-            <template #feedback>{{ t('globalSettings.terminalFontSizeHint') }}</template>
-          </n-form-item>
-        </n-grid-item>
-
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.terminalFontFamily')">
-            <n-select
-              v-model:value="formData.terminalFontFamily"
-              :options="fontFamilyOptions"
-              style="width: 100%"
-            />
-            <template #feedback>{{ t('globalSettings.terminalFontFamilyHint') }}</template>
-          </n-form-item>
-        </n-grid-item>
-      </n-grid>
-
-      <n-form-item :label="t('globalSettings.terminalBackground')">
-        <n-radio-group v-model:value="formData.terminalDarkBackground">
-          <n-radio :value="true">{{ t('globalSettings.terminalBackgroundDark') }}</n-radio>
-          <n-radio :value="false">{{ t('globalSettings.terminalBackgroundLight') }}</n-radio>
-        </n-radio-group>
-      </n-form-item>
-    </n-card>
-
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useMessage, NRadioGroup, NRadio } from 'naive-ui'
-import { useIPC } from '@composables/useIPC'
+import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 
@@ -109,35 +73,14 @@ const props = defineProps({
 })
 const emit = defineEmits(['close'])
 const message = useMessage()
-const { invoke } = useIPC()
 const { isDark, setTheme, cssVars, initTheme, colorScheme, setColorScheme, colorSchemeList } = useTheme()
 const { t, locale, setLocale, availableLocales, initLocale } = useLocale()
-
-// 字体回退链
-const FONT_FALLBACK = '"SF Mono", Monaco, "HarmonyOS Sans SC", DengXian, "Microsoft YaHei", "PingFang SC", monospace'
-
-// Default values
-const DEFAULTS = {
-  terminalFontSize: 14,
-  terminalFontFamily: `"Ubuntu Mono", ${FONT_FALLBACK}`,
-  terminalDarkBackground: true
-}
 
 const formData = ref({
   theme: 'light',
   locale: 'zh-CN',
-  colorScheme: 'ember',
-  terminalFontSize: DEFAULTS.terminalFontSize,
-  terminalFontFamily: DEFAULTS.terminalFontFamily,
-  terminalDarkBackground: DEFAULTS.terminalDarkBackground
+  colorScheme: 'ember'
 })
-
-// Terminal font family options
-const fontFamilyOptions = [
-  { label: 'Ubuntu Mono', value: `"Ubuntu Mono", ${FONT_FALLBACK}` },
-  { label: 'Cascadia Code (连字)', value: `"Cascadia Code", ${FONT_FALLBACK}` },
-  { label: 'Consolas', value: `Consolas, ${FONT_FALLBACK}` }
-]
 
 // Theme options
 const themeOptions = computed(() => [
@@ -174,62 +117,19 @@ watch(() => formData.value.colorScheme, async (newScheme) => {
   await setColorScheme(newScheme)
 })
 
-// Watch for terminal background changes (即时生效)
-watch(() => formData.value.terminalDarkBackground, (newValue) => {
-  if (window.electronAPI?.broadcastSettings) {
-    window.electronAPI.broadcastSettings({
-      terminalDarkBackground: newValue
-    })
-  }
-})
-
-// Watch for terminal font size changes (即时生效)
-watch(() => formData.value.terminalFontSize, (newValue) => {
-  if (window.electronAPI?.broadcastSettings) {
-    window.electronAPI.broadcastSettings({
-      terminalFontSize: newValue
-    })
-  }
-})
-
 const loadSettings = async () => {
   try {
     formData.value.theme = isDark.value ? 'dark' : 'light'
     formData.value.locale = locale.value
     formData.value.colorScheme = colorScheme.value
-
-    const terminalSettings = await invoke('getTerminalSettings')
-    formData.value.terminalFontSize = terminalSettings?.fontSize || DEFAULTS.terminalFontSize
-    formData.value.terminalFontFamily = terminalSettings?.fontFamily || DEFAULTS.terminalFontFamily
-    formData.value.terminalDarkBackground = terminalSettings?.darkBackground !== false
   } catch (err) {
     console.error('Failed to load settings:', err)
     message.error(t('messages.loadFailed') + ': ' + err.message)
   }
 }
 
-const handleSave = async () => {
-  try {
-    await invoke('updateTerminalSettings', {
-      fontSize: formData.value.terminalFontSize,
-      fontFamily: formData.value.terminalFontFamily,
-      darkBackground: formData.value.terminalDarkBackground
-    })
-
-    // Broadcast settings change to other windows
-    if (window.electronAPI?.broadcastSettings) {
-      window.electronAPI.broadcastSettings({
-        terminalFontSize: formData.value.terminalFontSize,
-        terminalFontFamily: formData.value.terminalFontFamily,
-        terminalDarkBackground: formData.value.terminalDarkBackground
-      })
-    }
-
-    message.success(t('globalSettings.saveSuccess'))
-  } catch (err) {
-    console.error('Failed to save settings:', err)
-    message.error(t('messages.saveFailed') + ': ' + err.message)
-  }
+const handleSave = () => {
+  message.success(t('globalSettings.saveSuccess'))
 }
 
 const handleClose = () => {
@@ -242,6 +142,17 @@ const handleClose = () => {
 </script>
 
 <style scoped>
+.appearance-settings-header {
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 24px;
+  border-radius: 12px 12px 0 0;
+}
+
+.appearance-settings-header-actions {
+  justify-content: flex-end;
+}
+
 /* 配色方案选择器 */
 .color-scheme-selector {
   display: grid;
@@ -304,6 +215,18 @@ const handleClose = () => {
 
 .color-label {
   display: inline-block;
+}
+
+@media (max-width: 640px) {
+  .appearance-settings-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .appearance-settings-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 </style>

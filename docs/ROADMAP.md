@@ -51,7 +51,7 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 | 文档类型 | 内容 | 输出 |
 |---------|------|------|
 | **用户快速入门** | 安装 → 配置 API → 第一次对话，5 分钟跑通 | `docs/user-guide/QUICKSTART.zh.md` |
-| **功能使用手册** | Terminal 模式、Agent 模式、钉钉桥接、能力市场、多会话管理 | `docs/user-guide/FEATURE-GUIDE.zh.md` |
+| **功能使用手册** | Agent 模式、Notebook、钉钉桥接、能力市场、多会话管理 | `docs/user-guide/FEATURE-GUIDE.zh.md` |
 | **API 配置指南** | 官方 API / 智谱 / 千问 / 代理服务的配置方法（已有，待完善） | 更新 `API-CONFIG-GUIDE.zh.md` |
 | **开发者文档** | 架构设计、IPC 通信、插件开发、Skill 编写规范 | 更新 `ARCHITECTURE.md` + 新增 `DEVELOPER-GUIDE.md` |
 | **FAQ / 故障排查** | 常见问题、环境依赖、构建问题 | `docs/user-guide/FAQ.zh.md` |
@@ -199,7 +199,7 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 
 当前仍保留的边界：
 
-- Terminal / Agent 会话本身仍依赖 Claude Code CLI
+- Agent 会话本身仍依赖 Claude Code runtime
 - 旧 `plugin-cli.js` 仅作为废弃兼容层保留，未从仓库物理删除
 - marketplace 删除时对 project/local 配置中的历史引用不做额外清理，当前按最小收口接受
 
