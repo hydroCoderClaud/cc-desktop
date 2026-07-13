@@ -385,7 +385,11 @@ const handleDelete = async (target) => {
         return
       }
       message.success(t('agent.files.deleteSuccess'))
-      await props.files.refresh()
+      if (typeof props.files.removeEntry === 'function') {
+        props.files.removeEntry(target.relativePath, { isDirectory: target.isDirectory })
+      } else {
+        await props.files.refresh()
+      }
     }
   })
 }

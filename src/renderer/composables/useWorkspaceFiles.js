@@ -32,6 +32,24 @@ export function useWorkspaceFiles(adapter) {
   let searchTimer = null
 
   const ensureSourceId = () => sourceId.value
+  const normalizeRelativePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
+  const isSameOrChildPath = (candidate, target) => {
+    const normalizedCandidate = normalizeRelativePath(candidate)
+    const normalizedTarget = normalizeRelativePath(target)
+    return normalizedCandidate === normalizedTarget || normalizedCandidate.startsWith(`${normalizedTarget}/`)
+  }
+  const getParentDirPath = (relativePath) => {
+    const normalized = normalizeRelativePath(relativePath)
+    const lastSlash = normalized.lastIndexOf('/')
+    return lastSlash === -1 ? '' : normalized.slice(0, lastSlash)
+  }
+  const getCachedDirKey = (dirPath) => {
+    const normalizedDirPath = normalizeRelativePath(dirPath)
+    for (const key of dirCache.keys()) {
+      if (normalizeRelativePath(key) === normalizedDirPath) return key
+    }
+    return dirPath
+  }
 
   const loadDir = async (relativePath = '') => {
     if (!ensureSourceId()) return []
@@ -209,6 +227,51 @@ export function useWorkspaceFiles(adapter) {
     return adapter.deleteFile(sourceId.value, relativePath)
   }
 
+  const removeEntry = (relativePath, { isDirectory = false } = {}) => {
+    const normalizedPath = normalizeRelativePath(relativePath)
+    if (!normalizedPath) return
+
+    const parentPath = getParentDirPath(normalizedPath)
+    const parentCacheKey = getCachedDirKey(parentPath)
+    const parentEntries = dirCache.get(parentCacheKey) || (parentPath === '' ? entries.value : null)
+
+    if (Array.isArray(parentEntries)) {
+      const nextEntries = parentEntries.filter(entry =>
+        normalizeRelativePath(entry?.relativePath) !== normalizedPath
+      )
+      dirCache.set(parentCacheKey, nextEntries)
+      if (parentPath === '') {
+        entries.value = nextEntries
+      }
+    }
+
+    for (const key of Array.from(dirCache.keys())) {
+      const normalizedKey = normalizeRelativePath(key)
+      if (normalizedKey === normalizedPath || (isDirectory && isSameOrChildPath(normalizedKey, normalizedPath))) {
+        dirCache.delete(key)
+      }
+    }
+
+    for (const dirPath of Array.from(expandedDirs)) {
+      const normalizedDirPath = normalizeRelativePath(dirPath)
+      if (normalizedDirPath === normalizedPath || (isDirectory && isSameOrChildPath(normalizedDirPath, normalizedPath))) {
+        expandedDirs.delete(dirPath)
+      }
+    }
+
+    searchResults.value = searchResults.value.filter(result => {
+      const resultPath = normalizeRelativePath(result?.relativePath)
+      return resultPath !== normalizedPath && !(isDirectory && isSameOrChildPath(resultPath, normalizedPath))
+    })
+
+    if (selectedFile.value) {
+      const normalizedSelected = normalizeRelativePath(selectedFile.value)
+      if (normalizedSelected === normalizedPath || (isDirectory && isSameOrChildPath(normalizedSelected, normalizedPath))) {
+        closePreview()
+      }
+    }
+  }
+
   const reset = () => {
     entries.value = []
     expandedDirs.clear()
@@ -261,6 +324,7 @@ export function useWorkspaceFiles(adapter) {
     createFile,
     renameFile,
     deleteFile,
+    removeEntry,
     setSourceId,
     reset
   }
