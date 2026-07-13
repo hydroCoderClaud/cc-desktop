@@ -154,6 +154,7 @@ describe('embedded agent panel wiring', () => {
     expect(composableSource).toContain('isStreaming.value = true')
     expect(composableSource).toContain('startTimer()')
     expect(composableSource).toContain('await agentApi.sendAgentMessage(sendOptions)')
+    expect(composableSource).not.toContain('renameAgentSession?.({ sessionId, title')
     expect(source).toContain('sendMessage: (text) => handleSend(text)')
   })
 

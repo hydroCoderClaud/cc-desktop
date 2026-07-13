@@ -811,18 +811,6 @@ export function useAgentChat(sessionId, options = {}) {
       addUserMessage('', null, originalMessage.attachments)
     }
 
-    // 第一条用户消息 → 自动设为对话标题（截取前10个字符）
-    const userMessages = messages.value.filter(m => m.role === MessageRole.USER)
-    if (userMessages.length === 1 && trimmed && !isActualSlashCommand && !trimmed.startsWith('@')) {
-      const autoTitle = trimmed.length > 10 ? trimmed.slice(0, 10) + '…' : trimmed
-      agentApi?.renameAgentSession?.({ sessionId, title: autoTitle }).catch(() => {})
-    } else if (userMessages.length === 1 && hasImages && !trimmed) {
-      // 第一条消息是纯图片，标题设为 [图片]
-      agentApi?.renameAgentSession?.({ sessionId, title: '[图片]' }).catch(() => {})
-    } else if (userMessages.length === 1 && hasAttachments && !trimmed) {
-      agentApi?.renameAgentSession?.({ sessionId, title: '[附件]' }).catch(() => {})
-    }
-
     isStreaming.value = true
     currentStreamText.value = ''
     startTimer()
