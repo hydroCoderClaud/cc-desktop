@@ -292,8 +292,8 @@ const handleClose = () => {
 .global-settings-header {
   gap: 16px;
   margin: 0 0 24px;
-  padding: 0 0 20px;
-  border-radius: 0;
+  padding: 24px;
+  border-radius: 12px 12px 0 0;
 }
 
 .global-settings-header-actions {

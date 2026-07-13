@@ -26,5 +26,7 @@ describe('GlobalSettingsContent message queue reset', () => {
     expect(source.match(/@click="handleSave"/g)).toHaveLength(1)
     expect(source).not.toContain('settings-footer')
     expect(source).toContain('margin: 0 0 24px;')
+    expect(source).toContain('padding: 24px;')
+    expect(source).toContain('border-radius: 12px 12px 0 0;')
   })
 })
