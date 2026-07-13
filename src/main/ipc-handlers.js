@@ -43,6 +43,7 @@ const sessionAppHandlersMod = safeRequire('./ipc-handlers/session-app-handlers',
 const weixinNotifyHandlersMod = safeRequire('./ipc-handlers/weixin-notify-handlers', 'weixin-notify-handlers');
 const hydrologyHandlersMod = safeRequire('./ipc-handlers/hydrology-handlers', 'hydrology-handlers');
 const ipcUtilsMod = safeRequire('./utils/ipc-utils', 'ipc-utils');
+const singletonWindowRegistryMod = safeRequire('./utils/singleton-window-registry', 'singleton-window-registry');
 const appI18nMod = safeRequire('./utils/app-i18n', 'app-i18n');
 const embeddedAppRegistryMod = safeRequire('./embedded-app-registry', 'embedded-app-registry');
 const hydrologyDatabaseMod = safeRequire('./hydrology/hydrology-database', 'hydrology-database');
@@ -74,6 +75,7 @@ const setupSessionAppHandlers = sessionAppHandlersMod?.setupSessionAppHandlers;
 const setupWeixinNotifyHandlers = weixinNotifyHandlersMod?.setupWeixinNotifyHandlers;
 const setupHydrologyHandlers = hydrologyHandlersMod?.setupHydrologyHandlers;
 const createIPCHandler = ipcUtilsMod?.createIPCHandler;
+const createSingletonWindowRegistry = singletonWindowRegistryMod?.createSingletonWindowRegistry;
 const tMain = appI18nMod?.tMain;
 const listEmbeddedApps = embeddedAppRegistryMod?.listEmbeddedApps;
 const getEmbeddedAppByMenuKey = embeddedAppRegistryMod?.getEmbeddedAppByMenuKey;
@@ -126,6 +128,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   const trustedWeixinWebContents = new Set()
   const embeddedAppWindows = new Map()
+  const singletonSubWindows = createSingletonWindowRegistry?.()
   const registerTrustedWeixinWindow = (window) => {
     const webContents = window?.webContents
     if (!webContents) return
@@ -372,58 +375,80 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     return window;
   };
 
+  const openSingletonSubWindow = (singletonKey, options) => {
+    const createWindow = () => createSubWindow(options)
+    if (!singletonSubWindows) {
+      return { window: createWindow(), reused: false }
+    }
+
+    return singletonSubWindows.open(singletonKey, createWindow, {
+      startMaximized: Boolean(options.startMaximized)
+    })
+  }
+
+  const buildSettingsWorkbenchWindowKey = (options = {}) => {
+    const keyPart = (value) => encodeURIComponent(typeof value === 'string' ? value : '')
+    return [
+      'settings-workbench',
+      options.mode,
+      options.cwd,
+      options.section,
+      options.sessionAppId
+    ].map(keyPart).join(':')
+  }
+
   // 打开 Profile 管理窗口
   ipcMain.handle('window:openProfileManager', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('profile-manager', {
       width: 1000,
       height: 700,
       title: translate('app.windows.profileManager'),
       page: 'profile-manager'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   ipcMain.handle('window:openModelSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('model-settings', {
       width: 1180,
       height: 820,
       title: translate('app.windows.modelSettings'),
       page: 'model-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开全局设置窗口
   ipcMain.handle('window:openGlobalSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('global-settings', {
       width: 750,
       height: 500,
       title: translate('app.windows.globalSettings'),
       page: 'global-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开外观设置窗口
   ipcMain.handle('window:openAppearanceSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('appearance-settings', {
       width: 600,
       height: 450,
       title: translate('app.windows.appearanceSettings'),
       page: 'appearance-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   ipcMain.handle('window:openChannelSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('channel-settings', {
       width: 1180,
       height: 820,
       title: translate('app.windows.channelSettings'),
       page: 'channel-settings',
       trustWeixinNotifyIPC: true
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开能力管理窗口（跨模式可访问）
@@ -433,7 +458,7 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
     if (options.cwd) params.set('cwd', options.cwd)
     if (options.section) params.set('section', options.section)
     if (options.sessionAppId) params.set('sessionAppId', options.sessionAppId)
-    createSubWindow({
+    const result = openSingletonSubWindow(buildSettingsWorkbenchWindowKey(options), {
       width: 1100,
       height: 760,
       title: translate('app.windows.settingsWorkbench'),
@@ -441,18 +466,18 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
       trustWeixinNotifyIPC: true,
       query: params.toString() ? `?${params.toString()}` : ''
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开服务商管理窗口
   ipcMain.handle('window:openProviderManager', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('provider-manager', {
       width: 1000,
       height: 650,
       title: translate('app.windows.providerManager'),
       page: 'provider-manager'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 聚焦主窗口
@@ -1198,34 +1223,34 @@ function setupIPCHandlers(mainWindow, configManager, terminalManager, activeSess
 
   // 打开钉钉桥接设置窗口
   ipcMain.handle('window:openDingTalkSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('dingtalk-settings', {
       width: 600,
       height: 600,
       title: translate('app.windows.dingtalkSettings'),
       page: 'dingtalk-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开飞书桥接设置窗口
   ipcMain.handle('window:openFeishuSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('feishu-settings', {
       width: 600,
       height: 600,
       title: translate('app.windows.feishuSettings'),
       page: 'feishu-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   ipcMain.handle('window:openEnterpriseWeixinSettings', async () => {
-    createSubWindow({
+    const result = openSingletonSubWindow('enterprise-weixin-settings', {
       width: 600,
       height: 600,
       title: '企业微信桥接设置',
       page: 'enterprise-weixin-settings'
     });
-    return { success: true };
+    return { success: true, reused: result.reused };
   });
 
   // 打开 Notebook 工作台
