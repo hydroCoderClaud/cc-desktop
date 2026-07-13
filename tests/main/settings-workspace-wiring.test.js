@@ -41,6 +41,8 @@ describe('in-main settings workspace wiring', () => {
     const workspace = read('src/renderer/pages/main/components/SettingsWorkspace.vue')
     const ipcHandlers = read('src/main/ipc-handlers.js')
 
+    expect(workspace).toContain("t('main.settingsMenu')")
+    expect(workspace).not.toContain("t('common.settingsMenu')")
     expect(workspace).toContain("import ModelSettingsContent from '@/pages/model-settings/components/ModelSettingsContent.vue'")
     expect(workspace).toContain("import ChannelSettingsContent from '@/pages/channel-settings/components/ChannelSettingsContent.vue'")
     expect(workspace).toContain("import GlobalSettingsContent from '@/pages/global-settings/components/GlobalSettingsContent.vue'")

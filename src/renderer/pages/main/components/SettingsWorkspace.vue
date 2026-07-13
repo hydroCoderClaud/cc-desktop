@@ -1,12 +1,12 @@
 <template>
   <section class="settings-workspace">
-    <aside class="settings-navigation" :aria-label="t('common.settingsMenu')">
+    <aside class="settings-navigation" :aria-label="t('main.settingsMenu')">
       <button class="settings-return" type="button" @click="closeSettings">
         <Icon name="arrowLeft" :size="16" />
         <span>{{ t('common.back') }}</span>
       </button>
 
-      <div class="settings-navigation-title">{{ t('common.settingsMenu') }}</div>
+      <div class="settings-navigation-title">{{ t('main.settingsMenu') }}</div>
       <nav class="settings-navigation-list">
         <button
           v-for="item in sections"
