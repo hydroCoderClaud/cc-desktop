@@ -29,7 +29,17 @@ function encodePath(projectPath) {
     .replace(/[^\x20-\x7E]/g, '-')  // 非 ASCII 字符 → -，匹配 CLI 行为
 }
 
-function normalizeProjectPath(projectPath, platform = process.platform) {
+function inferProjectPathPlatform(projectPath, platform) {
+  if (platform) {
+    return platform
+  }
+  if (/^[A-Za-z]:[\\/]/.test(projectPath) || /^\\\\[^\\]+\\[^\\]+/.test(projectPath)) {
+    return 'win32'
+  }
+  return process.platform
+}
+
+function normalizeProjectPath(projectPath, platform = null) {
   if (typeof projectPath !== 'string' || projectPath.length === 0) {
     throw new Error('Project path must be a non-empty string')
   }
@@ -37,7 +47,8 @@ function normalizeProjectPath(projectPath, platform = process.platform) {
     throw new Error('Project path must not contain NUL bytes')
   }
 
-  if (platform === 'win32') {
+  const resolvedPlatform = inferProjectPathPlatform(projectPath, platform)
+  if (resolvedPlatform === 'win32') {
     return normalizeWin32ProjectPath(projectPath)
   }
 
@@ -83,9 +94,10 @@ function stripTrailingSeparators(projectPath, pathModule) {
   return normalized
 }
 
-function buildProjectPathKey(projectPath, platform = process.platform) {
-  const normalizedPath = normalizeProjectPath(projectPath, platform)
-  if (platform === 'win32') {
+function buildProjectPathKey(projectPath, platform = null) {
+  const resolvedPlatform = inferProjectPathPlatform(projectPath, platform)
+  const normalizedPath = normalizeProjectPath(projectPath, resolvedPlatform)
+  if (resolvedPlatform === 'win32') {
     return `win32:${normalizedPath.replace(/\\/g, '/').toLowerCase()}`
   }
   return `posix:${normalizedPath}`

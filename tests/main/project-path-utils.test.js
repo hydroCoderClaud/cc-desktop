@@ -15,6 +15,11 @@ describe('project path identity utilities', () => {
     expect(buildProjectPathKey('c:\\work\\demo', 'win32')).toBe('win32:c:/work/demo')
   })
 
+  it('recognizes Windows drive paths when tests run on POSIX hosts', () => {
+    expect(normalizeProjectPath('C:/Work/Temp/../Demo/')).toBe('C:\\Work\\Demo')
+    expect(buildProjectPathKey('C:/Work/Temp/../Demo/')).toBe('win32:c:/work/demo')
+  })
+
   it('keeps real paths distinct when Claude encoded_path collides', () => {
     const hyphenPath = 'C:/Work/a-b'
     const underscorePath = 'C:/Work/a_b'
