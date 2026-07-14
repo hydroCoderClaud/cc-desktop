@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
