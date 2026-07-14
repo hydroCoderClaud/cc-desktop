@@ -1007,7 +1007,7 @@ class SessionDatabaseBase {
     let repaired = 0
 
     for (const row of rows) {
-      const baseName = path.basename(row.path || '')
+      const baseName = getProjectName(row.path || '')
       if (!baseName || baseName === row.name) continue
       update.run(baseName, now, row.id)
       repaired += 1
