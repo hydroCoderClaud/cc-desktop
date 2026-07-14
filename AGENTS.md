@@ -1,4 +1,4 @@
-**当前版本**：`1.7.88`
+**当前版本**：`1.7.89`
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
