@@ -946,8 +946,9 @@ class SessionDatabaseBase {
 
   /**
    * Remove project rows created by the retired Claude history scanner.
-   * Project-scoped prompts are preserved as global prompts before cascading
-   * foreign keys remove legacy sessions and messages.
+   * Project-scoped prompts are preserved as global prompts, and Agent
+   * conversations are detached so RESTRICT project bindings cannot block the
+   * cleanup. Later project identity migrations rebind conversations from cwd.
    */
   _removeLegacySyncedProjects() {
     const projectColumns = this._getTableColumns('projects')
@@ -965,6 +966,19 @@ class SessionDatabaseBase {
         )
       `).run(Date.now())
 
+      const agentConversationColumns = this._tableExists('agent_conversations')
+        ? this._getTableColumns('agent_conversations')
+        : []
+      const conversationResult = hasColumn(agentConversationColumns, 'project_id')
+        ? this.db.prepare(`
+          UPDATE agent_conversations
+          SET project_id = NULL
+          WHERE project_id IN (
+            SELECT id FROM projects WHERE source = 'sync'
+          )
+        `).run()
+        : { changes: 0 }
+
       const projectResult = this.db.prepare("DELETE FROM projects WHERE source = 'sync'").run()
       this.db.exec('COMMIT')
 
@@ -973,6 +987,9 @@ class SessionDatabaseBase {
       }
       if (promptResult.changes > 0) {
         console.log(`[SessionDB] Preserved ${promptResult.changes} project prompt(s) as global prompts`)
+      }
+      if (conversationResult.changes > 0) {
+        console.log(`[SessionDB] Detached ${conversationResult.changes} Agent conversation(s) from legacy synced projects`)
       }
       return projectResult.changes
     } catch (err) {

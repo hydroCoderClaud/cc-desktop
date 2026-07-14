@@ -137,6 +137,35 @@ describe('legacy synced project cleanup', () => {
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it('detaches Agent conversations before deleting legacy sync projects', () => {
+    sqlite.exec(`
+      INSERT INTO projects (id, path, encoded_path, name, source)
+      VALUES (2, 'C:/workspace/sync', 'C--workspace-sync', 'sync', 'sync');
+      DROP TABLE agent_conversations;
+      CREATE TABLE agent_conversations (
+        id INTEGER PRIMARY KEY,
+        session_id TEXT UNIQUE NOT NULL,
+        cwd TEXT,
+        project_id INTEGER,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+      );
+      INSERT INTO agent_conversations (id, session_id, cwd, project_id)
+      VALUES (1000, 'agent-sync-project', 'C:/workspace/sync', 2);
+    `)
+
+    expect(database._removeLegacySyncedProjects()).toBe(1)
+
+    expect(sqlite.prepare('SELECT id FROM projects').all()).toEqual([])
+    expect(sqlite.prepare('SELECT id, project_id, cwd FROM agent_conversations').all()).toEqual([
+      expect.objectContaining({
+        id: 1000,
+        project_id: null,
+        cwd: 'C:/workspace/sync'
+      })
+    ])
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
   it('is idempotent when no sync projects remain', () => {
     sqlite.exec(`
       INSERT INTO projects (id, path, encoded_path, name, source)
