@@ -374,7 +374,6 @@
 | window:openSessionManager | handle | 打开会话查询窗口 |
 | window:openUpdateManager | handle | 打开应用更新窗口 |
 | window:openDingTalkSettings | handle | 打开钉钉设置窗口 |
-| window:openNotebookWorkspace | handle | 打开 Notebook 工作台 |
 | window:focusMainWindow | handle | 聚焦主窗口 |
 | sessionWatcher:watch | handle | 监控项目会话文件变化 |
 | sessionWatcher:stop | handle | 停止文件监控 |
@@ -487,6 +486,7 @@ main 进程通过 `webContents.send()` 主动推送到渲染进程的事件。
 | update-need-redownload | update-manager.js | 需要重新下载 |
 | update-install-failed | update-manager.js | 安装失败 |
 | scheduled-task:changed | scheduled-task-service.js | 定时任务状态或运行记录变更 |
+| session-app:changed | session-app-handlers.js | 会话应用模板定义变更 |
 | dingtalk:statusChange | dingtalk-bridge.js | 钉钉状态变更 |
 | dingtalk:error | dingtalk-bridge.js | 钉钉错误 |
 | dingtalk:messageReceived | dingtalk-bridge.js | 收到钉钉消息 |

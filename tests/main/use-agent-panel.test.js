@@ -125,6 +125,41 @@ describe('useAgentPanel filters', () => {
     })
   })
 
+  it('clears a removed session-app filter after the panel reloads', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([{
+      id: 'app-session-1',
+      type: 'chat',
+      source: 'manual',
+      sessionAppId: 'sap-weekly',
+      cwd: 'C:/app-a',
+      updatedAt: '2026-04-22T03:15:00.000Z'
+    }])
+    global.window.electronAPI.listSessionApps = vi.fn().mockResolvedValue([{
+      appId: 'sap-weekly',
+      name: 'Weekly'
+    }])
+
+    const panel = useAgentPanel()
+    await panel.loadConversations()
+    panel.selectedAppFilter.value = 'sap-weekly'
+    await nextTick()
+
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([{
+      id: 'app-session-1',
+      type: 'chat',
+      source: 'manual',
+      cwd: 'C:/app-a',
+      updatedAt: '2026-04-22T03:16:00.000Z'
+    }])
+    global.window.electronAPI.listSessionApps.mockResolvedValue([])
+
+    await panel.loadConversations()
+    await nextTick()
+
+    expect(panel.appFilterOptions.value.map(option => option.key)).not.toContain('sap-weekly')
+    expect(panel.selectedAppFilter.value).toBe('all')
+  })
+
   it('uses project identity before cwd for directory filters', async () => {
     global.window.electronAPI.listAgentSessions.mockResolvedValue([
       {

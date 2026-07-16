@@ -109,7 +109,7 @@ const getInitialProfileData = () => ({
   name: props.provider.name,
   icon: '🟣',
   serviceProvider: props.provider.id,
-  authType: 'api_key',
+  authType: 'auth_token',
   authToken: '',
   baseUrl: props.provider.baseUrl || '',
   selectedModelId: Array.isArray(props.provider.defaultModels) && props.provider.defaultModels.length > 0

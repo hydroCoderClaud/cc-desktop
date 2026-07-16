@@ -10,6 +10,8 @@ const chatInputPath = path.resolve(__dirname, '../../src/renderer/pages/main/com
 const toolbarPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/agent/ChatInputToolbar.vue')
 const agentChatTabPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/AgentChatTab.vue')
 const mainContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/MainContent.vue')
+const agentLeftContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/agent/AgentLeftContent.vue')
+const preloadPath = path.resolve(__dirname, '../../src/preload/preload.js')
 
 describe('session app chat wiring', () => {
   it('registers a built-in /session-app command', () => {
@@ -52,5 +54,16 @@ describe('session app chat wiring', () => {
     expect(source).toContain('onSessionAppOpenConversationRequested')
     expect(source).toContain('await switchMode(AppMode.AGENT)')
     expect(source).toContain('handleAgentSelected(session)')
+  })
+
+  it('refreshes the Agent list when Session App definitions change', () => {
+    const preloadSource = fs.readFileSync(preloadPath, 'utf-8')
+    const agentLeftContentSource = fs.readFileSync(agentLeftContentPath, 'utf-8')
+
+    expect(preloadSource).toContain('onSessionAppsChanged: (callback) => {')
+    expect(preloadSource).toContain("ipcRenderer.on('session-app:changed', listener)")
+    expect(agentLeftContentSource).toContain('window.electronAPI?.onSessionAppsChanged')
+    expect(agentLeftContentSource).toContain('cleanupSessionAppsChanged = window.electronAPI.onSessionAppsChanged(() => {')
+    expect(agentLeftContentSource).toContain('void loadConversations()')
   })
 })

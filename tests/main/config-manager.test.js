@@ -87,23 +87,33 @@ describe('ConfigManager', () => {
       expect(config.settings.agent.claudeConfigDir).toBe('')
     })
 
-    it('应该初始化内置服务商及其默认模型 ID 列表', () => {
+    it('应该初始化 Qwen 和 DeepSeek 服务商模板及其默认模型 ID 列表', () => {
       const providers = configManager.getServiceProviderDefinitions()
-      const official = providers.find(provider => provider.id === 'official')
-      const proxy = providers.find(provider => provider.id === 'proxy')
+      const qwen = providers.find(provider => provider.id === 'qwen')
+      const deepseek = providers.find(provider => provider.id === 'deepseek')
 
-      expect(official?.defaultModels).toEqual([
-        'claude-sonnet-4-6',
-        'claude-opus-4-6',
-        'claude-haiku-4-5'
-      ])
-      expect(proxy?.defaultModels).toEqual([
-        'claude-sonnet-4-6',
-        'claude-opus-4-6',
-        'claude-haiku-4-5'
-      ])
-      expect(official).not.toHaveProperty('needsMapping')
-      expect(proxy).not.toHaveProperty('needsMapping')
+      expect(providers.map(provider => provider.id)).toEqual(['qwen', 'deepseek'])
+      expect(qwen).toMatchObject({
+        name: '千问tokenplan',
+        baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+        defaultModels: [
+          'qwen3.7-plus',
+          'qwen3.7-max',
+          'qwen-image-2.0-pro',
+          'wan2.7-image-pro',
+          'deepseek-v4-pro',
+          'deepseek-v4-flash',
+          'kimi-k2.7-code',
+          'glm-5.2'
+        ]
+      })
+      expect(deepseek).toMatchObject({
+        name: 'deepseek',
+        baseUrl: 'https://api.deepseek.com/anthropic',
+        defaultModels: ['deepseek-v4-flash[1m]', 'deepseek-v4-pro[1m]']
+      })
+      expect(qwen).not.toHaveProperty('defaultModelMapping')
+      expect(deepseek).not.toHaveProperty('defaultModelMapping')
     })
 
     it('启动时应清除已退役的终端设置', async () => {
@@ -144,6 +154,19 @@ describe('ConfigManager', () => {
       expect(profile.selectedModelId).toBe('glm-5.1')
       expect(profile).not.toHaveProperty('selectedModelTier')
       expect(configManager.getAPIProfile(profile.id)).not.toHaveProperty('selectedModelTier')
+    })
+
+    it('新增 profile 默认使用 auth_token', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Qwen Profile',
+        authToken: 'token',
+        serviceProvider: 'qwen',
+        baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+        selectedModelId: 'qwen3.7-plus'
+      })
+      await configManager.saveQueue
+
+      expect(profile.authType).toBe('auth_token')
     })
 
     it('新增 profile 不应从 mapping 回填 selectedModelId', async () => {
@@ -200,7 +223,9 @@ describe('ConfigManager', () => {
           id: 'other',
           name: 'Other',
           baseUrl: 'https://example.com',
-          defaultModelMapping: null,
+          defaultModelMapping: {
+            sonnet: 'legacy-provider-model'
+          },
           defaultModels: ['provider-default-model']
         }],
         apiProfiles: [{
@@ -229,6 +254,10 @@ describe('ConfigManager', () => {
       expect(apiConfig.modelMapping).toBeUndefined()
       expect(newConfigManager.getConfig().apiProfiles[0]).not.toHaveProperty('selectedModelTier')
       expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
+      expect(newConfigManager.getServiceProviderDefinition('other')).not.toHaveProperty('defaultModelMapping')
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.serviceProviderDefinitions[0]).not.toHaveProperty('defaultModelMapping')
     })
 
     it('应该有正确的默认超时设置', () => {
@@ -564,7 +593,6 @@ describe('ConfigManager', () => {
           id: 'other',
           name: 'Other',
           baseUrl: 'https://example.com',
-          defaultModelMapping: null,
           defaultModels: ['model-a']
         }],
         apiProfiles: [{
@@ -591,23 +619,22 @@ describe('ConfigManager', () => {
       expect(profile.customModels).toBeUndefined()
     })
 
-    it('official 服务商不再强制清空映射配置', async () => {
-      await configManager.updateServiceProviderDefinition('official', {
+    it('服务商定义更新不持久化已废弃的模型映射', async () => {
+      await configManager.updateServiceProviderDefinition('qwen', {
         defaultModelMapping: {
           opus: 'claude-opus-4-7',
           sonnet: 'claude-sonnet-4-6',
           haiku: 'claude-haiku-4-5-20251001'
         }
       })
+      await configManager.saveQueue
 
-      const provider = configManager.getServiceProviderDefinition('official')
+      const provider = configManager.getServiceProviderDefinition('qwen')
 
-      expect(provider).not.toHaveProperty('needsMapping')
-      expect(provider.defaultModelMapping).toEqual({
-        opus: 'claude-opus-4-7',
-        sonnet: 'claude-sonnet-4-6',
-        haiku: 'claude-haiku-4-5-20251001'
-      })
+      expect(provider).not.toHaveProperty('defaultModelMapping')
+
+      const savedConfig = JSON.parse(fs.readFileSync(path.join(testTempDir, 'config.json'), 'utf-8'))
+      expect(savedConfig.serviceProviderDefinitions.find(item => item.id === 'qwen')).not.toHaveProperty('defaultModelMapping')
     })
 
     it('旧 settings.api 迁移后不应写入已废弃的 selectedModelTier 或默认 sonnet 模型', async () => {
@@ -661,7 +688,6 @@ describe('ConfigManager', () => {
           id: 'other',
           name: 'Other',
           baseUrl: `http://127.0.0.1:${port}`,
-          defaultModelMapping: null,
           defaultModels: ['provider-default-model']
         }],
         apiProfiles: [{

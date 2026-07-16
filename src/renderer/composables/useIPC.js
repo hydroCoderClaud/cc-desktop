@@ -8,21 +8,19 @@ import { ref } from 'vue'
 const mockData = {
   listProviders: () => [
     {
-      id: 'official',
-      name: '官方 API',
-      baseUrl: 'https://api.anthropic.com',
-      defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
+      id: 'qwen',
+      name: '千问tokenplan',
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+      defaultModels: ['qwen3.7-plus', 'qwen3.7-max', 'qwen-image-2.0-pro', 'wan2.7-image-pro', 'deepseek-v4-pro', 'deepseek-v4-flash', 'kimi-k2.7-code', 'glm-5.2']
     },
     {
-      id: 'proxy',
-      name: '中转服务',
-      baseUrl: null,
-      defaultModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']
+      id: 'deepseek',
+      name: 'deepseek',
+      baseUrl: 'https://api.deepseek.com/anthropic',
+      defaultModels: ['deepseek-v4-flash[1m]', 'deepseek-v4-pro[1m]']
     }
   ],
-  listAPIProfiles: () => [
-    { id: '1', name: '默认配置', icon: '🟣', isDefault: true, serviceProvider: 'official' }
-  ]
+  listAPIProfiles: () => []
 }
 
 /**

@@ -87,4 +87,30 @@ describe('session-app IPC handlers', () => {
 
     await expect(handler(null, 'missing-session')).rejects.toThrow('Session not found')
   })
+
+  it('notifies the main renderer after deleting a session app', async () => {
+    const { setupSessionAppHandlers } = await import('../../src/main/ipc-handlers/session-app-handlers.js')
+    const ipcMain = createMockIpcMain()
+    const sent = []
+    const mainWindow = {
+      isDestroyed: () => false,
+      webContents: {
+        isDestroyed: () => false,
+        send: (channel, payload) => sent.push({ channel, payload })
+      }
+    }
+    const sessionAppManager = {
+      deleteApp: vi.fn(() => ({ success: true }))
+    }
+
+    setupSessionAppHandlers(ipcMain, sessionAppManager, null, mainWindow)
+    const result = await ipcMain.handlers.get('session-app:delete')(null, 'sap-weekly')
+
+    expect(result).toEqual({ success: true })
+    expect(sessionAppManager.deleteApp).toHaveBeenCalledWith('sap-weekly')
+    expect(sent).toEqual([{
+      channel: 'session-app:changed',
+      payload: { action: 'deleted', appId: 'sap-weekly' }
+    }])
+  })
 })

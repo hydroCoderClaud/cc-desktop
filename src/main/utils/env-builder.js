@@ -3,7 +3,6 @@
  * 从 API Profile 生成 Claude Code CLI 所需的环境变量
  */
 
-const { buildRuntimeProfile } = require('./runtime-profile')
 const { buildClaudeConfigEnv } = require('./claude-config-paths')
 
 function normalizeModelValue(value) {
@@ -39,21 +38,18 @@ function isPackagedApp() {
  * | selectedModelId             | ANTHROPIC_MODEL (启动默认模型) |
  * | requestTimeout              | API_TIMEOUT_MS                          |
  * | disableNonessentialTraffic  | CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC|
- * | modelMapping.opus           | ANTHROPIC_DEFAULT_OPUS_MODEL            |
- * | modelMapping.sonnet         | ANTHROPIC_DEFAULT_SONNET_MODEL          |
- * | modelMapping.haiku          | ANTHROPIC_DEFAULT_HAIKU_MODEL           |
  * | useProxy + httpsProxy       | HTTPS_PROXY                             |
  * | useProxy + httpProxy        | HTTP_PROXY                              |
  *
  * authType 说明：
  * - 'api_key' (默认) → ANTHROPIC_API_KEY（官方 API 标准）
- * - 'auth_token'     → ANTHROPIC_AUTH_TOKEN（第三方代理服务）
+ * - 'auth_token'     → ANTHROPIC_AUTH_TOKEN（Authorization: Bearer）
  */
 function buildClaudeEnvVars(profile, configManager, options = {}) {
   const envVars = {}
 
   if (!profile) return envVars
-  const runtimeProfile = buildRuntimeProfile(profile, configManager)
+  const runtimeProfile = profile
 
   // 认证令牌（根据 authType 决定环境变量名，并清除另一个避免冲突）
   if (runtimeProfile.authToken && runtimeProfile.authToken.trim()) {
@@ -75,7 +71,7 @@ function buildClaudeEnvVars(profile, configManager, options = {}) {
     envVars.ANTHROPIC_BASE_URL = runtimeProfile.baseUrl.trim()
   }
 
-  // 默认启动模型只认真实模型 ID；mapping 仅用于 tier 默认环境变量
+  // 默认启动模型只认 Profile 中显式保存的真实模型 ID。
   const includeModel = options.includeModel !== false
   const modelName = resolveRuntimeSelectedModelId(runtimeProfile, configManager)
   if (includeModel && modelName) {
@@ -90,20 +86,6 @@ function buildClaudeEnvVars(profile, configManager, options = {}) {
   // 禁用非必要流量
   if (runtimeProfile.disableNonessentialTraffic) {
     envVars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
-  }
-
-  // 模型映射（仅服务商默认映射）
-  if (runtimeProfile.modelMapping) {
-    const mapping = runtimeProfile.modelMapping
-    if (mapping.opus && mapping.opus.trim()) {
-      envVars.ANTHROPIC_DEFAULT_OPUS_MODEL = mapping.opus.trim()
-    }
-    if (mapping.sonnet && mapping.sonnet.trim()) {
-      envVars.ANTHROPIC_DEFAULT_SONNET_MODEL = mapping.sonnet.trim()
-    }
-    if (mapping.haiku && mapping.haiku.trim()) {
-      envVars.ANTHROPIC_DEFAULT_HAIKU_MODEL = mapping.haiku.trim()
-    }
   }
 
   // 代理设置

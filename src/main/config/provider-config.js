@@ -3,12 +3,7 @@
  * 管理内置和自定义服务商的定义
  */
 
-const { SERVICE_PROVIDERS, LATEST_MODEL_ALIASES } = require('../utils/constants')
-
-const BUILTIN_PROVIDER_MODELS = {
-  official: [LATEST_MODEL_ALIASES.sonnet, LATEST_MODEL_ALIASES.opus, LATEST_MODEL_ALIASES.haiku],
-  proxy: [LATEST_MODEL_ALIASES.sonnet, LATEST_MODEL_ALIASES.opus, LATEST_MODEL_ALIASES.haiku]
-}
+const { SERVICE_PROVIDERS } = require('../utils/constants')
 
 function normalizeModelIds(modelIds) {
   if (!Array.isArray(modelIds)) return []
@@ -26,31 +21,15 @@ function normalizeModelIds(modelIds) {
   return normalized
 }
 
-function normalizeProviderModelMapping(mapping) {
-  if (!mapping || typeof mapping !== 'object') return null
-
-  const normalized = {}
-
-  for (const tier of ['opus', 'sonnet', 'haiku']) {
-    const value = typeof mapping[tier] === 'string' ? mapping[tier].trim() : ''
-    if (value) {
-      normalized[tier] = value
-    }
-  }
-
-  return Object.keys(normalized).length > 0 ? normalized : null
-}
-
 function normalizeProviderDefinition(definition) {
   const providerId = typeof definition?.id === 'string' ? definition.id.trim() : ''
-  const builtinModels = BUILTIN_PROVIDER_MODELS[providerId] || []
+  const builtinProvider = SERVICE_PROVIDERS[providerId] || {}
 
   return {
     id: providerId,
-    name: definition?.name || providerId,
-    baseUrl: definition?.baseUrl || '',
-    defaultModelMapping: normalizeProviderModelMapping(definition?.defaultModelMapping),
-    defaultModels: normalizeModelIds(definition?.defaultModels || builtinModels)
+    name: definition?.name || builtinProvider.label || providerId,
+    baseUrl: definition?.baseUrl || builtinProvider.baseUrl || '',
+    defaultModels: normalizeModelIds(definition?.defaultModels || builtinProvider.defaultModels || [])
   }
 }
 
@@ -63,8 +42,7 @@ function getDefaultProviders() {
     id,
     name: SERVICE_PROVIDERS[id].label,
     baseUrl: SERVICE_PROVIDERS[id].baseUrl || '',
-    defaultModelMapping: null,
-    defaultModels: BUILTIN_PROVIDER_MODELS[id] || []
+    defaultModels: SERVICE_PROVIDERS[id].defaultModels || []
   }))
 }
 
@@ -84,7 +62,6 @@ const providerConfigMixin = {
       providers[def.id] = {
         label: def.name,
         baseUrl: def.baseUrl,
-        defaultModelMapping: def.defaultModelMapping,
         defaultModels: normalizeModelIds(def.defaultModels)
       }
     })
@@ -117,7 +94,6 @@ const providerConfigMixin = {
         id: providerId,
         name: providerId,
         baseUrl: '',
-        defaultModelMapping: null,
         defaultModels: []
       }))
     }
@@ -191,6 +167,7 @@ const providerConfigMixin = {
       ...safeUpdates
     })
     Object.assign(this.config.serviceProviderDefinitions[index], nextDefinition)
+    delete this.config.serviceProviderDefinitions[index].defaultModelMapping
 
     return this.save()
   },

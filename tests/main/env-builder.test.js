@@ -1,58 +1,57 @@
 import { describe, it, expect, vi } from 'vitest'
 
-describe('env-builder runtime model selection', () => {
-  it('does not inject runtime model when selectedModelId is blank', async () => {
+describe('env-builder selected model handling', () => {
+  it('does not inject model variables when selectedModelId is blank', async () => {
     const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
+    const configManager = {
+      getServiceProviderDefinition: vi.fn(() => ({
+        defaultModelMapping: {
+          opus: 'legacy-opus',
+          sonnet: 'legacy-sonnet',
+          haiku: 'legacy-haiku'
+        }
+      }))
+    }
 
     const env = buildClaudeEnvVars({
       serviceProvider: 'qwen',
       authToken: 'token',
-      authType: 'api_key',
+      authType: 'auth_token',
       baseUrl: 'https://example.com'
-    }, {
-      getServiceProviderDefinition: vi.fn(() => ({
-        defaultModels: ['qwen-coder'],
-        defaultModelMapping: {
-          opus: 'qwen-max',
-          sonnet: 'qwen-plus',
-          haiku: 'qwen-turbo'
-        }
-      }))
-    })
+    }, configManager)
 
     expect(env.ANTHROPIC_MODEL).toBeUndefined()
-    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('qwen-max')
-    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('qwen-plus')
-    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('qwen-turbo')
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe('token')
+    expect(configManager.getServiceProviderDefinition).not.toHaveBeenCalled()
   })
 
-  it('uses provider mapping env vars even when legacy profile mapping is present', async () => {
+  it('uses only the explicit selected model and ignores legacy mappings', async () => {
     const { buildClaudeEnvVars } = await import('../../src/main/utils/env-builder.js')
 
     const env = buildClaudeEnvVars({
-      serviceProvider: 'other',
+      serviceProvider: 'deepseek',
       authToken: 'token',
-      authType: 'api_key',
+      authType: 'auth_token',
       baseUrl: 'https://example.com',
-      selectedModelId: 'actual-selected-model',
+      selectedModelId: 'deepseek-v4-flash[1m]',
       modelMapping: {
-        sonnet: 'custom-sonnet'
+        sonnet: 'legacy-profile-model'
       }
     }, {
       getServiceProviderDefinition: vi.fn(() => ({
-        defaultModels: ['provider-default-model'],
         defaultModelMapping: {
-          opus: 'provider-opus',
-          sonnet: 'provider-sonnet',
-          haiku: 'provider-haiku'
+          opus: 'legacy-provider-opus'
         }
       }))
     })
 
-    expect(env.ANTHROPIC_MODEL).toBe('actual-selected-model')
-    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('provider-opus')
-    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('provider-sonnet')
-    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('provider-haiku')
+    expect(env.ANTHROPIC_MODEL).toBe('deepseek-v4-flash[1m]')
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBeUndefined()
+    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined()
   })
 
   it('skips ANTHROPIC_MODEL when includeModel is false', async () => {
@@ -64,11 +63,7 @@ describe('env-builder runtime model selection', () => {
       authType: 'api_key',
       baseUrl: 'https://example.com',
       selectedModelId: 'actual-selected-model'
-    }, {
-      getServiceProviderDefinition: vi.fn(() => ({
-        defaultModels: ['provider-default-model']
-      }))
-    }, {
+    }, null, {
       includeModel: false
     })
 

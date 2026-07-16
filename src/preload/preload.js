@@ -509,7 +509,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openUpdateManager: () => ipcRenderer.invoke('window:openUpdateManager'),
   openDingTalkSettings: () => ipcRenderer.invoke('window:openDingTalkSettings'),
   openFeishuSettings: () => ipcRenderer.invoke('window:openFeishuSettings'),
-  openNotebookWorkspace: () => ipcRenderer.invoke('window:openNotebookWorkspace'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
   setMainWindowTitleByMode: (mode) => ipcRenderer.invoke('window:setMainTitleByMode', mode),
 
@@ -718,6 +717,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('session-app:openConversationRequested', listener)
   },
 
+  onSessionAppsChanged: (callback) => {
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('session-app:changed', listener)
+    return () => ipcRenderer.removeListener('session-app:changed', listener)
+  },
+
   // ========================================
   // Agent 会话管理
   // ========================================
@@ -910,11 +915,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setEnterpriseWeixinEnabled: (enabled) => ipcRenderer.invoke('enterprise-weixin:setEnabled', enabled),
   updateEnterpriseWeixinConfig: (config) => ipcRenderer.invoke('enterprise-weixin:updateConfig', config),
   openEnterpriseWeixinSettings: () => ipcRenderer.invoke('window:openEnterpriseWeixinSettings'),
-  onOpenNotebookWorkspace: (callback) => {
-    const listener = () => callback()
-    ipcRenderer.on('navigation:openNotebook', listener)
-    return () => ipcRenderer.removeListener('navigation:openNotebook', listener)
-  },
   listEnterpriseWeixinTargets: () => ipcRenderer.invoke('enterprise-weixin:listTargets'),
   bindSessionToEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:bindTarget', payload),
   unbindSessionEnterpriseWeixinTarget: (payload) => ipcRenderer.invoke('enterprise-weixin:unbindTarget', payload),

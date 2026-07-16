@@ -211,10 +211,10 @@ const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '
 const defaultFormData = () => ({
   name: '',
   icon: '🟣',
-  serviceProvider: 'official',
-  authType: 'api_key',
+  serviceProvider: '',
+  authType: 'auth_token',
   authToken: '',
-  baseUrl: 'https://api.anthropic.com',
+  baseUrl: '',
   selectedModelId: '',
   requestTimeout: 120,
   disableNonessentialTraffic: true,
@@ -233,14 +233,7 @@ const rules = computed(() => ({
 }))
 
 const providerOptions = computed(() => {
-  if (!props.providers || props.providers.length === 0) {
-    return [
-      { label: 'Official API', value: 'official' },
-      { label: 'Proxy Service', value: 'proxy' },
-      { label: 'Other', value: 'other' }
-    ]
-  }
-  return props.providers.map(p => ({
+  return (props.providers || []).map(p => ({
     label: p.name || p.label,
     value: p.id
   }))

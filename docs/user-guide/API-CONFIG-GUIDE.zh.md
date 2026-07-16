@@ -8,7 +8,7 @@
 
 1. 启动应用后，打开 **API 配置管理** 窗口。
 2. 新增或编辑一个 Profile。
-3. 填写认证信息、服务商、基础 URL、默认模型 ID 和代理参数。
+3. 选择 Qwen Token Plan 或 DeepSeek，填写认证令牌；基础 URL 与默认模型会从服务商模板带入。
 4. 点击 **测试连接** 验证配置。
 
 如需从代码中打开该窗口，可调用：
@@ -29,7 +29,7 @@ window.electronAPI.openProfileManager()
 
 - `apiProfiles`：API Profile 列表
 - `defaultProfileId`：默认 Profile ID
-- `serviceProviderDefinitions`：服务商定义（可选）
+- `serviceProviderDefinitions`：服务商定义（首次安装预置 Qwen Token Plan 与 DeepSeek）
 
 不再使用旧版 `settings.api`、`customModels`、`selectedModelTier` 等结构。
 
@@ -39,17 +39,17 @@ window.electronAPI.openProfileManager()
 
 ```json
 {
-  "defaultProfileId": "profile-official",
+  "defaultProfileId": "profile-qwen",
   "apiProfiles": [
     {
-      "id": "profile-official",
-      "name": "Anthropic Official",
+      "id": "profile-qwen",
+      "name": "千问tokenplan",
       "icon": "🔵",
-      "serviceProvider": "official",
-      "authToken": "sk-ant-api03-xxxxxxxxxxxx",
-      "authType": "api_key",
-      "baseUrl": "https://api.anthropic.com",
-      "selectedModelId": "claude-sonnet-4-6",
+      "serviceProvider": "qwen",
+      "authToken": "your-token",
+      "authType": "auth_token",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+      "selectedModelId": "qwen3.7-plus",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
       "useProxy": false,
@@ -94,11 +94,7 @@ window.electronAPI.openProfileManager()
       "defaultModels": [
         "claude-sonnet-4-6",
         "claude-opus-4-6"
-      ],
-      "defaultModelMapping": {
-        "sonnet": "claude-sonnet-4-6",
-        "opus": "claude-opus-4-6"
-      }
+      ]
     }
   ]
 }
@@ -111,9 +107,9 @@ window.electronAPI.openProfileManager()
 | 字段 | 说明 |
 |------|------|
 | `name` | Profile 显示名称 |
-| `serviceProvider` | 服务商 ID，例如 `official`、`proxy` 或自定义服务商 |
+| `serviceProvider` | 服务商 ID，例如 `qwen`、`deepseek` 或自定义服务商 |
 | `authToken` | 认证令牌 |
-| `authType` | `api_key` 或 `auth_token` |
+| `authType` | `api_key` 或 `auth_token`；新增 Profile 默认 `auth_token` |
 | `baseUrl` | API 基础地址 |
 | `selectedModelId` | 默认模型 ID，直接写真实模型名 |
 | `requestTimeout` | 请求超时，单位毫秒 |
@@ -130,7 +126,6 @@ window.electronAPI.openProfileManager()
 | `name` | 服务商显示名称 |
 | `baseUrl` | 默认基础地址 |
 | `defaultModels` | 当前服务商可选模型 ID 列表 |
-| `defaultModelMapping` | 可选的 tier 默认映射，仅用于运行时补全 `ANTHROPIC_DEFAULT_*_MODEL` |
 
 ## 当前程序行为
 
@@ -139,8 +134,7 @@ window.electronAPI.openProfileManager()
 - 当前版本已经移除 Profile 级 `selectedModelTier`。
 - 当前版本已经移除全局和 Profile 级 `customModels`。
 - 默认模型使用 `selectedModelId`，直接传递真实模型 ID。
-- 服务商定义中的 `defaultModels` 只用于界面候选项。
-- 服务商定义中的 `defaultModelMapping` 只在运行时补全 tier 默认环境变量，不会写回 Profile。
+- 选择服务商时，`defaultModels` 的第一项会预填到该 Profile 的 `selectedModelId`。
 
 ### 配置生效时机
 
@@ -158,9 +152,6 @@ window.electronAPI.openProfileManager()
 | `authToken` + `authType=auth_token` | `ANTHROPIC_AUTH_TOKEN` | Token 模式 |
 | `baseUrl` | `ANTHROPIC_BASE_URL` | 自定义 API 地址 |
 | `selectedModelId` | `ANTHROPIC_MODEL` | 默认启动模型 |
-| `serviceProviderDefinitions[].defaultModelMapping.opus` | `ANTHROPIC_DEFAULT_OPUS_MODEL` | 运行时 tier 默认映射 |
-| `serviceProviderDefinitions[].defaultModelMapping.sonnet` | `ANTHROPIC_DEFAULT_SONNET_MODEL` | 运行时 tier 默认映射 |
-| `serviceProviderDefinitions[].defaultModelMapping.haiku` | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | 运行时 tier 默认映射 |
 | `requestTimeout` | `API_TIMEOUT_MS` | 请求超时 |
 | `disableNonessentialTraffic=true` | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` | 关闭非必要流量 |
 | `httpsProxy` | `HTTPS_PROXY` / `https_proxy` | HTTPS 代理 |

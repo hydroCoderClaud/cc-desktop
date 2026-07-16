@@ -22,59 +22,30 @@ const TIMEOUTS = {
   API_REQUEST: 120000        // 120 seconds (2 minutes) for actual requests
 };
 
-// Service Providers
+// First-run provider templates. API Profiles hold credentials and the selected model.
 const SERVICE_PROVIDERS = {
-  official: {
-    label: '官方 API',
-    baseUrl: 'https://api.anthropic.com'
-  },
-  proxy: {
-    label: '中转服务',
-    baseUrl: ''
-  },
-  zhipu: {
-    label: '智谱AI',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4'
-  },
-  minimax: {
-    label: 'MiniMax',
-    baseUrl: 'https://api.minimax.chat/v1'
-  },
   qwen: {
-    label: '阿里千问',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    label: '千问tokenplan',
+    baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+    defaultModels: [
+      'qwen3.7-plus',
+      'qwen3.7-max',
+      'qwen-image-2.0-pro',
+      'wan2.7-image-pro',
+      'deepseek-v4-pro',
+      'deepseek-v4-flash',
+      'kimi-k2.7-code',
+      'glm-5.2'
+    ]
   },
-  other: {
-    label: '其他第三方',
-    baseUrl: ''
+  deepseek: {
+    label: 'deepseek',
+    baseUrl: 'https://api.deepseek.com/anthropic',
+    defaultModels: [
+      'deepseek-v4-flash[1m]',
+      'deepseek-v4-pro[1m]'
+    ]
   }
-};
-
-// Model Tiers
-const MODEL_TIERS = {
-  opus: {
-    label: 'Claude Opus',
-    description: '最强大的模型，适合复杂任务',
-    icon: '🚀'
-  },
-  sonnet: {
-    label: 'Claude Sonnet',
-    description: '平衡性能与速度',
-    icon: '⚡'
-  },
-  haiku: {
-    label: 'Claude Haiku',
-    description: '快速响应',
-    icon: '💨'
-  }
-};
-
-// Model aliases for tier resolution and provider defaults (短别名，无日期后缀)
-// 大版本更新时只需修改此处
-const LATEST_MODEL_ALIASES = {
-  opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-6',
-  haiku: 'claude-haiku-4-5'
 };
 
 // Profile Icons
@@ -89,7 +60,5 @@ module.exports = {
   PROXY_DEFAULTS,
   TIMEOUTS,
   SERVICE_PROVIDERS,
-  MODEL_TIERS,
-  LATEST_MODEL_ALIASES,
   PROFILE_ICONS
 };

@@ -570,15 +570,6 @@ const setupSessionListeners = () => {
     )
   }
 
-  if (window.electronAPI.onOpenNotebookWorkspace) {
-    cleanupFns.push(
-      window.electronAPI.onOpenNotebookWorkspace(async () => {
-        closeSettings()
-        await switchMode(AppMode.NOTEBOOK)
-      })
-    )
-  }
-
   if (window.electronAPI.onSessionAppOpenConversationRequested) {
     cleanupFns.push(
       window.electronAPI.onSessionAppOpenConversationRequested(async (data) => {

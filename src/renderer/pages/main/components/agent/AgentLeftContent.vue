@@ -929,6 +929,7 @@ let cleanupFeishuSessionClosed = null
 let cleanupAgentStatus = null
 let cleanupScheduledTask = null
 let cleanupSessionUpdated = null
+let cleanupSessionAppsChanged = null
 // 窗口获得焦点时刷新 API profiles（profile 在独立窗口编辑，切回时需同步）
 const onWindowFocus = () => {
   loadApiProfiles()
@@ -984,6 +985,12 @@ onMounted(() => {
     })
   }
 
+  if (window.electronAPI?.onSessionAppsChanged) {
+    cleanupSessionAppsChanged = window.electronAPI.onSessionAppsChanged(() => {
+      void loadConversations()
+    })
+  }
+
   // 钉钉会话创建/关闭时自动刷新列表
   if (window.electronAPI?.onDingTalkSessionCreated) {
     cleanupDingtalkSession = window.electronAPI.onDingTalkSessionCreated((data) => {
@@ -1036,6 +1043,7 @@ onUnmounted(() => {
   if (cleanupFeishuSessionClosed) cleanupFeishuSessionClosed()
   if (cleanupScheduledTask) cleanupScheduledTask()
   if (cleanupSessionUpdated) cleanupSessionUpdated()
+  if (cleanupSessionAppsChanged) cleanupSessionAppsChanged()
 })
 
 defineExpose({

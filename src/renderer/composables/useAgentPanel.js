@@ -479,6 +479,12 @@ export function useAgentPanel() {
     ]
   })
 
+  watch(appFilterOptions, (options) => {
+    if (!options.some(option => option.key === selectedAppFilter.value)) {
+      selectedAppFilter.value = 'all'
+    }
+  }, { immediate: true })
+
   /**
    * 从当前候选对话中提取最近目录，并与手动打开目录合并，最多展示 10 个
    */

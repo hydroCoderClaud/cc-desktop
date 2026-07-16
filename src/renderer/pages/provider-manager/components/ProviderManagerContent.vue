@@ -84,35 +84,6 @@
           />
         </n-form-item>
 
-        <div class="mapping-toggle-row">
-          <n-button text class="mapping-toggle" @click="showModelMapping = !showModelMapping">
-            <span>{{ t('providerManager.defaultModelMapping') }}</span>
-            <span class="mapping-toggle-icon">
-              {{ showModelMapping ? t('common.collapse') : t('common.expand') }}
-            </span>
-          </n-button>
-        </div>
-
-        <div v-if="showModelMapping" class="model-mapping-section">
-          <n-grid :cols="1" :y-gap="12">
-            <n-grid-item>
-              <n-form-item :label="t('agent.tierPowerful')">
-                <n-input v-model:value="formData.defaultModelMapping.opus" placeholder="e.g., gpt-4-turbo" />
-              </n-form-item>
-            </n-grid-item>
-            <n-grid-item>
-              <n-form-item :label="t('agent.tierBalanced')">
-                <n-input v-model:value="formData.defaultModelMapping.sonnet" placeholder="e.g., gpt-4" />
-              </n-form-item>
-            </n-grid-item>
-            <n-grid-item>
-              <n-form-item :label="t('agent.tierFast')">
-                <n-input v-model:value="formData.defaultModelMapping.haiku" placeholder="e.g., gpt-3.5-turbo" />
-              </n-form-item>
-            </n-grid-item>
-          </n-grid>
-          <p class="help-text">{{ t('providerManager.defaultModelMappingHint') }}</p>
-        </div>
       </n-form>
 
       <template #footer>
@@ -152,19 +123,13 @@ const showModal = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 const selectedProviderId = ref('')
-const showModelMapping = ref(false)
 const profilesRefreshKey = ref(0)
 
 const defaultFormData = () => ({
   id: '',
   name: '',
   baseUrl: '',
-  defaultModelsText: '',
-  defaultModelMapping: {
-    opus: '',
-    sonnet: '',
-    haiku: ''
-  }
+  defaultModelsText: ''
 })
 
 const formData = ref(defaultFormData())
@@ -210,7 +175,6 @@ const handleClose = () => {
 const handleAdd = () => {
   isEdit.value = false
   formData.value = defaultFormData()
-  showModelMapping.value = false
   showModal.value = true
 }
 
@@ -224,14 +188,8 @@ const handleEdit = (provider) => {
     id: provider.id,
     name: provider.name,
     baseUrl: provider.baseUrl || '',
-    defaultModelsText: Array.isArray(provider.defaultModels) ? provider.defaultModels.join('\n') : '',
-    defaultModelMapping: {
-      opus: provider.defaultModelMapping?.opus || '',
-      sonnet: provider.defaultModelMapping?.sonnet || '',
-      haiku: provider.defaultModelMapping?.haiku || ''
-    }
+    defaultModelsText: Array.isArray(provider.defaultModels) ? provider.defaultModels.join('\n') : ''
   }
-  showModelMapping.value = false
   showModal.value = true
 }
 
@@ -267,19 +225,12 @@ const handleSave = async () => {
         .map(item => item.trim())
         .filter(Boolean)
     ))
-    const defaultModelMapping = {
-      opus: formData.value.defaultModelMapping.opus || null,
-      sonnet: formData.value.defaultModelMapping.sonnet || null,
-      haiku: formData.value.defaultModelMapping.haiku || null
-    }
-    const hasModelMapping = Object.values(defaultModelMapping).some(Boolean)
 
     const data = {
       id: formData.value.id,
       name: formData.value.name,
       baseUrl: formData.value.baseUrl || null,
-      defaultModels,
-      defaultModelMapping: hasModelMapping ? defaultModelMapping : null
+      defaultModels
     }
 
     if (isEdit.value) {
@@ -293,7 +244,6 @@ const handleSave = async () => {
 
     await loadProviders()
     profilesRefreshKey.value += 1
-    showModelMapping.value = false
     showModal.value = false
   } catch (errors) {
     console.warn('Validation failed:', errors)
@@ -371,36 +321,4 @@ const handleSave = async () => {
   }
 }
 
-.mapping-toggle-row {
-  margin-top: 6px;
-}
-
-.mapping-toggle {
-  width: 100%;
-  justify-content: space-between;
-  padding: 10px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color);
-  border-top: 1px solid var(--border-color, #ece7dc);
-}
-
-.mapping-toggle-icon {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-color-2);
-}
-
-.model-mapping-section {
-  background: var(--bg-color-tertiary, #f8f9fa);
-  padding: 14px 16px;
-  border-radius: 8px;
-  margin-top: 6px;
-}
-
-.help-text {
-  font-size: 12px;
-  color: #999;
-  margin-top: 8px;
-}
 </style>

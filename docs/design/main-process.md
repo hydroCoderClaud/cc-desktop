@@ -121,11 +121,11 @@ ConfigManager (config-manager.js, 1056行)
 {
   id: "uuid",
   name: "Default API",
-  authToken: "sk-ant-...",
-  authType: "api_key",       // 'api_key' | 'auth_token'
-  baseUrl: "https://api.anthropic.com",
-  serviceProvider: "official",
-  selectedModelId: "claude-sonnet-4-6", // 启动默认模型 ID
+  authToken: "your-token",
+  authType: "auth_token",    // 新建 Profile 默认值；也可显式使用 api_key
+  baseUrl: "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+  serviceProvider: "qwen",
+  selectedModelId: "qwen3.7-plus", // 启动默认模型 ID
   useProxy: false,
   httpsProxy: "",
   requestTimeout: 120000,
@@ -135,11 +135,9 @@ ConfigManager (config-manager.js, 1056行)
 
 Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()` 完成，详见 [环境变量构建](#环境变量构建)。
 
-运行时还会通过 `buildRuntimeProfile()` 从 `serviceProviderDefinitions[].defaultModelMapping` 临时补全 `modelMapping`，仅用于填充 `ANTHROPIC_DEFAULT_*_MODEL`，不会回写到 Profile 配置本身。
-
 ### 服务商管理
 
-所有服务商均可编辑/删除，无"内置只读"概念。预设服务商定义在 `constants.js` 的 `SERVICE_PROVIDERS` 中，用户自定义服务商存储在 `config.serviceProviderDefinitions[]`。
+首次安装会写入 Qwen Token Plan 与 DeepSeek 两个可编辑服务商模板；模板只包含名称、基础地址和模型候选列表。用户自定义服务商同样存储在 `config.serviceProviderDefinitions[]`，认证令牌与默认模型始终保存在 API Profile 中。
 
 ---
 
@@ -299,7 +297,6 @@ Profile 字段到环境变量的映射：
 | `authToken` + `authType='auth_token'` | `ANTHROPIC_AUTH_TOKEN` |
 | `baseUrl` | `ANTHROPIC_BASE_URL` |
 | `selectedModelId` | `ANTHROPIC_MODEL` |
-| `serviceProviderDefinitions[].defaultModelMapping.{tier}` | `ANTHROPIC_DEFAULT_{TIER}_MODEL` |
 | `useProxy` + `httpsProxy` | `HTTPS_PROXY` / `HTTP_PROXY` |
 | `requestTimeout` | `API_TIMEOUT_MS` |
 | `disableNonessentialTraffic` | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` |

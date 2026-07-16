@@ -1028,8 +1028,6 @@ export default {
     defaultBaseUrl: 'Default Base URL',
     defaultModelIds: 'Default Model ID List',
     defaultModelIdsPlaceholder: 'One model ID per line, for example\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    defaultModelMapping: 'Default Tier Mapping',
-    defaultModelMappingHint: 'Optional. Filled values are injected as the default opus / sonnet / haiku environment variables.',
     deleteConfirm: 'Are you sure you want to delete this provider?',
     deleteSuccess: 'Provider deleted',
     saveSuccess: 'Provider saved',

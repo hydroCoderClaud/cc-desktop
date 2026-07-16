@@ -6,6 +6,10 @@ function setupSessionAppHandlers(ipcMain, sessionAppManager, agentSessionManager
     return
   }
 
+  const notifySessionAppsChanged = (action, appId) => {
+    safeSend(mainWindow, 'session-app:changed', { action, appId })
+  }
+
   ipcMain.handle('session-app:list', async () => {
     return sessionAppManager.listApps()
   })
@@ -15,19 +19,27 @@ function setupSessionAppHandlers(ipcMain, sessionAppManager, agentSessionManager
   })
 
   ipcMain.handle('session-app:create', async (_event, input = {}) => {
-    return sessionAppManager.createApp(input)
+    const app = await sessionAppManager.createApp(input)
+    notifySessionAppsChanged('created', app?.appId || null)
+    return app
   })
 
   ipcMain.handle('session-app:update', async (_event, { appId, updates }) => {
-    return sessionAppManager.updateApp(appId, updates || {})
+    const app = await sessionAppManager.updateApp(appId, updates || {})
+    notifySessionAppsChanged('updated', appId)
+    return app
   })
 
   ipcMain.handle('session-app:duplicate', async (_event, { appId, overrides }) => {
-    return sessionAppManager.duplicateApp(appId, overrides || {})
+    const app = await sessionAppManager.duplicateApp(appId, overrides || {})
+    notifySessionAppsChanged('duplicated', app?.appId || null)
+    return app
   })
 
   ipcMain.handle('session-app:delete', async (_event, appId) => {
-    return sessionAppManager.deleteApp(appId)
+    const result = await sessionAppManager.deleteApp(appId)
+    notifySessionAppsChanged('deleted', appId)
+    return result
   })
 
   ipcMain.handle('session-app:launch', async (_event, { appId, input, sessionOptions = {} }) => {

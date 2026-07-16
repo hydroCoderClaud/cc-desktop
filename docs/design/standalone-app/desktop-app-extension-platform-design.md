@@ -134,7 +134,6 @@ Hydro Desktop 后续不应只停留在：
 ### 独立工作区 / 独立窗口基础
 
 - `NotebookManager`
-- `window:openNotebookWorkspace`
 - 主进程多工作区 / 独立窗口能力
 
 ### 插件 / 市场 / 组件扫描基础

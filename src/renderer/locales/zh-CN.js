@@ -1031,8 +1031,6 @@ export default {
     defaultBaseUrl: '默认接口地址',
     defaultModelIds: '默认模型 ID 列表',
     defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    defaultModelMapping: '默认层级映射',
-    defaultModelMappingHint: '可选。填写后会注入 opus / sonnet / haiku 对应的默认环境变量。',
     deleteConfirm: '确定要删除此服务商吗？',
     deleteSuccess: '服务商已删除',
     saveSuccess: '服务商已保存',
