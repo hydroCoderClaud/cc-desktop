@@ -11,7 +11,7 @@
     v-else
     :width="size"
     :height="size"
-    viewBox="0 0 20 20"
+    :viewBox="viewBox"
     fill="none"
     :stroke="color"
     :stroke-width="strokeWidth"
@@ -24,7 +24,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { iconAssets, iconPaths } from './index.js'
+import { iconAssets, iconDefinitions, iconPaths } from './index.js'
 
 const props = defineProps({
   name: {
@@ -47,8 +47,12 @@ const props = defineProps({
 
 const assetSrc = computed(() => iconAssets[props.name] || '')
 
+const iconDefinition = computed(() => iconDefinitions[props.name] || null)
+
+const viewBox = computed(() => iconDefinition.value?.viewBox || '0 0 20 20')
+
 const path = computed(() => {
-  const p = iconPaths[props.name]
+  const p = iconDefinition.value?.body || iconPaths[props.name]
   if (!p && !assetSrc.value) {
     console.warn(`[Icon] Unknown icon name: ${props.name}`)
     return iconPaths.warning || ''
