@@ -308,7 +308,10 @@ function isSessionAppCapabilityEnabled(allowedCapabilities, capabilityName) {
   return normalizedAllowed.includes(resolveSessionAppCapabilityName(capabilityName))
 }
 
-const HIDDEN_SDK_SYSTEM_EVENT_SUBTYPES = new Set(['thinking_tokens'])
+const HIDDEN_SDK_SYSTEM_EVENT_SUBTYPES = new Set([
+  'background_tasks_changed',
+  'thinking_tokens'
+])
 
 function isHiddenSdkSystemEvent(rawMsg) {
   return rawMsg?.type === 'system' && HIDDEN_SDK_SYSTEM_EVENT_SUBTYPES.has(rawMsg.subtype)

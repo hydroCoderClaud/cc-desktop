@@ -8,7 +8,7 @@
         :title="t('agent.apiProfileTooltip') + apiProfileDisplayName"
         @click="toggleApiDropdown"
       >
-        <Icon name="api" :size="14" class="api-profile-icon" />
+        <Icon name="api" :size="15" :stroke-width="1.7" class="api-profile-icon" />
       </div>
 
       <Transition name="dropdown">
@@ -28,7 +28,7 @@
       </Transition>
 
       <div class="model-selector" :title="t('agent.modelTooltip') + modelDisplayName" @click="toggleModelDropdown">
-        <Icon name="robot" :size="14" class="model-icon" />
+        <Icon name="robot" :size="15" :stroke-width="1.7" class="model-icon" />
       </div>
 
       <Transition name="dropdown">
@@ -47,11 +47,11 @@
       </Transition>
 
       <div class="schedule-task-btn" :title="t('agent.scheduleDraftTitle')" @click="emit('schedule')">
-        <Icon name="clock" :size="13" />
+        <Icon name="clock" :size="15" :stroke-width="1.7" />
       </div>
 
       <div class="schedule-task-btn" :title="t('agent.sessionAppDraftTitle')" @click="emit('session-app')">
-        <Icon name="sessionApp" :size="13" />
+        <Icon name="sessionApp" :size="15" :stroke-width="1.7" />
       </div>
 
       <div
@@ -60,19 +60,19 @@
         :title="queueEnabled ? t('agent.queueToggleOn') : t('agent.queueToggleOff')"
         @click="emit('toggle-queue')"
       >
-        <Icon name="queue" :size="13" class="queue-toggle-icon" />
+        <Icon name="queue" :size="15" :stroke-width="1.7" class="queue-toggle-icon" />
       </div>
 
       <div class="image-upload-btn" :title="t('agent.uploadImage')" @click="emit('trigger-image-upload')">
-        <Icon name="image" :size="13" />
+        <Icon name="image" :size="15" :stroke-width="1.7" />
       </div>
 
       <div class="attachment-upload-btn" :title="t('agent.uploadAttachment')" @click="emit('trigger-attachment-upload')">
-        <Icon name="fileText" :size="13" />
+        <Icon name="fileText" :size="15" :stroke-width="1.7" />
       </div>
 
       <div class="clear-input-btn" :title="t('agent.clearInput')" @click="emit('clear')">
-        <Icon name="delete" :size="13" />
+        <Icon name="delete" :size="15" :stroke-width="1.7" />
       </div>
 
       <div
@@ -80,7 +80,7 @@
         :title="isExpanded ? t('common.collapse') : t('common.expand')"
         @click="emit('toggle-expanded')"
       >
-        <Icon :name="isExpanded ? 'restore' : 'maximize'" :size="13" />
+        <Icon :name="isExpanded ? 'restore' : 'maximize'" :size="15" :stroke-width="1.7" />
       </div>
 
       <div
@@ -1618,6 +1618,21 @@ onUnmounted(() => {
   cursor: pointer;
   color: var(--text-color-2);
   transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.model-selector,
+.api-profile-selector,
+.schedule-task-btn,
+.queue-toggle,
+.image-upload-btn,
+.attachment-upload-btn,
+.clear-input-btn,
+.expand-input-btn {
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  background: transparent;
+  line-height: 0;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
 .model-selector {

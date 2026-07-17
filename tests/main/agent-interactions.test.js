@@ -1337,6 +1337,32 @@ describe('AgentSessionManager interactions', () => {
     expect(sent.some(item => item.channel === 'agent:message')).toBe(false)
   })
 
+  it('does not surface SDK background task updates as chat messages', async () => {
+    const { manager, sent } = createManager()
+    const session = new AgentSession({ id: 's-background-tasks', cwd: '/tmp' })
+    manager.sessions.set('s-background-tasks', session)
+
+    const backgroundTasksEvent = {
+      type: 'system',
+      subtype: 'background_tasks_changed',
+      tasks: [{
+        task_id: 'a3b8113aeacfb7874',
+        task_type: 'local_agent',
+        description: 'Explore CAD MCP tools'
+      }],
+      uuid: 'background-tasks-uuid',
+      session_id: 'sdk-session'
+    }
+    manager.runner = {
+      normalizeMessage: raw => ({ type: 'unknown', raw })
+    }
+
+    await manager._processMessage(session, backgroundTasksEvent)
+
+    expect(sent.some(item => item.channel === 'agent:otherMessage')).toBe(false)
+    expect(sent.some(item => item.channel === 'agent:message')).toBe(false)
+  })
+
   it('emits bridge-friendly image paths for tool_result file resources', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 's-tool-bridge', cwd: '/tmp' })
