@@ -33,16 +33,6 @@ const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'If the user does not explicitly request a separate session, omit sessionBindingMode or use current instead of new.'
 ].join(' ')
 
-const CONFLICTING_CRON_TOOLS = [
-  'CronList',
-  'CronCreate',
-  'CronUpdate',
-  'CronDelete',
-  'cronList',
-  'cronCreate',
-  'cronUpdate',
-  'cronDelete'
-]
 const DESKTOP_CAPABILITY_SERVER_NAME = 'hydrodesktop'
 const DESKTOP_CAPABILITY_TOOL_NAMES = [
   'schedule_list',
@@ -1938,15 +1928,13 @@ async function buildDesktopCapabilityQueryOptions({
       ...(includeImBuiltinTools ? IM_BUILTIN_ALLOWED_TOOLS : []),
       ...(session?.id ? SESSION_ALLOWED_TOOLS : []),
       ...(includeSessionAppTools ? SESSION_APP_ALLOWED_TOOLS : [])
-    ],
-    disallowedTools: includeScheduleTools ? CONFLICTING_CRON_TOOLS : undefined
+    ]
   }
 }
 
 module.exports = {
   buildDesktopCapabilityQueryOptions,
   DESKTOP_CAPABILITY_SYSTEM_PROMPT,
-  CONFLICTING_CRON_TOOLS,
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
   WEIXIN_NOTIFY_ALLOWED_TOOLS,
   IM_BUILTIN_ALLOWED_TOOLS,

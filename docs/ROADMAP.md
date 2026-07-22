@@ -205,7 +205,7 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 
 #### 8d. 内建 Cron 与桌面端定时任务能力协同（远期）
 
-当前聊天态已通过会话级 `disallowedTools` 避免 Claude Code 内建 `Cron*` 工具与 `hydrodesktop` 自身定时任务管理能力冲突，但这只是短期隔离策略。
+当前聊天态已通过会话级 `allowedTools` 和系统提示将定时任务意图路由到 `hydrodesktop` 自身定时任务管理能力。旧的 Claude Code 内建 `Cron*` 工具 deny 规则已移除，避免新版 runtime 对未知工具名产生警告。
 
 当前现状补充：
 

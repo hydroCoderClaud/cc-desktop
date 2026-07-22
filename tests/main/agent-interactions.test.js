@@ -2106,7 +2106,7 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.allowedTools).toEqual(
       expect.arrayContaining(DESKTOP_CAPABILITY_ALLOWED_TOOLS)
     )
-    expect(createQueryOptions.disallowedTools).toEqual(
+    expect(createQueryOptions.disallowedTools || []).not.toEqual(
       expect.arrayContaining(['CronList', 'CronCreate', 'CronUpdate', 'CronDelete', 'cronList', 'cronCreate', 'cronUpdate', 'cronDelete'])
     )
   })
@@ -2335,12 +2335,7 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
     expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')
     expect(createQueryOptions.appendSystemPrompt).toContain('HydroDesktop scheduled tasks')
-    expect(createQueryOptions.disallowedTools).toEqual(expect.arrayContaining([
-      'CronList',
-      'CronCreate',
-      'CronUpdate',
-      'CronDelete'
-    ]))
+    expect(createQueryOptions.disallowedTools).toBeUndefined()
   })
 
   it('injects Hydro Desktop AI identity prompt for normal chat sessions', async () => {

@@ -13,7 +13,7 @@
 - 现有 server 名称是 `hydrodesktop`，暴露桌面端定时任务工具、微信通知工具、IM 主动发送工具和会话应用工具。
 - 定时任务管理工具会统一注入可用的 Agent 会话，不再按“任务执行会话”做特殊区分。
 - 微信通知工具会注入定时任务执行会话，用于让定时任务主动把结果推送给已绑定的微信目标。
-- 当前通过会话级 `allowedTools` 和 `disallowedTools` 做短期工具路由：允许 `mcp__hydrodesktop__schedule_*`，禁用 Claude Code 内建 `Cron*` 工具，避免用户意图被路由到错误调度系统。
+- 当前通过会话级 `allowedTools` 和系统提示做工具路由：允许 `mcp__hydrodesktop__schedule_*`，并明确要求定时任务意图使用 Hydro Desktop 工具。
 - 会话是否绑定 `taskId` 不再影响内置 MCP 注入；只要能力可用，就按同一规则注入。
 - 测试时如果是在“由定时任务自动创建/恢复”的会话里继续聊天，是否能看到 `schedule_*` 工具取决于上述全局开关。
 
@@ -27,7 +27,7 @@ AgentSessionManager.sendMessage()
   -> createSdkMcpServer({ name: 'hydrodesktop', tools })
   -> queryOptions.mcpServers.hydrodesktop
   -> queryOptions.appendSystemPrompt
-  -> queryOptions.allowedTools / queryOptions.disallowedTools
+  -> queryOptions.allowedTools
   -> Claude Code SDK query
 ```
 
@@ -35,7 +35,7 @@ AgentSessionManager.sendMessage()
 
 - `src/main/agent-session-manager.js`
   - 在构建 SDK `queryOptions` 时调用 `buildDesktopCapabilityQueryOptions()`
-  - 合并内置能力返回的 `mcpServers`、`appendSystemPrompt`、`allowedTools`、`disallowedTools`
+  - 合并内置能力返回的 `mcpServers`、`appendSystemPrompt`、`allowedTools`
 - `src/main/managers/desktop-capability-query-options.js`
   - 定义 `hydrodesktop` server、工具列表、工具 schema、工具 handler、系统提示和工具白名单
 - `src/main/managers/weixin-notify-service.js`
@@ -187,7 +187,7 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 
 - 这套机制目前不是通用内置 MCP registry，逻辑集中在 `desktop-capability-query-options.js`。
 - 具备桌面内置能力的会话会按同一规则注入 `allowedTools`；不再因为会话是否关联定时任务而做区别注入。
-- `disallowedTools` 对 Claude Code 内建 `Cron*` 是硬编码短期策略。远期需要更细粒度地区分目标域，而不是一刀切禁用。
+- 不再对 Claude Code 内建 `Cron*` 注入硬编码 `disallowedTools`。较新的 runtime 可能不再注册这些旧工具名，继续传 deny 规则会产生 `matches no known tool` 警告。
 - 内置 MCP 工具与 UI IPC 共享底层 `ScheduledTaskService`，但不是同一入口；行为一致性主要靠服务层和测试保障。
 - `im_send` 只负责发送本地已存在文件，不负责创建、下载或解析文档；文档理解仍由 Agent 自身文件/PDF能力完成。
 - GitNexus 当前没有识别出这些工具为标准 MCP tool nodes，理解链路时需要直接看源码和测试。
@@ -195,7 +195,7 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 
 待回头处理的问题：
 
-- 定时任务执行时偶发出现 `Bash: 获取当前日期和时间` 这类无关工具调用/回复，怀疑与定时任务 MCP 注入、系统提示或工具选择策略有关。微信双向聊天阶段完成后，需要回到 `buildDesktopCapabilityQueryOptions()` 和定时任务执行链路排查：确认任务触发运行时的 MCP 注入、allowed/disallowedTools、prompt 约束和模型工具选择是否导致任务结果被 Bash 时间查询污染。
+- 定时任务执行时偶发出现 `Bash: 获取当前日期和时间` 这类无关工具调用/回复，怀疑与定时任务 MCP 注入、系统提示或工具选择策略有关。微信双向聊天阶段完成后，需要回到 `buildDesktopCapabilityQueryOptions()` 和定时任务执行链路排查：确认任务触发运行时的 MCP 注入、allowedTools、prompt 约束和模型工具选择是否导致任务结果被 Bash 时间查询污染。
 
 ---
 
