@@ -366,6 +366,9 @@ const hydroHostTheme = {
 contextBridge.exposeInMainWorld('electronAPI', {
   bootstrap: bootstrapState,
 
+  // 主界面完成首屏初始化后通知启动页切换到工作台。
+  notifySplashReady: () => ipcRenderer.send('splash:renderer-ready'),
+
   // 平台信息（供渲染进程判断 win32/darwin/linux）
   platform: process.platform,
 

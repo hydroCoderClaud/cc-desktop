@@ -3,7 +3,7 @@
  * Claude Code Desktop - 独立版本
  */
 
-const { app, BrowserWindow, Menu, powerSaveBlocker, powerMonitor } = require('electron');
+const { app, BrowserWindow, Menu, powerSaveBlocker, powerMonitor, ipcMain } = require('electron');
 const path = require('path');
 const ConfigManager = require('./config-manager');
 const { AgentSessionManager } = require('./agent-session-manager');
@@ -20,6 +20,7 @@ const { EmbeddedAppPreferencesManager } = require('./managers/embedded-app-prefe
 const { LocalAgentApiServer } = require('./agent-platform/local-agent-api-server');
 const { setupIPCHandlers } = require('./ipc-handlers');
 const { createTrayController } = require('./tray-controller');
+const { SplashController } = require('./splash-controller');
 const { restoreOrCreateMainWindow, setupSingleInstanceLock } = require('./single-instance');
 const { tMain } = require('./utils/app-i18n');
 const { getStableUserDataPath } = require('./utils/user-data-path');
@@ -53,6 +54,7 @@ let localAgentApiServer = null;
 let powerSaveBlockerId = null;
 let resumeTimer = null;
 let trayController = null;
+let splashController = null;
 
 function resetCleanupState() {
   cleanupDone = false;
@@ -257,8 +259,12 @@ function createWindow() {
 
   // 窗口准备好后，先最大化再显示（避免过渡闪烁）
   mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
-    mainWindow.show();
+    if (splashController) {
+      splashController.markMainWindowReady(mainWindow)
+    } else {
+      mainWindow.maximize();
+      mainWindow.show();
+    }
     trayController?.refreshTrayMenu();
   });
 
@@ -393,6 +399,18 @@ if (hasSingleInstanceLock) {
       onQuitRequest: () => app.quit()
     });
 
+    splashController = new SplashController({
+      appInstance: app,
+      BrowserWindowClass: BrowserWindow,
+      ipcMain,
+      configManager
+    })
+    splashController.registerIpc()
+    splashController.start()
+    splashController.updateStatus({
+      detail: '正在创建主工作台'
+    })
+
     // 创建主窗口
     createWindow();
     try {
@@ -482,6 +500,10 @@ if (hasSingleInstanceLock) {
       agentEventRouter,
       configManager
     })
+    splashController.updateStatus({
+      detail: '正在打开智能工作台'
+    })
+    splashController.markMainServicesReady()
     await localAgentApiServer.restartIfEnabled()
 
     // 阻止系统挂起本应用（屏幕可正常关闭，但进程、网络、计时器保持活跃）
@@ -547,6 +569,7 @@ if (hasSingleInstanceLock) {
    * 应用即将退出事件
    */
   app.on('will-quit', () => {
+    splashController?.destroy()
     trayController?.destroyTray()
     cleanupAllSessions();
     if (scheduledTaskService) {

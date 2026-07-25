@@ -452,6 +452,7 @@ onMounted(async () => {
   selectFirstProject()
   setupSessionListeners()
   loadRightPanelWidth()  // 加载右侧面板宽度配置
+  window.electronAPI?.notifySplashReady?.()
   window.addEventListener('keydown', handleKeyDown)
 })
 
