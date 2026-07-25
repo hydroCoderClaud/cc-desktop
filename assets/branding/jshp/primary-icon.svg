@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">华鹏助手应用图标</title>
+  <desc id="desc">以华鹏蓝色为基调，将简化的 HP 字母融入变压器轮廓的应用图标。</desc>
+  <defs>
+    <linearGradient id="blue" x1="84" y1="66" x2="427" y2="454" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0965AE"/>
+      <stop offset="1" stop-color="#004783"/>
+    </linearGradient>
+  </defs>
+  <rect x="28" y="28" width="456" height="456" rx="112" fill="url(#blue)"/>
+  <!-- Transformer tank: clean round body and two insulated bushings, with no decorative spur. -->
+  <rect x="130" y="151" width="252" height="244" rx="48" fill="none" stroke="#FFF" stroke-width="22"/>
+  <rect x="141" y="162" width="230" height="222" rx="37" fill="none" stroke="#B9E6FF" stroke-opacity=".48" stroke-width="5"/>
+  <path d="M210 151v-35m-18 0h36m76 35v-35m-18 0h36" fill="none" stroke="#FFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- The shared vertical stroke makes H and P read as one compact electrical monogram. -->
+  <path d="M180 214v118m48-118v118m-48-61h48m47 61V214h36c22 0 36 13 36 30s-14 30-36 30h-36"
+        fill="none" stroke="#FFF" stroke-width="24" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M174 419h164" stroke="#B9E6FF" stroke-width="14" stroke-linecap="round"/>
+</svg>

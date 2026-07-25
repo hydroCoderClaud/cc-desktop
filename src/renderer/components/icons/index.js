@@ -1,5 +1,6 @@
 import dingtalkIcon from './assets/dingtalk.svg'
 import feishuIcon from './assets/feishu.svg'
+import jshpMascotIcon from './assets/jshp-mascot.svg'
 import wecomIcon from './assets/wecom.svg'
 import weixinIcon from './assets/weixin.svg'
 
@@ -39,6 +40,7 @@ export const iconPaths = Object.fromEntries(
 
 export const iconAssets = {
   dingtalk: dingtalkIcon,
+  jshpMascot: jshpMascotIcon,
   weixin: weixinIcon,
   wecom: wecomIcon,
   feishu: feishuIcon

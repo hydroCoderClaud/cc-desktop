@@ -1,10 +1,10 @@
 !macro customHeader
   ManifestDPIAware true
   !ifndef BUILD_UNINSTALLER
-    !searchreplace InstallerDisplayNameEscaped "Hydro Desktop" "&" "&&"
-    BrandingText "Hydro Desktop ${VERSION}"
-    Caption "Hydro Desktop 安装"
-    Name "Hydro Desktop" "${InstallerDisplayNameEscaped}"
+    !searchreplace InstallerDisplayNameEscaped "JSHP Desktop" "&" "&&"
+    BrandingText "JSHP Desktop ${VERSION}"
+    Caption "JSHP Desktop 安装"
+    Name "JSHP Desktop" "${InstallerDisplayNameEscaped}"
   !endif
 !macroend
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="96 88 320 360" role="img" aria-labelledby="title desc">
+  <title id="title">华鹏工具栏图标</title>
+  <desc id="desc">适合 16 至 32 像素工具栏和菜单栏使用的单色 HP 变压器简化标记。</desc>
+  <!-- Same transformer and HP geometry as the center of primary-icon.svg. -->
+  <rect x="130" y="151" width="252" height="244" rx="48" fill="none" stroke="#00549A" stroke-width="22"/>
+  <path d="M210 151v-35m-18 0h36m76 35v-35m-18 0h36" fill="none" stroke="#00549A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M180 214v118m48-118v118m-48-61h48m47 61V214h36c22 0 36 13 36 30s-14 30-36 30h-36"
+        fill="none" stroke="#00549A" stroke-width="24" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M174 419h164" stroke="#00549A" stroke-width="14" stroke-linecap="round"/>
+</svg>

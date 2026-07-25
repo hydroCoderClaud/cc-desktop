@@ -2,18 +2,18 @@ const BOOTSTRAP_I18N = {
   'zh-CN': {
     app: {
       windowTitles: {
-        main: 'Hydro Desktop',
-        modelSettings: '模型配置 - Hydro Desktop',
-        profileManager: 'API 配置管理 - Hydro Desktop',
-        globalSettings: '全局设置 - Hydro Desktop',
-        appearanceSettings: '外观设置 - Hydro Desktop',
-        hydrologyWorkbench: '水文站工作台 - Hydro Desktop',
-        channelSettings: '渠道配置 - Hydro Desktop',
-        dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
-        providerManager: '服务商管理 - Hydro Desktop',
-        sessionManager: '会话查询 - Hydro Desktop',
-        settingsWorkbench: '能力管理 - Hydro Desktop',
-        updateManager: '应用更新 - Hydro Desktop'
+        main: 'JSHP Desktop',
+        modelSettings: '模型配置 - JSHP Desktop',
+        profileManager: 'API 配置管理 - JSHP Desktop',
+        globalSettings: '全局设置 - JSHP Desktop',
+        appearanceSettings: '外观设置 - JSHP Desktop',
+        hydrologyWorkbench: '水文站工作台 - JSHP Desktop',
+        channelSettings: '渠道配置 - JSHP Desktop',
+        dingtalkSettings: '钉钉桥接设置 - JSHP Desktop',
+        providerManager: '服务商管理 - JSHP Desktop',
+        sessionManager: '会话查询 - JSHP Desktop',
+        settingsWorkbench: '能力管理 - JSHP Desktop',
+        updateManager: '应用更新 - JSHP Desktop'
       }
     },
     bootstrap: {
@@ -24,18 +24,18 @@ const BOOTSTRAP_I18N = {
   'en-US': {
     app: {
       windowTitles: {
-        main: 'Hydro Desktop',
-        modelSettings: 'Model Settings - Hydro Desktop',
-        profileManager: 'API Profile Manager - Hydro Desktop',
-        globalSettings: 'Global Settings - Hydro Desktop',
-        appearanceSettings: 'Appearance Settings - Hydro Desktop',
-        hydrologyWorkbench: 'Hydrology Workbench - Hydro Desktop',
-        channelSettings: 'Channel Settings - Hydro Desktop',
-        dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
-        providerManager: 'Provider Manager - Hydro Desktop',
-        sessionManager: 'Session Browser - Hydro Desktop',
-        settingsWorkbench: 'Capability Management - Hydro Desktop',
-        updateManager: 'Application Update - Hydro Desktop'
+        main: 'JSHP Desktop',
+        modelSettings: 'Model Settings - JSHP Desktop',
+        profileManager: 'API Profile Manager - JSHP Desktop',
+        globalSettings: 'Global Settings - JSHP Desktop',
+        appearanceSettings: 'Appearance Settings - JSHP Desktop',
+        hydrologyWorkbench: 'Hydrology Workbench - JSHP Desktop',
+        channelSettings: 'Channel Settings - JSHP Desktop',
+        dingtalkSettings: 'DingTalk Bridge Settings - JSHP Desktop',
+        providerManager: 'Provider Manager - JSHP Desktop',
+        sessionManager: 'Session Browser - JSHP Desktop',
+        settingsWorkbench: 'Capability Management - JSHP Desktop',
+        updateManager: 'Application Update - JSHP Desktop'
       }
     },
     bootstrap: {

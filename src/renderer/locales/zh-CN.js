@@ -79,7 +79,7 @@ export default {
 
   // 主页面
   main: {
-    title: 'Hydro Desktop',
+    title: 'JSHP Desktop',
     addProject: '添加工程',
     projects: '项目',
     noProjects: '暂无项目',
@@ -89,7 +89,7 @@ export default {
     pleaseSelectProject: '请选择项目',
     localMode: '本地模式',
     desktopUser: '桌面用户',
-    warningText: 'Hydro Desktop 将访问所选项目文件夹中的文件。请确保您信任该项目目录。',
+    warningText: 'JSHP Desktop 将访问所选项目文件夹中的文件。请确保您信任该项目目录。',
     settingsMenu: '设置',
     toggleDark: '切换深色',
     toggleLight: '切换浅色',
@@ -921,7 +921,7 @@ export default {
   embeddedApps: {
     tab: '内嵌应用',
     title: '内嵌应用',
-    subtitle: '这里集中放置运行在 Hydro Desktop 内部、复用 Agent Platform 的内嵌应用入口。',
+    subtitle: '这里集中放置运行在 JSHP Desktop 内部、复用 Agent Platform 的内嵌应用入口。',
     boundary: '当前阶段这里仅保留已投入真实使用的内嵌应用入口。它们仍然是 embedded app，不是独立运行程序。'
   },
 
@@ -929,7 +929,7 @@ export default {
     tab: '微信通知',
     title: '微信通知',
     subtitle: '微信用户授权后，定时任务可以主动发送通知。',
-    boundary: '该能力使用 Hydro Desktop 内建 iLink 通道；仅支持已扫码授权并被捕获为可发送目标的微信用户，不读取通讯录。',
+    boundary: '该能力使用 JSHP Desktop 内建 iLink 通道；仅支持已扫码授权并被捕获为可发送目标的微信用户，不读取通讯录。',
     loginTitle: '通知目标授权',
     basicConfigTitle: '基础配置',
     enableBridge: '启用微信通知',
@@ -1965,21 +1965,21 @@ export default {
   app: {
     modes: {
       developer: 'Hydro Coder',
-      agent: 'Hydro Agent',
+      agent: 'JSHP Agent',
       notebook: 'Hydro Notebook'
     },
     windowTitles: {
-      main: 'Hydro Desktop',
-      modelSettings: '模型配置 - Hydro Desktop',
-      profileManager: 'API 配置管理 - Hydro Desktop',
-      globalSettings: '全局设置 - Hydro Desktop',
-      appearanceSettings: '外观设置 - Hydro Desktop',
-      channelSettings: '渠道配置 - Hydro Desktop',
-      dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
-      providerManager: '服务商管理 - Hydro Desktop',
-      sessionManager: '会话查询 - Hydro Desktop',
-      settingsWorkbench: '能力管理 - Hydro Desktop',
-      updateManager: '应用更新 - Hydro Desktop'
+      main: 'JSHP Desktop',
+      modelSettings: '模型配置 - JSHP Desktop',
+      profileManager: 'API 配置管理 - JSHP Desktop',
+      globalSettings: '全局设置 - JSHP Desktop',
+      appearanceSettings: '外观设置 - JSHP Desktop',
+      channelSettings: '渠道配置 - JSHP Desktop',
+      dingtalkSettings: '钉钉桥接设置 - JSHP Desktop',
+      providerManager: '服务商管理 - JSHP Desktop',
+      sessionManager: '会话查询 - JSHP Desktop',
+      settingsWorkbench: '能力管理 - JSHP Desktop',
+      updateManager: '应用更新 - JSHP Desktop'
     }
   },
   bootstrap: {

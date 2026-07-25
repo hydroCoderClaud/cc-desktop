@@ -1,7 +1,7 @@
 {
   "name": "cc-desktop",
   "version": "1.7.90",
-  "description": "Hydro Desktop - 水利AI智能体桌面程序",
+  "description": "JSHP Desktop - 水利AI智能体桌面程序",
   "main": "src/main/index.js",
   "author": "HydroCoder",
   "license": "SEE LICENSE IN LICENSE",
@@ -73,8 +73,8 @@
   },
   "build": {
     "appId": "com.hydrocoder.cc-desktop",
-    "productName": "CC Desktop",
-    "artifactName": "CC-Desktop-${version}-${platform}-${arch}.${ext}",
+    "productName": "JSHP Desktop",
+    "artifactName": "JSHP-Desktop-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
@@ -124,8 +124,8 @@
       "allowToChangeInstallationDirectory": true,
       "warningsAsErrors": false,
       "include": "build/installer.nsh",
-      "shortcutName": "Hydro Desktop",
-      "uninstallDisplayName": "Hydro Desktop ${version}",
+      "shortcutName": "JSHP Desktop",
+      "uninstallDisplayName": "JSHP Desktop ${version}",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },

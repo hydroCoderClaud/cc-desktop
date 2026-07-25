@@ -33,6 +33,9 @@ function resolveTrayImage(platform, {
 } = {}) {
   const iconCandidates = platform === 'win32' || platform === 'darwin'
     ? [
+          pathModule.join(appInstance.getAppPath(), 'assets', 'branding', 'jshp', 'toolbar-icon.svg'),
+          pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'branding', 'jshp', 'toolbar-icon.svg'),
+          pathModule.join(process.resourcesPath || '', 'assets', 'branding', 'jshp', 'toolbar-icon.svg'),
           pathModule.join(appInstance.getAppPath(), 'assets', 'icon.png'),
           pathModule.join(appInstance.getAppPath(), 'assets', 'icon-win.ico'),
           pathModule.join(process.resourcesPath || '', 'app.asar', 'assets', 'icon.png'),
@@ -52,6 +55,8 @@ function resolveTrayImage(platform, {
           pathModule.join(process.resourcesPath || '', 'assets', 'tray.ico')
         ]
     : [
+        pathModule.join(appInstance.getAppPath(), 'assets', 'branding', 'jshp', 'toolbar-icon.svg'),
+        pathModule.join(process.resourcesPath || '', 'assets', 'branding', 'jshp', 'toolbar-icon.svg'),
         pathModule.join(appInstance.getAppPath(), 'assets', 'icon.png'),
         pathModule.join(process.resourcesPath || '', 'assets', 'icon.png')
       ]

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">JSHP Agent 公仔</title>
+  <desc id="desc">用于替换产品内水滴位置的 JSHP Agent 公仔。</desc>
+  <defs>
+    <linearGradient id="body" x1="138" y1="114" x2="377" y2="426" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A68B1"/>
+      <stop offset="1" stop-color="#004783"/>
+    </linearGradient>
+  </defs>
+  <path d="M152 223c0-75 46-126 104-126s104 51 104 126v131c0 51-42 93-93 93h-22c-51 0-93-42-93-93z" fill="url(#body)"/>
+  <path d="M141 207c14-69 57-111 115-111 50 0 91 31 109 83" fill="none" stroke="#004783" stroke-width="28" stroke-linecap="round"/>
+  <path d="M161 221v-20c0-54 42-96 95-96 47 0 86 33 94 78" fill="none" stroke="#FFF" stroke-width="23" stroke-linecap="round"/>
+  <path d="M144 223h224" fill="none" stroke="#B9E6FF" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="211" cy="265" r="12" fill="#FFF"/>
+  <circle cx="301" cy="265" r="12" fill="#FFF"/>
+  <path d="M215 308c22 18 60 18 82 0" fill="none" stroke="#FFF" stroke-width="13" stroke-linecap="round"/>
+  <rect x="204" y="344" width="104" height="67" rx="18" fill="#FFF"/>
+  <path d="M222 358h17v13h15v-13h17v13h14v15h-14v13h-17v-13h-15v13h-17v-13h-14v-15h14z" fill="#00549A"/>
+  <path d="M142 338c-31 7-51 29-56 58" fill="none" stroke="#0A68B1" stroke-width="30" stroke-linecap="round"/>
+  <path d="M370 338c31 7 51 29 56 58" fill="none" stroke="#0A68B1" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="82" cy="405" r="21" fill="#B9E6FF"/>
+  <circle cx="430" cy="405" r="21" fill="#B9E6FF"/>
+</svg>

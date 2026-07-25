@@ -14,14 +14,14 @@ describe('ClaudeCodeRunner createQuery system prompt mapping', () => {
     await runner.createQuery(null, {
       cwd: '/tmp',
       env: { ANTHROPIC_BASE_URL: 'https://example.com' },
-      appendSystemPrompt: 'Present yourself as Hydro Desktop AI.'
+      appendSystemPrompt: 'Present yourself as JSHP Agent.'
     })
 
     expect(queryFn).toHaveBeenCalledTimes(1)
     expect(queryFn.mock.calls[0][0].options.systemPrompt).toEqual({
       type: 'preset',
       preset: 'claude_code',
-      append: 'Present yourself as Hydro Desktop AI.'
+      append: 'Present yourself as JSHP Agent.'
     })
     expect(queryFn.mock.calls[0][0].options.appendSystemPrompt).toBeUndefined()
   })

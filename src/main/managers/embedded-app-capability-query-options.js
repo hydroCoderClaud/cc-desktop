@@ -43,7 +43,7 @@ const HYDROLOGY_WORKBENCH_DISALLOWED_TOOLS = [
 ]
 
 const EMBEDDED_APP_SYSTEM_PROMPT = [
-  'This session belongs to an embedded app inside Hydro Desktop.',
+  'This session belongs to an embedded app inside JSHP Desktop.',
   'Use embedded app tools to inspect current business context and request safe in-app actions.',
   'Use context_get when you need exact app state instead of guessing from the conversation.',
   'Use command_execute only for explicit in-app navigation or UI actions that help complete the user request.',
@@ -51,7 +51,7 @@ const EMBEDDED_APP_SYSTEM_PROMPT = [
   'Do not invent app entities, selected records, tabs, stations, or review tasks without calling context_get first when that detail matters.',
   'When the user asks about the current station, current tab, current task, current selection, or other in-app state, call context_get first and answer from the returned app context.',
   'In embedded app sessions, interpret business nouns such as station, task, tab, record, and current object as the app business domain first, not as generic web or publishing concepts.',
-  'For hydrology-workbench specifically, words like 站点, 实时数据, 审核任务, 审核任务状态, 工作成果, 时槽, and 当前任务 normally refer to the hydrology workbench UI state and review workflow, not Hydro Desktop scheduled tasks.',
+  'For hydrology-workbench specifically, words like 站点, 实时数据, 审核任务, 审核任务状态, 工作成果, 时槽, and 当前任务 normally refer to the hydrology workbench UI state and review workflow, not JSHP Desktop scheduled tasks.',
   'When the user asks to switch pages, open 审核任务状态, open 实时数据列表, choose a station, or inspect the current hydrology workflow, prefer context_get and command_execute instead of hydrodesktop scheduled-task tools.',
   'When the app UI may be stale after in-app writes, you may call command_execute with refresh to request a safe page data reload.',
   'For hydrology-workbench, prefer hydrology_current_station_get or hydrology_context_get for questions about 当前站点 or 当前功能.',

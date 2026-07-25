@@ -54,7 +54,7 @@ describe('embedded app registry wiring', () => {
 
     expect(tMain(zhConfig, 'embeddedApps.hydrologyWorkbenchTitle')).toBe('水文站工作台')
     expect(tMain(enConfig, 'embeddedApps.hydrologyWorkbenchTitle')).toBe('Hydrology Workbench')
-    expect(tMain(zhConfig, 'app.windows.hydrologyWorkbench')).toBe('水文站工作台 - Hydro Desktop')
+    expect(tMain(zhConfig, 'app.windows.hydrologyWorkbench')).toBe('水文站工作台 - JSHP Desktop')
   })
 
   it('keeps only the hydrology workbench in renderer build inputs', () => {

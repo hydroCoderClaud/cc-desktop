@@ -511,7 +511,7 @@ describe('desktop capability query options', () => {
     expect(tools.schedule_create.inputSchema.firstRunAt.safeParse('2026-05-01T09:30:00+08:00').success).toBe(true)
     expect(tools.schedule_create.inputSchema.sessionBindingMode.safeParse('current').success).toBe(true)
     expect(tools.schedule_create.inputSchema.sessionBindingMode.safeParse('new').success).toBe(true)
-    expect(tools.schedule_create.description).toContain('创建一个新的 Hydro Desktop 定时任务')
+    expect(tools.schedule_create.description).toContain('创建一个新的 JSHP Desktop 定时任务')
 
     expect(tools.schedule_update.inputSchema.cwd.safeParse('').success).toBe(true)
     expect(tools.schedule_update.inputSchema.sessionBindingMode.safeParse('current').success).toBe(true)

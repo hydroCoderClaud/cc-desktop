@@ -269,4 +269,25 @@ describe('tray-controller', () => {
     expect(nativeImageModule.createFromDataURL).not.toHaveBeenCalled()
     expect(result).toBe(nativeImage)
   })
+
+  it('prefers the customer toolbar SVG when available', async () => {
+    const nativeImage = { isEmpty: () => false }
+    const nativeImageModule = {
+      createFromPath: vi.fn(() => nativeImage),
+      createFromBuffer: vi.fn(),
+      createFromDataURL: vi.fn()
+    }
+
+    const { resolveTrayImage } = await import('../../src/main/tray-controller.js')
+    resolveTrayImage('win32', {
+      appInstance: { getAppPath: () => 'C:/app' },
+      nativeImageModule,
+      fsModule: {
+        existsSync: vi.fn(filePath => filePath.endsWith('assets/branding/jshp/toolbar-icon.svg'))
+      },
+      pathModule: { join: (...parts) => parts.join('/') }
+    })
+
+    expect(nativeImageModule.createFromPath).toHaveBeenCalledWith('C:/app/assets/branding/jshp/toolbar-icon.svg')
+  })
 })

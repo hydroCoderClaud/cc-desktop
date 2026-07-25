@@ -78,7 +78,7 @@ export default {
 
   // Main Page
   main: {
-    title: 'Hydro Desktop',
+    title: 'JSHP Desktop',
     addProject: 'Add Project',
     projects: 'Projects',
     noProjects: 'No projects yet',
@@ -88,7 +88,7 @@ export default {
     pleaseSelectProject: 'Please select a project',
     localMode: 'Local Mode',
     desktopUser: 'Desktop User',
-    warningText: 'Hydro Desktop will access files in the selected project folder. Make sure you trust the project directory.',
+    warningText: 'JSHP Desktop will access files in the selected project folder. Make sure you trust the project directory.',
     settingsMenu: 'Settings',
     toggleDark: 'Switch to dark',
     toggleLight: 'Switch to light',
@@ -918,7 +918,7 @@ export default {
   embeddedApps: {
     tab: 'Embedded Apps',
     title: 'Embedded Apps',
-    subtitle: 'This area hosts embedded app entries that run inside Hydro Desktop and reuse Agent Platform.',
+    subtitle: 'This area hosts embedded app entries that run inside JSHP Desktop and reuse Agent Platform.',
     boundary: 'At this stage only embedded apps that are used as real product entries remain here. They are still embedded apps, not standalone programs.'
   },
 
@@ -926,7 +926,7 @@ export default {
     tab: 'Weixin Notify',
     title: 'Weixin Notify',
     subtitle: 'Scheduled tasks can proactively notify Weixin users after authorization.',
-    boundary: 'This uses Hydro Desktop built-in iLink calls. It only supports Weixin users who scanned the authorization QR code and were captured as sendable targets; it does not read contacts.',
+    boundary: 'This uses JSHP Desktop built-in iLink calls. It only supports Weixin users who scanned the authorization QR code and were captured as sendable targets; it does not read contacts.',
     loginTitle: 'Notification Target Authorization',
     basicConfigTitle: 'Basic Settings',
     enableBridge: 'Enable Weixin Notify',
@@ -1958,21 +1958,21 @@ export default {
   app: {
     modes: {
       developer: 'Hydro Coder',
-      agent: 'Hydro Agent',
+      agent: 'JSHP Agent',
       notebook: 'Hydro Notebook'
     },
     windowTitles: {
-      main: 'Hydro Desktop',
-      modelSettings: 'Model Settings - Hydro Desktop',
-      profileManager: 'API Profile Manager - Hydro Desktop',
-      globalSettings: 'Global Settings - Hydro Desktop',
-      appearanceSettings: 'Appearance Settings - Hydro Desktop',
-      channelSettings: 'Channel Settings - Hydro Desktop',
-      dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
-      providerManager: 'Provider Manager - Hydro Desktop',
-      sessionManager: 'Session Browser - Hydro Desktop',
-      settingsWorkbench: 'Capability Management - Hydro Desktop',
-      updateManager: 'Application Update - Hydro Desktop'
+      main: 'JSHP Desktop',
+      modelSettings: 'Model Settings - JSHP Desktop',
+      profileManager: 'API Profile Manager - JSHP Desktop',
+      globalSettings: 'Global Settings - JSHP Desktop',
+      appearanceSettings: 'Appearance Settings - JSHP Desktop',
+      channelSettings: 'Channel Settings - JSHP Desktop',
+      dingtalkSettings: 'DingTalk Bridge Settings - JSHP Desktop',
+      providerManager: 'Provider Manager - JSHP Desktop',
+      sessionManager: 'Session Browser - JSHP Desktop',
+      settingsWorkbench: 'Capability Management - JSHP Desktop',
+      updateManager: 'Application Update - JSHP Desktop'
     }
   },
   bootstrap: {

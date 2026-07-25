@@ -8,10 +8,7 @@
           :title="t('mode.mode')"
           :aria-label="t('mode.mode')"
         >
-          <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="15" stroke="var(--primary-color)" stroke-width="1.5" fill="var(--primary-ghost)"/>
-            <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" fill="var(--primary-color)" opacity="0.85"/>
-          </svg>
+          <Icon name="jshpMascot" :size="30" />
         </button>
       </n-dropdown>
       <div class="logo">{{ panelTitle }}</div>
@@ -21,6 +18,7 @@
 
 <script setup>
 import { NDropdown } from 'naive-ui'
+import Icon from '@components/icons/Icon.vue'
 
 defineProps({
   t: {

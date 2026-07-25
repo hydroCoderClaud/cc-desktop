@@ -3,26 +3,26 @@ const MAIN_I18N = {
     app: {
       modes: {
         developer: 'Hydro Coder',
-        agent: 'Hydro Agent',
+        agent: 'JSHP Agent',
         notebook: 'Hydro Notebook'
       },
       windows: {
-        main: 'Hydro Desktop',
-        modelSettings: '模型配置 - Hydro Desktop',
-        profileManager: 'API 配置管理 - Hydro Desktop',
-        globalSettings: '全局设置 - Hydro Desktop',
-        appearanceSettings: '外观设置 - Hydro Desktop',
-        hydrologyWorkbench: '水文站工作台 - Hydro Desktop',
-        channelSettings: '渠道配置 - Hydro Desktop',
-        settingsWorkbench: '能力管理 - Hydro Desktop',
-        providerManager: '服务商管理 - Hydro Desktop',
-        sessionManager: '会话查询 - Hydro Desktop',
-        updateManager: '应用更新 - Hydro Desktop',
-        dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
-        notebookWorkspace: 'Notebook - Hydro Desktop'
+        main: 'JSHP Desktop',
+        modelSettings: '模型配置 - JSHP Desktop',
+        profileManager: 'API 配置管理 - JSHP Desktop',
+        globalSettings: '全局设置 - JSHP Desktop',
+        appearanceSettings: '外观设置 - JSHP Desktop',
+        hydrologyWorkbench: '水文站工作台 - JSHP Desktop',
+        channelSettings: '渠道配置 - JSHP Desktop',
+        settingsWorkbench: '能力管理 - JSHP Desktop',
+        providerManager: '服务商管理 - JSHP Desktop',
+        sessionManager: '会话查询 - JSHP Desktop',
+        updateManager: '应用更新 - JSHP Desktop',
+        dingtalkSettings: '钉钉桥接设置 - JSHP Desktop',
+        notebookWorkspace: 'Notebook - JSHP Desktop'
       },
       tray: {
-        tooltip: 'Hydro Desktop',
+        tooltip: 'JSHP Desktop',
         show: '显示主窗口',
         hide: '隐藏主窗口',
         quit: '退出'
@@ -50,26 +50,26 @@ const MAIN_I18N = {
     app: {
       modes: {
         developer: 'Hydro Coder',
-        agent: 'Hydro Agent',
+        agent: 'JSHP Agent',
         notebook: 'Hydro Notebook'
       },
       windows: {
-        main: 'Hydro Desktop',
-        modelSettings: 'Model Settings - Hydro Desktop',
-        profileManager: 'API Profile Manager - Hydro Desktop',
-        globalSettings: 'Global Settings - Hydro Desktop',
-        appearanceSettings: 'Appearance Settings - Hydro Desktop',
-        hydrologyWorkbench: 'Hydrology Workbench - Hydro Desktop',
-        channelSettings: 'Channel Settings - Hydro Desktop',
-        settingsWorkbench: 'Capability Management - Hydro Desktop',
-        providerManager: 'Provider Manager - Hydro Desktop',
-        sessionManager: 'Session Browser - Hydro Desktop',
-        updateManager: 'Application Update - Hydro Desktop',
-        dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
-        notebookWorkspace: 'Notebook - Hydro Desktop'
+        main: 'JSHP Desktop',
+        modelSettings: 'Model Settings - JSHP Desktop',
+        profileManager: 'API Profile Manager - JSHP Desktop',
+        globalSettings: 'Global Settings - JSHP Desktop',
+        appearanceSettings: 'Appearance Settings - JSHP Desktop',
+        hydrologyWorkbench: 'Hydrology Workbench - JSHP Desktop',
+        channelSettings: 'Channel Settings - JSHP Desktop',
+        settingsWorkbench: 'Capability Management - JSHP Desktop',
+        providerManager: 'Provider Manager - JSHP Desktop',
+        sessionManager: 'Session Browser - JSHP Desktop',
+        updateManager: 'Application Update - JSHP Desktop',
+        dingtalkSettings: 'DingTalk Bridge Settings - JSHP Desktop',
+        notebookWorkspace: 'Notebook - JSHP Desktop'
       },
       tray: {
-        tooltip: 'Hydro Desktop',
+        tooltip: 'JSHP Desktop',
         show: 'Show Main Window',
         hide: 'Hide Main Window',
         quit: 'Quit'

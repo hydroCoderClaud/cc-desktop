@@ -793,7 +793,7 @@ describe('AgentSessionManager interactions', () => {
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
     expect(createQueryOptions.env.ANTHROPIC_MODEL).toBe('kimi-k2.6')
     expect(createQueryOptions.model).toBe('kimi-k2.6')
-    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).toContain('JSHP Agent')
   })
 
   it('passes tier alias strings through without local remapping', async () => {
@@ -2099,7 +2099,7 @@ describe('AgentSessionManager interactions', () => {
     await manager.sendMessage(session.id, '帮我创建一个定时任务')
 
     expect(createQueryOptions).toBeTruthy()
-    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).toContain('JSHP Agent')
     expect(createQueryOptions.appendSystemPrompt).toContain('scheduled tasks')
     expect(createQueryOptions.mcpServers).toBeTruthy()
     expect(Object.keys(createQueryOptions.mcpServers)).toContain('hydrodesktop')
@@ -2294,7 +2294,7 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.allowedTools || []).not.toEqual(
       expect.arrayContaining(['mcp__embeddedapp__context_get'])
     )
-    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).toContain('JSHP Agent')
     expect(createQueryOptions.appendSystemPrompt).not.toContain('scheduled tasks')
   })
 
@@ -2332,13 +2332,13 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions).toBeTruthy()
     expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop'])
     expect(createQueryOptions.allowedTools).toEqual(expect.arrayContaining(DESKTOP_CAPABILITY_ALLOWED_TOOLS))
-    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
+    expect(createQueryOptions.appendSystemPrompt).toContain('JSHP Agent')
     expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')
     expect(createQueryOptions.appendSystemPrompt).toContain('HydroDesktop scheduled tasks')
     expect(createQueryOptions.disallowedTools).toBeUndefined()
   })
 
-  it('injects Hydro Desktop AI identity prompt for normal chat sessions', async () => {
+  it('injects the JSHP Agent identity prompt for normal chat sessions', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 'session-identity', cwd: '/tmp' })
     session.dbConversationId = 1
@@ -2360,8 +2360,8 @@ describe('AgentSessionManager interactions', () => {
     await manager.sendMessage(session.id, '你是谁？')
 
     expect(createQueryOptions).toBeTruthy()
-    expect(createQueryOptions.appendSystemPrompt).toContain('Hydro Desktop AI')
-    expect(createQueryOptions.appendSystemPrompt).toContain('你好，我是 Hydro Desktop，是智水工坊研发的AI个人桌面助手')
+    expect(createQueryOptions.appendSystemPrompt).toContain('JSHP Agent')
+    expect(createQueryOptions.appendSystemPrompt).toContain('你好，我是 JSHP Agent，是智水工坊研发的AI个人桌面助手')
     expect(createQueryOptions.appendSystemPrompt).toContain('智水工坊研发的AI个人桌面助手')
     expect(createQueryOptions.appendSystemPrompt).toContain('connect to mainstream large models')
     expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')

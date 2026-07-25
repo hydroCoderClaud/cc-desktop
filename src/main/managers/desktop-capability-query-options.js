@@ -84,17 +84,17 @@ const SESSION_APP_ALLOWED_TOOLS = SESSION_APP_TOOL_NAMES.map(
 const PERSONAL_WEIXIN_ENABLED = false
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
-  'You can send Weixin notification messages through Hydro Desktop when the user explicitly asks to notify someone or when a scheduled task needs to report its result.',
+  'You can send Weixin notification messages through JSHP Desktop when the user explicitly asks to notify someone or when a scheduled task needs to report its result.',
   'Use weixin_notify_list_targets before sending unless the user already provided an exact targetKey from a previous weixin_notify_list_targets response.',
   'Prefer human-readable target displayName values from weixin_notify_list_targets when the user names a recipient, but send with targetKey when it is available.',
   'If a recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
   'Use weixin_notify_send only for short notification text to an already bound Weixin target.',
-  'Do not claim you can message arbitrary WeChat contacts. Hydro Desktop can only send to Weixin users who completed iLink QR authorization and have a captured sendable target.',
+  'Do not claim you can message arbitrary WeChat contacts. JSHP Desktop can only send to Weixin users who completed iLink QR authorization and have a captured sendable target.',
   'After sending, report the recipient displayName and messageId returned by the tool.'
 ].join(' ')
 
 const IM_BUILTIN_SYSTEM_PROMPT = [
-  'You can send built-in IM messages through Hydro Desktop for enabled channels such as DingTalk, Feishu, and Enterprise Weixin when those channels are available in this session.',
+  'You can send built-in IM messages through JSHP Desktop for enabled channels such as DingTalk, Feishu, and Enterprise Weixin when those channels are available in this session.',
   'If the current session is already bound to an IM target and the user did not ask to change recipient, call im_send directly and default to that bound target.',
   'If the user explicitly asks to解除绑定, 解绑, unbind, disconnect, or clear the current IM recipient for this session, call im_unbind.',
   'Use im_list_targets before sending only when the current session is not already bound to a target, or when the user explicitly wants to choose or change the recipient.',
@@ -102,19 +102,19 @@ const IM_BUILTIN_SYSTEM_PROMPT = [
   'If the recipient name matches multiple targets or no target, ask the user to clarify instead of guessing.',
   'Use im_send for short text messages, local image files, and local PDF/Office document files to already available built-in IM targets.',
   'When sending documents through im_send, pass local absolute file paths in filePaths. Supported document formats are PDF, Word, Excel, and PowerPoint.',
-  'Do not claim you can message arbitrary contacts. Only use enabled Hydro Desktop IM channels and targets actually returned by im_list_targets.',
+  'Do not claim you can message arbitrary contacts. Only use enabled JSHP Desktop IM channels and targets actually returned by im_list_targets.',
   'After sending, report the channel, recipient displayName, and returned message identifier when available.'
 ].join(' ')
 
 const SESSION_SYSTEM_PROMPT = [
-  'You can inspect the current Hydro Desktop session context through read-only session MCP tools.',
+  'You can inspect the current JSHP Desktop session context through read-only session MCP tools.',
   'Use session_get_current when the user asks which session this chat is, whether it is task-linked, what IM target is currently bound, or whether the current session is bound to a Session App.',
   'Use session_match_task when the user asks whether a scheduled task is bound to this current chat session.',
   'These session tools are read-only helpers for comparison and routing. Do not claim a task/session match without calling them when the answer depends on live session state.'
 ].join(' ')
 
 const SESSION_APP_SYSTEM_PROMPT = [
-  'You can manage Hydro Desktop Session Apps through MCP tools in this session.',
+  'You can manage JSHP Desktop Session Apps through MCP tools in this session.',
   'When the user asks to create, inspect, update, or launch a Session App, use the session_app_* tools instead of redirecting the user to /session-app or the desktop workbench.',
   'Use session_app_list when the target app is unclear or the user asks what Session Apps already exist.',
   'Use session_app_get for one Session App details, including startup message, system prompt, and default working directory.',
@@ -1272,7 +1272,7 @@ async function buildDesktopCapabilityQueryOptions({
   const scheduleTools = includeScheduleTools ? [
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[0],
-      '列出当前 Hydro Desktop 中的全部定时任务，便于后续通过 taskId 或任务名做修改。',
+      '列出当前 JSHP Desktop 中的全部定时任务，便于后续通过 taskId 或任务名做修改。',
       {},
       async () => {
         const tasks = getTaskCandidates(scheduledTaskService).map(task => serializeTaskWithMetadata(task, displayLocale))
@@ -1286,7 +1286,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[1],
-      '查看一个 Hydro Desktop 定时任务的详情。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '查看一个 JSHP Desktop 定时任务的详情。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const task = resolveTaskReference(scheduledTaskService, args)
@@ -1298,7 +1298,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[2],
-      '查看一个 Hydro Desktop 定时任务最近的执行记录。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '查看一个 JSHP Desktop 定时任务最近的执行记录。先提供 taskId；若没有 taskId，可提供 taskName。',
       {
         ...taskRefShape,
         limit: buildPositiveIntegerLikeSchema(z, '返回最近几条记录，默认 20，最大 50', { max: 50 })
@@ -1320,7 +1320,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[3],
-      '创建一个新的 Hydro Desktop 定时任务。',
+      '创建一个新的 JSHP Desktop 定时任务。',
       {
         name: z.string().min(1).describe('任务名称'),
         prompt: z.string().min(1).describe('任务提示词'),
@@ -1356,7 +1356,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[4],
-      '更新一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '更新一个已存在的 JSHP Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       {
         ...taskRefShape,
         ...sharedTaskFields
@@ -1376,7 +1376,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[5],
-      '启用一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '启用一个已存在的 JSHP Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
@@ -1389,7 +1389,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[6],
-      '停用一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '停用一个已存在的 JSHP Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
@@ -1402,7 +1402,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[7],
-      '立即执行一个 Hydro Desktop 定时任务一次。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '立即执行一个 JSHP Desktop 定时任务一次。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
@@ -1415,7 +1415,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       DESKTOP_CAPABILITY_TOOL_NAMES[8],
-      '删除一个已存在的 Hydro Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
+      '删除一个已存在的 JSHP Desktop 定时任务。先提供 taskId；若没有 taskId，可提供 taskName。',
       taskRefShape,
       async (args) => {
         const targetTask = resolveTaskReference(scheduledTaskService, args)
@@ -1432,7 +1432,7 @@ async function buildDesktopCapabilityQueryOptions({
   const weixinNotifyTools = includeWeixinNotifyTools ? [
     tool(
       WEIXIN_NOTIFY_TOOL_NAMES[0],
-      '列出 Hydro Desktop 已绑定且可通知的微信目标。目标来自用户完成 iLink 扫码授权后捕获到的可发送上下文。',
+      '列出 JSHP Desktop 已绑定且可通知的微信目标。目标来自用户完成 iLink 扫码授权后捕获到的可发送上下文。',
       {},
       async () => {
         const accounts = typeof weixinNotifyService.listAccounts === 'function'
@@ -1461,7 +1461,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       WEIXIN_NOTIFY_TOOL_NAMES[1],
-      '通过 Hydro Desktop 微信通知通道发送一条文本通知。仅支持 weixin_notify_list_targets 返回且 sendable=true 的目标。',
+      '通过 JSHP Desktop 微信通知通道发送一条文本通知。仅支持 weixin_notify_list_targets 返回且 sendable=true 的目标。',
       {
         targetKey: z.string().min(1).optional().describe('推荐使用 weixin_notify_list_targets 返回的 targetKey。'),
         targetId: z.string().min(1).optional().describe('兼容字段：可使用 list_targets 返回的 id、displayName 或 userId。'),
@@ -1574,7 +1574,7 @@ async function buildDesktopCapabilityQueryOptions({
     ),
     tool(
       IM_BUILTIN_TOOL_NAMES[1],
-      '通过 Hydro Desktop 内置 IM 渠道发送文本、本地图片和本地 PDF/Office 文档。若当前会话已绑定 IM 目标且用户未要求更换收件人，可直接只传 text、imagePaths 或 filePaths 发送到该绑定目标；否则先用 im_list_targets 获取 channel 与 targetKey，再用本工具发送。',
+      '通过 JSHP Desktop 内置 IM 渠道发送文本、本地图片和本地 PDF/Office 文档。若当前会话已绑定 IM 目标且用户未要求更换收件人，可直接只传 text、imagePaths 或 filePaths 发送到该绑定目标；否则先用 im_list_targets 获取 channel 与 targetKey，再用本工具发送。',
       {
         channel: z.enum(['dingtalk', 'feishu', 'enterprise-weixin']).optional().describe('目标 IM 渠道。若当前会话已绑定 IM 目标且不更换收件人，可省略。'),
         targetKey: z.string().min(1).optional().describe('推荐使用 im_list_targets 返回的 targetKey。'),
@@ -1730,7 +1730,7 @@ async function buildDesktopCapabilityQueryOptions({
   const sessionTools = session?.id ? [
     tool(
       SESSION_TOOL_NAMES[0],
-      '查看当前 Hydro Desktop 会话的只读上下文，包括当前 sessionId、taskId、来源和当前绑定目标摘要。',
+      '查看当前 JSHP Desktop 会话的只读上下文，包括当前 sessionId、taskId、来源和当前绑定目标摘要。',
       {},
       async () => {
         return buildToolResult({
@@ -1761,7 +1761,7 @@ async function buildDesktopCapabilityQueryOptions({
   const sessionAppTools = includeSessionAppTools ? [
     tool(
       SESSION_APP_TOOL_NAMES[0],
-      '列出当前 Hydro Desktop 中的全部会话应用，便于后续定位目标应用。',
+      '列出当前 JSHP Desktop 中的全部会话应用，便于后续定位目标应用。',
       {},
       async () => {
         const manager = requireSessionAppManager(sessionAppManager)

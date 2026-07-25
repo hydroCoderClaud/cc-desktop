@@ -116,7 +116,7 @@ try {
   function ensureEmbeddedBridge() {
     if (!window.hydroAgent) {
       appendEvent('bootstrap:error', {
-        message: 'window.hydroAgent is not available. Open this page inside Hydro Desktop.'
+        message: 'window.hydroAgent is not available. Open this page inside JSHP Desktop.'
       })
       return false
     }
