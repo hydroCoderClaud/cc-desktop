@@ -2720,6 +2720,105 @@ describe('AgentSessionManager interactions', () => {
     expect(fs.readdirSync(savedDir).length).toBe(1)
   })
 
+  it('persists pasted images in projects.path after reopening a project-bound session', async () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-project-image-path-'))
+    const projectPath = path.join(tempRoot, 'canonical-project')
+    const legacyCwd = path.join(tempRoot, 'legacy-cwd')
+    fs.mkdirSync(projectPath)
+    fs.mkdirSync(legacyCwd)
+
+    const row = {
+      id: 11,
+      session_id: 'db-row-project-image-path',
+      type: 'chat',
+      status: 'closed',
+      sdk_session_id: null,
+      title: 'Project image path',
+      cwd: legacyCwd,
+      cwd_auto: 0,
+      project_id: 44,
+      project_path: projectPath,
+      project_name: 'Canonical Project',
+      project_kind: 'workspace',
+      message_count: 0,
+      total_cost_usd: 0,
+      api_profile_id: 'p1',
+      api_base_url: 'https://example.com',
+      model_id: null,
+      source: 'manual',
+      task_id: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    manager.sessionDatabase.getAgentConversation = vi.fn(() => row)
+
+    manager.runner = {
+      buildEnv: vi.fn(() => ({ ANTHROPIC_BASE_URL: 'https://example.com' })),
+      createQuery: vi.fn(async (messageQueue) => ({
+        async *[Symbol.asyncIterator]() {
+          await messageQueue.next()
+          yield {
+            type: 'system',
+            subtype: 'init',
+            session_id: 'sdk-project-image-path',
+            tools: [],
+            model: 'claude-sonnet-4-6'
+          }
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: false,
+            result: 'ok',
+            total_cost_usd: 0,
+            num_turns: 1,
+            duration_ms: 5
+          }
+        },
+        close: vi.fn(async () => {})
+      })),
+      normalizeMessage: raw => {
+        if (raw.type === 'system' && raw.subtype === 'init') {
+          return {
+            type: 'init',
+            sdkSessionId: raw.session_id,
+            tools: raw.tools,
+            model: raw.model,
+            slashCommands: raw.slash_commands || []
+          }
+        }
+        if (raw.type === 'result') {
+          return {
+            type: 'result',
+            subtype: raw.subtype,
+            isError: raw.is_error,
+            result: raw.result,
+            totalCostUsd: raw.total_cost_usd,
+            numTurns: raw.num_turns,
+            durationMs: raw.duration_ms
+          }
+        }
+        return raw
+      }
+    }
+
+    try {
+      const reopened = manager.reopen(row.session_id)
+      await manager.sendMessage(row.session_id, {
+        images: [{
+          mediaType: 'image/png',
+          base64: Buffer.from('pngdata').toString('base64')
+        }]
+      })
+
+      expect(reopened.cwd).toBe(projectPath)
+      expect(fs.readdirSync(path.join(projectPath, 'chat_paste_images'))).toHaveLength(1)
+      expect(fs.existsSync(path.join(legacyCwd, 'chat_paste_images'))).toBe(false)
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
   it('passes document attachment paths to the agent without extracting text', async () => {
     const { manager } = createManager()
     const session = new AgentSession({ id: 's-doc-attach', cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'agent-doc-attach-')) })
