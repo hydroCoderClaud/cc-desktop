@@ -246,19 +246,13 @@ watch(activeTabId, (newTabId) => {
   const tab = allTabs.value.find(t => t.id === newTabId)
   if (!tab) return
 
-  // 更新 currentProject，以便 RightPanel (FilesTab) 能随当前会话切换
+  // Only an explicit project binding may change project-scoped panel context.
+  // Legacy cwd-only conversations retain their own file root but do not
+  // implicitly become associated with a matching project.
   if (tab.projectId && tab.projectId !== currentProject.value?.id) {
     const targetProject = projects.value.find(p => p.id === tab.projectId)
     if (targetProject) {
       currentProject.value = targetProject
-    }
-  } else if (tab.type === 'agent-chat') {
-    const tabProjectPath = tab.projectPath || tab.cwd || null
-    if (tabProjectPath && tabProjectPath !== currentProject.value?.path) {
-      const targetProject = projects.value.find(p => p.path === tabProjectPath)
-      if (targetProject) {
-        currentProject.value = targetProject
-      }
     }
   }
 
