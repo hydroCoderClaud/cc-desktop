@@ -182,6 +182,11 @@ describe('useAgentPanel project tree', () => {
 
     expect(externalConversationIds(panel)).toEqual(['unbound-im-history'])
     expect(projectKeys(panel)).toEqual(['project:1', 'project:2'])
+
+    panel.selectedSource.value = 'no-im'
+    await nextTick()
+
+    expect(externalConversationIds(panel)).toEqual([])
   })
 
   it('migrates legacy cwd preference keys when their project paths are available', async () => {
