@@ -139,9 +139,9 @@ describe('useAgentPanel project tree', () => {
         id: 'im-project-bound',
         type: 'chat',
         projectId: 1,
+        source: 'im-inbound',
         cwdAuto: true,
         projectKind: 'agent-output',
-        imChannel: 'feishu',
         cwd: 'C:/workspace/alpha',
         updatedAt: '2026-04-22T05:00:00.000Z'
       },
@@ -162,6 +162,26 @@ describe('useAgentPanel project tree', () => {
 
     expect(groupByKey(panel, 'project:1').items.map(conv => conv.id)).toEqual(['im-project-bound'])
     expect(externalConversationIds(panel)).toEqual(['im-internal'])
+  })
+
+  it('keeps an unbound historical automatic IM conversation in the IM group after unbinding', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'unbound-im-history',
+        type: 'chat',
+        source: 'im-inbound',
+        cwdAuto: true,
+        projectKind: 'agent-output',
+        cwd: 'C:/agent-output/feishu',
+        updatedAt: '2026-04-22T04:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel({ projects: ref(projects()) })
+    await panel.loadConversations()
+
+    expect(externalConversationIds(panel)).toEqual(['unbound-im-history'])
+    expect(projectKeys(panel)).toEqual(['project:1', 'project:2'])
   })
 
   it('migrates legacy cwd preference keys when their project paths are available', async () => {
