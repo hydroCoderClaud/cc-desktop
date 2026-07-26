@@ -91,12 +91,13 @@
           :class="{
             active: isProjectGroupActive(group),
             pinned: group.pinned,
+            fallback: group.isFallback,
             'has-open-conversation': group.hasOpenConversation,
             dragging: draggingProjectKey === group.key,
             'drop-before': dropProjectKey === group.key && dropProjectPlacement === 'before',
             'drop-after': dropProjectKey === group.key && dropProjectPlacement === 'after'
           }"
-          :draggable="projectConversationGroups.length > 1"
+          :draggable="!group.isFallback && projectConversationGroups.length > 1"
           @click="handleProjectHeaderClick(group)"
           @contextmenu.prevent.stop="showProjectContextMenu($event, group)"
           @dragstart="handleProjectDragStart($event, group)"
@@ -109,7 +110,7 @@
           <Icon :name="group.expanded ? 'folderOpen' : 'folder'" :size="14" class="project-folder-icon" />
           <div class="project-title-wrap">
             <div class="project-title-row">
-              <span class="project-title" :title="group.cwd || getDirectoryDisplayName(group)">
+              <span class="project-title" :title="group.path || getDirectoryDisplayName(group)">
                 {{ getDirectoryDisplayName(group) }}
               </span>
               <Icon v-if="group.pinned" name="starFilled" :size="11" class="project-pin-icon" />
@@ -284,7 +285,7 @@
 
 <script setup>
 import { ref, computed, h, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { useDialog } from 'naive-ui'
+import { useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import { useAgentPanel } from '@composables/useAgentPanel'
 import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
@@ -298,8 +299,13 @@ import {
 
 const { t } = useLocale()
 const dialog = useDialog()
+const message = useMessage()
 const { openSettings } = useSettingsNavigation()
 const props = defineProps({
+  projects: {
+    type: Array,
+    default: () => []
+  },
   activeSessionId: {
     type: String,
     default: null
@@ -310,7 +316,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request'])
+const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request', 'projects-changed'])
 
 const {
   conversations,
@@ -338,7 +344,7 @@ const {
   deleteConversation,
   bumpConversation,
   renameConversation
-} = useAgentPanel()
+} = useAgentPanel({ projects: computed(() => props.projects) })
 
 const externalSourceLabelKeys = {
   dingtalk: 'agent.sourceDingtalk',
@@ -396,10 +402,11 @@ const getCwdDisplayName = (cwd) => {
 
 const getDirectoryDisplayName = (directory) => {
   if (!directory) return t('agent.allDirectories')
+  if (directory.isFallback) return t('agent.uncategorizedConversations')
   if (directory.projectName === t('agent.chat') || directory.projectName === 'Chat') {
-    return getCwdDisplayName(directory.cwd)
+    return getCwdDisplayName(directory.path)
   }
-  return directory.projectName || getCwdDisplayName(directory.cwd)
+  return directory.projectName || getCwdDisplayName(directory.path)
 }
 
 const getSelectedDirectory = () => {
@@ -446,7 +453,7 @@ const createFilterOptionLabel = (option, selectedValue) => {
 const cwdMenuOptions = computed(() => {
   const dirs = availableDirectories.value.map(directory => ({
     label: getDirectoryDisplayName(directory),
-    title: directory.cwd || directory.projectName || directory.key,
+    title: directory.path || directory.projectName || directory.key,
     key: directory.key,
     iconName: 'folder'
   }))
@@ -516,7 +523,20 @@ const renderAppMenuLabel = (option) => createFilterOptionLabel(option, selectedA
 const handleCwdSelect = async (key) => {
   if (key === 'open-directory') {
     const folder = await window.electronAPI?.selectFolder?.()
-    if (folder) selectCwd(folder)
+    if (!folder) return
+
+    try {
+      const project = await window.electronAPI?.ensureWorkspaceProject?.({
+        path: folder,
+        intent: 'agent-workspace'
+      })
+      if (!project?.id) return
+      emit('projects-changed')
+      selectCwd(`project:${project.id}`)
+    } catch (err) {
+      console.error('[AgentLeftContent] Failed to ensure workspace project:', err)
+      message.error(err?.message || '无法将所选目录作为 Agent 项目')
+    }
     return
   }
 
@@ -617,12 +637,16 @@ const handleNewConversation = () => {
 }
 
 const handleNewConversationInProject = async (group) => {
+  if (!group?.projectId || group.isFallback || !group.path || group.pathValid === false) return
+
   const session = await createConversation({
     type: 'chat',
-    cwd: group?.cwd || null
+    projectId: group.projectId,
+    cwd: group.path
   })
   if (session) {
     emit('created', session)
+    emit('projects-changed')
     expandProject(group.key)
   }
 }
@@ -661,7 +685,13 @@ const canMoveProjectTo = (targetGroup) => {
   const draggingKey = draggingProjectKey.value
   if (!draggingKey || draggingKey === targetGroup?.key) return false
   const draggingGroup = projectConversationGroups.value.find(group => group.key === draggingKey)
-  return Boolean(draggingGroup && targetGroup && draggingGroup.pinned === targetGroup.pinned)
+  return Boolean(
+    draggingGroup &&
+    targetGroup &&
+    !draggingGroup.isFallback &&
+    !targetGroup.isFallback &&
+    draggingGroup.pinned === targetGroup.pinned
+  )
 }
 
 const handleProjectHeaderClick = (group) => {
@@ -673,6 +703,7 @@ const handleProjectHeaderClick = (group) => {
 }
 
 const handleProjectDragStart = (event, group) => {
+  if (group.isFallback) return
   draggingProjectKey.value = group.key
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
@@ -730,22 +761,24 @@ const projectContextMenuItems = computed(() => {
   return [
     {
       key: 'toggle-pin',
-      label: group?.pinned ? t('agent.unpinProject') : t('agent.pinProject')
+      label: group?.pinned ? t('agent.unpinProject') : t('agent.pinProject'),
+      disabled: !group || group.isFallback
     },
     {
       key: 'new-conversation',
       label: t('agent.newConversationInProject'),
-      disabled: !group?.cwd
+      disabled: !group?.projectId || group.isFallback || !group.path || group.pathValid === false
     },
     {
       key: 'open-directory',
       label: t('agent.openDirectory'),
-      disabled: !group?.cwd
+      disabled: !group?.projectId || group.isFallback || !group.path || group.pathValid === false
     },
     { divider: true, key: 'project-divider' },
     {
       key: 'collapse-others',
-      label: t('agent.collapseOtherProjects')
+      label: t('agent.collapseOtherProjects'),
+      disabled: !group || group.isFallback
     }
   ]
 })
@@ -788,7 +821,7 @@ const handleProjectContextSelect = async (key) => {
     return
   }
   if (key === 'open-directory') {
-    await window.electronAPI?.openPath?.(group.cwd)
+    await window.electronAPI?.openPath?.(group.path)
     return
   }
   if (key === 'collapse-others') {

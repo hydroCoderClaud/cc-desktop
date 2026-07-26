@@ -1322,6 +1322,7 @@ export default {
     openScheduledTask: '打开定时任务',
     openSessionApp: '打开会话应用',
     externalConversations: 'IM会话',
+    uncategorizedConversations: '未归属会话',
     allSources: '全部来源',
     sourceNoIm: '无 IM',
     sourceManual: '常规',

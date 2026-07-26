@@ -152,7 +152,7 @@ describe('AgentSessionManager interactions', () => {
     )
   })
 
-  it('creates an explicit cwd before persisting and launching the session', () => {
+  it('keeps an explicit cwd as an unbound compatibility session before launch', () => {
     const { manager } = createManager()
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-session-app-'))
     const explicitCwd = path.join(tempRoot, 'sessionapp', 'conv-explicit')
@@ -170,9 +170,125 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: explicitCwd,
-        cwdAuto: false
+        cwdAuto: false,
+        projectId: null,
+        projectKindHint: null
       })
     )
+  })
+
+  it('uses projects.path for a project-bound session even when cwd conflicts', () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-project-bound-'))
+    const projectPath = path.join(tempRoot, 'workspace')
+    fs.mkdirSync(projectPath)
+    const project = {
+      id: 77,
+      path: projectPath,
+      name: 'Canonical Workspace',
+      project_kind: 'workspace'
+    }
+
+    try {
+      manager.sessionDatabase.getProjectById = vi.fn(projectId => projectId === project.id ? project : null)
+      manager.sessionDatabase.createAgentConversation.mockImplementation(params => ({
+        id: 1,
+        cwd: params.cwd,
+        projectId: params.projectId,
+        projectPath,
+        projectName: project.name,
+        projectKind: project.project_kind
+      }))
+
+      const created = manager.create({
+        type: 'chat',
+        projectId: project.id,
+        cwd: '/legacy/conflicting-cwd'
+      })
+
+      expect(created).toEqual(expect.objectContaining({
+        cwd: projectPath,
+        projectId: project.id,
+        projectPath,
+        projectName: project.name,
+        projectKind: project.project_kind,
+        cwdAuto: false
+      }))
+      expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cwd: projectPath,
+          cwdAuto: false,
+          projectId: project.id
+        })
+      )
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('fails before launch when a selected workspace project is missing', () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-missing-project-'))
+    const projectPath = path.join(tempRoot, 'missing-workspace')
+    manager.sessionDatabase.getProjectById = vi.fn(() => ({
+      id: 78,
+      path: projectPath,
+      project_kind: 'workspace'
+    }))
+
+    try {
+      expect(() => manager.create({ projectId: 78 })).toThrow(`Project directory does not exist: ${projectPath}`)
+      expect(manager.sessionDatabase.createAgentConversation).not.toHaveBeenCalled()
+      expect(fs.existsSync(projectPath)).toBe(false)
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves project identity when clearing and recreating a session', async () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-clear-project-'))
+    const project = {
+      id: 79,
+      path: tempRoot,
+      name: 'Clear Workspace',
+      project_kind: 'workspace'
+    }
+    const oldSession = new AgentSession({ id: 'old-project-session', cwd: project.path })
+    oldSession.projectId = project.id
+    oldSession.projectPath = project.path
+    oldSession.projectName = project.name
+    oldSession.projectKind = project.project_kind
+    manager.sessions.set(oldSession.id, oldSession)
+    manager.sessionDatabase.getProjectById = vi.fn(() => project)
+    manager.sessionDatabase.createAgentConversation.mockImplementation(params => ({
+      id: 2,
+      cwd: params.cwd,
+      projectId: params.projectId,
+      projectPath: project.path,
+      projectName: project.name,
+      projectKind: project.project_kind
+    }))
+
+    try {
+      const recreated = await manager.clearAndRecreate(oldSession.id, {
+        cwd: '/legacy/conflicting-cwd'
+      })
+
+      expect(recreated).toEqual(expect.objectContaining({
+        cwd: project.path,
+        projectId: project.id,
+        projectPath: project.path
+      }))
+      expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cwd: project.path,
+          projectId: project.id
+        })
+      )
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
   })
 
   it('persists session app binding metadata when creating a session app conversation', () => {
@@ -1895,7 +2011,7 @@ describe('AgentSessionManager interactions', () => {
     }))
   })
 
-  it('uses project_path as the directory identity while preserving cwd snapshots', () => {
+  it('uses project_path as the effective cwd for persisted project-bound sessions', () => {
     const { manager } = createManager()
     const row = {
       id: 7,
@@ -1930,17 +2046,121 @@ describe('AgentSessionManager interactions', () => {
     const reopened = manager.reopen('db-row-project-path')
 
     expect(sessions[0]).toEqual(expect.objectContaining({
-      cwd: '/legacy/cwd-snapshot',
+      cwd: '/projects/real-root',
       projectPath: '/projects/real-root'
     }))
     expect(reopened).toEqual(expect.objectContaining({
-      cwd: '/legacy/cwd-snapshot',
+      cwd: '/projects/real-root',
       projectPath: '/projects/real-root'
     }))
     expect(manager.getSessionRouting('db-row-project-path')).toEqual(expect.objectContaining({
-      cwd: '/legacy/cwd-snapshot',
+      cwd: '/projects/real-root',
       projectPath: '/projects/real-root'
     }))
+  })
+
+  it('passes the restored project path to the runner query', async () => {
+    const { manager } = createManager()
+    const row = {
+      id: 8,
+      session_id: 'db-row-runner-project-path',
+      type: 'chat',
+      status: 'closed',
+      sdk_session_id: null,
+      title: 'Runner path',
+      cwd: '/legacy/cwd-snapshot',
+      cwd_auto: 0,
+      project_id: 43,
+      project_path: '/projects/runtime-root',
+      project_name: 'runtime-root',
+      project_kind: 'workspace',
+      message_count: 0,
+      total_cost_usd: 0,
+      api_profile_id: 'p1',
+      api_base_url: 'https://example.com',
+      model_id: null,
+      source: 'manual',
+      task_id: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    let queryOptions = null
+    manager.sessionDatabase = {
+      getAgentConversation: vi.fn(() => row),
+      updateAgentConversation: vi.fn(),
+      insertAgentMessage: vi.fn()
+    }
+    manager.runner = {
+      buildEnv: vi.fn(() => ({})),
+      createQuery: vi.fn(async (_queue, options) => {
+        queryOptions = options
+        throw new Error('stop after cwd capture')
+      })
+    }
+
+    manager.reopen(row.session_id)
+    await manager.sendMessage(row.session_id, 'verify runner cwd')
+
+    expect(queryOptions).toEqual(expect.objectContaining({ cwd: '/projects/runtime-root' }))
+  })
+
+  it('treats an orphan project ID as a legacy cwd fallback during reopen and recreate', async () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-orphan-project-'))
+    const row = {
+      id: 9,
+      session_id: 'db-row-orphan-project',
+      type: 'chat',
+      status: 'closed',
+      sdk_session_id: null,
+      title: 'Legacy row',
+      cwd: tempRoot,
+      cwd_auto: 0,
+      project_id: 999999,
+      project_path: null,
+      project_name: null,
+      project_kind: null,
+      message_count: 0,
+      total_cost_usd: 0,
+      api_profile_id: 'p1',
+      api_base_url: 'https://example.com',
+      model_id: null,
+      source: 'manual',
+      task_id: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    manager.sessionDatabase = {
+      getAgentConversation: vi.fn(() => row),
+      updateAgentConversation: vi.fn(),
+      closeAgentConversation: vi.fn(),
+      createAgentConversation: vi.fn(params => ({
+        id: 10,
+        cwd: params.cwd,
+        projectId: null,
+        projectPath: params.cwd,
+        projectName: null,
+        projectKind: null
+      }))
+    }
+
+    try {
+      const reopened = manager.reopen(row.session_id)
+      const recreated = await manager.clearAndRecreate(row.session_id)
+
+      expect(reopened).toEqual(expect.objectContaining({
+        cwd: tempRoot,
+        projectId: null,
+        projectName: null,
+        projectKind: null
+      }))
+      expect(recreated).toEqual(expect.objectContaining({ cwd: tempRoot, projectId: null }))
+      expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
+        expect.objectContaining({ cwd: tempRoot, projectId: null })
+      )
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
   })
 
   it('loads the full persisted history for the agent left panel instead of truncating to 100 rows', () => {

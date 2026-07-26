@@ -16,6 +16,7 @@
       @agent-created="handleAgentCreated"
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
+      @projects-changed="handleProjectsChanged"
     />
 
     <!-- Main Content Area -->
@@ -619,6 +620,10 @@ const handleOpenProject = async () => {
   } catch (err) {
     message.error(err.message || t('messages.operationFailed'))
   }
+}
+
+const handleProjectsChanged = async () => {
+  await loadProjects()
 }
 
 // ========================================

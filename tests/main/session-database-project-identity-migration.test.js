@@ -21,6 +21,9 @@ describe('project identity migration', () => {
     SessionDatabase = module.SessionDatabase
 
     sqlite = new DatabaseSync(':memory:')
+    if (typeof sqlite.pragma !== 'function') {
+      sqlite.pragma = (command) => sqlite.exec(`PRAGMA ${command}`)
+    }
     sqlite.exec('PRAGMA foreign_keys = ON')
     sqlite.exec(`
       CREATE TABLE projects (
@@ -124,9 +127,11 @@ describe('project identity migration', () => {
     const pathKeys = projects.map(row => row.path_key)
 
     expect(pathKeys).toContain('win32:c:/work/demo')
-    expect(pathKeys).toContain('win32:c:/work/a-b')
-    expect(pathKeys).toContain('win32:c:/work/a_b')
-    expect(projects.filter(row => row.encoded_path === 'C--Work-a-b')).toHaveLength(2)
+    expect(pathKeys).not.toContain('win32:c:/work/a-b')
+    expect(pathKeys).not.toContain('win32:c:/work/a_b')
+    // The two cwd-only manual rows deliberately do not manufacture project
+    // records, even though their old CLI encodings would collide.
+    expect(projects.filter(row => row.encoded_path === 'C--Work-a-b')).toHaveLength(0)
     expect(projects.find(row => row.path_key === 'win32:c:/work/auto-output').project_kind).toBe('agent-output')
     expect(projects.find(row => row.path_key === 'win32:c:/work/session-app').project_kind).toBe('agent-output')
 
@@ -138,6 +143,23 @@ describe('project identity migration', () => {
     `).get()
     expect(demoConversation.cwd).toBe('C:\\Work\\Demo')
     expect(demoConversation.path).toBe('C:\\Work\\Demo')
+
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = 'agent-hyphen'
+    `).get()).toEqual({
+      project_id: null,
+      cwd: 'C:/Work/a-b'
+    })
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = 'agent-underscore'
+    `).get()).toEqual({
+      project_id: null,
+      cwd: 'C:/Work/a_b'
+    })
 
     expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get()).toBeUndefined()
     expect(sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'messages'").get()).toBeUndefined()
@@ -162,5 +184,108 @@ describe('project identity migration', () => {
       conversations: sqlite.prepare('SELECT COUNT(*) AS count FROM agent_conversations').get().count,
       bindings: sqlite.prepare('SELECT COUNT(*) AS count FROM agent_conversations WHERE project_id IS NOT NULL').get().count
     }).toEqual(beforeSecondRun)
+  })
+
+  it('preserves an existing project binding while rebuilding duplicate project rows', () => {
+    sqlite.exec(`
+      ALTER TABLE agent_conversations ADD COLUMN project_id INTEGER;
+      INSERT INTO projects (id, path, encoded_path, name, source, is_hidden)
+      VALUES
+        (1, 'C:/Work/Canonical', 'C--Work-Canonical', 'Canonical', 'user', 0),
+        (2, 'c:/work/canonical/', 'c--work-canonical', 'Canonical duplicate', 'user', 0);
+      INSERT INTO agent_conversations (
+        id, session_id, type, cwd, cwd_auto, project_id, created_at, updated_at
+      )
+      VALUES (200, 'agent-bound-before-rebuild', 'chat', 'C:/Work/Stale', 0, 2, 2000, 2000);
+    `)
+
+    database._migrateProjectIdentitySchema()
+
+    expect(sqlite.prepare(`
+      SELECT id
+      FROM projects
+      WHERE path_key = 'win32:c:/work/stale'
+    `).get()).toBeUndefined()
+
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = 'agent-bound-before-rebuild'
+    `).get()).toEqual({
+      project_id: 1,
+      cwd: 'C:\\Work\\Canonical'
+    })
+
+    database._migrateAgentConversationProjectBindings()
+
+    expect(sqlite.prepare(`
+      SELECT ac.project_id, ac.cwd, p.path AS project_path
+      FROM agent_conversations ac
+      JOIN projects p ON p.id = ac.project_id
+      WHERE ac.session_id = 'agent-bound-before-rebuild'
+    `).get()).toEqual({
+      project_id: 1,
+      cwd: 'C:\\Work\\Canonical',
+      project_path: 'C:\\Work\\Canonical'
+    })
+  })
+
+  it('keeps cwd-only legacy manual sessions unbound when no project identity exists', () => {
+    sqlite.exec(`
+      INSERT INTO agent_conversations (
+        id, session_id, type, cwd, cwd_auto, created_at, updated_at
+      )
+      VALUES (300, 'agent-legacy-manual', 'chat', 'C:/Work/Legacy Only', 0, 2000, 2000);
+    `)
+
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+
+    expect(sqlite.prepare(`
+      SELECT id
+      FROM projects
+      WHERE path_key = 'win32:c:/work/legacy only'
+    `).get()).toBeUndefined()
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = 'agent-legacy-manual'
+    `).get()).toEqual({
+      project_id: null,
+      cwd: 'C:/Work/Legacy Only'
+    })
+  })
+
+  it('preserves a project binding through the legacy IM table rebuild', () => {
+    database._dropDeveloperLegacyTables()
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    database.createTables()
+
+    sqlite.exec(`
+      ALTER TABLE agent_conversations ADD COLUMN staff_id TEXT;
+      ALTER TABLE agent_conversations ADD COLUMN conversation_id TEXT;
+      INSERT INTO projects (id, path, path_key, encoded_path, project_kind, name)
+      VALUES
+        (1, 'C:\\Work\\Canonical', 'win32:c:/work/canonical', 'C--Work-Canonical', 'workspace', 'Canonical'),
+        (2, 'C:\\Work\\Stale', 'win32:c:/work/stale', 'C--Work-Stale', 'workspace', 'Stale');
+      INSERT INTO agent_conversations (
+        id, session_id, cwd, cwd_auto, project_id, staff_id, conversation_id, created_at, updated_at
+      )
+      VALUES (400, 'agent-legacy-im-bound', 'C:\\Work\\Stale', 0, 1, 'legacy-user', '', 2000, 2000);
+    `)
+
+    database.runMigrations()
+
+    expect(sqlite.prepare(`
+      SELECT ac.project_id, ac.cwd, p.path AS project_path
+      FROM agent_conversations ac
+      JOIN projects p ON p.id = ac.project_id
+      WHERE ac.session_id = 'agent-legacy-im-bound'
+    `).get()).toEqual({
+      project_id: 1,
+      cwd: 'C:\\Work\\Canonical',
+      project_path: 'C:\\Work\\Canonical'
+    })
   })
 })

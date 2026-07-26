@@ -30,13 +30,32 @@ describe('Agent DB IM field queries', () => {
 
     expect(calls).toHaveLength(1)
     expect(calls[0].kind).toBe('all')
-    expect(calls[0].sql).toContain('WHERE im_channel = ?')
-    expect(calls[0].sql).toContain('AND im_user_id = ?')
-    expect(calls[0].sql).toContain('AND im_chat_id = ?')
+    expect(calls[0].sql).toContain('FROM agent_conversations ac')
+    expect(calls[0].sql).toContain('LEFT JOIN projects p ON p.id = ac.project_id')
+    expect(calls[0].sql).toContain('p.path AS project_path')
+    expect(calls[0].sql).toContain('WHERE ac.im_channel = ?')
+    expect(calls[0].sql).toContain('AND ac.im_user_id = ?')
+    expect(calls[0].sql).toContain('AND ac.im_chat_id = ?')
     expect(calls[0].sql).not.toContain('type = ?')
     expect(calls[0].sql).not.toContain('source = ?')
     expect(calls[0].sql).not.toContain('staff_id = ?')
     expect(calls[0].sql).not.toContain('conversation_id = ?')
+    expect(calls[0].params).toEqual(['feishu', 'ou_xxx', 'oc_xxx', 7])
+  })
+
+  it('includes canonical project metadata in identity-based IM history', () => {
+    const { harness, calls } = createDbHarness()
+
+    harness.getImSessionsByIdentity('feishu', 'ou_xxx', 'oc_xxx', 7)
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].kind).toBe('all')
+    expect(calls[0].sql).toContain('FROM agent_conversations ac')
+    expect(calls[0].sql).toContain('LEFT JOIN projects p ON p.id = ac.project_id')
+    expect(calls[0].sql).toContain('p.path AS project_path')
+    expect(calls[0].sql).toContain('WHERE ac.im_channel = ?')
+    expect(calls[0].sql).toContain('AND ac.im_user_id = ?')
+    expect(calls[0].sql).toContain('AND ac.im_chat_id = ?')
     expect(calls[0].params).toEqual(['feishu', 'ou_xxx', 'oc_xxx', 7])
   })
 

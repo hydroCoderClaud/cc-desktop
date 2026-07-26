@@ -30,6 +30,10 @@ const { buildHydrologyCapabilityQueryOptions } = require('./managers/hydrology-c
 const ClaudeCodeRunner = require('./runners/claude-code-runner')
 const { tMain } = require('./utils/app-i18n')
 const { resolveClaudeCodeExecutablePath } = require('./utils/claude-executable-path')
+const {
+  resolvePersistedConversationCwd,
+  hasPersistedProjectBinding
+} = require('./utils/project-workdir')
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|tiff|svg)$/i
 const IMAGE_PATH_HINT_HEADER = '图片已保存到以下路径，可使用 Read 或其他文件工具查看：'
@@ -108,11 +112,20 @@ function normalizeProjectKindHint(value) {
 }
 
 function resolveProjectKindHint(options, session, normalizedType) {
-  const explicit = normalizeProjectKindHint(options.projectKindHint || options.projectKind)
-  if (explicit) return explicit
   if (normalizedType === AgentType.NOTEBOOK) return 'notebook'
-  if (session.sessionAppId && session.cwdAuto) return 'agent-output'
-  return session.cwdAuto ? 'agent-output' : 'workspace'
+  if (session.clientType === 'embedded') return 'embedded'
+
+  const explicit = normalizeProjectKindHint(options.projectKindHint || options.projectKind)
+  if (explicit && explicit !== 'workspace') return explicit
+
+  // Workspace ownership is represented by projectId. A cwd-only manual
+  // caller remains an unbound compatibility session; only automatic owners
+  // receive an internal project identity.
+  if (session.sessionAppId || session.cwdAuto || session.source === 'im-inbound' || isExternalImChannel(session.imChannel)) {
+    return 'agent-output'
+  }
+
+  return null
 }
 
 function normalizeModelValue(value) {
@@ -525,8 +538,7 @@ class AgentSessionManager extends EventEmitter {
   }
 
   _resolveConversationProjectPath(row) {
-    // Project identity comes from projects.path; cwd stays as the runtime snapshot/fallback.
-    return row?.project_path || row?.cwd || null
+    return resolvePersistedConversationCwd(row)
   }
 
   _buildQueryOptionsSnapshot(session, queryOptions, extra = {}) {
@@ -913,10 +925,28 @@ class AgentSessionManager extends EventEmitter {
     const sessionAppBinding = options.sessionAppBinding && typeof options.sessionAppBinding === 'object'
       ? options.sessionAppBinding
       : null
+    const hasProjectBinding = options.projectId !== null && options.projectId !== undefined && options.projectId !== ''
+    let boundProject = null
+
+    if (hasProjectBinding) {
+      if (!this.sessionDatabase?.getProjectById) {
+        throw new Error('Project-bound conversations require project storage')
+      }
+      boundProject = this.sessionDatabase.getProjectById(options.projectId)
+      if (!boundProject?.path) {
+        throw new Error(`Project not found: ${options.projectId}`)
+      }
+    }
+
+    const effectiveCwd = boundProject?.path || options.cwd
     const session = new AgentSession({
       type: normalizedType,
       title: initialTitle,
-      cwd: options.cwd,
+      cwd: effectiveCwd,
+      projectId: boundProject?.id || null,
+      projectPath: boundProject?.path || null,
+      projectName: boundProject?.name || null,
+      projectKind: boundProject?.project_kind || null,
       apiProfileId: profile?.id || null,
       apiBaseUrl: profile?.baseUrl || null,
       modelId: initialModelId,
@@ -932,10 +962,13 @@ class AgentSessionManager extends EventEmitter {
       sessionAppInput: sessionAppBinding?.sessionAppInput || null
     })
 
-    // Ensure explicit cwd exists before launch.
-    // Session App startup can fail immediately if the CLI cwd is missing.
+    // Project-bound sessions always launch from projects.path. A missing
+    // selected workspace is never created implicitly; legacy and automatic
+    // session paths retain their existing compatibility behavior.
     if (!session.cwd) {
       session.cwd = this._assignCwd(session, options.cwdSubDir)
+    } else if (!fs.existsSync(session.cwd) && boundProject?.project_kind === 'workspace') {
+      throw new Error(`Project directory does not exist: ${session.cwd}`)
     } else {
       try {
         if (!fs.existsSync(session.cwd)) {
@@ -956,6 +989,7 @@ class AgentSessionManager extends EventEmitter {
           title: session.title,
           cwd: session.cwd,
           cwdAuto: session.cwdAuto,
+          projectId: session.projectId,
           projectKindHint,
           apiProfileId: profile?.id || null,
           apiBaseUrl: profile?.baseUrl || null,
@@ -971,10 +1005,10 @@ class AgentSessionManager extends EventEmitter {
           sessionAppInput: session.sessionAppInput
         })
         session.dbConversationId = dbRecord.id
-        session.projectId = dbRecord.projectId || null
-        session.projectPath = dbRecord.projectPath || dbRecord.cwd || null
-        session.projectName = dbRecord.projectName || null
-        session.projectKind = dbRecord.projectKind || null
+        session.projectId = dbRecord.projectId || session.projectId || null
+        session.projectPath = dbRecord.projectPath || dbRecord.cwd || session.projectPath || session.cwd || null
+        session.projectName = dbRecord.projectName || session.projectName || null
+        session.projectKind = dbRecord.projectKind || session.projectKind || null
         if (dbRecord.cwd) {
           session.cwd = dbRecord.cwd
         }
@@ -1221,16 +1255,17 @@ class AgentSessionManager extends EventEmitter {
       const row = this.sessionDatabase.getAgentConversation(sessionId)
       if (!row) return null
       const projectPath = this._resolveConversationProjectPath(row)
+      const hasProjectBinding = hasPersistedProjectBinding(row)
 
       session = new AgentSession({
         id: row.session_id,
         type: row.type,
         title: row.title || '',
-        cwd: row.cwd,
-        projectId: row.project_id || null,
+        cwd: projectPath,
+        projectId: hasProjectBinding ? row.project_id || null : null,
         projectPath,
-        projectName: row.project_name || null,
-        projectKind: row.project_kind || null,
+        projectName: hasProjectBinding ? row.project_name || null : null,
+        projectKind: hasProjectBinding ? row.project_kind || null : null,
         source: normalizeSessionSource(row.source || 'manual', row.im_channel || null),
         imChannel: row.im_channel || null,
         taskId: row.task_id || null,
@@ -1244,10 +1279,10 @@ class AgentSessionManager extends EventEmitter {
       // 恢复关键状态
       session.sdkSessionId = row.sdk_session_id || null
       session.cwdAuto = !!row.cwd_auto
-      session.projectId = row.project_id || null
+      session.projectId = hasProjectBinding ? row.project_id || null : null
       session.projectPath = projectPath
-      session.projectName = row.project_name || null
-      session.projectKind = row.project_kind || null
+      session.projectName = hasProjectBinding ? row.project_name || null : null
+      session.projectKind = hasProjectBinding ? row.project_kind || null : null
       session.dbConversationId = row.id
       session.messageCount = row.message_count || 0
       session.totalCostUsd = row.total_cost_usd || 0
@@ -2071,6 +2106,7 @@ class AgentSessionManager extends EventEmitter {
         const row = this.sessionDatabase.getAgentConversation(sessionId)
         if (row) {
           const projectPath = this._resolveConversationProjectPath(row)
+          const hasProjectBinding = hasPersistedProjectBinding(row)
           session = {
             id: row.session_id,
             type: row.type,
@@ -2080,12 +2116,12 @@ class AgentSessionManager extends EventEmitter {
             clientMeta: parseClientMeta(row.client_meta),
             sdkSessionId: row.sdk_session_id,
             title: row.title || '',
-            cwd: row.cwd,
+            cwd: projectPath,
             cwdAuto: !!row.cwd_auto,
-            projectId: row.project_id || null,
+            projectId: hasProjectBinding ? row.project_id || null : null,
             projectPath,
-            projectName: row.project_name || null,
-            projectKind: row.project_kind || null,
+            projectName: hasProjectBinding ? row.project_name || null : null,
+            projectKind: hasProjectBinding ? row.project_kind || null : null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
             messageCount: row.message_count || 0,
@@ -2566,7 +2602,7 @@ class AgentSessionManager extends EventEmitter {
   /**
    * 清空并重建会话：新建 fresh session 并切换过去，旧会话保留历史但退出当前上下文
    * @param {string} sessionId - 旧会话 ID
-   * @param {object} overrides - 可选覆盖参数 { type, title, cwd, cwdSubDir }
+   * @param {object} overrides - 可选覆盖参数 { type, title, projectId, cwd, cwdSubDir }
    * @returns {object} 新会话的 JSON 表示
    */
   async clearAndRecreate(sessionId, overrides = {}) {
@@ -2580,6 +2616,8 @@ class AgentSessionManager extends EventEmitter {
     const newTitle = overrides.title !== undefined
       ? resolveInitialSessionTitle(this.configManager, overrides.title)
       : resolveInitialSessionTitle(this.configManager, '')
+    const hasProjectOverride = Object.prototype.hasOwnProperty.call(overrides, 'projectId')
+    const newProjectId = hasProjectOverride ? overrides.projectId : oldSession.projectId
     const newCwd = overrides.cwd || oldSession.cwd
     const newApiProfileId = oldSession.apiProfileId
     const newModelId = this._resolveSessionModelId(oldSession)
@@ -2591,6 +2629,7 @@ class AgentSessionManager extends EventEmitter {
     const newSession = this.create({
       type: newType,
       title: newTitle,
+      projectId: newProjectId || null,
       cwd: newCwd,
       apiProfileId: newApiProfileId,
       modelId: newModelId,
@@ -2750,7 +2789,7 @@ class AgentSessionManager extends EventEmitter {
       id: serialized.id,
       type: serialized.type || null,
       title: serialized.title || '',
-      cwd: serialized.cwd || null,
+      cwd: projectPath,
       projectId: serialized.projectId || null,
       projectPath,
       projectName: serialized.projectName || null,
@@ -2807,6 +2846,7 @@ class AgentSessionManager extends EventEmitter {
           if (row.type === 'notebook') continue  // 排除 notebook 类型
           if (activeIds.has(row.session_id)) continue  // 去重
           const projectPath = this._resolveConversationProjectPath(row)
+          const hasProjectBinding = hasPersistedProjectBinding(row)
           result.push({
             id: row.session_id,
             type: row.type,
@@ -2816,12 +2856,12 @@ class AgentSessionManager extends EventEmitter {
             clientMeta: parseClientMeta(row.client_meta),
             sdkSessionId: row.sdk_session_id,
             title: row.title || '',
-            cwd: row.cwd,
+            cwd: projectPath,
             cwdAuto: !!row.cwd_auto,
-            projectId: row.project_id || null,
+            projectId: hasProjectBinding ? row.project_id || null : null,
             projectPath,
-            projectName: row.project_name || null,
-            projectKind: row.project_kind || null,
+            projectName: hasProjectBinding ? row.project_name || null : null,
+            projectKind: hasProjectBinding ? row.project_kind || null : null,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
             messageCount: row.message_count || 0,

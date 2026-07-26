@@ -40,6 +40,7 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
   // 确保手动选择的能力管理目录有 workspace project 身份
   createIPCHandler(ipcMain, 'project:ensureWorkspace', (projectData = {}) => {
     const projectPath = projectData.path
+    const isAgentWorkspaceIntent = projectData.intent === 'agent-workspace'
     if (!projectPath) {
       throw new Error('目录不能为空')
     }
@@ -57,6 +58,10 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
         sessionDatabase.touchProject(existing.id)
         const project = sessionDatabase.getProjectById(existing.id) || existing
         return { ...project, pathValid: true, alreadyExists: true }
+      }
+
+      if (isAgentWorkspaceIntent) {
+        throw new Error('所选目录已被其他内部项目占用，不能作为 Agent 项目')
       }
 
       return { ...existing, pathValid: true, alreadyExists: true }

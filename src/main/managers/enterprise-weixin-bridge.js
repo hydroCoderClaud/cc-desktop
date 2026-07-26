@@ -29,6 +29,7 @@ const {
   normalizeOutboundFilePaths,
   buildSavedInboundFileAttachment,
 } = require('./im-file-attachments')
+const { resolvePersistedConversationCwd } = require('../utils/project-workdir')
 const {
   isMappedCurrentSession,
   deleteSessionMappingsByPrefix,
@@ -1439,7 +1440,8 @@ class EnterpriseWeixinBridge {
     const liveSession = this._agentSessionManager?.sessions?.get?.(sessionId)
     if (liveSession?.cwd) return liveSession.cwd
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    if (row?.cwd) return row.cwd
+    const cwd = resolvePersistedConversationCwd(row)
+    if (cwd) return cwd
     throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
   }
 

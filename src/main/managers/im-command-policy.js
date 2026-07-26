@@ -122,7 +122,7 @@ function buildCurrentImHistoryRow({
     ...(dbRow || {}),
     session_id: dbRow?.session_id || liveSession?.id || sessionId,
     title: dbRow?.title || liveSession?.title || sessionId,
-    cwd: dbRow?.cwd || liveSession?.cwd || null,
+    cwd: dbRow?.project_path || dbRow?.projectPath || liveSession?.projectPath || dbRow?.cwd || liveSession?.cwd || null,
     api_profile_id: dbRow?.api_profile_id || liveSession?.apiProfileId || null,
     updated_at: dbRow?.updated_at || (liveSession?.updatedAt ? new Date(liveSession.updatedAt).getTime() : Date.now()),
     type,

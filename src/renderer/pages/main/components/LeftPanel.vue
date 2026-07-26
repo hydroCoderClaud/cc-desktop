@@ -10,18 +10,21 @@
     <AgentLeftContent
       v-show="isAgentMode"
       ref="agentLeftContentRef"
+      :projects="projects"
       :active-session-id="activeAgentSessionId"
       :current-project="currentProject"
       @created="handleAgentCreated"
       @select="handleAgentSelected"
       @close="handleAgentClosed"
       @new-conversation-request="openAgentNewConversation"
+      @projects-changed="handleProjectsChanged"
     />
 
     <AgentNewConversationModal
       :show="showNewConvModal"
       @update:show="showNewConvModal = $event"
       @create="handleNewConvCreate"
+      @project-ensured="handleProjectsChanged"
     />
 
     <LeftPanelFooter
@@ -87,7 +90,8 @@ const emit = defineEmits([
   'mode-changed',
   'agent-created',
   'agent-selected',
-  'agent-closed'
+  'agent-closed',
+  'projects-changed'
 ])
 
 const agentLeftContentRef = ref(null)
@@ -183,18 +187,24 @@ const handleAgentCreated = (session) => {
   emit('agent-created', session)
 }
 
-const handleNewConvCreate = async ({ cwd, apiProfileId }) => {
+const handleNewConvCreate = async ({ projectId, cwd, apiProfileId }) => {
   showNewConvModal.value = false
   if (agentLeftContentRef.value) {
     const session = await agentLeftContentRef.value.createConversation({
       type: 'chat',
+      projectId: projectId || null,
       cwd: cwd || null,
       apiProfileId: apiProfileId || null
     })
     if (session) {
       handleAgentCreated(session)
+      handleProjectsChanged()
     }
   }
+}
+
+const handleProjectsChanged = () => {
+  emit('projects-changed')
 }
 
 const handleAgentSelected = async (conv) => {

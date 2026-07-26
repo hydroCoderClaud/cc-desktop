@@ -81,6 +81,22 @@ describe('workspace file write boundaries', () => {
     expect(fs.existsSync(sourcePath)).toBe(true)
   })
 
+  it('uses project_path as the DB fallback root for an unloaded Agent session', () => {
+    const fileManager = new AgentFileManager({
+      sessions: new Map(),
+      sessionDatabase: {
+        getAgentConversation: () => ({
+          cwd: outsidePath,
+          project_path: workspaceRoot
+        })
+      }
+    })
+
+    expect(fileManager.resolveFilePath('persisted-session', 'notes/todo.txt')).toBe(
+      path.join(workspaceRoot, 'notes', 'todo.txt')
+    )
+  })
+
   it('returns a compatible attachment view for text and image files', async () => {
     const fileManager = new AgentFileManager({
       sessions: new Map([['s1', { id: 's1', cwd: workspaceRoot }]])

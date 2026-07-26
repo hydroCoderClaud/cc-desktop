@@ -40,6 +40,7 @@ const { getImDefaultWorkspaceRoot } = require('./im-working-directory')
 const { buildDesktopInterventionText } = require('./im-desktop-intervention')
 const { saveInboundAttachment } = require('./im-attachment-store')
 const { normalizeOutboundFilePaths, buildSavedInboundFileAttachment } = require('./im-file-attachments')
+const { resolvePersistedConversationCwd } = require('../utils/project-workdir')
 
 const imageMixin = require('./dingtalk-image')
 const commandsMixin = require('./dingtalk-commands')
@@ -992,7 +993,8 @@ class DingTalkBridge {
     const liveSession = this.agentSessionManager?.sessions?.get?.(sessionId)
     if (liveSession?.cwd) return liveSession.cwd
     const row = this.agentSessionManager?.sessionDatabase?.getAgentConversation?.(sessionId)
-    if (row?.cwd) return row.cwd
+    const cwd = resolvePersistedConversationCwd(row)
+    if (cwd) return cwd
     throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
   }
 

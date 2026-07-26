@@ -22,7 +22,7 @@
         <n-button
           v-if="selectedCwd"
           quaternary
-          @click="selectedCwd = null"
+          @click="clearSelectedProject"
           :title="t('common.clear')"
         >
           <Icon name="close" :size="14" />
@@ -38,7 +38,7 @@
           v-for="directory in displayDirectories"
           :key="directory.id"
           class="project-item"
-          :class="{ selected: selectedCwd === directory.path }"
+          :class="{ selected: selectedProject?.id === directory.id }"
           @click="toggleDirectory(directory)"
         >
           <span class="project-icon">📁</span>
@@ -69,11 +69,12 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { NModal, NInput, NButton, NSelect } from 'naive-ui'
+import { NModal, NInput, NButton, NSelect, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
 const { t } = useLocale()
+const message = useMessage()
 
 const props = defineProps({
   show: {
@@ -82,14 +83,15 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:show', 'create'])
+const emit = defineEmits(['update:show', 'create', 'project-ensured'])
 
-const selectedCwd = ref(null)
+const selectedProject = ref(null)
 const recentDirectories = ref([])
 const apiProfiles = ref([])
 const selectedProfileId = ref(null)
 
 const MAX_RECENT_DIRECTORIES = 10
+const selectedCwd = computed(() => selectedProject.value?.path || null)
 
 // 最多显示 10 个最近目录
 const displayDirectories = computed(() => {
@@ -99,7 +101,7 @@ const displayDirectories = computed(() => {
 // 每次打开时重置选择并检查目录存在性
 watch(() => props.show, async (newVal) => {
   if (newVal) {
-    selectedCwd.value = null
+    selectedProject.value = null
     selectedProfileId.value = null
     await Promise.all([
       loadApiProfiles(),
@@ -151,6 +153,7 @@ const loadRecentDirectories = async () => {
       seen.add(cwd)
       directories.push({
         id: project.id || cwd,
+        projectId: project.id || null,
         name: project.name || cwd.replace(/\\/g, '/').split('/').filter(Boolean).pop() || cwd,
         path: cwd
       })
@@ -169,17 +172,39 @@ const loadRecentDirectories = async () => {
 const browseFolder = async () => {
   if (!window.electronAPI) return
   const folderPath = await window.electronAPI.selectFolder()
-  if (folderPath) {
-    selectedCwd.value = folderPath
+  if (!folderPath) return
+
+  try {
+    const project = await window.electronAPI.ensureWorkspaceProject?.({
+      path: folderPath,
+      intent: 'agent-workspace'
+    })
+    if (!project?.id) return
+
+    await loadRecentDirectories()
+    selectedProject.value = recentDirectories.value.find(directory => directory.id === project.id) || {
+      id: project.id,
+      projectId: project.id,
+      name: project.name || folderPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || folderPath,
+      path: project.path || folderPath
+    }
+    emit('project-ensured')
+  } catch (err) {
+    console.error('[AgentNewConversationModal] Failed to ensure workspace project:', err)
+    message.error(err?.message || '无法将所选目录作为 Agent 项目')
   }
 }
 
 const toggleDirectory = (directory) => {
-  if (selectedCwd.value === directory.path) {
-    selectedCwd.value = null
+  if (selectedProject.value?.id === directory.id) {
+    selectedProject.value = null
   } else {
-    selectedCwd.value = directory.path
+    selectedProject.value = directory
   }
+}
+
+const clearSelectedProject = () => {
+  selectedProject.value = null
 }
 
 const shortenPath = (fullPath) => {
@@ -202,7 +227,11 @@ const profileOptions = computed(() =>
 )
 
 const handleCreate = () => {
-  emit('create', { cwd: selectedCwd.value || null, apiProfileId: selectedProfileId.value || null })
+  emit('create', {
+    projectId: selectedProject.value?.projectId || selectedProject.value?.id || null,
+    cwd: selectedProject.value?.path || null,
+    apiProfileId: selectedProfileId.value || null
+  })
 }
 </script>
 

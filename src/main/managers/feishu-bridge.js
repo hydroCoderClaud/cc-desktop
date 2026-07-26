@@ -18,6 +18,7 @@ const { FeishuMessageAPI } = require('./feishu-message-api')
 const { inferAttachmentMimeType } = require('./attachment-types')
 const { saveInboundAttachment } = require('./im-attachment-store')
 const { normalizeOutboundFilePaths, buildSavedInboundFileAttachment } = require('./im-file-attachments')
+const { resolvePersistedConversationCwd } = require('../utils/project-workdir')
 const { extractImagePaths, normalizePath, formatRelativeTime, IMAGE_EXTENSIONS, IMAGE_MAX_SIZE } = require('./im-utils')
 const {
   isMappedCurrentSession,
@@ -1906,7 +1907,8 @@ class FeishuBridge {
     const liveSession = this._agentSessionManager?.sessions?.get?.(sessionId)
     if (liveSession?.cwd) return liveSession.cwd
     const row = this._sessionDatabase?.getAgentConversation?.(sessionId)
-    if (row?.cwd) return row.cwd
+    const cwd = resolvePersistedConversationCwd(row)
+    if (cwd) return cwd
     throw new Error(`无法确定会话 ${sessionId} 的工作目录`)
   }
 

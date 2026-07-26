@@ -193,7 +193,7 @@ describe('legacy synced project cleanup', () => {
     expect(sqlite.prepare('SELECT path_key FROM projects WHERE id = ?').get(project.id).path_key).toBe('win32:c:/workspace/new-project')
   })
 
-  it('uses the real directory basename when Agent conversations create projects', () => {
+  it('creates an internal project for explicitly automatic Agent output directories', () => {
     database._migrateProjectIdentitySchema()
     database._migrateAgentConversationProjectBindings()
     sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
@@ -201,11 +201,162 @@ describe('legacy synced project cleanup', () => {
     const conversation = database.createAgentConversation({
       sessionId: 'agent-title-default',
       title: '对话',
-      cwd: 'C:/workspace/中文 测试_a-b'
+      cwd: 'C:/workspace/中文 测试_a-b',
+      cwdAuto: true
     })
 
     expect(conversation.projectName).toBe('中文 测试_a-b')
-    expect(sqlite.prepare('SELECT name FROM projects WHERE id = ?').get(conversation.projectId).name).toBe('中文 测试_a-b')
+    expect(sqlite.prepare('SELECT project_kind, is_hidden FROM projects WHERE id = ?').get(conversation.projectId)).toEqual({
+      project_kind: 'agent-output',
+      is_hidden: 1
+    })
+  })
+
+  it('keeps cwd-only compatibility conversations unbound without changing a visible workspace', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const workspace = database.getOrCreateProject('C:/workspace/compat-visible', {
+      projectKind: 'workspace',
+      name: 'Visible Workspace'
+    })
+    const conversation = database.createAgentConversation({
+      sessionId: 'agent-cwd-only-compat',
+      cwd: 'c:/workspace/compat-visible/'
+    })
+
+    expect(conversation).toEqual(expect.objectContaining({
+      cwd: 'c:\\workspace\\compat-visible',
+      projectId: null,
+      projectName: null,
+      projectKind: null
+    }))
+    expect(database.getProjectById(workspace.id)).toEqual(expect.objectContaining({
+      project_kind: 'workspace',
+      is_hidden: 0
+    }))
+    expect(sqlite.prepare(`
+      SELECT project_id
+      FROM agent_conversations
+      WHERE session_id = ?
+    `).get('agent-cwd-only-compat')).toEqual({ project_id: null })
+  })
+
+  it('does not attach automatic cwd-only sessions to a visible workspace with the same path', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const workspace = database.getOrCreateProject('C:/workspace/automatic-collision', {
+      projectKind: 'workspace',
+      name: 'Visible Workspace'
+    })
+    const conversation = database.createAgentConversation({
+      sessionId: 'agent-auto-collision',
+      cwd: workspace.path,
+      cwdAuto: true,
+      source: 'im-inbound',
+      imChannel: 'feishu'
+    })
+
+    expect(conversation).toEqual(expect.objectContaining({
+      projectId: null,
+      projectName: null,
+      projectKind: null
+    }))
+    expect(database.getProjectById(workspace.id)).toEqual(expect.objectContaining({
+      project_kind: 'workspace',
+      is_hidden: 0
+    }))
+  })
+
+  it('keeps a valid project binding when its cwd snapshot points at another project', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const canonicalProject = database.getOrCreateProject('C:/workspace/canonical-project', {
+      projectKind: 'workspace',
+      name: 'Canonical Project'
+    })
+    const staleCwdProject = database.getOrCreateProject('C:/workspace/stale-cwd-project', {
+      projectKind: 'workspace',
+      name: 'Stale Cwd Project'
+    })
+
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-stale-cwd-binding', staleCwdProject.path, canonicalProject.id, 100)
+
+    database._migrateAgentConversationProjectBindings()
+
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = ?
+    `).get('agent-stale-cwd-binding')).toEqual({
+      project_id: canonicalProject.id,
+      cwd: canonicalProject.path
+    })
+  })
+
+  it('clears an orphan project binding while preserving its legacy cwd fallback', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    sqlite.exec('PRAGMA foreign_keys = OFF')
+    sqlite.prepare(`
+      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run('agent-orphan-project-binding', 'C:/workspace/legacy-orphan', 999999, 100)
+    sqlite.exec('PRAGMA foreign_keys = ON')
+
+    database._migrateAgentConversationProjectBindings()
+
+    expect(sqlite.prepare(`
+      SELECT project_id, cwd
+      FROM agent_conversations
+      WHERE session_id = ?
+    `).get('agent-orphan-project-binding')).toEqual({
+      project_id: null,
+      cwd: 'C:/workspace/legacy-orphan'
+    })
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('uses an explicit project ID over a conflicting cwd when persisting a conversation', () => {
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+    sqlite.exec('CREATE UNIQUE INDEX idx_projects_path_key ON projects(path_key)')
+
+    const canonicalProject = database.getOrCreateProject('C:/workspace/explicit-project', {
+      projectKind: 'workspace',
+      name: 'Explicit Project'
+    })
+    const conflictingProject = database.getOrCreateProject('C:/workspace/conflicting-project', {
+      projectKind: 'workspace',
+      name: 'Conflicting Project'
+    })
+
+    const conversation = database.createAgentConversation({
+      sessionId: 'agent-explicit-project',
+      projectId: canonicalProject.id,
+      cwd: conflictingProject.path
+    })
+
+    expect(conversation).toEqual(expect.objectContaining({
+      projectId: canonicalProject.id,
+      projectPath: canonicalProject.path,
+      cwd: canonicalProject.path
+    }))
+    expect(() => database.createAgentConversation({
+      sessionId: 'agent-missing-project',
+      projectId: 999999,
+      cwd: canonicalProject.path
+    })).toThrow('Project not found: 999999')
   })
 
   it('repairs legacy Agent-created projects named with the default conversation title', () => {

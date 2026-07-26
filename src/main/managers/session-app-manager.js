@@ -227,6 +227,7 @@ class SessionAppManager {
       cwdSubDir: launchCwd ? undefined : SESSION_APP_WORKSPACE_SUBDIR,
       apiProfileId: sessionOptions.apiProfileId || runtime.defaultContext?.apiProfileId || null,
       modelId: sessionOptions.modelId || runtime.defaultContext?.modelId || null,
+      projectKindHint: 'agent-output',
       sessionAppBinding: binding
     })
 

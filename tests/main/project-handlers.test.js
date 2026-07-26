@@ -246,4 +246,50 @@ describe('project-handlers project directory identity', () => {
     }))
     expect(sessionDatabase.getOrCreateProject).not.toHaveBeenCalled()
   })
+
+  it('rejects an Agent workspace selection that is already owned by an internal project', async () => {
+    const existing = {
+      id: 18,
+      path: process.cwd(),
+      name: 'Notebook Scope',
+      project_kind: 'notebook',
+      is_hidden: 1
+    }
+    sessionDatabase.getProjectByPath.mockReturnValueOnce(existing)
+
+    const ensureWorkspace = handlers.get('project:ensureWorkspace')
+
+    await expect(ensureWorkspace(null, {
+      path: process.cwd(),
+      intent: 'agent-workspace'
+    })).rejects.toThrow('所选目录已被其他内部项目占用，不能作为 Agent 项目')
+
+    expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.touchProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.getOrCreateProject).not.toHaveBeenCalled()
+  })
+
+  it('preserves an existing internal project for non-Agent workspace intents', async () => {
+    const existing = {
+      id: 19,
+      path: process.cwd(),
+      name: 'Notebook Scope',
+      project_kind: 'notebook',
+      is_hidden: 1
+    }
+    sessionDatabase.getProjectByPath.mockReturnValueOnce(existing)
+
+    const ensureWorkspace = handlers.get('project:ensureWorkspace')
+    const result = await ensureWorkspace(null, { path: process.cwd() })
+
+    expect(result).toEqual(expect.objectContaining({
+      id: 19,
+      project_kind: 'notebook',
+      is_hidden: 1,
+      alreadyExists: true
+    }))
+    expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.touchProject).not.toHaveBeenCalled()
+    expect(sessionDatabase.getOrCreateProject).not.toHaveBeenCalled()
+  })
 })

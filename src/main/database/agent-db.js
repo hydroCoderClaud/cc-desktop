@@ -4,6 +4,10 @@
  * Agent 对话和消息的数据库操作方法
  */
 
+const { normalizeProjectPath } = require('../utils/path-utils')
+
+const INTERNAL_PROJECT_KINDS = new Set(['agent-output', 'embedded', 'notebook'])
+
 /**
  * 将 Agent 操作方法混入到目标类
  * @param {Function} BaseClass - 基类
@@ -22,6 +26,29 @@ function serializeJsonObject(value) {
   } catch {
     return null
   }
+}
+
+function resolveInternalProjectKind({
+  projectKindHint,
+  type,
+  clientType,
+  source,
+  imChannel,
+  sessionAppId,
+  cwdAuto
+}) {
+  if (INTERNAL_PROJECT_KINDS.has(projectKindHint)) return projectKindHint
+  if (type === 'notebook') return 'notebook'
+  if (clientType === 'embedded') return 'embedded'
+
+  // These callers own generated workspaces. A plain manual cwd does not: it
+  // remains an unbound compatibility fallback unless the caller selected a
+  // project by ID.
+  if (cwdAuto || sessionAppId || source === 'im-inbound' || imChannel) {
+    return 'agent-output'
+  }
+
+  return null
 }
 
 const AGENT_CONVERSATION_SELECT = `
@@ -71,11 +98,30 @@ function withAgentOperations(BaseClass) {
         if (!resolvedCwd) {
           throw new Error('Agent conversation cwd is required')
         }
-        resolvedProject = this.getOrCreateProject(resolvedCwd, {
-          projectKindHint: projectKindHint || (cwdAuto ? 'agent-output' : 'workspace')
+        resolvedCwd = normalizeProjectPath(resolvedCwd)
+        const internalProjectKind = resolveInternalProjectKind({
+          projectKindHint,
+          type,
+          clientType,
+          source,
+          imChannel,
+          sessionAppId,
+          cwdAuto
         })
-        resolvedProjectId = resolvedProject.id
-        resolvedCwd = resolvedProject.path
+
+        if (internalProjectKind) {
+          // A project already selected by the user owns the path identity.
+          // Do not turn it into a hidden automatic kind merely because an
+          // internal caller happens to launch from the same directory.
+          const existingProject = this.getProjectByPath?.(resolvedCwd) || null
+          if (!existingProject || existingProject.project_kind !== 'workspace') {
+            resolvedProject = existingProject || this.getOrCreateProject(resolvedCwd, {
+              projectKindHint: internalProjectKind
+            })
+            resolvedProjectId = resolvedProject.id
+            resolvedCwd = resolvedProject.path
+          }
+        }
       } else {
         resolvedProject = this.getProjectById(resolvedProjectId)
         if (!resolvedProject) {
@@ -349,11 +395,13 @@ function withAgentOperations(BaseClass) {
      */
     getImSessionsByIdentity(imType, userId, channelId, limit = 5) {
       return this.db.prepare(`
-        SELECT * FROM agent_conversations
-        WHERE im_channel = ?
-          AND im_user_id = ?
-          AND im_chat_id = ?
-        ORDER BY updated_at DESC LIMIT ?
+        SELECT ${AGENT_CONVERSATION_SELECT}
+        FROM agent_conversations ac
+        LEFT JOIN projects p ON p.id = ac.project_id
+        WHERE ac.im_channel = ?
+          AND ac.im_user_id = ?
+          AND ac.im_chat_id = ?
+        ORDER BY ac.updated_at DESC LIMIT ?
       `).all(imType, userId, channelId, limit)
     }
 
@@ -366,18 +414,22 @@ function withAgentOperations(BaseClass) {
       // 群聊场景传入群 chatId 以区分同一用户在不同群的会话
       if (conversationId) {
         return this.db.prepare(`
-          SELECT * FROM agent_conversations
-          WHERE im_channel = ?
-            AND im_user_id = ?
-            AND im_chat_id = ?
-          ORDER BY updated_at DESC LIMIT ?
+          SELECT ${AGENT_CONVERSATION_SELECT}
+          FROM agent_conversations ac
+          LEFT JOIN projects p ON p.id = ac.project_id
+          WHERE ac.im_channel = ?
+            AND ac.im_user_id = ?
+            AND ac.im_chat_id = ?
+          ORDER BY ac.updated_at DESC LIMIT ?
         `).all(type, userId, conversationId, limit)
       }
       return this.db.prepare(`
-        SELECT * FROM agent_conversations
-        WHERE im_channel = ?
-          AND im_user_id = ?
-        ORDER BY updated_at DESC LIMIT ?
+        SELECT ${AGENT_CONVERSATION_SELECT}
+        FROM agent_conversations ac
+        LEFT JOIN projects p ON p.id = ac.project_id
+        WHERE ac.im_channel = ?
+          AND ac.im_user_id = ?
+        ORDER BY ac.updated_at DESC LIMIT ?
       `).all(type, userId, limit)
     }
 

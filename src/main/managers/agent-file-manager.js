@@ -33,6 +33,7 @@ const {
 } = require('./attachment-types')
 const { ImageAttachmentProcessor } = require('./attachment-processors/image-attachment-processor')
 const { DocumentAttachmentProcessor } = require('./attachment-processors/document-attachment-processor')
+const { resolvePersistedConversationCwd } = require('../utils/project-workdir')
 
 class AgentFileManager {
   /**
@@ -70,7 +71,8 @@ class AgentFileManager {
     // DB 兜底
     if (this.sessionManager.sessionDatabase) {
       const row = this.sessionManager.sessionDatabase.getAgentConversation(sessionId)
-      if (row?.cwd) return row.cwd
+      const cwd = resolvePersistedConversationCwd(row)
+      if (cwd) return cwd
     }
     return null
   }

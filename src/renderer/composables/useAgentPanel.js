@@ -2,11 +2,9 @@
  * Agent 面板状态管理组合式函数
  * 管理 Agent 对话列表、创建、删除等操作
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, unref, watch } from 'vue'
 import { getSessionImChannel } from '@shared/external-im-meta'
 
-const RECENT_CWD_LIMIT = 10
-const RECENT_CWD_STORAGE_KEY = 'agent.leftPanel.recentCwds'
 const PINNED_PROJECTS_STORAGE_KEY = 'agent.leftPanel.pinnedProjectKeys'
 const EXPANDED_PROJECTS_STORAGE_KEY = 'agent.leftPanel.expandedProjectKeys'
 const PROJECT_ORDER_STORAGE_KEY = 'agent.leftPanel.projectOrderKeys'
@@ -102,38 +100,62 @@ function normalizeProjectId(projectId) {
   return String(projectId)
 }
 
-function buildCwdDirectoryKey(cwd) {
-  const normalized = normalizeCwd(cwd)
-  return normalized ? `cwd:${normalized}` : ''
-}
-
 function getConversationDirectoryKey(conv) {
   const projectId = normalizeProjectId(conv?.projectId)
   if (projectId) return `project:${projectId}`
-  return buildCwdDirectoryKey(conv?.cwd)
-}
-
-function getConversationDirectoryEntry(conv) {
-  const key = getConversationDirectoryKey(conv)
-  if (!key) return null
-
-  return {
-    key,
-    cwd: normalizeCwd(conv?.projectPath || conv?.cwd),
-    projectId: normalizeProjectId(conv?.projectId) || null,
-    projectName: conv?.projectName || null,
-    projectKind: conv?.projectKind || null
-  }
+  return ''
 }
 
 function getFallbackDirectoryEntry() {
   return {
     key: UNCATEGORIZED_PROJECT_KEY,
+    path: '',
     cwd: '',
     projectId: null,
     projectName: null,
-    projectKind: 'uncategorized'
+    projectKind: 'uncategorized',
+    isFallback: true,
+    pathValid: false
   }
+}
+
+function getProjectTimestamp(project) {
+  const value = project?.last_activity || project?.lastActivity || project?.last_opened_at || project?.lastOpenedAt || project?.updated_at || project?.updatedAt || project?.created_at || project?.createdAt
+  if (typeof value === 'number') return value
+  const timestamp = Date.parse(value || '')
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function getVisibleProjectEntries(projects) {
+  const entries = []
+  const seen = new Set()
+
+  for (const project of Array.isArray(projects) ? projects : []) {
+    const projectId = normalizeProjectId(project?.id)
+    const projectKind = project?.project_kind || project?.projectKind || 'workspace'
+    if (!projectId || seen.has(projectId) || projectKind !== 'workspace' || Number(project?.is_hidden) === 1) {
+      continue
+    }
+
+    const path = normalizeCwd(project?.path || project?.projectPath)
+    if (!path) continue
+
+    seen.add(projectId)
+    entries.push({
+      key: `project:${projectId}`,
+      path,
+      // Keep the alias for existing presentation callers. It is derived from projects.path.
+      cwd: path,
+      projectId,
+      projectName: project?.name || null,
+      projectKind,
+      pathValid: project?.pathValid !== false,
+      latestTimestamp: getProjectTimestamp(project),
+      isFallback: false
+    })
+  }
+
+  return entries
 }
 
 function getLocalStorage() {
@@ -142,19 +164,6 @@ function getLocalStorage() {
   } catch {
     return null
   }
-}
-
-function uniqueCwds(cwds) {
-  const seen = new Set()
-  const result = []
-  for (const cwd of cwds) {
-    const normalized = normalizeCwd(cwd)
-    if (normalized && !seen.has(normalized)) {
-      seen.add(normalized)
-      result.push(normalized)
-    }
-  }
-  return result
 }
 
 function uniqueStrings(values) {
@@ -168,6 +177,36 @@ function uniqueStrings(values) {
     }
   }
   return result
+}
+
+function normalizeLegacyProjectPath(path) {
+  const normalized = normalizeCwd(path).replace(/\\/g, '/')
+  if (!normalized) return ''
+
+  const withoutTrailingSeparators = normalized.length > 1 && !/^[A-Za-z]:\/$/.test(normalized)
+    ? normalized.replace(/\/+$/, '')
+    : normalized
+
+  return /^[A-Za-z]:\//.test(withoutTrailingSeparators)
+    ? withoutTrailingSeparators.toLocaleLowerCase()
+    : withoutTrailingSeparators
+}
+
+function migrateLegacyProjectPreferenceKeys(keys, projectEntries) {
+  const projectKeyByPath = new Map()
+  for (const entry of projectEntries || []) {
+    const pathKey = normalizeLegacyProjectPath(entry?.path)
+    if (pathKey && entry?.key) projectKeyByPath.set(pathKey, entry.key)
+  }
+
+  return uniqueStrings((Array.isArray(keys) ? keys : []).map(key => {
+    if (!key.startsWith('cwd:')) return key
+    return projectKeyByPath.get(normalizeLegacyProjectPath(key.slice('cwd:'.length))) || key
+  }))
+}
+
+function sameStringList(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
 function loadStringList(storageKey) {
@@ -198,117 +237,58 @@ function saveStringList(storageKey, values) {
   }
 }
 
-function loadRecentCwds() {
-  const storage = getLocalStorage()
-  if (!storage) return []
-
-  try {
-    const raw = storage.getItem(RECENT_CWD_STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed)
-      ? uniqueCwds(parsed).slice(0, RECENT_CWD_LIMIT)
-      : []
-  } catch {
-    return []
-  }
-}
-
-function saveRecentCwds(cwds) {
-  const storage = getLocalStorage()
-  if (!storage) return
-
-  try {
-    storage.setItem(
-      RECENT_CWD_STORAGE_KEY,
-      JSON.stringify(uniqueCwds(cwds).slice(0, RECENT_CWD_LIMIT))
-    )
-  } catch {
-    // 忽略本地存储不可用的情况，目录筛选本身仍可用。
-  }
-}
-
 function getConversationTimestamp(conv) {
   const ts = Date.parse(conv?.updatedAt || conv?.createdAt || '')
   return Number.isFinite(ts) ? ts : 0
 }
 
 function getDirectorySortName(entry) {
-  const name = entry?.projectName || entry?.cwd || entry?.key || ''
+  const name = entry?.projectName || entry?.path || entry?.key || ''
   return String(name).toLocaleLowerCase()
 }
 
-function getConversationDirectoriesByRecency(conversations) {
-  const latestByKey = new Map()
-  for (const conv of conversations) {
-    const entry = getConversationDirectoryEntry(conv)
-    if (!entry) continue
-
-    const timestamp = getConversationTimestamp(conv)
-    const previous = latestByKey.get(entry.key)
-    if (!previous || timestamp > previous.timestamp) {
-      latestByKey.set(entry.key, { ...entry, timestamp })
-    }
-  }
-
-  return Array.from(latestByKey.values())
-    .sort((a, b) => b.timestamp - a.timestamp || (a.cwd || a.key).localeCompare(b.cwd || b.key))
-    .map(({ timestamp, ...entry }) => entry)
-}
-
-function mergeDirectoryEntries(recentCwds, conversationDirectories) {
-  const entries = []
-  const seen = new Set()
-  const projectDirectoryByCwd = new Map()
-
-  for (const directory of conversationDirectories) {
-    const normalized = normalizeCwd(directory?.cwd)
-    if (normalized && directory?.projectId) {
-      projectDirectoryByCwd.set(normalized, directory)
-    }
-  }
-
-  const addEntry = (entry) => {
-    if (!entry?.key || seen.has(entry.key)) return
-    seen.add(entry.key)
-    entries.push(entry)
-  }
-
-  for (const cwd of recentCwds) {
-    const normalized = normalizeCwd(cwd)
-    if (!normalized) continue
-    const projectDirectory = projectDirectoryByCwd.get(normalized)
-    if (projectDirectory) {
-      addEntry(projectDirectory)
-      continue
-    }
-    addEntry({
-      key: buildCwdDirectoryKey(normalized),
-      cwd: normalized,
-      projectId: null,
-      projectName: null,
-      projectKind: null
-    })
-  }
-
-  for (const directory of conversationDirectories) {
-    addEntry(directory)
-  }
-
-  return entries.slice(0, RECENT_CWD_LIMIT)
-}
-
-export function useAgentPanel() {
+export function useAgentPanel({ projects: projectSource = null } = {}) {
   const conversations = ref([])
   const loading = ref(false)
   const selectedSource = ref('all')
   const selectedTaskFilter = ref('all')
   const selectedAppFilter = ref('all')
-  const recentCwds = ref(loadRecentCwds())
   const sessionApps = ref([])
   const pinnedProjectKeys = ref(loadStringList(PINNED_PROJECTS_STORAGE_KEY).values)
   const projectOrderKeys = ref(loadStringList(PROJECT_ORDER_STORAGE_KEY).values)
+  const visibleProjectEntries = computed(() => getVisibleProjectEntries(unref(projectSource)))
   // 首次没有偏好时保持收起，由当前活跃会话所在项目按需展开。
   const expandedProjectKeys = ref(loadStringList(EXPANDED_PROJECTS_STORAGE_KEY).values)
+
+  const migrateStoredProjectPreferenceKeys = () => {
+    const projectEntries = visibleProjectEntries.value
+    if (projectEntries.length === 0) return
+
+    const migrate = (target, storageKey) => {
+      const migrated = migrateLegacyProjectPreferenceKeys(target.value, projectEntries)
+      if (sameStringList(migrated, target.value)) return
+      target.value = migrated
+      saveStringList(storageKey, migrated)
+    }
+
+    migrate(pinnedProjectKeys, PINNED_PROJECTS_STORAGE_KEY)
+    migrate(expandedProjectKeys, EXPANDED_PROJECTS_STORAGE_KEY)
+    migrate(projectOrderKeys, PROJECT_ORDER_STORAGE_KEY)
+  }
+
+  watch(visibleProjectEntries, migrateStoredProjectPreferenceKeys, { immediate: true })
+
+  const isVisibleProjectConversation = (conv) => {
+    const projectKey = getConversationDirectoryKey(conv)
+    return Boolean(projectKey && visibleProjectEntries.value.some(entry => entry.key === projectKey))
+  }
+
+  // Auto-created IM sessions keep their dedicated bucket only while their
+  // project identity is internal or unavailable. A visible project binding
+  // takes precedence so every visible project-owned conversation stays in its tree.
+  const isExternalImConversation = (conv) => {
+    return isAutoGeneratedImConversation(conv) && !isVisibleProjectConversation(conv)
+  }
 
   /**
    * 加载对话列表（后端已合并活跃+历史）
@@ -347,6 +327,7 @@ export function useAgentPanel() {
       const session = await window.electronAPI.createAgentSession({
         type: options.type || 'chat',
         title: options.title || '',
+        projectId: options.projectId || null,
         cwd: options.cwd || null,
         apiProfileId: options.apiProfileId || null
       })
@@ -438,7 +419,7 @@ export function useAgentPanel() {
     }
   }
 
-  // 当前选中的目录筛选 key（null = 全部；project:<id> 优先，cwd:<path> 兜底）
+  // 当前选中的项目筛选 key（null = 全部；仅 project:<id>）
   const selectedCwd = ref(null)
 
   const sourceFilteredConversations = computed(() => {
@@ -489,29 +470,22 @@ export function useAgentPanel() {
    * 从当前候选对话中提取最近目录，并与手动打开目录合并，最多展示 10 个
    */
   const availableDirectories = computed(() => {
-    return mergeDirectoryEntries(
-      recentCwds.value,
-      getConversationDirectoriesByRecency(taskFilteredConversations.value)
-    )
+    return visibleProjectEntries.value
   })
 
-  const selectCwd = (cwd) => {
-    const value = normalizeCwd(cwd)
+  const selectCwd = (projectKey) => {
+    const value = normalizeCwd(projectKey)
     if (!value) {
       selectedCwd.value = null
       return
     }
 
-    if (value.startsWith('project:')) {
+    if (value.startsWith('project:') && value.length > 'project:'.length) {
       selectedCwd.value = value
       return
     }
 
-    const normalized = value.startsWith('cwd:') ? value.slice(4) : value
-    const nextRecentCwds = uniqueCwds([normalized, ...recentCwds.value]).slice(0, RECENT_CWD_LIMIT)
-    recentCwds.value = nextRecentCwds
-    saveRecentCwds(nextRecentCwds)
-    selectedCwd.value = buildCwdDirectoryKey(normalized)
+    selectedCwd.value = null
   }
 
   watch(availableDirectories, (nextDirectories) => {
@@ -531,12 +505,12 @@ export function useAgentPanel() {
   })
 
   const normalProjectConversations = computed(() => {
-    return filteredConversations.value.filter(conv => !isAutoGeneratedImConversation(conv))
+    return filteredConversations.value.filter(conv => !isExternalImConversation(conv))
   })
 
   const externalImConversations = computed(() => {
     return filteredConversations.value
-      .filter(isAutoGeneratedImConversation)
+      .filter(isExternalImConversation)
       .sort((a, b) => getConversationTimestamp(b) - getConversationTimestamp(a))
   })
 
@@ -562,19 +536,30 @@ export function useAgentPanel() {
   const buildProjectConversationGroups = (sourceConversations) => {
     const groupsByKey = new Map()
 
+    const createGroup = (entry) => ({
+      ...entry,
+      items: [],
+      count: 0,
+      latestTimestamp: entry.latestTimestamp || 0,
+      hasOpenConversation: false
+    })
+
+    // The project list owns the normal tree, including zero-session projects.
+    for (const entry of visibleProjectEntries.value) {
+      groupsByKey.set(entry.key, createGroup(entry))
+    }
+
     for (const conv of sourceConversations) {
-      const entry = getConversationDirectoryEntry(conv) || getFallbackDirectoryEntry()
-      if (!groupsByKey.has(entry.key)) {
-        groupsByKey.set(entry.key, {
-          ...entry,
-          items: [],
-          count: 0,
-          latestTimestamp: 0,
-          hasOpenConversation: false
-        })
+      const projectKey = getConversationDirectoryKey(conv)
+      let group = groupsByKey.get(projectKey)
+      if (!group) {
+        if (!groupsByKey.has(UNCATEGORIZED_PROJECT_KEY)) {
+          const fallback = getFallbackDirectoryEntry()
+          groupsByKey.set(fallback.key, createGroup(fallback))
+        }
+        group = groupsByKey.get(UNCATEGORIZED_PROJECT_KEY)
       }
 
-      const group = groupsByKey.get(entry.key)
       const timestamp = getConversationTimestamp(conv)
       group.items.push(conv)
       group.count += 1
@@ -585,13 +570,17 @@ export function useAgentPanel() {
     const pinnedOrder = new Map(pinnedProjectKeys.value.map((key, index) => [key, index]))
     const projectOrder = new Map(projectOrderKeys.value.map((key, index) => [key, index]))
 
-    return Array.from(groupsByKey.values())
+    const groups = Array.from(groupsByKey.values())
       .map(group => ({
         ...group,
         items: group.items.sort((a, b) => getConversationTimestamp(b) - getConversationTimestamp(a)),
-        pinned: pinnedOrder.has(group.key),
+        pinned: !group.isFallback && pinnedOrder.has(group.key),
         expanded: expandedProjectKeys.value.includes(group.key)
       }))
+
+    const fallbackGroups = groups.filter(group => group.isFallback)
+    const projectGroups = groups
+      .filter(group => !group.isFallback)
       .sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
         if (a.pinned) return pinnedOrder.get(a.key) - pinnedOrder.get(b.key)
@@ -606,11 +595,15 @@ export function useAgentPanel() {
         if (a.latestTimestamp !== b.latestTimestamp) return b.latestTimestamp - a.latestTimestamp
         return getDirectorySortName(a).localeCompare(getDirectorySortName(b))
       })
+
+    // Legacy, unbound, or hidden-project sessions remain discoverable without
+    // becoming synthetic cwd roots or taking precedence over normal projects.
+    return [...projectGroups, ...fallbackGroups]
   }
 
   const projectConversationGroups = computed(() => buildProjectConversationGroups(normalProjectConversations.value))
   const allProjectConversationGroups = computed(() => {
-    return buildProjectConversationGroups(conversations.value.filter(conv => !isAutoGeneratedImConversation(conv)))
+    return buildProjectConversationGroups(conversations.value.filter(conv => !isExternalImConversation(conv)))
   })
 
   const setProjectExpanded = (projectKey, expanded) => {
@@ -653,7 +646,7 @@ export function useAgentPanel() {
     const groups = allProjectConversationGroups.value
     const project = groups.find(group => group.key === projectKey)
     const target = groups.find(group => group.key === targetProjectKey)
-    if (!project || !target || project.pinned !== target.pinned) return
+    if (!project || !target || project.isFallback || target.isFallback || project.pinned !== target.pinned) return
 
     const segmentGroups = groups.filter(group => group.pinned === project.pinned)
     const currentKeys = segmentGroups.map(group => group.key)
@@ -678,7 +671,8 @@ export function useAgentPanel() {
   }
 
   const toggleProjectPinned = (projectKey) => {
-    if (!projectKey) return
+    const project = allProjectConversationGroups.value.find(group => group.key === projectKey)
+    if (!project || project.isFallback) return
     const current = pinnedProjectKeys.value.filter(key => key !== projectKey)
     pinnedProjectKeys.value = isProjectPinned(projectKey)
       ? current

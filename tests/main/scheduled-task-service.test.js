@@ -992,6 +992,39 @@ describe('ScheduledTaskService', () => {
     }
   })
 
+  it('starts an explicit task cwd without assigning a project binding', async () => {
+    const { ScheduledTaskService } = await import('../../src/main/managers/scheduled-task-service.js')
+    const task = {
+      id: 1781,
+      name: 'Explicit workspace task',
+      cwd: 'C:/workspace/visible-project',
+      sessionId: null
+    }
+    const agentSessionManager = {
+      on: vi.fn(),
+      create: vi.fn(() => ({ id: 'scheduled-explicit-cwd' }))
+    }
+    const sessionDatabase = {
+      getAgentConversation: vi.fn(() => null),
+      updateScheduledTaskState: vi.fn()
+    }
+    const service = new ScheduledTaskService({}, agentSessionManager)
+    service.setSessionDatabase(sessionDatabase)
+
+    expect(service._ensureTaskSession(task)).toBe('scheduled-explicit-cwd')
+    expect(agentSessionManager.create).toHaveBeenCalledWith({
+      type: 'chat',
+      title: 'Explicit workspace task',
+      cwd: 'C:/workspace/visible-project',
+      cwdSubDir: undefined,
+      taskId: 1781,
+      meta: { scheduledTaskId: 1781 }
+    })
+    expect(sessionDatabase.updateScheduledTaskState).toHaveBeenCalledWith(1781, {
+      sessionId: 'scheduled-explicit-cwd'
+    })
+  })
+
   it('follows the current embedded app session instead of reopening the originally bound session', async () => {
     vi.useFakeTimers()
 

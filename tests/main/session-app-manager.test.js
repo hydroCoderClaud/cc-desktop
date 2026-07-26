@@ -225,6 +225,7 @@ describe('SessionAppManager', () => {
       cwdSubDir: undefined,
       apiProfileId: 'profile-1',
       modelId: 'sonnet-4',
+      projectKindHint: 'agent-output',
       sessionAppBinding: {
         sessionAppId: 'sap-weekly',
         sessionAppInput: { range: 'this-week' }
@@ -285,6 +286,7 @@ describe('SessionAppManager', () => {
       cwdSubDir: undefined,
       apiProfileId: null,
       modelId: null,
+      projectKindHint: 'agent-output',
       sessionAppBinding: {
         sessionAppId: 'sap-empty',
         sessionAppInput: null
@@ -351,6 +353,7 @@ describe('SessionAppManager', () => {
     expect(createArg).toMatchObject({
       type: 'chat',
       title: 'macOS Weekly Run',
+      projectKindHint: 'agent-output',
       sessionAppBinding: {
         sessionAppId: 'sap-macos',
         sessionAppInput: null
