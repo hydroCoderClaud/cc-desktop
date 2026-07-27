@@ -17,6 +17,7 @@
  * Note: : _ \ / all become -, so C:\ becomes C-- and _ becomes -
  * This matches Claude CLI's actual encoding behavior.
  */
+const fs = require('fs')
 const path = require('path')
 
 function encodePath(projectPath) {
@@ -53,6 +54,34 @@ function normalizeProjectPath(projectPath, platform = null) {
   }
 
   return normalizePosixProjectPath(projectPath)
+}
+
+function resolveExistingProjectPath(projectPath, platform = null) {
+  const normalizedPath = normalizeProjectPath(projectPath, platform)
+  if (inferProjectPathPlatform(normalizedPath, platform) !== 'darwin') {
+    return normalizedPath
+  }
+
+  const realpath = fs.realpathSync.native || fs.realpathSync
+  try {
+    return normalizeProjectPath(realpath(normalizedPath), platform)
+  } catch {
+    // Missing legacy paths retain their lexical identity for compatibility.
+    return normalizedPath
+  }
+}
+
+function isProjectPathDescendant(projectPath, parentPath, platform = null) {
+  const resolvedPlatform = inferProjectPathPlatform(parentPath, platform)
+  const pathModule = resolvedPlatform === 'win32' ? path.win32 : path.posix
+  const normalizedProjectPath = normalizeProjectPath(projectPath, resolvedPlatform)
+  const normalizedParentPath = normalizeProjectPath(parentPath, resolvedPlatform)
+  const relativePath = pathModule.relative(normalizedParentPath, normalizedProjectPath)
+
+  return relativePath !== '' &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${pathModule.sep}`) &&
+    !pathModule.isAbsolute(relativePath)
 }
 
 function normalizeWin32ProjectPath(projectPath) {
@@ -126,6 +155,8 @@ function atomicWriteJson(filePath, data) {
 module.exports = {
   encodePath,
   normalizeProjectPath,
+  resolveExistingProjectPath,
+  isProjectPathDescendant,
   buildProjectPathKey,
   getProjectName,
   atomicWriteJson

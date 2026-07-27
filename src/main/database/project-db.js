@@ -6,7 +6,7 @@
 
 const {
   encodePath,
-  normalizeProjectPath,
+  resolveExistingProjectPath,
   buildProjectPathKey,
   getProjectName
 } = require('../utils/path-utils')
@@ -48,15 +48,13 @@ function withProjectOperations(BaseClass) {
       const options = encodedPathOrOptions && typeof encodedPathOrOptions === 'object'
         ? encodedPathOrOptions
         : { encodedPath: encodedPathOrOptions, name }
-      const normalizedPath = normalizeProjectPath(projectPath, options.platform)
+      const normalizedPath = resolveExistingProjectPath(projectPath, options.platform)
       const pathKey = buildProjectPathKey(normalizedPath, options.platform)
       const encodedPath = options.encodedPath || encodePath(normalizedPath)
       const projectKind = normalizeProjectKind(options.projectKind || options.projectKindHint)
       const projectName = options.name || name || getProjectName(normalizedPath)
 
-      const existing = this.db.prepare(
-        'SELECT * FROM projects WHERE path_key = ?'
-      ).get(pathKey)
+      const existing = this.getProjectByPath(normalizedPath, options.platform)
 
       if (existing) {
         if (shouldPromoteProjectKind(existing.project_kind, projectKind)) {
@@ -184,9 +182,24 @@ function withProjectOperations(BaseClass) {
     /**
      * Get project by path
      */
-    getProjectByPath(projectPath) {
-      const pathKey = buildProjectPathKey(projectPath)
-      return this.db.prepare('SELECT * FROM projects WHERE path_key = ?').get(pathKey)
+    getProjectByPath(projectPath, platform = null) {
+      const normalizedPath = resolveExistingProjectPath(projectPath, platform)
+      const pathKey = buildProjectPathKey(normalizedPath, platform)
+      const exactMatch = this.db.prepare('SELECT * FROM projects WHERE path_key = ?').get(pathKey)
+      if (exactMatch) return exactMatch
+
+      // Older macOS rows may use a different letter case for the same
+      // case-insensitive directory. Resolve only paths that still exist so
+      // missing legacy paths remain distinct.
+      const pathKeyPrefix = `${pathKey.split(':', 1)[0]}:%`
+      const candidates = this.db.prepare('SELECT * FROM projects WHERE path_key LIKE ?').all(pathKeyPrefix)
+      return candidates.find(project => {
+        try {
+          return resolveExistingProjectPath(project.path, platform) === normalizedPath
+        } catch {
+          return false
+        }
+      }) || null
     }
 
     /**
@@ -228,9 +241,10 @@ function withProjectOperations(BaseClass) {
         api_profile_id = null
       } = projectData
 
-      const normalizedPath = normalizeProjectPath(projectPath)
-      const pathKey = buildProjectPathKey(normalizedPath)
-      const existing = this.db.prepare('SELECT * FROM projects WHERE path_key = ?').get(pathKey)
+      const platform = projectData.platform || null
+      const normalizedPath = resolveExistingProjectPath(projectPath, platform)
+      const pathKey = buildProjectPathKey(normalizedPath, platform)
+      const existing = this.getProjectByPath(normalizedPath, platform)
       if (existing) {
         throw new Error('工程已存在')
       }

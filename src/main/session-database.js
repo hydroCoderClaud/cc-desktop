@@ -15,6 +15,8 @@ const { app } = require('electron')
 const {
   encodePath,
   normalizeProjectPath,
+  resolveExistingProjectPath,
+  isProjectPathDescendant,
   buildProjectPathKey,
   getProjectName
 } = require('./utils/path-utils')
@@ -75,9 +77,9 @@ function isInternalProjectKind(projectKind) {
 function isEmbeddedAppWorkspacePath(projectPath) {
   if (typeof projectPath !== 'string' || !projectPath) return false
   try {
-    const embeddedAppsRoot = normalizeProjectPath(path.join(app.getPath('userData'), 'embedded-apps'))
-    const normalizedPath = normalizeProjectPath(projectPath)
-    return normalizedPath.startsWith(`${embeddedAppsRoot}\\`)
+    const embeddedAppsRoot = resolveExistingProjectPath(path.join(app.getPath('userData'), 'embedded-apps'))
+    const normalizedPath = resolveExistingProjectPath(projectPath)
+    return isProjectPathDescendant(normalizedPath, embeddedAppsRoot)
   } catch {
     return false
   }
@@ -965,9 +967,7 @@ class SessionDatabaseBase {
   _resolveProjectForCwd(cwd) {
     if (!cwd) return null
     try {
-      const normalizedPath = normalizeProjectPath(cwd)
-      const pathKey = buildProjectPathKey(normalizedPath)
-      return this.db.prepare('SELECT id, path, project_kind FROM projects WHERE path_key = ?').get(pathKey) || null
+      return this.getProjectByPath(cwd) || null
     } catch (err) {
       console.warn(`[SessionDB] Skipping invalid Agent cwd during conversation binding: ${cwd} (${err.message})`)
       return null
@@ -975,9 +975,9 @@ class SessionDatabaseBase {
   }
 
   _ensureInternalProjectForCwd(cwd, projectKind) {
-    const normalizedPath = normalizeProjectPath(cwd)
+    const normalizedPath = resolveExistingProjectPath(cwd)
     const pathKey = buildProjectPathKey(normalizedPath)
-    const existing = this.db.prepare('SELECT id, path, project_kind FROM projects WHERE path_key = ?').get(pathKey)
+    const existing = this.getProjectByPath(normalizedPath)
     if (existing) {
       const resolvedKind = promoteProjectKind(existing.project_kind, projectKind)
       if (resolvedKind !== existing.project_kind) {

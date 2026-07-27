@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createRequire } from 'module'
 
 const requireCjs = createRequire(import.meta.url)
+const fs = requireCjs('fs')
 const {
   encodePath,
   normalizeProjectPath,
+  resolveExistingProjectPath,
+  isProjectPathDescendant,
   buildProjectPathKey
 } = requireCjs('../../src/main/utils/path-utils.js')
 
@@ -41,5 +44,36 @@ describe('project path identity utilities', () => {
     expect(normalizeProjectPath('/Users/me/../Me/Project/', 'linux')).toBe('/Users/Me/Project')
     expect(buildProjectPathKey('/Users/Me/Project', 'linux')).toBe('posix:/Users/Me/Project')
     expect(buildProjectPathKey('/users/me/project', 'linux')).toBe('posix:/users/me/project')
+  })
+
+  it('recognizes a macOS embedded workspace using POSIX path segments', () => {
+    const root = '/Users/me/Library/Application Support/cc-desktop/embedded-apps'
+    expect(isProjectPathDescendant(`${root}/hydrology/workspace`, root, 'darwin')).toBe(true)
+    expect(isProjectPathDescendant('/Users/me/Projects/embedded-apps/reference', root, 'darwin')).toBe(false)
+  })
+
+  it('uses the physical path of an existing macOS directory but preserves missing paths', () => {
+    const realpathSpy = vi.spyOn(fs.realpathSync, 'native').mockImplementation(target => {
+      if (target === '/Users/me/Work/demo') return '/Users/me/Work/Demo'
+      throw new Error('ENOENT')
+    })
+
+    try {
+      expect(resolveExistingProjectPath('/Users/me/Work/demo', 'darwin')).toBe('/Users/me/Work/Demo')
+      expect(resolveExistingProjectPath('/Users/me/Work/missing', 'darwin')).toBe('/Users/me/Work/missing')
+    } finally {
+      realpathSpy.mockRestore()
+    }
+  })
+
+  it('does not resolve Windows project paths through the filesystem', () => {
+    const realpathSpy = vi.spyOn(fs.realpathSync, 'native')
+
+    try {
+      expect(resolveExistingProjectPath('C:/Work/Demo', 'win32')).toBe('C:\\Work\\Demo')
+      expect(realpathSpy).not.toHaveBeenCalled()
+    } finally {
+      realpathSpy.mockRestore()
+    }
   })
 })
