@@ -110,7 +110,18 @@
           <Icon :name="group.expanded ? 'folderOpen' : 'folder'" :size="14" class="project-folder-icon" />
           <div class="project-title-wrap">
             <div class="project-title-row">
-              <span class="project-title" :title="group.path || getDirectoryDisplayName(group)">
+              <input
+                v-if="editingProjectId !== null && editingProjectId === group.projectId"
+                ref="projectRenameInputRef"
+                class="rename-input project-rename-input"
+                :value="projectNameDraft"
+                @input="projectNameDraft = $event.target.value"
+                @keydown.enter.prevent="saveProjectRename"
+                @keydown.escape="cancelProjectRename"
+                @blur="saveProjectRename"
+                @click.stop
+              />
+              <span v-else class="project-title" :title="group.path || getDirectoryDisplayName(group)">
                 {{ getDirectoryDisplayName(group) }}
               </span>
               <Icon v-if="group.pinned" name="starFilled" :size="11" class="project-pin-icon" />
@@ -403,9 +414,6 @@ const getCwdDisplayName = (cwd) => {
 const getDirectoryDisplayName = (directory) => {
   if (!directory) return t('agent.allDirectories')
   if (directory.isFallback) return t('agent.uncategorizedConversations')
-  if (directory.projectName === t('agent.chat') || directory.projectName === 'Chat') {
-    return getCwdDisplayName(directory.path)
-  }
   return directory.projectName || getCwdDisplayName(directory.path)
 }
 
@@ -590,6 +598,10 @@ const appFilterTitle = computed(() => {
 const editingId = ref(null)
 const editTitle = ref('')
 const renameInputRef = ref(null)
+const editingProjectId = ref(null)
+const projectNameDraft = ref('')
+const projectRenameInputRef = ref(null)
+const isSavingProjectRename = ref(false)
 const showScheduledTaskManager = ref(false)
 const scheduledTaskId = ref(null)
 const projectContextMenuRef = ref(null)
@@ -760,6 +772,11 @@ const projectContextMenuItems = computed(() => {
   const group = contextProject.value
   return [
     {
+      key: 'rename',
+      label: t('common.rename'),
+      disabled: !group?.projectId || group.isFallback || group.projectKind !== 'workspace'
+    },
+    {
       key: 'toggle-pin',
       label: group?.pinned ? t('agent.unpinProject') : t('agent.pinProject'),
       disabled: !group || group.isFallback
@@ -812,6 +829,10 @@ const handleProjectContextSelect = async (key) => {
   const group = contextProject.value
   if (!group) return
 
+  if (key === 'rename') {
+    startProjectRename(group)
+    return
+  }
   if (key === 'toggle-pin') {
     toggleProjectPinned(group.key)
     return
@@ -893,6 +914,53 @@ const startRename = (conv) => {
     const input = Array.isArray(renameInputRef.value) ? renameInputRef.value[0] : renameInputRef.value
     if (input) input.focus()
   })
+}
+
+const startProjectRename = (group) => {
+  if (isSavingProjectRename.value || !group?.projectId || group.isFallback || group.projectKind !== 'workspace') return
+  editingProjectId.value = group.projectId
+  projectNameDraft.value = group.projectName || ''
+  nextTick(() => {
+    const input = Array.isArray(projectRenameInputRef.value)
+      ? projectRenameInputRef.value[0]
+      : projectRenameInputRef.value
+    input?.focus()
+    input?.select()
+  })
+}
+
+const saveProjectRename = async () => {
+  const projectId = editingProjectId.value
+  const name = projectNameDraft.value.trim()
+  if (!projectId || isSavingProjectRename.value) return
+
+  if (!name) {
+    message.error('项目名称不能为空')
+    return
+  }
+  if (!window.electronAPI?.renameProject) {
+    message.error('当前版本不支持项目重命名')
+    return
+  }
+
+  try {
+    isSavingProjectRename.value = true
+    await window.electronAPI.renameProject({ projectId, name })
+    emit('projects-changed')
+    editingProjectId.value = null
+    projectNameDraft.value = ''
+  } catch (err) {
+    console.error('[AgentLeftContent] Failed to rename project:', err)
+    message.error(err?.message || '项目重命名失败')
+  } finally {
+    isSavingProjectRename.value = false
+  }
+}
+
+const cancelProjectRename = () => {
+  if (isSavingProjectRename.value) return
+  editingProjectId.value = null
+  projectNameDraft.value = ''
 }
 
 const saveRename = async () => {
@@ -1264,6 +1332,11 @@ defineExpose({
   white-space: nowrap;
   font-size: 13px;
   font-weight: 400;
+}
+
+.project-rename-input {
+  width: 100%;
+  min-width: 0;
 }
 
 .project-group-header.has-open-conversation .project-title {

@@ -2061,6 +2061,9 @@ describe('AgentSessionManager interactions', () => {
 
   it('passes the restored project path to the runner query', async () => {
     const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-runner-project-path-'))
+    const projectPath = path.join(tempRoot, 'runtime-root')
+    fs.mkdirSync(projectPath)
     const row = {
       id: 8,
       session_id: 'db-row-runner-project-path',
@@ -2071,7 +2074,7 @@ describe('AgentSessionManager interactions', () => {
       cwd: '/legacy/cwd-snapshot',
       cwd_auto: 0,
       project_id: 43,
-      project_path: '/projects/runtime-root',
+      project_path: projectPath,
       project_name: 'runtime-root',
       project_kind: 'workspace',
       message_count: 0,
@@ -2098,10 +2101,66 @@ describe('AgentSessionManager interactions', () => {
       })
     }
 
-    manager.reopen(row.session_id)
-    await manager.sendMessage(row.session_id, 'verify runner cwd')
+    try {
+      manager.reopen(row.session_id)
+      await manager.sendMessage(row.session_id, 'verify runner cwd')
 
-    expect(queryOptions).toEqual(expect.objectContaining({ cwd: '/projects/runtime-root' }))
+      expect(queryOptions).toEqual(expect.objectContaining({ cwd: projectPath }))
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a restored missing workspace before image writes or runner creation', async () => {
+    const { manager } = createManager()
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-missing-restored-project-'))
+    const projectPath = path.join(tempRoot, 'removed-workspace')
+    fs.mkdirSync(projectPath)
+    fs.rmSync(projectPath, { recursive: true, force: true })
+    const row = {
+      id: 81,
+      session_id: 'db-row-missing-restored-project',
+      type: 'chat',
+      status: 'closed',
+      sdk_session_id: null,
+      title: 'Missing workspace',
+      cwd: '/legacy/cwd-snapshot',
+      cwd_auto: 0,
+      project_id: 81,
+      project_path: projectPath,
+      project_name: 'Removed workspace',
+      project_kind: 'workspace',
+      message_count: 0,
+      total_cost_usd: 0,
+      api_profile_id: 'p1',
+      api_base_url: 'https://example.com',
+      model_id: null,
+      source: 'manual',
+      task_id: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    }
+    manager.sessionDatabase = {
+      getAgentConversation: vi.fn(() => row),
+      insertAgentMessage: vi.fn(),
+      updateAgentConversation: vi.fn()
+    }
+    manager.runner = {
+      buildEnv: vi.fn(() => ({})),
+      createQuery: vi.fn()
+    }
+
+    try {
+      manager.reopen(row.session_id)
+      await expect(manager.sendMessage(row.session_id, {
+        images: [{ mediaType: 'image/png', base64: Buffer.from('pngdata').toString('base64') }]
+      })).rejects.toThrow(`Project directory does not exist: ${projectPath}`)
+
+      expect(manager.runner.createQuery).not.toHaveBeenCalled()
+      expect(fs.existsSync(path.join(projectPath, 'chat_paste_images'))).toBe(false)
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
+    }
   })
 
   it('treats an orphan project ID as a legacy cwd fallback during reopen and recreate', async () => {

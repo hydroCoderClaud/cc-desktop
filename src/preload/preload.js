@@ -420,6 +420,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCapabilityProjects: () => ipcRenderer.invoke('project:getCapabilityContexts'),
 
   ensureWorkspaceProject: (projectData) => ipcRenderer.invoke('project:ensureWorkspace', projectData),
+  renameProject: ({ projectId, name }) => ipcRenderer.invoke('project:rename', { projectId, name }),
   openProject: () => ipcRenderer.invoke('project:open'),
 
   // 工具

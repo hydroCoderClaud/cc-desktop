@@ -25,6 +25,13 @@ export function useProjects() {
     try {
       const result = await invoke('getProjects', false)
       projects.value = ensureArray(result, 'projects')
+      const currentProjectId = currentProject.value?.id
+      if (currentProjectId !== null && currentProjectId !== undefined) {
+        const refreshedCurrent = projects.value.find(project => String(project.id) === String(currentProjectId))
+        if (refreshedCurrent) {
+          currentProject.value = refreshedCurrent
+        }
+      }
     } catch (err) {
       error.value = err.message
       console.error('Failed to load projects:', err)

@@ -29,6 +29,7 @@ describe('project-handlers project directory identity', () => {
       getProjectByPath: vi.fn(() => null),
       getOrCreateProject: vi.fn(() => ({ id: 101 })),
       createProject: vi.fn(() => ({ id: 100 })),
+      renameProject: vi.fn(() => ({ id: 101, path: process.cwd(), name: 'Renamed workspace', project_kind: 'workspace' })),
       unhideProject: vi.fn(),
       touchProject: vi.fn()
     }
@@ -145,6 +146,33 @@ describe('project-handlers project directory identity', () => {
       'project:newSession',
       'project:openSession'
     ]))
+  })
+
+  it('renames a workspace project through the dedicated narrow IPC channel', async () => {
+    const renameProject = handlers.get('project:rename')
+
+    const result = await renameProject(null, {
+      projectId: 101,
+      name: '  Renamed workspace  '
+    })
+
+    expect(sessionDatabase.renameProject).toHaveBeenCalledWith(101, 'Renamed workspace')
+    expect(result).toEqual(expect.objectContaining({
+      id: 101,
+      name: 'Renamed workspace',
+      pathValid: true
+    }))
+  })
+
+  it('rejects invalid project rename payloads before they reach the database', async () => {
+    const renameProject = handlers.get('project:rename')
+
+    await expect(renameProject(null, { projectId: 'invalid', name: 'Workspace' }))
+      .rejects.toThrow('项目 ID 无效')
+    await expect(renameProject(null, { projectId: 101, name: '   ' }))
+      .rejects.toThrow('项目名称不能为空')
+
+    expect(sessionDatabase.renameProject).not.toHaveBeenCalled()
   })
 
   it('opens whitespace project directories without warning', async () => {

@@ -31,6 +31,7 @@ const {
 } = require('./database')
 
 const DEFAULT_AGENT_PROJECT_NAMES = new Set(['对话', 'Chat'])
+const PROJECT_CWD_UNIFICATION_MIGRATION_KEY = 'project-cwd-unification-v1'
 
 // 延迟加载 better-sqlite3，允许测试时注入 mock
 let DefaultDatabase = null
@@ -42,12 +43,14 @@ function getDefaultDatabase() {
 }
 
 const LEGACY_IM_CHANNEL_TYPES = ['dingtalk', 'weixin', 'feishu', 'enterprise-weixin']
+const LEGACY_IM_SOURCES = new Set(['im-inbound', ...LEGACY_IM_CHANNEL_TYPES])
 const PROJECT_KIND_PRIORITY = {
   workspace: 0,
   'agent-output': 1,
   embedded: 2,
   notebook: 3
 }
+const LEGACY_HIDDEN_WORKSPACE_MIN_BATCH_SIZE = 2
 
 function hasColumn(columns, name) {
   return columns.includes(name)
@@ -69,8 +72,29 @@ function isInternalProjectKind(projectKind) {
   return projectKind === 'agent-output' || projectKind === 'embedded'
 }
 
+function isEmbeddedAppWorkspacePath(projectPath) {
+  if (typeof projectPath !== 'string' || !projectPath) return false
+  try {
+    const embeddedAppsRoot = normalizeProjectPath(path.join(app.getPath('userData'), 'embedded-apps'))
+    const normalizedPath = normalizeProjectPath(projectPath)
+    return normalizedPath.startsWith(`${embeddedAppsRoot}\\`)
+  } catch {
+    return false
+  }
+}
+
 function getRowValue(row, columns, name, fallback = null) {
   return hasColumn(columns, name) ? row[name] : fallback
+}
+
+function hasLegacyImSource(value) {
+  return typeof value === 'string' && LEGACY_IM_SOURCES.has(value.trim().toLowerCase())
+}
+
+function hasImConversationMetadata(row, columns) {
+  return hasLegacyImSource(getRowValue(row, columns, 'source')) ||
+    hasLegacyImSource(getRowValue(row, columns, 'type')) ||
+    Boolean(getRowValue(row, columns, 'im_channel'))
 }
 
 /**
@@ -287,6 +311,16 @@ class SessionDatabaseBase {
             WHEN im_channel IN ('dingtalk', 'feishu') AND COALESCE(staff_id, '') <> '' THEN 'p2p'
             ELSE im_chat_type
           END
+        `)
+
+        // Legacy staff/conversation columns are proof that this was created
+        // by an IM bridge, even when the retired schema did not retain a
+        // channel value. Keep that provenance after the columns are removed.
+        this.db.exec(`
+          UPDATE agent_conversations
+          SET source = 'im-inbound'
+          WHERE (COALESCE(staff_id, '') <> '' OR COALESCE(conversation_id, '') <> '')
+            AND COALESCE(source, 'manual') = 'manual'
         `)
 
         this.db.exec(`
@@ -567,7 +601,7 @@ class SessionDatabaseBase {
     this._removeLegacySyncedProjects()
     this._migrateProjectIdentitySchema()
     this._migrateAgentConversationProjectBindings()
-    this._repairDefaultAgentProjectNames()
+    this._runProjectCwdUnificationMigration()
   }
 
   _getTableColumns(tableName) {
@@ -650,9 +684,16 @@ class SessionDatabaseBase {
 
   _classifyConversationProjectKind(row, columns) {
     if (getRowValue(row, columns, 'type') === 'notebook') return 'notebook'
-    if (getRowValue(row, columns, 'client_type') === 'embedded' && Number(getRowValue(row, columns, 'cwd_auto', 0)) === 1) return 'embedded'
+    if (getRowValue(row, columns, 'client_type') === 'embedded') return 'embedded'
+    if (String(getRowValue(row, columns, 'owner_client_id', '')).startsWith('embed:')) return 'embedded'
     if (getRowValue(row, columns, 'session_app_id')) return 'agent-output'
     if (Number(getRowValue(row, columns, 'cwd_auto', 0)) === 1) return 'agent-output'
+    if (hasLegacyImSource(getRowValue(row, columns, 'source')) ||
+      hasLegacyImSource(getRowValue(row, columns, 'type')) ||
+      getRowValue(row, columns, 'staff_id') ||
+      getRowValue(row, columns, 'conversation_id')) {
+      return 'agent-output'
+    }
     return null
   }
 
@@ -668,6 +709,7 @@ class SessionDatabaseBase {
     const conversationRows = this._selectAllRows('agent_conversations')
     const projectRowsById = new Map(projectRows.map(row => [row.id, row]))
     const groups = new Map()
+    const automaticConversationCwds = new Map()
 
     const ensureGroup = (normalizedPath, kind) => {
       const pathKey = buildProjectPathKey(normalizedPath)
@@ -697,11 +739,19 @@ class SessionDatabaseBase {
       const persistedProject = persistedProjectId == null
         ? null
         : projectRowsById.get(persistedProjectId)
-      const path = persistedProject?.path || getRowValue(row, agentColumns, 'cwd')
+      const internalProjectKind = this._classifyConversationProjectKind(row, agentColumns)
+      const path = internalProjectKind
+        ? getRowValue(row, agentColumns, 'cwd') || persistedProject?.path
+        : persistedProject?.path || getRowValue(row, agentColumns, 'cwd')
       if (!path) continue
       try {
         const normalizedPath = normalizeProjectPath(path)
-        if (persistedProject) {
+        const pathKey = buildProjectPathKey(normalizedPath)
+        const persistedProjectPathKey = persistedProject?.path
+          ? buildProjectPathKey(normalizeProjectPath(persistedProject.path))
+          : null
+
+        if (persistedProject && !internalProjectKind) {
           // A real prior binding owns its project identity. Do not let stale
           // automatic metadata promote a visible workspace into a hidden kind.
           const group = ensureGroup(normalizedPath, getRowValue(persistedProject, projectColumns, 'project_kind', 'workspace'))
@@ -709,16 +759,29 @@ class SessionDatabaseBase {
           continue
         }
 
-        const pathKey = buildProjectPathKey(normalizedPath)
+        if (persistedProject && internalProjectKind) {
+          automaticConversationCwds.set(row.id, normalizedPath)
+          // A legacy automatic row may already point to a project with the
+          // same cwd. Promote that identity to its internal kind; otherwise
+          // keep a differently located workspace untouched and create/retain
+          // an internal identity at the actual conversation cwd.
+          if (persistedProjectPathKey === pathKey) {
+            const group = ensureGroup(normalizedPath, internalProjectKind)
+            group.conversationIds.push(row.id)
+            continue
+          }
+        }
+
         const existingProjectGroup = groups.get(pathKey)
         if (existingProjectGroup?.projectRows.length > 0) {
           // Legacy cwd can repair a binding only when the project identity
           // already exists. It must never synthesize a normal project root.
-          existingProjectGroup.conversationIds.push(row.id)
+          if (!internalProjectKind) {
+            existingProjectGroup.conversationIds.push(row.id)
+          }
           continue
         }
 
-        const internalProjectKind = this._classifyConversationProjectKind(row, agentColumns)
         if (!internalProjectKind) continue
 
         const group = ensureGroup(normalizedPath, internalProjectKind)
@@ -828,6 +891,19 @@ class SessionDatabaseBase {
             updateConversationProject.run(newId, oldId)
           }
         }
+
+        if (automaticConversationCwds.size > 0) {
+          const detachAutomaticConversation = hasColumn(agentColumns, 'cwd')
+            ? this.db.prepare('UPDATE agent_conversations SET project_id = NULL, cwd = ? WHERE id = ?')
+            : this.db.prepare('UPDATE agent_conversations SET project_id = NULL WHERE id = ?')
+          for (const [conversationId, cwd] of automaticConversationCwds) {
+            if (hasColumn(agentColumns, 'cwd')) {
+              detachAutomaticConversation.run(cwd, conversationId)
+            } else {
+              detachAutomaticConversation.run(conversationId)
+            }
+          }
+        }
       }
 
       const updatePromptProject = this.db.prepare('UPDATE prompts SET project_id = ?, updated_at = ? WHERE project_id = ?')
@@ -898,10 +974,57 @@ class SessionDatabaseBase {
     }
   }
 
+  _ensureInternalProjectForCwd(cwd, projectKind) {
+    const normalizedPath = normalizeProjectPath(cwd)
+    const pathKey = buildProjectPathKey(normalizedPath)
+    const existing = this.db.prepare('SELECT id, path, project_kind FROM projects WHERE path_key = ?').get(pathKey)
+    if (existing) {
+      const resolvedKind = promoteProjectKind(existing.project_kind, projectKind)
+      if (resolvedKind !== existing.project_kind) {
+        this.db.prepare(`
+          UPDATE projects
+          SET project_kind = ?, is_hidden = 1, updated_at = ?
+          WHERE id = ?
+        `).run(resolvedKind, Date.now(), existing.id)
+      }
+      return this.getProjectById(existing.id)
+    }
+
+    // runMigrations executes before createIndexes, so this intentionally does
+    // not use the normal INSERT ... ON CONFLICT(path_key) helper. SQLite runs
+    // the migration on one connection and the surrounding migration flow has
+    // already normalized any legacy duplicate identity rows.
+    const now = Date.now()
+    const result = this.db.prepare(`
+      INSERT INTO projects (
+        path, path_key, encoded_path, project_kind, name, is_hidden,
+        created_at, updated_at, last_opened_at
+      )
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?, NULL)
+    `).run(
+      normalizedPath,
+      pathKey,
+      encodePath(normalizedPath),
+      normalizeProjectKind(projectKind),
+      getProjectName(normalizedPath),
+      now,
+      now
+    )
+    return this.getProjectById(result.lastInsertRowid)
+  }
+
   _resolveLegacyConversationProject(row, columns) {
     const persistedProjectId = getRowValue(row, columns, 'project_id')
     const persistedProject = persistedProjectId ? this.getProjectById(persistedProjectId) : null
-    if (persistedProject) return persistedProject
+    const internalProjectKind = this._classifyConversationProjectKind(row, columns)
+    if (persistedProject) {
+      // Explicit IM-channel binding can be a user choice. Only strong
+      // automatic provenance is allowed to replace a visible workspace
+      // binding during migration.
+      if (!internalProjectKind || persistedProject.project_kind !== 'workspace') {
+        return persistedProject
+      }
+    }
 
     const project = this._resolveProjectForCwd(getRowValue(row, columns, 'cwd'))
     if (!project) return null
@@ -909,8 +1032,7 @@ class SessionDatabaseBase {
     // A generated legacy session can share a directory with a user-selected
     // workspace. It must remain a fallback session instead of silently
     // becoming a child of that workspace because of a cwd match.
-    const internalProjectKind = this._classifyConversationProjectKind(row, columns)
-    if (internalProjectKind && project.project_kind === 'workspace') return null
+    if ((internalProjectKind || hasImConversationMetadata(row, columns)) && project.project_kind === 'workspace') return null
     return project
   }
 
@@ -925,18 +1047,23 @@ class SessionDatabaseBase {
     if (this._agentConversationProjectSchemaIsCurrent(columns)) {
       const rows = this.db.prepare(`
         SELECT ac.id, ac.cwd, ac.project_id, ac.type, ac.cwd_auto,
-               ac.client_type, ac.session_app_id, ac.source, ac.im_channel,
-               p.path AS project_path
+               ac.client_type, ac.owner_client_id, ac.session_app_id, ac.source, ac.im_channel,
+               p.path AS project_path, p.project_kind
         FROM agent_conversations ac
         LEFT JOIN projects p ON p.id = ac.project_id
       `).all()
       const update = this.db.prepare('UPDATE agent_conversations SET project_id = ?, cwd = ? WHERE id = ?')
       for (const row of rows) {
-        // A valid persisted binding wins over a stale cwd snapshot. Only
-        // unbound legacy rows are repaired by matching their cwd.
-        const project = row.project_path
-          ? { id: row.project_id, path: row.project_path }
-          : this._resolveLegacyConversationProject(row, columns)
+        const internalProjectKind = this._classifyConversationProjectKind(row, columns)
+        let project = this._resolveLegacyConversationProject(row, columns)
+
+        if (internalProjectKind && row.cwd) {
+          // Promote a same-path legacy workspace to its internal identity, or
+          // create the missing generated identity at the actual cwd. This is
+          // deliberately limited to strong automatic provenance.
+          project = this._ensureInternalProjectForCwd(row.cwd, internalProjectKind)
+        }
+
         if (project && (row.project_id !== project.id || row.cwd !== project.path)) {
           update.run(project.id, project.path, row.id)
         } else if (!project && row.project_id !== null && row.project_id !== undefined) {
@@ -968,7 +1095,14 @@ class SessionDatabaseBase {
       `)
 
       for (const row of rows) {
-        const project = this._resolveLegacyConversationProject(row, columns)
+        const internalProjectKind = this._classifyConversationProjectKind(row, columns)
+        let project = this._resolveLegacyConversationProject(row, columns)
+        if (internalProjectKind && getRowValue(row, columns, 'cwd')) {
+          project = this._ensureInternalProjectForCwd(getRowValue(row, columns, 'cwd'), internalProjectKind)
+        }
+        const source = (getRowValue(row, columns, 'staff_id') || getRowValue(row, columns, 'conversation_id'))
+          ? 'im-inbound'
+          : getRowValue(row, columns, 'source', 'manual') || 'manual'
         insert.run(
           row.id,
           row.session_id,
@@ -991,7 +1125,7 @@ class SessionDatabaseBase {
           getRowValue(row, columns, 'im_chat_id'),
           getRowValue(row, columns, 'im_channel'),
           getRowValue(row, columns, 'im_chat_type'),
-          getRowValue(row, columns, 'source', 'manual') || 'manual',
+          source,
           getRowValue(row, columns, 'task_id'),
           getRowValue(row, columns, 'owner_client_id', 'host-ui') || 'host-ui',
           getRowValue(row, columns, 'client_type', 'host') || 'host',
@@ -1013,6 +1147,103 @@ class SessionDatabaseBase {
     } finally {
       this._setForeignKeys(true)
     }
+  }
+
+  _recoverLegacyHiddenWorkspaceProjects() {
+    const projectColumns = this._getTableColumns('projects')
+    const agentColumns = this._getTableColumns('agent_conversations')
+    const requiredProjectColumns = ['id', 'path', 'project_kind', 'is_hidden', 'created_at', 'updated_at', 'last_opened_at']
+    const requiredAgentColumns = ['project_id', 'cwd', 'cwd_auto', 'session_app_id', 'type', 'client_type', 'owner_client_id', 'source', 'im_channel']
+
+    if (!requiredProjectColumns.every(column => hasColumn(projectColumns, column)) ||
+      !requiredAgentColumns.every(column => hasColumn(agentColumns, column))) {
+      return 0
+    }
+
+    // A historical identity migration generated all rows in one pass with a
+    // shared timestamp, then hid even ordinary workspaces. Require its full
+    // forensic signature so normal user-hidden projects remain untouched.
+    const candidates = this.db.prepare(`
+      SELECT p.id, p.path, p.created_at
+      FROM projects p
+      WHERE p.project_kind = 'workspace'
+        AND p.is_hidden = 1
+        AND p.created_at IS NOT NULL
+        AND p.created_at = p.updated_at
+        AND p.last_opened_at IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM agent_conversations ac
+          WHERE ac.project_id = p.id
+            AND ac.cwd = p.path
+            AND COALESCE(ac.cwd_auto, 1) = 0
+            AND COALESCE(ac.session_app_id, '') = ''
+            AND COALESCE(ac.type, 'chat') = 'chat'
+            AND COALESCE(NULLIF(ac.client_type, ''), 'host') = 'host'
+            AND COALESCE(NULLIF(ac.owner_client_id, ''), 'host-ui') = 'host-ui'
+            AND COALESCE(ac.source, 'manual') = 'manual'
+            AND COALESCE(ac.im_channel, '') = ''
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_conversations ac
+          WHERE ac.project_id = p.id
+            AND (
+              COALESCE(ac.cwd_auto, 1) <> 0 OR
+              COALESCE(ac.session_app_id, '') <> '' OR
+              COALESCE(ac.cwd, '') <> p.path OR
+              COALESCE(ac.type, 'chat') <> 'chat' OR
+              COALESCE(NULLIF(ac.client_type, ''), 'host') <> 'host' OR
+              COALESCE(NULLIF(ac.owner_client_id, ''), 'host-ui') <> 'host-ui' OR
+              COALESCE(ac.source, 'manual') <> 'manual' OR
+              COALESCE(ac.im_channel, '') <> ''
+            )
+        )
+    `).all()
+
+    const ordinaryWorkspaceCandidates = candidates.filter(candidate => !isEmbeddedAppWorkspacePath(candidate.path))
+    const batchSizes = new Map()
+    for (const candidate of ordinaryWorkspaceCandidates) {
+      batchSizes.set(candidate.created_at, (batchSizes.get(candidate.created_at) || 0) + 1)
+    }
+
+    const recoverable = ordinaryWorkspaceCandidates.filter(candidate =>
+      batchSizes.get(candidate.created_at) >= LEGACY_HIDDEN_WORKSPACE_MIN_BATCH_SIZE
+    )
+    if (recoverable.length === 0) return 0
+
+    const update = this.db.prepare(`
+      UPDATE projects
+      SET is_hidden = 0, updated_at = ?
+      WHERE id = ?
+        AND project_kind = 'workspace'
+        AND is_hidden = 1
+        AND created_at = ?
+        AND updated_at = ?
+        AND last_opened_at IS NULL
+    `)
+    const now = Date.now()
+    let restoredCount = 0
+
+    this.db.exec('BEGIN TRANSACTION')
+    try {
+      for (const project of recoverable) {
+        const result = update.run(now, project.id, project.created_at, project.created_at)
+        if (result.changes !== 1) {
+          throw new Error(`Legacy hidden workspace recovery changed unexpectedly for project ${project.id}`)
+        }
+        restoredCount += result.changes
+      }
+      this.db.exec('COMMIT')
+    } catch (err) {
+      this.db.exec('ROLLBACK')
+      throw err
+    }
+
+    if (restoredCount > 0) {
+      console.log(`[SessionDB] Restored ${restoredCount} legacy hidden workspace project(s)`)
+    }
+    return restoredCount
   }
 
   /**
@@ -1085,7 +1316,8 @@ class SessionDatabaseBase {
       SELECT DISTINCT p.id, p.path, p.name
       FROM projects p
       JOIN agent_conversations ac ON ac.project_id = p.id
-      WHERE p.name IN (${placeholders})
+      WHERE p.project_kind = 'workspace'
+        AND p.name IN (${placeholders})
         AND ac.cwd = p.path
     `).all(...DEFAULT_AGENT_PROJECT_NAMES)
 
@@ -1106,6 +1338,28 @@ class SessionDatabaseBase {
       console.log(`[SessionDB] Repaired ${repaired} default Agent project name(s)`)
     }
     return repaired
+  }
+
+  _hasCompletedMigration(key) {
+    if (!this._tableExists('app_migration_state')) return false
+    return Boolean(this.db.prepare('SELECT 1 FROM app_migration_state WHERE key = ?').get(key))
+  }
+
+  _markMigrationCompleted(key) {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO app_migration_state (key, completed_at)
+      VALUES (?, ?)
+    `).run(key, Date.now())
+  }
+
+  _runProjectCwdUnificationMigration() {
+    if (this._hasCompletedMigration(PROJECT_CWD_UNIFICATION_MIGRATION_KEY)) {
+      return
+    }
+
+    this._recoverLegacyHiddenWorkspaceProjects()
+    this._repairDefaultAgentProjectNames()
+    this._markMigrationCompleted(PROJECT_CWD_UNIFICATION_MIGRATION_KEY)
   }
 
   /**
@@ -1249,6 +1503,13 @@ class SessionDatabaseBase {
         created_at INTEGER,
         updated_at INTEGER,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS app_migration_state (
+        key TEXT PRIMARY KEY,
+        completed_at INTEGER NOT NULL
       )
     `)
 

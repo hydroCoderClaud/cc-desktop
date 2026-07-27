@@ -189,6 +189,47 @@ describe('useAgentPanel project tree', () => {
     expect(externalConversationIds(panel)).toEqual([])
   })
 
+  it('keeps an unbound historical IM row in the IM group without relying on cwdAuto', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([{
+      id: 'legacy-unbound-im',
+      type: 'chat',
+      source: 'im-inbound',
+      cwdAuto: false,
+      cwd: 'C:/legacy-im/workdir',
+      updatedAt: '2026-04-22T04:00:00.000Z'
+    }])
+
+    const panel = useAgentPanel({ projects: ref(projects()) })
+    await panel.loadConversations()
+
+    expect(externalConversationIds(panel)).toEqual(['legacy-unbound-im'])
+    expect(projectKeys(panel)).toEqual(['project:1', 'project:2'])
+  })
+
+  it('does not infer an embedded conversation from an arbitrary cwd substring', async () => {
+    global.window.electronAPI.listAgentSessions.mockResolvedValue([
+      {
+        id: 'ordinary-embedded-name',
+        type: 'chat',
+        cwd: 'C:/workspace/embedded-apps-notes',
+        updatedAt: '2026-04-22T04:00:00.000Z'
+      },
+      {
+        id: 'embedded-project-kind',
+        type: 'chat',
+        projectKind: 'embedded',
+        cwd: 'C:/workspace/ordinary',
+        updatedAt: '2026-04-22T03:00:00.000Z'
+      }
+    ])
+
+    const panel = useAgentPanel({ projects: ref(projects()) })
+    await panel.loadConversations()
+
+    expect(groupByKey(panel, 'uncategorized').items.map(conv => conv.id)).toEqual(['ordinary-embedded-name'])
+    expect(panel.conversations.value.map(conv => conv.id)).not.toContain('embedded-project-kind')
+  })
+
   it('migrates legacy cwd preference keys when their project paths are available', async () => {
     localStorageValues.set('agent.leftPanel.pinnedProjectKeys', JSON.stringify([
       'cwd:C:\\workspace\\alpha',

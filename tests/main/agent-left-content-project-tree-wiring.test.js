@@ -19,6 +19,18 @@ describe('AgentLeftContent project tree expansion', () => {
     expect(source).toContain('selectCwd(`project:${project.id}`)')
   })
 
+  it('renames only project-tree roots through the dedicated project rename API', () => {
+    const source = fs.readFileSync(agentLeftContentPath, 'utf-8')
+
+    expect(source).toContain("key: 'rename'")
+    expect(source).toContain('const startProjectRename = (group) =>')
+    expect(source).toContain('window.electronAPI.renameProject({ projectId, name })')
+    expect(source).toContain("emit('projects-changed')")
+    expect(source).toContain('editingProjectId !== null && editingProjectId === group.projectId')
+    expect(source).toContain('if (isSavingProjectRename.value || !group?.projectId')
+    expect(source).not.toContain("directory.projectName === t('agent.chat')")
+  })
+
   it('creates project-scoped conversations by projectId and preserves the fallback group as read-only', () => {
     const source = fs.readFileSync(agentLeftContentPath, 'utf-8')
 

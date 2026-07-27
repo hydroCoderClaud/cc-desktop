@@ -81,7 +81,7 @@
 | project:getById | handle | 获取单个工程 |
 | project:create | handle | 创建工程（含目录选择） |
 | project:open | handle | 打开已有目录为工程 |
-| project:update | handle | 更新工程 |
+| project:rename | handle | 重命名工作区工程显示名称 |
 | project:duplicate | handle | 复制工程配置 |
 | project:hide | handle | 隐藏工程 |
 | project:unhide | handle | 恢复隐藏工程 |

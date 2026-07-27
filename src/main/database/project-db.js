@@ -190,6 +190,31 @@ function withProjectOperations(BaseClass) {
     }
 
     /**
+     * Rename a user-visible workspace project without changing its path identity.
+     */
+    renameProject(projectId, name) {
+      const project = this.getProjectById(projectId)
+      if (!project) {
+        throw new Error('项目不存在')
+      }
+      if (project.project_kind !== 'workspace') {
+        throw new Error('仅可重命名工作区项目')
+      }
+
+      const now = Date.now()
+      const result = this.db.prepare(`
+        UPDATE projects
+        SET name = ?, updated_at = ?
+        WHERE id = ? AND project_kind = 'workspace'
+      `).run(name, now, projectId)
+
+      if (result.changes !== 1) {
+        throw new Error('项目重命名失败')
+      }
+      return this.getProjectById(projectId)
+    }
+
+    /**
      * Create a new project
      * @param {Object} projectData - 项目数据
      */

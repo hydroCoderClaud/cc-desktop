@@ -256,7 +256,59 @@ describe('project identity migration', () => {
     })
   })
 
-  it('preserves a project binding through the legacy IM table rebuild', () => {
+  it('reclassifies strong automatic provenance without breaking a manual IM workspace binding', () => {
+    sqlite.exec(`
+      ALTER TABLE agent_conversations ADD COLUMN project_id INTEGER;
+      ALTER TABLE agent_conversations ADD COLUMN client_type TEXT DEFAULT 'host';
+      ALTER TABLE agent_conversations ADD COLUMN owner_client_id TEXT DEFAULT 'host-ui';
+      ALTER TABLE agent_conversations ADD COLUMN im_channel TEXT;
+      INSERT INTO projects (id, path, encoded_path, name, source, is_hidden)
+      VALUES
+        (1, 'C:/Work/Manual', 'C--Work-Manual', 'Manual', 'user', 0),
+        (2, 'C:/Agent/IM', 'C--Agent-IM', 'IM output', 'user', 0),
+        (3, 'C:/Agent/App', 'C--Agent-App', 'App output', 'user', 0),
+        (4, 'C:/Agent/Embedded', 'C--Agent-Embedded', 'Embedded output', 'user', 0);
+      INSERT INTO agent_conversations (
+        id, session_id, type, cwd, cwd_auto, project_id, source, session_app_id,
+        client_type, owner_client_id, im_channel, created_at, updated_at
+      ) VALUES
+        (401, 'manual-im-bound', 'chat', 'C:/Work/Manual', 0, 1, 'manual', NULL, 'host', 'host-ui', 'feishu', 2000, 2000),
+        (402, 'source-im-bound', 'chat', 'C:/Agent/IM', 0, 2, 'im-inbound', NULL, 'host', 'host-ui', 'feishu', 2000, 2000),
+        (403, 'unbound-im', 'chat', 'C:/Work/Manual', 0, NULL, 'manual', NULL, 'host', 'host-ui', 'feishu', 2000, 2000),
+        (404, 'session-app-bound', 'chat', 'C:/Agent/App', 0, 3, 'manual', 'app-1', 'host', 'host-ui', NULL, 2000, 2000),
+        (405, 'embedded-explicit-cwd', 'chat', 'C:/Agent/Embedded', 0, 4, 'manual', NULL, 'embedded', 'embed:legacy', NULL, 2000, 2000);
+    `)
+
+    database._migrateProjectIdentitySchema()
+    database._migrateAgentConversationProjectBindings()
+
+    expect(sqlite.prepare(`
+      SELECT ac.project_id, p.project_kind
+      FROM agent_conversations ac
+      JOIN projects p ON p.id = ac.project_id
+      WHERE ac.session_id = 'manual-im-bound'
+    `).get()).toEqual({ project_id: 1, project_kind: 'workspace' })
+
+    expect(sqlite.prepare(`
+      SELECT project_id
+      FROM agent_conversations
+      WHERE session_id = 'unbound-im'
+    `).get()).toEqual({ project_id: null })
+
+    expect(sqlite.prepare(`
+      SELECT ac.session_id, p.project_kind, p.is_hidden
+      FROM agent_conversations ac
+      JOIN projects p ON p.id = ac.project_id
+      WHERE ac.session_id IN ('source-im-bound', 'session-app-bound', 'embedded-explicit-cwd')
+      ORDER BY ac.session_id
+    `).all()).toEqual([
+      { session_id: 'embedded-explicit-cwd', project_kind: 'embedded', is_hidden: 1 },
+      { session_id: 'session-app-bound', project_kind: 'agent-output', is_hidden: 1 },
+      { session_id: 'source-im-bound', project_kind: 'agent-output', is_hidden: 1 }
+    ])
+  })
+
+  it('normalizes legacy IM provenance while rebuilding the conversation table', () => {
     database._dropDeveloperLegacyTables()
     database._migrateProjectIdentitySchema()
     database._migrateAgentConversationProjectBindings()
@@ -267,8 +319,7 @@ describe('project identity migration', () => {
       ALTER TABLE agent_conversations ADD COLUMN conversation_id TEXT;
       INSERT INTO projects (id, path, path_key, encoded_path, project_kind, name)
       VALUES
-        (1, 'C:\\Work\\Canonical', 'win32:c:/work/canonical', 'C--Work-Canonical', 'workspace', 'Canonical'),
-        (2, 'C:\\Work\\Stale', 'win32:c:/work/stale', 'C--Work-Stale', 'workspace', 'Stale');
+        (1, 'C:\\Work\\Canonical', 'win32:c:/work/canonical', 'C--Work-Canonical', 'workspace', 'Canonical');
       INSERT INTO agent_conversations (
         id, session_id, cwd, cwd_auto, project_id, staff_id, conversation_id, created_at, updated_at
       )
@@ -278,14 +329,15 @@ describe('project identity migration', () => {
     database.runMigrations()
 
     expect(sqlite.prepare(`
-      SELECT ac.project_id, ac.cwd, p.path AS project_path
+      SELECT ac.project_id, ac.cwd, ac.source, p.project_kind
       FROM agent_conversations ac
       JOIN projects p ON p.id = ac.project_id
       WHERE ac.session_id = 'agent-legacy-im-bound'
     `).get()).toEqual({
-      project_id: 1,
-      cwd: 'C:\\Work\\Canonical',
-      project_path: 'C:\\Work\\Canonical'
+      project_id: expect.any(Number),
+      cwd: 'C:\\Work\\Stale',
+      source: 'im-inbound',
+      project_kind: 'agent-output'
     })
   })
 })

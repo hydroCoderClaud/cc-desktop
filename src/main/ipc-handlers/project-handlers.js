@@ -74,6 +74,24 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     return { ...project, pathValid: true, alreadyExists: false }
   })
 
+  // Rename only the user-visible workspace label. The filesystem path remains immutable.
+  createIPCHandler(ipcMain, 'project:rename', (payload = {}) => {
+    const projectId = Number(payload.projectId)
+    const name = typeof payload.name === 'string' ? payload.name.trim() : ''
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      throw new Error('项目 ID 无效')
+    }
+    if (!name) {
+      throw new Error('项目名称不能为空')
+    }
+
+    const project = sessionDatabase.renameProject(projectId, name)
+    return {
+      ...project,
+      pathValid: fs.existsSync(project.path)
+    }
+  })
+
   // 打开工程（选择已有目录）
   createIPCHandler(ipcMain, 'project:open', async () => {
     // macOS 上 mainWindow 可能导致问题，使用条件传参

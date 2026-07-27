@@ -286,9 +286,9 @@ describe('legacy synced project cleanup', () => {
     })
 
     sqlite.prepare(`
-      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
-      VALUES (?, ?, ?, ?)
-    `).run('agent-stale-cwd-binding', staleCwdProject.path, canonicalProject.id, 100)
+      INSERT INTO agent_conversations (session_id, cwd, cwd_auto, project_id, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('agent-stale-cwd-binding', staleCwdProject.path, 0, canonicalProject.id, 100)
 
     database._migrateAgentConversationProjectBindings()
 
@@ -309,9 +309,9 @@ describe('legacy synced project cleanup', () => {
 
     sqlite.exec('PRAGMA foreign_keys = OFF')
     sqlite.prepare(`
-      INSERT INTO agent_conversations (session_id, cwd, project_id, updated_at)
-      VALUES (?, ?, ?, ?)
-    `).run('agent-orphan-project-binding', 'C:/workspace/legacy-orphan', 999999, 100)
+      INSERT INTO agent_conversations (session_id, cwd, cwd_auto, project_id, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run('agent-orphan-project-binding', 'C:/workspace/legacy-orphan', 0, 999999, 100)
     sqlite.exec('PRAGMA foreign_keys = ON')
 
     database._migrateAgentConversationProjectBindings()

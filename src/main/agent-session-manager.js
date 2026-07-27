@@ -541,6 +541,14 @@ class AgentSessionManager extends EventEmitter {
     return resolvePersistedConversationCwd(row)
   }
 
+  _assertBoundWorkspacePathExists(session) {
+    if (!session?.projectId || session.projectKind !== 'workspace') return
+    const projectPath = typeof session.projectPath === 'string' ? session.projectPath.trim() : ''
+    if (projectPath && !fs.existsSync(projectPath)) {
+      throw new Error(`Project directory does not exist: ${projectPath}`)
+    }
+  }
+
   _buildQueryOptionsSnapshot(session, queryOptions, extra = {}) {
     const appId = session?.clientMeta?.appId || session?.clientMeta?.embeddedAppId || null
     const embeddedContext = appId && this.embeddedAppRuntimeManager?.getContext
@@ -1343,6 +1351,11 @@ class AgentSessionManager extends EventEmitter {
     if (!session) {
       throw new Error(`Agent session ${sessionId} not found`)
     }
+
+    // Reopening intentionally keeps legacy cwd compatibility. Before this
+    // session writes uploads or starts a runner, enforce the stricter rule
+    // only for a persisted user workspace binding.
+    this._assertBoundWorkspacePathExists(session)
 
     console.log('[AgentSession] sendMessage entry:', {
       sessionId,
