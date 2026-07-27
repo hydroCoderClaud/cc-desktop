@@ -85,7 +85,7 @@
 | plugin-handlers.js | plugins: / skills: / agents: / hooks: / mcp: / settings: | 34 | （入口文件，注册 8 个领域子模块） |
 | config-handlers.js | config: / providers: | 259 | getConfig, updateSettings, testAPI, getProfiles, addProfile |
 | prompt-handlers.js | prompt: | 248 | getPrompts, createPrompt, updatePrompt, deletePrompt, getPromptTags |
-| project-handlers.js | project: | 290 | listProjects, createProject, updateProject, deleteProject, hasProblematicPath |
+| project-handlers.js | project: | 141 | project:getAll, project:getCapabilityContexts, project:ensureWorkspace, project:rename, project:open, project:openFolder, project:checkPath |
 | session-handlers.js | session: | -- | getSessions, getMessages, searchSessions, getTags |
 | capability-handlers.js | capabilities: | 120 | fetch, install, uninstall, enable, disable, toggleMcp |
 | notebook-handlers.js | notebook: | 521 | list, create, bindSession, listSources, listAchievements, listTools, prepareGeneration, previewGeneration |
@@ -216,7 +216,7 @@
 | 文件 | 表名 | 行数 | 关键方法 |
 |------|------|------|---------|
 | index.js | -- | 27 | 统一导出所有 Mixin |
-| project-db.js | projects | -- | getOrCreateProject, getAllProjects, createProject, updateProject, deleteProject, getProjectByPath |
+| project-db.js | projects | -- | getOrCreateProject, getAllProjects, createProject, renameProject, deleteProject, getProjectByPath |
 | agent-db.js | agent_conversations, agent_messages | -- | createAgentConversation, getAgentConversation, listAgentConversations, updateAgentConversation, insertAgentMessage, getDingTalkSession, saveAgentQueue |
 | prompt-db.js | prompts, prompt_tags, prompt_tag_relations | 287 | createPrompt, getPrompts, updatePrompt, deletePrompt, createPromptTag, getAllPromptTags |
 | prompt-market-db.js | market_installed_prompts | 107 | recordMarketInstall, getMarketInstallByMarketId, removeMarketInstall, listMarketInstalls |

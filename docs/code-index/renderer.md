@@ -146,6 +146,12 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 
 ## Agent 核心组件
 
+### AgentLeftContent.vue
+
+- 左栏以 `useProjects()` 提供的可见 `workspace` 项目作为项目树根，键为 `project:<id>`；会话只按 `projectId` 挂载，不再由 cwd 生成新的项目根。
+- 无绑定的普通会话进入“未归属”回退分组；无绑定历史 IM 会话进入 IM 分组。两者都不能重命名项目。
+- 项目根的重命名调用受限的 `project:rename` IPC，只更新 `projects.name`。会话标题重命名仍走独立的 Agent 会话接口。
+
 ### ChatInput.vue (1610行)
 
 最大的单组件。职责：

@@ -1,5 +1,12 @@
 # Agent Project Tree and Canonical Workspace Path Plan
 
+## Status
+
+Implemented on `master` in 1.7.91. This document records the accepted
+project-tree design; the implementation order below is retained as a delivery
+record. For the broader project/cwd migration contract, see
+`agent-mode-projects-infra-plan.md`.
+
 ## Objective
 
 Make the Agent left sidebar project-tree driven: visible workspace projects are
@@ -40,7 +47,7 @@ conversation.
 7. Migrate sidebar local preferences from legacy `cwd:` keys where possible;
    retain existing `project:` keys.
 
-## Implementation Order
+## Implementation Order (completed)
 
 1. Add focused tests for canonical path resolution, project-ID creation, and
    restore behavior before changing runtime consumers.
@@ -55,7 +62,7 @@ conversation.
 6. Run focused tests, the relevant renderer/main suites, the full test suite,
    and a local application smoke test.
 
-## Product Decisions
+## Product Decisions (implemented)
 
 - Normal roots are visible `workspace` projects only.
 - IM-origin automatic conversations remain in the existing `IM Conversations`
@@ -68,8 +75,10 @@ conversation.
 - A directory already owned by a non-workspace project keeps that identity.
   The Agent folder picker reports the conflict instead of promoting it to a
   visible workspace project.
-- This change uses the existing `projects.name` as the displayed root label;
-  it does not add project rename UI.
+- This change uses the existing `projects.name` as the displayed root label.
+  Visible workspace roots expose a restricted rename UI through
+  `project:rename`; it changes only `projects.name` and does not restore the
+  former general-purpose `project:update` surface.
 
 ## Acceptance Criteria
 
@@ -81,3 +90,6 @@ conversation.
 - Legacy unbound rows remain reachable and automatic IM conversations retain
   their existing bucket.
 - No normal sidebar root is created solely from a conversation cwd.
+- Renaming a visible workspace root changes the shared display name only; its
+  canonical path, project kind, visibility, and linked conversation cwd stay
+  unchanged.

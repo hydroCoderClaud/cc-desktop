@@ -1,9 +1,43 @@
 # Agent Mode Projects Infrastructure Plan
 
+## 当前实现基线（1.7.91）
+
+本节描述当前 `master` 已实现的项目与会话模型；与后文阶段性计划中的旧验收目标冲突时，以本节为准。后文保留是为了说明迁移由来和历史边界，不表示仍待实施。
+
+### 身份模型
+
+```text
+projects
+= 目录身份与用户可见项目元数据的唯一来源
+= path/path_key 定义稳定目录身份，name 是可修改的显示名称
+
+agent_conversations
+= 业务会话记录
+= project_id 有值时，归属与运行目录均以 projects.path 为准
+= project_id 为空时，为未归属兼容会话，保留自身 cwd，不合成 workspace
+```
+
+- `workspace` 是用户可见的工作区；`agent-output`、`embedded`、`notebook` 是内部目录身份。`project_kind` 决定目录类型，`is_hidden` 只控制普通工作区是否主动出现在普通项目列表。
+- `project_id` 允许为空。这是受支持的兼容状态，而不只是迁移失败：旧手工会话、无法可靠判定身份的记录和未显式选择项目的 cwd 会话都可保持未归属。
+- 已绑定会话必须满足 `agent_conversations.cwd = projects.path`。未归属会话的 `cwd` 是启动/恢复兼容路径，不参与项目身份推断，也不进入普通工作区列表。
+- `projects.name` 是左侧项目树与工程列表共用的显示名称。重命名只更新名称与 `updated_at`，不修改 `path`、`path_key`、`project_kind` 或可见性。
+
+### 会话、左栏和迁移边界
+
+1. 创建时传入 `projectId`，主进程重新读取该项目并以 `projects.path` 启动；调用方传入的不同 cwd 不可覆盖它。
+2. 无 `projectId` 的自动输出、Session App、嵌入客户端和强 IM 来源会创建或复用内部项目身份；若 cwd 已属于用户 `workspace`，不会将该工作区提升为内部类型，也不会仅凭 cwd 建立绑定。普通手工 cwd 可保持未归属。
+3. 恢复和列表查询通过 `agent_conversations LEFT JOIN projects` 读取路径。绑定记录优先使用 `project_path`，缺失绑定才回退到保存的 cwd。
+4. 发送消息前，绑定到 `workspace` 的会话会检查持久化项目目录是否存在；失败发生在附件落盘和 runner 创建之前。未归属会话保留历史 cwd 兼容行为。
+5. 左栏以可见 `workspace` 项目构造 `project:<id>` 根节点，会话按 `projectId` 挂载。未归属非 IM 会话进入只读“未归属”分组；未归属历史 IM 会话进入 IM 分组，不按 cwd 伪造项目根。
+6. 项目根仅对 `workspace` 暴露重命名。未归属、内部项目和 IM 分组没有项目改名入口；会话标题改名仍是独立功能。
+7. `project-cwd-unification-v1` 是一次性迁移。它恢复具有历史特征的误隐藏工作区、修复默认项目名，并在 `app_migration_state` 记录完成状态；后续启动不会覆盖用户的隐藏或命名选择。
+
 ## 文档状态
 
-- 当前阶段：Stage 6 已完成，等待人工验收
-- 当前版本：1.7.87
+> 下列阶段、版本和存量审计数字保留为历史计划快照。当前产品语义、迁移行为和验收边界以“当前实现基线（1.7.91）”为准。
+
+- 计划快照阶段：Stage 6 已完成，等待当时的人工验收
+- 计划快照版本：1.7.87
 - 前置基线：Claude 历史扫描与 `source='sync'` 数据已在 Stage 0 清除
 - 实施状态：Stage 1-6 已按本文边界完成；Claude 配置目录与 JSONL 定位仍按第 12 节延期处理
 
@@ -122,6 +156,8 @@ CREATE INDEX idx_projects_kind_visibility
 
 ### 3.2 agent_conversations
 
+> 当前实现补充：`project_id` 保持可空。空值表示未归属兼容会话，不能再以 cwd 自动绑定到一个 `workspace`。只有已绑定记录要求 cwd 与 `projects.path` 一致；不存在“所有新旧会话最终都必须非空绑定”的收紧计划。
+
 Stage 2 首先增加可空外键：
 
 ```sql
@@ -136,7 +172,7 @@ CREATE INDEX idx_agent_conv_project
   ON agent_conversations(project_id, updated_at DESC);
 ```
 
-`project_id` 初期可空只为兼容无法识别的历史脏数据。新建 Agent 会话必须写入非空 `project_id`。完成一个稳定迁移周期且确认空值为 0 后，再单独把它收紧为 `NOT NULL`。
+`project_id` 保持可空。自动创建入口和显式项目入口会写入项目身份；普通手工 cwd 可作为未归属兼容会话持久化。当前不计划把该列收紧为 `NOT NULL`。
 
 `agent_conversations.cwd` 暂时保留为兼容快照。对所有已绑定记录必须满足：
 
@@ -186,8 +222,8 @@ agent_conversations.cwd = projects.path
 | Notebook | Notebook 根目录 | `notebook` |
 | Session App | 每次启动生成的 `conv-*` 目录 | `agent-output` |
 | Embedded App | 产品默认工作区 | `embedded` |
-| Embedded App | 调用方明确覆盖 cwd | `workspace`，除非命中已存在的专用身份 |
-| IM | 用户配置的持久 cwd | `workspace` |
+| Embedded App | 由 `clientType='embedded'` 创建的会话（包括调用方传入 cwd） | `embedded` |
+| IM | 已显式绑定 `projectId` 的用户工作区 | `workspace` |
 | IM | 产品默认输出根或自动生成 cwd | `agent-output` |
 | Scheduled Task | 任务明确配置 cwd | `workspace` |
 | Scheduled Task | 未配置 cwd，由系统分配 | `agent-output` |
@@ -302,7 +338,7 @@ LEFT JOIN projects p ON p.id = ac.project_id
 effective_cwd = project_path ?? agent_conversations.cwd
 ```
 
-fallback 只服务迁移期的 `project_id IS NULL` 历史记录。新建记录不允许走 fallback。`clearAndRecreate` 创建的是新会话，必须重新 resolve project；它不能直接复制一个可能失效的 `project_id/cwd` 组合。
+fallback 服务所有未归属兼容会话，包括保留的历史记录和未显式选择项目的手工 cwd。`clearAndRecreate` 创建的是新会话：带 `projectId` 时必须重新 resolve 项目；未带 `projectId` 时可继承兼容 cwd，但不能把 cwd 自动转换成工作区绑定。
 
 当 `clearAndRecreate` 沿用旧 cwd 时，同时沿用旧 project 的 `project_kind` 作为 hint；调用方覆盖 cwd 时则按新创建意图重新分类。项目或会话持久化失败后，创建操作必须失败并清理内存态，不能像当前兼容代码一样只记录日志后返回一个未持久化会话。
 
@@ -372,7 +408,7 @@ fallback 只服务迁移期的 `project_id IS NULL` 历史记录。新建记录�
 迁移不能依赖“启动时只跑一次”的假设：
 
 - 通过 `PRAGMA table_info/index_list/foreign_key_list` 判断目标 schema 是否已存在。
-- 已是目标 schema 时跳过表重建，只处理 `project_id IS NULL` 的新增遗留记录。
+- 已是目标 schema 时跳过表重建；只重分类具有强自动来源的错误绑定，未归属 cwd 记录保持未归属。
 - project 回填始终按唯一 `path_key` upsert，不重复创建。
 - 已绑定 conversation 不重复改写 metadata，只校验 cwd 与 project.path。
 - `project_kind` 只允许按分类优先级提升，不能在每次启动时来回变化。
@@ -456,10 +492,10 @@ Global context
 继续维护的健康门槛：
 
 ```text
-project_id IS NULL                           = 0
-conversation.cwd != project.path             = 0
-新建/恢复/列表/消息/IM/Notebook/Task/App 路径 = 全部只读 project
-至少一个稳定发布周期没有 fallback 命中
+已绑定会话: project_id IS NOT NULL            => cwd = projects.path
+未归属兼容会话: project_id IS NULL             => 保留 cwd，不生成 workspace 绑定
+创建/恢复/列表/消息                           => 绑定时读取 project，未绑定时仅回退 cwd
+左栏目录根                                    => 仅来自可见 workspace projects
 ```
 
 Stage 6 删除 `sessions/messages` 时不得顺手删除或重定义 `agent_conversations.cwd`；二者风险和回滚边界不同。
@@ -497,7 +533,7 @@ Stage 6 删除 `sessions/messages` 时不得顺手删除或重定义 `agent_conv
 - 增加并回填 `agent_conversations.project_id`。
 - 同步更新 project DB CRUD：所有身份查询改用 `path_key`，禁止修改 path，删除对 `source` 的写入。
 - 旧 schema 先运行一次 sync-project 清理；目标 schema 下删除或 schema-gate `_removeLegacySyncedProjects()`，不能再查询已不存在的 `source`。
-- Agent 新建与重建会话在同一提交中 resolve project，并双写非空 `project_id + cwd`；不能只落 DDL/backfill 后继续产生空绑定。
+- Agent 新建与重建会话在同一提交中处理项目身份：显式项目和内部自动会话双写 `project_id + cwd`；普通兼容 cwd 可有意保持空绑定。
 - 在数据库副本和真实数据库备份上验证幂等性与完整性。
 
 ### Stage 3：Agent 读取链路收敛，已完成
@@ -539,6 +575,6 @@ Stage 6 删除 `sessions/messages` 时不得顺手删除或重定义 `agent_conv
 9. 删除被 Agent conversation 引用的 project 必须失败，删除 conversation 不影响 project。
 10. `PRAGMA foreign_key_check` 为 0，`PRAGMA integrity_check` 为 `ok`。
 11. 迁移前后 Agent conversations、Agent messages、sessions、messages 和 prompts 行数符合预期。
-12. 新建 Agent conversation 的 `project_id` 非空，且 cwd 与 project.path 完全一致。
+12. 显式项目和内部自动会话写入 `project_id` 且 cwd 与 project.path 一致；普通兼容 cwd 会话保留空 `project_id`，不会被 cwd 自动挂到 workspace。
 
 完成 Stage 1 后，下一次代码修改应只进入 Stage 2 的 schema、project DB CRUD 和最小 Agent 写入链路，不同时改 Agent UI、能力管理或 Developer Mode，以保持回滚边界清晰。

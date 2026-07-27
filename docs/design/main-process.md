@@ -202,7 +202,20 @@ CLI 进程退出后的新消息：
 
 ### CWD 分配
 
-Agent 会话的工作目录分配策略：
+#### 项目身份优先级
+
+`cwd` 不是项目身份的来源。`AgentSessionManager.create()` 与会话数据库按以下顺序处理路径：
+
+1. 传入 `projectId` 时，重新读取 `projects` 行，并强制使用 `projects.path`；调用方提供的 cwd 不能覆盖已绑定项目。
+2. 未传入 `projectId` 且会话具有内部创建意图时，数据库创建或复用对应的 `agent-output`、`embedded` 或 `notebook` 项目身份。
+3. 未传入 `projectId` 的普通手工 cwd 允许保持为未归属兼容会话。它保留 cwd 以启动旧会话，但不会凭路径自动挂到普通工作区。
+4. `reopen()`、`list()` 和路由查询优先读取 join 后的 `projects.path`；只有缺少有效绑定时才使用行内 cwd。
+
+发送消息前，绑定到 `workspace` 的会话会验证持久化的 `projects.path` 仍存在。目录缺失时在写入粘贴图片或创建 Claude runner 之前失败；未归属会话不受这项新校验影响，以保持旧数据兼容。
+
+左栏不再从会话 cwd 合成目录根：可见 `workspace` 项目形成 `project:<id>` 根节点，绑定会话挂载其下；未归属会话使用专门的回退或 IM 分组。
+
+未绑定项目时的工作目录分配策略：
 
 1. 调用方指定 `cwd` → 直接使用
 2. 未指定 → `_assignCwd(session, subDir)` 自动分配
@@ -465,8 +478,8 @@ SessionDatabaseBase (session-database.js)
 
 | 表名 | 用途 | 关键字段 |
 |------|------|---------|
-| `projects` | 项目 / cwd 身份 | `path`, `path_key`(UNIQUE), `encoded_path`, `project_kind`, `is_pinned`, `is_hidden`, `api_profile_id` |
-| `agent_conversations` | Agent 模式对话 | `project_id`, `session_id`, `sdk_session_id`, `type`, `source`, `cwd`, `api_profile_id`, `im_channel`, `im_user_id`, `im_chat_id`, `im_chat_type` |
+| `projects` | 项目根目录身份与显示元数据 | `path`, `path_key`(UNIQUE), `encoded_path`, `project_kind`, `name`, `is_pinned`, `is_hidden`, `api_profile_id` |
+| `agent_conversations` | Agent 模式对话（可保留未归属兼容记录） | `project_id`, `session_id`, `sdk_session_id`, `type`, `source`, `cwd`, `api_profile_id`, `im_channel`, `im_user_id`, `im_chat_id`, `im_chat_type` |
 | `agent_messages` | Agent 消息 | `conversation_id`(FK), `role`, `tool_name`, `tool_input`, `tool_output` |
 | `prompts` / `prompt_tags` / `prompt_tag_relations` | 提示词管理 | 多对多关联 |
 | `market_installed_prompts` | 市场提示词追踪 | `market_id`(UNIQUE), `version` |
@@ -476,7 +489,7 @@ SessionDatabaseBase (session-database.js)
 
 ### 迁移策略
 
-`runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表按 `path_key` 建立真实 cwd 身份），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。Claude 历史目录扫描和 Developer 历史数据链路已移除。
+`runMigrations()` 使用 `PRAGMA table_info` 检测列是否存在，按需 `ALTER TABLE ADD COLUMN`。对于需要修改约束的迁移（如 `projects` 表按 `path_key` 建立真实 cwd 身份），使用 `CREATE TABLE new → INSERT → DROP old → RENAME` 策略。`project-cwd-unification-v1` 的隐藏工作区恢复和默认名称修复是一次性动作，完成标记保存在 `app_migration_state`，不会在后续启动重写用户选择。Claude 历史目录扫描和 Developer 历史数据链路已移除。
 
 ---
 

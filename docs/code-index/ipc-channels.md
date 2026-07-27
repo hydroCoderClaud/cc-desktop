@@ -76,22 +76,13 @@
 
 | 通道名 | 类型 | 简述 |
 |--------|------|------|
-| project:getAll | handle | 获取所有工程（含路径有效性检查） |
-| project:getHidden | handle | 获取隐藏工程 |
-| project:getById | handle | 获取单个工程 |
-| project:create | handle | 创建工程（含目录选择） |
+| project:getAll | handle | 获取可见 workspace 项目（含路径有效性检查） |
+| project:getCapabilityContexts | handle | 获取能力管理可用的 workspace / notebook 目录身份（含路径有效性检查） |
+| project:ensureWorkspace | handle | 为手动选择目录确保 workspace 身份；Agent 意图下拒绝占用中的内部目录 |
+| project:rename | handle | 仅重命名 workspace 显示名称；不改路径、类型或可见性 |
 | project:open | handle | 打开已有目录为工程 |
-| project:rename | handle | 重命名工作区工程显示名称 |
-| project:duplicate | handle | 复制工程配置 |
-| project:hide | handle | 隐藏工程 |
-| project:unhide | handle | 恢复隐藏工程 |
-| project:delete | handle | 删除工程 |
-| project:togglePinned | handle | 切换置顶 |
-| project:touch | handle | 更新最后打开时间 |
 | project:openFolder | handle | 打开工程目录 |
 | project:checkPath | handle | 检查路径有效性 |
-| project:newSession | handle | 新建会话（占位） |
-| project:openSession | handle | 打开会话（占位） |
 
 ### session 域（session-handlers.js + ipc-handlers.js）
 
