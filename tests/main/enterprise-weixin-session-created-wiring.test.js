@@ -21,7 +21,10 @@ describe('enterprise weixin session-created wiring', () => {
 
     expect(source).toContain('const createHandlerName = `on${meta.listenerPrefix}SessionCreated`')
     expect(source).toContain('const openImRestoredSession = async (imType, data, meta) => {')
-    expect(source).toContain('const hostKind = getSessionHostKind(resolvedSession)')
+    expect(source).toContain("import { createImSessionHostRouter } from '@utils/im-session-host-router'")
+    expect(source).toContain('const { restoreSpecializedHost } = createImSessionHostRouter({')
+    expect(source).toContain('const { session: resolvedSession, restored } = await restoreSpecializedHost(sessionId)')
+    expect(source).toContain('if (restored) return')
     expect(source).toContain('await openImRestoredSession(imType, data, meta)')
   })
 })

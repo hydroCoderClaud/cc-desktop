@@ -75,7 +75,7 @@ describe('embedded hydro agent bridge wiring', () => {
     expect(source).toContain('hydrology_tab_open')
     expect(source).toContain('hydrology_review_board_open')
     expect(source).toContain('HYDROLOGY_WORKBENCH_DISALLOWED_TOOLS')
-    expect(source).toContain('do not inspect the workspace with Bash, Glob, Grep, LS, or Read')
+    expect(source).toContain('do not inspect the workspace with Bash, Glob, Grep, or Read')
   })
 
   it('defines an independent hydrology domain MCP capability layer', () => {
