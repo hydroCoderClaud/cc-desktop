@@ -421,6 +421,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ensureWorkspaceProject: (projectData) => ipcRenderer.invoke('project:ensureWorkspace', projectData),
   renameProject: ({ projectId, name }) => ipcRenderer.invoke('project:rename', { projectId, name }),
+  hideWorkspaceProject: ({ projectId }) => ipcRenderer.invoke('project:hideWorkspace', { projectId }),
   openProject: () => ipcRenderer.invoke('project:open'),
 
   // 工具

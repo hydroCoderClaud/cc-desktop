@@ -2619,7 +2619,13 @@ class AgentSessionManager extends EventEmitter {
    * @returns {object} 新会话的 JSON 表示
    */
   async clearAndRecreate(sessionId, overrides = {}) {
-    const oldSession = this.sessions.get(sessionId)
+    let oldSession = this.sessions.get(sessionId)
+    if (!oldSession) {
+      // A failed CLI query can evict a persisted session from memory while its
+      // conversation row remains available for recovery.
+      this.reopen(sessionId)
+      oldSession = this.sessions.get(sessionId)
+    }
     if (!oldSession) {
       throw new Error(`Agent session ${sessionId} not found`)
     }

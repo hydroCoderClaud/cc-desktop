@@ -106,6 +106,39 @@ describe('NotebookManager', () => {
     expect(result.achievements).toEqual([])
   })
 
+  it('get: 笔记本目录缺失时不会重开或重绑会话', () => {
+    const agentSessionManager = {
+      create: vi.fn(() => ({ id: 'sess-1' })),
+      reopen: vi.fn(),
+      sessions: new Map()
+    }
+    mgr = makeManager(baseDir, agentSessionManager)
+    const nb = mgr.create({ name: 'missing-directory' })
+    agentSessionManager.create.mockClear()
+    fs.rmSync(nb.notebookPath, { recursive: true, force: true })
+
+    expect(() => mgr.get(nb.id)).toThrow(`Notebook directory is unavailable: ${nb.notebookPath}`)
+    expect(agentSessionManager.create).not.toHaveBeenCalled()
+    expect(agentSessionManager.reopen).not.toHaveBeenCalled()
+  })
+
+  it('get: 笔记本索引缺失时不会重开或重绑会话', () => {
+    const agentSessionManager = {
+      create: vi.fn(() => ({ id: 'sess-1' })),
+      reopen: vi.fn(),
+      sessions: new Map()
+    }
+    mgr = makeManager(baseDir, agentSessionManager)
+    const nb = mgr.create({ name: 'missing-index' })
+    agentSessionManager.create.mockClear()
+    const sourcesFile = path.join(nb.notebookPath, 'sources.json')
+    fs.unlinkSync(sourcesFile)
+
+    expect(() => mgr.get(nb.id)).toThrow(`Notebook index file is unavailable: ${sourcesFile}`)
+    expect(agentSessionManager.create).not.toHaveBeenCalled()
+    expect(agentSessionManager.reopen).not.toHaveBeenCalled()
+  })
+
   it('get: 打开旧笔记本时保留 notebook 自身的 apiProfileId，不被旧 session 覆盖', () => {
     const updateAgentConversation = vi.fn()
     const liveSession = { id: 'sess-1', apiProfileId: 'profile-b', apiBaseUrl: 'https://profile-b.example.com' }

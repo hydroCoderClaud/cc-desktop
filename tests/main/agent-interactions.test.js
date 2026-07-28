@@ -1222,9 +1222,9 @@ describe('AgentSessionManager interactions', () => {
       'Bash',
       'Glob',
       'Grep',
-      'LS',
       'Read'
     ]))
+    expect(createQueryOptions.disallowedTools).not.toContain('LS')
     expect(session.initResult).toBeNull()
     expect(session.lastQueryOptionsSnapshot).toMatchObject({
       clientType: 'embedded',
@@ -2204,16 +2204,10 @@ describe('AgentSessionManager interactions', () => {
     }
 
     try {
-      const reopened = manager.reopen(row.session_id)
       const recreated = await manager.clearAndRecreate(row.session_id)
 
-      expect(reopened).toEqual(expect.objectContaining({
-        cwd: tempRoot,
-        projectId: null,
-        projectName: null,
-        projectKind: null
-      }))
       expect(recreated).toEqual(expect.objectContaining({ cwd: tempRoot, projectId: null }))
+      expect(manager.sessionDatabase.getAgentConversation).toHaveBeenCalledWith(row.session_id)
       expect(manager.sessionDatabase.createAgentConversation).toHaveBeenCalledWith(
         expect.objectContaining({ cwd: tempRoot, projectId: null })
       )

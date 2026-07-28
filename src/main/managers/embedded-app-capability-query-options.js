@@ -38,7 +38,6 @@ const HYDROLOGY_WORKBENCH_DISALLOWED_TOOLS = [
   'Bash',
   'Glob',
   'Grep',
-  'LS',
   'Read'
 ]
 
@@ -56,7 +55,7 @@ const EMBEDDED_APP_SYSTEM_PROMPT = [
   'When the app UI may be stale after in-app writes, you may call command_execute with refresh to request a safe page data reload.',
   'For hydrology-workbench, prefer hydrology_current_station_get or hydrology_context_get for questions about 当前站点 or 当前功能.',
   'For hydrology-workbench, prefer hydrology_review_board_open or hydrology_tab_open for requests such as 切换到审核任务状态 or 打开实时数据列表.',
-  'For hydrology-workbench, do not inspect the workspace with Bash, Glob, Grep, LS, or Read when the user is asking about current station, current function page, review tasks, or in-app navigation.',
+  'For hydrology-workbench, do not inspect the workspace with Bash, Glob, Grep, or Read when the user is asking about current station, current function page, review tasks, or in-app navigation.',
   'Only use hydrodesktop scheduled-task tools when the user explicitly asks about 定时任务, 计划任务, schedule, cron, or task scheduling configuration.',
   'When an embedded app session creates a scheduled task and the user did not explicitly ask for a separate session, keep it bound to the current embedded app session so future runs can reuse the current app context.'
 ].join(' ')

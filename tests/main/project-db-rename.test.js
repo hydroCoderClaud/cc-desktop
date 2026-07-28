@@ -78,6 +78,24 @@ describe('project rename persistence', () => {
     expect(sqlite.prepare('SELECT name FROM projects WHERE id = 2').get()).toEqual({ name: 'Notebook' })
   })
 
+  it('hides a workspace without deleting its project identity', () => {
+    const hidden = database.hideWorkspaceProject(1)
+
+    expect(hidden).toEqual(expect.objectContaining({
+      id: 1,
+      path: 'C:/workspace/alpha',
+      project_kind: 'workspace',
+      is_hidden: 1
+    }))
+    expect(sqlite.prepare('SELECT COUNT(*) AS count FROM projects WHERE id = 1').get()).toEqual({ count: 1 })
+  })
+
+  it('does not allow internal projects to be hidden as user workspaces', () => {
+    expect(() => database.hideWorkspaceProject(2))
+      .toThrow('仅可从项目树移除工作区项目')
+    expect(sqlite.prepare('SELECT is_hidden FROM projects WHERE id = 2').get()).toEqual({ is_hidden: 0 })
+  })
+
   it('reuses a legacy macOS project row when an existing directory differs only by case', () => {
     sqlite.exec(`
       INSERT INTO projects (id, path, path_key, encoded_path, project_kind, name, created_at, updated_at)

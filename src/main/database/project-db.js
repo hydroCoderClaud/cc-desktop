@@ -307,6 +307,26 @@ function withProjectOperations(BaseClass) {
     }
 
     /**
+     * Remove a user workspace from the project tree without deleting its
+     * directory, conversations, or project identity.
+     */
+    hideWorkspaceProject(projectId) {
+      const project = this.getProjectById(projectId)
+      if (!project) {
+        throw new Error('项目不存在')
+      }
+      if (project.project_kind !== 'workspace') {
+        throw new Error('仅可从项目树移除工作区项目')
+      }
+
+      const now = Date.now()
+      this.db.prepare(
+        'UPDATE projects SET is_hidden = 1, updated_at = ? WHERE id = ? AND project_kind = ?'
+      ).run(now, projectId, 'workspace')
+      return this.getProjectById(projectId)
+    }
+
+    /**
      * Update project's last_opened_at timestamp
      */
     touchProject(projectId) {

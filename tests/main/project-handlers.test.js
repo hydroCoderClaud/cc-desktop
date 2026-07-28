@@ -30,6 +30,7 @@ describe('project-handlers project directory identity', () => {
       getOrCreateProject: vi.fn(() => ({ id: 101 })),
       createProject: vi.fn(() => ({ id: 100 })),
       renameProject: vi.fn(() => ({ id: 101, path: process.cwd(), name: 'Renamed workspace', project_kind: 'workspace' })),
+      hideWorkspaceProject: vi.fn(() => ({ id: 101, path: process.cwd(), name: 'Hidden workspace', project_kind: 'workspace', is_hidden: 1 })),
       unhideProject: vi.fn(),
       touchProject: vi.fn()
     }
@@ -162,6 +163,21 @@ describe('project-handlers project directory identity', () => {
       name: 'Renamed workspace',
       pathValid: true
     }))
+  })
+
+  it('hides a workspace project without exposing the retired delete API', async () => {
+    const hideWorkspace = handlers.get('project:hideWorkspace')
+
+    const result = await hideWorkspace(null, { projectId: 101 })
+
+    expect(sessionDatabase.hideWorkspaceProject).toHaveBeenCalledWith(101)
+    expect(result).toEqual(expect.objectContaining({
+      id: 101,
+      project_kind: 'workspace',
+      is_hidden: 1,
+      pathValid: true
+    }))
+    expect(handlers.has('project:delete')).toBe(false)
   })
 
   it('rejects invalid project rename payloads before they reach the database', async () => {

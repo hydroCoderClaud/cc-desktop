@@ -51,17 +51,19 @@ export function useNotebookSessionLifecycle({
     activeGenerationToken.value = 0
     clearStudioTagFilters()
 
-    const nextSessionId = typeof notebook?.sessionId === 'string' ? notebook.sessionId : ''
-    if (currentNotebook.value?.sessionId && currentNotebook.value.sessionId !== nextSessionId) {
-      try {
-        await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
-      } catch (err) {
-        console.warn('[NotebookSessionLifecycle] Failed to close previous session:', err)
-      }
-    }
-
     try {
       const data = await window.electronAPI.notebookGet(notebook.id)
+
+      // Keep the current notebook usable if loading the target notebook fails.
+      const nextSessionId = typeof data?.sessionId === 'string' ? data.sessionId : ''
+      if (currentNotebook.value?.sessionId && currentNotebook.value.sessionId !== nextSessionId) {
+        try {
+          await window.electronAPI.closeAgentSession(currentNotebook.value.sessionId)
+        } catch (err) {
+          console.warn('[NotebookSessionLifecycle] Failed to close previous session:', err)
+        }
+      }
+
       currentNotebook.value = data
       window.currentNotebookId = data.id
       sources.value = data.sources || []
@@ -69,6 +71,7 @@ export function useNotebookSessionLifecycle({
       achievements.value = processAchievements(data.achievements || [], data.notebookPath, sourceMetaMap)
     } catch (err) {
       console.error('[NotebookSessionLifecycle] Failed to load notebook data:', err)
+      message.error(t('notebook.loadFailed', { error: err.message }))
     }
   }
 

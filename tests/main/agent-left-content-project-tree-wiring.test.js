@@ -31,6 +31,16 @@ describe('AgentLeftContent project tree expansion', () => {
     expect(source).not.toContain("directory.projectName === t('agent.chat')")
   })
 
+  it('removes project-tree roots through the narrow hide API without deleting their directories', () => {
+    const source = fs.readFileSync(agentLeftContentPath, 'utf-8')
+
+    expect(source).toContain("key: 'remove-project'")
+    expect(source).toContain('const handleRemoveProject = (group) =>')
+    expect(source).toContain('window.electronAPI.hideWorkspaceProject({ projectId })')
+    expect(source).toContain("message.success(t('messages.projectHidden'))")
+    expect(source).toContain('selectCwd(null)')
+  })
+
   it('creates project-scoped conversations by projectId and preserves the fallback group as read-only', () => {
     const source = fs.readFileSync(agentLeftContentPath, 'utf-8')
 

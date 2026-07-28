@@ -92,6 +92,20 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     }
   })
 
+  // Remove a workspace from the project tree while preserving its directory and history.
+  createIPCHandler(ipcMain, 'project:hideWorkspace', (payload = {}) => {
+    const projectId = Number(payload.projectId)
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      throw new Error('项目 ID 无效')
+    }
+
+    const project = sessionDatabase.hideWorkspaceProject(projectId)
+    return {
+      ...project,
+      pathValid: fs.existsSync(project.path)
+    }
+  })
+
   // 打开工程（选择已有目录）
   createIPCHandler(ipcMain, 'project:open', async () => {
     // macOS 上 mainWindow 可能导致问题，使用条件传参

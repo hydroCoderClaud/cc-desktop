@@ -791,6 +791,12 @@ const projectContextMenuItems = computed(() => {
       label: t('agent.openDirectory'),
       disabled: !group?.projectId || group.isFallback || !group.path || group.pathValid === false
     },
+    { divider: true, key: 'project-remove-divider' },
+    {
+      key: 'remove-project',
+      label: t('agent.removeProject'),
+      disabled: !group?.projectId || group.isFallback || group.projectKind !== 'workspace'
+    },
     { divider: true, key: 'project-divider' },
     {
       key: 'collapse-others',
@@ -843,6 +849,10 @@ const handleProjectContextSelect = async (key) => {
   }
   if (key === 'open-directory') {
     await window.electronAPI?.openPath?.(group.path)
+    return
+  }
+  if (key === 'remove-project') {
+    handleRemoveProject(group)
     return
   }
   if (key === 'collapse-others') {
@@ -986,6 +996,30 @@ const handleDelete = (conv) => {
       // 先关闭 Tab，再删除后端会话，避免 close 时 session 已不存在
       emit('close', conv)
       await deleteConversation(conv.id)
+    }
+  })
+}
+
+const handleRemoveProject = (group) => {
+  const projectId = Number(group?.projectId)
+  if (!Number.isSafeInteger(projectId) || projectId <= 0 || group?.projectKind !== 'workspace') return
+
+  dialog.warning({
+    title: t('agent.removeProject'),
+    content: t('agent.removeProjectConfirmContent'),
+    positiveText: t('agent.removeProject'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await window.electronAPI.hideWorkspaceProject({ projectId })
+        selectCwd(null)
+        await loadConversations()
+        emit('projects-changed')
+        message.success(t('messages.projectHidden'))
+      } catch (err) {
+        console.error('[AgentLeftContent] Failed to remove project from tree:', err)
+        message.error(err?.message || t('messages.operationFailed'))
+      }
     }
   })
 }

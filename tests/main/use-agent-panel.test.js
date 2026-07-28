@@ -75,7 +75,7 @@ describe('useAgentPanel project tree', () => {
     expect(panel.availableDirectories.value.map(project => project.key)).toEqual(['project:1', 'project:2'])
   })
 
-  it('matches sessions only by projectId and retains unmatched non-IM sessions in a fallback group', async () => {
+  it('hides sessions bound to removed workspace projects while retaining unbound sessions in a fallback group', async () => {
     global.window.electronAPI.listAgentSessions.mockResolvedValue([
       {
         id: 'bound',
@@ -94,8 +94,19 @@ describe('useAgentPanel project tree', () => {
         id: 'hidden-project',
         type: 'chat',
         projectId: 999,
+        projectKind: 'workspace',
         cwd: 'C:/workspace/hidden',
         updatedAt: '2026-04-22T03:00:00.000Z'
+      },
+      {
+        id: 'hidden-im-workspace',
+        type: 'chat',
+        projectId: 999,
+        projectKind: 'workspace',
+        source: 'im-inbound',
+        cwdAuto: true,
+        cwd: 'C:/workspace/hidden',
+        updatedAt: '2026-04-22T02:30:00.000Z'
       },
       {
         id: 'scheduled-auto',
@@ -123,11 +134,10 @@ describe('useAgentPanel project tree', () => {
     expect(groupByKey(panel, 'project:1').items.map(conv => conv.id)).toEqual(['bound'])
     expect(groupByKey(panel, 'uncategorized')).toMatchObject({
       isFallback: true,
-      count: 3
+      count: 2
     })
     expect(groupByKey(panel, 'uncategorized').items.map(conv => conv.id)).toEqual([
       'same-cwd-legacy',
-      'hidden-project',
       'scheduled-auto'
     ])
     expect(externalConversationIds(panel)).toEqual(['im-auto'])

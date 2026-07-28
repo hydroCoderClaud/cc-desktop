@@ -323,6 +323,22 @@ class NotebookManager {
     if (!entry) throw new Error(`笔记本不存在：${id}`)
     const notebookPath = this._resolveNotebookPath(id, entry)
     const metaFile = path.join(notebookPath, 'notebook.json')
+
+    // Do not reopen or lazily bind a session when the notebook data directory
+    // is unavailable. Creating an empty replacement here would hide data loss.
+    if (!fs.existsSync(notebookPath)) {
+      throw new Error(`Notebook directory is unavailable: ${notebookPath}`)
+    }
+    if (!fs.existsSync(metaFile)) {
+      throw new Error(`Notebook metadata file is unavailable: ${metaFile}`)
+    }
+    const sourcesFile = path.join(notebookPath, 'sources.json')
+    const achievementsFile = path.join(notebookPath, 'achievements.json')
+    const missingIndexFile = [sourcesFile, achievementsFile].find(filePath => !fs.existsSync(filePath))
+    if (missingIndexFile) {
+      throw new Error(`Notebook index file is unavailable: ${missingIndexFile}`)
+    }
+
     const meta = this._readJson(metaFile)
 
     console.log('[NotebookManager] get() before lazy-bind:', { notebookId: id, sessionId: meta.sessionId })
@@ -410,8 +426,8 @@ class NotebookManager {
       this.sanitizeAchievements(id)
     }
 
-    const sources = this._readJson(path.join(notebookPath, 'sources.json'))
-    const achievements = this._readJson(path.join(notebookPath, 'achievements.json'))
+    const sources = this._readJson(sourcesFile)
+    const achievements = this._readJson(achievementsFile)
     return { ...meta, path: entry.path, notebookPath, sources: sources.sources, achievements: achievements.achievements }
   }
 
