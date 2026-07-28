@@ -186,11 +186,11 @@ IM 用户发消息 → 平台 Stream/WS → DingTalk / Feishu / EnterpriseWeixin
 
 > 兼容说明：`src/main/managers/plugin-cli.js` 仍保留在仓库中，但已标注废弃，仅作为历史兼容与排障入口，不再参与主流程。
 
-### 渲染进程（含主窗口 + Notebook + Settings Workbench）
+### 渲染进程（含主窗口 + Notebook Workbench + Settings Workbench）
 
 | 类别 | 文件数 | 关键模块 |
 |------|--------|---------|
-| 页面（11 个 BrowserWindow 页面入口） | 90+ | 10 个传统桌面页面：main + notebook + 8 个管理窗口；1 个内嵌 app 页面：hydrology-workbench |
+| 页面（14 个 Vite 构建入口） | 90+ | 13 个传统桌面页面：main、notebook-workbench 与 11 个管理窗口；1 个内嵌 app 页面：hydrology-workbench |
 | Composables | 28 | useAppMode, useAgentChat, useTabManagement, useTheme, useLocale, useIPC, useAgentFiles, useAgentPanel, useAgentLocalCommands 等（完整列表见 [渲染进程索引](code-index/renderer.md)） |
 | 内嵌 App 共享组件 | 3+ | EmbeddedAgentPanel, embedded-app-runtime-bridge, useEmbeddedAgentFiles, WorkspaceFilePanel |
 | 共享组件 | 6 | Toast, MarketModal, VersionBadge |
@@ -283,6 +283,7 @@ Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空�
 | 文档 | 说明 |
 |------|------|
 | [CHANGELOG](CHANGELOG.md) | 版本更新日志 |
+| [DEVELOPMENT-PROGRESS](DEVELOPMENT-PROGRESS.md) | 当前开发工作项、验证证据与待解决边界 |
 | [QUICKSTART](QUICKSTART.md) | 快速开始 |
 | [BUILD](BUILD.md) | 构建说明 |
 | [INSTALL](INSTALL.md) / [INSTALL_EN](INSTALL_EN.md) | 安装指南（中/英） |

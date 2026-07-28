@@ -553,6 +553,14 @@ downloadUpdate()
 1. 创建 `EmbeddedAppRuntimeManager`
 2. 注册 `embedded-app:*` 与 `hydro-agent:*` IPC 通道
 
+### Notebook Workbench 窗口协议
+
+Notebook 不使用通用 embedded app 注册表，而是通过 `notebook:openWorkbench` 打开 `notebook-workbench` 单例子窗口。调用方可附带待恢复的 `sessionId`；主进程保存最新目标，并在窗口已存在时直接复用和聚焦。
+
+工作台渲染器完成挂载后调用 `notebook:workbenchReady`。主进程会校验调用方确实是当前 Notebook 窗口，登记 `host-ui` 的 Agent 事件订阅，并返回或发送待恢复目标。这样首次创建窗口与已存在窗口都能在工作区组件就绪后再调用 `restoreSessionById()`，避免在挂载前丢失恢复请求。
+
+此协议只管理窗口承载、会话恢复和宿主事件转发：Notebook 目录、资料索引和会话语义继续由 `NotebookManager` 及其 `type: 'notebook'` 会话负责。关闭窗口时会清理订阅和待恢复目标，但不会按 embedded app 的规则关闭 Notebook 会话。
+
 ### Handler 模块化
 
 每个 Handler 模块导出一个 `setupXxxHandlers(ipcMain, ...dependencies)` 函数：

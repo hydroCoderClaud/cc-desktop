@@ -8,7 +8,7 @@
 
 ## 页面架构
 
-当前渲染进程共有 **15 个 BrowserWindow 页面入口**，均采用独立的 `index.html` → `main.js` 入口链；其中传统桌面页面、管理/设置页面与内嵌 app 页面分层管理。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
+当前渲染进程共有 **14 个 Vite 构建入口**，均采用独立的 `index.html` → `main.js` 入口链；其中传统桌面页面、管理/设置页面与内嵌 app 页面分层管理。所有页面共享 composables、主题系统和国际化资源（通过 Vite alias 引用）。
 
 ### 主窗口
 
@@ -21,13 +21,13 @@
 | 页面类型 | 数量 | 说明 |
 |------|------|------|
 | 主窗口 | 1 | `main`，承载 Agent 工作台核心交互 |
-| 独立管理窗口 | 12 | notebook、各类 settings/manager 页面，主进程单例管理 |
+| 独立工作台与管理窗口 | 12 | notebook-workbench、各类 settings/manager 页面，主进程单例管理 |
 
 ### 12 个独立管理窗口
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
-| notebook | 独立 Notebook 工作台（三栏：资料源 / 成果 / 对话） | 主窗口菜单 / Notebook 入口 |
+| notebook-workbench | 独立 Notebook 工作台（三栏：资料源 / 成果 / 对话） | 主窗口“内嵌应用”菜单 / Notebook 会话恢复 |
 | channel-settings | IM 渠道总览与配置入口 | 主窗口菜单 |
 | dingtalk-settings | 钉钉机器人配置（AppKey/Secret/RobotCode） | 主窗口菜单 |
 | feishu-settings | 飞书机器人配置 | 主窗口菜单 |
@@ -42,14 +42,13 @@
 
 窗口通过 `window.electronAPI.openXxxManager()` → IPC `window:openXxxManager` 打开，主进程保证单例（同一窗口不重复创建）。独立窗口间通过 **设置广播机制** 同步状态（详见 [跨窗口广播](#跨窗口广播机制)）。
 
-### 2 个内嵌 App 页面
+### 1 个内嵌 App 页面
 
 | 页面 | 用途 | 打开方式 |
 |------|------|---------|
-| embedded-app-demo | 内嵌 app 示例页面 | `embedded-app:list` / `embedded-app:open` |
 | hydrology-workbench | 水文站工作台，内嵌右侧 Agent 与工作目录 | `embedded-app:list` / `embedded-app:open` |
 
-内嵌 app 也运行在独立 `BrowserWindow` 中，但与 notebook、settings 这一类管理窗口不同，它们遵循统一的内嵌 app 注册表、运行态桥接和 Agent 能力注入约定。详细标准见 [内嵌 App 设计与实现标准](./embedded-app/embedded-app-development-standard.md)。
+内嵌 app 也运行在独立 `BrowserWindow` 中，但与 notebook-workbench、settings 这一类工作台/管理窗口不同，它们遵循统一的内嵌 app 注册表、运行态桥接和 Agent 能力注入约定。Notebook 只复用子窗口承载与单例能力，不属于通用 embedded app。详细标准见 [内嵌 App 设计与实现标准](./embedded-app/embedded-app-development-standard.md)。
 
 > 完整组件列表与行数统计见 → [code-index/renderer.md](../code-index/renderer.md)
 
@@ -68,7 +67,7 @@
 └──────────┴─────────────────────┴──────────────┘
 ```
 
-**MainContent.vue** (1292 行) 是布局容器，管理三栏的显隐与拖拽：
+**MainContent.vue**（当前 926 行）是布局容器，管理三栏的显隐与拖拽：
 
 | 区域 | 组件 | 职责 |
 |------|------|------|
@@ -80,7 +79,7 @@
 
 ### 工作台隔离
 
-MainContent 当前以 **Agent 工作台** 为主。Notebook 作为独立工作台窗口保留，能力设置通过 settings-workbench 独立窗口承载。Agent 区域继续使用 **`v-show`（非 `v-if`）** 避免会话切换时 remount。
+MainContent 当前以 **Agent 工作台** 为主。Notebook 作为 `notebook-workbench` 独立、单例工作台窗口打开，能力设置通过 settings-workbench 独立窗口承载。Notebook 恢复先经主进程传递待恢复会话，再在工作台渲染器就绪后执行。Agent 区域继续使用 **`v-show`（非 `v-if`）** 避免会话切换时 remount。
 
 **设计原因**：`v-if` 会销毁组件，导致：
 1. Agent 的 IPC 流式事件监听器断开

@@ -4,7 +4,6 @@
       :t="t"
       :panel-title="panelTitle"
       :mode-options="modeOptions"
-      @mode-select="handleModeSelect"
     />
 
     <AgentLeftContent
@@ -44,7 +43,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, h } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
-import { useAppMode, AppMode } from '@composables/useAppMode'
+import { useAppMode } from '@composables/useAppMode'
 import { useEmbeddedApps } from '@composables/useEmbeddedApps'
 import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 import Icon from '@components/icons/Icon.vue'
@@ -55,7 +54,7 @@ import AgentNewConversationModal from './agent/AgentNewConversationModal.vue'
 
 const message = useMessage()
 const { t } = useLocale()
-const { isAgentMode, isNotebookMode, switchMode } = useAppMode()
+const { isAgentMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 const { openSettings } = useSettingsNavigation()
 
@@ -87,7 +86,6 @@ const emit = defineEmits([
   'select-project',
   'toggle-theme',
   'context-action',
-  'mode-changed',
   'agent-created',
   'agent-selected',
   'agent-closed',
@@ -104,24 +102,10 @@ watch(() => props.agentSessionId, (sessionId) => {
   activeAgentSessionId.value = sessionId || null
 }, { immediate: true })
 
-const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 const renderMenuIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
 
-const modeOptions = computed(() => {
-  const options = []
-  if (!isAgentMode.value) {
-    options.push({ label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') })
-  }
-  if (!isNotebookMode.value) {
-    options.push({ label: t('mode.switchToNotebook'), key: 'notebook', icon: renderModeIcon('notebook') })
-  }
-  return options
-})
-
-const panelTitle = computed(() => {
-  if (isNotebookMode.value) return t('app.modes.notebook')
-  return t('app.modes.agent')
-})
+const modeOptions = computed(() => [])
+const panelTitle = computed(() => t('app.modes.agent'))
 
 const settingsOptions = computed(() => [
   { label: t('settingsMenu.modelSettings'), key: 'model-settings', icon: renderMenuIcon('key') },
@@ -133,11 +117,18 @@ const settingsOptions = computed(() => [
     label: t('settingsMenu.embeddedApps'),
     key: 'embedded-apps',
     icon: renderMenuIcon('panelLeft'),
-    children: embeddedApps.value.map((app) => ({
-      label: app.label,
-      key: app.menuKey,
-      icon: renderMenuIcon(app.icon || 'panelLeft')
-    }))
+    children: [
+      {
+        label: t('app.modes.notebook'),
+        key: 'notebook-workbench',
+        icon: renderMenuIcon('notebook')
+      },
+      ...embeddedApps.value.map((app) => ({
+        label: app.label,
+        key: app.menuKey,
+        icon: renderMenuIcon(app.icon || 'panelLeft')
+      }))
+    ]
   },
   { label: t('settingsMenu.sessionApps'), key: 'session-apps', icon: renderMenuIcon('sessionApp') },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
@@ -158,24 +149,16 @@ const renderSettingsLabel = (option) => {
   return typeof option.label === 'function' ? option.label() : option.label
 }
 
-const handleModeSelect = (key) => {
-  if (key === 'notebook') {
-    handleOpenNotebook()
-    return
-  }
-  if (key === 'agent') {
-    handleSwitchMode(key)
-  }
-}
-
-const handleSwitchMode = async (mode) => {
-  await switchMode(mode)
-  emit('mode-changed', mode)
-}
-
 const handleOpenNotebook = async () => {
-  await switchMode(AppMode.NOTEBOOK)
-  emit('mode-changed', AppMode.NOTEBOOK)
+  try {
+    const result = await window.electronAPI?.openNotebookWorkbench?.()
+    if (!result?.success) {
+      throw new Error(result?.error || 'Notebook workbench is unavailable')
+    }
+  } catch (err) {
+    console.error('[LeftPanel] Failed to open notebook workbench:', err)
+    message.error(t('notebook.loadFailed', { error: err.message }))
+  }
 }
 
 const openAgentNewConversation = () => {
@@ -265,6 +248,11 @@ const handleSettingsSelect = async (key) => {
 
   if (!window.electronAPI) {
     console.error('Electron API not available')
+    return
+  }
+
+  if (key === 'notebook-workbench') {
+    await handleOpenNotebook()
     return
   }
 

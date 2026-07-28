@@ -369,11 +369,13 @@
 | sessionWatcher:watch | handle | 监控项目会话文件变化 |
 | sessionWatcher:stop | handle | 停止文件监控 |
 
-### notebook 域（notebook-handlers.js）
+### notebook 域（notebook-handlers.js + ipc-handlers.js）
 
 | 通道名 | 类型 | 简述 |
 |--------|------|------|
 | notebook:list | handle | 获取 Notebook 列表 |
+| notebook:openWorkbench | handle | 打开或聚焦 Notebook 单例工作台；可携带待恢复的会话 ID |
+| notebook:workbenchReady | handle | Notebook 工作台渲染器就绪后获取待恢复目标并注册宿主事件转发 |
 | notebook:get | handle | 获取单个 Notebook |
 | notebook:create | handle | 创建 Notebook |
 | notebook:rename | handle | 重命名 Notebook |

@@ -135,6 +135,7 @@ import Icon from '@components/icons/Icon.vue'
 import NotebookWorkspace from '@/pages/notebook/components/NotebookWorkspace.vue'
 import SettingsWorkspace from './SettingsWorkspace.vue'
 import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
+import { createImSessionHostRouter } from '@utils/im-session-host-router'
 
 const message = useMessage()
 const { isDark, cssVars, toggleTheme } = useTheme()
@@ -224,13 +225,6 @@ const ensureActiveTabInCurrentMode = () => {
   } else if (isNotebookMode.value) {
     activeTabId.value = 'welcome'
   }
-}
-
-const getSessionHostKind = (session) => {
-  if (!session || typeof session !== 'object') return 'agent'
-  if (session.type === 'notebook') return 'notebook'
-  if (session.clientType === 'embedded') return 'embedded'
-  return 'agent'
 }
 
 // Refs
@@ -365,12 +359,13 @@ const restoreNotebookSessionHost = async (session) => {
   const sessionId = typeof session?.id === 'string' ? session.id.trim() : ''
   if (!sessionId) return false
 
-  if (!isNotebookMode.value) {
-    await switchMode(AppMode.NOTEBOOK)
+  try {
+    const result = await window.electronAPI?.openNotebookWorkbench?.({ sessionId })
+    return Boolean(result?.success)
+  } catch (err) {
+    console.error('[MainContent] Failed to restore notebook workbench session:', err)
+    return false
   }
-
-  await nextTick()
-  return Boolean(await notebookWorkspaceRef.value?.restoreSessionById?.(sessionId))
 }
 
 const restoreEmbeddedSessionHost = async (session) => {
@@ -395,30 +390,19 @@ const restoreEmbeddedSessionHost = async (session) => {
   return true
 }
 
-const restoreEmbeddedHostFromMessageEvent = async (sessionId) => {
-  const routingSession = await window.electronAPI?.getAgentSessionRouting?.(sessionId).catch(() => null)
-  const session = await window.electronAPI?.getAgentSession?.(sessionId).catch(() => null)
-  const resolvedSession = session || routingSession
-  if (getSessionHostKind(resolvedSession) !== 'embedded') return false
-  return restoreEmbeddedSessionHost(resolvedSession)
-}
+const { restoreSpecializedHost } = createImSessionHostRouter({
+  getSessionRouting: (sessionId) => window.electronAPI?.getAgentSessionRouting?.(sessionId),
+  getSession: (sessionId) => window.electronAPI?.getAgentSession?.(sessionId),
+  restoreNotebookSession: restoreNotebookSessionHost,
+  restoreEmbeddedSession: restoreEmbeddedSessionHost
+})
 
 const openImRestoredSession = async (imType, data, meta) => {
   const sessionId = typeof data?.sessionId === 'string' ? data.sessionId.trim() : ''
   if (!sessionId) return
 
-  const routingSession = await window.electronAPI?.getAgentSessionRouting?.(sessionId).catch(() => null)
-  const session = await window.electronAPI?.getAgentSession?.(sessionId).catch(() => null)
-  const resolvedSession = session || routingSession
-  const hostKind = getSessionHostKind(resolvedSession)
-
-  if (hostKind === 'notebook') {
-    const restored = await restoreNotebookSessionHost(resolvedSession)
-    if (restored) return
-  } else if (hostKind === 'embedded') {
-    const restored = await restoreEmbeddedSessionHost(resolvedSession)
-    if (restored) return
-  }
+  const { session: resolvedSession, restored } = await restoreSpecializedHost(sessionId)
+  if (restored) return
 
   if (!isAgentMode.value) {
     await switchMode(AppMode.AGENT)
@@ -543,7 +527,7 @@ const setupSessionListeners = () => {
       cleanupFns.push(
         api[messageHandlerName](async (data) => {
           if (data?.sessionId) {
-            await restoreEmbeddedHostFromMessageEvent(data.sessionId)
+            await restoreSpecializedHost(data.sessionId)
           }
         })
       )

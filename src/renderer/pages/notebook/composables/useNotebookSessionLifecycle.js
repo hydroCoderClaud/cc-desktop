@@ -69,15 +69,19 @@ export function useNotebookSessionLifecycle({
       sources.value = data.sources || []
       const sourceMetaMap = new Map((data.sources || []).map(s => [s.id, s]))
       achievements.value = processAchievements(data.achievements || [], data.notebookPath, sourceMetaMap)
+      return true
     } catch (err) {
       console.error('[NotebookSessionLifecycle] Failed to load notebook data:', err)
       message.error(t('notebook.loadFailed', { error: err.message }))
+      return false
     }
   }
 
   const handleNotebookCreated = async (nb) => {
-    await loadNotebook(nb)
-    message.success(t('notebook.createSuccess', { name: nb.name }))
+    const loaded = await loadNotebook(nb)
+    if (loaded) {
+      message.success(t('notebook.createSuccess', { name: nb.name }))
+    }
   }
 
   const handleCloseNotebook = async () => {

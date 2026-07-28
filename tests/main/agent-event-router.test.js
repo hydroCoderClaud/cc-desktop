@@ -26,6 +26,35 @@ describe('AgentEventRouter', () => {
     expect(hostSink).not.toHaveBeenCalled()
   })
 
+  it('delivers host-owned events to each first-party host subscriber', () => {
+    const mainWindowSink = vi.fn()
+    const notebookWorkbenchSink = vi.fn()
+    const router = new AgentEventRouter({
+      resolveOwnerClientId: () => 'host-ui'
+    })
+
+    router.registerClient({ clientId: 'host-ui', clientType: 'host' }, mainWindowSink)
+    router.registerClient({
+      clientId: 'host-ui',
+      clientType: 'host',
+      clientMeta: { surface: 'notebook-workbench' }
+    }, notebookWorkbenchSink)
+
+    router.publish('agent:statusChange', {
+      sessionId: 'notebook-session',
+      status: 'idle'
+    })
+
+    expect(mainWindowSink).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'agent:statusChange',
+      payload: { sessionId: 'notebook-session', status: 'idle' }
+    }))
+    expect(notebookWorkbenchSink).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'agent:statusChange',
+      payload: { sessionId: 'notebook-session', status: 'idle' }
+    }))
+  })
+
   it('broadcasts allSessionsClosed to every registered client', () => {
     const hostSink = vi.fn()
     const embeddedSink = vi.fn()

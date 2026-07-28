@@ -21,12 +21,12 @@
 
 ## 页面目录
 
-15 个独立 BrowserWindow 页面，各有独立 `index.html` + `main.js` + `App.vue` 入口。
+14 个 Vite 构建入口，各有独立 `index.html` + `main.js` + `App.vue` 入口。`pages/notebook/` 仍保留 Notebook 共享工作区组件；当前独立窗口入口为 `pages/notebook-workbench/`。
 
 | 页面 | 路径 | 用途 |
 |------|------|------|
 | main | `pages/main/` | 主窗口（Agent 对话） |
-| notebook | `pages/notebook/` | Notebook 工作台（资料源 / 成果 / 对话） |
+| notebook-workbench | `pages/notebook-workbench/` | Notebook 独立工作台窗口（资料源 / 成果 / 对话，单例复用） |
 | channel-settings | `pages/channel-settings/` | IM 渠道总览与配置入口 |
 | dingtalk-settings | `pages/dingtalk-settings/` | 钉钉机器人配置 |
 | feishu-settings | `pages/feishu-settings/` | 飞书机器人配置 |
@@ -38,7 +38,6 @@
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
 | settings-workbench | `pages/settings-workbench/` | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） |
 | update-manager | `pages/update-manager/` | 更新管理器 |
-| embedded-app-demo | `pages/embedded-app-demo/` | 内嵌 app 示例 |
 | hydrology-workbench | `pages/hydrology-workbench/` | 水文站内嵌工作台 |
 
 ---

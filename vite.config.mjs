@@ -35,6 +35,7 @@ export default defineConfig({
         channelSettings: path.resolve(__dirname, 'src/renderer/pages/channel-settings/index.html'),
         settingsWorkbench: path.resolve(__dirname, 'src/renderer/pages/settings-workbench/index.html'),
         hydrologyWorkbench: path.resolve(__dirname, 'src/renderer/pages/hydrology-workbench/index.html'),
+        notebookWorkbench: path.resolve(__dirname, 'src/renderer/pages/notebook-workbench/index.html'),
         updateManager: path.resolve(__dirname, 'src/renderer/pages/update-manager/index.html'),
         dingtalkSettings: path.resolve(__dirname, 'src/renderer/pages/dingtalk-settings/index.html'),
         feishuSettings: path.resolve(__dirname, 'src/renderer/pages/feishu-settings/index.html'),

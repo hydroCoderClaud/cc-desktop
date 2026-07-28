@@ -9,21 +9,15 @@ const notebookWorkspacePath = path.resolve(__dirname, '../../src/renderer/pages/
 const embeddedAgentPanelPath = path.resolve(__dirname, '../../src/renderer/components/embedded-agent/EmbeddedAgentPanel.vue')
 
 describe('IM restored session host routing', () => {
-  it('classifies restored sessions and routes notebook or embedded hosts before falling back to agent tabs', () => {
+  it('uses the shared host router before falling back to agent tabs', () => {
     const source = fs.readFileSync(mainContentPath, 'utf-8')
 
-    expect(source).toContain('const getSessionHostKind = (session) => {')
-    expect(source).toContain("if (session.type === 'notebook') return 'notebook'")
-    expect(source).toContain("if (session.clientType === 'embedded') return 'embedded'")
-    expect(source).toContain('const restoreEmbeddedHostFromMessageEvent = async (sessionId) => {')
-    expect(source).toContain('const routingSession = await window.electronAPI?.getAgentSessionRouting?.(sessionId).catch(() => null)')
-    expect(source).toContain('const resolvedSession = session || routingSession')
-    expect(source).toContain("if (getSessionHostKind(resolvedSession) !== 'embedded') return false")
-    expect(source).toContain('const restored = await restoreNotebookSessionHost(resolvedSession)')
-    expect(source).toContain('const restored = await restoreEmbeddedSessionHost(resolvedSession)')
+    expect(source).toContain("import { createImSessionHostRouter } from '@utils/im-session-host-router'")
+    expect(source).toContain('const { restoreSpecializedHost } = createImSessionHostRouter({')
+    expect(source).toContain('const { session: resolvedSession, restored } = await restoreSpecializedHost(sessionId)')
     expect(source).toContain('const tab = ensureAgentTab({')
     expect(source).toContain('const messageHandlerName = `on${meta.listenerPrefix}MessageReceived`')
-    expect(source).toContain('await restoreEmbeddedHostFromMessageEvent(data.sessionId)')
+    expect(source).toContain('await restoreSpecializedHost(data.sessionId)')
   })
 
   it('exposes a notebook restore hook by session id', () => {
@@ -31,7 +25,8 @@ describe('IM restored session host routing', () => {
 
     expect(source).toContain('const restoreSessionById = async (sessionId) => {')
     expect(source).toContain('const notebooks = await window.electronAPI.notebookList()')
-    expect(source).toContain('await loadNotebook(targetNotebook)')
+    expect(source).toContain('return loadNotebook(targetNotebook)')
+    expect(source).toContain('Notebook session mapping is unavailable: ${normalizedSessionId}')
     expect(source).toContain('defineExpose({')
     expect(source).toContain('restoreSessionById')
   })

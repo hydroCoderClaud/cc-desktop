@@ -68,8 +68,8 @@
 - **架构上下文**：-> [数据存储](../design/main-process.md#数据存储)
 
 ### ipc-handlers.js
-- **行数**：662
-- **职责**：IPC 注册入口，初始化 SessionDatabase，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台 / Notebook 等独立窗口打开入口
+- **行数**：1227
+- **职责**：IPC 注册入口，初始化 SessionDatabase，注册所有 Handler 模块，启动 `ScheduledTaskService`，并负责设置工作台、Notebook 单例工作台窗口与其恢复事件转发
 - **关键导出**：`setupIPCHandlers()`
 - **架构上下文**：-> [IPC 通信](../design/main-process.md#ipc-通信)
 

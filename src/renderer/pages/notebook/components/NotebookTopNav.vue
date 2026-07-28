@@ -138,7 +138,6 @@ import { ref, watch, nextTick, onMounted, onUnmounted, computed, h } from 'vue'
 import { useMessage, useDialog, NDropdown } from 'naive-ui'
 import Icon from '@components/icons/Icon.vue'
 import { useLocale } from '@composables/useLocale'
-import { useAppMode } from '@composables/useAppMode'
 import { useEmbeddedApps } from '@composables/useEmbeddedApps'
 import { SettingsSection, useSettingsNavigation } from '@composables/useSettingsNavigation'
 
@@ -153,7 +152,6 @@ const emit = defineEmits(['create', 'switch', 'close', 'cleanup', 'renamed', 'de
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
-const { switchMode } = useAppMode()
 const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
 const { openSettings } = useSettingsNavigation()
 
@@ -161,16 +159,19 @@ const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, s
 
 const modeOptions = computed(() => {
   return [
-    { label: t('mode.switchToAgent'), key: 'agent', icon: renderModeIcon('robot') }
+    { label: t('notebook.nav.backToMain'), key: 'agent', icon: renderModeIcon('robot') }
   ]
 })
 
 const hasUpdateAvailable = ref(false)
 let updateAvailableCleanup = null
 
-const handleModeSelect = (key) => {
+const handleModeSelect = async (key) => {
   if (key === 'agent') {
-    switchMode(key)
+    const result = await window.electronAPI?.focusMainWindow?.()
+    if (result?.success) {
+      window.close()
+    }
   }
 }
 

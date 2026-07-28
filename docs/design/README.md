@@ -8,7 +8,7 @@
 |------|------|
 | [main-process.md](./main-process.md) | 主进程生命周期、IPC、会话、调度、更新、内嵌 app 支撑 |
 | [renderer.md](./renderer.md) | 渲染进程页面结构、主窗口 UI、内嵌 app 宿主组件 |
-| [main-window-mode-convergence-design.md](./main-window-mode-convergence-design.md) | 主窗口模式收口、Notebook 工作台归位与未来入口治理 |
+| [main-window-mode-convergence-design.md](./main-window-mode-convergence-design.md) | 主窗口模式收口、Notebook 独立工作台窗口、IM 恢复边界与未来入口治理 |
 | [in-main-settings-workspace-design.md](./in-main-settings-workspace-design.md) | 主窗口内设置中心、窗口单例回退与分阶段迁移设计 |
 | [integrations.md](./integrations.md) | 钉钉、微信、MCP、Plugin、能力管理等系统集成 |
 | [built-in-mcp.md](./built-in-mcp.md) | 内置 MCP 能力现状 |

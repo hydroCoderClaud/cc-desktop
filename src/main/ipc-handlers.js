@@ -127,6 +127,10 @@ function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabi
   const trustedWeixinWebContents = new Set()
   const embeddedAppWindows = new Map()
   const singletonSubWindows = createSingletonWindowRegistry?.()
+  let notebookWorkbenchWindow = null
+  let notebookWorkbenchHostSubscriptionId = null
+  let notebookWorkbenchReady = false
+  let pendingNotebookWorkbenchTarget = null
   const registerTrustedWeixinWindow = (window) => {
     const webContents = window?.webContents
     if (!webContents) return
@@ -379,6 +383,85 @@ function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabi
     return singletonSubWindows.open(singletonKey, createWindow, {
       startMaximized: Boolean(options.startMaximized)
     })
+  }
+
+  const normalizeNotebookWorkbenchTarget = (options = {}) => {
+    const sessionId = typeof options?.sessionId === 'string' ? options.sessionId.trim() : ''
+    return sessionId ? { sessionId } : null
+  }
+
+  const unregisterNotebookWorkbenchHostSubscription = () => {
+    if (!notebookWorkbenchHostSubscriptionId || !agentEventRouter) return false
+
+    const subscriptionId = notebookWorkbenchHostSubscriptionId
+    notebookWorkbenchHostSubscriptionId = null
+    return agentEventRouter.unregisterClient(subscriptionId)
+  }
+
+  const registerNotebookWorkbenchHostSubscription = () => {
+    if (!agentEventRouter || !notebookWorkbenchWindow || notebookWorkbenchWindow.isDestroyed()) {
+      return false
+    }
+
+    unregisterNotebookWorkbenchHostSubscription()
+    const window = notebookWorkbenchWindow
+    const { subscriptionId } = agentEventRouter.registerClient({
+      clientId: 'host-ui',
+      clientType: 'host',
+      clientMeta: { surface: 'notebook-workbench' }
+    }, (agentEvent) => {
+      if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+        window.webContents.send(agentEvent.channel, agentEvent.payload)
+      }
+    })
+    notebookWorkbenchHostSubscriptionId = subscriptionId
+    return true
+  }
+
+  const sendPendingNotebookWorkbenchTarget = () => {
+    if (!pendingNotebookWorkbenchTarget || !notebookWorkbenchReady) return false
+    if (!notebookWorkbenchWindow || notebookWorkbenchWindow.isDestroyed()) return false
+
+    notebookWorkbenchWindow.webContents.send('notebook:restore', pendingNotebookWorkbenchTarget)
+    pendingNotebookWorkbenchTarget = null
+    return true
+  }
+
+  const openNotebookWorkbench = (options = {}) => {
+    const target = normalizeNotebookWorkbenchTarget(options)
+    if (target) {
+      // The workbench is a singleton, so simultaneous IM activations intentionally
+      // coalesce to the latest requested notebook instead of competing for focus.
+      if (pendingNotebookWorkbenchTarget?.sessionId && pendingNotebookWorkbenchTarget.sessionId !== target.sessionId) {
+        console.warn('[NotebookWorkbench] Replacing pending restore target with the latest IM activation')
+      }
+      pendingNotebookWorkbenchTarget = target
+    }
+
+    const result = openSingletonSubWindow('notebook-workbench', {
+      width: 1440,
+      height: 920,
+      title: translate('app.windows.notebookWorkspace'),
+      page: 'notebook-workbench',
+      startMaximized: true
+    })
+
+    notebookWorkbenchWindow = result.window
+    if (!result.reused) {
+      notebookWorkbenchReady = false
+      const window = result.window
+      window.once('closed', () => {
+        if (notebookWorkbenchWindow === window) {
+          unregisterNotebookWorkbenchHostSubscription()
+          notebookWorkbenchWindow = null
+          notebookWorkbenchReady = false
+          pendingNotebookWorkbenchTarget = null
+        }
+      })
+    }
+
+    sendPendingNotebookWorkbenchTarget()
+    return { success: true, reused: result.reused }
   }
 
   const buildSettingsWorkbenchWindowKey = (options = {}) => {
@@ -1247,6 +1330,25 @@ function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabi
   ipcMain.handle('embedded-app:open', async (_event, menuKey) => {
     return openEmbeddedAppWindow(menuKey);
   });
+
+  ipcMain.handle('notebook:openWorkbench', async (_event, options = {}) => {
+    return openNotebookWorkbench(options)
+  })
+
+  ipcMain.handle('notebook:workbenchReady', async (event) => {
+    if (!notebookWorkbenchWindow || notebookWorkbenchWindow.isDestroyed()) {
+      return null
+    }
+    if (event.sender !== notebookWorkbenchWindow.webContents) {
+      return null
+    }
+
+    notebookWorkbenchReady = true
+    registerNotebookWorkbenchHostSubscription()
+    const target = pendingNotebookWorkbenchTarget
+    pendingNotebookWorkbenchTarget = null
+    return target
+  })
 
   if (setupHydrologyHandlers && stationService) {
     setupHydrologyHandlers(ipcMain, {

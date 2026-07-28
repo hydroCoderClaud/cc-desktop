@@ -491,14 +491,22 @@ const restoreSessionById = async (sessionId) => {
   const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : ''
   if (!normalizedSessionId || !window.electronAPI?.notebookList) return false
 
-  const notebooks = await window.electronAPI.notebookList()
-  const targetNotebook = Array.isArray(notebooks)
-    ? notebooks.find((item) => item?.sessionId === normalizedSessionId)
-    : null
-  if (!targetNotebook?.id) return false
+  try {
+    const notebooks = await window.electronAPI.notebookList()
+    const targetNotebook = Array.isArray(notebooks)
+      ? notebooks.find((item) => item?.sessionId === normalizedSessionId)
+      : null
+    if (!targetNotebook?.id) {
+      message.error(t('notebook.loadFailed', { error: `Notebook session mapping is unavailable: ${normalizedSessionId}` }))
+      return false
+    }
 
-  await loadNotebook(targetNotebook)
-  return true
+    return loadNotebook(targetNotebook)
+  } catch (err) {
+    console.error('[Notebook] Failed to restore notebook session:', err)
+    message.error(t('notebook.loadFailed', { error: err.message }))
+    return false
+  }
 }
 
 defineExpose({

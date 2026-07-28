@@ -1065,6 +1065,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========================================
   // Notebook 管理
   // ========================================
+  openNotebookWorkbench: (options = {}) => ipcRenderer.invoke('notebook:openWorkbench', options),
+  notebookWorkbenchReady: () => ipcRenderer.invoke('notebook:workbenchReady'),
+  onNotebookWorkbenchRestore: (callback) => {
+    const listener = (_event, target) => callback(target)
+    ipcRenderer.on('notebook:restore', listener)
+    return () => ipcRenderer.removeListener('notebook:restore', listener)
+  },
   notebookCreate: (options) => ipcRenderer.invoke('notebook:create', options),
   notebookList: () => ipcRenderer.invoke('notebook:list'),
   notebookGet: (id) => ipcRenderer.invoke('notebook:get', id),

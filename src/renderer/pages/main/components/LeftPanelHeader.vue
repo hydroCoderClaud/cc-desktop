@@ -1,7 +1,7 @@
 <template>
   <div class="left-panel-header panel-shell-header">
     <div class="logo-wrap">
-      <n-dropdown trigger="click" :options="modeOptions" @select="handleModeSelect">
+      <n-dropdown v-if="modeOptions.length > 0" trigger="click" :options="modeOptions" @select="handleModeSelect">
         <button
           type="button"
           class="app-logo"
@@ -14,6 +14,17 @@
           </svg>
         </button>
       </n-dropdown>
+      <span
+        v-else
+        class="app-logo app-logo-static"
+        role="img"
+        :aria-label="panelTitle"
+      >
+        <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="15" stroke="var(--primary-color)" stroke-width="1.5" fill="var(--primary-ghost)"/>
+          <path d="M16 7 C16 7 10 14 10 18 a6 6 0 0 0 12 0 C22 14 16 7 16 7z" fill="var(--primary-color)" opacity="0.85"/>
+        </svg>
+      </span>
       <div class="logo">{{ panelTitle }}</div>
     </div>
   </div>
@@ -70,6 +81,10 @@ const handleModeSelect = (key) => {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.app-logo-static {
+  cursor: default;
 }
 
 .logo {
