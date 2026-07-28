@@ -30,6 +30,18 @@
         <div v-if="statusMessage" class="status-tip" :class="statusType">
           {{ statusMessage }}
         </div>
+        <div class="download-link-row">
+          <span class="ver-label">下载地址：</span>
+          <a
+            class="download-link"
+            :href="manualDownloadUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            @click.prevent="handleManualDownload"
+          >
+            点击这里下载
+          </a>
+        </div>
       </div>
 
       <!-- 区域2：操作区（有新版本才显示） -->
@@ -130,6 +142,7 @@ const downloadProgress = ref(0)
 const downloadSpeed = ref(0)
 const statusMessage = ref('')
 const statusType = ref('')
+const manualDownloadUrl = 'https://hdupdate.myseek.fun/hydrodesktop_update/index.html'
 
 const cleanupFunctions = []
 
@@ -311,6 +324,14 @@ const handleInstall = async () => {
   }
 }
 
+const handleManualDownload = () => {
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(manualDownloadUrl).catch(() => {})
+    return
+  }
+  window.open(manualDownloadUrl, '_blank', 'noopener,noreferrer')
+}
+
 const handleClose = () => {
   if (props.embedded) {
     emit('close')
@@ -409,6 +430,23 @@ const formatSpeed = (bytesPerSecond) => {
 .status-tip.success { background: rgba(82,196,26,.1); color: #52c41a; }
 .status-tip.info    { background: rgba(24,144,255,.1); color: #1890ff; }
 .status-tip.error   { background: rgba(255,77,79,.1);  color: #ff4d4f; }
+
+.download-link-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.download-link {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.download-link:hover {
+  text-decoration: underline;
+}
 
 /* ── 区域2：操作卡片 ── */
 .action-card {
