@@ -288,6 +288,7 @@ const welcomeHints = computed(() => [
 ])
 
 const apiProfiles = ref([])
+let settingsChangedCleanup = null
 
 const messagesListRef = ref(null)
 const scrollAnchor = ref(null)
@@ -476,6 +477,16 @@ const handleScheduledTaskDraftCancel = async ({ messageId }) => {
   }
 }
 
+const refreshModelConfiguration = async () => {
+  await loadApiProfiles()
+  await initDefaultModel(resolvedApiProfileId.value, resolvedModelId.value)
+}
+
+const onSettingsChanged = (settings) => {
+  if (!settings?.modelProfilesChanged) return
+  void refreshModelConfiguration()
+}
+
 const handleSessionAppDraftSubmit = async ({ messageId, draft, behavior }) => {
   if (!messageId || sessionAppSubmitting.value[messageId]) return
 
@@ -649,13 +660,14 @@ const startQueuePersistence = () => {
   )
 }
 
-// 窗口获焦时重新读取队列开关（同步全局设置页面的修改）
+// 窗口获焦时重新读取会话相关配置（模型管理在独立窗口中编辑）
 // 添加 500ms 防抖，避免频繁切换窗口时重复读取
 let focusDebounceTimer = null
 const onWindowFocus = () => {
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
   focusDebounceTimer = setTimeout(() => {
     loadQueueSetting()
+    void refreshModelConfiguration()
   }, 500)
 }
 
@@ -689,6 +701,7 @@ onMounted(async () => {
   }
   startAutoScrollObservers()
   window.addEventListener('focus', onWindowFocus)
+  settingsChangedCleanup = window.electronAPI?.onSettingsChanged?.(onSettingsChanged) || null
 
   // 恢复持久化队列（需要等待 chatInputRef 准备好）
   await nextTick()  // 确保 ChatInput 组件已渲染
@@ -810,6 +823,7 @@ onUnmounted(() => {
     messagesListRef.value.removeEventListener('scroll', onMessagesScroll)
   }
   window.removeEventListener('focus', onWindowFocus)
+  settingsChangedCleanup?.()
   if (focusDebounceTimer) clearTimeout(focusDebounceTimer)
   // watch 已在 onBeforeUnmount 中停止，无需重复
   cleanup()

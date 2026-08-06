@@ -207,6 +207,7 @@ const handleDelete = (providerId) => {
         if (selectedProviderId.value === providerId) {
           selectedProviderId.value = providers.value[0]?.id || ''
         }
+        window.electronAPI?.broadcastSettings?.({ modelProfilesChanged: true })
         message.success(t('providerManager.deleteSuccess'))
       } catch (err) {
         message.error(t('messages.deleteFailed') + ': ' + err.message)
@@ -244,6 +245,7 @@ const handleSave = async () => {
 
     await loadProviders()
     profilesRefreshKey.value += 1
+    window.electronAPI?.broadcastSettings?.({ modelProfilesChanged: true })
     showModal.value = false
   } catch (errors) {
     console.warn('Validation failed:', errors)

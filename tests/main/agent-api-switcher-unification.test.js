@@ -11,6 +11,7 @@ const notebookChatPanelPath = path.resolve(__dirname, '../../src/renderer/pages/
 const embeddedAgentPanelPath = path.resolve(__dirname, '../../src/renderer/components/embedded-agent/EmbeddedAgentPanel.vue')
 const agentLeftContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/agent/AgentLeftContent.vue')
 const mainContentPath = path.resolve(__dirname, '../../src/renderer/pages/main/components/MainContent.vue')
+const providerManagerPath = path.resolve(__dirname, '../../src/renderer/pages/provider-manager/components/ProviderManagerContent.vue')
 
 describe('agent api switcher unification', () => {
   it('hosts the shared api profile switcher in ChatInputToolbar', () => {
@@ -67,5 +68,15 @@ describe('agent api switcher unification', () => {
     expect(mainContentSource).not.toContain('@agent-profile-updated=')
     expect(mainContentSource).toContain('@api-profile-selected="handleAgentProfileUpdated"')
     expect(mainContentSource).toContain('leftPanelRef.value?.updateAgentConversationRuntime?.({')
+  })
+
+  it('refreshes mounted conversations when model profiles change', () => {
+    const agentChatTabSource = fs.readFileSync(agentChatTabPath, 'utf-8')
+    const providerManagerSource = fs.readFileSync(providerManagerPath, 'utf-8')
+
+    expect(providerManagerSource).toContain("broadcastSettings?.({ modelProfilesChanged: true })")
+    expect(agentChatTabSource).toContain('onSettingsChanged')
+    expect(agentChatTabSource).toContain('refreshModelConfiguration')
+    expect(agentChatTabSource).toContain('settingsChangedCleanup?.()')
   })
 })
