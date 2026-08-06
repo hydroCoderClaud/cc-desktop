@@ -324,6 +324,18 @@ watch(() => props.lockedProviderId, (providerId) => {
   onServiceProviderChange(providerId)
 }, { immediate: true })
 
+// Keep the selected model aligned when the active provider's model list changes.
+watch(
+  () => normalizeModelIds(getActiveProvider()?.defaultModels),
+  () => {
+    const serviceProvider = formData.value.serviceProvider
+    if (serviceProvider) {
+      onServiceProviderChange(serviceProvider)
+    }
+  },
+  { deep: true, immediate: true }
+)
+
 // Watch for proxy toggle to auto-fill defaults
 watch(() => formData.value.useProxy, (useProxy) => {
   if (useProxy) {
