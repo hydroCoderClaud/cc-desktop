@@ -1,7 +1,7 @@
 {
   "name": "cc-desktop",
   "version": "1.7.93",
-  "description": "Hydro Desktop - 水利AI智能体桌面程序",
+  "description": "Hydro Desktop - \u6c34\u5229AI\u667a\u80fd\u4f53\u684c\u9762\u7a0b\u5e8f",
   "main": "src/main/index.js",
   "author": "HydroCoder",
   "license": "SEE LICENSE IN LICENSE",
@@ -105,7 +105,15 @@
       {
         "from": "docs/user-guide",
         "to": "guides",
-        "filter": ["*.html", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.svg"]
+        "filter": [
+          "*.html",
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.webp",
+          "*.gif",
+          "*.svg"
+        ]
       }
     ],
     "win": {
@@ -161,5 +169,8 @@
       "icon": "assets/icon.png",
       "category": "Development"
     }
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.8.12"
   }
 }
