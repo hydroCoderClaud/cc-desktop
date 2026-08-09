@@ -1,53 +1,25 @@
 /**
- * IPC 通信封装
- * 提供统一的 IPC 调用接口和错误处理
+ * IPC communication wrapper.
  */
 import { ref } from 'vue'
 
-// Mock data for browser testing (when electronAPI is not available)
+// Browser-only fallback for the profile list page.
 const mockData = {
-  listProviders: () => [
-    {
-      id: 'qwen',
-      name: '千问tokenplan',
-      baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
-      defaultModels: ['qwen3.7-plus', 'qwen3.7-max', 'qwen-image-2.0-pro', 'wan2.7-image-pro', 'deepseek-v4-pro', 'deepseek-v4-flash', 'kimi-k2.7-code', 'glm-5.2']
-    },
-    {
-      id: 'deepseek',
-      name: 'deepseek',
-      baseUrl: 'https://api.deepseek.com/anthropic',
-      defaultModels: ['deepseek-v4-flash[1m]', 'deepseek-v4-pro[1m]']
-    }
-  ],
   listAPIProfiles: () => []
 }
 
-/**
- * 创建 IPC 调用封装
- */
 export function useIPC() {
   const loading = ref(false)
   const error = ref(null)
 
-  /**
-   * 调用 electronAPI 方法
-   * @param {string} method - 方法名
-   * @param  {...any} args - 参数
-   * @returns {Promise<any>}
-   */
   const invoke = async (method, ...args) => {
     loading.value = true
     error.value = null
 
     try {
-      // Check if electronAPI is available (running in Electron)
       if (!window.electronAPI) {
         console.warn(`[useIPC] electronAPI not available, using mock for: ${method}`)
-        // Use mock data for browser testing
-        if (mockData[method]) {
-          return mockData[method](...args)
-        }
+        if (mockData[method]) return mockData[method](...args)
         throw new Error(`electronAPI not available (mock not found for: ${method})`)
       }
 
@@ -55,8 +27,7 @@ export function useIPC() {
         throw new Error(`Method ${method} not found in electronAPI`)
       }
 
-      const result = await window.electronAPI[method](...args)
-      return result
+      return await window.electronAPI[method](...args)
     } catch (err) {
       error.value = err.message || String(err)
       throw err
@@ -65,9 +36,6 @@ export function useIPC() {
     }
   }
 
-  /**
-   * 静默调用（不更新 loading 状态）
-   */
   const silentInvoke = async (method, ...args) => {
     try {
       if (!window.electronAPI || typeof window.electronAPI[method] !== 'function') {
@@ -80,17 +48,9 @@ export function useIPC() {
     }
   }
 
-  return {
-    loading,
-    error,
-    invoke,
-    silentInvoke
-  }
+  return { loading, error, invoke, silentInvoke }
 }
 
-/**
- * 创建带自动重试的 IPC 调用
- */
 export function useIPCWithRetry(maxRetries = 3) {
   const { invoke, loading, error } = useIPC()
 
@@ -111,9 +71,5 @@ export function useIPCWithRetry(maxRetries = 3) {
     throw lastError
   }
 
-  return {
-    invoke: invokeWithRetry,
-    loading,
-    error
-  }
+  return { invoke: invokeWithRetry, loading, error }
 }

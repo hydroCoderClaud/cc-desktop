@@ -22,7 +22,7 @@ const TIMEOUTS = {
   API_REQUEST: 120000        // 120 seconds (2 minutes) for actual requests
 };
 
-// First-run provider templates. API Profiles hold credentials and the selected model.
+// Legacy provider defaults used only to migrate old configurations into API Profiles.
 const SERVICE_PROVIDERS = {
   qwen: {
     label: '千问tokenplan',

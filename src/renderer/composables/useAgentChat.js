@@ -79,15 +79,9 @@ export function useAgentChat(sessionId, options = {}) {
     return normalized
   }
 
-  const getProviderModelIds = (config, serviceProvider) => {
-    const definitions = Array.isArray(config?.serviceProviderDefinitions) ? config.serviceProviderDefinitions : []
-    const provider = definitions.find(item => item.id === serviceProvider)
-    return normalizeModelIds(provider?.defaultModels)
-  }
-
-  const buildModelOptions = (profile, config) => {
+  const buildModelOptions = (profile) => {
     const modelIds = normalizeModelIds([
-      ...getProviderModelIds(config, profile?.serviceProvider),
+      ...(profile?.defaultModels || []),
       profile?.selectedModelId
     ])
 
@@ -1338,7 +1332,7 @@ export function useAgentChat(sessionId, options = {}) {
       const profile = config.apiProfiles.find(p => p.id === profileId)
         || config.apiProfiles.find(p => p.id === config.defaultProfileId)
       if (profile) {
-        const nextModelOptions = buildModelOptions(profile, config)
+        const nextModelOptions = buildModelOptions(profile)
         const normalizedPreferredModelId = normalizeModelValue(preferredModelId)
         const preferredModelExists = normalizedPreferredModelId
           ? nextModelOptions.some(option => option?.value === normalizedPreferredModelId)

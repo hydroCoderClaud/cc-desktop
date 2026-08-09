@@ -16,7 +16,6 @@
 | config:get | handle | 获取完整配置 |
 | config:save | handle | 保存配置 |
 | config:getPath | handle | 获取配置文件路径 |
-| config:getServiceProviders | handle | 获取服务商列表 |
 | config:getMarketConfig | handle | 获取组件市场配置 |
 | config:updateMarketConfig | handle | 更新组件市场配置 |
 | config:getTimeout | handle | 获取超时设置 |
@@ -63,15 +62,6 @@
 | api:getCurrentProfile | handle | 获取默认 Profile |
 | api:fetchOfficialModels | handle | 拉取官方模型列表 |
 
-### provider 域（config-handlers.js）
-
-| 通道名 | 类型 | 简述 |
-|--------|------|------|
-| provider:list | handle | 列出服务商定义 |
-| provider:get | handle | 获取单个服务商定义 |
-| provider:add | handle | 添加服务商定义 |
-| provider:update | handle | 更新服务商定义 |
-| provider:delete | handle | 删除服务商定义 |
 ### project 域（project-handlers.js）
 
 | 通道名 | 类型 | 简述 |
@@ -361,7 +351,7 @@
 | window:openGlobalSettings | handle | 打开全局设置窗口 |
 | window:openAppearanceSettings | handle | 打开外观设置窗口 |
 | window:openSettingsWorkbench | handle | 打开能力设置工作台 |
-| window:openProviderManager | handle | 打开服务商管理窗口 |
+| window:openProviderManager | handle | 打开 API Profile 窗口（旧入口兼容） |
 | window:openSessionManager | handle | 打开会话查询窗口 |
 | window:openUpdateManager | handle | 打开应用更新窗口 |
 | window:openDingTalkSettings | handle | 打开钉钉设置窗口 |

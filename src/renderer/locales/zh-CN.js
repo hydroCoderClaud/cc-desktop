@@ -699,10 +699,10 @@ export default {
       workingDirectory: '工作目录',
       browse: '浏览',
       defaultWorkspace: '默认 Agent 工作目录',
-      apiProfile: 'API 配置',
-      apiProfilePlaceholder: '选择 API 配置',
-      defaultProfile: '默认配置',
-      defaultProfileResolved: '系统默认（{name}）',
+      apiProfile: '模型配置',
+      apiProfilePlaceholder: '选择模型配置',
+      defaultProfile: '默认模型配置',
+      defaultProfileResolved: '系统默认模型配置（{name}）',
       modelId: '模型 ID',
       modelIdPlaceholder: '选择模型 ID',
       modelIdRequired: '请选择明确的模型 ID',
@@ -790,8 +790,8 @@ export default {
   // 设置菜单
   settingsMenu: {
     modelSettings: '模型配置',
-    apiConfig: 'API 配置管理',
-    providerManager: '服务商管理',
+    apiConfig: '模型配置',
+    providerManager: '模型配置',
     globalSettings: '全局设置',
     channelSettings: '渠道配置',
     embeddedApps: '内嵌应用',
@@ -868,16 +868,12 @@ export default {
 
   modelSettings: {
     title: '模型配置',
-    subtitle: '统一管理 API 配置与服务商定义。后续若增加模型路由、默认策略等能力，也可继续收拢到这里。',
+    subtitle: '在同一个模型配置中管理配置名称、密钥、接口地址和模型列表。',
     sidebarTitle: '配置分组',
     sections: {
       profiles: {
-        label: 'API 配置',
-        description: '管理连接配置、默认配置与模型测试'
-      },
-      providers: {
-        label: '服务商管理',
-        description: '管理服务商定义、默认地址与模型映射'
+        label: '模型配置',
+        description: '管理完整连接配置、默认配置与模型测试'
       }
     }
   },
@@ -985,63 +981,36 @@ export default {
     viewGuide: '查看使用指南'
   },
 
-  // API 配置管理
+  // 模型配置管理
   profileManager: {
-    title: 'API 配置管理',
-    subtitle: '管理您的 API 配置文件',
-    addProfile: '添加配置',
-    editProfile: '编辑配置',
-    deleteProfile: '删除配置',
+    title: '模型配置',
+    subtitle: '每个模型配置都包含一套完整的 API 连接信息',
+    addProfile: '添加模型配置',
+    editProfile: '编辑模型配置',
+    deleteProfile: '删除模型配置',
     setDefault: '设为默认',
     isDefault: '默认',
-    profileName: '配置名称',
+    profileName: '名称',
     profileIcon: '图标',
-    serviceProvider: '服务商',
     apiKey: '密钥',
     apiKeyPlaceholder: '输入 API 密钥',
     baseUrl: '接口地址',
     baseUrlPlaceholder: '输入 API 地址',
-    selectedModelId: '默认模型 ID',
+    selectedModelId: '默认模型',
     selectedModelIdPlaceholder: '优先使用真实模型 ID，如 claude-sonnet-4-6',
-    modelListHint: '模型 ID 列表来自服务商定义，这里只选择当前默认模型',
-    noModelIds: '当前服务商还没有可用的模型 ID',
+    defaultModelIds: '模型 ID 列表',
+    defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nclaude-sonnet-4-6\nclaude-opus-4-6',
+    noModelIds: '当前模型配置还没有可用的模型 ID',
     powerfulModel: '最强模型',
     balancedModel: '均衡模型',
     fastModel: '最快模型',
     testSuccess: '连接成功！返回信息：',
     testFailed: '连接失败',
-    deleteConfirm: '确定要删除此配置吗？',
-    deleteSuccess: '配置已删除',
-    saveSuccess: '配置已保存',
-    noProfiles: '暂无配置',
-    noProfilesHint: '点击"添加配置"创建第一个配置'
-  },
-
-  // 服务商管理
-  providerManager: {
-    title: '服务商管理',
-    subtitle: '管理 API 服务商定义',
-    addProvider: '添加服务商',
-    addLinkedProfile: '新增关联 API 配置',
-    editProvider: '编辑服务商',
-    deleteProvider: '删除服务商',
-    providerName: '服务商名称',
-    providerId: '服务商 ID',
-    providerIdHint: '唯一标识符，创建后不可修改',
-    defaultBaseUrl: '默认接口地址',
-    defaultModelIds: '默认模型 ID 列表',
-    defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    deleteConfirm: '确定要删除此服务商吗？',
-    deleteSuccess: '服务商已删除',
-    saveSuccess: '服务商已保存',
-    cannotDeleteBuiltIn: '内置服务商无法删除',
-    cannotEditBuiltIn: '内置服务商无法编辑',
-    providerInUse: '该服务商正在被使用，无法删除',
-    linkedProfiles: '关联 API 配置',
-    linkedProfilesTitle: '{provider} 的 API 配置',
-    linkedProfilesSubtitle: '直接在当前服务商下创建、测试和维护关联的 API 配置。',
-    noLinkedProfiles: '当前服务商还没有关联的 API 配置',
-    selectProviderHint: '选择一个服务商后，可直接在右侧管理它的关联 API 配置。'
+    deleteConfirm: '确定要删除此模型配置吗？',
+    deleteSuccess: '模型配置已删除',
+    saveSuccess: '模型配置已保存',
+    noProfiles: '暂无模型配置',
+    noProfilesHint: '点击“添加模型配置”创建第一个模型配置'
   },
 
   // 全局设置
@@ -1345,8 +1314,8 @@ export default {
     appFilterSessionApps: '会话应用',
     appFilterPlainSessions: '普通会话',
     sessionAppBadge: '应用',
-    apiProfile: 'API 配置',
-    apiProfileTooltip: 'API 配置: ',
+    apiProfile: '模型配置',
+    apiProfileTooltip: '模型配置：',
     modelTooltip: '模型: ',
     send: '发送',
     stopGeneration: '停止生成',
@@ -1776,8 +1745,8 @@ export default {
       placeholder: '开始输入...',
       sources: '{count} 个来源',
       apiSwitched: '已切换到 {name}，下条消息起生效',
-      apiSwitchFailed: '切换 API 失败',
-      noProfiles: '暂无 API 配置',
+      apiSwitchFailed: '切换模型配置失败',
+      noProfiles: '暂无模型配置',
       saveImageToSource: '保存图片到来源',
       saveImageToSourceSuccess: '图片已保存到来源',
       saveImageToSourceFailed: '保存图片到来源失败：{error}',
@@ -1975,12 +1944,12 @@ export default {
     windowTitles: {
       main: 'Hydro Desktop',
       modelSettings: '模型配置 - Hydro Desktop',
-      profileManager: 'API 配置管理 - Hydro Desktop',
+      profileManager: '模型配置 - Hydro Desktop',
       globalSettings: '全局设置 - Hydro Desktop',
       appearanceSettings: '外观设置 - Hydro Desktop',
       channelSettings: '渠道配置 - Hydro Desktop',
       dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
-      providerManager: '服务商管理 - Hydro Desktop',
+      providerManager: '模型配置 - Hydro Desktop',
       sessionManager: '会话查询 - Hydro Desktop',
       settingsWorkbench: '能力管理 - Hydro Desktop',
       updateManager: '应用更新 - Hydro Desktop'

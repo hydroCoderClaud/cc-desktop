@@ -32,7 +32,7 @@
 | feishu-settings | `pages/feishu-settings/` | 飞书机器人配置 |
 | enterprise-weixin-settings | `pages/enterprise-weixin-settings/` | 企业微信机器人配置 |
 | model-settings | `pages/model-settings/` | 模型设置 |
-| provider-manager | `pages/provider-manager/` | 服务商管理 |
+| provider-manager | `pages/provider-manager/` | API Profile 旧入口，复用 Profile 管理页 |
 | profile-manager | `pages/profile-manager/` | API Profile 管理 |
 | global-settings | `pages/global-settings/` | 全局设置 |
 | appearance-settings | `pages/appearance-settings/` | 外观设置（主题/配色） |
@@ -188,16 +188,16 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 
 `DingTalkSettingsContent.vue` (235行) — Stream 模式配置（AppKey/AppSecret/RobotCode）
 
-### provider-manager（服务商管理）
+### provider-manager（旧入口）
 
-`ProviderManagerContent.vue` (274行) — 服务商 CRUD
+`ProviderManagerContent.vue` — 复用 `ProfileManagerContent.vue`，仅保留旧窗口入口兼容性，不提供模板管理
 
 ### profile-manager（Profile 管理）
 
 | 文件 | 行数 | 职责 |
 |------|------|------|
-| `ProfileManagerContent.vue` | 257 | Profile 列表/默认切换 |
-| `ProfileFormModal.vue` | 450 | Profile 表单弹窗（内联维护模型 ID） |
+| `ProfileManagerContent.vue` | 约 250 | Profile 列表/默认切换 |
+| `ProfileFormModal.vue` | 约 300 | 单 Profile 表单，维护配置名称、地址、模型 ID 列表、默认模型与凭据 |
 
 ### global-settings（全局设置）
 
@@ -223,7 +223,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `icons/index.js` | 200 | 101 个图标 SVG 路径定义 | Icon.vue |
 | `DeleteConfirmModal.vue` | 72 | 通用删除确认弹窗 | 多页面 |
 | `ProfileCard.vue` | 137 | Profile 卡片展示 | profile-manager |
-| `ProviderCard.vue` | 130 | 服务商卡片展示 | provider-manager |
 
 ---
 
@@ -244,7 +243,6 @@ App.vue (60行) — NaiveUI Provider + 主题初始化 + 更新监听
 | `useProfiles.js` | 144 | `useProfiles` | ProfileManager, LeftPanel |
 | `useSessionUtils.js` | 134 | `SessionStatus`, `SessionType`, `createTabFromSession` | Tab 管理 |
 | `useIPC.js` | 112 | `useIPC` (invoke/silentInvoke) | 几乎所有 composable |
-| `useProviders.js` | 111 | `useProviders` | ProviderManager, ProfileForm |
 | `useValidation.js` | 107 | `ensureArray`, `isValidProject`, `isValidSession` | 多处 |
 | `useAppMode.js` | 86 | `useAppMode`, `AppMode` | MainContent, LeftPanel |
 | `useFormatters.js` | 62 | `formatDate`, `formatTime`, `formatDuration` | 多处 |

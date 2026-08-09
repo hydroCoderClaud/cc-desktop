@@ -27,9 +27,9 @@
 
 ### config-manager.js
 - **行数**：1260
-- **职责**：应用配置管理（config.json），含 API Profile、服务商、市场、MCP 代理、全局设置与配置迁移
-- **关键方法**：`load()`, `save()`, `getConfig()`, `getAPIConfig()`, `testAPIConnection()`, `getMarketConfig()`, `getMcpProxyConfig()`, `ensureProxySupport()`, `migrateToProfiles()`, `migrateProfileStructure()`
-- **Mixin**：`providerConfigMixin`（服务商 CRUD）、`apiConfigMixin`（API Profile CRUD）
+- **职责**：应用配置管理（config.json），含完整 API Profile、市场、MCP 代理、全局设置与配置迁移
+- **关键方法**：`load()`, `save()`, `getConfig()`, `getAPIConfig()`, `testAPIConnection()`, `getMarketConfig()`, `getMcpProxyConfig()`, `ensureProxySupport()`, `migrateToProfiles()`, `migrateProfileStructure()`, `migrateProviderFieldsToProfiles()`
+- **配置模块**：`provider-config.js` 仅供旧配置迁移读取历史默认地址和模型，`apiConfigMixin` 提供 API Profile CRUD
 - **架构上下文**：-> [配置管理](../design/main-process.md#配置管理)
 
 ### agent-session-manager.js
@@ -234,7 +234,7 @@
 | http-client.js | 264 | `httpGet`, `httpGetWithMirror`, `fetchRegistryIndex`, `classifyHttpError`, `isNewerVersion`, `isValidMarketId`, `isSafeFilename` |
 | path-utils.js | -- | `encodePath`, `getProjectName`, `atomicWriteJson` |
 | agent-constants.js | 115 | `AgentStatus`, `AgentType`, `HIDDEN_DIRS`, `HIDDEN_FILES`, `TEXT_EXTS`, `IMAGE_EXTS`, `LANG_MAP` |
-| constants.js | 58 | `API_DEFAULTS`, `PROXY_DEFAULTS`, `TIMEOUTS`, `SERVICE_PROVIDERS`, `PROFILE_ICONS` |
+| constants.js | 58 | `API_DEFAULTS`, `PROXY_DEFAULTS`, `TIMEOUTS`, `SERVICE_PROVIDERS`（仅迁移）, `PROFILE_ICONS` |
 | message-queue.js | 84 | `MessageQueue`（类：enqueue, drain, cancel, isDone） |
 | ipc-utils.js | 79 | `createIPCHandler`, `createIPCHandlerWithEvent`, `createSyncIPCHandler`, `createIPCListener` |
 | process-tree-kill.js | 39 | `killProcessTree` |
@@ -242,9 +242,9 @@
 
 ---
 
-## Config (Mixin)
+## Config
 
 | 文件 | 行数 | Mixin 名 | 关键方法 |
 |------|------|---------|---------|
 | api-config.js | 266 | `apiConfigMixin` | getAPIProfiles, getAPIProfile, addAPIProfile, updateAPIProfile, deleteAPIProfile, setDefaultProfile, getDefaultProfile |
-| provider-config.js | 172 | `providerConfigMixin` | getServiceProviders, getServiceProviderDefinitions, addServiceProviderDefinition, updateServiceProviderDefinition, deleteServiceProviderDefinition |
+| provider-config.js | 49 | 旧配置迁移辅助 | getDefaultProviders, normalizeProviderDefinition, normalizeModelIds |

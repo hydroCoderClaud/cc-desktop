@@ -1,5 +1,6 @@
 <template>
   <n-modal
+    class="profile-form-modal"
     :show="show"
     @update:show="$emit('update:show', $event)"
     preset="card"
@@ -14,17 +15,11 @@
       </n-space>
     </template>
 
-    <n-form
-      ref="formRef"
-      :model="formData"
-      :rules="rules"
-      label-placement="top"
-    >
-      <!-- Row 1: Name & Icon -->
+    <n-form ref="formRef" :model="formData" :rules="rules" label-placement="top">
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
           <n-form-item :label="t('profileManager.profileName')" path="name">
-            <n-input v-model:value="formData.name" placeholder="e.g., Anthropic Official" />
+            <n-input v-model:value="formData.name" placeholder="e.g., Qwen production" />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
@@ -44,31 +39,39 @@
         </n-grid-item>
       </n-grid>
 
-      <!-- Row 2: Service Provider & Auth Type -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item :label="t('profileManager.serviceProvider')" path="serviceProvider">
-            <n-select
-              v-model:value="formData.serviceProvider"
-              :options="providerOptions"
-              :disabled="!!lockedProviderId"
-              @update:value="onServiceProviderChange"
-            />
+          <n-form-item :label="t('profileManager.baseUrl')">
+            <n-input v-model:value="formData.baseUrl" :placeholder="t('profileManager.baseUrlPlaceholder')" />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item label=" ">
-            <n-radio-group v-model:value="formData.authType">
-              <n-space>
-                <n-radio value="api_key">API Key</n-radio>
-                <n-radio value="auth_token">Auth Token</n-radio>
-              </n-space>
-            </n-radio-group>
+          <n-form-item :label="t('profileManager.selectedModelId')">
+            <div class="model-selector">
+              <n-select
+                v-model:value="formData.selectedModelId"
+                :options="modelOptions"
+                filterable
+                clearable
+                :placeholder="modelSelectPlaceholder"
+              />
+              <div v-if="modelOptions.length === 0" class="model-empty-state">
+                {{ t('profileManager.noModelIds') }}
+              </div>
+            </div>
           </n-form-item>
         </n-grid-item>
       </n-grid>
 
-      <!-- Row 3: Auth Token -->
+      <n-form-item :label="t('profileManager.defaultModelIds')">
+        <n-input
+          v-model:value="formData.defaultModelsText"
+          type="textarea"
+          :autosize="{ minRows: 3, maxRows: 8 }"
+          :placeholder="t('profileManager.defaultModelIdsPlaceholder')"
+        />
+      </n-form-item>
+
       <n-form-item :label="t('profileManager.apiKey')" path="authToken">
         <n-input
           v-model:value="formData.authToken"
@@ -88,47 +91,25 @@
         </n-input>
       </n-form-item>
 
-      <!-- Row 4: Base URL & Default Model -->
       <n-grid :cols="2" :x-gap="24">
         <n-grid-item>
-          <n-form-item :label="t('profileManager.baseUrl')">
-            <n-input :value="resolvedBaseUrl" readonly />
+          <n-form-item label=" ">
+            <n-radio-group v-model:value="formData.authType">
+              <n-space>
+                <n-radio value="api_key">API Key</n-radio>
+                <n-radio value="auth_token">Auth Token</n-radio>
+              </n-space>
+            </n-radio-group>
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
-          <n-form-item :label="t('profileManager.selectedModelId')">
-            <div class="model-selector">
-              <n-select
-                v-model:value="formData.selectedModelId"
-                :options="customModelOptions"
-                filterable
-                clearable
-                :placeholder="modelSelectPlaceholder"
-              />
-
-              <div class="model-selector-hint">
-                {{ t('profileManager.modelListHint') }}
-              </div>
-              <div v-if="customModelOptions.length === 0" class="model-empty-state">
-                {{ t('profileManager.noModelIds') }}
-              </div>
-            </div>
+          <n-form-item :label="t('globalSettings.requestTimeout')">
+            <n-input-number v-model:value="formData.requestTimeout" :min="10" :max="3600" style="width: 150px" />
           </n-form-item>
         </n-grid-item>
       </n-grid>
 
-      <!-- Row 5: Timeout & Disable Traffic -->
       <n-grid :cols="2" :x-gap="24">
-        <n-grid-item>
-          <n-form-item :label="t('globalSettings.requestTimeout')">
-            <n-input-number
-              v-model:value="formData.requestTimeout"
-              :min="10"
-              :max="3600"
-              style="width: 150px"
-            />
-          </n-form-item>
-        </n-grid-item>
         <n-grid-item>
           <n-form-item label=" ">
             <n-space align="center" style="height: 40px;">
@@ -137,15 +118,15 @@
             </n-space>
           </n-form-item>
         </n-grid-item>
+        <n-grid-item>
+          <n-form-item label=" ">
+            <n-space align="center" style="height: 40px;">
+              <n-switch v-model:value="formData.useProxy" />
+              <span>{{ t('common.enabled') }} Proxy</span>
+            </n-space>
+          </n-form-item>
+        </n-grid-item>
       </n-grid>
-
-      <!-- Proxy Settings -->
-      <n-form-item label=" ">
-        <n-space align="center">
-          <n-switch v-model:value="formData.useProxy" />
-          <span>{{ t('common.enabled') }} Proxy</span>
-        </n-space>
-      </n-form-item>
 
       <div v-if="formData.useProxy" class="proxy-fields">
         <n-grid :cols="2" :x-gap="24">
@@ -162,16 +143,15 @@
         </n-grid>
       </div>
 
-      <!-- Description -->
       <n-form-item :label="t('common.description')">
-        <n-input v-model:value="formData.description" placeholder="" />
+        <n-input v-model:value="formData.description" />
       </n-form-item>
     </n-form>
   </n-modal>
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -183,38 +163,22 @@ const props = defineProps({
   show: Boolean,
   profile: Object,
   isEdit: Boolean,
-  providers: Array,
-  testing: Boolean,
-  lockedProviderId: {
-    type: String,
-    default: ''
-  }
+  testing: Boolean
 })
 
 const emit = defineEmits(['update:show', 'save', 'test'])
 
 const formRef = ref(null)
 const showPassword = ref(false)
-
-const copyApiKey = async () => {
-  if (!formData.value.authToken) return
-  try {
-    await navigator.clipboard.writeText(formData.value.authToken)
-    message.success(t('common.copied'))
-  } catch (err) {
-    message.error(t('common.copyFailed'))
-  }
-}
-
-const availableIcons = ['🟣', '🔵', '🟢', '🟠', '🟡', '🔴', '⚪', '⚫']
+const availableIcons = ['\uD83E\uDD16', '\uD83D\uDCBC', '\uD83E\uDDE0', '\uD83C\uDF10', '\uD83D\uDD25', '\uD83D\uDCA1', '\u2B50', '\uD83D\uDE80']
 
 const defaultFormData = () => ({
   name: '',
-  icon: '🟣',
-  serviceProvider: '',
+  icon: '\uD83E\uDD16',
   authType: 'auth_token',
   authToken: '',
   baseUrl: '',
+  defaultModelsText: '',
   selectedModelId: '',
   requestTimeout: 120,
   disableNonessentialTraffic: true,
@@ -228,16 +192,8 @@ const formData = ref(defaultFormData())
 
 const rules = computed(() => ({
   name: [{ required: true, message: t('common.required'), trigger: 'blur' }],
-  serviceProvider: [{ required: true, message: t('common.required'), trigger: 'change' }],
   authToken: [{ required: true, message: t('common.required'), trigger: 'blur' }]
 }))
-
-const providerOptions = computed(() => {
-  return (props.providers || []).map(p => ({
-    label: p.name || p.label,
-    value: p.id
-  }))
-})
 
 const normalizeModelIds = (modelIds) => {
   const normalized = []
@@ -253,190 +209,122 @@ const normalizeModelIds = (modelIds) => {
   return normalized
 }
 
-const getActiveProvider = (serviceProvider = formData.value.serviceProvider) => {
-  return props.providers?.find(provider => provider.id === serviceProvider) || null
+const splitModelIds = (value) => normalizeModelIds(String(value || '').split(/\r?\n/))
+
+const resolveSelectedModelId = (modelIds, value) => {
+  const normalizedModelIds = normalizeModelIds(modelIds)
+  const selectedModelId = typeof value === 'string' ? value.trim() : ''
+
+  if (normalizedModelIds.length === 0) {
+    return ''
+  }
+
+  if (!selectedModelId || normalizedModelIds.includes(selectedModelId)) {
+    return selectedModelId
+  }
+
+  return normalizedModelIds[0]
 }
 
-const resolvedBaseUrl = computed(() => {
-  const providerBaseUrl = getActiveProvider()?.baseUrl
-  if (typeof providerBaseUrl === 'string' && providerBaseUrl.trim()) {
-    return providerBaseUrl.trim()
-  }
-  return typeof formData.value.baseUrl === 'string' ? formData.value.baseUrl.trim() : ''
-})
+const syncSelectedModelId = () => {
+  const modelIds = splitModelIds(formData.value.defaultModelsText)
+  const selectedModelId = resolveSelectedModelId(modelIds, formData.value.selectedModelId)
 
-const providerModelIds = computed(() => {
-  return normalizeModelIds(getActiveProvider()?.defaultModels)
-})
-
-const customModelOptions = computed(() => {
-  const mergedModelIds = normalizeModelIds([
-    ...providerModelIds.value,
-    formData.value.selectedModelId
-  ])
-
-  return mergedModelIds.map(modelId => ({
-    label: modelId,
-    value: modelId
-  }))
-})
-
-const modelSelectPlaceholder = computed(() => {
-  if (customModelOptions.value.length > 0) {
-    return t('profileManager.selectedModelIdPlaceholder')
-  }
-  return t('profileManager.noModelIds')
-})
-
-const onServiceProviderChange = (value) => {
-  const provider = props.providers?.find(p => p.id === value)
-  if (provider) {
-    if (provider.baseUrl) {
-      formData.value.baseUrl = provider.baseUrl
-    }
-    const providerDefaultModels = normalizeModelIds(provider.defaultModels)
-    const currentSelectedModelId = typeof formData.value.selectedModelId === 'string'
-      ? formData.value.selectedModelId.trim()
-      : ''
-    if (!currentSelectedModelId || !providerDefaultModels.includes(currentSelectedModelId)) {
-      formData.value.selectedModelId = providerDefaultModels.length > 0 ? providerDefaultModels[0] : ''
-    }
+  if (formData.value.selectedModelId !== selectedModelId) {
+    formData.value.selectedModelId = selectedModelId
   }
 }
 
-// Watch for profile changes to populate form
-watch(() => props.profile, (newProfile) => {
-  if (newProfile) {
-    formData.value = {
-      ...defaultFormData(),
-      ...newProfile,
-      selectedModelId: typeof newProfile.selectedModelId === 'string' ? newProfile.selectedModelId.trim() : '',
-      requestTimeout: (newProfile.requestTimeout || 120000) / 1000
-    }
-  } else {
+const modelOptions = computed(() => splitModelIds(formData.value.defaultModelsText)
+  .map(modelId => ({ label: modelId, value: modelId })))
+
+const modelSelectPlaceholder = computed(() => (
+  modelOptions.value.length > 0
+    ? t('profileManager.selectedModelIdPlaceholder')
+    : t('profileManager.noModelIds')
+))
+
+watch(() => props.profile, (profile) => {
+  if (!profile) {
     formData.value = defaultFormData()
+    return
   }
+
+  const profileFields = { ...profile }
+  delete profileFields.serviceProvider
+  delete profileFields.providerName
+  formData.value = {
+    ...defaultFormData(),
+    ...profileFields,
+    defaultModelsText: normalizeModelIds(profile.defaultModels).join('\n'),
+    selectedModelId: typeof profile.selectedModelId === 'string' ? profile.selectedModelId.trim() : '',
+    requestTimeout: (profile.requestTimeout || 120000) / 1000
+  }
+  syncSelectedModelId()
 }, { immediate: true })
 
-watch(() => props.lockedProviderId, (providerId) => {
-  if (!providerId) return
-  formData.value.serviceProvider = providerId
-  onServiceProviderChange(providerId)
-}, { immediate: true })
+watch(() => formData.value.defaultModelsText, syncSelectedModelId)
 
-// Keep the selected model aligned when the active provider's model list changes.
-watch(
-  () => normalizeModelIds(getActiveProvider()?.defaultModels),
-  () => {
-    const serviceProvider = formData.value.serviceProvider
-    if (serviceProvider) {
-      onServiceProviderChange(serviceProvider)
-    }
-  },
-  { deep: true, immediate: true }
-)
-
-// Watch for proxy toggle to auto-fill defaults
 watch(() => formData.value.useProxy, (useProxy) => {
-  if (useProxy) {
-    if (!formData.value.httpsProxy) {
-      formData.value.httpsProxy = 'http://127.0.0.1:7890'
-    }
-    if (!formData.value.httpProxy) {
-      formData.value.httpProxy = 'http://127.0.0.1:7890'
-    }
-  }
+  if (!useProxy) return
+  if (!formData.value.httpsProxy) formData.value.httpsProxy = 'http://127.0.0.1:7890'
+  if (!formData.value.httpProxy) formData.value.httpProxy = 'http://127.0.0.1:7890'
 })
+
+const copyApiKey = async () => {
+  if (!formData.value.authToken) return
+  try {
+    await navigator.clipboard.writeText(formData.value.authToken)
+    message.success(t('common.copied'))
+  } catch (err) {
+    message.error(t('common.copyFailed'))
+  }
+}
+
+const buildProfileData = () => {
+  const defaultModels = splitModelIds(formData.value.defaultModelsText)
+
+  return {
+    name: formData.value.name.trim(),
+    icon: formData.value.icon,
+    authType: formData.value.authType,
+    authToken: formData.value.authToken,
+    baseUrl: formData.value.baseUrl.trim(),
+    defaultModels,
+    selectedModelId: resolveSelectedModelId(defaultModels, formData.value.selectedModelId),
+    requestTimeout: formData.value.requestTimeout * 1000,
+    disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
+    useProxy: formData.value.useProxy,
+    httpsProxy: formData.value.httpsProxy,
+    httpProxy: formData.value.httpProxy,
+    description: formData.value.description
+  }
+}
 
 const handleSave = async () => {
   try {
     await formRef.value?.validate()
-
-    const selectedModelId = formData.value.selectedModelId?.trim() || ''
-
-    const data = {
-      name: formData.value.name,
-      icon: formData.value.icon,
-      serviceProvider: formData.value.serviceProvider,
-      authType: formData.value.authType,
-      authToken: formData.value.authToken,
-      baseUrl: resolvedBaseUrl.value,
-      selectedModelId,
-      requestTimeout: formData.value.requestTimeout * 1000,
-      disableNonessentialTraffic: formData.value.disableNonessentialTraffic,
-      useProxy: formData.value.useProxy,
-      httpsProxy: formData.value.httpsProxy,
-      httpProxy: formData.value.httpProxy,
-      description: formData.value.description
-    }
-
-    emit('save', data)
+    emit('save', buildProfileData())
   } catch (errors) {
     console.warn('Validation failed:', errors)
   }
 }
 
-const handleTest = () => {
-  const config = {
-    baseUrl: resolvedBaseUrl.value,
-    authToken: formData.value.authToken,
-    authType: formData.value.authType,
-    serviceProvider: formData.value.serviceProvider,
-    selectedModelId: formData.value.selectedModelId?.trim() || '',
-    useProxy: formData.value.useProxy,
-    httpsProxy: formData.value.httpsProxy,
-    httpProxy: formData.value.httpProxy
-  }
-  emit('test', config)
-}
+const handleTest = () => emit('test', buildProfileData())
 </script>
 
 <style scoped>
-.icon-picker {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.icon-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.icon-option { width: 36px; height: 36px; border: 2px solid var(--border-color, #e5e5e0); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: all 0.2s; }
+.icon-option:hover { border-color: var(--primary-color); background: var(--primary-ghost); }
+.icon-option.selected { border-color: var(--primary-color); background: var(--primary-color); }
+.proxy-fields { background: var(--bg-color-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+.model-selector { display: flex; flex-direction: column; gap: 10px; }
+.model-empty-state { font-size: 12px; opacity: 0.7; }
 
-.icon-option {
-  width: 36px;
-  height: 36px;
-  border: 2px solid var(--border-color, #e5e5e0);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.icon-option:hover {
-  border-color: var(--primary-color);
-  background: var(--primary-ghost);
-}
-
-.icon-option.selected {
-  border-color: var(--primary-color);
-  background: var(--primary-color);
-}
-
-.proxy-fields {
-  background: var(--bg-color-tertiary);
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.model-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.model-selector-hint,
-.model-empty-state {
-  font-size: 12px;
-  opacity: 0.7;
+@media (max-width: 600px) {
+  :global(.profile-form-modal .n-card-header) { flex-wrap: wrap; row-gap: 8px; }
+  :global(.profile-form-modal > .n-card-header .n-card-header__main) { flex: 1 1 100%; min-width: 0; }
+  :global(.profile-form-modal .n-card-header__extra) { margin-left: auto; }
 }
 </style>

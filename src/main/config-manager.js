@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { TIMEOUTS } = require('./utils/constants');
-const { providerConfigMixin, getDefaultProviders } = require('./config/provider-config');
+const { getDefaultProviders } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
 const {
@@ -92,9 +92,6 @@ class ConfigManager {
       // 多 API 配置支持
       apiProfiles: [],
       defaultProfileId: null,  // 默认 Profile（启动时推荐使用）
-
-      // 服务商定义（首次初始化写入默认列表，之后以持久化配置为准）
-      serviceProviderDefinitions: getDefaultProviders(),
 
       // 超时配置
       timeout: {
@@ -240,8 +237,9 @@ class ConfigManager {
         // 迁移旧的单 API 配置到 apiProfiles
         let migratedConfig = this.migrateToProfiles(mergedConfig);
 
-        // 迁移 Profile 结构（category/model → serviceProvider/selectedModelId）
+        // Migrate legacy Profile fields before absorbing provider template data.
         migratedConfig = this.migrateProfileStructure(migratedConfig);
+        migratedConfig = this.migrateProviderFieldsToProfiles(migratedConfig);
 
         const normalizedDeveloperClaudeSource = normalizeDeveloperClaudeSource(
           migratedConfig?.settings?.developerClaudeSource
@@ -351,14 +349,6 @@ class ConfigManager {
           needsSave = true;
         }
 
-        // 规范化服务商定义，并将旧 profile 模型列表并入服务商默认模型列表
-        this.config = migratedConfig;
-        const normalizedProviderDefinitions = this.getServiceProviderDefinitions();
-        if (JSON.stringify(normalizedProviderDefinitions) !== JSON.stringify(migratedConfig.serviceProviderDefinitions)) {
-          migratedConfig.serviceProviderDefinitions = normalizedProviderDefinitions;
-          needsSave = true;
-        }
-
         // 如果发生了迁移，保存新配置
         if (needsSave || migratedConfig !== mergedConfig) {
           this.save(migratedConfig);
@@ -405,7 +395,7 @@ class ConfigManager {
     return this.config;
   }
 
-  // 服务商管理方法由 providerConfigMixin 提供
+  // Provider templates are retired; legacy definitions are handled only during startup migration.
 
   /**
    * 获取组件市场配置
@@ -539,7 +529,7 @@ class ConfigManager {
         authToken: defaultProfile.authToken,
         authType: defaultProfile.authType || 'api_key',  // 默认 api_key（官方标准）
         baseUrl: defaultProfile.baseUrl,
-        serviceProvider: defaultProfile.serviceProvider || 'official',
+        defaultModels: Array.isArray(defaultProfile.defaultModels) ? defaultProfile.defaultModels : [],
         selectedModelId: resolveConfiguredModelId(this.config, defaultProfile),
         requestTimeout: defaultProfile.requestTimeout || this.getTimeout().request,
         disableNonessentialTraffic: defaultProfile.disableNonessentialTraffic !== false,
@@ -553,7 +543,7 @@ class ConfigManager {
       authToken: '',
       authType: 'api_key',
       baseUrl: '',
-      serviceProvider: '',
+      defaultModels: [],
       selectedModelId: '',
       requestTimeout: this.getTimeout().request,
       disableNonessentialTraffic: true,
@@ -655,9 +645,11 @@ class ConfigManager {
       migrated = true;
       profile = { ...profile }
 
-      // 1. 迁移 category → serviceProvider
+      // 1. 保留旧 category 作为一次性迁移线索，后续会删除服务商字段
       if (profile.category !== undefined && profile.serviceProvider === undefined) {
         profile.serviceProvider = profile.category;
+      }
+      if (profile.category !== undefined) {
         delete profile.category;
       }
 
@@ -736,6 +728,74 @@ class ConfigManager {
   }
 
   /**
+   * Fold the meaningful fields from the retired provider-definition layer into
+   * API profiles. Existing profile IDs are preserved for session and task
+   * compatibility.
+   */
+  migrateProviderFieldsToProfiles(config) {
+    const profiles = Array.isArray(config.apiProfiles) ? config.apiProfiles : [];
+    const hasLegacyDefinitions = Object.prototype.hasOwnProperty.call(config, 'serviceProviderDefinitions');
+    const storedDefinitions = Array.isArray(config.serviceProviderDefinitions)
+      ? config.serviceProviderDefinitions
+      : [];
+
+    if (profiles.length === 0 && !hasLegacyDefinitions) {
+      return config;
+    }
+
+    const definitions = new Map();
+    for (const provider of getDefaultProviders()) {
+      definitions.set(provider.id, provider);
+    }
+    for (const definition of storedDefinitions) {
+      const id = typeof definition?.id === 'string' ? definition.id.trim() : '';
+      if (!id) continue;
+      definitions.set(id, {
+        id,
+        name: typeof definition.name === 'string' ? definition.name : id,
+        baseUrl: typeof definition.baseUrl === 'string' ? definition.baseUrl.trim() : '',
+        defaultModels: Array.isArray(definition.defaultModels)
+          ? definition.defaultModels.filter(model => typeof model === 'string' && model.trim()).map(model => model.trim())
+          : []
+      });
+    }
+
+    let changed = hasLegacyDefinitions;
+    const nextProfiles = profiles.map(profile => {
+      const providerId = typeof profile?.serviceProvider === 'string' ? profile.serviceProvider.trim() : '';
+      const definition = definitions.get(providerId);
+      const hasDefaultModels = Object.prototype.hasOwnProperty.call(profile || {}, 'defaultModels');
+      const nextProfile = {
+        ...profile,
+        baseUrl: typeof profile?.baseUrl === 'string' && profile.baseUrl.trim()
+          ? profile.baseUrl.trim()
+          : (definition?.baseUrl || ''),
+        defaultModels: hasDefaultModels && Array.isArray(profile.defaultModels)
+          ? profile.defaultModels.filter(model => typeof model === 'string' && model.trim()).map(model => model.trim())
+          : (definition?.defaultModels || [])
+      };
+
+      delete nextProfile.serviceProvider;
+      delete nextProfile.providerName;
+
+      if (JSON.stringify(nextProfile) !== JSON.stringify(profile)) {
+        changed = true;
+        return nextProfile;
+      }
+      return profile;
+    });
+
+    if (!changed) {
+      return config;
+    }
+
+    const nextConfig = { ...config, apiProfiles: nextProfiles };
+    delete nextConfig.serviceProviderDefinitions;
+    console.log('[ConfigManager] Migrated provider definitions into API profiles');
+    return nextConfig;
+  }
+
+  /**
    * 迁移旧的单 API 配置到 apiProfiles
    * @param {Object} config - 配置对象
    * @returns {Object} - 迁移后的配置
@@ -772,9 +832,9 @@ class ConfigManager {
       name: '默认配置',
       authToken: authToken,
       authType: 'api_key',
-      serviceProvider: 'official',
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
+      defaultModels: [],
       selectedModelId: normalizeModelValue(oldApi.model),
       requestTimeout: TIMEOUTS.API_REQUEST,
       disableNonessentialTraffic: true,
@@ -1018,7 +1078,7 @@ class ConfigManager {
         if (!configuredModelId) {
           safeResolve({
             success: false,
-            message: '未配置模型 ID，请先为当前 API Profile 选择模型 ID'
+            message: '未配置模型 ID，请先为当前模型配置选择模型 ID'
           });
           return;
         }
@@ -1246,7 +1306,7 @@ if (proxyUrl) {
 
 }
 
-// Apply mixins (provider config, api config)
-Object.assign(ConfigManager.prototype, providerConfigMixin, apiConfigMixin);
+// Apply API config mixin.
+Object.assign(ConfigManager.prototype, apiConfigMixin);
 
 module.exports = ConfigManager;

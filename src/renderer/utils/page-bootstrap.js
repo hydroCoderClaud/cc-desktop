@@ -4,13 +4,13 @@ const BOOTSTRAP_I18N = {
       windowTitles: {
         main: 'Hydro Desktop',
         modelSettings: '模型配置 - Hydro Desktop',
-        profileManager: 'API 配置管理 - Hydro Desktop',
+        profileManager: '模型配置 - Hydro Desktop',
         globalSettings: '全局设置 - Hydro Desktop',
         appearanceSettings: '外观设置 - Hydro Desktop',
         hydrologyWorkbench: '水文站工作台 - Hydro Desktop',
         channelSettings: '渠道配置 - Hydro Desktop',
         dingtalkSettings: '钉钉桥接设置 - Hydro Desktop',
-        providerManager: '服务商管理 - Hydro Desktop',
+        providerManager: '模型配置 - Hydro Desktop',
         sessionManager: '会话查询 - Hydro Desktop',
         settingsWorkbench: '能力管理 - Hydro Desktop',
         updateManager: '应用更新 - Hydro Desktop'
@@ -25,14 +25,14 @@ const BOOTSTRAP_I18N = {
     app: {
       windowTitles: {
         main: 'Hydro Desktop',
-        modelSettings: 'Model Settings - Hydro Desktop',
-        profileManager: 'API Profile Manager - Hydro Desktop',
+        modelSettings: 'API Profiles - Hydro Desktop',
+        profileManager: 'API Profiles - Hydro Desktop',
         globalSettings: 'Global Settings - Hydro Desktop',
         appearanceSettings: 'Appearance Settings - Hydro Desktop',
         hydrologyWorkbench: 'Hydrology Workbench - Hydro Desktop',
         channelSettings: 'Channel Settings - Hydro Desktop',
         dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
-        providerManager: 'Provider Manager - Hydro Desktop',
+        providerManager: 'API Profiles - Hydro Desktop',
         sessionManager: 'Session Browser - Hydro Desktop',
         settingsWorkbench: 'Capability Management - Hydro Desktop',
         updateManager: 'Application Update - Hydro Desktop'

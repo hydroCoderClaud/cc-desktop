@@ -61,21 +61,21 @@ Custom license — personal use, learning, and development permitted; commercial
 - **Agent + Notebook 工作台** — 项目化 Agent 对话（图片识别、流式输出），以及 Notebook 资料整理与成果生成工作台
 - **MCP / Skills / Plugins / Agents / Hooks** — 可扩展能力体系，可视化管理，内置组件市场与能力设置工作台
 - **内建插件运行时** — 插件市场增删改查与插件安装、卸载、启停、更新已由桌面端主进程直接处理，不再依赖 `claude plugin ...`
-- **多服务商 API 管理** — 支持官方 API、中转服务、兼容端点，按服务商维护默认模型映射，并为 Profile 指定默认模型 ID
+- **模型配置管理** — 支持官方 API、中转服务和兼容端点，每个模型配置独立维护地址、密钥、模型列表和默认模型 ID
 - **多 IM 桥接** — 将 Claude Code 桥接到钉钉、飞书、企业微信，并保留微信通知 / 聊天能力
 - **跨平台** — Windows & macOS，6 套配色方案，深色/浅色模式，中英文界面
 
 ### 快速开始
 
 1. **下载** — 从 [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) 页面获取版本按照指南安装
-2. **运行** — 启动 Hydro Desktop，配置 API 服务商，开始编码
+2. **运行** — 启动 Hydro Desktop，完成模型配置，开始编码
 
 > 详细安装步骤（Node.js、Git Bash、安装包使用）请参阅完整 [安装指南](docs/INSTALL.md)。
 
 ### 使用入门
 
-1. **配置服务商** — 设置 → 服务商管理 → 选择或添加服务商
-2. **添加 API Key** — 设置 → API 配置管理 → 添加密钥
+1. **配置模型** — 设置 → 模型配置 → 添加或编辑模型配置
+2. **添加 API Key** — 在模型配置中填写密钥并测试连接
 3. **连接项目** — 选择项目文件夹 → 连接 → 开始与 Claude 对话
 
 ### 常见问题

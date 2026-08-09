@@ -1,14 +1,14 @@
-# API 配置指南
+# 模型配置指南
 
-本文档说明如何在 Hydro Desktop 中配置当前版本使用的 API Profile、服务商定义和代理参数，并与实际程序行为保持一致。
+本文档说明如何在 Hydro Desktop 中管理模型配置和代理参数，并与实际程序行为保持一致。
 
 ## 配置入口
 
 ### 方式 1：界面配置（推荐）
 
-1. 启动应用后，打开 **API 配置管理** 窗口。
-2. 新增或编辑一个 Profile。
-3. 选择 Qwen Token Plan 或 DeepSeek，填写认证令牌；基础 URL 与默认模型会从服务商模板带入。
+1. 启动应用后，打开 **模型配置** 窗口。
+2. 新增或编辑一个模型配置。
+3. 填写配置名称、认证令牌、基础 URL、模型 ID 列表和默认模型 ID。
 4. 点击 **测试连接** 验证配置。
 
 如需从代码中打开该窗口，可调用：
@@ -27,11 +27,10 @@ window.electronAPI.openProfileManager()
 
 当前版本应编辑：
 
-- `apiProfiles`：API Profile 列表
+- `apiProfiles`：完整的 API Profile 列表（内部字段名），每个模型配置独立保存名称、地址、认证信息和模型列表
 - `defaultProfileId`：默认 Profile ID
-- `serviceProviderDefinitions`：服务商定义（首次安装预置 Qwen Token Plan 与 DeepSeek）
 
-不再使用旧版 `settings.api`、`customModels`、`selectedModelTier` 等结构。
+旧版 `serviceProviderDefinitions`、`serviceProvider` 和 `providerName` 只用于启动时一次性迁移；迁移完成后会从配置文件移除。
 
 ## 当前配置结构
 
@@ -45,10 +44,10 @@ window.electronAPI.openProfileManager()
       "id": "profile-qwen",
       "name": "千问tokenplan",
       "icon": "🔵",
-      "serviceProvider": "qwen",
       "authToken": "your-token",
       "authType": "auth_token",
       "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+      "defaultModels": ["qwen3.7-plus", "qwen3.7-max"],
       "selectedModelId": "qwen3.7-plus",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
@@ -62,7 +61,7 @@ window.electronAPI.openProfileManager()
 }
 ```
 
-### 含自定义服务商的示例
+### 另一套 API 网关示例
 
 ```json
 {
@@ -72,10 +71,10 @@ window.electronAPI.openProfileManager()
       "id": "profile-custom",
       "name": "Company Gateway",
       "icon": "🟢",
-      "serviceProvider": "company-gateway",
       "authToken": "internal-token",
       "authType": "auth_token",
       "baseUrl": "https://gateway.example.com/anthropic",
+      "defaultModels": ["claude-sonnet-4-6", "claude-opus-4-6"],
       "selectedModelId": "claude-sonnet-4-6",
       "requestTimeout": 180000,
       "disableNonessentialTraffic": true,
@@ -84,17 +83,6 @@ window.electronAPI.openProfileManager()
       "httpProxy": "",
       "description": "企业内部网关",
       "isDefault": true
-    }
-  ],
-  "serviceProviderDefinitions": [
-    {
-      "id": "company-gateway",
-      "name": "Company Gateway",
-      "baseUrl": "https://gateway.example.com/anthropic",
-      "defaultModels": [
-        "claude-sonnet-4-6",
-        "claude-opus-4-6"
-      ]
     }
   ]
 }
@@ -107,25 +95,16 @@ window.electronAPI.openProfileManager()
 | 字段 | 说明 |
 |------|------|
 | `name` | Profile 显示名称 |
-| `serviceProvider` | 服务商 ID，例如 `qwen`、`deepseek` 或自定义服务商 |
 | `authToken` | 认证令牌 |
 | `authType` | `api_key` 或 `auth_token`；新增 Profile 默认 `auth_token` |
 | `baseUrl` | API 基础地址 |
+| `defaultModels` | 当前 Profile 可选模型 ID 列表 |
 | `selectedModelId` | 默认模型 ID，直接写真实模型名 |
 | `requestTimeout` | 请求超时，单位毫秒 |
 | `disableNonessentialTraffic` | 是否关闭非必要网络流量 |
 | `useProxy` | 是否启用代理 |
 | `httpsProxy` / `httpProxy` | 代理地址 |
 | `description` | 备注说明 |
-
-### 服务商定义字段
-
-| 字段 | 说明 |
-|------|------|
-| `id` | 服务商唯一 ID |
-| `name` | 服务商显示名称 |
-| `baseUrl` | 默认基础地址 |
-| `defaultModels` | 当前服务商可选模型 ID 列表 |
 
 ## 当前程序行为
 
@@ -134,7 +113,8 @@ window.electronAPI.openProfileManager()
 - 当前版本已经移除 Profile 级 `selectedModelTier`。
 - 当前版本已经移除全局和 Profile 级 `customModels`。
 - 默认模型使用 `selectedModelId`，直接传递真实模型 ID。
-- 选择服务商时，`defaultModels` 的第一项会预填到该 Profile 的 `selectedModelId`。
+- 不存在服务商模板选择；地址、模型 ID 列表和默认模型 ID 都直接由当前 Profile 管理。
+- `defaultModels` 和 `selectedModelId` 都从当前 Profile 读取，Profile 之间互不共享模型列表。
 
 ### 配置生效时机
 
@@ -173,7 +153,6 @@ window.electronAPI.openProfileManager()
     {
       "id": "official",
       "name": "Anthropic Official",
-      "serviceProvider": "official",
       "authToken": "sk-ant-api03-xxxxxxxxxxxx",
       "authType": "api_key",
       "baseUrl": "https://api.anthropic.com",
@@ -195,7 +174,6 @@ window.electronAPI.openProfileManager()
     {
       "id": "proxy-service",
       "name": "Proxy Service",
-      "serviceProvider": "proxy",
       "authToken": "your-token",
       "authType": "api_key",
       "baseUrl": "https://proxy.example.com/v1",
@@ -217,7 +195,6 @@ window.electronAPI.openProfileManager()
     {
       "id": "official",
       "name": "Anthropic Official",
-      "serviceProvider": "official",
       "authToken": "sk-ant-api03-xxxxxxxxxxxx",
       "authType": "api_key",
       "baseUrl": "https://api.anthropic.com",
@@ -260,9 +237,9 @@ window.electronAPI.openProfileManager()
 
 ### 问题 3：模型列表为空
 
-- 这是服务商定义 `defaultModels` 为空导致的界面候选缺失
+- 这是当前 Profile 的 `defaultModels` 为空导致的界面候选缺失
 - 可以直接手动填写 `selectedModelId`
-- 或补充对应服务商定义的 `defaultModels`
+- 或直接补充当前 Profile 的 `defaultModels`
 
 ### 问题 4：代理已打开但请求仍直连
 

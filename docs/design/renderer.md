@@ -33,8 +33,8 @@
 | feishu-settings | 飞书机器人配置 | 主窗口菜单 |
 | enterprise-weixin-settings | 企业微信机器人配置 | 主窗口菜单 |
 | model-settings | 模型设置 | 主窗口菜单 |
-| provider-manager | 服务商 CRUD | 设置 / Profile 表单 |
-| profile-manager | API Profile 管理（默认切换，内联维护模型 ID） | 左侧面板 Profile 选择器 |
+| provider-manager | API Profile 旧入口，复用 Profile 管理页 | 设置菜单旧入口 |
+| profile-manager | API Profile 管理（默认切换，内联维护地址和模型列表） | 左侧面板 Profile 选择器 |
 | global-settings | 全局设置（语言、路径等基础配置） | 主窗口菜单 |
 | appearance-settings | 外观设置（主题/配色方案选择） | 主窗口菜单 |
 | settings-workbench | 能力设置工作台（目录上下文来源整理 / 定时任务管理 / 微信通知） | 主窗口与 Notebook 工具入口 |
@@ -144,7 +144,7 @@ MainContent 当前以 **Agent 工作台** 为主。Notebook 作为 `notebook-wor
 - `Ctrl+Enter` / `Shift+Enter` 发送
 - 图片粘贴 / 文件拖放 → base64 预览缩略图
 - `/` 触发 capability 快捷列表（skill/agent/plugin 调用）
-- API 配置与模型切换 — 工具栏上以图标按钮形式显示 API 配置和当前模型，hover 显示当前值，点击弹出选择列表。候选项来自当前服务商 `defaultModels` 与 Profile 的 `selectedModelId`，实时通过 `setAgentModel` IPC 同步。切换逻辑统一在 `ChatInputToolbar.vue` 中
+- API 配置与模型切换 — 工具栏上以图标按钮形式显示 API 配置和当前模型，hover 显示当前值，点击弹出选择列表。候选项来自当前 API Profile 的 `defaultModels` 与 `selectedModelId`，实时通过 `setAgentModel` IPC 同步。切换逻辑统一在 `ChatInputToolbar.vue` 中
 - 工具栏支持快捷创建定时任务草案，以及向已绑定微信目标直接发送消息
 - Token 计数显示、历史消息上下翻
 
@@ -328,7 +328,6 @@ export function useAppMode() {
 |------------|------|------|
 | `useProjects` | 332 | 项目 CRUD + 选择 |
 | `useProfiles` | 144 | API Profile 管理 |
-| `useProviders` | 111 | 服务商管理 |
 | `usePrompts` | 327 | 提示词 CRUD + 标签 |
 
 **基础设施**：

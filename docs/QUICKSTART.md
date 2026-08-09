@@ -40,10 +40,10 @@ Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` �
 
 ## 常见操作
 
-### 配置 API
+### 模型配置
 
-1. 点击右上角的 API 配置入口，打开 **API 配置管理** 窗口。
-2. 新增或编辑 Profile，填写 API Key、服务商、模型 ID 和代理等信息。
+1. 点击右上角的模型配置入口，打开 **模型配置** 窗口。
+2. 新增或编辑模型配置，填写配置名称、API Key、接口地址、模型 ID 列表、默认模型 ID 和代理等信息。
 3. 点击 **测试连接** 确认配置可用。
 
 **配置文件位置**：
@@ -140,7 +140,7 @@ Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` �
 
 - 阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 了解整体架构
 - 阅读 [BUILD.md](./BUILD.md) 查看构建与打包流程
-- 阅读 [API-CONFIG-GUIDE.zh.md](./user-guide/API-CONFIG-GUIDE.zh.md) 了解 API Profile 结构
+- 阅读 [API-CONFIG-GUIDE.zh.md](./user-guide/API-CONFIG-GUIDE.zh.md) 了解模型配置结构
 - 阅读 [WEIXIN-GUIDE.zh.md](./user-guide/WEIXIN-GUIDE.zh.md) 了解微信通知与双向聊天能力
 - 阅读 [FEISHU-GUIDE.zh.md](./user-guide/FEISHU-GUIDE.zh.md) 了解飞书桥接能力
 - 阅读 [DINGTALK-GUIDE.zh.md](./user-guide/DINGTALK-GUIDE.zh.md) 了解钉钉桥接能力

@@ -18,6 +18,10 @@
 
     <div class="profile-info">
       <div class="info-row">
+        <span class="label">{{ t('profileManager.selectedModelId') }}:</span>
+        <span class="value">{{ profile.selectedModelId || '-' }}</span>
+      </div>
+      <div class="info-row">
         <span class="label">{{ t('profileManager.apiKey') }}:</span>
         <span class="value">{{ maskedApiKey }}</span>
       </div>

@@ -4,9 +4,23 @@
  */
 
 const { v4: uuidv4 } = require('uuid')
+const { normalizeModelIds } = require('./provider-config')
 
 function normalizeModelValue(value) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeSelectedModelId(modelIds, value) {
+  const selectedModelId = normalizeModelValue(value)
+  if (modelIds.length === 0) {
+    return ''
+  }
+
+  if (!selectedModelId || modelIds.includes(selectedModelId)) {
+    return selectedModelId
+  }
+
+  return modelIds[0]
 }
 
 /**
@@ -38,16 +52,17 @@ const apiConfigMixin = {
 
     // Get global timeout as default value
     const globalTimeout = this.getTimeout()
+    const defaultModels = normalizeModelIds(profileData.defaultModels)
 
     const newProfile = {
       id: uuidv4(),
       name: profileData.name || 'New Profile',
       authToken: profileData.authToken || '',
       authType: profileData.authType || 'auth_token',
-      serviceProvider: profileData.serviceProvider || '',
       description: profileData.description || '',
       baseUrl: profileData.baseUrl || '',
-      selectedModelId: normalizeModelValue(profileData.selectedModelId),
+      defaultModels,
+      selectedModelId: normalizeSelectedModelId(defaultModels, profileData.selectedModelId),
       requestTimeout: profileData.requestTimeout || globalTimeout.request,
       disableNonessentialTraffic: profileData.disableNonessentialTraffic !== false,
       useProxy: profileData.useProxy || false,
@@ -81,9 +96,22 @@ const apiConfigMixin = {
     }
 
     // 更新字段（不允许通过此方法修改 isDefault）
-    const { isDefault, modelMapping, selectedModelTier, ...safeUpdates } = updates
+    const {
+      isDefault,
+      modelMapping,
+      defaultModelMapping,
+      selectedModelTier,
+      serviceProvider,
+      providerName,
+      category,
+      ...safeUpdates
+    } = updates
     Object.assign(profile, safeUpdates)
-    profile.selectedModelId = normalizeModelValue(profile.selectedModelId)
+    delete profile.serviceProvider
+    delete profile.providerName
+    delete profile.category
+    profile.defaultModels = normalizeModelIds(profile.defaultModels)
+    profile.selectedModelId = normalizeSelectedModelId(profile.defaultModels, profile.selectedModelId)
     if (Object.prototype.hasOwnProperty.call(profile, 'modelMapping')) {
       delete profile.modelMapping
     }

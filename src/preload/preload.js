@@ -381,7 +381,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getConfigPath: () => ipcRenderer.invoke('config:getPath'),
   
   // Global Settings
-  getServiceProviders: () => ipcRenderer.invoke('config:getServiceProviders'),
   getMarketConfig: () => ipcRenderer.invoke('config:getMarketConfig'),
   updateMarketConfig: (config) => ipcRenderer.invoke('config:updateMarketConfig', config),
   getTimeout: () => ipcRenderer.invoke('config:getTimeout'),
@@ -516,15 +515,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFeishuSettings: () => ipcRenderer.invoke('window:openFeishuSettings'),
   focusMainWindow: () => ipcRenderer.invoke('window:focusMainWindow'),
   setMainWindowTitleByMode: (mode) => ipcRenderer.invoke('window:setMainTitleByMode', mode),
-
-  // ========================================
-  // 服务商定义管理
-  // ========================================
-  listProviders: () => ipcRenderer.invoke('provider:list'),
-  getProvider: (id) => ipcRenderer.invoke('provider:get', id),
-  addProvider: (definition) => ipcRenderer.invoke('provider:add', definition),
-  updateProvider: ({ id, updates }) => ipcRenderer.invoke('provider:update', { id, updates }),
-  deleteProvider: (id) => ipcRenderer.invoke('provider:delete', id),
 
   // ========================================
   // Plugin 管理 (Claude Code Plugins)

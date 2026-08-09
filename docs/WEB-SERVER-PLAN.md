@@ -93,8 +93,8 @@ src/renderer/
 if (!window.electronAPI) {
   window.electronAPI = {
     // 请求/响应类 → HTTP fetch
-    listProviders: () => fetch('/api/providers').then(r => r.json()),
-    addProvider: (data) => fetch('/api/providers', {
+    listAPIProfiles: () => fetch('/api/profiles').then(r => r.json()),
+    addAPIProfile: (data) => fetch('/api/profiles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -148,8 +148,7 @@ Web 版：
 
 | 模块 | 功能 | API 数 |
 |------|------|--------|
-| 服务商管理 | 增删改查服务商定义 | ~5 |
-| API 配置 | 增删改查配置、测试连接、模型映射 | ~12 |
+| API Profile | Profile 增删改查、测试连接、模型 ID 列表 | ~12 |
 | 全局设置 | 超时、最大会话数、自动压缩、消息队列 | ~8 |
 | 钉钉桥接 | 启停、状态、配置修改 | ~5 |
 | MCP 管理 | 多作用域增删改查 MCP Server | ~5 |

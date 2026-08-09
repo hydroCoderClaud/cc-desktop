@@ -29,7 +29,7 @@
     <n-spin :show="loading">
       <div class="profiles-grid">
         <ProfileCard
-          v-for="profile in profiles"
+          v-for="profile in orderedProfiles"
           :key="profile.id"
           :profile="profile"
           :testing="testingProfileId === profile.id"
@@ -39,7 +39,7 @@
           @test="handleTest"
         />
 
-        <n-empty v-if="!loading && profiles.length === 0" :description="t('profileManager.noProfilesHint')" />
+        <n-empty v-if="!loading && orderedProfiles.length === 0" :description="t('profileManager.noProfilesHint')" />
       </div>
     </n-spin>
 
@@ -48,7 +48,6 @@
       v-model:show="showEditModal"
       :profile="editingProfile"
       :is-edit="!!editingProfile"
-      :providers="providers"
       :testing="testingModal"
       @save="handleSave"
       @test="handleModalTest"
@@ -57,10 +56,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated } from 'vue'
+import { computed, ref, onMounted, onActivated } from 'vue'
 import { useMessage, useDialog } from 'naive-ui'
 import { useProfiles } from '@composables/useProfiles'
-import { useProviders } from '@composables/useProviders'
 import { useLocale } from '@composables/useLocale'
 import ProfileCard from '@components/ProfileCard.vue'
 import ProfileFormModal from './ProfileFormModal.vue'
@@ -78,7 +76,16 @@ const dialog = useDialog()
 const { t, initLocale } = useLocale()
 
 const { profiles, loading, defaultProfile, loadProfiles, addProfile, updateProfile, deleteProfile, setDefault, testConnection } = useProfiles()
-const { providers, loadProviders } = useProviders()
+
+const orderedProfiles = computed(() => {
+  const profileList = [...profiles.value]
+  const defaultIndex = profileList.findIndex(profile => profile.isDefault)
+
+  if (defaultIndex <= 0) return profileList
+
+  const [defaultProfile] = profileList.splice(defaultIndex, 1)
+  return [defaultProfile, ...profileList]
+})
 
 const showEditModal = ref(false)
 const editingProfile = ref(null)
@@ -87,12 +94,12 @@ const testingModal = ref(false)
 
 onMounted(async () => {
   await initLocale()
-  await Promise.all([loadProfiles(), loadProviders()])
+  await loadProfiles()
 })
 
 // KeepAlive 激活时刷新（嵌入在 model-settings 多 tab 页面）
 onActivated(() => {
-  Promise.all([loadProfiles(), loadProviders()])
+  loadProfiles()
 })
 
 const handleClose = () => {
@@ -125,6 +132,7 @@ const handleDelete = async (profileId) => {
     onPositiveClick: async () => {
       try {
         await deleteProfile(profileId)
+        window.electronAPI?.broadcastSettings?.({ modelProfilesChanged: true })
         message.success(t('profileManager.deleteSuccess'))
       } catch (err) {
         message.error(t('messages.deleteFailed') + ': ' + err.message)
@@ -136,6 +144,7 @@ const handleDelete = async (profileId) => {
 const handleSetDefault = async (profileId) => {
   try {
     await setDefault(profileId)
+    window.electronAPI?.broadcastSettings?.({ modelProfilesChanged: true })
     message.success(t('messages.saveSuccess'))
   } catch (err) {
     message.error(t('messages.saveFailed') + ': ' + err.message)
@@ -148,7 +157,6 @@ const handleTest = async (profile) => {
     baseUrl: profile.baseUrl,
     authToken: profile.authToken,
     authType: profile.authType,
-    serviceProvider: profile.serviceProvider,
     selectedModelId: profile.selectedModelId || '',
     useProxy: profile.useProxy,
     httpsProxy: profile.httpsProxy,
@@ -171,6 +179,7 @@ const handleSave = async (profileData) => {
       await addProfile(profileData)
       message.success(t('profileManager.saveSuccess'))
     }
+    window.electronAPI?.broadcastSettings?.({ modelProfilesChanged: true })
     showEditModal.value = false
     editingProfile.value = null
   } catch (err) {
@@ -219,12 +228,10 @@ const handleTestConnection = async (config) => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--border-color, #f0f0f0);
-  background: var(--bg-color-secondary, white);
-  margin: -24px -24px 24px -24px;
   padding: 24px;
-  border-radius: 12px 12px 0 0;
+  border: 1px solid var(--border-color, #f0f0f0);
+  background: var(--bg-color-secondary, white);
+  border-radius: 12px;
 }
 
 .header h1 {

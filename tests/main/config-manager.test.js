@@ -87,33 +87,9 @@ describe('ConfigManager', () => {
       expect(config.settings.agent.claudeConfigDir).toBe('')
     })
 
-    it('应该初始化 Qwen 和 DeepSeek 服务商模板及其默认模型 ID 列表', () => {
-      const providers = configManager.getServiceProviderDefinitions()
-      const qwen = providers.find(provider => provider.id === 'qwen')
-      const deepseek = providers.find(provider => provider.id === 'deepseek')
-
-      expect(providers.map(provider => provider.id)).toEqual(['qwen', 'deepseek'])
-      expect(qwen).toMatchObject({
-        name: '千问tokenplan',
-        baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
-        defaultModels: [
-          'qwen3.7-plus',
-          'qwen3.7-max',
-          'qwen-image-2.0-pro',
-          'wan2.7-image-pro',
-          'deepseek-v4-pro',
-          'deepseek-v4-flash',
-          'kimi-k2.7-code',
-          'glm-5.2'
-        ]
-      })
-      expect(deepseek).toMatchObject({
-        name: 'deepseek',
-        baseUrl: 'https://api.deepseek.com/anthropic',
-        defaultModels: ['deepseek-v4-flash[1m]', 'deepseek-v4-pro[1m]']
-      })
-      expect(qwen).not.toHaveProperty('defaultModelMapping')
-      expect(deepseek).not.toHaveProperty('defaultModelMapping')
+    it('不再初始化服务商模板层', () => {
+      expect(configManager.getConfig()).not.toHaveProperty('serviceProviderDefinitions')
+      expect(configManager).not.toHaveProperty('getServiceProviderDefinitions')
     })
 
     it('启动时应清除已退役的终端设置', async () => {
@@ -145,38 +121,46 @@ describe('ConfigManager', () => {
       const profile = configManager.addAPIProfile({
         name: 'Test Profile',
         authToken: 'token',
-        serviceProvider: 'other',
         baseUrl: 'https://example.com',
         selectedModelId: 'glm-5.1'
       })
       await configManager.saveQueue
 
-      expect(profile.selectedModelId).toBe('glm-5.1')
+      expect(profile.selectedModelId).toBe('')
       expect(profile).not.toHaveProperty('selectedModelTier')
       expect(configManager.getAPIProfile(profile.id)).not.toHaveProperty('selectedModelTier')
     })
 
-    it('新增 profile 默认使用 auth_token', async () => {
+    it('新增 profile 完全使用自身字段', async () => {
       const profile = configManager.addAPIProfile({
         name: 'Qwen Profile',
         authToken: 'token',
-        serviceProvider: 'qwen',
         baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+        defaultModels: ['qwen3.7-plus', 'qwen3.7-max'],
         selectedModelId: 'qwen3.7-plus'
       })
       await configManager.saveQueue
 
       expect(profile.authType).toBe('auth_token')
+      expect(profile.defaultModels).toContain('qwen3.7-plus')
+      expect(profile).not.toHaveProperty('serviceProvider')
+      expect(profile).not.toHaveProperty('providerName')
+    })
+
+    it('falls back to the first model when a new profile has a stale default', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Fallback Profile',
+        authToken: 'token',
+        defaultModels: ['model-a', 'model-b'],
+        selectedModelId: 'removed-model'
+      })
+      await configManager.saveQueue
+
+      expect(profile.defaultModels).toEqual(['model-a', 'model-b'])
+      expect(profile.selectedModelId).toBe('model-a')
     })
 
     it('新增 profile 不应从 mapping 回填 selectedModelId', async () => {
-      configManager.addServiceProviderDefinition({
-        id: 'mapping-only-provider',
-        name: 'Mapping Only Provider',
-        baseUrl: 'https://example.com',
-        defaultModels: []
-      })
-
       const profile = configManager.addAPIProfile({
         name: 'Mapped Profile',
         authToken: 'token',
@@ -195,18 +179,12 @@ describe('ConfigManager', () => {
     })
 
     it('新增 profile selectedModelId 为空时不应从服务商默认模型回填', async () => {
-      configManager.addServiceProviderDefinition({
-        id: 'default-model-provider',
-        name: 'Default Model Provider',
-        baseUrl: 'https://example.com',
-        defaultModels: ['provider-default-model']
-      })
-
       const profile = configManager.addAPIProfile({
         name: 'Blank Model Profile',
         authToken: 'token',
         serviceProvider: 'default-model-provider',
         baseUrl: 'https://example.com',
+        defaultModels: ['provider-default-model'],
         selectedModelId: ''
       })
       await configManager.saveQueue
@@ -254,10 +232,12 @@ describe('ConfigManager', () => {
       expect(apiConfig.modelMapping).toBeUndefined()
       expect(newConfigManager.getConfig().apiProfiles[0]).not.toHaveProperty('selectedModelTier')
       expect(newConfigManager.getConfig().apiProfiles[0].modelMapping).toBeUndefined()
-      expect(newConfigManager.getServiceProviderDefinition('other')).not.toHaveProperty('defaultModelMapping')
+      expect(newConfigManager.getConfig().apiProfiles[0]).not.toHaveProperty('serviceProvider')
+      expect(newConfigManager.getConfig().apiProfiles[0]).not.toHaveProperty('providerName')
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      expect(savedConfig.serviceProviderDefinitions[0]).not.toHaveProperty('defaultModelMapping')
+      expect(savedConfig.serviceProviderDefinitions).toBeUndefined()
+      expect(savedConfig.apiProfiles[0].defaultModels).toEqual(['provider-default-model'])
     })
 
     it('应该有正确的默认超时设置', () => {
@@ -289,16 +269,8 @@ describe('ConfigManager', () => {
     })
 
     it('删除默认服务商后，重载配置不应自动补回', async () => {
-      await configManager.deleteServiceProviderDefinition('other')
-
-      expect(configManager.getServiceProviderDefinition('other')).toBeNull()
-
-      vi.resetModules()
-      const module = await import('../../src/main/config-manager.js')
-      const NewConfigManager = module.default
-      const reloadedConfigManager = new NewConfigManager({ userDataPath: testTempDir })
-
-      expect(reloadedConfigManager.getServiceProviderDefinition('other')).toBeNull()
+      expect(configManager.getConfig().serviceProviderDefinitions).toBeUndefined()
+      expect(configManager.getConfig()).not.toHaveProperty('serviceProviderDefinitions')
     })
   })
 
@@ -612,15 +584,21 @@ describe('ConfigManager', () => {
       const module = await import('../../src/main/config-manager.js')
       const NewConfigManager = module.default
       const newConfigManager = new NewConfigManager({ userDataPath: testTempDir })
-      const provider = newConfigManager.getServiceProviderDefinition('other')
       const profile = newConfigManager.getConfig().apiProfiles[0]
 
-      expect(provider.defaultModels).toEqual(['model-a'])
+      expect(profile.defaultModels).toEqual(['model-a'])
       expect(profile.customModels).toBeUndefined()
     })
 
     it('服务商定义更新不持久化已废弃的模型映射', async () => {
-      await configManager.updateServiceProviderDefinition('qwen', {
+      const profile = configManager.addAPIProfile({
+        name: 'Qwen',
+        authToken: 'token',
+        serviceProvider: 'qwen',
+        baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic'
+      })
+
+      await configManager.updateAPIProfile(profile.id, {
         defaultModelMapping: {
           opus: 'claude-opus-4-7',
           sonnet: 'claude-sonnet-4-6',
@@ -629,12 +607,73 @@ describe('ConfigManager', () => {
       })
       await configManager.saveQueue
 
-      const provider = configManager.getServiceProviderDefinition('qwen')
+      const updatedProfile = configManager.getAPIProfile(profile.id)
 
-      expect(provider).not.toHaveProperty('defaultModelMapping')
+      expect(updatedProfile).not.toHaveProperty('defaultModelMapping')
 
       const savedConfig = JSON.parse(fs.readFileSync(path.join(testTempDir, 'config.json'), 'utf-8'))
-      expect(savedConfig.serviceProviderDefinitions.find(item => item.id === 'qwen')).not.toHaveProperty('defaultModelMapping')
+      expect(savedConfig.serviceProviderDefinitions).toBeUndefined()
+      expect(savedConfig.apiProfiles[0]).not.toHaveProperty('defaultModelMapping')
+    })
+
+    it('更新 Profile 时应拒绝重新写入已废弃的服务商字段', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Standalone API',
+        authToken: 'token',
+        baseUrl: 'https://example.com'
+      })
+
+      await configManager.updateAPIProfile(profile.id, {
+        serviceProvider: 'legacy-provider',
+        providerName: 'Legacy Provider',
+        category: 'legacy-category',
+        defaultModels: ['model-a'],
+        selectedModelId: 'model-a'
+      })
+      await configManager.saveQueue
+
+      const updatedProfile = configManager.getAPIProfile(profile.id)
+      expect(updatedProfile).not.toHaveProperty('serviceProvider')
+      expect(updatedProfile).not.toHaveProperty('providerName')
+      expect(updatedProfile).not.toHaveProperty('category')
+      expect(updatedProfile.defaultModels).toEqual(['model-a'])
+      expect(updatedProfile.selectedModelId).toBe('model-a')
+    })
+
+    it('falls back when an update removes the selected model', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Update Fallback Profile',
+        authToken: 'token',
+        defaultModels: ['model-a', 'model-b'],
+        selectedModelId: 'model-a'
+      })
+
+      await configManager.updateAPIProfile(profile.id, {
+        defaultModels: ['model-b', 'model-c']
+      })
+      await configManager.saveQueue
+
+      const updatedProfile = configManager.getAPIProfile(profile.id)
+      expect(updatedProfile.defaultModels).toEqual(['model-b', 'model-c'])
+      expect(updatedProfile.selectedModelId).toBe('model-b')
+    })
+
+    it('clears the selected model when an update removes every model', async () => {
+      const profile = configManager.addAPIProfile({
+        name: 'Empty Models Profile',
+        authToken: 'token',
+        defaultModels: ['model-a'],
+        selectedModelId: 'model-a'
+      })
+
+      await configManager.updateAPIProfile(profile.id, {
+        defaultModels: []
+      })
+      await configManager.saveQueue
+
+      const updatedProfile = configManager.getAPIProfile(profile.id)
+      expect(updatedProfile.defaultModels).toEqual([])
+      expect(updatedProfile.selectedModelId).toBe('')
     })
 
     it('旧 settings.api 迁移后不应写入已废弃的 selectedModelTier 或默认 sonnet 模型', async () => {
@@ -720,6 +759,123 @@ describe('ConfigManager', () => {
       } finally {
         await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
       }
+    })
+  })
+
+  describe('provider definition consolidation', () => {
+    it('moves provider fields into every linked profile without changing IDs or credentials', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        defaultProfileId: 'profile-b',
+        serviceProviderDefinitions: [{
+          id: 'custom-gateway',
+          name: 'Custom Gateway',
+          baseUrl: 'https://gateway.example.com/anthropic',
+          defaultModels: ['gateway-fast', 'gateway-reasoning']
+        }, {
+          id: 'unused-template',
+          name: 'Unused Template',
+          baseUrl: 'https://unused.example.com',
+          defaultModels: ['unused-model']
+        }],
+        apiProfiles: [{
+          id: 'profile-a',
+          name: 'Gateway Key A',
+          authToken: 'key-a',
+          authType: 'auth_token',
+          serviceProvider: 'custom-gateway',
+          selectedModelId: 'gateway-fast',
+          useProxy: true,
+          httpsProxy: 'http://127.0.0.1:7890',
+          httpProxy: 'http://127.0.0.1:7890'
+        }, {
+          id: 'profile-b',
+          name: 'Gateway Key B',
+          authToken: 'key-b',
+          authType: 'api_key',
+          serviceProvider: 'custom-gateway',
+          baseUrl: 'https://override.example.com/anthropic',
+          defaultModels: ['override-model'],
+          selectedModelId: 'override-model',
+          isDefault: true
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      const migrated = migratedManager.getConfig()
+      const profileA = migrated.apiProfiles.find(profile => profile.id === 'profile-a')
+      const profileB = migrated.apiProfiles.find(profile => profile.id === 'profile-b')
+
+      expect(migrated.defaultProfileId).toBe('profile-b')
+      expect(migrated.serviceProviderDefinitions).toBeUndefined()
+      expect(profileA).toMatchObject({
+        id: 'profile-a',
+        authToken: 'key-a',
+        authType: 'auth_token',
+        baseUrl: 'https://gateway.example.com/anthropic',
+        defaultModels: ['gateway-fast', 'gateway-reasoning'],
+        useProxy: true,
+        httpsProxy: 'http://127.0.0.1:7890',
+        httpProxy: 'http://127.0.0.1:7890'
+      })
+      expect(profileA).not.toHaveProperty('serviceProvider')
+      expect(profileA).not.toHaveProperty('providerName')
+      expect(profileB).toMatchObject({
+        id: 'profile-b',
+        authToken: 'key-b',
+        baseUrl: 'https://override.example.com/anthropic',
+        defaultModels: ['override-model']
+      })
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.serviceProviderDefinitions).toBeUndefined()
+      expect(savedConfig.apiProfiles.map(profile => profile.id)).toEqual(['profile-a', 'profile-b'])
+    })
+
+    it('does not turn unused provider templates into empty profiles', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        serviceProviderDefinitions: [{
+          id: 'unused-template',
+          name: 'Unused Template',
+          baseUrl: 'https://unused.example.com',
+          defaultModels: ['unused-model']
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      expect(migratedManager.getConfig().apiProfiles).toEqual([])
+      expect(migratedManager.getConfig().serviceProviderDefinitions).toBeUndefined()
+    })
+
+    it.each([[], null, { id: 'malformed' }])('removes retired provider definitions when stored value is %j', async (legacyDefinitions) => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        serviceProviderDefinitions: legacyDefinitions,
+        apiProfiles: []
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      expect(migratedManager.getConfig().apiProfiles).toEqual([])
+      expect(migratedManager.getConfig().serviceProviderDefinitions).toBeUndefined()
+
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      expect(savedConfig.serviceProviderDefinitions).toBeUndefined()
     })
   })
 })

@@ -786,9 +786,9 @@ export default {
 
   // Settings Menu
   settingsMenu: {
-    modelSettings: 'Model Settings',
+    modelSettings: 'API Profiles',
     apiConfig: 'API Configuration',
-    providerManager: 'Provider Manager',
+    providerManager: 'API Profiles',
     globalSettings: 'Global Settings',
     channelSettings: 'Channel Settings',
     embeddedApps: 'Embedded Apps',
@@ -864,17 +864,13 @@ export default {
   },
 
   modelSettings: {
-    title: 'Model Settings',
-    subtitle: 'Manage API profiles and provider definitions in one place. Future routing policies and default strategies can also live here.',
+    title: 'API Profiles',
+    subtitle: 'Manage the profile name, credentials, base URL, and model list in one Profile.',
     sidebarTitle: 'Sections',
     sections: {
       profiles: {
         label: 'API Profiles',
-        description: 'Manage connection profiles, defaults, and model tests'
-      },
-      providers: {
-        label: 'Providers',
-        description: 'Manage provider definitions, base URLs, and model mappings'
+        description: 'Manage complete connection profiles, defaults, and model tests'
       }
     }
   },
@@ -984,24 +980,24 @@ export default {
 
   // API Profile Manager
   profileManager: {
-    title: 'API Configuration',
-    subtitle: 'Manage your API profiles',
-    addProfile: 'Add Profile',
-    editProfile: 'Edit Profile',
-    deleteProfile: 'Delete Profile',
+    title: 'API Profiles',
+    subtitle: 'Each Profile contains one complete API connection',
+    addProfile: 'Add API Profile',
+    editProfile: 'Edit API Profile',
+    deleteProfile: 'Delete API Profile',
     setDefault: 'Set as Default',
     isDefault: 'Default',
-    profileName: 'Profile Name',
+    profileName: 'Name',
     profileIcon: 'Icon',
-    serviceProvider: 'Service Provider',
     apiKey: 'API Key',
     apiKeyPlaceholder: 'Enter API key',
     baseUrl: 'Base URL',
     baseUrlPlaceholder: 'Enter API URL',
-    selectedModelId: 'Default Model ID',
+    selectedModelId: 'Default Model',
     selectedModelIdPlaceholder: 'Prefer a real model ID, e.g. claude-sonnet-4-6',
-    modelListHint: 'Model IDs come from the selected provider. This field only chooses the default one.',
-    noModelIds: 'No model IDs are available for this provider yet',
+    defaultModelIds: 'Model ID List',
+    defaultModelIdsPlaceholder: 'One model ID per line, for example\nclaude-sonnet-4-6\nclaude-opus-4-6',
+    noModelIds: 'No model IDs are available for this Profile yet',
     powerfulModel: 'Most Powerful Model',
     balancedModel: 'Balanced Model',
     fastModel: 'Fastest Model',
@@ -1012,33 +1008,6 @@ export default {
     saveSuccess: 'Profile saved',
     noProfiles: 'No profiles yet',
     noProfilesHint: 'Click "Add Profile" to create one'
-  },
-
-  // Provider Manager
-  providerManager: {
-    title: 'Provider Manager',
-    subtitle: 'Manage API provider definitions',
-    addProvider: 'Add Provider',
-    addLinkedProfile: 'Add Linked API Profile',
-    editProvider: 'Edit Provider',
-    deleteProvider: 'Delete Provider',
-    providerName: 'Provider Name',
-    providerId: 'Provider ID',
-    providerIdHint: 'Unique identifier, cannot be changed after creation',
-    defaultBaseUrl: 'Default Base URL',
-    defaultModelIds: 'Default Model ID List',
-    defaultModelIdsPlaceholder: 'One model ID per line, for example\nclaude-sonnet-4-6\nclaude-opus-4-6',
-    deleteConfirm: 'Are you sure you want to delete this provider?',
-    deleteSuccess: 'Provider deleted',
-    saveSuccess: 'Provider saved',
-    cannotDeleteBuiltIn: 'Built-in providers cannot be deleted',
-    cannotEditBuiltIn: 'Built-in providers cannot be edited',
-    providerInUse: 'This provider is in use and cannot be deleted',
-    linkedProfiles: 'Linked API Profiles',
-    linkedProfilesTitle: 'API Profiles for {provider}',
-    linkedProfilesSubtitle: 'Create, test, and manage linked API profiles directly within this provider.',
-    noLinkedProfiles: 'No API profiles are linked to this provider yet',
-    selectProviderHint: 'Select a provider to manage its linked API profiles on the right.'
   },
 
   // Global Settings
@@ -1967,13 +1936,13 @@ export default {
     },
     windowTitles: {
       main: 'Hydro Desktop',
-      modelSettings: 'Model Settings - Hydro Desktop',
-      profileManager: 'API Profile Manager - Hydro Desktop',
+      modelSettings: 'API Profiles - Hydro Desktop',
+      profileManager: 'API Profiles - Hydro Desktop',
       globalSettings: 'Global Settings - Hydro Desktop',
       appearanceSettings: 'Appearance Settings - Hydro Desktop',
       channelSettings: 'Channel Settings - Hydro Desktop',
       dingtalkSettings: 'DingTalk Bridge Settings - Hydro Desktop',
-      providerManager: 'Provider Manager - Hydro Desktop',
+      providerManager: 'API Profiles - Hydro Desktop',
       sessionManager: 'Session Browser - Hydro Desktop',
       settingsWorkbench: 'Capability Management - Hydro Desktop',
       updateManager: 'Application Update - Hydro Desktop'

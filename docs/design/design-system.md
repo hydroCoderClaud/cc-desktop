@@ -976,7 +976,6 @@ code, kbd, pre, samp, .mono {
 需要统一替换的位置：
 
 - [ ] `src/renderer/pages/main/components/LeftPanel.vue` - 移除 `Crimson Pro`
-- [ ] `src/renderer/components/ProviderCard.vue:123` - 改用 `var(--font-mono)`
 - [ ] 所有 `font-family: monospace` → `var(--font-mono)`
 
 ---

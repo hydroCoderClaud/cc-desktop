@@ -547,7 +547,7 @@ function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabi
     return { success: true, reused: result.reused };
   });
 
-  // 打开服务商管理窗口
+  // Legacy entry point: open the API Profile manager window.
   ipcMain.handle('window:openProviderManager', async () => {
     const result = openSingletonSubWindow('provider-manager', {
       width: 1000,

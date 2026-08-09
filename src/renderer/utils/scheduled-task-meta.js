@@ -62,13 +62,6 @@ function resolveScheduledTaskProfile({ apiProfiles = [], defaultProfileId = null
     || null
 }
 
-function getProviderModelIds(serviceProviderDefinitions = [], serviceProvider = '') {
-  const normalizedProviderId = normalizeModelValue(serviceProvider)
-  const providers = Array.isArray(serviceProviderDefinitions) ? serviceProviderDefinitions : []
-  const provider = providers.find(item => item?.id === normalizedProviderId)
-  return normalizeModelIds(provider?.defaultModels)
-}
-
 export function createScheduledTaskFormDefaults(defaultCwd = '') {
   return {
     name: '',
@@ -126,13 +119,12 @@ export function buildMonthlyModeOptions(t) {
 
 export function getScheduledTaskProfileModelIds({
   apiProfiles = [],
-  serviceProviderDefinitions = [],
   defaultProfileId = null,
   apiProfileId = null
 } = {}) {
   const profile = resolveScheduledTaskProfile({ apiProfiles, defaultProfileId, apiProfileId })
   return normalizeModelIds([
-    ...getProviderModelIds(serviceProviderDefinitions, profile?.serviceProvider),
+    ...(profile?.defaultModels || []),
     profile?.selectedModelId
   ])
 }

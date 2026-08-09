@@ -91,8 +91,7 @@ macOS 关闭窗口不退出应用（`window-all-closed` 事件不调用 `app.qui
 ```
 ConfigManager (config-manager.js, 1056行)
 ├── 核心方法: load(), save(), getConfig(), deepMerge()
-├── providerConfigMixin (provider-config.js)  ← Object.assign 混入
-│   └── 服务商 CRUD: getServiceProviders, add/update/deleteServiceProviderDefinition
+├── provider-config.js  ← 仅供旧配置迁移读取内置地址和模型列表
 └── apiConfigMixin (api-config.js)  ← Object.assign 混入
     └── API Profile CRUD: getAPIProfiles, add/update/deleteAPIProfile, setDefaultProfile
 ```
@@ -110,7 +109,8 @@ ConfigManager (config-manager.js, 1056行)
 | 迁移 | 方法 | 说明 |
 |------|------|------|
 | 单 API → 多 Profile | `migrateToProfiles()` | 旧版单个 `apiConfig` 迁移到 `apiProfiles[]` |
-| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `serviceProvider/selectedModelId`，并清理 `customModels` / `modelMapping` / `selectedModelTier` |
+| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `selectedModelId`，并清理 `customModels` / `modelMapping` / `selectedModelTier` 及旧服务商字段 |
+| 旧服务商定义合并 | `migrateProviderFieldsToProfiles()` | 将旧 `serviceProviderDefinitions` 的地址和模型列表复制到关联 Profile 后移除旧字段 |
 | 字段重命名 | 内联代码 | `skillsMarket` → `market`、清理废弃的 `updateUrl` |
 
 ### API Profile 系统
@@ -124,7 +124,7 @@ ConfigManager (config-manager.js, 1056行)
   authToken: "your-token",
   authType: "auth_token",    // 新建 Profile 默认值；也可显式使用 api_key
   baseUrl: "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-  serviceProvider: "qwen",
+  defaultModels: ["qwen3.7-plus", "qwen3.7-max"],
   selectedModelId: "qwen3.7-plus", // 启动默认模型 ID
   useProxy: false,
   httpsProxy: "",
@@ -135,9 +135,9 @@ ConfigManager (config-manager.js, 1056行)
 
 Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()` 完成，详见 [环境变量构建](#环境变量构建)。
 
-### 服务商管理
+### 旧配置迁移
 
-首次安装会写入 Qwen Token Plan 与 DeepSeek 两个可编辑服务商模板；模板只包含名称、基础地址和模型候选列表。用户自定义服务商同样存储在 `config.serviceProviderDefinitions[]`，认证令牌与默认模型始终保存在 API Profile 中。
+当前运行时没有服务商模板层。旧版本中的 `serviceProviderDefinitions` 以及 Profile 内的 `serviceProvider`、`providerName` 只在启动时用于补齐地址和模型列表，随后从内存配置和磁盘配置中移除。之后每个 API Profile 独立维护配置名称、地址、认证方式、密钥、模型 ID 列表、默认模型 ID、超时、代理和描述。
 
 ---
 

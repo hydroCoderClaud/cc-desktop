@@ -1,6 +1,6 @@
 /**
  * 配置相关 IPC 处理器
- * 包含 Config、API Profile、全局设置、服务商定义等
+ * Handles Config, API Profiles, and global settings.
  */
 
 const { createIPCHandler, createSyncIPCHandler } = require('../utils/ipc-utils')
@@ -143,10 +143,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
   // 全局设置
   // ========================================
 
-  registerHandler('config:getServiceProviders', () => {
-    return configManager.getServiceProviders()
-  })
-
   // 组件市场配置
   registerHandler('config:getMarketConfig', () => {
     return configManager.getMarketConfig()
@@ -191,29 +187,6 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
       }
       return savedConfig
     })
-  })
-
-  // 服务商定义管理
-  // ========================================
-
-  registerHandler('provider:list', () => {
-    return configManager.getServiceProviderDefinitions()
-  })
-
-  registerHandler('provider:get', (id) => {
-    return configManager.getServiceProviderDefinition(id)
-  })
-
-  registerHandler('provider:add', (definition) => {
-    return configManager.addServiceProviderDefinition(definition)
-  })
-
-  registerHandler('provider:update', ({ id, updates }) => {
-    return configManager.updateServiceProviderDefinition(id, updates)
-  })
-
-  registerHandler('provider:delete', (id) => {
-    return configManager.deleteServiceProviderDefinition(id)
   })
 
   // ========================================
