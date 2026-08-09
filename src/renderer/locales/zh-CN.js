@@ -126,7 +126,7 @@ export default {
     // 插件
     plugins: {
       empty: '未找到插件',
-      emptyHint: '插件目录: 隔离 Claude 配置目录/plugins/',
+      emptyHint: '插件目录: HydroAgent 配置目录/plugins/',
       search: '搜索插件...',
       openFolder: '打开插件目录',
       openInstalledJson: '打开 installed_plugins.json',
@@ -145,7 +145,7 @@ export default {
       uninstall: '卸载',
       uninstallSuccess: '插件已卸载',
       uninstallFailed: '卸载失败',
-      restartHint: '如果终端中正在运行 Claude Code，可能需要重启才能生效',
+      restartHint: '如果终端中正在运行模型运行时，可能需要重启才能生效',
       // 插件市场
       market: '插件市场',
       marketTitle: '插件市场',
@@ -199,7 +199,7 @@ export default {
     // 技能
     skills: {
       empty: '未找到技能',
-      emptyHint: '技能由 Claude Code 提供',
+      emptyHint: '技能由 HydroAgent 运行时提供',
       search: '搜索技能...',
       refresh: '刷新',
       uncategorized: '未分类',
@@ -241,12 +241,12 @@ export default {
       frontmatterHelp: 'YAML 字段说明 (点击展开)',
       frontmatterIntro: '以下字段放在 --- 之间，均为可选：',
       fieldName: '调用名称，默认为目录名 (Skill ID)，可自定义如 /custom-name',
-      fieldDescription: '技能描述，帮助 Claude 判断何时自动调用此技能（推荐填写）',
+      fieldDescription: '技能描述，帮助运行时判断何时自动调用此技能（推荐填写）',
       fieldArgumentHint: '参数提示，显示在技能调用时的输入框占位符',
       fieldUserInvocable: '是否允许用户通过 /name 手动调用，默认 true',
-      fieldDisableModel: '是否禁止 Claude 自动调用此技能，默认 false',
+      fieldDisableModel: '是否禁止运行时自动调用此技能，默认 false',
       fieldAllowedTools: '限制技能可使用的工具列表，如 [Read, Grep, Glob]',
-      fieldModel: '指定执行此技能时使用的模型，如 claude-sonnet-4-20250514',
+      fieldModel: '指定执行此技能时使用的模型，如 qwen3-coder-plus',
       // YAML 字段快速添加
       yamlFields: 'YAML 字段',
       selectField: '选择字段',
@@ -392,13 +392,13 @@ export default {
       commandPlaceholder: '要执行的 shell 命令或脚本',
       commandRequired: '请输入命令',
       async: '异步执行',
-      asyncHint: '后台运行，不阻塞 Claude',
+      asyncHint: '后台运行，不阻塞模型运行时',
       // Prompt/Agent 类型
       prompt: '提示词',
       promptPlaceholder: '输入 LLM 评估提示词...',
       promptRequired: '请输入提示词',
       model: '模型',
-      modelPlaceholder: '可选，如 claude-sonnet-4-5-20250929',
+      modelPlaceholder: '可选，如 qwen3-coder-plus',
       // 高级选项
       advancedOptions: '高级选项',
       timeout: '超时',
@@ -487,7 +487,7 @@ export default {
     // Agents
     agents: {
       empty: '暂无 Agents',
-      emptyHint: 'Agents 是 Claude 根据描述自动选择的子代理',
+      emptyHint: 'Agents 是运行时根据描述自动选择的子代理',
       refresh: '刷新',
       search: '搜索 Agents...',
       noDescription: '无描述',
@@ -593,13 +593,12 @@ export default {
       // 市场
       marketBadge: '市场'
     },
-    // Claude Code 设置
+    // 运行时设置
     settings: {
       refresh: '刷新',
-      docs: '查看官方文档',
       search: '搜索设置...',
       empty: '暂无配置项',
-      emptyHint: '配置 Claude Code 的工具权限和环境变量',
+      emptyHint: '配置 HydroAgent 运行时的工具权限和环境变量',
       openFile: '打开配置文件',
       rawJson: '编辑原始 JSON',
       // 权限
@@ -800,9 +799,7 @@ export default {
     appearanceSettings: '外观设置',
     sessionHistory: '会话查询',
     dingtalkBridge: '钉钉桥接',
-    appUpdate: '应用更新',
-    claudeSettings: 'Claude 配置文件',
-    claudeSettingsNotFound: 'Claude 配置文件不存在'
+    appUpdate: '应用更新'
   },
 
   settingsWorkbench: {
@@ -997,9 +994,9 @@ export default {
     baseUrl: '接口地址',
     baseUrlPlaceholder: '输入 API 地址',
     selectedModelId: '默认模型',
-    selectedModelIdPlaceholder: '优先使用真实模型 ID，如 claude-sonnet-4-6',
+    selectedModelIdPlaceholder: '优先使用真实模型 ID，如 qwen3-coder-plus',
     defaultModelIds: '模型 ID 列表',
-    defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nclaude-sonnet-4-6\nclaude-opus-4-6',
+    defaultModelIdsPlaceholder: '每行一个模型 ID，例如\nqwen3-coder-plus\ndeepseek-chat',
     fetchModelsTooltip: '从接口获取模型列表',
     fetchModelsHint: '点击可自动拉取端点模型 ID 列表，也可以手动添加或删除',
     fetchModelsConfigRequired: '请先填写接口地址和密钥',
@@ -1039,7 +1036,7 @@ export default {
     sessionSettings: '会话设置',
     agentOutputGroup: 'Agent 输出',
     autocompactPctOverride: '自动压缩阈值',
-    autocompactPctOverrideHint: '设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE 环境变量，控制自动压缩触发阈值 (0-100%)',
+    autocompactPctOverrideHint: '设置自动压缩触发阈值 (0-100%)，保存后会写入运行时环境变量',
     autocompactDefault: '留空使用 CLI 默认值 (~95%)',
     messageQueue: '消息队列',
     messageQueueHint: '开启后，AI 输出期间可继续输入消息排队，输出结束后自动依次发送',
@@ -1047,8 +1044,8 @@ export default {
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',
     claudeConfigDir: 'HydroAgent 配置目录',
-    claudeConfigDirPlaceholder: '留空使用 Claude Code 默认配置',
-    claudeConfigDirHint: '留空则使用 Claude Code 默认配置；填写路径后，本程序发起 Claude Code CLI 时使用该 HydroAgent 隔离配置目录，Skills、Agents、MCP、历史记录和 proxy-support 均写入这里',
+    claudeConfigDirPlaceholder: '留空使用默认运行时配置',
+    claudeConfigDirHint: '留空则使用默认运行时配置；填写路径后，HydroAgent 会使用该隔离配置目录，Skills、Agents、MCP、历史记录和代理支持文件均写入这里',
     appUpdate: '应用更新',
     currentVersion: '当前版本',
     checkUpdate: '检查更新',
@@ -1069,7 +1066,7 @@ export default {
       urlPlaceholder: '如 http://127.0.0.1:7890',
       hint: 'Node.js 原生 fetch 不支持系统代理，需要通过此配置让 MCP 进程走代理访问外部 API。',
       detailConfig: '开关和地址保存在应用配置文件中，仅作为安装时的注入依据',
-      detailRuntime: '安装时会将代理环境变量写入隔离 Claude profile JSON 中对应 MCP 的 env，运行时由 CLI 直接读取',
+      detailRuntime: '安装时会将代理环境变量写入 HydroAgent 配置中对应 MCP 的 env，运行时会直接读取',
       detailApplyAll: '"应用到所有"可将代理配置同步到已安装的全部 MCP，关闭时同理可批量移除',
       applyAll: '应用到所有已安装的 MCP',
       applyAllSuccess: '已应用到 {count} 个 MCP',
@@ -1420,8 +1417,8 @@ export default {
     costSummary: '总费用: ${cost} USD',
     commandCompleted: '命令执行完成：{command}',
     compactCompleted: '上下文压缩完成（压缩前约 {count} tokens，触发方式：{trigger}）',
-    sdkEvent: 'Claude SDK 事件：{event}',
-    slashSdkTitle: 'Claude Code 命令:',
+    sdkEvent: '运行时事件：{event}',
+    slashSdkTitle: '运行时命令:',
     unknownError: '未知错误',
     createNew: '新建会话',
     deleteConfirmTitle: '删除对话',
@@ -1527,7 +1524,7 @@ export default {
       title: '工作目录',
       openExplorer: '在资源管理器中打开',
       refresh: '刷新',
-      showHidden: '显示系统文件（.claude, CLAUDE.md 等）',
+      showHidden: '显示系统文件和运行时配置文件',
       hideHidden: '隐藏系统文件',
       emptyDir: '目录为空',
       noSession: '选择一个对话以查看文件',

@@ -126,7 +126,7 @@ export default {
     // Plugins
     plugins: {
       empty: 'No plugins found',
-      emptyHint: 'Plugin directory: isolated Claude config directory/plugins/',
+      emptyHint: 'Plugin directory: HydroAgent config directory/plugins/',
       search: 'Search plugins...',
       openFolder: 'Open plugins folder',
       openInstalledJson: 'Open installed_plugins.json',
@@ -145,7 +145,7 @@ export default {
       uninstall: 'Uninstall',
       uninstallSuccess: 'Plugin uninstalled',
       uninstallFailed: 'Uninstall failed',
-      restartHint: 'If Claude Code is running in terminal, you may need to restart it for changes to take effect',
+      restartHint: 'If the model runtime is running in terminal, you may need to restart it for changes to take effect',
       // Plugin Market
       market: 'Plugin Market',
       marketTitle: 'Plugin Market',
@@ -199,7 +199,7 @@ export default {
     // Skills
     skills: {
       empty: 'No skills found',
-      emptyHint: 'Skills are provided by Claude Code',
+      emptyHint: 'Skills are provided by the HydroAgent runtime',
       search: 'Search skills...',
       refresh: 'Refresh',
       uncategorized: 'Uncategorized',
@@ -241,12 +241,12 @@ export default {
       frontmatterHelp: 'YAML Field Reference (click to expand)',
       frontmatterIntro: 'The following fields go between ---, all optional:',
       fieldName: 'Invocation name, defaults to directory name (Skill ID), can customize like /custom-name',
-      fieldDescription: 'Skill description, helps Claude decide when to auto-invoke this skill (recommended)',
+      fieldDescription: 'Skill description, helps the runtime decide when to auto-invoke this skill (recommended)',
       fieldArgumentHint: 'Argument hint, shown as placeholder in the skill invocation input',
       fieldUserInvocable: 'Whether user can manually invoke via /name, default true',
-      fieldDisableModel: 'Whether to disable Claude from auto-invoking this skill, default false',
+      fieldDisableModel: 'Whether to disable runtime auto-invocation for this skill, default false',
       fieldAllowedTools: 'Restrict tools available to this skill, e.g. [Read, Grep, Glob]',
-      fieldModel: 'Specify model for this skill, e.g. claude-sonnet-4-20250514',
+      fieldModel: 'Specify model for this skill, e.g. qwen3-coder-plus',
       // YAML field quick add
       yamlFields: 'YAML Fields',
       selectField: 'Select Field',
@@ -398,7 +398,7 @@ export default {
       promptPlaceholder: 'Enter LLM evaluation prompt...',
       promptRequired: 'Please enter a prompt',
       model: 'Model',
-      modelPlaceholder: 'Optional, e.g. claude-sonnet-4-5-20250929',
+      modelPlaceholder: 'Optional, e.g. qwen3-coder-plus',
       // Advanced options
       advancedOptions: 'Advanced Options',
       timeout: 'Timeout',
@@ -487,7 +487,7 @@ export default {
     // Agents
     agents: {
       empty: 'No Agents',
-      emptyHint: 'Agents are subagents Claude selects based on description',
+      emptyHint: 'Agents are subagents the runtime selects based on description',
       refresh: 'Refresh',
       search: 'Search Agents...',
       noDescription: 'No description',
@@ -593,13 +593,12 @@ export default {
       // Market
       marketBadge: 'Market'
     },
-    // Claude Code Settings
+    // Runtime settings
     settings: {
       refresh: 'Refresh',
-      docs: 'View official documentation',
       search: 'Search settings...',
       empty: 'No settings configured',
-      emptyHint: 'Configure tool permissions and environment variables for Claude Code',
+      emptyHint: 'Configure tool permissions and environment variables for the HydroAgent runtime',
       openFile: 'Open settings file',
       rawJson: 'Edit raw JSON',
       permissions: {
@@ -797,9 +796,7 @@ export default {
     appearanceSettings: 'Appearance',
     sessionHistory: 'Session Browser',
     dingtalkBridge: 'DingTalk Bridge',
-    appUpdate: 'App Update',
-    claudeSettings: 'Claude Settings File',
-    claudeSettingsNotFound: 'Claude settings file not found'
+    appUpdate: 'App Update'
   },
 
   settingsWorkbench: {
@@ -994,9 +991,9 @@ export default {
     baseUrl: 'Base URL',
     baseUrlPlaceholder: 'Enter API URL',
     selectedModelId: 'Default Model',
-    selectedModelIdPlaceholder: 'Prefer a real model ID, e.g. claude-sonnet-4-6',
+    selectedModelIdPlaceholder: 'Prefer a real model ID, e.g. qwen3-coder-plus',
     defaultModelIds: 'Model ID List',
-    defaultModelIdsPlaceholder: 'One model ID per line, for example\nclaude-sonnet-4-6\nclaude-opus-4-6',
+    defaultModelIdsPlaceholder: 'One model ID per line, for example\nqwen3-coder-plus\ndeepseek-chat',
     fetchModelsTooltip: 'Fetch model IDs from this API',
     fetchModelsHint: 'Click to fetch model IDs from the endpoint, or add and remove them manually',
     fetchModelsConfigRequired: 'Enter a base URL and API key first',
@@ -1036,7 +1033,7 @@ export default {
     sessionSettings: 'Session Settings',
     agentOutputGroup: 'Agent Output',
     autocompactPctOverride: 'Autocompact Threshold',
-    autocompactPctOverrideHint: 'Set CLAUDE_AUTOCOMPACT_PCT_OVERRIDE env var to control autocompact trigger threshold (0-100%)',
+    autocompactPctOverrideHint: 'Set the autocompact trigger threshold (0-100%). It is saved to the runtime environment.',
     autocompactDefault: 'Empty = CLI default (~95%)',
     messageQueue: 'Message Queue',
     messageQueueHint: 'When enabled, you can queue messages while AI is responding. They auto-send when output finishes.',
@@ -1044,8 +1041,8 @@ export default {
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',
     claudeConfigDir: 'HydroAgent Config Directory',
-    claudeConfigDirPlaceholder: 'Leave empty to use Claude Code defaults',
-    claudeConfigDirHint: 'Leave empty to use Claude Code defaults. When set, this app launches Claude Code CLI with the HydroAgent isolated config directory; Skills, Agents, MCP, history, and proxy-support are stored there',
+    claudeConfigDirPlaceholder: 'Leave empty to use the default runtime config',
+    claudeConfigDirHint: 'Leave empty to use the default runtime config. When set, HydroAgent uses this isolated config directory for Skills, Agents, MCP, history, and proxy support files.',
     appUpdate: 'App Updates',
     currentVersion: 'Current Version',
     checkUpdate: 'Check for Updates',
@@ -1066,7 +1063,7 @@ export default {
       urlPlaceholder: 'e.g. http://127.0.0.1:7890',
       hint: 'Node.js native fetch does not support system proxy. This setting injects proxy env vars into MCP processes to access external APIs.',
       detailConfig: 'Toggle and URL are saved in the app config file, used as injection reference during installation',
-      detailRuntime: 'On install, proxy env vars are written to the isolated Claude profile JSON for each MCP server, read directly by CLI at runtime',
+      detailRuntime: 'On install, proxy env vars are written to each MCP server env in the HydroAgent config, then read directly at runtime',
       detailApplyAll: '"Apply to All" syncs proxy config to all installed MCPs; when disabled, it can batch-remove proxy vars',
       applyAll: 'Apply to All Installed MCPs',
       applyAllSuccess: 'Applied to {count} MCPs',
@@ -1414,8 +1411,8 @@ export default {
     costSummary: 'Total cost: ${cost} USD',
     commandCompleted: 'Command completed: {command}',
     compactCompleted: 'Context compaction completed (about {count} tokens before compaction, trigger: {trigger})',
-    sdkEvent: 'Claude SDK event: {event}',
-    slashSdkTitle: 'Claude Code commands:',
+    sdkEvent: 'Runtime event: {event}',
+    slashSdkTitle: 'Runtime commands:',
     unknownError: 'Unknown error',
     createNew: 'New Session',
     deleteConfirmTitle: 'Delete Conversation',
@@ -1521,7 +1518,7 @@ export default {
       title: 'Working Directory',
       openExplorer: 'Open in Explorer',
       refresh: 'Refresh',
-      showHidden: 'Show system files (.claude, CLAUDE.md, etc.)',
+      showHidden: 'Show system files and runtime config files',
       hideHidden: 'Hide system files',
       emptyDir: 'Directory is empty',
       noSession: 'Select a conversation to view files',

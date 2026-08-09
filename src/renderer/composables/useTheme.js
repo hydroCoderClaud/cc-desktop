@@ -13,9 +13,9 @@ import { claudeTheme, claudeDarkTheme } from '@theme/claude-theme'
  * 每套包含 light 和 dark 两种模式
  */
 const COLOR_SCHEMES = {
-  // Claude - 官方品牌色（赤陶/珊瑚色）
+  // Default warm palette
   claude: {
-    name: 'Claude',
+    name: 'Hydro',
     icon: '✦',
     light: {
       primary: '#DA7756',

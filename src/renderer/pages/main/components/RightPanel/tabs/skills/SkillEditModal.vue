@@ -100,10 +100,10 @@ const showFieldsPopover = ref(false)
 // YAML 字段定义
 const yamlFieldDefs = [
   { value: 'name', desc: '用户调用时输入的名称，如 /my-skill' },
-  { value: 'description', desc: '告诉 Claude 何时应该使用此技能' },
+  { value: 'description', desc: '告诉运行时何时应该使用此技能' },
   { value: 'argument-hint', desc: '调用时显示的参数输入提示' },
   { value: 'user-invocable', desc: '设为 false 则用户无法通过 / 调用', defaultValue: 'true' },
-  { value: 'disable-model-invocation', desc: '设为 true 则 Claude 不会自动调用', defaultValue: 'false' },
+  { value: 'disable-model-invocation', desc: '设为 true 则运行时不会自动调用', defaultValue: 'false' },
   { value: 'allowed-tools', desc: '限制此技能可使用的工具', defaultValue: '[Read, Grep, Glob]' },
   { value: 'model', desc: '指定执行此技能时使用的模型' }
 ]

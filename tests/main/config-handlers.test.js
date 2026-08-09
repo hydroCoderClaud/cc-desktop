@@ -66,7 +66,7 @@ describe('config-handlers api:testConnection', () => {
     const agentSessionManager = {
       probeConnection: vi.fn(async () => ({
         success: false,
-        message: 'Claude Code CLI 不可用：spawn node ENOENT',
+        message: '模型运行时不可用：spawn node ENOENT',
         errorKind: 'CLI_UNAVAILABLE',
         canFallbackToHttp: true
       }))

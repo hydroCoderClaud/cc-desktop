@@ -1036,18 +1036,18 @@ class AgentSessionManager extends EventEmitter {
     const message = error?.message || String(error)
 
     if (/SDK 连接超时/.test(message)) {
-      return { errorKind: 'TIMEOUT', canFallbackToHttp: false, message: `Claude Code 启动超时：${message}` }
+      return { errorKind: 'TIMEOUT', canFallbackToHttp: false, message: `模型运行时启动超时：${message}` }
     }
 
     if (/Failed to load SDK|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(message)) {
-      return { errorKind: 'SDK_UNAVAILABLE', canFallbackToHttp: true, message: `SDK 不可用：${message}` }
+      return { errorKind: 'SDK_UNAVAILABLE', canFallbackToHttp: true, message: `运行时 SDK 不可用：${message}` }
     }
 
     if (/spawn .* ENOENT|Failed to spawn Claude Code process|ENOENT/i.test(message)) {
-      return { errorKind: 'CLI_UNAVAILABLE', canFallbackToHttp: true, message: `Claude Code CLI 不可用：${message}` }
+      return { errorKind: 'CLI_UNAVAILABLE', canFallbackToHttp: true, message: `模型运行时不可用：${message}` }
     }
 
-    return { errorKind: 'SDK_ERROR', canFallbackToHttp: false, message: `Claude Code 探测失败：${message}` }
+    return { errorKind: 'SDK_ERROR', canFallbackToHttp: false, message: `模型运行时探测失败：${message}` }
   }
 
   async _cleanupProbeSession(session, tempDir) {
@@ -1108,7 +1108,7 @@ class AgentSessionManager extends EventEmitter {
       session.messageQueue = messageQueue
       const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath()
       if (!claudeCodeExecutablePath) {
-        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+        throw new Error('当前设置为“内置运行时”，但未找到内置可执行文件')
       }
 
       const generator = await this.runner.createQuery(messageQueue, {
@@ -1151,7 +1151,7 @@ class AgentSessionManager extends EventEmitter {
             if (responseText.trim()) {
               return {
                 success: true,
-                message: `Claude Code 已连通，收到模型回复：${responseText}`,
+                message: `模型运行时已连通，收到模型回复：${responseText}`,
                 durationMs: Date.now() - startTime,
                 errorKind: null,
                 canFallbackToHttp: false
@@ -1174,7 +1174,7 @@ class AgentSessionManager extends EventEmitter {
 
             return {
               success: true,
-              message: responseText ? `Claude Code 已连通，收到模型回复：${responseText}` : `Claude Code 已连通，请求完成：${msg.result || ''}`,
+              message: responseText ? `模型运行时已连通，收到模型回复：${responseText}` : `模型运行时已连通，请求完成：${msg.result || ''}`,
               durationMs,
               errorKind: null,
               canFallbackToHttp: false
@@ -1187,8 +1187,8 @@ class AgentSessionManager extends EventEmitter {
           return {
             success: false,
             message: session._lastCliStderr
-              ? `Claude Code CLI 异常退出：${session._lastCliStderr}`
-              : `Claude Code CLI 异常退出，退出码 ${session._lastCliExitCode}`,
+              ? `模型运行时异常退出：${session._lastCliStderr}`
+              : `模型运行时异常退出，退出码 ${session._lastCliExitCode}`,
             durationMs,
             errorKind: 'CLI_EXIT',
             canFallbackToHttp: false
@@ -1208,7 +1208,7 @@ class AgentSessionManager extends EventEmitter {
         if (sawInit) {
           return {
             success: false,
-            message: 'Claude Code 已启动，但未收到模型响应',
+            message: '模型运行时已启动，但未收到模型响应',
             durationMs,
             errorKind: 'NO_RESPONSE',
             canFallbackToHttp: false
@@ -1217,7 +1217,7 @@ class AgentSessionManager extends EventEmitter {
 
         return {
           success: false,
-          message: 'Claude Code 探测未拿到初始化结果或最终输出',
+          message: '模型运行时探测未拿到初始化结果或最终输出',
           durationMs,
           errorKind: 'NO_RESULT',
           canFallbackToHttp: false
@@ -1610,7 +1610,7 @@ class AgentSessionManager extends EventEmitter {
         : this.configManager.getDefaultProfile()
       const claudeCodeExecutablePath = this._getDeveloperClaudeExecutablePath()
       if (!claudeCodeExecutablePath) {
-        throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+        throw new Error('当前设置为“内置运行时”，但未找到内置可执行文件')
       }
 
       const targetModelId = requestedModel

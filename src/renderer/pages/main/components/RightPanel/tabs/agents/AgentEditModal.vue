@@ -43,7 +43,7 @@
           <div class="content-label-row">
             <span>
               {{ t('rightPanel.agents.content') }}
-              <span class="content-hint">（Claude 根据 description 自动选择使用。调用方式：<span class="invoke-cmd">@{{ form.agentId || 'agent-name' }}</span>）</span>
+              <span class="content-hint">（运行时根据 description 自动选择使用。调用方式：<span class="invoke-cmd">@{{ form.agentId || 'agent-name' }}</span>）</span>
             </span>
             <n-button v-if="!isReadonly" size="tiny" @click="formatContent" :title="t('rightPanel.agents.format')">
               {{ t('rightPanel.agents.format') }}
@@ -109,7 +109,7 @@ const showFieldsPopover = ref(false)
 // YAML 字段定义（Agent 专用）
 const yamlFieldDefs = [
   { value: 'name', desc: '代理的唯一标识名称' },
-  { value: 'description', desc: '告诉 Claude 何时应该使用此代理' },
+  { value: 'description', desc: '告诉运行时何时应该使用此代理' },
   { value: 'model', desc: '指定此代理使用的模型（sonnet/opus/haiku）' },
   { value: 'color', desc: '代理颜色（blue/green/red/yellow/purple/cyan/magenta/orange/gray）', defaultValue: 'blue' },
   { value: 'tools', desc: '允许使用的工具列表', defaultValue: '[Read, Write, Edit, Bash]' },
@@ -269,7 +269,7 @@ const loadAgentContent = async (agent) => {
     form.value.originalAgentId = ''  // 新建模式无原始 ID
     form.value.rawContent = `---
 name: my-agent
-description: 描述此代理的用途，Claude 会根据此描述自动选择使用
+description: 描述此代理的用途，运行时会根据此描述自动选择使用
 color: blue
 ---
 

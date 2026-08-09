@@ -1044,8 +1044,8 @@ export function useAgentChat(sessionId, options = {}) {
     }
 
     error.value = exitCode == null
-      ? 'Claude Code CLI exited unexpectedly'
-      : `Claude Code CLI exited unexpectedly (code ${exitCode})`
+      ? 'Model runtime exited unexpectedly'
+      : `Model runtime exited unexpectedly (code ${exitCode})`
     resetCurrentTurn()
   }
 

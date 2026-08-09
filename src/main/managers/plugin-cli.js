@@ -328,7 +328,7 @@ class PluginCli {
     if (msg.includes('epipe')) return '连接已断开' + NETWORK_HINT
     if (msg.includes('ehostunreach')) return '服务器不可达' + NETWORK_HINT
     if (msg.includes('eai_again')) return 'DNS 解析失败' + NETWORK_HINT
-    if (msg.includes('enoent')) return 'claude 命令未找到，请确认已安装 Claude Code CLI'
+    if (msg.includes('enoent')) return '运行时命令未找到，请确认已安装模型运行时'
     if (msg.includes('not found')) return rawMsg
     if (msg.includes('permission denied') || msg.includes('eacces')) return '权限不足，请检查文件权限'
     return rawMsg

@@ -925,7 +925,7 @@ class ConfigManager {
         const queryFn = await runner._loadSDK()
         const claudeCodeExecutablePath = resolveClaudeCodeExecutablePath()
         if (!claudeCodeExecutablePath) {
-          throw new Error('当前设置为“内置 Claude”，但未找到内置可执行文件')
+          throw new Error('当前设置为“内置运行时”，但未找到内置可执行文件')
         }
         const generator = queryFn({
           prompt: 'hi',

@@ -1626,7 +1626,7 @@ describe('AgentSessionManager interactions', () => {
     })
 
     expect(result.success).toBe(true)
-    expect(result.message).toBe('Claude Code 已连通，请求完成：pong')
+    expect(result.message).toBe('模型运行时已连通，请求完成：pong')
     expect(manager.sessions.size).toBe(0)
     expect(manager.sessionDatabase.insertAgentMessage).not.toHaveBeenCalled()
     expect(sent).toEqual([])
@@ -1690,7 +1690,7 @@ describe('AgentSessionManager interactions', () => {
     })
 
     expect(result.success).toBe(true)
-    expect(result.message).toBe('Claude Code 已连通，收到模型回复：pong early')
+    expect(result.message).toBe('模型运行时已连通，收到模型回复：pong early')
   })
 
   it('setModel passes explicit model strings through without local filtering', async () => {

@@ -6,9 +6,6 @@
         <button class="icon-btn" :title="t('rightPanel.settings.refresh')" @click="handleRefresh">
           <Icon name="refresh" :size="14" />
         </button>
-        <button class="icon-btn" :title="t('rightPanel.settings.docs')" @click="openDocs">
-          <Icon name="externalLink" :size="14" />
-        </button>
         <button class="icon-btn" :title="t('rightPanel.settings.rawJsonEditor.title')" @click="showRawJsonModal = true">
           <Icon name="fileText" :size="14" />
         </button>
@@ -286,10 +283,6 @@ const loadSettings = async () => {
 
 const handleRefresh = () => {
   loadSettings()
-}
-
-const openDocs = () => {
-  window.electronAPI.openExternal('https://code.claude.com/docs/en/settings')
 }
 
 // Permission handlers
