@@ -9,6 +9,7 @@ import os from 'os'
 
 // 创建临时测试目录
 const testTempDir = path.join(os.tmpdir(), 'cc-desktop-test-' + Date.now())
+const dedicatedConfigDir = path.join(os.homedir(), '.hydrocoder', 'agent')
 
 // 设置测试目录
 function setupTestDir() {
@@ -84,7 +85,7 @@ describe('ConfigManager', () => {
       expect(config.settings.appMode).toBe('agent')
       expect(config.settings.enableDeveloperMode).toBe(false)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
-      expect(config.settings.agent.claudeConfigDir).toBe('')
+      expect(config.settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
     })
 
     it('不再初始化服务商模板层', () => {
@@ -427,7 +428,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.market.registryFallbackUrls).toBeUndefined()
     })
 
-    it('应该保留空的 Claude 配置目录以兼容默认 Claude Code 配置', async () => {
+    it('应该把空的运行时配置目录迁移为 HydroAgent 固定目录', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         settings: {
@@ -444,8 +445,8 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe('')
-      expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
+      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
+      expect(savedConfig.settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
     })
 
     it('应该从旧配置中清理全局会话限制字段', async () => {
@@ -486,7 +487,7 @@ describe('ConfigManager', () => {
       expect(savedConfig.settings).not.toHaveProperty('maxHistorySessions')
     })
 
-    it('应该为缺失的 Claude 配置目录补空值并写回磁盘', async () => {
+    it('应该为缺失的运行时配置目录补 HydroAgent 固定目录并写回磁盘', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({
         settings: {
@@ -503,30 +504,29 @@ describe('ConfigManager', () => {
       await newConfigManager.saveQueue
 
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe('')
-      expect(savedConfig.settings.agent.claudeConfigDir).toBe('')
+      expect(newConfigManager.getConfig().settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
+      expect(savedConfig.settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
     })
 
-    it('保存自定义 Claude 配置目录时应创建并保留可写根目录', () => {
+    it('保存自定义运行时配置目录时应收回到 HydroAgent 固定目录', () => {
       const customDir = path.join(testTempDir, 'hydro-agent-config')
       const config = configManager.getConfig()
       config.settings.agent.claudeConfigDir = `  ${customDir}  `
 
       configManager.updateConfig(config)
 
-      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe(customDir)
-      expect(fs.statSync(customDir).isDirectory()).toBe(true)
-      expect(fs.readdirSync(customDir)).toEqual([])
+      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
+      expect(fs.existsSync(customDir)).toBe(false)
     })
 
-    it('保存自定义 Claude 配置目录为文件路径时应拒绝且不更新内存配置', () => {
+    it('保存自定义运行时配置目录为文件路径时应忽略并收回到 HydroAgent 固定目录', () => {
       const filePath = path.join(testTempDir, 'not-a-directory')
       fs.writeFileSync(filePath, 'not a directory', 'utf-8')
       const config = JSON.parse(JSON.stringify(configManager.getConfig()))
       config.settings.agent.claudeConfigDir = filePath
 
-      expect(() => configManager.updateConfig(config)).toThrow(/not a directory/)
-      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe('')
+      expect(() => configManager.updateConfig(config)).not.toThrow()
+      expect(configManager.getConfig().settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
     })
 
     it('应该把旧的 GitHub 主更新源 + 阿里镜像迁移为阿里主源 + GitHub 备用并写回磁盘', async () => {

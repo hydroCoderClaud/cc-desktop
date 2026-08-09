@@ -24,6 +24,7 @@ const { SplashController } = require('./splash-controller');
 const { restoreOrCreateMainWindow, setupSingleInstanceLock } = require('./single-instance');
 const { tMain } = require('./utils/app-i18n');
 const { getStableUserDataPath } = require('./utils/user-data-path');
+const { migrateLegacyClaudeProjects } = require('./utils/legacy-projects-migration');
 const {
   configureClaudeConfigPaths,
   ensureClaudeConfigDir
@@ -384,10 +385,10 @@ if (hasSingleInstanceLock) {
     configureClaudeConfigPaths({ configManager });
     try {
       const claudeConfigDir = ensureClaudeConfigDir(configManager);
-      if (claudeConfigDir) {
-        console.log('[Main] HydroAgent config directory ready:', claudeConfigDir);
-      } else {
-        console.log('[Main] HydroAgent config directory not configured; using Claude Code default profile');
+      console.log('[Main] HydroAgent config directory ready:', claudeConfigDir);
+      const migrationResult = migrateLegacyClaudeProjects({ configManager });
+      if (migrationResult?.status && migrationResult.status !== 'skipped_already_migrated') {
+        console.log('[Main] Legacy projects migration result:', migrationResult.status);
       }
     } catch (error) {
       console.error('[Main] Failed to initialize HydroAgent config directory:', error);

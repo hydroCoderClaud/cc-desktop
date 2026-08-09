@@ -47,7 +47,7 @@ function normalizeClaudeConfigDirForSave(config) {
   if (!config?.settings?.agent) return;
   if (!Object.prototype.hasOwnProperty.call(config.settings.agent, 'claudeConfigDir')) return;
 
-  const { configuredValue } = validateClaudeConfigDirValue(config.settings.agent.claudeConfigDir, {
+  const { configuredValue } = validateClaudeConfigDirValue(DEFAULT_CLAUDE_CONFIG_DIR, {
     create: true,
     checkWritable: true
   });
@@ -186,7 +186,7 @@ class ConfigManager {
         // Agent 模式配置
         agent: {
           outputBaseDir: '',           // 输出根目录，默认 ~/cc-desktop-agent-output/
-          claudeConfigDir: DEFAULT_CLAUDE_CONFIG_DIR, // 空字符串 = 兼容 Claude Code 默认配置目录
+          claudeConfigDir: DEFAULT_CLAUDE_CONFIG_DIR, // HydroAgent 独立配置目录
           maxAgentSessions: 5,         // 最大并发 Agent 会话数
           defaultAgentType: 'chat',    // 默认 Agent 类型
           messageQueue: true           // 消息队列：流式输出期间允许排队发送
@@ -341,9 +341,9 @@ class ConfigManager {
         }
 
         const originalClaudeConfigDir = config.settings?.agent?.claudeConfigDir;
-        if (originalClaudeConfigDir === undefined) {
+        if (originalClaudeConfigDir !== DEFAULT_CLAUDE_CONFIG_DIR) {
           migratedConfig.settings.agent.claudeConfigDir = DEFAULT_CLAUDE_CONFIG_DIR;
-          console.log('[ConfigManager] Added missing Claude config dir setting');
+          console.log('[ConfigManager] Set dedicated HydroAgent config dir');
           needsSave = true;
         }
 

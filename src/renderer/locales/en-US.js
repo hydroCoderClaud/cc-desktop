@@ -619,7 +619,7 @@ export default {
         ruleExists: 'Rule already exists'
       },
       env: {
-        globalTitle: 'Global Environment (changes apply after restarting the session)',
+        globalTitle: 'Global Environment (edits settings.json; takes effect after restarting the session)',
         projectTitle: 'Project Environment',
         addVar: 'Add environment variable',
         editVar: 'Edit environment variable',
@@ -1041,8 +1041,8 @@ export default {
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',
     claudeConfigDir: 'HydroAgent Config Directory',
-    claudeConfigDirPlaceholder: 'Leave empty to use the default runtime config',
-    claudeConfigDirHint: 'Leave empty to use the default runtime config. When set, HydroAgent uses this isolated config directory for Skills, Agents, MCP, history, and proxy support files.',
+    claudeConfigDirPlaceholder: 'Managed by HydroAgent',
+    claudeConfigDirHint: 'This directory is managed by HydroAgent. It shows the actual location and cannot be changed, so the host Claude Code install stays separate.',
     appUpdate: 'App Updates',
     currentVersion: 'Current Version',
     checkUpdate: 'Check for Updates',

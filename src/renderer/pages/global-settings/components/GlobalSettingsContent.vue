@@ -84,12 +84,11 @@
         <n-form-item :label="t('globalSettings.claudeConfigDir')">
           <div style="display: flex; gap: 8px; width: 100%">
             <n-input
-              v-model:value="formData.claudeConfigDir"
-              :placeholder="t('globalSettings.claudeConfigDirPlaceholder')"
-              clearable
+              :value="formData.claudeConfigDir"
+              readonly
               style="flex: 1"
             />
-            <n-button @click="handleSelectClaudeConfigDir">{{ t('common.browse') }}</n-button>
+            <n-button :disabled="!formData.claudeConfigDir" @click="handleOpenClaudeConfigDir">{{ t('agent.openDirectory') }}</n-button>
           </div>
           <template #feedback>{{ t('globalSettings.claudeConfigDirHint') }}</template>
         </n-form-item>
@@ -181,9 +180,9 @@ const handleSelectOutputDir = async () => {
   if (dir) formData.value.outputBaseDir = dir
 }
 
-const handleSelectClaudeConfigDir = async () => {
-  const dir = await window.electronAPI?.selectDirectory({ title: t('globalSettings.claudeConfigDir') })
-  if (dir) formData.value.claudeConfigDir = dir
+const handleOpenClaudeConfigDir = async () => {
+  if (!formData.value.claudeConfigDir) return
+  await window.electronAPI?.openPath?.(formData.value.claudeConfigDir)
 }
 
 const persistMessageQueueSetting = async (enabled) => {

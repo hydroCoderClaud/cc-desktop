@@ -621,7 +621,7 @@ export default {
       },
       // 环境变量
       env: {
-        globalTitle: '全局环境变量（修改后重启会话生效）',
+        globalTitle: '全局环境变量（会修改 settings.json，重启会话生效）',
         projectTitle: '项目环境变量',
         addVar: '添加环境变量',
         editVar: '编辑环境变量',
@@ -1044,8 +1044,8 @@ export default {
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',
     claudeConfigDir: 'HydroAgent 配置目录',
-    claudeConfigDirPlaceholder: '留空使用默认运行时配置',
-    claudeConfigDirHint: '留空则使用默认运行时配置；填写路径后，HydroAgent 会使用该隔离配置目录，Skills、Agents、MCP、历史记录和代理支持文件均写入这里',
+    claudeConfigDirPlaceholder: '由 HydroAgent 自动管理',
+    claudeConfigDirHint: '该目录由 HydroAgent 自动管理，显示的是实际物理位置，不能修改，也不会影响原生 Claude Code 配置。',
     appUpdate: '应用更新',
     currentVersion: '当前版本',
     checkUpdate: '检查更新',

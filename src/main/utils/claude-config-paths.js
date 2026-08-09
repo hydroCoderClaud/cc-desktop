@@ -10,7 +10,7 @@ const os = require('os')
 const path = require('path')
 const fs = require('fs')
 
-const DEFAULT_CLAUDE_CONFIG_DIR = ''
+const DEFAULT_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.hydrocoder', 'agent')
 const LEGACY_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.claude')
 const LEGACY_CLAUDE_JSON_PATH = path.join(os.homedir(), '.claude.json')
 const SUGGESTED_CLAUDE_CONFIG_DIR = path.join(os.homedir(), '.hydrocoder', 'agent')
@@ -42,7 +42,7 @@ function getConfiguredDirValue(configManager = configuredConfigManager) {
 
 function getConfiguredClaudeConfigDir(configManager = configuredConfigManager) {
   const configuredValue = expandHome(getConfiguredDirValue(configManager))
-  return configuredValue ? path.resolve(configuredValue) : ''
+  return configuredValue ? path.resolve(configuredValue) : DEFAULT_CLAUDE_CONFIG_DIR
 }
 
 function validateClaudeConfigDirValue(inputPath, options = {}) {
@@ -92,16 +92,15 @@ function isClaudeConfigIsolated(configManager = configuredConfigManager) {
 }
 
 function getClaudeConfigDir(configManager = configuredConfigManager) {
-  return getConfiguredClaudeConfigDir(configManager) || LEGACY_CLAUDE_CONFIG_DIR
+  return getConfiguredClaudeConfigDir(configManager)
 }
 
 function buildClaudeConfigEnv(configManager = configuredConfigManager) {
-  const configuredDir = getConfiguredClaudeConfigDir(configManager)
-  return configuredDir ? { CLAUDE_CONFIG_DIR: configuredDir } : {}
+  return { CLAUDE_CONFIG_DIR: getClaudeConfigDir(configManager) }
 }
 
 function ensureClaudeConfigDir(configManager = configuredConfigManager) {
-  const { resolvedDir } = validateClaudeConfigDirValue(getConfiguredDirValue(configManager), {
+  const { resolvedDir } = validateClaudeConfigDirValue(getClaudeConfigDir(configManager), {
     create: true,
     checkWritable: false
   })
@@ -112,8 +111,7 @@ function ensureClaudeConfigDir(configManager = configuredConfigManager) {
 }
 
 function getClaudeJsonPath(configManager = configuredConfigManager) {
-  const configuredDir = getConfiguredClaudeConfigDir(configManager)
-  return configuredDir ? path.join(configuredDir, '.claude.json') : LEGACY_CLAUDE_JSON_PATH
+  return path.join(getClaudeConfigDir(configManager), '.claude.json')
 }
 
 function getClaudeSettingsPath(configManager = configuredConfigManager) {
