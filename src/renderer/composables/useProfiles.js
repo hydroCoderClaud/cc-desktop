@@ -118,14 +118,17 @@ export function useProfiles() {
   /**
    * 获取官方模型列表
    */
-  const fetchOfficialModels = async (apiConfig) => {
+  const fetchModels = async (apiConfig) => {
     try {
-      return await invoke('fetchOfficialModels', apiConfig)
+      return await invoke('fetchModels', apiConfig)
     } catch (err) {
-      console.error('Failed to fetch official models:', err)
+      console.error('Failed to fetch models:', err)
       throw err
     }
   }
+
+  // Compatibility alias for older renderer callers.
+  const fetchOfficialModels = fetchModels
 
   return {
     profiles,
@@ -139,6 +142,7 @@ export function useProfiles() {
     deleteProfile,
     setDefault,
     testConnection,
+    fetchModels,
     fetchOfficialModels
   }
 }

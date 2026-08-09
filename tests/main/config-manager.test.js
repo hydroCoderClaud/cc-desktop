@@ -160,6 +160,34 @@ describe('ConfigManager', () => {
       expect(profile.selectedModelId).toBe('model-a')
     })
 
+    it('cleans legacy defaultModelMapping and keeps the selected model inside the migrated list', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Legacy Profile',
+          authToken: 'token',
+          baseUrl: 'https://example.com',
+          defaultModels: ['model-a', 'model-b'],
+          selectedModelId: 'removed-model',
+          defaultModelMapping: { sonnet: 'legacy-model' }
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      const profile = migratedManager.getConfig().apiProfiles[0]
+      expect(profile.defaultModels).toEqual(['model-a', 'model-b'])
+      expect(profile.selectedModelId).toBe('model-a')
+      expect(profile).not.toHaveProperty('defaultModelMapping')
+      expect(JSON.parse(fs.readFileSync(configPath, 'utf-8')).apiProfiles[0])
+        .not.toHaveProperty('defaultModelMapping')
+    })
+
     it('新增 profile 不应从 mapping 回填 selectedModelId', async () => {
       const profile = configManager.addAPIProfile({
         name: 'Mapped Profile',
@@ -703,6 +731,29 @@ describe('ConfigManager', () => {
       expect(savedConfig.apiProfiles[0]).not.toHaveProperty('selectedModelTier')
     })
 
+    it('保留旧 settings.api 中的模型并将其纳入迁移后的模型列表', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        settings: {
+          api: {
+            authToken: 'token',
+            baseUrl: 'https://example.com',
+            model: 'legacy-model'
+          }
+        }
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      const profile = migratedManager.getConfig().apiProfiles[0]
+      expect(profile.defaultModels).toEqual(['legacy-model'])
+      expect(profile.selectedModelId).toBe('legacy-model')
+    })
+
     it('HTTP 测试在缺少 selectedModelId 时应直接失败', async () => {
       const { createServer } = await import('http')
       let capturedBody = ''
@@ -763,6 +814,31 @@ describe('ConfigManager', () => {
   })
 
   describe('provider definition consolidation', () => {
+    it('falls back to built-in provider fields when a stored definition is incomplete', async () => {
+      const configPath = path.join(testTempDir, 'config.json')
+      fs.writeFileSync(configPath, JSON.stringify({
+        serviceProviderDefinitions: [{ id: 'qwen' }],
+        apiProfiles: [{
+          id: 'p1',
+          name: 'Qwen Legacy',
+          authToken: 'token',
+          serviceProvider: 'qwen',
+          selectedModelId: 'stale-model'
+        }]
+      }), 'utf-8')
+
+      vi.resetModules()
+      const module = await import('../../src/main/config-manager.js')
+      const NewConfigManager = module.default
+      const migratedManager = new NewConfigManager({ userDataPath: testTempDir })
+      await migratedManager.saveQueue
+
+      const profile = migratedManager.getConfig().apiProfiles[0]
+      expect(profile.baseUrl).toBe('https://coding.dashscope.aliyuncs.com/apps/anthropic')
+      expect(profile.defaultModels.length).toBeGreaterThan(0)
+      expect(profile.selectedModelId).toBe(profile.defaultModels[0])
+    })
+
     it('moves provider fields into every linked profile without changing IDs or credentials', async () => {
       const configPath = path.join(testTempDir, 'config.json')
       fs.writeFileSync(configPath, JSON.stringify({

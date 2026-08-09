@@ -49,6 +49,7 @@
       :profile="editingProfile"
       :is-edit="!!editingProfile"
       :testing="testingModal"
+      :fetch-models="fetchModels"
       @save="handleSave"
       @test="handleModalTest"
     />
@@ -75,7 +76,7 @@ const message = useMessage()
 const dialog = useDialog()
 const { t, initLocale } = useLocale()
 
-const { profiles, loading, defaultProfile, loadProfiles, addProfile, updateProfile, deleteProfile, setDefault, testConnection } = useProfiles()
+const { profiles, loading, defaultProfile, loadProfiles, addProfile, updateProfile, deleteProfile, setDefault, testConnection, fetchModels } = useProfiles()
 
 const orderedProfiles = computed(() => {
   const profileList = [...profiles.value]

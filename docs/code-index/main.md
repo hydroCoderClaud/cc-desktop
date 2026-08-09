@@ -234,7 +234,7 @@
 | http-client.js | 264 | `httpGet`, `httpGetWithMirror`, `fetchRegistryIndex`, `classifyHttpError`, `isNewerVersion`, `isValidMarketId`, `isSafeFilename` |
 | path-utils.js | -- | `encodePath`, `getProjectName`, `atomicWriteJson` |
 | agent-constants.js | 115 | `AgentStatus`, `AgentType`, `HIDDEN_DIRS`, `HIDDEN_FILES`, `TEXT_EXTS`, `IMAGE_EXTS`, `LANG_MAP` |
-| constants.js | 58 | `API_DEFAULTS`, `PROXY_DEFAULTS`, `TIMEOUTS`, `SERVICE_PROVIDERS`（仅迁移）, `PROFILE_ICONS` |
+| constants.js | 40 | `TIMEOUTS`, `SERVICE_PROVIDERS`（仅迁移） |
 | message-queue.js | 84 | `MessageQueue`（类：enqueue, drain, cancel, isDone） |
 | ipc-utils.js | 79 | `createIPCHandler`, `createIPCHandlerWithEvent`, `createSyncIPCHandler`, `createIPCListener` |
 | process-tree-kill.js | 39 | `killProcessTree` |

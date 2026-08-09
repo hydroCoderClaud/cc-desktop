@@ -2,20 +2,6 @@
  * Global constants for main process
  */
 
-// API Configuration Defaults
-const API_DEFAULTS = {
-  BASE_URL: 'https://api.anthropic.com',
-  MODEL: 'claude-sonnet-4-6',
-  AUTH_TYPE: 'api_key',
-  ANTHROPIC_VERSION: '2023-06-01'
-};
-
-// Proxy Defaults
-const PROXY_DEFAULTS = {
-  HTTPS_PROXY: 'http://127.0.0.1:7890',
-  HTTP_PROXY: 'http://127.0.0.1:7890'
-};
-
 // Timeout Settings
 const TIMEOUTS = {
   API_TEST: 30000,           // 30 seconds for connection test
@@ -48,17 +34,7 @@ const SERVICE_PROVIDERS = {
   }
 };
 
-// Profile Icons
-const PROFILE_ICONS = [
-  '🟣', '🔵', '🟢', '🟡', '🟠', '🔴',
-  '⚫', '⚪', '🟤', '🔷', '🔶', '🔸',
-  '🌟', '⭐', '✨', '💫', '🚀', '🎯'
-];
-
 module.exports = {
-  API_DEFAULTS,
-  PROXY_DEFAULTS,
   TIMEOUTS,
-  SERVICE_PROVIDERS,
-  PROFILE_ICONS
+  SERVICE_PROVIDERS
 };

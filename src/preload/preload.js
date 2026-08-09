@@ -409,6 +409,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCurrentProfile: () => ipcRenderer.invoke('api:getCurrentProfile'),  // 返回默认 Profile
 
   testConnection: (apiConfig) => ipcRenderer.invoke('api:testConnection', apiConfig),
+  fetchModels: (apiConfig) => ipcRenderer.invoke('api:fetchModels', apiConfig),
   fetchOfficialModels: (apiConfig) => ipcRenderer.invoke('api:fetchOfficialModels', apiConfig),
 
   // ========================================

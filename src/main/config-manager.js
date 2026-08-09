@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { TIMEOUTS } = require('./utils/constants');
-const { getDefaultProviders } = require('./config/provider-config');
+const { getDefaultProviders, normalizeModelIds } = require('./config/provider-config');
 const { apiConfigMixin } = require('./config/api-config');
 const { atomicWriteJson } = require('./utils/path-utils');
 const {
@@ -34,6 +34,13 @@ function resolveConfiguredModelId(_source, profile) {
   const selectedModelId = normalizeModelValue(profile?.selectedModelId);
   if (selectedModelId) return selectedModelId;
   return '';
+}
+
+function normalizeSelectedModelId(modelIds, value) {
+  const selectedModelId = normalizeModelValue(value);
+  if (modelIds.length === 0) return '';
+  if (!selectedModelId || modelIds.includes(selectedModelId)) return selectedModelId;
+  return modelIds[0];
 }
 
 function normalizeClaudeConfigDirForSave(config) {
@@ -527,7 +534,7 @@ class ConfigManager {
     if (defaultProfile) {
       return {
         authToken: defaultProfile.authToken,
-        authType: defaultProfile.authType || 'api_key',  // 默认 api_key（官方标准）
+        authType: defaultProfile.authType || 'api_key',  // 旧 Profile 的兼容回退；新 Profile 默认 auth_token
         baseUrl: defaultProfile.baseUrl,
         defaultModels: Array.isArray(defaultProfile.defaultModels) ? defaultProfile.defaultModels : [],
         selectedModelId: resolveConfiguredModelId(this.config, defaultProfile),
@@ -635,6 +642,7 @@ class ConfigManager {
                             profile.selectedModelId === undefined ||
                             profile.customModels !== undefined ||
                             profile.modelMapping !== undefined ||
+                            profile.defaultModelMapping !== undefined ||
                             profile.selectedModelTier !== undefined;
 
       if (!needsMigration) {
@@ -674,6 +682,9 @@ class ConfigManager {
       }
       if (profile.modelMapping !== undefined) {
         delete profile.modelMapping;
+      }
+      if (profile.defaultModelMapping !== undefined) {
+        delete profile.defaultModelMapping;
       }
       if (profile.requestTimeout === undefined) {
         profile.requestTimeout = config.timeout?.request || TIMEOUTS.API_REQUEST;
@@ -750,13 +761,21 @@ class ConfigManager {
     for (const definition of storedDefinitions) {
       const id = typeof definition?.id === 'string' ? definition.id.trim() : '';
       if (!id) continue;
+      const builtin = definitions.get(id) || {
+        id,
+        name: id,
+        baseUrl: '',
+        defaultModels: []
+      };
+      const storedBaseUrl = typeof definition.baseUrl === 'string' ? definition.baseUrl.trim() : '';
+      const storedDefaultModels = normalizeModelIds(definition.defaultModels);
       definitions.set(id, {
         id,
-        name: typeof definition.name === 'string' ? definition.name : id,
-        baseUrl: typeof definition.baseUrl === 'string' ? definition.baseUrl.trim() : '',
-        defaultModels: Array.isArray(definition.defaultModels)
-          ? definition.defaultModels.filter(model => typeof model === 'string' && model.trim()).map(model => model.trim())
-          : []
+        name: typeof definition.name === 'string' && definition.name.trim()
+          ? definition.name.trim()
+          : builtin.name,
+        baseUrl: storedBaseUrl || builtin.baseUrl,
+        defaultModels: storedDefaultModels.length > 0 ? storedDefaultModels : builtin.defaultModels
       });
     }
 
@@ -765,14 +784,21 @@ class ConfigManager {
       const providerId = typeof profile?.serviceProvider === 'string' ? profile.serviceProvider.trim() : '';
       const definition = definitions.get(providerId);
       const hasDefaultModels = Object.prototype.hasOwnProperty.call(profile || {}, 'defaultModels');
+      let defaultModels = hasDefaultModels && Array.isArray(profile.defaultModels)
+        ? normalizeModelIds(profile.defaultModels)
+        : normalizeModelIds(definition?.defaultModels);
+      const selectedModelId = normalizeModelValue(profile?.selectedModelId);
+      // Preserve a legacy explicitly selected model when no model list existed.
+      if (defaultModels.length === 0 && selectedModelId) {
+        defaultModels = [selectedModelId];
+      }
       const nextProfile = {
         ...profile,
         baseUrl: typeof profile?.baseUrl === 'string' && profile.baseUrl.trim()
           ? profile.baseUrl.trim()
           : (definition?.baseUrl || ''),
-        defaultModels: hasDefaultModels && Array.isArray(profile.defaultModels)
-          ? profile.defaultModels.filter(model => typeof model === 'string' && model.trim()).map(model => model.trim())
-          : (definition?.defaultModels || [])
+        defaultModels,
+        selectedModelId: normalizeSelectedModelId(defaultModels, selectedModelId)
       };
 
       delete nextProfile.serviceProvider;
@@ -834,7 +860,7 @@ class ConfigManager {
       authType: 'api_key',
       description: '',
       baseUrl: oldApi.baseUrl || 'https://api.anthropic.com',
-      defaultModels: [],
+      defaultModels: normalizeModelValue(oldApi.model) ? [normalizeModelValue(oldApi.model)] : [],
       selectedModelId: normalizeModelValue(oldApi.model),
       requestTimeout: TIMEOUTS.API_REQUEST,
       disableNonessentialTraffic: true,

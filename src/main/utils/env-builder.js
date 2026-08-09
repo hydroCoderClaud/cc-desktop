@@ -27,7 +27,7 @@ function isPackagedApp() {
 /**
  * 从 API Profile 生成 Claude Code CLI 环境变量
  * @param {Object} profile - API Profile 对象
- * @param {Object} [configManager] - ConfigManager 实例，用于读取服务商默认映射
+ * @param {Object} [configManager] - ConfigManager 实例（保留兼容参数）
  * @returns {Object} 环境变量对象（只包含有值的变量）
  *
  * 映射关系：
@@ -42,7 +42,7 @@ function isPackagedApp() {
  * | useProxy + httpProxy        | HTTP_PROXY                              |
  *
  * authType 说明：
- * - 'api_key' (默认) → ANTHROPIC_API_KEY（官方 API 标准）
+ * - 'api_key'         → ANTHROPIC_API_KEY
  * - 'auth_token'     → ANTHROPIC_AUTH_TOKEN（Authorization: Bearer）
  */
 function buildClaudeEnvVars(profile, configManager, options = {}) {
@@ -53,6 +53,8 @@ function buildClaudeEnvVars(profile, configManager, options = {}) {
 
   // 认证令牌（根据 authType 决定环境变量名，并清除另一个避免冲突）
   if (runtimeProfile.authToken && runtimeProfile.authToken.trim()) {
+    // Current profiles use auth_token; retain api_key for legacy profiles
+    // that predate the explicit authType field.
     const authType = runtimeProfile.authType || 'api_key'
     if (authType === 'api_key') {
       envVars.ANTHROPIC_API_KEY = runtimeProfile.authToken.trim()
@@ -254,7 +256,7 @@ function buildStandardExtraVars(configManager) {
  *
  * @param {Object} profile - API Profile 对象
  * @param {Object} [extraVars={}] - 额外环境变量（如 TERM、CLAUDE_AUTOCOMPACT_PCT_OVERRIDE）
- * @param {Object} [configManager] - ConfigManager 实例，用于补齐服务商默认映射
+ * @param {Object} [configManager] - ConfigManager 实例（保留兼容参数）
  * @param {Object} [options] - 额外控制选项
  * @returns {Object} 完整的环境变量对象
  */

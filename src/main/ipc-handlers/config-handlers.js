@@ -4,6 +4,7 @@
  */
 
 const { createIPCHandler, createSyncIPCHandler } = require('../utils/ipc-utils')
+const { fetchModels } = require('../model-list-service')
 
 /**
  * 设置配置相关的 IPC 处理器
@@ -105,6 +106,15 @@ function setupConfigHandlers(ipcMain, configManager, agentSessionManager, localA
       console.warn('[config-handlers] SDK test failed, falling back to HTTP:', sdkError.message)
       return configManager.testAPIConnectionViaHTTP(apiConfig)
     }
+  })
+
+  registerHandler('api:fetchModels', (apiConfig) => {
+    return fetchModels(apiConfig)
+  })
+
+  // Keep the historical channel available for older renderer bundles.
+  registerHandler('api:fetchOfficialModels', (apiConfig) => {
+    return fetchModels(apiConfig)
   })
 
   // ========================================

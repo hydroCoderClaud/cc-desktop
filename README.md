@@ -17,21 +17,21 @@ Repository / package identifier: `cc-desktop`.
 - **Agent + Notebook Workspace** — Project-based Agent chat with image recognition and streaming output, plus a Notebook workspace for source curation and achievement generation
 - **MCP / Skills / Plugins / Agents / Hooks** — Extensible capability system with visual management, capability settings workbench, and a built-in marketplace
 - **Built-in Plugin Runtime** — Plugin marketplace add/remove/refresh and plugin install/uninstall/update now run in the desktop main process instead of shelling out to `claude plugin ...`
-- **Multi-Provider API Management** — Configure multiple API providers (Anthropic official, proxies, compatible endpoints) with provider-level default model mapping and per-profile default model IDs
+- **API Profile Management** — Configure independent model profiles with a name, endpoint, credentials, model ID list, default model, timeout, and proxy settings
 - **Multi-IM Bridge** — Bridge Claude Code to DingTalk, Feishu, and Enterprise Weixin for remote AI-assisted development, plus keep Weixin notification/chat support
 - **Cross-Platform** — Windows & macOS, 6 color themes, light/dark mode, bilingual UI (English & Chinese)
 
 ### Quick Start
 
 1. **Download** — Get the version from [Releases](https://github.com/hydroCoderClaud/cc-desktop/releases/latest) and follow the installation guide
-2. **Run** — Launch Hydro Desktop, configure your API provider, and start coding
+2. **Run** — Launch Hydro Desktop, configure a model profile, and start coding
 
 > For detailed installation steps (Node.js, Git Bash, package install), see the full [Installation Guide](docs/INSTALL_EN.md).
 
 ### Usage
 
-1. **Configure Provider** — Settings → Provider Management → select or add a provider
-2. **Add API Key** — Settings → API Configuration → add your key
+1. **Configure Model Profile** — Settings → Model Configuration → add or edit a model profile
+2. **Set Credentials** — Enter the endpoint, authentication, and model IDs in the profile
 3. **Connect** — Select a project folder → Connect → start chatting with Claude
 
 ### FAQ

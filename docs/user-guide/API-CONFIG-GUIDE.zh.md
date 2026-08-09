@@ -115,6 +115,7 @@ window.electronAPI.openProfileManager()
 - 默认模型使用 `selectedModelId`，直接传递真实模型 ID。
 - 不存在服务商模板选择；地址、模型 ID 列表和默认模型 ID 都直接由当前 Profile 管理。
 - `defaultModels` 和 `selectedModelId` 都从当前 Profile 读取，Profile 之间互不共享模型列表。
+- `selectedModelId` 必须为空或存在于当前 Profile 的 `defaultModels`；删除默认模型后会自动切换到列表首项。
 
 ### 配置生效时机
 
@@ -156,6 +157,7 @@ window.electronAPI.openProfileManager()
       "authToken": "sk-ant-api03-xxxxxxxxxxxx",
       "authType": "api_key",
       "baseUrl": "https://api.anthropic.com",
+      "defaultModels": ["claude-sonnet-4-6"],
       "selectedModelId": "claude-sonnet-4-6",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
@@ -177,6 +179,7 @@ window.electronAPI.openProfileManager()
       "authToken": "your-token",
       "authType": "api_key",
       "baseUrl": "https://proxy.example.com/v1",
+      "defaultModels": ["claude-sonnet-4-6"],
       "selectedModelId": "claude-sonnet-4-6",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
@@ -198,6 +201,7 @@ window.electronAPI.openProfileManager()
       "authToken": "sk-ant-api03-xxxxxxxxxxxx",
       "authType": "api_key",
       "baseUrl": "https://api.anthropic.com",
+      "defaultModels": ["claude-sonnet-4-6"],
       "selectedModelId": "claude-sonnet-4-6",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,

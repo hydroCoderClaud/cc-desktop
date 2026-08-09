@@ -63,7 +63,24 @@
         </n-grid-item>
       </n-grid>
 
-      <n-form-item :label="t('profileManager.defaultModelIds')">
+      <n-form-item>
+        <template #label>
+          <div class="model-list-label">
+            <span>{{ t('profileManager.defaultModelIds') }}</span>
+            <n-button
+              class="model-list-refresh"
+              text
+              :loading="fetchingModels"
+              :disabled="!canFetchModels"
+              :title="t('profileManager.fetchModelsTooltip')"
+              :aria-label="t('profileManager.fetchModelsTooltip')"
+              @click="handleFetchModels"
+            >
+              <Icon name="refresh" :size="16" />
+            </n-button>
+            <span class="model-list-hint">{{ t('profileManager.fetchModelsHint') }}</span>
+          </div>
+        </template>
         <n-input
           v-model:value="formData.defaultModelsText"
           type="textarea"
@@ -163,13 +180,18 @@ const props = defineProps({
   show: Boolean,
   profile: Object,
   isEdit: Boolean,
-  testing: Boolean
+  testing: Boolean,
+  fetchModels: {
+    type: Function,
+    default: null
+  }
 })
 
 const emit = defineEmits(['update:show', 'save', 'test'])
 
 const formRef = ref(null)
 const showPassword = ref(false)
+const fetchingModels = ref(false)
 const availableIcons = ['\uD83E\uDD16', '\uD83D\uDCBC', '\uD83E\uDDE0', '\uD83C\uDF10', '\uD83D\uDD25', '\uD83D\uDCA1', '\u2B50', '\uD83D\uDE80']
 
 const defaultFormData = () => ({
@@ -244,6 +266,12 @@ const modelSelectPlaceholder = computed(() => (
     : t('profileManager.noModelIds')
 ))
 
+const canFetchModels = computed(() => Boolean(
+  props.fetchModels
+  && String(formData.value.baseUrl || '').trim()
+  && String(formData.value.authToken || '').trim()
+))
+
 watch(() => props.profile, (profile) => {
   if (!profile) {
     formData.value = defaultFormData()
@@ -311,6 +339,36 @@ const handleSave = async () => {
 }
 
 const handleTest = () => emit('test', buildProfileData())
+
+const handleFetchModels = async () => {
+  if (!canFetchModels.value || fetchingModels.value) {
+    message.warning(t('profileManager.fetchModelsConfigRequired'))
+    return
+  }
+
+  fetchingModels.value = true
+  try {
+    const result = await props.fetchModels(buildProfileData())
+    if (!result?.success) {
+      const detail = result?.message ? `: ${result.message}` : ''
+      message.error(t('profileManager.fetchModelsFailed') + detail)
+      return
+    }
+
+    const modelIds = normalizeModelIds(result.models)
+    if (modelIds.length === 0) {
+      message.warning(t('profileManager.fetchModelsEmpty'))
+      return
+    }
+
+    formData.value.defaultModelsText = modelIds.join('\n')
+    message.success(t('profileManager.fetchModelsSuccess', { count: modelIds.length }))
+  } catch (err) {
+    message.error(t('profileManager.fetchModelsFailed') + ': ' + (err.message || String(err)))
+  } finally {
+    fetchingModels.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -321,6 +379,9 @@ const handleTest = () => emit('test', buildProfileData())
 .proxy-fields { background: var(--bg-color-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px; }
 .model-selector { display: flex; flex-direction: column; gap: 10px; }
 .model-empty-state { font-size: 12px; opacity: 0.7; }
+.model-list-label { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.model-list-refresh { min-width: 24px; }
+.model-list-hint { font-size: 12px; font-weight: 400; opacity: 0.7; }
 
 @media (max-width: 600px) {
   :global(.profile-form-modal .n-card-header) { flex-wrap: wrap; row-gap: 8px; }

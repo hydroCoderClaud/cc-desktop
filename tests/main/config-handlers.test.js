@@ -12,6 +12,21 @@ function createMockIpcMain() {
 }
 
 describe('config-handlers api:testConnection', () => {
+  it('registers model list fetching under the current and legacy IPC channels', async () => {
+    const { setupConfigHandlers } = await import('../../src/main/ipc-handlers/config-handlers.js')
+    const ipcMain = createMockIpcMain()
+    const configManager = {
+      getConfig: () => ({}),
+      validateAPIConfig: vi.fn(),
+      testAPIConnectionViaHTTP: vi.fn()
+    }
+
+    setupConfigHandlers(ipcMain, configManager)
+
+    expect(ipcMain.handlers.get('api:fetchModels')).toEqual(expect.any(Function))
+    expect(ipcMain.handlers.get('api:fetchOfficialModels')).toEqual(expect.any(Function))
+  })
+
   it('uses probe result directly when fallback is not allowed', async () => {
     const { setupConfigHandlers } = await import('../../src/main/ipc-handlers/config-handlers.js')
     const ipcMain = createMockIpcMain()
