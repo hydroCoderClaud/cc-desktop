@@ -6,9 +6,9 @@
 
 ## 设计理念
 
-> **Hydro Desktop = Claude Code 的本地 Agent 工作台**
+> **Hydro Desktop = 本地 Agent 工作台**
 
-Hydro Desktop（仓库 / 包名仍为 `cc-desktop`）是独立的 Electron 桌面应用，围绕 Claude Code 提供项目化 Agent 对话、Notebook 工作台、能力设置、桌面端定时任务，以及多渠道 IM 桥接能力（钉钉、飞书、企业微信、微信）。
+Hydro Desktop（仓库 / 包名仍为 `cc-desktop`）是独立的 Electron 桌面应用，围绕内置 Agent runtime 提供项目化 Agent 对话、Notebook 工作台、能力设置、桌面端定时任务，以及多渠道 IM 桥接能力（钉钉、飞书、企业微信、微信）。
 
 **核心原则**：
 - **单用户无认证** -- 无 JWT、无用户管理，所有数据纯本地
@@ -214,14 +214,15 @@ IM 用户发消息 → 平台 Stream/WS → DingTalk / Feishu / EnterpriseWeixin
 
 ## 数据存储
 
-Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空时保持 Claude Code 默认行为，使用 `~/.claude` 与 `~/.claude.json`；填写 HydroAgent 配置目录时，CLI 进程会注入 `CLAUDE_CONFIG_DIR`，下表中的 `<Claude profile>` 指向该目录，`<Claude profile json>` 指向该目录下的 `.claude.json`。
+HydroAgent 运行配置目录固定为 `~/.hydrocoder/agent`，并保存到 `settings.agent.claudeConfigDir`。启动时应用会确保该目录存在，并为本程序启动的底层 runtime 注入 `CLAUDE_CONFIG_DIR`；用户原生 `~/.claude` 与 `~/.claude.json` 不再作为本程序默认配置目录。下表中的 `<Claude profile>` 指向 `~/.hydrocoder/agent`，`<Claude profile json>` 指向该目录下的 `.claude.json`。项目内 `.claude/` 目录仍保留在项目根目录，不受全局运行配置目录影响。
 
 | 数据 | 位置 | 格式 |
 |------|------|------|
 | 应用配置 | `{userData}/config.json` | JSON |
 | 会话数据库 | `{userData}/sessions.db` | SQLite（11 张表 + FTS5） |
 | 更新状态 | `{userData}/update-state.json` | JSON |
-| CLI 会话历史 | `<Claude profile>/projects/{encodedPath}/*.jsonl` | JSONL（只读） |
+| 旧会话迁移状态 | `{userData}/legacy-projects-migration.json` | JSON |
+| Runtime 会话历史 | `<Claude profile>/projects/{encodedPath}/*.jsonl` | JSONL（只读） |
 | Skills | `<Claude profile>/skills/{id}/SKILL.md` | Markdown + YAML |
 | Agents | `<Claude profile>/agents/{id}.md` | Markdown + YAML |
 | Hooks | `<Claude profile>/hooks.json` | JSON |
@@ -231,6 +232,8 @@ Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空�
 | Plugins | `<Claude profile>/plugins/installed_plugins.json` | JSON |
 
 `{userData}` = `%APPDATA%/cc-desktop`（Windows）或 `~/Library/Application Support/cc-desktop`（macOS）
+
+升级时会将旧 `~/.claude/projects` 中目标目录缺失的 JSONL 历史复制到 `<Claude profile>/projects`，便于旧会话继续按 `sdk_session_id` 恢复。该迁移不修改 `sessions.db`、会话 `cwd` 或项目目录；如果历史 `cwd` 本身已经不存在，恢复仍可能因工作目录不可用而失败。
 
 ---
 
@@ -297,4 +300,4 @@ Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空�
 | 依赖 | 开发模式 | 生产模式 | 说明 |
 |------|---------|---------|------|
 | Node.js | 需要 | 不需要 | 开发工具链；生产由 Electron 自带 |
-| Claude Code CLI | 需要 | 需要 | Agent 模式及 MCP 服务器依赖；插件市场与插件生命周期管理已不再依赖 `claude plugin ...` |
+| 内置 Agent runtime | 随依赖安装 | 打包内置 | Agent 模式及 MCP 服务器依赖；插件市场与插件生命周期管理由桌面端主进程处理 |

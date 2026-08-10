@@ -8,7 +8,7 @@
 
 ## English
 
-**Hydro Desktop** — An Electron-based desktop Agent workspace for Claude Code. Manage project-based Agent conversations, Notebook workspaces, capability settings, and IM bridges with a native desktop app.
+**Hydro Desktop** — An Electron-based desktop Agent workspace with a bundled runtime. Manage project-based Agent conversations, Notebook workspaces, capability settings, and IM bridges with a native desktop app.
 
 Repository / package identifier: `cc-desktop`.
 
@@ -16,9 +16,9 @@ Repository / package identifier: `cc-desktop`.
 
 - **Agent + Notebook Workspace** — Project-based Agent chat with image recognition and streaming output, plus a Notebook workspace for source curation and achievement generation
 - **MCP / Skills / Plugins / Agents / Hooks** — Extensible capability system with visual management, capability settings workbench, and a built-in marketplace
-- **Built-in Plugin Runtime** — Plugin marketplace add/remove/refresh and plugin install/uninstall/update now run in the desktop main process instead of shelling out to `claude plugin ...`
+- **Built-in Plugin Runtime** — Plugin marketplace add/remove/refresh and plugin install/uninstall/update run in the desktop main process
 - **API Profile Management** — Configure independent model profiles with a name, endpoint, credentials, model ID list, default model, timeout, and proxy settings
-- **Multi-IM Bridge** — Bridge Claude Code to DingTalk, Feishu, and Enterprise Weixin for remote AI-assisted development, plus keep Weixin notification/chat support
+- **Multi-IM Bridge** — Bridge the desktop Agent to DingTalk, Feishu, and Enterprise Weixin for remote AI-assisted development, plus keep Weixin notification/chat support
 - **Cross-Platform** — Windows & macOS, 6 color themes, light/dark mode, bilingual UI (English & Chinese)
 
 ### Quick Start
@@ -32,7 +32,7 @@ Repository / package identifier: `cc-desktop`.
 
 1. **Configure Model Profile** — Settings → Model Configuration → add or edit a model profile
 2. **Set Credentials** — Enter the endpoint, authentication, and model IDs in the profile
-3. **Connect** — Select a project folder → Connect → start chatting with Claude
+3. **Connect** — Select a project folder → Connect → start chatting with the Agent
 
 ### FAQ
 
@@ -52,7 +52,7 @@ Custom license — personal use, learning, and development permitted; commercial
 
 ## 中文
 
-**Hydro Desktop** — 基于 Electron 的桌面 Agent 工作台，为 Claude Code 提供项目化对话、Notebook 工作台、能力设置和 IM 桥接能力。
+**Hydro Desktop** — 基于 Electron 的桌面 Agent 工作台，提供项目化对话、Notebook 工作台、能力设置和 IM 桥接能力。
 
 仓库 / 包名仍为 `cc-desktop`。
 
@@ -60,9 +60,9 @@ Custom license — personal use, learning, and development permitted; commercial
 
 - **Agent + Notebook 工作台** — 项目化 Agent 对话（图片识别、流式输出），以及 Notebook 资料整理与成果生成工作台
 - **MCP / Skills / Plugins / Agents / Hooks** — 可扩展能力体系，可视化管理，内置组件市场与能力设置工作台
-- **内建插件运行时** — 插件市场增删改查与插件安装、卸载、启停、更新已由桌面端主进程直接处理，不再依赖 `claude plugin ...`
-- **模型配置管理** — 支持官方 API、中转服务和兼容端点，每个模型配置独立维护地址、密钥、模型列表和默认模型 ID
-- **多 IM 桥接** — 将 Claude Code 桥接到钉钉、飞书、企业微信，并保留微信通知 / 聊天能力
+- **内建插件运行时** — 插件市场增删改查与插件安装、卸载、启停、更新已由桌面端主进程直接处理
+- **模型配置管理** — 每个模型配置独立维护名称、图标、接口地址、密钥、模型 ID 列表、默认模型 ID、超时和代理参数
+- **多 IM 桥接** — 将桌面 Agent 桥接到钉钉、飞书、企业微信，并保留微信通知 / 聊天能力
 - **跨平台** — Windows & macOS，6 套配色方案，深色/浅色模式，中英文界面
 
 ### 快速开始
@@ -76,7 +76,7 @@ Custom license — personal use, learning, and development permitted; commercial
 
 1. **配置模型** — 设置 → 模型配置 → 添加或编辑模型配置
 2. **添加 API Key** — 在模型配置中填写密钥并测试连接
-3. **连接项目** — 选择项目文件夹 → 连接 → 开始与 Claude 对话
+3. **连接项目** — 选择项目文件夹 → 连接 → 开始与 Agent 对话
 
 ### 常见问题
 

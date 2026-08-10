@@ -58,11 +58,11 @@ SettingsWorkspace
 一级导航使用面向操作的分组：
 
 - 配置：模型与 API、通道、常规、外观
-- 能力：Skills、MCP、Agents、Hooks、Plugins、Claude 设置
+- 能力：Skills、MCP、Agents、Hooks、Plugins、运行时设置
 - 自动化：会话应用、定时任务
 - 应用：更新
 
-模型与频道在初期保留各自的二级分区导航，避免一次重写 Provider/Profile 与多通道设置的内部交互；后续若视觉目标要求单一侧栏，再将二级分区升级为可直达的叶子路由。
+模型配置已收敛为单一 API Profile 管理入口，不再保留旧模板二级导航；频道设置仍保留 common / 飞书 / 钉钉 / 企业微信二级分区，后续若视觉目标要求单一侧栏，再将二级分区升级为可直达的叶子路由。
 
 ## 4. 目标架构
 
@@ -117,7 +117,7 @@ SettingsWorkspace
 
 | 内容 | 适配方式 |
 |---|---|
-| ModelSettingsContent | 直接嵌入；保留 Providers / Profiles 二级导航 |
+| ModelSettingsContent | 直接嵌入；展示单一模型配置列表与 Profile 表单 |
 | ChannelSettingsContent | 直接嵌入；保留 common / 飞书 / 钉钉 / 企业微信二级导航 |
 | GlobalSettingsContent | 将 `window.close()` 改为 `close` emit 或可选回调 |
 | AppearanceSettingsContent | 将 `window.close()` 改为 `close` emit 或可选回调 |
@@ -150,7 +150,7 @@ singletonKey -> BrowserWindow
 范围：主进程 legacy 设置窗口打开路径。
 
 - 新增显式单例窗口帮助方法与清理生命周期。
-- 为模型、频道、全局、外观、Profile、Provider、桥接设置和 workbench 回退路径接入单例 key。
+- 为模型、频道、全局、外观、模型配置、桥接设置和 workbench 回退路径接入单例 key。
 - 不改变 Notebook 或内嵌 App 行为。
 
 验收：同一入口连续点击只聚焦已有窗口；关闭后可重新创建；不同 workbench 上下文不误复用。

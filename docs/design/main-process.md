@@ -104,13 +104,15 @@ ConfigManager (config-manager.js, 1056行)
 
 ### 配置迁移
 
-`load()` 时自动执行三种迁移：
+`load()` 与启动初始化会自动执行以下迁移：
 
 | 迁移 | 方法 | 说明 |
 |------|------|------|
 | 单 API → 多 Profile | `migrateToProfiles()` | 旧版单个 `apiConfig` 迁移到 `apiProfiles[]` |
-| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `selectedModelId`，并清理 `customModels` / `modelMapping` / `selectedModelTier` 及旧服务商字段 |
-| 旧服务商定义合并 | `migrateProviderFieldsToProfiles()` | 将旧 `serviceProviderDefinitions` 的地址和模型列表复制到关联 Profile 后移除旧字段 |
+| Profile 结构升级 | `migrateProfileStructure()` | `category/model` → `selectedModelId`，并清理 `customModels` / `modelMapping` / `selectedModelTier` 及旧 Provider 字段 |
+| 旧 Provider 定义合并 | `migrateProviderFieldsToProfiles()` | 将旧 `serviceProviderDefinitions` 的地址和模型列表复制到关联 Profile 后移除旧字段 |
+| 运行配置目录固化 | `normalizeClaudeConfigDirForSave()` | 将旧空值或自定义值收敛为 HydroAgent 固定目录 `~/.hydrocoder/agent` |
+| 旧会话 JSONL 迁移 | `migrateLegacyClaudeProjects()` | 启动时复制旧 `~/.claude/projects` 中目标缺失的历史文件到新运行配置目录 |
 | 字段重命名 | 内联代码 | `skillsMarket` → `market`、清理废弃的 `updateUrl` |
 
 ### API Profile 系统
@@ -137,7 +139,15 @@ Profile → 环境变量的映射由 `env-builder.js` 的 `buildClaudeEnvVars()`
 
 ### 旧配置迁移
 
-当前运行时没有服务商模板层。旧版本中的 `serviceProviderDefinitions` 以及 Profile 内的 `serviceProvider`、`providerName` 只在启动时用于补齐地址和模型列表，随后从内存配置和磁盘配置中移除。之后每个 API Profile 独立维护配置名称、地址、认证方式、密钥、模型 ID 列表、默认模型 ID、超时、代理和描述。
+当前运行时没有旧 Provider 模板层。旧版本中的 `serviceProviderDefinitions` 以及 Profile 内的 `serviceProvider`、`providerName` 只在启动时用于补齐地址和模型列表，随后从内存配置和磁盘配置中移除。之后每个 API Profile 独立维护配置名称、地址、认证方式、密钥、模型 ID 列表、默认模型 ID、超时、代理和描述。
+
+模型列表拉取由 `model-list-service.js` 执行：基于当前 Profile 的 `baseUrl` 构造 `{baseUrl}/v1/models`、`{origin}/v1/models`、`{origin}/models` 候选地址，按 `authType` 选择 Bearer 或 `x-api-key` 认证，解析数组、`data` 数组或 `models` 数组中的模型 ID。拉取失败不会清空 Profile 现有模型列表。
+
+### HydroAgent 运行配置目录
+
+`settings.agent.claudeConfigDir` 当前固定为 `~/.hydrocoder/agent`，设置页只展示物理路径，不再允许用户选择原生配置目录。启动时 `index.js` 先执行 `ensureClaudeConfigDir(configManager)` 创建目录，再执行 `migrateLegacyClaudeProjects({ configManager })` 迁移旧会话历史。
+
+运行配置目录中的 `<profile>/.claude.json`、`skills/`、`agents/`、`plugins/`、`settings.json`、`proxy-support/` 和 `projects/` 都与用户原生 `~/.claude` 隔离。迁移只复制旧 `~/.claude/projects` 下目标不存在的文件，并用 `{userData}/legacy-projects-migration.json` 记录完成状态，不修改 `sessions.db`、会话 `cwd` 或项目目录。
 
 ---
 
@@ -689,7 +699,7 @@ Object.assign(SkillsManager.prototype, crud, importMixin, exportMixin, marketMix
 
 ### 文件存储位置
 
-下表里的 `<Claude profile>` 默认是 `~/.claude`；配置 HydroAgent 隔离目录后指向该目录。`<Claude profile json>` 默认是 `~/.claude.json`，隔离模式下是 `<Claude profile>/.claude.json`。
+下表里的 `<Claude profile>` 固定指向 `~/.hydrocoder/agent`。`<Claude profile json>` 指向 `<Claude profile>/.claude.json`；项目级 `.claude/` 与 `.mcp.json` 仍位于项目目录。
 
 | 组件 | 位置 | 格式 |
 |------|------|------|

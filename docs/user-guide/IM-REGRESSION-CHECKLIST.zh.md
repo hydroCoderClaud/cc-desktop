@@ -13,7 +13,7 @@
 ### 通用环境
 
 - Hydro Desktop 已启动
-- Claude Code CLI 与 API 配置正常
+- 内置 Agent runtime 与模型配置正常
 - 当前桌面端可正常发起 Agent 会话
 - 准备一组测试附件：图片、PDF、Word、Excel、PowerPoint
 - 文档附件建议覆盖普通文件名和包含空格 / 中文 / `#` / `?` 的文件名，便于验证 macOS 与特殊字符路径

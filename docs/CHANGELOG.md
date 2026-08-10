@@ -2,6 +2,20 @@
 
 ---
 
+## Unreleased
+
+### 新增 (Feat)
+- **模型配置收敛**：API Profile 成为唯一模型配置单元，配置名称、图标、接口地址、密钥、模型 ID 列表、默认模型、超时和代理均由当前模型配置直接维护；旧服务商定义仅用于启动迁移。
+- **运行配置目录固化**：HydroAgent 运行配置目录固定为 `~/.hydrocoder/agent`，启动时自动创建并隔离 MCP、Skills、Agents、Plugins、Settings、proxy-support 与会话 JSONL。
+
+### 迁移 (Migration)
+- **旧会话历史迁移**：升级启动时复制旧 `~/.claude/projects` 下目标缺失的 JSONL 到 `~/.hydrocoder/agent/projects`，并用 `{userData}/legacy-projects-migration.json` 记录状态；迁移不修改 `sessions.db`、会话 `cwd` 或项目目录。
+
+### 文档 (Docs)
+- **配置文档对齐**：同步 README、快速入门、模型配置指南、架构设计、主进程设计、集成设计和项目身份计划，移除当前文档中的旧模板层与可编辑运行配置目录描述。
+
+---
+
 ## v1.7.93 - 2026-07-28
 
 ### 测试 (Test)

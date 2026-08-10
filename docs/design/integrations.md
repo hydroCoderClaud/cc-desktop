@@ -264,7 +264,7 @@ Notebook 创作工具市场是面向 Notebook 工作室的专用市场入口，�
 
 > 核心文件：`src/main/managers/mcp-manager.js` (545 行) + `mcp/market.js` (388 行)
 
-Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空时兼容 Claude Code 默认的 `~/.claude` 与 `~/.claude.json`；填写 HydroAgent 配置目录后，User/Local MCP、Skills、Agents、Plugins、Settings、proxy-support 与会话历史均切到该隔离目录。下文的 `<Claude profile>` 表示当前 profile 根目录，`<Claude profile json>` 表示默认 `~/.claude.json` 或隔离目录下的 `.claude.json`。
+HydroAgent 运行配置目录固定为 `~/.hydrocoder/agent`，应用启动时会创建该目录并注入 `CLAUDE_CONFIG_DIR`。User/Local MCP、Skills、Agents、Plugins、Settings、proxy-support 与会话历史均写入该隔离目录；用户原生 `~/.claude` 与 `~/.claude.json` 不再作为桌面端默认存储。下文的 `<Claude profile>` 表示 `~/.hydrocoder/agent`，`<Claude profile json>` 表示 `<Claude profile>/.claude.json`。
 
 ### 四级来源架构
 
@@ -401,7 +401,7 @@ Claude profile 相关路径由 `settings.agent.claudeConfigDir` 决定：留空�
 - **项目级**：`.claude/settings.local.json` → `hooks` 字段
 - **插件**：`{plugin}/hooks/hooks.json`
 
-Hooks 由 Claude Code CLI 在事件发生时自动执行，Hydro Desktop 仅提供管理 UI（CRUD）。
+Hooks 由底层 Agent runtime 在事件发生时自动执行，Hydro Desktop 仅提供管理 UI（CRUD）。
 
 ---
 

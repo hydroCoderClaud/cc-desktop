@@ -34,7 +34,7 @@
 | settings:broadcast | on | config | 广播设置变更到所有窗口 |
 | theme:getSync | on(sync) | config | 同步获取主题（避免闪白） |
 | locale:getSync | on(sync) | config | 同步获取语言 |
-| settings:getAll | handle | plugin | 获取 Claude Code 全部设置 |
+| settings:getAll | handle | plugin | 获取运行时全部设置 |
 | settings:getPermissions | handle | plugin | 获取权限设置 |
 | settings:addPermission | handle | plugin | 添加权限规则 |
 | settings:updatePermission | handle | plugin | 更新权限规则 |

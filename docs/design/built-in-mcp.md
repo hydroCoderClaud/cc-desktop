@@ -28,7 +28,7 @@ AgentSessionManager.sendMessage()
   -> queryOptions.mcpServers.hydrodesktop
   -> queryOptions.appendSystemPrompt
   -> queryOptions.allowedTools
-  -> Claude Code SDK query
+  -> Agent runtime SDK query
 ```
 
 关键文件：
@@ -171,7 +171,7 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 内置系统提示的目标是让模型明确区分两套调度能力：
 
 - `hydrodesktop` 定时任务：Hydro Desktop 本地数据库里的桌面端定时任务。
-- Claude Code 内建 Cron / `/loop`：Claude Code 自身调度能力。
+- Runtime 内建 Cron / `/loop`：底层 runtime 自身调度能力。
 
 当前提示要求模型在用户询问“定时任务、计划任务、每天、每周、立即执行、运行记录”等意图时优先使用 `hydrodesktop` 工具，而不是回复“无法访问”或引导用户去 UI 操作。
 
@@ -187,7 +187,7 @@ MCP 公共输入中的调度时间统一使用 `firstRunAt`。`dailyTime` 仍只
 
 - 这套机制目前不是通用内置 MCP registry，逻辑集中在 `desktop-capability-query-options.js`。
 - 具备桌面内置能力的会话会按同一规则注入 `allowedTools`；不再因为会话是否关联定时任务而做区别注入。
-- 不再对 Claude Code 内建 `Cron*` 注入硬编码 `disallowedTools`。较新的 runtime 可能不再注册这些旧工具名，继续传 deny 规则会产生 `matches no known tool` 警告。
+- 不再对 runtime 内建 `Cron*` 注入硬编码 `disallowedTools`。较新的 runtime 可能不再注册这些旧工具名，继续传 deny 规则会产生 `matches no known tool` 警告。
 - 内置 MCP 工具与 UI IPC 共享底层 `ScheduledTaskService`，但不是同一入口；行为一致性主要靠服务层和测试保障。
 - `im_send` 只负责发送本地已存在文件，不负责创建、下载或解析文档；文档理解仍由 Agent 自身文件/PDF能力完成。
 - GitNexus 当前没有识别出这些工具为标准 MCP tool nodes，理解链路时需要直接看源码和测试。

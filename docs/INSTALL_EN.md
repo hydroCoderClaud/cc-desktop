@@ -20,7 +20,7 @@ winget install OpenJS.NodeJS.LTS
 
 Download and install from [git-scm.com](https://git-scm.com/download/windows).
 
-After installation, add the Git Bash directory to your system PATH (usually `C:\Program Files\Git\bin`). Claude Code needs it for background file operations.
+After installation, add the Git Bash directory to your system PATH (usually `C:\Program Files\Git\bin`). The bundled Agent runtime needs it for background file operations.
 
 #### 3. Verify Installation
 

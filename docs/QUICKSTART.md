@@ -25,7 +25,7 @@ npm run dev
 ### 步骤 4：启动会话
 
 1. 选中项目后创建新对话。
-2. 桌面端会为真实项目目录创建 Agent 会话，并使用内置 Claude runtime。
+2. 桌面端会为真实项目目录创建 Agent 会话，并使用内置 Agent runtime。
 3. 后续继续对话时，会按项目身份恢复对应会话上下文。
 
 ### 步骤 5：开始使用
@@ -34,7 +34,7 @@ npm run dev
 - **Notebook 工作台**：从左下角设置菜单的“内嵌应用”中打开 Notebook，在独立窗口整理资料、对话和产出。
 - **能力管理**：打开 `settings-workbench`，可管理目录上下文来源、桌面端定时任务和微信通知。
 
-Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` 命令。
+Agent runtime 随桌面端内置，不需要用户额外安装系统命令。
 
 ---
 
@@ -43,13 +43,20 @@ Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` �
 ### 模型配置
 
 1. 点击右上角的模型配置入口，打开 **模型配置** 窗口。
-2. 新增或编辑模型配置，填写配置名称、API Key、接口地址、模型 ID 列表、默认模型 ID 和代理等信息。
+2. 新增或编辑模型配置，填写配置名称、接口地址、默认模型、模型 ID 列表、密钥和代理等信息。
 3. 点击 **测试连接** 确认配置可用。
+4. 模型列表区域可点击拉取按钮自动获取端点模型 ID；如果端点不支持模型列表接口，也可以手动添加或删除。
 
 **配置文件位置**：
 - Windows：`%APPDATA%\cc-desktop\config.json`
 - macOS：`~/Library/Application Support/cc-desktop/config.json`
 - Linux：`~/.config/cc-desktop/config.json`
+
+**运行配置目录**：
+
+- 默认固定为 `~/.hydrocoder/agent`，用于保存运行时 MCP、Skills、Agents、Plugins、Settings 和会话 JSONL。
+- 应用启动时会自动创建该目录，并为本程序启动的 Agent runtime 注入 `CLAUDE_CONFIG_DIR`。
+- 老版本升级时会把旧 `~/.claude/projects` 下缺失的会话历史复制到 `~/.hydrocoder/agent/projects`；迁移只复制缺失文件，不修改 `sessions.db`、会话 `cwd` 或项目目录。
 
 ### 切换主题
 
@@ -59,7 +66,7 @@ Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` �
 
 1. 在左侧切换项目。
 2. 对目标项目点击 **连接**，或恢复历史会话。
-3. 运行中的 Claude 会话会自动绑定到对应项目目录。
+3. 运行中的 Agent 会话会自动绑定到对应项目目录。
 
 ### 使用 Notebook 工作台
 
@@ -122,7 +129,7 @@ Agent runtime 随桌面端内置，不需要用户额外安装系统 `claude` �
 
 ### 问题：Agent runtime 无法启动
 
-桌面端默认使用内置 Claude runtime。请先确认依赖安装和构建产物完整，再查看应用日志中的 runtime 路径、版本与启动错误。
+桌面端默认使用内置 Agent runtime。请先确认依赖安装和构建产物完整，再查看应用日志中的 runtime 路径、版本与启动错误。
 
 ### 问题：API 配置修改后没有影响现有会话
 

@@ -193,19 +193,19 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 
 - 市场源拉取、校验、缓存与刷新
 - 插件包下载 / clone / 版本目录管理
-- `~/.claude/plugins/` 注册表维护与孤儿目录清理
+- `~/.hydrocoder/agent/plugins/` 注册表维护与孤儿目录清理
 - `enabledPlugins` 与 marketplace 状态同步
 - 多 scope 安装记录下的 user scope 安全更新 / 卸载
 
 当前仍保留的边界：
 
-- Agent 会话本身仍依赖 Claude Code runtime
+- Agent 会话本身仍依赖内置 Agent runtime
 - 旧 `plugin-cli.js` 仅作为废弃兼容层保留，未从仓库物理删除
 - marketplace 删除时对 project/local 配置中的历史引用不做额外清理，当前按最小收口接受
 
 #### 8d. 内建 Cron 与桌面端定时任务能力协同（远期）
 
-当前聊天态已通过会话级 `allowedTools` 和系统提示将定时任务意图路由到 `hydrodesktop` 自身定时任务管理能力。旧的 Claude Code 内建 `Cron*` 工具 deny 规则已移除，避免新版 runtime 对未知工具名产生警告。
+当前聊天态已通过会话级 `allowedTools` 和系统提示将定时任务意图路由到 `hydrodesktop` 自身定时任务管理能力。旧的 runtime 内建 `Cron*` 工具 deny 规则已移除，避免新版 runtime 对未知工具名产生警告。
 
 当前现状补充：
 
@@ -215,7 +215,7 @@ Agent / 工具调用链路在 Windows 文件路径上仍有历史兼容问题，
 
 远期需要补上更细粒度的能力路由与冲突消解，避免“一刀切”禁用内建 Cron 对其他潜在场景造成副作用：
 
-- 区分 Claude Code 内建 `/loop` / `Cron*` 与 `hydrodesktop` 本地定时任务的目标域与数据域
+- 区分 runtime 内建 `/loop` / `Cron*` 与 `hydrodesktop` 本地定时任务的目标域与数据域
 - 基于用户意图、当前会话类型、任务上下文做工具路由，而不是单纯依赖硬编码禁用
 - 支持在同一产品内并存两套调度能力，并让模型能解释自己当前操作的是哪一套
 - 为冲突场景补充显式确认或能力提示，降低误调用与状态混淆

@@ -20,7 +20,7 @@ winget install OpenJS.NodeJS.LTS
 
 从 [Git 官网](https://git-scm.com/download/windows) 下载并安装。
 
-安装后将 Git Bash 目录添加到系统 PATH 环境变量（通常是 `C:\Program Files\Git\bin`）。Claude Code 需要用它执行后台文件操作。
+安装后将 Git Bash 目录添加到系统 PATH 环境变量（通常是 `C:\Program Files\Git\bin`）。内置 Agent runtime 需要用它执行后台文件操作。
 
 #### 3. 验证安装
 

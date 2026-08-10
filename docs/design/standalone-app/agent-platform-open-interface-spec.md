@@ -208,7 +208,7 @@ await window.hydroAgent.sendMessage(sessionId, '你好')
 ```js
 await window.hydroAgent.sendMessage(sessionId, {
   message: '请总结当前目录结构',
-  model: 'claude-sonnet-4-6',
+  model: 'qwen3-coder-plus',
   maxTurns: 8
 })
 ```
@@ -402,7 +402,7 @@ x-hydro-client-meta: {"entry":"cli","version":"0.1.0"}
 ```json
 {
   "message": "请总结当前目录结构",
-  "model": "claude-sonnet-4-6",
+  "model": "qwen3-coder-plus",
   "maxTurns": 8
 }
 ```
@@ -427,7 +427,7 @@ x-hydro-client-meta: {"entry":"cli","version":"0.1.0"}
 
 ```json
 {
-  "model": "claude-sonnet-4-6"
+  "model": "qwen3-coder-plus"
 }
 ```
 

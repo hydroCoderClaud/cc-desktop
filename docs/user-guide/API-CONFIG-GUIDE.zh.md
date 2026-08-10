@@ -8,7 +8,7 @@
 
 1. 启动应用后，打开 **模型配置** 窗口。
 2. 新增或编辑一个模型配置。
-3. 填写配置名称、认证令牌、基础 URL、模型 ID 列表和默认模型 ID。
+3. 按界面顺序填写配置名称、图标、接口地址、默认模型、模型 ID 列表和密钥。
 4. 点击 **测试连接** 验证配置。
 
 如需从代码中打开该窗口，可调用：
@@ -25,12 +25,15 @@ window.electronAPI.openProfileManager()
 - **macOS**：`~/Library/Application Support/cc-desktop/config.json`
 - **Linux**：`~/.config/cc-desktop/config.json`
 
-当前版本应编辑：
+当前版本关键字段：
 
 - `apiProfiles`：完整的 API Profile 列表（内部字段名），每个模型配置独立保存名称、地址、认证信息和模型列表
 - `defaultProfileId`：默认 Profile ID
+- `settings.agent.claudeConfigDir`：运行配置目录；当前版本会固化为 `~/.hydrocoder/agent`，不建议手动编辑
 
 旧版 `serviceProviderDefinitions`、`serviceProvider` 和 `providerName` 只用于启动时一次性迁移；迁移完成后会从配置文件移除。
+
+运行配置目录由程序管理，界面只展示物理位置，不允许用户修改。启动时应用会创建 `~/.hydrocoder/agent`，并把旧 `~/.claude/projects` 下缺失的会话 JSONL 复制到 `~/.hydrocoder/agent/projects`；该迁移不修改 `sessions.db`、会话 `cwd` 或项目目录。
 
 ## 当前配置结构
 
@@ -74,8 +77,8 @@ window.electronAPI.openProfileManager()
       "authToken": "internal-token",
       "authType": "auth_token",
       "baseUrl": "https://gateway.example.com/anthropic",
-      "defaultModels": ["claude-sonnet-4-6", "claude-opus-4-6"],
-      "selectedModelId": "claude-sonnet-4-6",
+      "defaultModels": ["qwen3-coder-plus", "deepseek-chat"],
+      "selectedModelId": "qwen3-coder-plus",
       "requestTimeout": 180000,
       "disableNonessentialTraffic": true,
       "useProxy": false,
@@ -95,6 +98,7 @@ window.electronAPI.openProfileManager()
 | 字段 | 说明 |
 |------|------|
 | `name` | Profile 显示名称 |
+| `icon` | Profile 图标 |
 | `authToken` | 认证令牌 |
 | `authType` | `api_key` 或 `auth_token`；新增 Profile 默认 `auth_token` |
 | `baseUrl` | API 基础地址 |
@@ -105,6 +109,7 @@ window.electronAPI.openProfileManager()
 | `useProxy` | 是否启用代理 |
 | `httpsProxy` / `httpProxy` | 代理地址 |
 | `description` | 备注说明 |
+| `isDefault` | 是否为默认 Profile；实际默认值以 `defaultProfileId` 为准 |
 
 ## 当前程序行为
 
@@ -113,9 +118,17 @@ window.electronAPI.openProfileManager()
 - 当前版本已经移除 Profile 级 `selectedModelTier`。
 - 当前版本已经移除全局和 Profile 级 `customModels`。
 - 默认模型使用 `selectedModelId`，直接传递真实模型 ID。
-- 不存在服务商模板选择；地址、模型 ID 列表和默认模型 ID 都直接由当前 Profile 管理。
+- 地址、模型 ID 列表和默认模型 ID 都直接由当前 Profile 管理，不需要先选择模板。
 - `defaultModels` 和 `selectedModelId` 都从当前 Profile 读取，Profile 之间互不共享模型列表。
 - `selectedModelId` 必须为空或存在于当前 Profile 的 `defaultModels`；删除默认模型后会自动切换到列表首项。
+- 默认 Profile 卡片会自动排在列表第一位。
+
+### 模型 ID 列表拉取
+
+- 模型列表区域的拉取按钮会使用当前 Profile 的 `baseUrl`、`authToken`、`authType` 和代理配置请求端点模型列表。
+- 探测顺序为：`{baseUrl}/v1/models`、`{origin}/v1/models`、`{origin}/models`。
+- 支持返回数组、`data` 数组或 `models` 数组，并从字符串或对象 `id` 字段中提取模型 ID。
+- 若端点不提供兼容的模型列表接口，现有模型列表会保留，用户仍可手动添加或删除。
 
 ### 配置生效时机
 
@@ -125,11 +138,11 @@ window.electronAPI.openProfileManager()
 
 ## 环境变量映射
 
-程序会将 Profile 映射为 Claude Code CLI 运行环境：
+程序会将 Profile 映射为内置 Agent runtime 所需的运行环境：
 
 | 配置项 | 环境变量 | 说明 |
 |--------|----------|------|
-| `authToken` + `authType=api_key` | `ANTHROPIC_API_KEY` | 官方 API Key 模式 |
+| `authToken` + `authType=api_key` | `ANTHROPIC_API_KEY` | `x-api-key` 认证模式 |
 | `authToken` + `authType=auth_token` | `ANTHROPIC_AUTH_TOKEN` | Token 模式 |
 | `baseUrl` | `ANTHROPIC_BASE_URL` | 自定义 API 地址 |
 | `selectedModelId` | `ANTHROPIC_MODEL` | 默认启动模型 |
@@ -145,42 +158,20 @@ window.electronAPI.openProfileManager()
 
 ## 常见场景
 
-### 场景 1：Anthropic 官方 API
+### 场景 1：千问 / 通义 Anthropic 兼容端点
 
 ```json
 {
-  "defaultProfileId": "official",
+  "defaultProfileId": "qwen",
   "apiProfiles": [
     {
-      "id": "official",
-      "name": "Anthropic Official",
-      "authToken": "sk-ant-api03-xxxxxxxxxxxx",
-      "authType": "api_key",
-      "baseUrl": "https://api.anthropic.com",
-      "defaultModels": ["claude-sonnet-4-6"],
-      "selectedModelId": "claude-sonnet-4-6",
-      "requestTimeout": 120000,
-      "disableNonessentialTraffic": true,
-      "useProxy": false
-    }
-  ]
-}
-```
-
-### 场景 2：第三方兼容服务
-
-```json
-{
-  "defaultProfileId": "proxy-service",
-  "apiProfiles": [
-    {
-      "id": "proxy-service",
-      "name": "Proxy Service",
+      "id": "qwen",
+      "name": "千问模型配置",
       "authToken": "your-token",
-      "authType": "api_key",
-      "baseUrl": "https://proxy.example.com/v1",
-      "defaultModels": ["claude-sonnet-4-6"],
-      "selectedModelId": "claude-sonnet-4-6",
+      "authType": "auth_token",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+      "defaultModels": ["qwen3.7-plus", "qwen3.7-max"],
+      "selectedModelId": "qwen3.7-plus",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
       "useProxy": false
@@ -189,20 +180,42 @@ window.electronAPI.openProfileManager()
 }
 ```
 
-### 场景 3：通过代理访问
+### 场景 2：DeepSeek Anthropic 兼容端点
 
 ```json
 {
-  "defaultProfileId": "official",
+  "defaultProfileId": "deepseek",
   "apiProfiles": [
     {
-      "id": "official",
-      "name": "Anthropic Official",
-      "authToken": "sk-ant-api03-xxxxxxxxxxxx",
-      "authType": "api_key",
-      "baseUrl": "https://api.anthropic.com",
-      "defaultModels": ["claude-sonnet-4-6"],
-      "selectedModelId": "claude-sonnet-4-6",
+      "id": "deepseek",
+      "name": "DeepSeek 模型配置",
+      "authToken": "your-token",
+      "authType": "auth_token",
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "defaultModels": ["deepseek-v4-flash[1m]", "deepseek-v4-pro[1m]"],
+      "selectedModelId": "deepseek-v4-flash[1m]",
+      "requestTimeout": 120000,
+      "disableNonessentialTraffic": true,
+      "useProxy": false
+    }
+  ]
+}
+```
+
+### 场景 3：企业网关 + 代理
+
+```json
+{
+  "defaultProfileId": "company-gateway",
+  "apiProfiles": [
+    {
+      "id": "company-gateway",
+      "name": "Company Gateway",
+      "authToken": "internal-token",
+      "authType": "auth_token",
+      "baseUrl": "https://gateway.example.com/anthropic",
+      "defaultModels": ["qwen3-coder-plus", "deepseek-chat"],
+      "selectedModelId": "qwen3-coder-plus",
       "requestTimeout": 120000,
       "disableNonessentialTraffic": true,
       "useProxy": true,
@@ -225,6 +238,8 @@ window.electronAPI.openProfileManager()
 4. `selectedModelId` 是否为目标服务支持的真实模型 ID
 5. 代理地址是否可访问
 
+模型列表拉取失败通常表示端点没有暴露 `/v1/models` 或 `/models` 兼容接口，或者认证方式不匹配；这不影响手动维护模型 ID 列表。
+
 ## 故障排查
 
 ### 问题 1：配置文件改了，但界面没有显示
@@ -242,8 +257,8 @@ window.electronAPI.openProfileManager()
 ### 问题 3：模型列表为空
 
 - 这是当前 Profile 的 `defaultModels` 为空导致的界面候选缺失
-- 可以直接手动填写 `selectedModelId`
-- 或直接补充当前 Profile 的 `defaultModels`
+- 可以在模型列表区域点击拉取按钮自动获取
+- 或直接手动补充当前 Profile 的 `defaultModels`
 
 ### 问题 4：代理已打开但请求仍直连
 
@@ -253,20 +268,20 @@ window.electronAPI.openProfileManager()
 
 ## 命令行验证
 
-如需脱离桌面端快速验证当前环境，可直接在终端中运行：
+如需脱离桌面端核对 Profile 映射后的环境变量，可参考下列等价值。桌面端自身会使用内置 runtime，不要求用户额外安装系统命令。
 
 ```bash
 # Windows (PowerShell)
-$env:ANTHROPIC_API_KEY="sk-ant-api03-xxx"
-$env:ANTHROPIC_BASE_URL="https://api.anthropic.com"
-$env:ANTHROPIC_MODEL="claude-sonnet-4-6"
-claude --print "hello"
+$env:ANTHROPIC_AUTH_TOKEN="your-token"
+$env:ANTHROPIC_BASE_URL="https://coding.dashscope.aliyuncs.com/apps/anthropic"
+$env:ANTHROPIC_MODEL="qwen3.7-plus"
+$env:CLAUDE_CONFIG_DIR="$HOME\\.hydrocoder\\agent"
 
 # macOS / Linux
-export ANTHROPIC_API_KEY="sk-ant-api03-xxx"
-export ANTHROPIC_BASE_URL="https://api.anthropic.com"
-export ANTHROPIC_MODEL="claude-sonnet-4-6"
-claude --print "hello"
+export ANTHROPIC_AUTH_TOKEN="your-token"
+export ANTHROPIC_BASE_URL="https://coding.dashscope.aliyuncs.com/apps/anthropic"
+export ANTHROPIC_MODEL="qwen3.7-plus"
+export CLAUDE_CONFIG_DIR="$HOME/.hydrocoder/agent"
 ```
 
 ## 相关文档

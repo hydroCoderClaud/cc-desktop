@@ -34,7 +34,7 @@
 
 ### agent-session-manager.js
 - **行数**：2322
-- **职责**：Agent 会话管理，通过 bundled Claude runtime 与 Claude Agent SDK 实现多轮 AI 对话
+- **职责**：Agent 会话管理，通过内置 Agent runtime 与底层 SDK 实现多轮 AI 对话
 - **关键方法**：`create()`, `sendMessage()`, `cancel()`, `close()`, `closeAll()`, `reopen()`, `toggleMcp()`, `list()`, `rename()`
 - **关键类**：`AgentSession`（单个会话）、`AgentSessionManager`（管理器）
 - **委托模块**：`AgentFileManager`（文件操作）、`AgentQueryManager`（查询控制）
@@ -142,7 +142,7 @@
 
 ### settings-manager.js
 - **行数**：405
-- **职责**：Claude Code 基本设置管理（permissions 和 env 字段）
+- **职责**：运行时基本设置管理（permissions 和 env 字段）
 - **关键方法**：`getPermissions()`, `addPermissionRule()`, `updatePermissionRule()`, `removePermissionRule()`, `getEnv()`, `setEnv()`, `removeEnv()`, `getAllSettings()`, `addMcpToolPermissions()`, `getRawSettings()`, `saveRawSettings()`
 - **继承**：`ComponentScanner`
 
@@ -164,7 +164,7 @@
 
 ### plugin-cli.js
 - **行数**：311
-- **职责**：已废弃的 Claude Code CLI 插件命令封装，保留用于兼容与回退排障
+- **职责**：已废弃的旧 CLI 插件命令封装，保留用于兼容与回退排障
 - **关键方法**：`listAvailable()`, `install()`, `uninstall()`, `update()`, `listMarketplaces()`, `addMarketplace()`, `removeMarketplace()`, `_refineNotFoundError()`
 
 ### skills-manager.js

@@ -56,7 +56,7 @@ agent_conversations
 - 计划快照阶段：Stage 6 已完成，等待当时的人工验收
 - 计划快照版本：1.7.87
 - 前置基线：Claude 历史扫描与 `source='sync'` 数据已在 Stage 0 清除
-- 实施状态：Stage 1-6 已按本文边界完成；Claude 配置目录与 JSONL 定位仍按第 12 节延期处理
+- 实施状态：Stage 1-6 已按本文边界完成；配置目录固化与旧 JSONL 迁移已在后续版本补齐，见第 12 节当前实现说明
 
 ## 1. 目标与边界
 
@@ -517,18 +517,19 @@ Global context
 
 Stage 6 删除 `sessions/messages` 时不得顺手删除或重定义 `agent_conversations.cwd`；二者风险和回滚边界不同。
 
-## 12. 明确延期：Claude 配置目录与 JSONL 定位
+## 12. 当前实现：配置目录与 JSONL 定位
 
-本阶段不增加：
+该阶段最初明确延期的配置目录问题已经在后续版本单独落地，仍保持本计划的核心边界：`project_id` 只解决产品数据库中的 cwd 身份，不直接保存 JSONL 绝对路径。
 
-- `claude_config_dir`；
-- `jsonl_path`；
-- 每会话 Claude 配置目录快照；
-- JSONL 搜索或迁移机制。
+当前实现：
 
-`project_id` 只解决产品数据库中的 cwd 身份，不是 JSONL locator。Agent 恢复仍把 `sdk_session_id` 交给 Claude Agent SDK，由 Claude Code 在当前全局 `CLAUDE_CONFIG_DIR` 下定位历史文件。用户切换配置目录后可能无法恢复旧会话，现有失败后开启 fresh SDK session 的行为暂不改变。
+- HydroAgent 运行配置目录固定为 `~/.hydrocoder/agent`，启动时注入 `CLAUDE_CONFIG_DIR`。
+- 会话历史仍由底层 runtime 按 `<CLAUDE_CONFIG_DIR>/projects/{encodedPath}/{sdk_session_id}.jsonl` 推导。
+- 升级启动时将旧 `~/.claude/projects` 下目标缺失的文件复制到 `~/.hydrocoder/agent/projects`。
+- 迁移状态写入 `{userData}/legacy-projects-migration.json`，用于避免重复迁移。
+- 迁移不修改 `sessions.db`、`agent_conversations.cwd`、`projects.path` 或项目目录。
 
-这个问题需要单独评估全局配置生命周期、历史配置保留、删除语义和迁移体验，不能夹带进 projects 改造。
+剩余边界：如果历史会话记录的 `cwd` 对应工程目录在当前机器上已经不存在，即使 JSONL 文件已复制，恢复仍可能因工作目录不可用而失败；这属于后续“缺失 cwd 友好恢复 / 重新绑定”问题，不属于本次 projects 身份模型。
 
 ## 13. 分阶段实施
 
