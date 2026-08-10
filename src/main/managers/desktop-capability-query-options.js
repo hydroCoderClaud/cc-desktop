@@ -81,6 +81,16 @@ const SESSION_APP_TOOL_NAMES = [
 const SESSION_APP_ALLOWED_TOOLS = SESSION_APP_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
 )
+const MCP_CONFIG_TOOL_NAMES = [
+  'mcp_config_list',
+  'mcp_config_add',
+  'mcp_config_update',
+  'mcp_config_remove',
+  'mcp_permission_allow'
+]
+const MCP_CONFIG_ALLOWED_TOOLS = MCP_CONFIG_TOOL_NAMES.map(
+  toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
+)
 const PERSONAL_WEIXIN_ENABLED = false
 
 const WEIXIN_NOTIFY_SYSTEM_PROMPT = [
@@ -129,11 +139,26 @@ const SESSION_APP_SYSTEM_PROMPT = [
   'Do not expose or modify internal-only fields that are not part of the public Session App editing surface.'
 ].join(' ')
 
+const MCP_CONFIG_SYSTEM_PROMPT = [
+  'You can manage Hydro Desktop MCP configuration through the hydrodesktop MCP tools in this session.',
+  'When the user asks to add, update, remove, inspect, or authorize MCP configuration, use the mcp_config_* and mcp_permission_allow tools instead of asking the user to run claude mcp add/get/remove in an external terminal.',
+  'These tools write Hydro Desktop isolated MCP configuration, not the user\'s native Claude Code configuration.',
+  'Use mcp_config_list before updating or removing an existing MCP unless the user already provided an exact server name and scope.',
+  'For mcp_config_add and mcp_config_update, pass the user-authored MCP JSON block as the json argument. The JSON may be either { "server-name": { ... } } or { "mcpServers": { "server-name": { ... } } }.',
+  'Do not invent MCP server commands, package names, executable paths, tokens, or environment values. If required JSON fields are missing, ask the user for them.',
+  'Only set autoAllow=wildcard or call mcp_permission_allow with mode=wildcard when the user explicitly wants to authorize all tools for that MCP server.',
+  'After MCP configuration changes, tell the user that new or restarted sessions may be required before the runtime sees the changed MCP server list.'
+].join(' ')
+
 const DEFAULT_DAILY_TIME = '09:00'
 const SCHEDULE_TYPES = ['interval', 'daily', 'weekly', 'monthly', 'workdays', 'once']
 const MONTHLY_MODES = ['day_of_month', 'last_day']
 const INTERVAL_ANCHOR_MODES = ['started_at', 'finished_at']
 const SESSION_BINDING_MODES = ['current', 'new']
+const MCP_CONFIG_SCOPES = ['user', 'local', 'project']
+const MCP_CONFIG_LIST_SCOPES = ['all', 'user', 'local', 'project', 'plugin']
+const MCP_PERMISSION_MODES = ['wildcard', 'tools']
+const MCP_CONFIG_AUTO_ALLOW_MODES = ['none', ...MCP_PERMISSION_MODES]
 const UPDATE_FIELDS = [
   'name',
   'prompt',
@@ -387,6 +412,188 @@ function buildToolResult(payload) {
       text: JSON.stringify(payload, null, 2)
     }]
   }
+}
+
+function resolveMcpManager(mcpManager, settingsManager) {
+  if (mcpManager) {
+    if (!mcpManager.settingsManager && settingsManager) {
+      mcpManager.settingsManager = settingsManager
+    }
+    return mcpManager
+  }
+
+  const { McpManager } = require('./mcp-manager')
+  const manager = new McpManager()
+  if (settingsManager) manager.settingsManager = settingsManager
+  return manager
+}
+
+function resolveSettingsManager(settingsManager, mcpManager) {
+  if (settingsManager) return settingsManager
+  if (mcpManager?.settingsManager) return mcpManager.settingsManager
+
+  const { SettingsManager } = require('./settings-manager')
+  return new SettingsManager()
+}
+
+function normalizeMcpScope(value, { allowAll = false, allowPlugin = false } = {}) {
+  const scope = typeof value === 'string' && value.trim() ? value.trim() : (allowAll ? 'all' : 'user')
+  const validScopes = allowAll
+    ? MCP_CONFIG_LIST_SCOPES
+    : (allowPlugin ? [...MCP_CONFIG_SCOPES, 'plugin'] : MCP_CONFIG_SCOPES)
+
+  if (!validScopes.includes(scope)) {
+    throw new Error(`Invalid MCP scope: ${scope}`)
+  }
+
+  return scope
+}
+
+function normalizeMcpToolNames(tools) {
+  if (!Array.isArray(tools)) return []
+  const seen = new Set()
+  const result = []
+  for (const tool of tools) {
+    const name = typeof tool === 'string' ? tool.trim() : ''
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    result.push(name)
+  }
+  return result
+}
+
+function assertValidMcpServerName(name) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('MCP server name is required')
+  }
+  if (name.trim() !== name || !/^[a-zA-Z0-9._-]+$/.test(name)) {
+    throw new Error(`Invalid MCP server name: ${name}`)
+  }
+}
+
+function parseMcpConfigJson(jsonText) {
+  if (typeof jsonText !== 'string' || !jsonText.trim()) {
+    throw new Error('MCP JSON is required')
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(jsonText)
+  } catch (error) {
+    throw new Error(`Invalid MCP JSON: ${error.message}`)
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('MCP JSON must be an object')
+  }
+
+  if (
+    parsed.mcpServers &&
+    typeof parsed.mcpServers === 'object' &&
+    !Array.isArray(parsed.mcpServers) &&
+    Object.keys(parsed).length === 1
+  ) {
+    parsed = parsed.mcpServers
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('MCP JSON must contain a server map')
+  }
+
+  const serverNames = Object.keys(parsed)
+  if (serverNames.length !== 1) {
+    throw new Error('Exactly one MCP server must be provided')
+  }
+
+  const name = serverNames[0]
+  assertValidMcpServerName(name)
+
+  const rawConfig = parsed[name]
+  if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
+    throw new Error(`MCP server config must be an object: ${name}`)
+  }
+  if (!rawConfig.command && !rawConfig.url) {
+    throw new Error(`MCP server "${name}" must include command or url`)
+  }
+
+  const declaredTools = normalizeMcpToolNames(rawConfig.tools)
+  const config = { ...rawConfig }
+  delete config.tools
+
+  return { name, config, declaredTools }
+}
+
+function serializeMcpConfigEntry(entry) {
+  return {
+    name: entry?.name || '',
+    source: entry?.source || '',
+    category: entry?.category || '',
+    filePath: entry?.filePath || '',
+    config: entry?.config || {}
+  }
+}
+
+function listMcpConfigs(mcpManager, scope, projectPath) {
+  switch (scope) {
+    case 'all':
+      return mcpManager.listMcpAll(projectPath || null)
+    case 'user':
+      return mcpManager.listMcpUser()
+    case 'local':
+      return mcpManager.listMcpLocal(projectPath || null)
+    case 'project':
+      return mcpManager.listMcpProject(projectPath || null)
+    case 'plugin':
+      return mcpManager.listMcpPlugin()
+    default:
+      throw new Error(`Invalid MCP scope: ${scope}`)
+  }
+}
+
+function grantMcpToolPermissions(settingsManager, { serverName, mode, tools }) {
+  assertValidMcpServerName(serverName)
+  const permissionMode = mode || 'wildcard'
+  if (!MCP_PERMISSION_MODES.includes(permissionMode)) {
+    throw new Error(`Invalid MCP permission mode: ${permissionMode}`)
+  }
+
+  if (permissionMode === 'wildcard') {
+    const pattern = `mcp__${serverName}__*`
+    const result = settingsManager.addPermissionRule('global', null, 'allow', pattern)
+    if (result?.success) {
+      return { success: true, mode: permissionMode, added: 1, pattern }
+    }
+    if (result?.error === 'Rule already exists') {
+      return { success: true, mode: permissionMode, added: 0, pattern, alreadyExists: true }
+    }
+    return { success: false, mode: permissionMode, added: 0, pattern, error: result?.error || 'Failed to add permission' }
+  }
+
+  const toolNames = normalizeMcpToolNames(tools)
+  if (toolNames.length === 0) {
+    throw new Error('tools is required when mode=tools')
+  }
+
+  return {
+    ...settingsManager.addMcpToolPermissions(serverName, toolNames),
+    mode: permissionMode,
+    tools: toolNames
+  }
+}
+
+function maybeGrantMcpPermissions(settingsManager, { serverName, autoAllow, declaredTools, tools }) {
+  const mode = autoAllow || 'none'
+  if (!MCP_CONFIG_AUTO_ALLOW_MODES.includes(mode)) {
+    throw new Error(`Invalid MCP autoAllow mode: ${mode}`)
+  }
+  if (mode === 'none') {
+    return { success: true, mode, added: 0 }
+  }
+  return grantMcpToolPermissions(settingsManager, {
+    serverName,
+    mode,
+    tools: normalizeMcpToolNames(tools).length > 0 ? tools : declaredTools
+  })
 }
 
 function countBy(items, getKey) {
@@ -1190,9 +1397,12 @@ async function buildDesktopCapabilityQueryOptions({
   feishuBridge,
   enterpriseWeixinBridge,
   wecomCliManager,
+  mcpManager,
+  settingsManager,
   sessionAppManager,
   session
 }) {
+  const includeMcpConfigTools = true
   const includeScheduleTools = shouldAllowScheduleToolsForSession(scheduledTaskService)
   const includeSessionAppTools = Boolean(sessionAppManager)
   const getImProviders = ({ includeDisabled = false } = {}) => collectEnabledImProviders({
@@ -1237,11 +1447,13 @@ async function buildDesktopCapabilityQueryOptions({
     weixinNotifyService
   })
 
-  if (!includeScheduleTools && !includeWeixinNotifyTools && !includeImBuiltinTools && !includeSessionAppTools) {
+  if (!includeMcpConfigTools && !includeScheduleTools && !includeWeixinNotifyTools && !includeImBuiltinTools && !includeSessionAppTools) {
     return {}
   }
 
   const displayLocale = getDisplayLocale(scheduledTaskService)
+  const activeSettingsManager = resolveSettingsManager(settingsManager, mcpManager)
+  const activeMcpManager = resolveMcpManager(mcpManager, activeSettingsManager)
 
   const sdk = await import('@anthropic-ai/claude-agent-sdk')
   const { z } = await import('zod/v4')
@@ -1901,11 +2113,204 @@ async function buildDesktopCapabilityQueryOptions({
     )
   ] : []
 
+  const mcpConfigTools = includeMcpConfigTools ? [
+    tool(
+      MCP_CONFIG_TOOL_NAMES[0],
+      'List Hydro Desktop MCP configuration entries from user, local, project, plugin, or all scopes. Use this before updating or removing unless the target is already exact.',
+      {
+        scope: z.enum(MCP_CONFIG_LIST_SCOPES).optional().describe('Scope to list. Defaults to all.'),
+        projectPath: z.string().optional().describe('Project path required for local or project scope; optional for all.')
+      },
+      async (args = {}) => {
+        const scope = normalizeMcpScope(args.scope || 'all', { allowAll: true, allowPlugin: true })
+        const result = listMcpConfigs(activeMcpManager, scope, args.projectPath || null)
+        const configs = Array.isArray(result)
+          ? result.map(serializeMcpConfigEntry)
+          : Object.fromEntries(Object.entries(result || {}).map(([key, entries]) => [
+              key,
+              Array.isArray(entries) ? entries.map(serializeMcpConfigEntry) : []
+            ]))
+
+        return buildToolResult({
+          action: 'mcp_config_list',
+          scope,
+          configs
+        })
+      }
+    ),
+    tool(
+      MCP_CONFIG_TOOL_NAMES[1],
+      'Add one Hydro Desktop MCP server from a user-authored JSON block. The JSON may be {"name":{...}} or {"mcpServers":{"name":{...}}}.',
+      {
+        scope: z.enum(MCP_CONFIG_SCOPES).optional().describe('Target scope: user, local, or project. Defaults to user.'),
+        projectPath: z.string().optional().describe('Project path required for local or project scope.'),
+        json: z.string().min(1).describe('User-authored JSON block containing exactly one MCP server.'),
+        overwrite: z.boolean().optional().describe('When true, update an existing same-name MCP in the target scope instead of failing.'),
+        autoAllow: z.enum(MCP_CONFIG_AUTO_ALLOW_MODES).optional().describe('Permission helper: none, wildcard, or tools. Defaults to none.'),
+        tools: z.array(z.string()).optional().describe('Tool names to allow when autoAllow=tools. If omitted, a tools array inside the JSON block is used.')
+      },
+      async (args) => {
+        const scope = normalizeMcpScope(args.scope)
+        const { name, config, declaredTools } = parseMcpConfigJson(args.json)
+        const existing = listMcpConfigs(activeMcpManager, scope, args.projectPath || null)
+          .find(entry => entry.name === name)
+        const result = existing && args.overwrite
+          ? activeMcpManager.updateMcp({
+              scope,
+              projectPath: args.projectPath || null,
+              oldName: name,
+              name,
+              config
+            })
+          : activeMcpManager.createMcp({
+              scope,
+              projectPath: args.projectPath || null,
+              name,
+              config
+            })
+
+        if (!result?.success) {
+          return buildToolResult({
+            action: 'mcp_config_add',
+            success: false,
+            scope,
+            name,
+            error: result?.error || 'Failed to add MCP configuration'
+          })
+        }
+
+        const permission = maybeGrantMcpPermissions(activeSettingsManager, {
+          serverName: name,
+          autoAllow: args.autoAllow || 'none',
+          declaredTools,
+          tools: args.tools
+        })
+
+        return buildToolResult({
+          action: existing && args.overwrite ? 'mcp_config_update' : 'mcp_config_add',
+          success: true,
+          scope,
+          name,
+          overwritten: Boolean(existing && args.overwrite),
+          config,
+          permission,
+          note: 'Restart or start a new session if the changed MCP server list is not visible in the current runtime.'
+        })
+      }
+    ),
+    tool(
+      MCP_CONFIG_TOOL_NAMES[2],
+      'Update one existing Hydro Desktop MCP server from a user-authored JSON block. Use mcp_config_list first when the target is ambiguous.',
+      {
+        scope: z.enum(MCP_CONFIG_SCOPES).optional().describe('Target scope: user, local, or project. Defaults to user.'),
+        projectPath: z.string().optional().describe('Project path required for local or project scope.'),
+        oldName: z.string().optional().describe('Existing MCP server name. If omitted, the JSON server name is used.'),
+        json: z.string().min(1).describe('User-authored JSON block containing exactly one MCP server.'),
+        autoAllow: z.enum(MCP_CONFIG_AUTO_ALLOW_MODES).optional().describe('Permission helper: none, wildcard, or tools. Defaults to none.'),
+        tools: z.array(z.string()).optional().describe('Tool names to allow when autoAllow=tools. If omitted, a tools array inside the JSON block is used.')
+      },
+      async (args) => {
+        const scope = normalizeMcpScope(args.scope)
+        const { name, config, declaredTools } = parseMcpConfigJson(args.json)
+        const oldName = args.oldName || name
+        assertValidMcpServerName(oldName)
+        const result = activeMcpManager.updateMcp({
+          scope,
+          projectPath: args.projectPath || null,
+          oldName,
+          name,
+          config
+        })
+
+        if (!result?.success) {
+          return buildToolResult({
+            action: 'mcp_config_update',
+            success: false,
+            scope,
+            oldName,
+            name,
+            error: result?.error || 'Failed to update MCP configuration'
+          })
+        }
+
+        const permission = maybeGrantMcpPermissions(activeSettingsManager, {
+          serverName: name,
+          autoAllow: args.autoAllow || 'none',
+          declaredTools,
+          tools: args.tools
+        })
+
+        return buildToolResult({
+          action: 'mcp_config_update',
+          success: true,
+          scope,
+          oldName,
+          name,
+          config,
+          permission,
+          note: 'Restart or start a new session if the changed MCP server list is not visible in the current runtime.'
+        })
+      }
+    ),
+    tool(
+      MCP_CONFIG_TOOL_NAMES[3],
+      'Remove one Hydro Desktop MCP server from user, local, or project scope. Only use this when the user clearly asked to remove the exact server.',
+      {
+        scope: z.enum(MCP_CONFIG_SCOPES).optional().describe('Target scope: user, local, or project. Defaults to user.'),
+        projectPath: z.string().optional().describe('Project path required for local or project scope.'),
+        name: z.string().min(1).describe('Exact MCP server name to remove.')
+      },
+      async (args) => {
+        const scope = normalizeMcpScope(args.scope)
+        const name = String(args.name || '').trim()
+        assertValidMcpServerName(name)
+        const result = activeMcpManager.deleteMcp({
+          scope,
+          projectPath: args.projectPath || null,
+          name
+        })
+
+        return buildToolResult({
+          action: 'mcp_config_remove',
+          success: Boolean(result?.success),
+          scope,
+          name,
+          error: result?.success ? undefined : (result?.error || 'Failed to remove MCP configuration'),
+          note: result?.success ? 'Restart or start a new session if the changed MCP server list is still visible in the current runtime.' : undefined
+        })
+      }
+    ),
+    tool(
+      MCP_CONFIG_TOOL_NAMES[4],
+      'Grant global Hydro Desktop tool permission for an MCP server. wildcard grants mcp__server__*; tools grants specific mcp__server__tool permissions.',
+      {
+        serverName: z.string().min(1).describe('MCP server name.'),
+        mode: z.enum(MCP_PERMISSION_MODES).optional().describe('wildcard or tools. Defaults to wildcard.'),
+        tools: z.array(z.string()).optional().describe('Required when mode=tools.')
+      },
+      async (args) => {
+        const result = grantMcpToolPermissions(activeSettingsManager, {
+          serverName: args.serverName,
+          mode: args.mode || 'wildcard',
+          tools: args.tools
+        })
+
+        return buildToolResult({
+          action: 'mcp_permission_allow',
+          success: Boolean(result?.success),
+          serverName: args.serverName,
+          ...result
+        })
+      }
+    )
+  ] : []
+
   return {
     mcpServers: {
       [DESKTOP_CAPABILITY_SERVER_NAME]: createSdkMcpServer({
         name: DESKTOP_CAPABILITY_SERVER_NAME,
         tools: [
+          ...mcpConfigTools,
           ...scheduleTools,
           ...weixinNotifyTools,
           ...imBuiltinTools,
@@ -1915,6 +2320,7 @@ async function buildDesktopCapabilityQueryOptions({
       })
     },
     appendSystemPrompt: mergeSystemPrompts(
+      includeMcpConfigTools ? MCP_CONFIG_SYSTEM_PROMPT : null,
       includeScheduleTools ? DESKTOP_CAPABILITY_SYSTEM_PROMPT : null,
       includeWeixinNotifyTools ? WEIXIN_NOTIFY_SYSTEM_PROMPT : null,
       includeImBuiltinTools ? IM_BUILTIN_SYSTEM_PROMPT : null,
@@ -1923,6 +2329,7 @@ async function buildDesktopCapabilityQueryOptions({
       boundImPrompt
     ),
     allowedTools: [
+      ...(includeMcpConfigTools ? MCP_CONFIG_ALLOWED_TOOLS : []),
       ...(includeScheduleTools ? DESKTOP_CAPABILITY_ALLOWED_TOOLS : []),
       ...(includeWeixinNotifyTools ? WEIXIN_NOTIFY_ALLOWED_TOOLS : []),
       ...(includeImBuiltinTools ? IM_BUILTIN_ALLOWED_TOOLS : []),
@@ -1936,6 +2343,7 @@ module.exports = {
   buildDesktopCapabilityQueryOptions,
   DESKTOP_CAPABILITY_SYSTEM_PROMPT,
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  MCP_CONFIG_ALLOWED_TOOLS,
   WEIXIN_NOTIFY_ALLOWED_TOOLS,
   IM_BUILTIN_ALLOWED_TOOLS,
   SESSION_ALLOWED_TOOLS,

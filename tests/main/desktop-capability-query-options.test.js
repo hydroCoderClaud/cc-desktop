@@ -16,6 +16,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 const {
   buildDesktopCapabilityQueryOptions,
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  MCP_CONFIG_ALLOWED_TOOLS,
   SESSION_ALLOWED_TOOLS,
   SESSION_APP_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
@@ -47,6 +48,26 @@ describe('desktop capability query options', () => {
     expect(result?.content?.[0]?.type).toBe('text')
     return JSON.parse(result.content[0].text)
   }
+
+  const MCP_CONFIG_TOOL_NAMES = [
+    'mcp_config_list',
+    'mcp_config_add',
+    'mcp_config_update',
+    'mcp_config_remove',
+    'mcp_permission_allow'
+  ]
+
+  const SCHEDULE_TOOL_NAMES = [
+    'schedule_list',
+    'schedule_get',
+    'schedule_runs',
+    'schedule_create',
+    'schedule_update',
+    'schedule_enable',
+    'schedule_disable',
+    'schedule_run_now',
+    'schedule_delete'
+  ]
 
   function buildTask(overrides = {}) {
     return {
@@ -337,20 +358,57 @@ describe('desktop capability query options', () => {
     return { options, tools, sessionAppManager, app }
   }
 
+  async function createOptionsWithMcpConfig({
+    userEntries = [],
+    localEntries = [],
+    projectEntries = [],
+    pluginEntries = []
+  } = {}) {
+    const mcpManager = {
+      listMcpAll: vi.fn(() => ({
+        user: userEntries,
+        local: localEntries,
+        project: projectEntries,
+        plugin: pluginEntries
+      })),
+      listMcpUser: vi.fn(() => userEntries),
+      listMcpLocal: vi.fn(() => localEntries),
+      listMcpProject: vi.fn(() => projectEntries),
+      listMcpPlugin: vi.fn(() => pluginEntries),
+      createMcp: vi.fn(() => ({ success: true })),
+      updateMcp: vi.fn(() => ({ success: true })),
+      deleteMcp: vi.fn(() => ({ success: true }))
+    }
+    const settingsManager = {
+      addPermissionRule: vi.fn(() => ({ success: true })),
+      addMcpToolPermissions: vi.fn(() => ({ success: true, added: 2 }))
+    }
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: null,
+      mcpManager,
+      settingsManager,
+      session: { id: 'mcp-session-1', source: 'manual' }
+    })
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+    return { options, tools, mcpManager, settingsManager }
+  }
+
   it('exposes the extended scheduled-task toolset', async () => {
     const { options, tools } = await createOptions()
 
     expect(Object.keys(options.mcpServers)).toEqual(['hydrodesktop'])
     expect(Object.keys(tools)).toEqual([
-      'schedule_list',
-      'schedule_get',
-      'schedule_runs',
-      'schedule_create',
-      'schedule_update',
-      'schedule_enable',
-      'schedule_disable',
-      'schedule_run_now',
-      'schedule_delete'
+      ...MCP_CONFIG_TOOL_NAMES,
+      ...SCHEDULE_TOOL_NAMES
+    ])
+    expect(MCP_CONFIG_ALLOWED_TOOLS).toEqual([
+      'mcp__hydrodesktop__mcp_config_list',
+      'mcp__hydrodesktop__mcp_config_add',
+      'mcp__hydrodesktop__mcp_config_update',
+      'mcp__hydrodesktop__mcp_config_remove',
+      'mcp__hydrodesktop__mcp_permission_allow'
     ])
     expect(DESKTOP_CAPABILITY_ALLOWED_TOOLS).toEqual([
       'mcp__hydrodesktop__schedule_list',
@@ -377,6 +435,209 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('Only set sessionBindingMode to new when the user explicitly asks for a separate')
     expect(options.appendSystemPrompt).toContain('follows that app\'s current session instead of reopening an old embedded session')
     expect(options.appendSystemPrompt).toContain('will be skipped instead of falling back to a fresh default task session')
+    expect(options.appendSystemPrompt).toContain('Hydro Desktop isolated MCP configuration')
+    expect(options.appendSystemPrompt).toContain('mcp_permission_allow')
+  })
+
+  it('manages Hydro Desktop MCP configs from user-authored JSON', async () => {
+    const existingUser = [{
+      name: 'existing-mcp',
+      source: 'user',
+      category: 'User',
+      filePath: 'C:/Users/test/.hydrocoder/agent/.claude.json',
+      config: { type: 'stdio', command: 'old.cmd' }
+    }]
+    const { options, tools, mcpManager, settingsManager } = await createOptionsWithMcpConfig({
+      userEntries: existingUser
+    })
+
+    expect(Object.keys(tools)).toEqual([
+      ...MCP_CONFIG_TOOL_NAMES,
+      'session_get_current',
+      'session_match_task'
+    ])
+    expect(options.allowedTools).toEqual([
+      ...MCP_CONFIG_ALLOWED_TOOLS,
+      ...SESSION_ALLOWED_TOOLS
+    ])
+
+    const listPayload = parseToolPayload(await tools.mcp_config_list.handler({ scope: 'user' }))
+    expect(listPayload).toMatchObject({
+      action: 'mcp_config_list',
+      scope: 'user',
+      configs: [{
+        name: 'existing-mcp',
+        source: 'user',
+        category: 'User',
+        config: { type: 'stdio', command: 'old.cmd' }
+      }]
+    })
+    expect(mcpManager.listMcpUser).toHaveBeenCalled()
+
+    const addJson = JSON.stringify({
+      'weixin-publisher': {
+        type: 'stdio',
+        command: 'wop-mcp.cmd',
+        args: ['--stdio'],
+        env: { TOKEN: 'user-provided' },
+        tools: ['create_draft', 'upload_cover']
+      }
+    })
+    const addPayload = parseToolPayload(await tools.mcp_config_add.handler({
+      scope: 'user',
+      json: addJson,
+      autoAllow: 'tools'
+    }))
+
+    expect(addPayload).toMatchObject({
+      action: 'mcp_config_add',
+      success: true,
+      scope: 'user',
+      name: 'weixin-publisher',
+      permission: {
+        success: true,
+        mode: 'tools',
+        tools: ['create_draft', 'upload_cover']
+      }
+    })
+    expect(addPayload.config).not.toHaveProperty('tools')
+    expect(mcpManager.createMcp).toHaveBeenCalledWith({
+      scope: 'user',
+      projectPath: null,
+      name: 'weixin-publisher',
+      config: {
+        type: 'stdio',
+        command: 'wop-mcp.cmd',
+        args: ['--stdio'],
+        env: { TOKEN: 'user-provided' }
+      }
+    })
+    expect(settingsManager.addMcpToolPermissions).toHaveBeenCalledWith(
+      'weixin-publisher',
+      ['create_draft', 'upload_cover']
+    )
+  })
+
+  it('supports wrapped MCP JSON, overwrite update, remove, and wildcard authorization', async () => {
+    const existingUser = [{
+      name: 'existing-mcp',
+      source: 'user',
+      category: 'User',
+      filePath: 'C:/Users/test/.hydrocoder/agent/.claude.json',
+      config: { type: 'stdio', command: 'old.cmd' }
+    }]
+    const { tools, mcpManager, settingsManager } = await createOptionsWithMcpConfig({
+      userEntries: existingUser
+    })
+
+    const wrappedJson = JSON.stringify({
+      mcpServers: {
+        'existing-mcp': {
+          type: 'stdio',
+          command: 'new.cmd',
+          args: ['--verbose']
+        }
+      }
+    })
+    const overwritePayload = parseToolPayload(await tools.mcp_config_add.handler({
+      scope: 'user',
+      json: wrappedJson,
+      overwrite: true
+    }))
+
+    expect(overwritePayload).toMatchObject({
+      action: 'mcp_config_update',
+      success: true,
+      overwritten: true,
+      name: 'existing-mcp'
+    })
+    expect(mcpManager.updateMcp).toHaveBeenCalledWith({
+      scope: 'user',
+      projectPath: null,
+      oldName: 'existing-mcp',
+      name: 'existing-mcp',
+      config: {
+        type: 'stdio',
+        command: 'new.cmd',
+        args: ['--verbose']
+      }
+    })
+
+    const updatePayload = parseToolPayload(await tools.mcp_config_update.handler({
+      scope: 'user',
+      oldName: 'existing-mcp',
+      json: JSON.stringify({
+        'renamed-mcp': {
+          type: 'stdio',
+          command: 'renamed.cmd'
+        }
+      })
+    }))
+    expect(updatePayload).toMatchObject({
+      action: 'mcp_config_update',
+      success: true,
+      oldName: 'existing-mcp',
+      name: 'renamed-mcp'
+    })
+
+    const allowPayload = parseToolPayload(await tools.mcp_permission_allow.handler({
+      serverName: 'renamed-mcp',
+      mode: 'wildcard'
+    }))
+    expect(allowPayload).toMatchObject({
+      action: 'mcp_permission_allow',
+      success: true,
+      serverName: 'renamed-mcp',
+      mode: 'wildcard',
+      pattern: 'mcp__renamed-mcp__*'
+    })
+    expect(settingsManager.addPermissionRule).toHaveBeenCalledWith(
+      'global',
+      null,
+      'allow',
+      'mcp__renamed-mcp__*'
+    )
+
+    const removePayload = parseToolPayload(await tools.mcp_config_remove.handler({
+      scope: 'user',
+      name: 'renamed-mcp'
+    }))
+    expect(removePayload).toMatchObject({
+      action: 'mcp_config_remove',
+      success: true,
+      scope: 'user',
+      name: 'renamed-mcp'
+    })
+    expect(mcpManager.deleteMcp).toHaveBeenCalledWith({
+      scope: 'user',
+      projectPath: null,
+      name: 'renamed-mcp'
+    })
+  })
+
+  it('rejects invalid MCP config JSON before writing', async () => {
+    const { tools, mcpManager } = await createOptionsWithMcpConfig()
+
+    await expect(tools.mcp_config_add.handler({
+      json: '{bad json'
+    })).rejects.toThrow('Invalid MCP JSON')
+
+    await expect(tools.mcp_config_add.handler({
+      json: JSON.stringify({
+        one: { command: 'one.cmd' },
+        two: { command: 'two.cmd' }
+      })
+    })).rejects.toThrow('Exactly one MCP server')
+
+    await expect(tools.mcp_config_add.handler({
+      json: JSON.stringify({
+        missingCommand: { type: 'stdio' }
+      })
+    })).rejects.toThrow('must include command or url')
+
+    expect(mcpManager.createMcp).not.toHaveBeenCalled()
+    expect(mcpManager.updateMcp).not.toHaveBeenCalled()
+    expect(mcpManager.deleteMcp).not.toHaveBeenCalled()
   })
 
   it('serializes task diagnostics in list/get responses', async () => {
@@ -768,17 +1029,11 @@ describe('desktop capability query options', () => {
     const { options, tools } = await createOptionsWithWeixin()
 
     expect(Object.keys(tools)).toEqual([
-      'schedule_list',
-      'schedule_get',
-      'schedule_runs',
-      'schedule_create',
-      'schedule_update',
-      'schedule_enable',
-      'schedule_disable',
-      'schedule_run_now',
-      'schedule_delete'
+      ...MCP_CONFIG_TOOL_NAMES,
+      ...SCHEDULE_TOOL_NAMES
     ])
     expect(options.allowedTools).toEqual([
+      ...MCP_CONFIG_ALLOWED_TOOLS,
       ...DESKTOP_CAPABILITY_ALLOWED_TOOLS
     ])
     expect(options.appendSystemPrompt).not.toContain('built-in IM messages')
@@ -791,19 +1046,13 @@ describe('desktop capability query options', () => {
     })
 
     expect(Object.keys(tools)).toEqual([
-      'schedule_list',
-      'schedule_get',
-      'schedule_runs',
-      'schedule_create',
-      'schedule_update',
-      'schedule_enable',
-      'schedule_disable',
-      'schedule_run_now',
-      'schedule_delete',
+      ...MCP_CONFIG_TOOL_NAMES,
+      ...SCHEDULE_TOOL_NAMES,
       'session_get_current',
       'session_match_task'
     ])
     expect(options.allowedTools).toEqual([
+      ...MCP_CONFIG_ALLOWED_TOOLS,
       ...DESKTOP_CAPABILITY_ALLOWED_TOOLS,
       ...SESSION_ALLOWED_TOOLS
     ])
@@ -813,6 +1062,7 @@ describe('desktop capability query options', () => {
     const { options, tools } = await createOptionsWithBuiltinIm()
 
     expect(Object.keys(tools)).toEqual([
+      ...MCP_CONFIG_TOOL_NAMES,
       'im_list_targets',
       'im_send',
       'im_unbind',
@@ -820,6 +1070,7 @@ describe('desktop capability query options', () => {
       'session_match_task'
     ])
     expect(options.allowedTools).toEqual([
+      ...MCP_CONFIG_ALLOWED_TOOLS,
       'mcp__hydrodesktop__im_list_targets',
       'mcp__hydrodesktop__im_send',
       'mcp__hydrodesktop__im_unbind',
@@ -833,6 +1084,7 @@ describe('desktop capability query options', () => {
     const { options, tools } = await createOptionsWithSessionApps()
 
     expect(Object.keys(tools)).toEqual([
+      ...MCP_CONFIG_TOOL_NAMES,
       'session_get_current',
       'session_match_task',
       'session_app_list',
@@ -843,6 +1095,7 @@ describe('desktop capability query options', () => {
       'session_app_launch'
     ])
     expect(options.allowedTools).toEqual([
+      ...MCP_CONFIG_ALLOWED_TOOLS,
       ...SESSION_ALLOWED_TOOLS,
       ...SESSION_APP_ALLOWED_TOOLS
     ])

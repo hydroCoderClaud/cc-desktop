@@ -9,6 +9,7 @@ const { AgentSessionManager } = await import('../../src/main/agent-session-manag
 const { AgentSession } = await import('../../src/main/agent-session.js')
 const {
   DESKTOP_CAPABILITY_ALLOWED_TOOLS,
+  MCP_CONFIG_ALLOWED_TOOLS,
   SESSION_APP_ALLOWED_TOOLS
 } = await import('../../src/main/managers/desktop-capability-query-options.js')
 const {
@@ -1334,7 +1335,8 @@ describe('AgentSessionManager interactions', () => {
     expect(manager.runner.createQuery).toHaveBeenCalledOnce()
     const createQueryOptions = manager.runner.createQuery.mock.calls[0][1]
     expect(createQueryOptions.resume).toBe('sdk-embedded-old')
-    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['embeddedapp', 'hydrology'])
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop', 'embeddedapp', 'hydrology'])
+    expect(createQueryOptions.allowedTools || []).toEqual(expect.arrayContaining(MCP_CONFIG_ALLOWED_TOOLS))
     expect(createQueryOptions.allowedTools || []).not.toEqual(expect.arrayContaining([
       'mcp__hydrodesktop__im_list_targets',
       'mcp__hydrodesktop__im_send',
@@ -2638,7 +2640,8 @@ describe('AgentSessionManager interactions', () => {
     expect(createQueryOptions.appendSystemPrompt).toContain('智水工坊研发的AI个人桌面助手')
     expect(createQueryOptions.appendSystemPrompt).toContain('connect to mainstream large models')
     expect(createQueryOptions.appendSystemPrompt).toContain('Do not introduce yourself as Claude or Claude Code')
-    expect(createQueryOptions.mcpServers).toBeUndefined()
+    expect(Object.keys(createQueryOptions.mcpServers || {})).toEqual(['hydrodesktop'])
+    expect(createQueryOptions.allowedTools || []).toEqual(expect.arrayContaining(MCP_CONFIG_ALLOWED_TOOLS))
   })
 
   it('does not override runner settingSources for normal chat sessions', async () => {
