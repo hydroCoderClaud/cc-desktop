@@ -482,7 +482,10 @@ export default {
       openFile: 'Open Config File',
       allowGlobal: 'Allow globally',
       allowGlobalSuccess: 'Added global wildcard permission for MCP server "{name}"',
-      allowGlobalExists: 'Global wildcard permission already exists for MCP server "{name}"'
+      allowGlobalExists: 'Global wildcard permission already exists for MCP server "{name}"',
+      revokeGlobal: 'Revoke globally',
+      revokeGlobalSuccess: 'Revoked global wildcard permission for MCP server "{name}"',
+      revokeGlobalExists: 'No global wildcard permission exists for MCP server "{name}" to revoke'
     },
     // Agents
     agents: {

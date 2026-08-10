@@ -48,6 +48,7 @@
           @click="handleClick"
           @openFile="handleOpenFile"
           @allowGlobal="handleAllowGlobal"
+          @revokeGlobal="handleRevokeGlobal"
         />
 
         <!-- Local Servers -->
@@ -65,6 +66,7 @@
           @click="handleClick"
           @openFile="handleOpenFile"
           @allowGlobal="handleAllowGlobal"
+          @revokeGlobal="handleRevokeGlobal"
         />
 
         <!-- Project Servers -->
@@ -82,6 +84,7 @@
           @click="handleClick"
           @openFile="handleOpenFile"
           @allowGlobal="handleAllowGlobal"
+          @revokeGlobal="handleRevokeGlobal"
         />
 
         <!-- Plugin Servers -->
@@ -96,6 +99,7 @@
           @click="handleClick"
           @openFile="handleOpenFile"
           @allowGlobal="handleAllowGlobal"
+          @revokeGlobal="handleRevokeGlobal"
         />
       </div>
     </div>
@@ -125,7 +129,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NInput, useDialog, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -162,6 +166,7 @@ const copyingMcp = ref(null)
 
 // Market Modal
 const marketModalVisible = ref(false)
+let cleanupMcpChanged = null
 
 const showMarketModal = () => {
   marketModalVisible.value = true
@@ -320,6 +325,42 @@ const handleAllowGlobal = async (server) => {
   }
 }
 
+const handleRevokeGlobal = async (server) => {
+  const prefix = `mcp__${server.name}__`
+
+  try {
+    const permissions = await window.electronAPI.getClaudePermissions({ scope: 'global' })
+    const allowRules = Array.isArray(permissions?.allow) ? permissions.allow : []
+    const indicesToRemove = allowRules
+      .map((pattern, index) => ({ pattern, index }))
+      .filter(item => item.pattern === `${prefix}*` || item.pattern.startsWith(prefix))
+      .map(item => item.index)
+
+    if (indicesToRemove.length === 0) {
+      message.info(t('rightPanel.mcp.revokeGlobalExists', { name: server.name }))
+      return
+    }
+
+    for (const index of indicesToRemove.reverse()) {
+      const result = await window.electronAPI.removeClaudePermission({
+        scope: 'global',
+        type: 'allow',
+        index
+      })
+
+      if (!result.success) {
+        message.error(result.error || t('common.saveFailed'))
+        return
+      }
+    }
+
+    message.success(t('rightPanel.mcp.revokeGlobalSuccess', { name: server.name }))
+  } catch (err) {
+    console.error('Failed to revoke global MCP permission:', err)
+    message.error(t('common.saveFailed'))
+  }
+}
+
 // Watch project change
 watch(() => props.currentProject, () => {
   loadServers()
@@ -327,6 +368,18 @@ watch(() => props.currentProject, () => {
 
 onMounted(() => {
   loadServers()
+  if (window.electronAPI?.onMcpChanged) {
+    cleanupMcpChanged = window.electronAPI.onMcpChanged(() => {
+      loadServers()
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (cleanupMcpChanged) {
+    cleanupMcpChanged()
+    cleanupMcpChanged = null
+  }
 })
 </script>
 

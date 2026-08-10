@@ -482,7 +482,10 @@ export default {
       openFile: '打开配置文件',
       allowGlobal: '添加全局放行',
       allowGlobalSuccess: '已为 MCP Server "{name}" 添加全局通配权限',
-      allowGlobalExists: 'MCP Server "{name}" 的全局通配权限已存在'
+      allowGlobalExists: 'MCP Server "{name}" 的全局通配权限已存在',
+      revokeGlobal: '关闭全局权限',
+      revokeGlobalSuccess: '已关闭 MCP Server "{name}" 的全局通配权限',
+      revokeGlobalExists: 'MCP Server "{name}" 没有可关闭的全局通配权限'
     },
     // Agents
     agents: {

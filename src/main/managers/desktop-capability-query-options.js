@@ -8,6 +8,7 @@ const {
   DEFAULT_OUTBOUND_FILE_MAX_SIZE,
   normalizeOutboundFilePaths
 } = require('./im-file-attachments')
+const { notifyMcpChanged } = require('../utils/mcp-change-notifier')
 
 const DESKTOP_CAPABILITY_SYSTEM_PROMPT = [
   'You can manage hydrodesktop scheduled tasks with MCP tools.',
@@ -86,7 +87,8 @@ const MCP_CONFIG_TOOL_NAMES = [
   'mcp_config_add',
   'mcp_config_update',
   'mcp_config_remove',
-  'mcp_permission_allow'
+  'mcp_permission_allow',
+  'mcp_permission_revoke'
 ]
 const MCP_CONFIG_ALLOWED_TOOLS = MCP_CONFIG_TOOL_NAMES.map(
   toolName => `mcp__${DESKTOP_CAPABILITY_SERVER_NAME}__${toolName}`
@@ -147,6 +149,7 @@ const MCP_CONFIG_SYSTEM_PROMPT = [
   'For mcp_config_add and mcp_config_update, pass the user-authored MCP JSON block as the json argument. The JSON may be either { "server-name": { ... } } or { "mcpServers": { "server-name": { ... } } }.',
   'Do not invent MCP server commands, package names, executable paths, tokens, or environment values. If required JSON fields are missing, ask the user for them.',
   'Only set autoAllow=wildcard or call mcp_permission_allow with mode=wildcard when the user explicitly wants to authorize all tools for that MCP server.',
+  'Use mcp_permission_revoke when the user asks to close, revoke, remove, or disable previously allowed MCP tool permissions.',
   'After MCP configuration changes, tell the user that new or restarted sessions may be required before the runtime sees the changed MCP server list.'
 ].join(' ')
 
@@ -158,6 +161,7 @@ const SESSION_BINDING_MODES = ['current', 'new']
 const MCP_CONFIG_SCOPES = ['user', 'local', 'project']
 const MCP_CONFIG_LIST_SCOPES = ['all', 'user', 'local', 'project', 'plugin']
 const MCP_PERMISSION_MODES = ['wildcard', 'tools']
+const MCP_PERMISSION_REVOKE_MODES = ['all', 'tools']
 const MCP_CONFIG_AUTO_ALLOW_MODES = ['none', ...MCP_PERMISSION_MODES]
 const UPDATE_FIELDS = [
   'name',
@@ -578,6 +582,61 @@ function grantMcpToolPermissions(settingsManager, { serverName, mode, tools }) {
     ...settingsManager.addMcpToolPermissions(serverName, toolNames),
     mode: permissionMode,
     tools: toolNames
+  }
+}
+
+function revokeMcpToolPermissions(settingsManager, { serverName, mode, tools }) {
+  assertValidMcpServerName(serverName)
+  const permissionMode = mode || 'all'
+  if (!MCP_PERMISSION_REVOKE_MODES.includes(permissionMode)) {
+    throw new Error(`Invalid MCP permission revoke mode: ${permissionMode}`)
+  }
+
+  if (permissionMode === 'all') {
+    return {
+      ...settingsManager.removeMcpToolPermissions(serverName),
+      mode: permissionMode
+    }
+  }
+
+  const toolNames = normalizeMcpToolNames(tools)
+  if (toolNames.length === 0) {
+    throw new Error('tools is required when mode=tools')
+  }
+
+  const patterns = toolNames.map(toolName => `mcp__${serverName}__${toolName}`)
+  const permissions = settingsManager.getPermissions('global', null)
+  const allowRules = Array.isArray(permissions?.allow) ? permissions.allow : []
+  const indicesToRemove = []
+
+  allowRules.forEach((pattern, index) => {
+    if (patterns.includes(pattern)) {
+      indicesToRemove.push(index)
+    }
+  })
+
+  let removed = 0
+  for (const index of indicesToRemove.reverse()) {
+    const result = settingsManager.removePermissionRule('global', null, 'allow', index)
+    if (!result?.success) {
+      return {
+        success: false,
+        mode: permissionMode,
+        removed,
+        tools: toolNames,
+        patterns,
+        error: result?.error || 'Failed to remove permission'
+      }
+    }
+    removed += 1
+  }
+
+  return {
+    success: true,
+    mode: permissionMode,
+    removed,
+    tools: toolNames,
+    patterns
   }
 }
 
@@ -2185,6 +2244,11 @@ async function buildDesktopCapabilityQueryOptions({
           declaredTools,
           tools: args.tools
         })
+        notifyMcpChanged({
+          action: existing && args.overwrite ? 'updated' : 'created',
+          scope,
+          name
+        })
 
         return buildToolResult({
           action: existing && args.overwrite ? 'mcp_config_update' : 'mcp_config_add',
@@ -2239,6 +2303,12 @@ async function buildDesktopCapabilityQueryOptions({
           declaredTools,
           tools: args.tools
         })
+        notifyMcpChanged({
+          action: 'updated',
+          scope,
+          oldName,
+          name
+        })
 
         return buildToolResult({
           action: 'mcp_config_update',
@@ -2269,6 +2339,13 @@ async function buildDesktopCapabilityQueryOptions({
           projectPath: args.projectPath || null,
           name
         })
+        if (result?.success) {
+          notifyMcpChanged({
+            action: 'removed',
+            scope,
+            name
+          })
+        }
 
         return buildToolResult({
           action: 'mcp_config_remove',
@@ -2297,6 +2374,29 @@ async function buildDesktopCapabilityQueryOptions({
 
         return buildToolResult({
           action: 'mcp_permission_allow',
+          success: Boolean(result?.success),
+          serverName: args.serverName,
+          ...result
+        })
+      }
+    ),
+    tool(
+      MCP_CONFIG_TOOL_NAMES[5],
+      'Revoke global Hydro Desktop tool permission for an MCP server. all removes every mcp__server__ permission; tools removes specific mcp__server__tool permissions.',
+      {
+        serverName: z.string().min(1).describe('MCP server name.'),
+        mode: z.enum(MCP_PERMISSION_REVOKE_MODES).optional().describe('all or tools. Defaults to all.'),
+        tools: z.array(z.string()).optional().describe('Required when mode=tools.')
+      },
+      async (args) => {
+        const result = revokeMcpToolPermissions(activeSettingsManager, {
+          serverName: args.serverName,
+          mode: args.mode || 'all',
+          tools: args.tools
+        })
+
+        return buildToolResult({
+          action: 'mcp_permission_revoke',
           success: Boolean(result?.success),
           serverName: args.serverName,
           ...result

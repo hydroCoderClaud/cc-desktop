@@ -54,7 +54,8 @@ describe('desktop capability query options', () => {
     'mcp_config_add',
     'mcp_config_update',
     'mcp_config_remove',
-    'mcp_permission_allow'
+    'mcp_permission_allow',
+    'mcp_permission_revoke'
   ]
 
   const SCHEDULE_TOOL_NAMES = [
@@ -381,7 +382,10 @@ describe('desktop capability query options', () => {
     }
     const settingsManager = {
       addPermissionRule: vi.fn(() => ({ success: true })),
-      addMcpToolPermissions: vi.fn(() => ({ success: true, added: 2 }))
+      addMcpToolPermissions: vi.fn(() => ({ success: true, added: 2 })),
+      getPermissions: vi.fn(() => ({ allow: [], deny: [] })),
+      removePermissionRule: vi.fn(() => ({ success: true })),
+      removeMcpToolPermissions: vi.fn(() => ({ success: true, removed: 1 }))
     }
     const options = await buildDesktopCapabilityQueryOptions({
       scheduledTaskService: null,
@@ -408,7 +412,8 @@ describe('desktop capability query options', () => {
       'mcp__hydrodesktop__mcp_config_add',
       'mcp__hydrodesktop__mcp_config_update',
       'mcp__hydrodesktop__mcp_config_remove',
-      'mcp__hydrodesktop__mcp_permission_allow'
+      'mcp__hydrodesktop__mcp_permission_allow',
+      'mcp__hydrodesktop__mcp_permission_revoke'
     ])
     expect(DESKTOP_CAPABILITY_ALLOWED_TOOLS).toEqual([
       'mcp__hydrodesktop__schedule_list',
@@ -437,6 +442,7 @@ describe('desktop capability query options', () => {
     expect(options.appendSystemPrompt).toContain('will be skipped instead of falling back to a fresh default task session')
     expect(options.appendSystemPrompt).toContain('Hydro Desktop isolated MCP configuration')
     expect(options.appendSystemPrompt).toContain('mcp_permission_allow')
+    expect(options.appendSystemPrompt).toContain('mcp_permission_revoke')
   })
 
   it('manages Hydro Desktop MCP configs from user-authored JSON', async () => {
@@ -516,6 +522,69 @@ describe('desktop capability query options', () => {
       'weixin-publisher',
       ['create_draft', 'upload_cover']
     )
+  })
+
+  it('revokes Hydro Desktop MCP permissions by wildcard or explicit tool names', async () => {
+    const settingsManager = {
+      addPermissionRule: vi.fn(() => ({ success: true })),
+      addMcpToolPermissions: vi.fn(() => ({ success: true, added: 2 })),
+      getPermissions: vi.fn(() => ({
+        allow: [
+          'mcp__weixin-publisher__create_draft',
+          'mcp__weixin-publisher__upload_cover',
+          'mcp__weixin-publisher__*'
+        ],
+        deny: []
+      })),
+      removePermissionRule: vi.fn(() => ({ success: true })),
+      removeMcpToolPermissions: vi.fn(() => ({ success: true, removed: 3 }))
+    }
+    const mcpManager = {
+      listMcpAll: vi.fn(() => ({ user: [], local: [], project: [], plugin: [] })),
+      listMcpUser: vi.fn(() => []),
+      listMcpLocal: vi.fn(() => []),
+      listMcpProject: vi.fn(() => []),
+      listMcpPlugin: vi.fn(() => []),
+      createMcp: vi.fn(() => ({ success: true })),
+      updateMcp: vi.fn(() => ({ success: true })),
+      deleteMcp: vi.fn(() => ({ success: true }))
+    }
+    const options = await buildDesktopCapabilityQueryOptions({
+      scheduledTaskService: null,
+      mcpManager,
+      settingsManager,
+      session: { id: 'mcp-session-2', source: 'manual' }
+    })
+    const tools = Object.fromEntries(
+      options.mcpServers.hydrodesktop.tools.map(tool => [tool.name, tool])
+    )
+
+    const revokeAllPayload = parseToolPayload(await tools.mcp_permission_revoke.handler({
+      serverName: 'weixin-publisher'
+    }))
+    expect(revokeAllPayload).toMatchObject({
+      action: 'mcp_permission_revoke',
+      success: true,
+      serverName: 'weixin-publisher',
+      mode: 'all',
+      removed: 3
+    })
+    expect(settingsManager.removeMcpToolPermissions).toHaveBeenCalledWith('weixin-publisher')
+
+    const revokeToolsPayload = parseToolPayload(await tools.mcp_permission_revoke.handler({
+      serverName: 'weixin-publisher',
+      mode: 'tools',
+      tools: ['create_draft', 'upload_cover']
+    }))
+    expect(revokeToolsPayload).toMatchObject({
+      action: 'mcp_permission_revoke',
+      success: true,
+      serverName: 'weixin-publisher',
+      mode: 'tools',
+      removed: 2,
+      tools: ['create_draft', 'upload_cover']
+    })
+    expect(settingsManager.removePermissionRule).toHaveBeenCalled()
   })
 
   it('supports wrapped MCP JSON, overwrite update, remove, and wildcard authorization', async () => {

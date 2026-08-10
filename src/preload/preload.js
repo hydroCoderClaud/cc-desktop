@@ -719,6 +719,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('session-app:changed', listener)
   },
 
+  onMcpChanged: (callback) => {
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('mcp:changed', listener)
+    return () => ipcRenderer.removeListener('mcp:changed', listener)
+  },
+
   // ========================================
   // Agent 会话管理
   // ========================================

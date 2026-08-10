@@ -4,6 +4,7 @@
  */
 
 const { McpManager, SettingsManager } = require('../managers')
+const { notifyMcpChanged } = require('../utils/mcp-change-notifier')
 
 function setupMcpHandlers(ipcMain, configManager) {
   const mcpManager = new McpManager()
@@ -82,7 +83,15 @@ function setupMcpHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
-      return mcpManager.createMcp(params)
+      const result = mcpManager.createMcp(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'created',
+          scope: params.scope,
+          name: params.name
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcp:create error:', err)
       return { success: false, error: err.message }
@@ -95,7 +104,16 @@ function setupMcpHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
-      return mcpManager.updateMcp(params)
+      const result = mcpManager.updateMcp(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'updated',
+          scope: params.scope,
+          oldName: params.oldName,
+          name: params.name
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcp:update error:', err)
       return { success: false, error: err.message }
@@ -108,7 +126,15 @@ function setupMcpHandlers(ipcMain, configManager) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid parameters' }
       }
-      return mcpManager.deleteMcp(params)
+      const result = mcpManager.deleteMcp(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'removed',
+          scope: params.scope,
+          name: params.name
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcp:delete error:', err)
       return { success: false, error: err.message }
@@ -140,7 +166,14 @@ function setupMcpHandlers(ipcMain, configManager) {
         return { success: false, error: 'Invalid parameters' }
       }
       params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
-      return await mcpManager.installMarketMcp(params)
+      const result = await mcpManager.installMarketMcp(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'installed',
+          name: params.componentId || params.id || params.name || null
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcps:market:install error:', err)
       return { success: false, error: err.message }
@@ -154,7 +187,15 @@ function setupMcpHandlers(ipcMain, configManager) {
         return { success: false, error: 'Invalid parameters' }
       }
       params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
-      return await mcpManager.installMarketMcpForce(params)
+      const result = await mcpManager.installMarketMcpForce(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'installed',
+          name: params.componentId || params.id || params.name || null,
+          force: true
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcps:market:installForce error:', err)
       return { success: false, error: err.message }
@@ -168,7 +209,15 @@ function setupMcpHandlers(ipcMain, configManager) {
         return { success: false, error: 'Invalid parameters' }
       }
       params.mirrorUrl = params.mirrorUrl || configManager.getMarketConfig()?.registryMirrorUrl
-      return await mcpManager.updateMarketMcp(params)
+      const result = await mcpManager.updateMarketMcp(params)
+      if (result?.success) {
+        notifyMcpChanged({
+          action: 'updated',
+          name: params.componentId || params.id || params.name || null,
+          market: true
+        })
+      }
+      return result
     } catch (err) {
       console.error('[IPC] mcps:market:update error:', err)
       return { success: false, error: err.message }
