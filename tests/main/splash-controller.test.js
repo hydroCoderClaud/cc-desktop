@@ -73,6 +73,37 @@ describe('SplashController', () => {
     expect(recreatedWindow.show).toHaveBeenCalledOnce()
   })
 
+  it('keeps the splash visible on dev startup timeout until the renderer is ready', () => {
+    const originalDevServerUrl = process.env.VITE_DEV_SERVER_URL
+    process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173/'
+
+    vi.useFakeTimers()
+    try {
+      const { controller, mainWindow } = createController()
+      controller.timeoutMs = 50
+
+      controller.start()
+      controller.markMainWindowReady(mainWindow)
+      controller.markMainServicesReady()
+
+      vi.advanceTimersByTime(60)
+
+      expect(mainWindow.show).not.toHaveBeenCalled()
+
+      controller.markRendererReady()
+
+      expect(mainWindow.maximize).toHaveBeenCalledOnce()
+      expect(mainWindow.show).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+      if (originalDevServerUrl === undefined) {
+        delete process.env.VITE_DEV_SERVER_URL
+      } else {
+        process.env.VITE_DEV_SERVER_URL = originalDevServerUrl
+      }
+    }
+  })
+
   it('queues real startup status until the splash DOM is ready', () => {
     const { controller, splashWindow } = createController()
     controller.start()

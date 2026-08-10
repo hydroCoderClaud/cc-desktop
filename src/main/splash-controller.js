@@ -36,6 +36,7 @@ class SplashController {
 
     const settings = this.configManager?.getConfig?.()?.settings || {}
     const theme = settings.theme === 'dark' ? 'dark' : 'light'
+    const isDevServer = Boolean(process.env.VITE_DEV_SERVER_URL)
     const splashFile = path.join(__dirname, '../renderer/splash/index.html')
     this.splashWindow = new this.BrowserWindow({
       width: 620,
@@ -77,6 +78,10 @@ class SplashController {
     })
 
     this.timeout = setTimeout(() => {
+      if (isDevServer) {
+        this.logger.warn('[Splash] Startup readiness timed out; keep splash visible while the dev server warms up')
+        return
+      }
       this.logger.warn('[Splash] Startup readiness timed out; showing the main window')
       this.forceReveal = true
       this.tryReveal()
