@@ -23,6 +23,13 @@
           :readonly="readonly"
         />
         <div class="json-hint" v-if="!readonly">{{ t('rightPanel.mcp.jsonHint') }}</div>
+        <n-checkbox
+          v-if="!readonly && !isEdit"
+          v-model:checked="autoAllowGlobal"
+          class="auto-allow-checkbox"
+        >
+          {{ t('rightPanel.mcp.autoAllowGlobal') }}
+        </n-checkbox>
       </div>
     </n-scrollbar>
 
@@ -40,7 +47,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import {
-  NModal, NInput, NButton, NScrollbar, useMessage
+  NModal, NInput, NButton, NCheckbox, NScrollbar, useMessage
 } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 
@@ -65,6 +72,7 @@ const modalTitle = computed(() => {
 const saving = ref(false)
 const jsonText = ref('')
 const jsonError = ref('')
+const autoAllowGlobal = ref(true)
 
 const jsonPlaceholder = computed(() => {
   return `{
@@ -99,8 +107,22 @@ watch(() => props.show, (show) => {
       jsonText.value = ''
     }
     jsonError.value = ''
+    autoAllowGlobal.value = true
   }
 })
+
+const grantGlobalWildcardPermission = async (name) => {
+  const pattern = `mcp__${name}__*`
+  const permissions = await window.electronAPI.getClaudePermissions({ scope: 'global' })
+  const allowRules = Array.isArray(permissions?.allow) ? permissions.allow : []
+  if (allowRules.includes(pattern)) return { success: true, skipped: true }
+
+  return window.electronAPI.addClaudePermission({
+    scope: 'global',
+    type: 'allow',
+    pattern
+  })
+}
 
 // 格式化 JSON
 const formatJson = () => {
@@ -167,6 +189,12 @@ const handleSave = async () => {
     }
 
     if (result.success) {
+      if (!isEdit.value && autoAllowGlobal.value) {
+        const permissionResult = await grantGlobalWildcardPermission(name)
+        if (!permissionResult?.success) {
+          message.warning(permissionResult?.error || t('rightPanel.mcp.autoAllowFailed'))
+        }
+      }
       message.success(t('common.saved'))
       emit('saved')
       emit('update:show', false)
@@ -203,6 +231,12 @@ const handleSave = async () => {
 .json-hint {
   font-size: 11px;
   color: var(--text-color-muted);
+}
+
+.auto-allow-checkbox {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-color-secondary);
 }
 
 .modal-footer {

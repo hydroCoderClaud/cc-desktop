@@ -37,6 +37,12 @@
         <n-form-item v-if="proxyAvailable" :label="t('mcp.proxy.useProxy')" class="env-form-item proxy-form-item">
           <n-switch v-model:value="useProxy" />
         </n-form-item>
+
+        <n-form-item v-if="showAutoAllow" class="env-form-item auto-allow-form-item">
+          <n-checkbox v-model:checked="autoAllowGlobal">
+            {{ t('rightPanel.mcp.autoAllowGlobal') }}
+          </n-checkbox>
+        </n-form-item>
       </n-form>
 
     </div>
@@ -51,7 +57,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NButton, NTag, NSwitch, useMessage } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NButton, NTag, NSwitch, NCheckbox, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
 
@@ -62,7 +68,8 @@ const props = defineProps({
   mcpName: { type: String, default: '' },
   envVars: { type: Array, default: () => [] },
   initialUseProxy: { type: Boolean, default: false },
-  proxyAvailable: { type: Boolean, default: false }
+  proxyAvailable: { type: Boolean, default: false },
+  showAutoAllow: { type: Boolean, default: false }
 })
 
 const visible = defineModel({ type: Boolean, default: false })
@@ -71,6 +78,7 @@ const emit = defineEmits(['confirm', 'cancel'])
 const envList = ref([])
 const confirming = ref(false)
 const useProxy = ref(false)
+const autoAllowGlobal = ref(true)
 
 watch(() => props.envVars, (vars) => {
   envList.value = vars.map(v => ({ ...v }))
@@ -84,6 +92,7 @@ watch(visible, (show) => {
   if (show) {
     confirming.value = false
     useProxy.value = !!props.initialUseProxy
+    autoAllowGlobal.value = true
   }
 })
 
@@ -115,7 +124,10 @@ const buildEnvOverrides = () => {
 const handleConfirm = () => {
   const overrides = buildEnvOverrides()
   visible.value = false
-  emit('confirm', overrides, useProxy.value)
+  emit('confirm', overrides, {
+    useProxy: useProxy.value,
+    autoAllowGlobal: props.showAutoAllow ? autoAllowGlobal.value : false
+  })
 }
 
 const handleCancel = () => {
@@ -189,6 +201,10 @@ const handleCancel = () => {
 }
 
 .proxy-form-item :deep(.n-form-item-blank) {
+  justify-content: flex-start;
+}
+
+.auto-allow-form-item :deep(.n-form-item-blank) {
   justify-content: flex-start;
 }
 </style>

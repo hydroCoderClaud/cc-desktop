@@ -533,8 +533,38 @@ function serializeMcpConfigEntry(entry) {
     source: entry?.source || '',
     category: entry?.category || '',
     filePath: entry?.filePath || '',
-    config: entry?.config || {}
+    config: redactMcpConfigForToolResult(entry?.config || {})
   }
+}
+
+function isSensitiveMcpConfigKey(key) {
+  const normalized = String(key || '').toLowerCase()
+  return /(^|[_-])(api[_-]?key|access[_-]?key|secret[_-]?key|private[_-]?key|token|secret|password|passwd|credential|authorization|cookie|auth)($|[_-])/.test(normalized)
+}
+
+function redactMcpConfigForToolResult(value, parentKey = '') {
+  if (value == null) return value
+
+  if (Array.isArray(value)) {
+    return value.map(item => redactMcpConfigForToolResult(item, parentKey))
+  }
+
+  if (typeof value !== 'object') {
+    return isSensitiveMcpConfigKey(parentKey) ? '[REDACTED]' : value
+  }
+
+  const result = {}
+  for (const [key, childValue] of Object.entries(value)) {
+    if (String(key).toLowerCase() === 'env') {
+      result[key] = childValue && typeof childValue === 'object' && !Array.isArray(childValue)
+        ? Object.fromEntries(Object.keys(childValue).map(envKey => [envKey, '[REDACTED]']))
+        : '[REDACTED]'
+      continue
+    }
+
+    result[key] = redactMcpConfigForToolResult(childValue, key)
+  }
+  return result
 }
 
 function listMcpConfigs(mcpManager, scope, projectPath) {
@@ -2256,7 +2286,7 @@ async function buildDesktopCapabilityQueryOptions({
           scope,
           name,
           overwritten: Boolean(existing && args.overwrite),
-          config,
+          config: redactMcpConfigForToolResult(config),
           permission,
           note: 'Restart or start a new session if the changed MCP server list is not visible in the current runtime.'
         })
@@ -2316,7 +2346,7 @@ async function buildDesktopCapabilityQueryOptions({
           scope,
           oldName,
           name,
-          config,
+          config: redactMcpConfigForToolResult(config),
           permission,
           note: 'Restart or start a new session if the changed MCP server list is not visible in the current runtime.'
         })
@@ -2372,6 +2402,17 @@ async function buildDesktopCapabilityQueryOptions({
           tools: args.tools
         })
 
+        if (result?.success) {
+          notifyMcpChanged({
+            action: 'permission_allowed',
+            scope: 'global',
+            name: args.serverName,
+            serverName: args.serverName,
+            mode: result.mode || args.mode || 'wildcard',
+            changedPermissions: true
+          })
+        }
+
         return buildToolResult({
           action: 'mcp_permission_allow',
           success: Boolean(result?.success),
@@ -2394,6 +2435,17 @@ async function buildDesktopCapabilityQueryOptions({
           mode: args.mode || 'all',
           tools: args.tools
         })
+
+        if (result?.success) {
+          notifyMcpChanged({
+            action: 'permission_revoked',
+            scope: 'global',
+            name: args.serverName,
+            serverName: args.serverName,
+            mode: result.mode || args.mode || 'all',
+            changedPermissions: true
+          })
+        }
 
         return buildToolResult({
           action: 'mcp_permission_revoke',

@@ -73,6 +73,7 @@
       v-model="showEnvConfigModal"
       :mcp-name="pendingMcp?.name || pendingMcp?.id || ''"
       :env-vars="pendingEnvVars"
+      :show-auto-allow="pendingMcpAction !== 'update'"
       @confirm="onEnvConfigConfirm"
       @cancel="onEnvConfigCancel"
     />
@@ -475,6 +476,7 @@ const showEnvConfigModal = ref(false)
 const pendingMcp = ref(null)
 const pendingEnvVars = ref([])
 const pendingMcpAction = ref('install') // 'install' | 'force' | 'update'
+const pendingMcpServerNames = ref([])
 
 const handleInstallMcp = async (mcp) => {
   addToInstalling(mcp.id)
@@ -484,8 +486,10 @@ const handleInstallMcp = async (mcp) => {
       mcp: JSON.parse(JSON.stringify(mcp))
     })
     const vars = (preview.success && preview.config) ? extractAllEnvVars(preview.config) : []
+    const serverNames = preview.success && preview.config ? Object.keys(preview.config) : [mcp.id]
     pendingMcp.value = mcp
     pendingEnvVars.value = vars
+    pendingMcpServerNames.value = serverNames
     pendingMcpAction.value = 'install'
     showEnvConfigModal.value = true
     removeFromInstalling(mcp.id)
@@ -495,7 +499,34 @@ const handleInstallMcp = async (mcp) => {
   }
 }
 
-const doInstallMcp = async (mcp, force, envOverrides) => {
+const grantGlobalWildcardPermissions = async (serverNames) => {
+  const names = Array.from(new Set((serverNames || []).filter(Boolean)))
+  if (names.length === 0) return { success: true, added: 0 }
+
+  const permissions = await window.electronAPI.getClaudePermissions({ scope: 'global' })
+  const allowRules = Array.isArray(permissions?.allow) ? permissions.allow : []
+  let added = 0
+
+  for (const name of names) {
+    const pattern = `mcp__${name}__*`
+    if (allowRules.includes(pattern)) continue
+
+    const result = await window.electronAPI.addClaudePermission({
+      scope: 'global',
+      type: 'allow',
+      pattern
+    })
+    if (!result?.success && result?.error !== 'Rule already exists') {
+      return { success: false, added, error: result?.error || t('rightPanel.mcp.autoAllowFailed') }
+    }
+    added++
+    allowRules.push(pattern)
+  }
+
+  return { success: true, added }
+}
+
+const doInstallMcp = async (mcp, force, envOverrides, autoAllowGlobal = true, serverNames = []) => {
   addToInstalling(mcp.id)
   try {
     const mcpPayload = JSON.parse(JSON.stringify(mcp))
@@ -510,6 +541,12 @@ const doInstallMcp = async (mcp, force, envOverrides) => {
     })
 
     if (result.success) {
+      if (autoAllowGlobal) {
+        const permissionResult = await grantGlobalWildcardPermissions(serverNames.length ? serverNames : [mcp.id])
+        if (!permissionResult.success) {
+          message.warning(permissionResult.error || t('rightPanel.mcp.autoAllowFailed'))
+        }
+      }
       message.success(t('market.installSuccess', { name: mcp.name || mcp.id }))
       await loadInstalledMcps()
       emit('installed')
@@ -520,7 +557,7 @@ const doInstallMcp = async (mcp, force, envOverrides) => {
         positiveText: t('market.install'),
         negativeText: t('common.cancel'),
         onPositiveClick: async () => {
-          await doInstallMcp(mcp, true, envOverrides)
+          await doInstallMcp(mcp, true, envOverrides, autoAllowGlobal, serverNames)
         }
       })
     } else {
@@ -541,8 +578,10 @@ const handleUpdateMcp = async (mcp) => {
       mcp: JSON.parse(JSON.stringify(mcp))
     })
     const vars = (preview.success && preview.config) ? extractAllEnvVars(preview.config) : []
+    const serverNames = preview.success && preview.config ? Object.keys(preview.config) : [mcp.id]
     pendingMcp.value = mcp
     pendingEnvVars.value = vars
+    pendingMcpServerNames.value = serverNames
     pendingMcpAction.value = 'update'
     showEnvConfigModal.value = true
     removeFromInstalling(mcp.id)
@@ -577,20 +616,23 @@ const doUpdateMcp = async (mcp, envOverrides) => {
 }
 
 // Env config modal callbacks
-const onEnvConfigConfirm = (envOverrides) => {
+const onEnvConfigConfirm = (envOverrides, options = {}) => {
   const mcp = pendingMcp.value
   if (!mcp) return
   const action = pendingMcpAction.value
+  const serverNames = pendingMcpServerNames.value
   if (action === 'update') {
     doUpdateMcp(mcp, envOverrides)
   } else {
-    doInstallMcp(mcp, action === 'force', envOverrides)
+    doInstallMcp(mcp, action === 'force', envOverrides, options.autoAllowGlobal !== false, serverNames)
   }
   pendingMcp.value = null
+  pendingMcpServerNames.value = []
 }
 
 const onEnvConfigCancel = () => {
   pendingMcp.value = null
+  pendingMcpServerNames.value = []
 }
 </script>
 

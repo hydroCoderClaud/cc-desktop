@@ -142,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { NInput, NModal, useMessage } from 'naive-ui'
 import { useLocale } from '@composables/useLocale'
 import Icon from '@components/icons/Icon.vue'
@@ -191,6 +191,7 @@ const showDeleteConfirm = ref(false)
 const deleteType = ref('') // 'permission' or 'env'
 const deletingItem = ref(null)
 const deleteScope = ref('global')
+let cleanupMcpChanged = null
 
 // Computed
 const permissionsCount = computed(() => {
@@ -391,10 +392,24 @@ watch(() => props.currentProject, () => {
 
 onMounted(() => {
   loadSettings()
+  if (window.electronAPI?.onMcpChanged) {
+    cleanupMcpChanged = window.electronAPI.onMcpChanged((payload = {}) => {
+      if (payload.changedPermissions || String(payload.action || '').startsWith('permission_')) {
+        loadSettings()
+      }
+    })
+  }
 })
 
 onActivated(() => {
   loadSettings()
+})
+
+onUnmounted(() => {
+  if (cleanupMcpChanged) {
+    cleanupMcpChanged()
+    cleanupMcpChanged = null
+  }
 })
 </script>
 

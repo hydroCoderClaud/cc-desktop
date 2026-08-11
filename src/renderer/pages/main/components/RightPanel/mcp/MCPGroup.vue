@@ -31,8 +31,13 @@
             <button class="icon-btn inline" :title="t('common.copy')" @click.stop="$emit('copy', server)"><Icon name="copy" :size="14" /></button>
             <button class="icon-btn inline" :title="t('common.edit')" @click.stop="$emit('edit', server)"><Icon name="edit" :size="14" /></button>
             <button v-if="server.filePath" class="icon-btn inline" :title="t('rightPanel.mcp.openFile')" @click.stop="$emit('openFile', server)"><Icon name="externalLink" :size="14" /></button>
-            <button class="icon-btn inline" :title="t('rightPanel.mcp.allowGlobal')" @click.stop="$emit('allowGlobal', server)"><Icon name="unlock" :size="14" /></button>
-            <button class="icon-btn inline" :title="t('rightPanel.mcp.revokeGlobal')" @click.stop="$emit('revokeGlobal', server)"><Icon name="lock" :size="14" /></button>
+            <button
+              class="icon-btn inline"
+              :title="server.globalPermissionAllowed ? t('rightPanel.mcp.revokeGlobal') : t('rightPanel.mcp.allowGlobal')"
+              @click.stop="$emit(server.globalPermissionAllowed ? 'revokeGlobal' : 'allowGlobal', server)"
+            >
+              <Icon :name="server.globalPermissionAllowed ? 'lock' : 'unlock'" :size="14" />
+            </button>
             <button v-if="editable" class="icon-btn inline" :title="t('common.delete')" @click.stop="$emit('delete', server)"><Icon name="delete" :size="14" /></button>
           </span>
         </div>

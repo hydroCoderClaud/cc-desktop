@@ -483,6 +483,8 @@ export default {
       allowGlobal: '添加全局放行',
       allowGlobalSuccess: '已为 MCP Server "{name}" 添加全局通配权限',
       allowGlobalExists: 'MCP Server "{name}" 的全局通配权限已存在',
+      autoAllowGlobal: '添加后自动授权全部工具',
+      autoAllowFailed: 'MCP 已添加，但自动授权失败，请在列表中手动开启权限',
       revokeGlobal: '关闭全局权限',
       revokeGlobalSuccess: '已关闭 MCP Server "{name}" 的全局通配权限',
       revokeGlobalExists: 'MCP Server "{name}" 没有可关闭的全局通配权限'

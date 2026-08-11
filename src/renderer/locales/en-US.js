@@ -483,6 +483,8 @@ export default {
       allowGlobal: 'Allow globally',
       allowGlobalSuccess: 'Added global wildcard permission for MCP server "{name}"',
       allowGlobalExists: 'Global wildcard permission already exists for MCP server "{name}"',
+      autoAllowGlobal: 'Automatically allow all tools after adding',
+      autoAllowFailed: 'MCP was added, but automatic permission grant failed. Please enable it manually from the list.',
       revokeGlobal: 'Revoke globally',
       revokeGlobalSuccess: 'Revoked global wildcard permission for MCP server "{name}"',
       revokeGlobalExists: 'No global wildcard permission exists for MCP server "{name}" to revoke'

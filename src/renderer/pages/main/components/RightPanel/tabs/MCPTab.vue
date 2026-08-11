@@ -185,6 +185,25 @@ const filterServerList = (list, keyword) => {
   return list.filter(s => s.name.toLowerCase().includes(keyword))
 }
 
+const hasGlobalMcpPermission = (allowRules, serverName) => {
+  const prefix = `mcp__${serverName}__`
+  return allowRules.some(pattern => pattern === `${prefix}*` || pattern.startsWith(prefix))
+}
+
+const markGlobalPermissions = (data, allowRules) => {
+  const markList = (list = []) => list.map(server => ({
+    ...server,
+    globalPermissionAllowed: hasGlobalMcpPermission(allowRules, server.name)
+  }))
+
+  return {
+    user: markList(data?.user),
+    local: markList(data?.local),
+    project: markList(data?.project),
+    plugin: markList(data?.plugin)
+  }
+}
+
 const filteredMcpData = computed(() => {
   const kw = searchText.value.toLowerCase()
   return {
@@ -212,8 +231,12 @@ const handleRefresh = async () => {
 const loadServers = async () => {
   loading.value = true
   try {
-    const result = await window.electronAPI.listMcpAll(props.currentProject?.path)
-    mcpData.value = result
+    const [result, permissions] = await Promise.all([
+      window.electronAPI.listMcpAll(props.currentProject?.path),
+      window.electronAPI.getClaudePermissions({ scope: 'global' })
+    ])
+    const allowRules = Array.isArray(permissions?.allow) ? permissions.allow : []
+    mcpData.value = markGlobalPermissions(result, allowRules)
   } catch (err) {
     console.error('Failed to load MCP servers:', err)
     mcpData.value = { user: [], local: [], project: [], plugin: [] }
@@ -314,8 +337,10 @@ const handleAllowGlobal = async (server) => {
 
     if (result.success) {
       message.success(t('rightPanel.mcp.allowGlobalSuccess', { name: server.name }))
+      await loadServers()
     } else if (result.error === 'Rule already exists') {
       message.info(t('rightPanel.mcp.allowGlobalExists', { name: server.name }))
+      await loadServers()
     } else {
       message.error(result.error || t('common.saveFailed'))
     }
@@ -355,6 +380,7 @@ const handleRevokeGlobal = async (server) => {
     }
 
     message.success(t('rightPanel.mcp.revokeGlobalSuccess', { name: server.name }))
+    await loadServers()
   } catch (err) {
     console.error('Failed to revoke global MCP permission:', err)
     message.error(t('common.saveFailed'))

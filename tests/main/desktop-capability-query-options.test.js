@@ -451,7 +451,12 @@ describe('desktop capability query options', () => {
       source: 'user',
       category: 'User',
       filePath: 'C:/Users/test/.hydrocoder/agent/.claude.json',
-      config: { type: 'stdio', command: 'old.cmd' }
+      config: {
+        type: 'stdio',
+        command: 'old.cmd',
+        env: { TOKEN: 'existing-token' },
+        headers: { Authorization: 'Bearer existing-token' }
+      }
     }]
     const { options, tools, mcpManager, settingsManager } = await createOptionsWithMcpConfig({
       userEntries: existingUser
@@ -475,7 +480,12 @@ describe('desktop capability query options', () => {
         name: 'existing-mcp',
         source: 'user',
         category: 'User',
-        config: { type: 'stdio', command: 'old.cmd' }
+        config: {
+          type: 'stdio',
+          command: 'old.cmd',
+          env: { TOKEN: '[REDACTED]' },
+          headers: { Authorization: '[REDACTED]' }
+        }
       }]
     })
     expect(mcpManager.listMcpUser).toHaveBeenCalled()
@@ -507,6 +517,12 @@ describe('desktop capability query options', () => {
       }
     })
     expect(addPayload.config).not.toHaveProperty('tools')
+    expect(addPayload.config).toMatchObject({
+      type: 'stdio',
+      command: 'wop-mcp.cmd',
+      args: ['--stdio'],
+      env: { TOKEN: '[REDACTED]' }
+    })
     expect(mcpManager.createMcp).toHaveBeenCalledWith({
       scope: 'user',
       projectPath: null,

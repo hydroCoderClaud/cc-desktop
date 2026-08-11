@@ -8,7 +8,7 @@ const agentLeftContentPath = path.resolve(__dirname, '../../src/renderer/pages/m
 
 describe('AgentLeftContent activeSessionEnded handling', () => {
   it('keeps closed sessions closed when activeSessionEnded status events arrive', () => {
-    const source = fs.readFileSync(agentLeftContentPath, 'utf-8')
+    const source = fs.readFileSync(agentLeftContentPath, 'utf-8').replace(/\r\n/g, '\n')
 
     expect(source).toContain('if (data.activeSessionEnded) {')
     expect(source).toContain("conv.status = 'closed'")
