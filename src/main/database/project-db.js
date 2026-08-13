@@ -7,9 +7,11 @@
 const {
   encodePath,
   resolveExistingProjectPath,
+  isProjectPathDescendant,
   buildProjectPathKey,
   getProjectName
 } = require('../utils/path-utils')
+const path = require('path')
 
 const PROJECT_KIND_PRIORITY = {
   workspace: 0,
@@ -200,6 +202,81 @@ function withProjectOperations(BaseClass) {
           return false
         }
       }) || null
+    }
+
+    /**
+     * Rebind a workspace project to a directory selected by the user.
+     * The project id remains stable so all project-bound conversations keep
+     * their ownership. Legacy cwd-only conversations are intentionally left
+     * untouched.
+     */
+    relocateProject(projectId, projectPath, platform = null) {
+      const project = this.getProjectById(projectId)
+      if (!project) throw new Error('Project not found')
+      if (project.project_kind !== 'workspace') {
+        throw new Error('Only workspace projects can be relocated')
+      }
+
+      const normalizedPath = resolveExistingProjectPath(projectPath, platform)
+      const pathKey = buildProjectPathKey(normalizedPath, platform)
+      const existing = this.db.prepare(
+        'SELECT id FROM projects WHERE path_key = ? AND id <> ?'
+      ).get(pathKey, projectId)
+      if (existing) throw new Error('The new directory is already registered as another project')
+
+      const encodedPath = encodePath(normalizedPath)
+      const now = Date.now()
+      const updateBody = () => {
+        this.db.prepare(`
+          UPDATE projects
+          SET path = ?, path_key = ?, encoded_path = ?, updated_at = ?, last_opened_at = ?
+          WHERE id = ? AND project_kind = 'workspace'
+        `).run(normalizedPath, pathKey, encodedPath, now, now, projectId)
+        this.db.prepare(`
+          UPDATE agent_conversations
+          SET cwd = ?, updated_at = ?
+          WHERE project_id = ?
+        `).run(normalizedPath, now, projectId)
+
+        // Scheduled tasks are cwd-bound but do not carry a project_id. Keep
+        // exact roots and task directories below the old root usable after
+        // relocation while leaving unrelated tasks untouched.
+        const scheduledTable = this.db.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'scheduled_tasks'"
+        ).get()
+        if (scheduledTable) {
+          const tasks = this.db.prepare('SELECT id, cwd FROM scheduled_tasks WHERE cwd IS NOT NULL').all()
+          const resolvedPlatform = platform || (process.platform === 'win32' ? 'win32' : 'posix')
+          const pathModule = resolvedPlatform === 'win32' ? path.win32 : path.posix
+          const oldRoot = resolveExistingProjectPath(project.path, platform)
+          for (const task of tasks) {
+            const taskCwd = typeof task.cwd === 'string' ? task.cwd.trim() : ''
+            if (!taskCwd) continue
+            let taskRoot
+            try {
+              taskRoot = resolveExistingProjectPath(taskCwd, platform)
+            } catch {
+              continue
+            }
+            let nextCwd = null
+            if (taskRoot === oldRoot) {
+              nextCwd = normalizedPath
+            } else if (isProjectPathDescendant(taskRoot, oldRoot, platform)) {
+              nextCwd = pathModule.join(normalizedPath, pathModule.relative(oldRoot, taskRoot))
+            }
+            if (nextCwd) {
+              this.db.prepare('UPDATE scheduled_tasks SET cwd = ?, updated_at = ? WHERE id = ?')
+                .run(nextCwd, now, task.id)
+            }
+          }
+        }
+      }
+      if (typeof this.db.transaction === 'function') {
+        this.db.transaction(updateBody)()
+      } else {
+        updateBody()
+      }
+      return this.getProjectById(projectId)
     }
 
     /**

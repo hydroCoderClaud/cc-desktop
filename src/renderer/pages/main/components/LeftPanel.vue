@@ -17,6 +17,7 @@
       @close="handleAgentClosed"
       @new-conversation-request="openAgentNewConversation"
       @projects-changed="handleProjectsChanged"
+      @relocate-project="handleRelocateProject"
     />
 
     <AgentNewConversationModal
@@ -89,7 +90,8 @@ const emit = defineEmits([
   'agent-created',
   'agent-selected',
   'agent-closed',
-  'projects-changed'
+  'projects-changed',
+  'relocate-project'
 ])
 
 const agentLeftContentRef = ref(null)
@@ -188,6 +190,10 @@ const handleNewConvCreate = async ({ projectId, cwd, apiProfileId }) => {
 
 const handleProjectsChanged = () => {
   emit('projects-changed')
+}
+
+const handleRelocateProject = (project) => {
+  emit('relocate-project', project)
 }
 
 const handleAgentSelected = async (conv) => {

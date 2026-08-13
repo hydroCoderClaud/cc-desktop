@@ -421,6 +421,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ensureWorkspaceProject: (projectData) => ipcRenderer.invoke('project:ensureWorkspace', projectData),
   renameProject: ({ projectId, name }) => ipcRenderer.invoke('project:rename', { projectId, name }),
+  previewProjectRelocation: ({ projectId, newPath }) => ipcRenderer.invoke('project:relocationPreview', { projectId, newPath }),
+  relocateProject: ({ projectId, newPath }) => ipcRenderer.invoke('project:relocate', { projectId, newPath }),
   hideWorkspaceProject: ({ projectId }) => ipcRenderer.invoke('project:hideWorkspace', { projectId }),
   openProject: () => ipcRenderer.invoke('project:open'),
 

@@ -61,10 +61,10 @@ export function useProjects() {
     // 实时检查路径是否存在
     try {
       const result = await invoke('checkPath', project.path)
+      if (result && !result.valid && options.onPathInvalid) {
+        options.onPathInvalid(project)
+      }
       if (result && result.valid !== project.pathValid) {
-        if (!result.valid && options.onPathInvalid) {
-          options.onPathInvalid()
-        }
         await loadProjects()
         const updated = projects.value.find(p => p.id === project.id)
         if (updated) {

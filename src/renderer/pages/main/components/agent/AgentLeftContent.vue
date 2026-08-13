@@ -327,7 +327,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request', 'projects-changed'])
+const emit = defineEmits(['select', 'close', 'created', 'new-conversation-request', 'projects-changed', 'relocate-project'])
 
 const {
   conversations,
@@ -791,6 +791,11 @@ const projectContextMenuItems = computed(() => {
       label: t('agent.openDirectory'),
       disabled: !group?.projectId || group.isFallback || !group.path || group.pathValid === false
     },
+    {
+      key: 'relocate-project',
+      label: t('agent.relocateProject'),
+      disabled: !group?.projectId || group.isFallback || group.projectKind !== 'workspace' || group.pathValid !== false
+    },
     { divider: true, key: 'project-remove-divider' },
     {
       key: 'remove-project',
@@ -849,6 +854,16 @@ const handleProjectContextSelect = async (key) => {
   }
   if (key === 'open-directory') {
     await window.electronAPI?.openPath?.(group.path)
+    return
+  }
+  if (key === 'relocate-project') {
+    emit('relocate-project', {
+      id: group.projectId,
+      path: group.path,
+      name: group.projectName,
+      project_kind: group.projectKind,
+      pathValid: group.pathValid
+    })
     return
   }
   if (key === 'remove-project') {

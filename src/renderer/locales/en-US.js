@@ -1235,6 +1235,20 @@ export default {
 
   // Project directory identity
   project: {
+    selectNewPath: 'Select new project directory',
+    relocateTitle: 'Relink project directory',
+    relocateConfirm: 'Confirm migration',
+    relocateConfirmContent: 'The project and history will be preserved, and Claude session records will be synchronized to the new directory. The original records will not be deleted.',
+    oldPath: 'Original directory',
+    newPath: 'New directory',
+    historyFiles: 'History files',
+    historySessions: 'History sessions',
+    activeSessions: 'Active sessions',
+    conflicts: 'File conflicts',
+    mcpConflict: 'The new directory has different Local MCP settings and cannot be merged automatically.',
+    relocateSuccess: 'Project directory and history migrated',
+    activeSessionBlocked: 'Stop active conversations for this project before relinking the directory.',
+    conflictBlocked: 'The new directory contains history or Local MCP conflicts and cannot be migrated automatically.',
     path: 'Path',
     pathNotExist: 'Project directory does not exist',
     openFolder: 'Open in Explorer',
@@ -1278,6 +1292,7 @@ export default {
 
   // Agent features
   agent: {
+    relocateProject: 'Relink project directory',
     newConversation: 'New Conversation',
     conversations: 'Conversations',
     noConversations: 'No conversations yet',

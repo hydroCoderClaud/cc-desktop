@@ -17,6 +17,7 @@
       @agent-selected="handleAgentSelected"
       @agent-closed="handleAgentClosed"
       @projects-changed="handleProjectsChanged"
+      @relocate-project="handleRelocateProject"
     />
 
     <!-- Main Content Area -->
@@ -119,7 +120,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useDialog, useMessage } from 'naive-ui'
 import { useTheme } from '@composables/useTheme'
 import { useLocale } from '@composables/useLocale'
 import { useProjects } from '@composables/useProjects'
@@ -138,6 +139,7 @@ import { EXTERNAL_IM_CHANNELS } from '@shared/external-im-meta'
 import { createImSessionHostRouter } from '@utils/im-session-host-router'
 
 const message = useMessage()
+const dialog = useDialog()
 const { isDark, cssVars, toggleTheme } = useTheme()
 const { t, initLocale } = useLocale()
 const { isAgentMode, isNotebookMode, appMode, initMode, switchMode } = useAppMode()
@@ -579,8 +581,59 @@ const setupSessionListeners = () => {
 
 const selectProject = async (project) => {
   await doSelectProject(project, {
-    onPathInvalid: () => message.warning(t('project.pathNotExist'))
+    onPathInvalid: handleRelocateProject
   })
+}
+
+const handleRelocateProject = async (project) => {
+  if (!project?.id || !window.electronAPI?.selectDirectory) return
+  try {
+    const newPath = await window.electronAPI.selectDirectory({ title: t('project.selectNewPath') })
+    if (!newPath) return
+    const preview = await window.electronAPI.previewProjectRelocation({ projectId: project.id, newPath })
+    if (!preview.canExecute) {
+      if (preview.activeSessionIds?.length) {
+        message.warning(t('project.activeSessionBlocked'))
+      } else if (preview.conflicts?.length || preview.mcpConflict) {
+        message.warning(t('project.conflictBlocked'))
+      }
+      return
+    }
+    const content = [
+      t('project.relocateConfirmContent'),
+      `${t('project.oldPath')}: ${preview.oldPath}`,
+      `${t('project.newPath')}: ${preview.newPath}`,
+      `${t('project.historyFiles')}: ${preview.oldTree?.files || 0}`,
+      `${t('project.historySessions')}: ${preview.sessionCount || 0}`,
+      preview.activeSessionIds?.length ? `${t('project.activeSessions')}: ${preview.activeSessionIds.length}` : '',
+      preview.conflicts?.length ? `${t('project.conflicts')}: ${preview.conflicts.length}` : '',
+      preview.mcpConflict ? t('project.mcpConflict') : ''
+    ].filter(Boolean).join('\n')
+
+    dialog.warning({
+      title: t('project.relocateTitle'),
+      content,
+      positiveText: t('project.relocateConfirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: async () => {
+        try {
+          const result = await window.electronAPI.relocateProject({ projectId: project.id, newPath: preview.newPath })
+          message.success(t('project.relocateSuccess'))
+          for (const tab of allTabs.value) {
+            if (String(tab.projectId || '') !== String(project.id)) continue
+            tab.cwd = result.path
+            tab.projectPath = result.path
+          }
+          await loadProjects()
+          if (currentProject.value?.id === project.id) currentProject.value = result
+        } catch (err) {
+          message.error(err?.message || t('messages.operationFailed'))
+        }
+      }
+    })
+  } catch (err) {
+    message.error(err?.message || t('messages.operationFailed'))
+  }
 }
 
 const handleOpenProject = async () => {

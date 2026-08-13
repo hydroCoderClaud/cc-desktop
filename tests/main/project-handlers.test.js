@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
@@ -11,6 +14,13 @@ describe('project-handlers project directory identity', () => {
   let ipcMain
   let sessionDatabase
   let originalElectronCache
+  const tempRoots = []
+
+  const makeTempRoot = () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-desktop-project-handler-'))
+    tempRoots.push(root)
+    return root
+  }
 
   beforeEach(async () => {
     handlers = new Map()
@@ -56,6 +66,9 @@ describe('project-handlers project directory identity', () => {
   })
 
   afterEach(() => {
+    while (tempRoots.length) {
+      fs.rmSync(tempRoots.pop(), { recursive: true, force: true })
+    }
     if (originalElectronCache) {
       require.cache[electronModulePath] = originalElectronCache
     } else {
@@ -335,5 +348,93 @@ describe('project-handlers project directory identity', () => {
     expect(sessionDatabase.unhideProject).not.toHaveBeenCalled()
     expect(sessionDatabase.touchProject).not.toHaveBeenCalled()
     expect(sessionDatabase.getOrCreateProject).not.toHaveBeenCalled()
+  })
+
+  it('blocks relocation when a project session is still active', async () => {
+    const root = makeTempRoot()
+    const oldPath = path.join(root, 'old')
+    const newPath = path.join(root, 'new')
+    fs.mkdirSync(oldPath)
+    fs.mkdirSync(newPath)
+    const project = { id: 101, path: oldPath, project_kind: 'workspace' }
+    sessionDatabase.getProjectById.mockReturnValue(project)
+    sessionDatabase.listAllAgentConversations = vi.fn(() => [])
+
+    const agentSessionManager = {
+      sessions: new Map([['active-1', { id: 'active-1', projectId: 101, queryGenerator: {} }]])
+    }
+    const configManager = {
+      getConfig: () => ({ settings: { agent: { claudeConfigDir: path.join(root, 'claude') } } })
+    }
+    setupProjectHandlers(ipcMain, sessionDatabase, null, { agentSessionManager, configManager })
+
+    await expect(handlers.get('project:relocate')(null, { projectId: 101, newPath }))
+      .rejects.toThrow('Stop active conversations')
+    expect(sessionDatabase.relocateProject).toBeUndefined()
+  })
+
+  it('relocates a project after confirmation and updates in-memory sessions', async () => {
+    const root = makeTempRoot()
+    const oldPath = path.join(root, 'old')
+    const newPath = path.join(root, 'new')
+    fs.mkdirSync(oldPath)
+    fs.mkdirSync(newPath)
+    const claudeRoot = path.join(root, 'claude')
+    const oldClaudeDir = path.join(claudeRoot, 'projects', oldPath.replace(/[:\\/ _]/g, '-'))
+    fs.mkdirSync(oldClaudeDir, { recursive: true })
+    fs.writeFileSync(path.join(oldClaudeDir, 'session.jsonl'), 'history')
+    const project = {
+      id: 101,
+      path: oldPath,
+      encoded_path: oldPath.replace(/[:\\/ _]/g, '-'),
+      project_kind: 'workspace',
+      name: 'Workspace'
+    }
+    sessionDatabase.getProjectById.mockReturnValue(project)
+    sessionDatabase.listAllAgentConversations = vi.fn(() => [{ project_id: 101 }])
+    sessionDatabase.relocateProject = vi.fn(() => ({ ...project, path: newPath, name: 'Workspace' }))
+    const liveSession = { id: 'idle-1', projectId: 101, cwd: oldPath, projectPath: oldPath }
+    const agentSessionManager = { sessions: new Map([['idle-1', liveSession]]) }
+    const configManager = {
+      getConfig: () => ({ settings: { agent: { claudeConfigDir: claudeRoot } } })
+    }
+    setupProjectHandlers(ipcMain, sessionDatabase, null, { agentSessionManager, configManager })
+
+    const result = await handlers.get('project:relocate')(null, { projectId: 101, newPath })
+
+    expect(sessionDatabase.relocateProject).toHaveBeenCalledWith(101, newPath)
+    expect(liveSession.cwd).toBe(newPath)
+    expect(liveSession.projectPath).toBe(newPath)
+    expect(result).toEqual(expect.objectContaining({ path: newPath, pathValid: true }))
+    expect(fs.readFileSync(path.join(claudeRoot, 'projects', newPath.replace(/[:\\/ _]/g, '-'), 'session.jsonl'), 'utf8'))
+      .toBe('history')
+  })
+
+  it('rolls Claude history back when the database update fails', async () => {
+    const root = makeTempRoot()
+    const oldPath = path.join(root, 'old')
+    const newPath = path.join(root, 'new')
+    fs.mkdirSync(oldPath)
+    fs.mkdirSync(newPath)
+    const claudeRoot = path.join(root, 'claude')
+    const oldEncoded = oldPath.replace(/[:\\/ _]/g, '-')
+    const newEncoded = newPath.replace(/[:\\/ _]/g, '-')
+    const oldClaudeDir = path.join(claudeRoot, 'projects', oldEncoded)
+    const newClaudeDir = path.join(claudeRoot, 'projects', newEncoded)
+    fs.mkdirSync(oldClaudeDir, { recursive: true })
+    fs.writeFileSync(path.join(oldClaudeDir, 'session.jsonl'), 'history')
+    const project = { id: 101, path: oldPath, encoded_path: oldEncoded, project_kind: 'workspace' }
+    sessionDatabase.getProjectById.mockReturnValue(project)
+    sessionDatabase.listAllAgentConversations = vi.fn(() => [])
+    sessionDatabase.relocateProject = vi.fn(() => { throw new Error('database write failed') })
+    setupProjectHandlers(ipcMain, sessionDatabase, null, {
+      agentSessionManager: { sessions: new Map() },
+      configManager: { getConfig: () => ({ settings: { agent: { claudeConfigDir: claudeRoot } } }) }
+    })
+
+    await expect(handlers.get('project:relocate')(null, { projectId: 101, newPath }))
+      .rejects.toThrow('database write failed')
+    expect(fs.existsSync(newClaudeDir)).toBe(false)
+    expect(fs.readFileSync(path.join(oldClaudeDir, 'session.jsonl'), 'utf8')).toBe('history')
   })
 })

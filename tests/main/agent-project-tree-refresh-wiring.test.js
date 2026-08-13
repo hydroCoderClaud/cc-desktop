@@ -37,4 +37,19 @@ describe('project tree refresh wiring', () => {
     expect(source).toContain('const refreshedCurrent = projects.value.find')
     expect(source).toContain('currentProject.value = refreshedCurrent')
   })
+
+  it('opens relocation recovery every time a project path is invalid', () => {
+    const source = fs.readFileSync(useProjectsPath, 'utf-8')
+
+    expect(source).toContain("if (result && !result.valid && options.onPathInvalid)")
+    expect(source).toContain('options.onPathInvalid(project)')
+  })
+
+  it('updates open agent tabs after relocation', () => {
+    const source = fs.readFileSync(mainContentPath, 'utf-8')
+
+    expect(source).toContain('for (const tab of allTabs.value)')
+    expect(source).toContain('tab.projectPath = result.path')
+    expect(source).toContain('tab.cwd = result.path')
+  })
 })

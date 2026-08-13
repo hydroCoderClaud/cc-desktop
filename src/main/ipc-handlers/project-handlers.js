@@ -7,6 +7,10 @@ const { dialog, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { createIPCHandler } = require('../utils/ipc-utils')
+const {
+  buildRelocationPreview,
+  migrateClaudeData
+} = require('../utils/project-relocation')
 
 /**
  * 设置工程管理的 IPC 处理器
@@ -14,7 +18,9 @@ const { createIPCHandler } = require('../utils/ipc-utils')
  * @param {Object} sessionDatabase - SessionDatabase instance
  * @param {BrowserWindow} mainWindow - Main window instance
  */
-function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
+function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow, options = {}) {
+  const agentSessionManager = options.agentSessionManager || null
+  const configManager = options.configManager || null
   // ========================================
   // 工程列表
   // ========================================
@@ -89,6 +95,69 @@ function setupProjectHandlers(ipcMain, sessionDatabase, mainWindow) {
     return {
       ...project,
       pathValid: fs.existsSync(project.path)
+    }
+  })
+
+  createIPCHandler(ipcMain, 'project:relocationPreview', (payload = {}) => {
+    const projectId = Number(payload.projectId)
+    const newPath = typeof payload.newPath === 'string' ? payload.newPath.trim() : ''
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      throw new Error('Invalid project id')
+    }
+    if (!newPath) throw new Error('The new project directory is required')
+    const project = sessionDatabase.getProjectById(projectId)
+    return buildRelocationPreview({
+      project,
+      newPath,
+      sessionDatabase,
+      agentSessionManager,
+      configManager
+    })
+  })
+
+  createIPCHandler(ipcMain, 'project:relocate', (payload = {}) => {
+    const projectId = Number(payload.projectId)
+    const newPath = typeof payload.newPath === 'string' ? payload.newPath.trim() : ''
+    if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+      throw new Error('Invalid project id')
+    }
+    if (!newPath) throw new Error('The new project directory is required')
+
+    const project = sessionDatabase.getProjectById(projectId)
+    const preview = buildRelocationPreview({
+      project,
+      newPath,
+      sessionDatabase,
+      agentSessionManager,
+      configManager
+    })
+    if (!preview.canExecute) {
+      if (preview.activeSessionIds.length) {
+        throw new Error('Stop active conversations before relocating this project')
+      }
+      throw new Error('Project history contains conflicts and cannot be migrated automatically')
+    }
+
+    const migrationState = migrateClaudeData(preview, configManager)
+    const { rollback, ...migration } = migrationState
+    let relocated
+    try {
+      relocated = sessionDatabase.relocateProject(projectId, preview.newPath)
+    } catch (error) {
+      rollback?.()
+      throw error
+    }
+    for (const session of agentSessionManager?.sessions?.values?.() || []) {
+      if (String(session.projectId || '') !== String(projectId)) continue
+      session.cwd = preview.newPath
+      session.projectPath = preview.newPath
+      session.projectName = relocated.name || session.projectName || null
+    }
+
+    return {
+      ...relocated,
+      pathValid: true,
+      migration
     }
   })
 

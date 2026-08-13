@@ -1241,6 +1241,20 @@ export default {
 
   // 项目目录身份
   project: {
+    selectNewPath: '选择新的项目目录',
+    relocateTitle: '重新绑定项目目录',
+    relocateConfirm: '确认迁移',
+    relocateConfirmContent: '系统将保留项目和历史会话，并将 Claude 会话记录同步到新目录。原记录不会删除。',
+    oldPath: '原目录',
+    newPath: '新目录',
+    historyFiles: '历史文件',
+    historySessions: '历史会话',
+    activeSessions: '运行中的会话',
+    conflicts: '文件冲突',
+    mcpConflict: '新目录已有不同的 Local MCP 配置，无法自动合并。',
+    relocateSuccess: '项目目录和历史会话已迁移',
+    activeSessionBlocked: '请先停止该项目的运行中会话，再重新绑定目录。',
+    conflictBlocked: '新目录存在历史文件或 Local MCP 配置冲突，无法自动迁移。',
     path: '路径',
     pathNotExist: '项目目录不存在',
     openFolder: '打开所在目录',
@@ -1284,6 +1298,7 @@ export default {
 
   // Agent 功能
   agent: {
+    relocateProject: '重新绑定项目目录',
     newConversation: '新建对话',
     conversations: '对话列表',
     noConversations: '暂无对话',

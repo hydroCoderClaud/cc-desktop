@@ -883,7 +883,10 @@ function setupIPCHandlers(mainWindow, configManager, agentSessionManager, capabi
   // 工程管理（数据库版）
   // ========================================
   if (setupProjectHandlers) {
-    setupProjectHandlers(ipcMain, sessionDatabase, mainWindow);
+    setupProjectHandlers(ipcMain, sessionDatabase, mainWindow, {
+      agentSessionManager,
+      configManager
+    });
   }
 
   // ========================================
