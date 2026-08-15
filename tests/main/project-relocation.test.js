@@ -189,15 +189,21 @@ describe('project relocation', () => {
       return
     }
 
-    const preview = buildRelocationPreview({
-      project: { id: 9, path: symlinkOld, encoded_path: encodePath(symlinkOld), project_kind: 'workspace' },
-      newPath,
-      sessionDatabase: { getProjectByPath: () => null, listAllAgentConversations: () => [] },
-      agentSessionManager: { sessions: new Map() },
-      configManager: { getConfig: () => ({ settings: { agent: { claudeConfigDir: path.join(root, 'agent') } } }) }
-    })
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+    try {
+      const preview = buildRelocationPreview({
+        project: { id: 9, path: symlinkOld, encoded_path: encodePath(symlinkOld), project_kind: 'workspace' },
+        newPath,
+        sessionDatabase: { getProjectByPath: () => null, listAllAgentConversations: () => [] },
+        agentSessionManager: { sessions: new Map() },
+        configManager: { getConfig: () => ({ settings: { agent: { claudeConfigDir: path.join(root, 'agent') } } }) }
+      })
 
-    expect(preview.oldPath).toBe(fs.realpathSync.native(symlinkOld))
+      expect(preview.oldPath).toBe(fs.realpathSync.native(symlinkOld))
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    }
   })
 
   it('does not rewrite path fields when the old path is only a string prefix', () => {
