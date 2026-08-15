@@ -1045,6 +1045,8 @@ export default {
     autocompactDefault: '留空使用 CLI 默认值 (~95%)',
     messageQueue: '消息队列',
     messageQueueHint: '开启后，AI 输出期间可继续输入消息排队，输出结束后自动依次发送',
+    embeddedWorkbenchMenu: '显示嵌入工作台',
+    embeddedWorkbenchMenuHint: '在菜单中显示水文工作台（Demo）和笔记本模式',
     outputBaseDir: 'Agent 输出根目录',
     outputBaseDirPlaceholder: '留空使用默认目录 ~/cc-desktop-agent-output',
     outputBaseDirHint: 'Agent 模式新建会话时自动在此目录下创建独立子目录（conv-xxxxxxxx）',

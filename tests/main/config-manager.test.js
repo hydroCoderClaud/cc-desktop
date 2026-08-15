@@ -85,6 +85,10 @@ describe('ConfigManager', () => {
       expect(config.settings.appMode).toBe('agent')
       expect(config.settings.enableDeveloperMode).toBe(false)
       expect(config.settings.localAgentApi).toEqual({ enabled: false })
+      expect(config.settings.embeddedApps).toEqual({
+        showInMenu: false,
+        preferences: {}
+      })
       expect(config.settings.agent.claudeConfigDir).toBe(dedicatedConfigDir)
     })
 
@@ -294,7 +298,10 @@ describe('ConfigManager', () => {
 
     it('应该初始化 embedded app 偏好存储结构', () => {
       const config = configManager.getConfig()
-      expect(config.settings.embeddedApps).toEqual({ preferences: {} })
+      expect(config.settings.embeddedApps).toEqual({
+        showInMenu: false,
+        preferences: {}
+      })
     })
 
     it('删除默认服务商后，重载配置不应自动补回', async () => {

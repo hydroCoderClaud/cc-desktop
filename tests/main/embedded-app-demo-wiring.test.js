@@ -73,11 +73,14 @@ describe('embedded app registry wiring', () => {
     expect(source).not.toContain("openEmbeddedAppDemo: () => ipcRenderer.invoke('window:openEmbeddedAppDemo')")
   })
 
-  it('adds embedded apps as a first-level settings entry in main mode', () => {
+  it('shows embedded app entries in main mode only when the visibility setting is enabled', () => {
     const source = fs.readFileSync(leftPanelPath, 'utf-8')
 
     expect(source).toContain("useEmbeddedApps")
     expect(source).toContain("loadEmbeddedApps()")
+    expect(source).toContain('initEmbeddedWorkbenchMenuVisibility()')
+    expect(source).toContain('embeddedWorkbenchMenuVisible')
+    expect(source).toContain('...(embeddedWorkbenchMenuVisible.value ? [{')
     expect(source).toContain("t('settingsMenu.embeddedApps')")
     expect(source).toContain("key: 'embedded-apps'")
     expect(source).toContain("children:")
@@ -88,11 +91,14 @@ describe('embedded app registry wiring', () => {
     expect(source).not.toContain("{ label: t('settingsMenu.sessionHistory'), key: 'session-history'")
   })
 
-  it('adds embedded apps as a first-level settings entry in notebook mode', () => {
+  it('shows embedded app entries in Notebook mode only when the visibility setting is enabled', () => {
     const source = fs.readFileSync(notebookTopNavPath, 'utf-8')
 
     expect(source).toContain("useEmbeddedApps")
     expect(source).toContain("loadEmbeddedApps()")
+    expect(source).toContain('initEmbeddedWorkbenchMenuVisibility()')
+    expect(source).toContain('embeddedWorkbenchMenuVisible')
+    expect(source).toContain('...(embeddedWorkbenchMenuVisible.value ? [{')
     expect(source).toContain("t('settingsMenu.embeddedApps')")
     expect(source).toContain("key: 'embedded-apps'")
     expect(source).toContain("children:")

@@ -152,7 +152,13 @@ const emit = defineEmits(['create', 'switch', 'close', 'cleanup', 'renamed', 'de
 const message = useMessage()
 const dialog = useDialog()
 const { t } = useLocale()
-const { embeddedApps, loadEmbeddedApps, openEmbeddedApp } = useEmbeddedApps()
+const {
+  embeddedApps,
+  embeddedWorkbenchMenuVisible,
+  initEmbeddedWorkbenchMenuVisibility,
+  loadEmbeddedApps,
+  openEmbeddedApp
+} = useEmbeddedApps()
 const { openSettings } = useSettingsNavigation()
 
 const renderModeIcon = (iconName) => () => h(Icon, { name: iconName, size: 16, style: 'margin-right: 8px; color: var(--primary-color)' })
@@ -284,7 +290,7 @@ const settingsOptions = computed(() => [
   { label: t('settingsMenu.globalSettings'), key: 'global-settings', icon: renderMenuIcon('settings') },
   { label: t('settingsMenu.appearanceSettings'), key: 'appearance-settings', icon: renderMenuIcon('sliders') },
   { type: 'divider', key: 'd1' },
-  {
+  ...(embeddedWorkbenchMenuVisible.value ? [{
     label: t('settingsMenu.embeddedApps'),
     key: 'embedded-apps',
     icon: renderMenuIcon('panelLeft'),
@@ -293,7 +299,7 @@ const settingsOptions = computed(() => [
       key: app.menuKey,
       icon: renderMenuIcon(app.icon || 'panelLeft')
     }))
-  },
+  }] : []),
   { label: t('settingsMenu.sessionApps'), key: 'session-apps', icon: renderMenuIcon('sessionApp') },
   { label: t('settingsMenu.capabilityWorkbench'), key: 'capability-workbench', icon: renderMenuIcon('wrench') },
   { label: t('settingsMenu.appUpdate'), key: 'app-update', icon: renderMenuIcon('download') }
@@ -381,6 +387,7 @@ const handleGlobalClick = (e) => {
 
 onMounted(async () => {
   document.addEventListener('click', handleGlobalClick, true)
+  await initEmbeddedWorkbenchMenuVisibility()
   await loadEmbeddedApps()
 
   if (window.electronAPI?.getUpdateStatus) {

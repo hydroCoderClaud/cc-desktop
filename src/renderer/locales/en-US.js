@@ -1042,6 +1042,8 @@ export default {
     autocompactDefault: 'Empty = CLI default (~95%)',
     messageQueue: 'Message Queue',
     messageQueueHint: 'When enabled, you can queue messages while AI is responding. They auto-send when output finishes.',
+    embeddedWorkbenchMenu: 'Show Embedded Workbenches',
+    embeddedWorkbenchMenuHint: 'Show the Hydrology Workbench (Demo) and Notebook mode in menus.',
     outputBaseDir: 'Agent Output Directory',
     outputBaseDirPlaceholder: 'Leave empty to use default ~/cc-desktop-agent-output',
     outputBaseDirHint: 'A unique subdirectory (conv-xxxxxxxx) is auto-created here for each new Agent session',

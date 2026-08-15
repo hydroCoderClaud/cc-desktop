@@ -66,6 +66,13 @@
         </n-grid>
       </div>
 
+      <div class="settings-subsection">
+        <n-form-item :label="t('globalSettings.embeddedWorkbenchMenu')">
+          <n-switch v-model:value="formData.showEmbeddedWorkbenches" />
+          <template #feedback>{{ t('globalSettings.embeddedWorkbenchMenuHint') }}</template>
+        </n-form-item>
+      </div>
+
       <div class="settings-subsection settings-subsection-last">
         <div class="settings-subsection-title">{{ t('globalSettings.agentOutputGroup') }}</div>
         <n-form-item :label="t('globalSettings.outputBaseDir')">
@@ -123,6 +130,7 @@ const DEFAULTS = {
   requestTimeout: 120,
   autocompactPctOverride: null,  // null 表示使用 Claude Code 默认值
   messageQueue: true,
+  showEmbeddedWorkbenches: false,
   outputBaseDir: '',             // 空字符串 = 使用默认 ~/cc-desktop-agent-output
   claudeConfigDir: ''
 }
@@ -160,6 +168,7 @@ const loadSettings = async () => {
     if (config?.settings?.agent?.messageQueue !== undefined) {
       formData.value.messageQueue = config.settings.agent.messageQueue
     }
+    formData.value.showEmbeddedWorkbenches = config?.settings?.embeddedApps?.showInMenu === true
     formData.value.outputBaseDir = config?.settings?.agent?.outputBaseDir || defaultOutputBaseDir.value
     formData.value.claudeConfigDir = config?.settings?.agent?.claudeConfigDir || DEFAULTS.claudeConfigDir
   } catch (err) {
@@ -216,22 +225,32 @@ const handleSave = async () => {
     // Save autocompact pct override
     await invoke('updateAutocompactPctOverride', formData.value.autocompactPctOverride)
 
-    const settingsPayload = { appMode: 'agent' }
-    await window.electronAPI.updateSettings(settingsPayload)
-    window.electronAPI.broadcastSettings(settingsPayload)
+    await window.electronAPI.updateSettings({ appMode: 'agent' })
 
     // 注意：消息队列设置已在 handleQueueToggle 中实时保存，这里不再重复保存
 
     // 保存 Agent 路径配置
     const config = await invoke('getConfig')
-    if (config?.settings?.agent !== undefined) {
+    if (config?.settings) {
       // 若填的就是默认路径，存空字符串（等价于使用默认值）
       const outputDir = formData.value.outputBaseDir === defaultOutputBaseDir.value
         ? '' : (formData.value.outputBaseDir || '')
-      config.settings.agent.outputBaseDir = outputDir
-      config.settings.agent.claudeConfigDir = formData.value.claudeConfigDir || DEFAULTS.claudeConfigDir
+      if (config.settings.agent !== undefined) {
+        config.settings.agent.outputBaseDir = outputDir
+        config.settings.agent.claudeConfigDir = formData.value.claudeConfigDir || DEFAULTS.claudeConfigDir
+      }
+      config.settings.embeddedApps = {
+        ...(config.settings.embeddedApps || {}),
+        showInMenu: formData.value.showEmbeddedWorkbenches
+      }
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
+
+    const settingsPayload = {
+      appMode: 'agent',
+      embeddedApps: { showInMenu: formData.value.showEmbeddedWorkbenches }
+    }
+    window.electronAPI.broadcastSettings(settingsPayload)
 
     message.success(t('globalSettings.saveSuccess'))
     await loadSettings()
@@ -248,6 +267,7 @@ const handleReset = async () => {
     formData.value.requestTimeout = DEFAULTS.requestTimeout
     formData.value.autocompactPctOverride = DEFAULTS.autocompactPctOverride
     formData.value.messageQueue = DEFAULTS.messageQueue
+    formData.value.showEmbeddedWorkbenches = DEFAULTS.showEmbeddedWorkbenches
     formData.value.outputBaseDir = defaultOutputBaseDir.value
     formData.value.claudeConfigDir = DEFAULTS.claudeConfigDir
 
@@ -258,17 +278,26 @@ const handleReset = async () => {
     })
     await invoke('updateAutocompactPctOverride', DEFAULTS.autocompactPctOverride)
     await window.electronAPI.updateSettings({ appMode: 'agent' })
-    window.electronAPI.broadcastSettings({ appMode: 'agent' })
 
     // 重置 Agent 路径配置
     const config = await invoke('getConfig')
-    if (config?.settings?.agent !== undefined) {
-      config.settings.agent.outputBaseDir = ''
-      config.settings.agent.claudeConfigDir = DEFAULTS.claudeConfigDir
+    if (config?.settings) {
+      if (config.settings.agent !== undefined) {
+        config.settings.agent.outputBaseDir = ''
+        config.settings.agent.claudeConfigDir = DEFAULTS.claudeConfigDir
+      }
+      config.settings.embeddedApps = {
+        ...(config.settings.embeddedApps || {}),
+        showInMenu: DEFAULTS.showEmbeddedWorkbenches
+      }
       await invoke('saveConfig', JSON.parse(JSON.stringify(config)))
     }
 
     await persistMessageQueueSetting(DEFAULTS.messageQueue)
+    window.electronAPI.broadcastSettings({
+      appMode: 'agent',
+      embeddedApps: { showInMenu: DEFAULTS.showEmbeddedWorkbenches }
+    })
 
     message.success(t('messages.saveSuccess'))
   } catch (err) {

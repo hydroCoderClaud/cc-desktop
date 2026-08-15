@@ -29,4 +29,15 @@ describe('GlobalSettingsContent message queue reset', () => {
     expect(source).toContain('padding: 24px;')
     expect(source).toContain('border-radius: 12px 12px 0 0;')
   })
+
+  it('persists and broadcasts the embedded workbench menu setting', () => {
+    const source = fs.readFileSync(viewPath, 'utf-8')
+
+    expect(source).toContain("t('globalSettings.embeddedWorkbenchMenu')")
+    expect(source).toContain('showEmbeddedWorkbenches: false')
+    expect(source).toContain('config?.settings?.embeddedApps?.showInMenu === true')
+    expect(source).toContain('showInMenu: formData.value.showEmbeddedWorkbenches')
+    expect(source).toContain('showInMenu: DEFAULTS.showEmbeddedWorkbenches')
+    expect(source).toContain('embeddedApps: { showInMenu: formData.value.showEmbeddedWorkbenches }')
+  })
 })

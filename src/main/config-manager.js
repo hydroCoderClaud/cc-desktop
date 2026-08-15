@@ -197,6 +197,7 @@ class ConfigManager {
         },
 
         embeddedApps: {
+          showInMenu: false,
           preferences: {}
         }
 
