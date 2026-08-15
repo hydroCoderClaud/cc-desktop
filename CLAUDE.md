@@ -10,7 +10,7 @@ Hydro Desktop（仓库名仍为 `cc-desktop`）是独立的 Electron 桌面应�
 - **能力设置工作台**：按项目目录管理 MCP / Skills / Agents / Hooks / Prompts 等能力
 - **DingTalk Bridge**：钉钉桥接与远程命令/图片能力
 
-**当前版本**：`1.7.95`
+**当前版本**：`1.7.96`
 
 ### 版本号管理规范
 - 格式：`主版本.次版本.修订号`（如 `1.6.52`）
